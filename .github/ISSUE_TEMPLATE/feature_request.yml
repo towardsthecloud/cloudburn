@@ -1,0 +1,40 @@
+name: Feature Request
+description: Propose a new capability for CloudBurn.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting an improvement.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem statement
+      description: What user problem does this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: checkboxes
+    id: area
+    attributes:
+      label: Area
+      options:
+        - label: CLI
+        - label: SDK
+        - label: Rules
+        - label: Docs
+  - type: textarea
+    id: boundary
+    attributes:
+      label: Free vs paid impact
+      description: Explain whether this should be OSS scanner functionality or paid-platform functionality.

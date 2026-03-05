@@ -1,0 +1,29 @@
+{
+  "name": "cloudburn",
+  "private": true,
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "lint:fix": "turbo run lint:fix",
+    "clean": "turbo run clean",
+    "verify": "pnpm lint && pnpm typecheck && pnpm test",
+    "changeset": "changeset",
+    "changeset:version": "changeset version",
+    "release": "pnpm verify && turbo run build --force && changeset publish",
+    "depupdate": "corepack up && pnpm update --latest"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "catalog:",
+    "@changesets/changelog-github": "^0.6.0",
+    "@changesets/cli": "^2.30.0",
+    "turbo": "^2.8.13",
+    "typescript": "catalog:"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "packageManager": "pnpm@10.30.3+sha512.c961d1e0a2d8e354ecaa5166b822516668b7f44cb5bd95122d590dd81922f606f5473b6d23ec4a5be05e7fcd18e8488d47d978bbe981872f1145d06e9a740017"
+}

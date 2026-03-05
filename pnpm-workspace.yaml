@@ -1,0 +1,12 @@
+packages:
+  - packages/*
+
+approveBuilds: esbuild
+
+catalog:
+  '@biomejs/biome': ^2.4.6
+  '@types/node': ^24
+  '@vitest/coverage-v8': ^4.0.18
+  tsup: ^8.5.1
+  typescript: ^5.9.3
+  vitest: ^4.0.18
