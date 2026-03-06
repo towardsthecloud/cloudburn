@@ -31,6 +31,7 @@
     "dev": "tsup --watch"
   },
   "dependencies": {
+    "@aws-sdk/client-ec2": "^3.1003.0",
     "@cloudburn/rules": "workspace:*"
   },
   "devDependencies": {

@@ -48,6 +48,9 @@ pnpm verify
 
 - `id`, `name`, `description`, `provider`, `service`, `severity`, `supports`
 
+Keep provider discovery, parsers, and cloud SDK calls in `@cloudburn/sdk`. Rule files in
+`@cloudburn/rules` should stay pure and expose evaluators over normalized inputs.
+
 4. Export it from service `index.ts` and provider `index.ts`.
 5. Ensure preset inclusion when appropriate (`presets/aws-core.ts`).
 6. Add or update tests in `packages/rules/test`.
@@ -58,6 +61,8 @@ pnpm verify
 - Keep descriptions user-facing and actionable.
 - Set conservative default severity (`warning` unless clearly blocking).
 - Prefer `supports: ['static', 'live']` only when both are implemented.
+- Use `supports: ['live']` or `supports: ['static']` when a rule only has one real evaluator.
+- `ebs-gp2-to-gp3` is the reference example for a live-only rule backed by a pure evaluator.
 
 ## Testing Guidance for Rules
 

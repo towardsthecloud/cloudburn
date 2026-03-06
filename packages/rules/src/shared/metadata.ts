@@ -4,6 +4,18 @@ export type Severity = 'error' | 'warning' | 'info';
 
 export type ScanMode = 'static' | 'live';
 
+export type AwsEbsVolume = {
+  volumeId: string;
+  volumeType: string;
+  region: string;
+};
+
+export type LiveEvaluationContext = {
+  ebsVolumes: AwsEbsVolume[];
+};
+
+export type StaticEvaluationContext = Record<string, never>;
+
 export type Finding = {
   id: string;
   ruleId: string;
@@ -21,4 +33,6 @@ export type Rule = {
   service: string;
   severity: Severity;
   supports: ScanMode[];
+  evaluateLive?: (context: LiveEvaluationContext) => Finding[];
+  evaluateStatic?: (context: StaticEvaluationContext) => Finding[];
 };

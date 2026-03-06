@@ -5,4 +5,12 @@ export { azureRules } from './azure/index.js';
 export { gcpRules } from './gcp/index.js';
 export { awsCorePreset } from './presets/aws-core.js';
 export { createRule, toRuleIds } from './shared/helpers.js';
-export type { Finding, Rule, ScanMode, Severity } from './shared/metadata.js';
+export type {
+  AwsEbsVolume,
+  Finding,
+  LiveEvaluationContext,
+  Rule,
+  ScanMode,
+  Severity,
+  StaticEvaluationContext,
+} from './shared/metadata.js';

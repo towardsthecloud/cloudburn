@@ -1,8 +1,20 @@
+import { scanAwsResources } from '../providers/aws/scanner.js';
 import type { CloudBurnConfig, ScanResult } from '../types.js';
+import { buildRuleRegistry } from './registry.js';
 
-// Intent: orchestrate live AWS scans by discovery -> registry -> rule evaluation.
-// TODO(cloudburn): discover resources through provider adapters and run live rules.
-export const runLiveScan = async (_config: CloudBurnConfig): Promise<ScanResult> => ({
-  mode: 'live',
-  findings: [],
-});
+export const runLiveScan = async (config: CloudBurnConfig): Promise<ScanResult> => {
+  const registry = buildRuleRegistry(config);
+  const liveContext = await scanAwsResources(config.live.regions);
+  const findings = registry.activeRules.flatMap((rule) => {
+    if (!rule.supports.includes('live') || !rule.evaluateLive) {
+      return [];
+    }
+
+    return rule.evaluateLive(liveContext);
+  });
+
+  return {
+    mode: 'live',
+    findings,
+  };
+};

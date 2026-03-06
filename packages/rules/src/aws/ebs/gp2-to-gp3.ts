@@ -1,7 +1,5 @@
 import { createRule } from '../../shared/helpers.js';
 
-// Intent: placeholder rule scaffold for AWS EBS gp2-to-gp3 recommendations.
-// TODO(cloudburn): detect gp2 volumes and recommend gp3 migration.
 export const ebsGp2ToGp3Rule = createRule({
   id: 'ebs-gp2-to-gp3',
   name: 'EBS gp2 to gp3',
@@ -9,5 +7,16 @@ export const ebsGp2ToGp3Rule = createRule({
   provider: 'aws',
   service: 'ebs',
   severity: 'warning',
-  supports: ['static', 'live'],
+  supports: ['live'],
+  evaluateLive: ({ ebsVolumes }) =>
+    ebsVolumes
+      .filter((volume) => volume.volumeType === 'gp2')
+      .map((volume) => ({
+        id: `ebs-gp2-to-gp3:${volume.volumeId}`,
+        ruleId: 'ebs-gp2-to-gp3',
+        severity: 'warning',
+        message: `EBS volume ${volume.volumeId} uses gp2; migrate to gp3.`,
+        location: `aws://ebs/${volume.region}/${volume.volumeId}`,
+        mode: 'live',
+      })),
 });
