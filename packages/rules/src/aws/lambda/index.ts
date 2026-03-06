@@ -1,5 +1,5 @@
-import { lambdaMissingArmRule } from './missing-arm.js';
+import { lambdaCostOptimalArchitectureRule } from './cost-optimal-architecture.js';
 
 // Intent: aggregate AWS Lambda rule definitions.
 // TODO(cloudburn): add memory-rightsizing and idle-function checks.
-export const lambdaRules = [lambdaMissingArmRule];
+export const lambdaRules = [lambdaCostOptimalArchitectureRule];

@@ -50,7 +50,7 @@ pnpm verify
 2. Create a rule file using `createRule(...)` from `shared/helpers.ts`.
 3. Include mandatory metadata:
 
-- `id`, `name`, `description`, `provider`, `service`, `severity`, `supports`
+- `id`, `name`, `description`, `provider`, `service`, `supports`
 
 Keep provider discovery, parsers, and cloud SDK calls in `@cloudburn/sdk`. Rule files in
 `@cloudburn/rules` should stay pure and expose evaluators over normalized inputs.
@@ -61,12 +61,11 @@ Keep provider discovery, parsers, and cloud SDK calls in `@cloudburn/sdk`. Rule 
 
 ## Rule Metadata Expectations
 
-- IDs should be stable, lowercase, kebab-case.
+- IDs use the `CLDBRN-{PROVIDER}-{SERVICE}-{N}` format (uppercase, no zero-padding, sequential per service).
 - Keep descriptions user-facing and actionable.
-- Set conservative default severity (`warning` unless clearly blocking).
-- Prefer `supports: ['static', 'live']` only when both are implemented.
-- Use `supports: ['live']` or `supports: ['static']` when a rule only has one real evaluator.
-- `ebs-gp2-to-gp3` is the reference example for a live-only rule backed by a pure evaluator.
+- Prefer `supports: ['iac', 'discovery']` only when both are implemented.
+- Use `supports: ['discovery']` or `supports: ['iac']` when a rule only has one real evaluator.
+- `CLDBRN-AWS-EBS-1` (`volume-type-current-gen`) is the reference example for a discovery-only rule backed by a pure evaluator.
 
 ## Testing Guidance for Rules
 
@@ -101,7 +100,7 @@ Use [Conventional Commits](https://www.conventionalcommits.org/) with package sc
 
 ```text
 feat(sdk): add S3 lifecycle rule support
-fix(rules): correct severity for ebs-gp2-to-gp3
+fix(rules): correct evaluator for CLDBRN-AWS-EBS-1
 refactor(cli): simplify output formatter
 ```
 

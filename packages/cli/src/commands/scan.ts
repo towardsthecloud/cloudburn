@@ -1,4 +1,4 @@
-import { CloudBurnScanner, type ScanMode } from '@cloudburn/sdk';
+import { CloudBurnScanner, type Finding } from '@cloudburn/sdk';
 import type { Command } from 'commander';
 import { EXIT_CODE_OK, EXIT_CODE_POLICY_VIOLATION } from '../exit-codes.js';
 import { formatJson } from '../formatters/json.js';
@@ -12,6 +12,13 @@ type ScanOptions = {
   exitCode?: boolean;
 };
 
+const formatters: Record<string, (findings: Finding[]) => string> = {
+  json: formatJson,
+  markdown: formatMarkdown,
+  sarif: formatSarif,
+  table: formatTable,
+};
+
 // Intent: attach the primary scanning command surface to the CLI.
 // TODO(cloudburn): support profile, severity filtering, and custom rules path options.
 export const registerScanCommand = (program: Command): void => {
@@ -23,18 +30,10 @@ export const registerScanCommand = (program: Command): void => {
     .option('--exit-code', 'Exit with code 1 when findings exist')
     .action(async (path: string | undefined, options: ScanOptions) => {
       const scanner = new CloudBurnScanner();
-      const mode: ScanMode = options.live ? 'live' : 'static';
-      const result = mode === 'live' ? await scanner.scanLive() : await scanner.scanStatic(path ?? process.cwd());
+      const result = options.live ? await scanner.scanLive() : await scanner.scanStatic(path ?? process.cwd());
 
-      const formatter = options.format ?? 'table';
-      const output =
-        formatter === 'json'
-          ? formatJson(result.findings)
-          : formatter === 'markdown'
-            ? formatMarkdown(result.findings)
-            : formatter === 'sarif'
-              ? formatSarif(result.findings)
-              : formatTable(result.findings);
+      const format = formatters[options.format ?? 'table'] ?? formatTable;
+      const output = format(result.findings);
 
       process.stdout.write(`${output}\n`);
 

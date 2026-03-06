@@ -15,7 +15,8 @@ export const formatSarif = (findings: Finding[]): string =>
           },
           results: findings.map((finding) => ({
             ruleId: finding.ruleId,
-            level: finding.severity,
+            // Severity was intentionally removed — all findings are warnings until a priority model is added.
+            level: 'warning',
             message: { text: finding.message },
           })),
         },

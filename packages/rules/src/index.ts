@@ -9,8 +9,8 @@ export type {
   AwsEbsVolume,
   Finding,
   LiveEvaluationContext,
+  ResourceLocation,
   Rule,
-  ScanMode,
-  Severity,
+  ScanSource,
   StaticEvaluationContext,
 } from './shared/metadata.js';

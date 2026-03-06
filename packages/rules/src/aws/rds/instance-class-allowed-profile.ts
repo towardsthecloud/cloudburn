@@ -2,12 +2,11 @@ import { createRule } from '../../shared/helpers.js';
 
 // Intent: placeholder rule scaffold for AWS RDS instance class policy checks.
 // TODO(cloudburn): enforce profile-driven allow/deny rules for RDS classes.
-export const rdsAllowedInstanceClassesRule = createRule({
-  id: 'rds-allowed-instance-classes',
-  name: 'RDS Allowed Instance Classes',
+export const rdsInstanceClassAllowedProfileRule = createRule({
+  id: 'CLDBRN-AWS-RDS-1',
+  name: 'RDS Instance Class Not in Allowed Profile',
   description: 'Ensure RDS instance classes match allowed profile policy.',
   provider: 'aws',
   service: 'rds',
-  severity: 'warning',
-  supports: ['static', 'live'],
+  supports: ['iac', 'discovery'],
 });

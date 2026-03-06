@@ -11,15 +11,20 @@ describe('scan command e2e', () => {
   it('prints live findings as json and leaves a success exit code', async () => {
     const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
     const scanLive = vi.spyOn(CloudBurnScanner.prototype, 'scanLive').mockResolvedValue({
-      mode: 'live',
+      source: 'discovery',
       findings: [
         {
-          id: 'ebs-gp2-to-gp3:vol-123',
-          ruleId: 'ebs-gp2-to-gp3',
-          severity: 'warning',
+          id: 'CLDBRN-AWS-EBS-1:vol-123',
+          ruleId: 'CLDBRN-AWS-EBS-1',
           message: 'EBS volume vol-123 uses gp2; migrate to gp3.',
-          location: 'aws://ebs/us-east-1/vol-123',
-          mode: 'live',
+          resource: {
+            provider: 'aws',
+            accountId: '',
+            region: 'us-east-1',
+            service: 'ebs',
+            resourceId: 'vol-123',
+          },
+          source: 'discovery',
         },
       ],
     });
@@ -30,12 +35,17 @@ describe('scan command e2e', () => {
     expect(stdout).toHaveBeenCalledWith(`{
   "findings": [
     {
-      "id": "ebs-gp2-to-gp3:vol-123",
-      "ruleId": "ebs-gp2-to-gp3",
-      "severity": "warning",
+      "id": "CLDBRN-AWS-EBS-1:vol-123",
+      "ruleId": "CLDBRN-AWS-EBS-1",
       "message": "EBS volume vol-123 uses gp2; migrate to gp3.",
-      "location": "aws://ebs/us-east-1/vol-123",
-      "mode": "live"
+      "resource": {
+        "provider": "aws",
+        "accountId": "",
+        "region": "us-east-1",
+        "service": "ebs",
+        "resourceId": "vol-123"
+      },
+      "source": "discovery"
     }
   ]
 }\n`);

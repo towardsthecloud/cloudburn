@@ -1,8 +1,17 @@
 // Intent: define rule metadata contracts shared across provider rule packs.
 // TODO(cloudburn): extend finding shape with remediation and confidence score.
-export type Severity = 'error' | 'warning' | 'info';
 
-export type ScanMode = 'static' | 'live';
+/** Indicates how a rule discovers resources: live AWS API calls or IaC file parsing. */
+export type ScanSource = 'discovery' | 'iac';
+
+/** Structured location of a cloud resource identified by a finding. */
+export type ResourceLocation = {
+  provider: 'aws' | 'azure' | 'gcp';
+  accountId: string;
+  region: string;
+  service: string;
+  resourceId: string;
+};
 
 export type AwsEbsVolume = {
   volumeId: string;
@@ -16,23 +25,23 @@ export type LiveEvaluationContext = {
 
 export type StaticEvaluationContext = Record<string, never>;
 
+/** A single policy violation emitted by a rule evaluation. */
 export type Finding = {
   id: string;
   ruleId: string;
-  severity: Severity;
   message: string;
-  location: string;
-  mode: ScanMode;
+  resource: ResourceLocation;
+  source: ScanSource;
 };
 
+/** A declarative cost-optimization rule with optional live and static evaluators. */
 export type Rule = {
   id: string;
   name: string;
   description: string;
   provider: 'aws' | 'azure' | 'gcp';
   service: string;
-  severity: Severity;
-  supports: ScanMode[];
+  supports: ScanSource[];
   evaluateLive?: (context: LiveEvaluationContext) => Finding[];
   evaluateStatic?: (context: StaticEvaluationContext) => Finding[];
 };

@@ -6,7 +6,7 @@ export const runLiveScan = async (config: CloudBurnConfig): Promise<ScanResult> 
   const registry = buildRuleRegistry(config);
   const liveContext = await scanAwsResources(config.live.regions);
   const findings = registry.activeRules.flatMap((rule) => {
-    if (!rule.supports.includes('live') || !rule.evaluateLive) {
+    if (!rule.supports.includes('discovery') || !rule.evaluateLive) {
       return [];
     }
 
@@ -14,7 +14,7 @@ export const runLiveScan = async (config: CloudBurnConfig): Promise<ScanResult> 
   });
 
   return {
-    mode: 'live',
+    source: 'discovery',
     findings,
   };
 };

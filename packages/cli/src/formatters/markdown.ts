@@ -7,7 +7,9 @@ export const formatMarkdown = (findings: Finding[]): string => {
     return '## CloudBurn Findings\n\nNo findings.';
   }
 
-  const rows = findings.map((finding) => `| ${finding.ruleId} | ${finding.severity} | ${finding.message} |`).join('\n');
+  const rows = findings
+    .map((finding) => `| ${finding.ruleId} | ${finding.resource.resourceId} | ${finding.message} |`)
+    .join('\n');
 
-  return `## CloudBurn Findings\n\n| Rule | Severity | Message |\n| --- | --- | --- |\n${rows}`;
+  return `## CloudBurn Findings\n\n| Rule | Resource | Message |\n| --- | --- | --- |\n${rows}`;
 };

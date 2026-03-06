@@ -8,7 +8,6 @@ export type {
   RegisteredRules,
   Rule,
   RuleConfig,
-  ScanMode,
   ScanResult,
-  Severity,
+  ScanSource,
 } from './types.js';

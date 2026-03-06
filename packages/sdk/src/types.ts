@@ -1,10 +1,7 @@
-import type { Finding, Rule } from '@cloudburn/rules';
+import type { Finding, Rule, ScanSource } from '@cloudburn/rules';
 
 // Intent: define SDK-facing contracts for scanner orchestration.
 // TODO(cloudburn): align these interfaces with final CLI output and config schema.
-export type ScanMode = 'static' | 'live';
-
-export type Severity = 'error' | 'warning' | 'info';
 
 export type RuleConfig = Record<string, unknown>;
 
@@ -20,8 +17,9 @@ export type CloudBurnConfig = {
   };
 };
 
+/** Result of a scan execution containing the source mode and all findings. */
 export type ScanResult = {
-  mode: ScanMode;
+  source: ScanSource;
   findings: Finding[];
 };
 
@@ -29,4 +27,4 @@ export type RegisteredRules = {
   activeRules: Rule[];
 };
 
-export type { Finding, Rule };
+export type { Finding, Rule, ScanSource };
