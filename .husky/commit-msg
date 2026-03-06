@@ -1,2 +1,2 @@
 #!/usr/bin/env sh
-node scripts/validate-commit-msg.mjs "$1"
+node "$(dirname "$0")/validate-commit-msg.mjs" "$1"

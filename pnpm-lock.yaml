@@ -47,9 +47,6 @@ importers:
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
-      vitest:
-        specifier: 'catalog:'
-        version: 4.0.18(@types/node@24.11.0)
 
   packages/cli:
     dependencies:

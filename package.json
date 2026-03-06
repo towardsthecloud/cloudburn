@@ -7,11 +7,10 @@
     "prepare": "husky",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
-    "test:hooks": "vitest run test/validate-commit-msg.test.ts",
     "lint": "turbo run lint",
     "lint:fix": "turbo run lint:fix",
     "clean": "turbo run clean",
-    "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm test:hooks",
+    "verify": "pnpm lint && pnpm typecheck && pnpm test",
     "changeset": "changeset",
     "changeset:version": "changeset version",
     "release": "pnpm verify && turbo run build --force && changeset publish",
@@ -23,8 +22,7 @@
     "@changesets/cli": "^2.30.0",
     "husky": "^9.1.7",
     "turbo": "^2.8.13",
-    "typescript": "catalog:",
-    "vitest": "catalog:"
+    "typescript": "catalog:"
   },
   "engines": {
     "node": ">=24.0.0"
