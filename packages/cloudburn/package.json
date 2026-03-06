@@ -1,6 +1,6 @@
 {
   "name": "cloudburn",
-  "version": "1.0.0",
+  "version": "0.1.1",
   "description": "Cloudburn CLI for cloud cost optimization",
   "type": "module",
   "bin": {
