@@ -24,7 +24,7 @@ const COMMIT_HEADER_RE = new RegExp(
 );
 
 const PACKAGE_SCOPES = [
-  ["packages/cli", "cli"],
+  ["packages/cloudburn", "cli"],
   ["packages/sdk", "sdk"],
   ["packages/rules", "rules"],
 ];

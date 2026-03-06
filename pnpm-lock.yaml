@@ -8,7 +8,7 @@ catalogs:
   default:
     '@biomejs/biome':
       specifier: ^2.4.6
-      version: 2.4.5
+      version: 2.4.6
     '@types/node':
       specifier: ^24
       version: 24.11.0
@@ -48,7 +48,7 @@ importers:
         specifier: 'catalog:'
         version: 5.9.3
 
-  packages/cli:
+  packages/cloudburn:
     dependencies:
       '@cloudburn/sdk':
         specifier: workspace:*
@@ -59,7 +59,7 @@ importers:
     devDependencies:
       '@biomejs/biome':
         specifier: 'catalog:'
-        version: 2.4.5
+        version: 2.4.6
       '@types/node':
         specifier: 'catalog:'
         version: 24.11.0
