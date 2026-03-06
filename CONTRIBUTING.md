@@ -37,6 +37,10 @@ pnpm verify
 - `@cloudburn/sdk`: scanner API, engine orchestration, config, parsers, provider adapters.
 - `@cloudburn/rules`: rules and presets only (no parser/provider/engine logic).
 
+## Code Style
+
+- Add TSDoc docstrings to all exports. Document purpose, parameters, and return values.
+
 ## Adding a New Rule
 
 1. Choose provider and service path under `packages/rules/src`.
@@ -91,9 +95,21 @@ pnpm changeset:version
 pnpm release
 ```
 
+## Commits
+
+Use [Conventional Commits](https://www.conventionalcommits.org/) with package scope:
+
+```text
+feat(sdk): add S3 lifecycle rule support
+fix(rules): correct severity for ebs-gp2-to-gp3
+refactor(cli): simplify output formatter
+```
+
+Types: `feat|fix|refactor|build|ci|chore|revert|docs|style|perf|test`.
+
 ## Pull Requests
 
-- Use a focused title and scope.
+- Use a conventional commit title matching the primary change (e.g. `feat(sdk): short description`).
 - Fill in `.github/pull_request_template.md`.
 - Link related issues.
 - Include what you tested.

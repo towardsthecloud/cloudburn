@@ -1,5 +1,9 @@
 # AGENTS.md
 
+## Code Style
+
+- Add TSDoc docstrings to all exports. Document purpose, parameters, and return values.
+
 ## Code Navigation (Claude Code only)
 
 - When working inside TypeScript, Python, or Go files, prefer LSP over Grep for navigating symbols. Use Grep/Glob only for initial broad searches; switch to LSP once you have a file and position.
