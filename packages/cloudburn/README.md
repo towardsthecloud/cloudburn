@@ -1,11 +1,11 @@
-# @cloudburn/cli
+# cloudburn
 
 Command-line interface for Cloudburn cloud cost optimization.
 
 ## Installation
 
 ```sh
-npm install -g @cloudburn/cli
+npm install -g cloudburn
 ```
 
 ## Usage

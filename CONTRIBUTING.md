@@ -33,7 +33,7 @@ pnpm verify
 
 ## Project Boundaries
 
-- `@cloudburn/cli`: commands, formatting, exit code behavior.
+- `cloudburn` (cli): commands, formatting, exit code behavior.
 - `@cloudburn/sdk`: scanner API, engine orchestration, config, parsers, provider adapters.
 - `@cloudburn/rules`: rules and presets only (no parser/provider/engine logic).
 
@@ -82,7 +82,7 @@ pnpm changeset
 ```
 
 Add the generated `.changeset/*.md` file to your PR when it changes a published package
-(`@cloudburn/cli`, `@cloudburn/sdk`, or `@cloudburn/rules`).
+(`cloudburn` (cli), `@cloudburn/sdk`, or `@cloudburn/rules`).
 
 Do not run the versioning step in feature PRs. Versioning happens in the automated
 release PR on `main`.

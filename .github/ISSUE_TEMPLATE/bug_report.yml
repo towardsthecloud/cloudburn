@@ -41,7 +41,7 @@ body:
     attributes:
       label: Versions
       description: Node, pnpm, package versions
-      placeholder: Node 24.x, pnpm 10.x, @cloudburn/cli x.y.z
+      placeholder: Node 24.x, pnpm 10.x, cloudburn x.y.z
     validations:
       required: true
   - type: textarea

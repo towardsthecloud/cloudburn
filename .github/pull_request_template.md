@@ -5,7 +5,7 @@
 
 ## Scope
 
-- [ ] `@cloudburn/cli`
+- [ ] `cloudburn` (cli)
 - [ ] `@cloudburn/sdk`
 - [ ] `@cloudburn/rules`
 - [ ] docs/community files

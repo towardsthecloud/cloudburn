@@ -1,5 +1,5 @@
 {
-  "name": "@cloudburn/cli",
+  "name": "cloudburn",
   "version": "1.0.0",
   "description": "Cloudburn CLI for cloud cost optimization",
   "type": "module",

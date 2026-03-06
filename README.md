@@ -6,7 +6,7 @@ CloudBurn is an open-source cloud cost policy engine. It helps teams catch optim
 
 ## Why CloudBurn
 
-- Open-source scanner (`@cloudburn/cli`, `@cloudburn/sdk`, `@cloudburn/rules`) under Apache-2.0.
+- Open-source scanner (`cloudburn` (cli), `@cloudburn/sdk`, `@cloudburn/rules`) under Apache-2.0.
 - Works standalone for IaC policy scanning and live AWS optimization checks.
 - Policy-as-code workflow with profiles, severity overrides, and custom rules.
 
@@ -14,7 +14,7 @@ CloudBurn is an open-source cloud cost policy engine. It helps teams catch optim
 
 | Package            | Purpose                                        |
 | ------------------ | ---------------------------------------------- |
-| `@cloudburn/cli`   | User-facing CLI commands and output formatters |
+| `cloudburn` (cli)  | User-facing CLI commands and output formatters |
 | `@cloudburn/sdk`   | Scanner orchestration API for integrations     |
 | `@cloudburn/rules` | Provider rule definitions and built-in presets |
 
@@ -42,7 +42,7 @@ pnpm prepare
 ### Run CLI (workspace)
 
 ```bash
-pnpm --filter @cloudburn/cli exec cloudburn scan .
+pnpm --filter cloudburn exec cloudburn scan .
 ```
 
 ### Example commands

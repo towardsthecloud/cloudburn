@@ -6,7 +6,7 @@ This document describes architecture boundaries for this monorepo.
 
 ## Package Responsibility
 
-### `@cloudburn/cli`
+### `cloudburn` (cli)
 
 - Owns command parsing and user interaction.
 - Owns output formatters and CI exit code behavior.
@@ -28,7 +28,7 @@ This document describes architecture boundaries for this monorepo.
 ## Dependency Direction
 
 ```text
-@cloudburn/cli -> @cloudburn/sdk -> @cloudburn/rules
+cloudburn -> @cloudburn/sdk -> @cloudburn/rules
 ```
 
 ## Multi-Cloud Strategy

@@ -37,7 +37,7 @@
 
 ## Changesets
 
-- Published packages: `@cloudburn/cli`, `@cloudburn/sdk`, `@cloudburn/rules`.
+- Published packages: `cloudburn` (cli), `@cloudburn/sdk`, `@cloudburn/rules`.
 - Write `.changeset/<random-kebab-case-slug>.md` directly — do not use the interactive `pnpm changeset` prompt.
 - Use `patch` for fixes, `minor` for new features, `major` for breaking changes.
 - Only include packages directly changed by the PR.
@@ -49,4 +49,4 @@ Dependency direction: `cli → sdk → rules`. No reverse imports.
 
 - **`@cloudburn/rules`** — Pure rule declarations and types (`Rule`, `Finding`, `Severity`, `ScanMode`). No engine logic, no I/O, no AWS SDK calls, no config loading.
 - **`@cloudburn/sdk`** — Scan engine: config loading, IaC parsing, live AWS discovery, rule evaluation, orchestration. Exports `CloudBurnScanner` as the public API. Imports from `rules`, never from `cli`.
-- **`@cloudburn/cli`** — Command surface, output formatters, exit codes. Receives `ScanResult` from SDK and formats it. No scan logic, no config loading, no rule definitions. Imports from `sdk` only, never directly from `rules`.
+- **`cloudburn`** (cli) — Command surface, output formatters, exit codes. Receives `ScanResult` from SDK and formats it. No scan logic, no config loading, no rule definitions. Imports from `sdk` only, never directly from `rules`.

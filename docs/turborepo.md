@@ -6,15 +6,15 @@ This monorepo uses Turborepo for task orchestration and pnpm for workspace depen
 
 ```text
 packages/
-  cli/    -> @cloudburn/cli
-  sdk/    -> @cloudburn/sdk
-  rules/  -> @cloudburn/rules
+  cloudburn/    -> cloudburn (cli)
+  sdk/          -> @cloudburn/sdk
+  rules/        -> @cloudburn/rules
 ```
 
 ## Dependency Graph
 
 ```text
-@cloudburn/cli -> @cloudburn/sdk -> @cloudburn/rules
+cloudburn -> @cloudburn/sdk -> @cloudburn/rules
 ```
 
 ## Root Scripts
@@ -47,7 +47,7 @@ pnpm release
 
 ```bash
 pnpm turbo run build --filter @cloudburn/sdk
-pnpm turbo run test --filter @cloudburn/cli...
+pnpm turbo run test --filter cloudburn...
 pnpm turbo run lint --filter ...[main]
 ```
 

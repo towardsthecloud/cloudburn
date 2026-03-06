@@ -1,4 +1,4 @@
-# @cloudburn/cli
+# cloudburn
 
 ## 1.0.0
 
