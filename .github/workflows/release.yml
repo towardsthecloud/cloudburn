@@ -40,5 +40,7 @@ jobs:
         uses: changesets/action@v1
         with:
           createGithubReleases: false
+          commit: "chore: version packages"
+          title: "chore: version packages"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
