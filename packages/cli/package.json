@@ -38,6 +38,9 @@
     "cost-optimization",
     "finops",
     "cloudburn",
+    "terraform",
+    "cloudformation",
+    "iac",
     "cli"
   ],
   "license": "Apache-2.0"
