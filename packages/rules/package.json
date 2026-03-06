@@ -38,5 +38,14 @@
     "typescript": "catalog:",
     "vitest": "catalog:"
   },
+  "keywords": [
+    "aws",
+    "azure",
+    "gcp",
+    "cloud",
+    "cost-optimization",
+    "finops",
+    "cloudburn"
+  ],
   "license": "Apache-2.0"
 }

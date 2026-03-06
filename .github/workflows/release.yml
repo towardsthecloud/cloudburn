@@ -6,17 +6,17 @@ on:
       - main
   workflow_dispatch:
 
-permissions:
-  contents: write
-  pull-requests: write
-
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  version-packages:
-    name: Create Release PR
+  release:
+    name: Create Release PR or Publish
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -32,14 +32,15 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: pnpm
+          registry-url: https://registry.npmjs.org
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Create release pull request
+      - name: Create release pull request or publish
         uses: changesets/action@v1
         with:
-          createGithubReleases: false
+          publish: pnpm release
           commit: "chore: version packages"
           title: "chore: version packages"
         env:
