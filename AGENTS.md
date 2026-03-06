@@ -29,7 +29,7 @@
 - When done (on a branch or worktree), before creating a PR:
   1. If the PR changes a published package, write a changeset (see Changesets section below).
   2. Search for related issues with `gh issue list` and note any to link.
-  3. Create the PR with a conventional title, fill in the template (`.github/pull_request_template.md`), check off completed items, and link related issues: `gh pr create --title "feat(cli): short description"`.
+  3. Create the PR with a conventional title, fill in the template (`.github/pull_request_template.md`), check off completed items, and link related issues. Apply a label matching the commit type: `enhancement` for `feat`, `bug` for `fix`, `documentation` for `docs`. Example: `gh pr create --title "feat(cli): short description" --label enhancement`.
 
 ## Changesets
 
