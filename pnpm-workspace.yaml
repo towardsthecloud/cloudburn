@@ -1,7 +1,8 @@
 packages:
   - packages/*
 
-approveBuilds: esbuild
+allowBuilds:
+  esbuild: true
 
 catalog:
   '@biomejs/biome': ^2.4.6

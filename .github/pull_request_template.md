@@ -10,6 +10,11 @@
 - [ ] `@cloudburn/rules`
 - [ ] docs/community files
 
+## Release Notes
+
+- [ ] Added a `.changeset/*.md` file for published package changes
+- [ ] No published package changes in this PR
+
 ## Verification
 
 - [ ] `pnpm lint`

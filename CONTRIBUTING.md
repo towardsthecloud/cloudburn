@@ -14,6 +14,13 @@ pnpm install
 pnpm build
 ```
 
+`pnpm install` runs the root `prepare` script and installs the Husky git hooks for
+the repo. If you installed with scripts disabled, run:
+
+```bash
+pnpm prepare
+```
+
 ## Verify Before Opening a PR
 
 ```bash
@@ -66,7 +73,13 @@ Use Changesets for user-facing package changes:
 pnpm changeset
 ```
 
-Version and release scripts:
+Add the generated `.changeset/*.md` file to your PR when it changes a published package
+(`@cloudburn/cli`, `@cloudburn/sdk`, or `@cloudburn/rules`).
+
+Do not run the versioning step in feature PRs. Versioning happens in the automated
+release PR on `main`.
+
+Maintainer-only release scripts:
 
 ```bash
 pnpm changeset:version

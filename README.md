@@ -32,6 +32,13 @@ pnpm install
 pnpm build
 ```
 
+`pnpm install` runs the root `prepare` script and installs the Husky git hooks for
+local development. If hooks are missing because install scripts were skipped, run:
+
+```bash
+pnpm prepare
+```
+
 ### Run CLI (workspace)
 
 ```bash
