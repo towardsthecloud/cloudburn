@@ -39,6 +39,7 @@
     }
   },
   "files": {
+    "ignoreUnknown": true,
     "includes": ["packages/*/src/**", "packages/*/test/**"]
   }
 }
