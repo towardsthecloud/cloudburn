@@ -41,5 +41,24 @@
   "files": {
     "ignoreUnknown": true,
     "includes": ["packages/*/src/**", "packages/*/test/**"]
-  }
+  },
+  "overrides": [
+    {
+      "includes": ["packages/cloudburn/src/**", "packages/cloudburn/test/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "paths": {
+                  "@cloudburn/rules": "CLI must not import @cloudburn/rules directly. Use @cloudburn/sdk instead."
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
 }

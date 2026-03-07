@@ -1,17 +1,30 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "globalDependencies": ["tsconfig.base.json", "biome.jsonc", "pnpm-lock.yaml", "package.json"],
+  "boundaries": {
+    "tags": {
+      "layer:rules": {
+        "dependencies": {
+          "deny": ["layer:sdk", "layer:cli"]
+        }
+      },
+      "layer:sdk": {
+        "dependencies": {
+          "deny": ["layer:cli"]
+        }
+      }
+    }
+  },
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "inputs": ["$TURBO_DEFAULT$"],
       "outputs": ["dist/**"]
     },
     "typecheck": {
-      "dependsOn": ["^build", "^typecheck"]
+      "dependsOn": ["^build"]
     },
     "test": {
-      "dependsOn": ["^build", "^test"]
+      "dependsOn": ["^build"]
     },
     "lint": {},
     "lint:fix": {
