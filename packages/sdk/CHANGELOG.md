@@ -1,5 +1,16 @@
 # @cloudburn/sdk
 
+## 0.3.0
+
+### Minor Changes
+
+- [#8](https://github.com/towardsthecloud/cloudburn/pull/8) [`e45d012`](https://github.com/towardsthecloud/cloudburn/commit/e45d012297e4cd19560fb84ca8dd0fa1f6cf7a23) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Add Terraform static scanning for literal EBS gp2 volumes and extend the built-in EBS current-generation rule to support both live discovery and IaC evaluation.
+
+### Patch Changes
+
+- Updated dependencies [[`e45d012`](https://github.com/towardsthecloud/cloudburn/commit/e45d012297e4cd19560fb84ca8dd0fa1f6cf7a23)]:
+  - @cloudburn/rules@0.3.0
+
 ## 1.0.0
 
 ### Major Changes
