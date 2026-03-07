@@ -81,6 +81,8 @@ custom_rules:
   - ./rules/
 ```
 
+Current static Terraform support includes literal `aws_ebs_volume` resources using `type = "gp2"`. Additional Terraform resources and expression resolution are still being added.
+
 ## Development
 
 ```bash

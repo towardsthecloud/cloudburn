@@ -7,6 +7,7 @@ export { awsCorePreset } from './presets/aws-core.js';
 export { createRule, toRuleIds } from './shared/helpers.js';
 export type {
   AwsEbsVolume,
+  AwsEbsVolumeDefinition,
   Finding,
   LiveEvaluationContext,
   ResourceLocation,

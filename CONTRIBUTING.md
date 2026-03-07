@@ -65,7 +65,7 @@ Keep provider discovery, parsers, and cloud SDK calls in `@cloudburn/sdk`. Rule 
 - Keep descriptions user-facing and actionable.
 - Prefer `supports: ['iac', 'discovery']` only when both are implemented.
 - Use `supports: ['discovery']` or `supports: ['iac']` when a rule only has one real evaluator.
-- `CLDBRN-AWS-EBS-1` (`volume-type-current-gen`) is the reference example for a discovery-only rule backed by a pure evaluator.
+- `CLDBRN-AWS-EBS-1` (`volume-type-current-gen`) is the reference example for a rule supporting both discovery and IaC evaluation.
 
 ## Testing Guidance for Rules
 

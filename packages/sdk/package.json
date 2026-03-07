@@ -32,6 +32,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-ec2": "^3.1003.0",
+    "@cdktf/hcl2json": "^0.21.0",
     "@cloudburn/rules": "workspace:*"
   },
   "devDependencies": {

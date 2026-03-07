@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { scanAwsResources } from '../src/providers/aws/scanner.js';
 import { CloudBurnScanner } from '../src/scanner.js';
@@ -52,12 +53,41 @@ describe('CloudBurnScanner', () => {
     });
   });
 
-  it('returns an empty static scan result when no static rules are implemented', async () => {
+  it('returns a static ebs finding for literal gp2 terraform resources', async () => {
     const scanner = new CloudBurnScanner();
+    const fixturePath = fileURLToPath(new URL('./fixtures/terraform/scan-dir', import.meta.url));
 
-    const result = await scanner.scanStatic(process.cwd());
+    const result = await scanner.scanStatic(fixturePath);
 
-    expect(result.source).toBe('iac');
-    expect(result.findings).toHaveLength(0);
+    expect(result).toEqual({
+      source: 'iac',
+      findings: [
+        {
+          id: 'CLDBRN-AWS-EBS-1:aws_ebs_volume.gp2_logs',
+          ruleId: 'CLDBRN-AWS-EBS-1',
+          message: 'EBS volume aws_ebs_volume.gp2_logs uses gp2; migrate to gp3.',
+          resource: {
+            provider: 'aws',
+            accountId: '',
+            region: '',
+            service: 'ebs',
+            resourceId: 'aws_ebs_volume.gp2_logs',
+          },
+          source: 'iac',
+        },
+      ],
+    });
+  });
+
+  it('returns an empty static scan result when terraform files have no supported resources', async () => {
+    const scanner = new CloudBurnScanner();
+    const fixturePath = fileURLToPath(new URL('./fixtures/terraform/no-resources', import.meta.url));
+
+    const result = await scanner.scanStatic(fixturePath);
+
+    expect(result).toEqual({
+      source: 'iac',
+      findings: [],
+    });
   });
 });

@@ -19,11 +19,20 @@ export type AwsEbsVolume = {
   region: string;
 };
 
+/** A Terraform-declared EBS volume available to static rule evaluators. */
+export type AwsEbsVolumeDefinition = {
+  resourceId: string;
+  volumeType: string;
+};
+
 export type LiveEvaluationContext = {
   ebsVolumes: AwsEbsVolume[];
 };
 
-export type StaticEvaluationContext = Record<string, never>;
+/** Provider-normalized IaC resources available to static rule evaluators. */
+export type StaticEvaluationContext = {
+  awsEbsVolumes: AwsEbsVolumeDefinition[];
+};
 
 /** A single policy violation emitted by a rule evaluation. */
 export type Finding = {
