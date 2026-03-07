@@ -5,6 +5,11 @@
       "source": "mattpocock/skills",
       "sourceType": "github",
       "computedHash": "ad055544599481182d0079c4198e85da26677cb408a677be2da04915375f0427"
+    },
+    "turborepo": {
+      "source": "vercel/turborepo",
+      "sourceType": "github",
+      "computedHash": "8ae57e36416b6a269c99b46f8f47afb0e2406331848d50fa19d7a57850acad50"
     }
   }
 }
