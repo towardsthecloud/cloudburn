@@ -1,5 +1,26 @@
 # AGENTS.md
 
+## Documentation Map
+
+<!--- source for map: https://openai.com/index/harness-engineering/ -->
+
+| Area                       | Doc                                                                                      | What it covers                                              |
+| -------------------------- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| **Architecture**           | [`ARCHITECTURE.md`](ARCHITECTURE.md)                                                     | Package graph, scan data flow sequence diagrams             |
+| CLI internals              | [`docs/architecture/cli.md`](docs/architecture/cli.md)                                   | Command tree, formatter pipeline, exit-code contract        |
+| SDK internals              | [`docs/architecture/sdk.md`](docs/architecture/sdk.md)                                   | Scanner facade, config pipeline, engine, parsers, providers |
+| Rules internals            | [`docs/architecture/rules.md`](docs/architecture/rules.md)                               | Type hierarchy, rule assembly chain, ID convention          |
+| **Guides**                 |                                                                                          |                                                             |
+| Adding a rule              | [`docs/guides/adding-a-rule.md`](docs/guides/adding-a-rule.md)                           | End-to-end: file placement, createRule, tests, registration |
+| Adding a provider resource | [`docs/guides/adding-a-provider-resource.md`](docs/guides/adding-a-provider-resource.md) | Discoverer, scanner wiring, context type extension          |
+| **Reference**              |                                                                                          |                                                             |
+| Config schema              | [`docs/reference/config-schema.md`](docs/reference/config-schema.md)                     | Every CloudBurnConfig field, defaults, merge behavior       |
+| Rule IDs                   | [`docs/reference/rule-ids.md`](docs/reference/rule-ids.md)                               | ID table, naming convention, presets                        |
+| Finding shape              | [`docs/reference/finding-shape.md`](docs/reference/finding-shape.md)                     | Finding, ResourceLocation, ScanResult type contracts        |
+| **Infrastructure**         |                                                                                          |                                                             |
+| Testing                    | [`docs/testing.md`](docs/testing.md)                                                     | Three-package test strategy, fixtures, TDD flow             |
+| Turborepo                  | [`docs/turborepo.md`](docs/turborepo.md)                                                 | Task pipeline, boundaries, filtering                        |
+
 ## Code Style
 
 - Add TSDoc docstrings to all exports. Document purpose, parameters, and return values.
@@ -41,5 +62,5 @@
 
 ## Architecture Boundaries
 
-- Dependency direction: `cli → sdk → rules`. No reverse imports.
+- Dependency direction: `cli → sdk → rules`. No reverse imports. See [`ARCHITECTURE.md`](ARCHITECTURE.md) for diagrams.
 - When working inside `packages/cloudburn`, `packages/sdk`, or `packages/rules`, follow that package's local `AGENTS.md` or `CLAUDE.md` for package-specific constraints.
