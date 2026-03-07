@@ -4,17 +4,13 @@
 
 - Add TSDoc docstrings to all exports. Document purpose, parameters, and return values.
 
-## Code Navigation (Claude Code only)
-
-- When working inside TypeScript, Python, or Go files, prefer LSP over Grep for navigating symbols. Use Grep/Glob only for initial broad searches; switch to LSP once you have a file and position.
-
 ## Context Management
 
 - Proactively delegate exploration (3+ files), research, and analysis to subagents — only the summary matters in main context.
 
 ## Build / Test
 
-- On branches/worktrees (non main), use `/tdd` (red-green-refactor) as the default build flow for features and bug fixes.
+- On branches/worktrees (non main), use the `tdd` skill (red-green-refactor) as the default build flow for features and bug fixes.
 - Work in vertical slices: one test → minimal impl → refactor → commit. Never batch all tests first.
 - When tests are green and you're ready to commit, run `pnpm verify` first (covers lint, typecheck, test, build).
 - Include verification tasks in plans, not only build tasks.
