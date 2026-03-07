@@ -12,7 +12,7 @@
 
 - On branches/worktrees (non main), use the `tdd` skill (red-green-refactor) as the default build flow for features and bug fixes.
 - Work in vertical slices: one test → minimal impl → refactor → commit. Never batch all tests first.
-- When tests are green and you're ready to commit, run `pnpm verify` first (covers lint, typecheck, test, build).
+- When tests are green and you're ready to commit, run `pnpm verify` first (covers lint, typecheck, and test).
 - Include verification tasks in plans, not only build tasks.
 
 ## Done Criteria
@@ -41,8 +41,5 @@
 
 ## Architecture Boundaries
 
-Dependency direction: `cli → sdk → rules`. No reverse imports.
-
-- **`@cloudburn/rules`** — Pure rule declarations and types (`Rule`, `Finding`, `Severity`, `ScanMode`). No engine logic, no I/O, no AWS SDK calls, no config loading.
-- **`@cloudburn/sdk`** — Scan engine: config loading, IaC parsing, live AWS discovery, rule evaluation, orchestration. Exports `CloudBurnScanner` as the public API. Imports from `rules`, never from `cli`.
-- **`cloudburn`** (cli) — Command surface, output formatters, exit codes. Receives `ScanResult` from SDK and formats it. No scan logic, no config loading, no rule definitions. Imports from `sdk` only, never directly from `rules`.
+- Dependency direction: `cli → sdk → rules`. No reverse imports.
+- When working inside `packages/cloudburn`, `packages/sdk`, or `packages/rules`, follow that package's local `AGENTS.md` or `CLAUDE.md` for package-specific constraints.
