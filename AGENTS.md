@@ -57,7 +57,7 @@
 
 - Published packages: `cloudburn` (cli), `@cloudburn/sdk`, `@cloudburn/rules`.
 - Write `.changeset/<random-kebab-case-slug>.md` directly — do not use the interactive `pnpm changeset` prompt.
-- Use `patch` for fixes, `minor` for new features, `major` for breaking changes.
+- Use `patch` for fixes and `minor` for new features. Never use `major` changesets.
 - Only include packages directly changed by the PR.
 - Do not run `pnpm changeset:version` or `pnpm release` — those happen in the automated release PR.
 
