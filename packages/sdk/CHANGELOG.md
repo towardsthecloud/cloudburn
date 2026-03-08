@@ -1,5 +1,16 @@
 # @cloudburn/sdk
 
+## 0.4.0
+
+### Minor Changes
+
+- [`9547c27`](https://github.com/towardsthecloud/cloudburn/commit/9547c273e21ba25bbb4b3567aed0129d1a3dd5e2) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Adopt the lean canonical scan contract with provider-grouped rule results, rule-level `service` / `source` / `message` fields, nested findings that omit empty optional values, and preserved Terraform source locations for IaC matches.
+
+### Patch Changes
+
+- Updated dependencies [[`9547c27`](https://github.com/towardsthecloud/cloudburn/commit/9547c273e21ba25bbb4b3567aed0129d1a3dd5e2)]:
+  - @cloudburn/rules@0.4.0
+
 ## 0.3.0
 
 ### Minor Changes
