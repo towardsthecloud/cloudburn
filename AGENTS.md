@@ -6,7 +6,7 @@
 
 | Area                       | Doc                                                                                      | What it covers                                              |
 | -------------------------- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| **Architecture**           | [`ARCHITECTURE.md`](ARCHITECTURE.md)                                                     | Package graph, scan data flow sequence diagrams             |
+| **Architecture**           | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)                                           | Package graph, scan data flow sequence diagrams             |
 | CLI internals              | [`docs/architecture/cli.md`](docs/architecture/cli.md)                                   | Command tree, formatter pipeline, exit-code contract        |
 | SDK internals              | [`docs/architecture/sdk.md`](docs/architecture/sdk.md)                                   | Scanner facade, config pipeline, engine, parsers, providers |
 | Rules internals            | [`docs/architecture/rules.md`](docs/architecture/rules.md)                               | Type hierarchy, rule assembly chain, ID convention          |
@@ -18,8 +18,9 @@
 | Rule IDs                   | [`docs/reference/rule-ids.md`](docs/reference/rule-ids.md)                               | ID table, naming convention, presets                        |
 | Finding shape              | [`docs/reference/finding-shape.md`](docs/reference/finding-shape.md)                     | Finding, ResourceLocation, ScanResult type contracts        |
 | **Infrastructure**         |                                                                                          |                                                             |
-| Testing                    | [`docs/testing.md`](docs/testing.md)                                                     | Three-package test strategy, fixtures, TDD flow             |
-| Turborepo                  | [`docs/turborepo.md`](docs/turborepo.md)                                                 | Task pipeline, boundaries, filtering                        |
+| Testing                    | [`docs/TESTING.md`](docs/TESTING.md)                                                     | Three-package test strategy, fixtures, TDD flow             |
+| Turborepo                  | [`docs/TURBOREPO.md`](docs/TURBOREPO.md)                                                 | Task pipeline, boundaries, filtering                        |
+| Code review                | [`docs/REVIEW.md`](docs/REVIEW.md)                                                       | Non-obvious conventions and constraints for PR reviewers    |
 
 ## Code Style
 
@@ -62,5 +63,5 @@
 
 ## Architecture Boundaries
 
-- Dependency direction: `cli → sdk → rules`. No reverse imports. See [`ARCHITECTURE.md`](ARCHITECTURE.md) for diagrams.
+- Dependency direction: `cli → sdk → rules`. No reverse imports. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for diagrams.
 - When working inside `packages/cloudburn`, `packages/sdk`, or `packages/rules`, follow that package's local `AGENTS.md` or `CLAUDE.md` for package-specific constraints.

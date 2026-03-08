@@ -97,8 +97,8 @@ pnpm verify
 
 ## Architecture
 
-- Public architecture overview: [ARCHITECTURE.md](ARCHITECTURE.md)
-- Turborepo pipeline guide: [docs/turborepo.md](docs/turborepo.md)
+- Public architecture overview: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- Turborepo pipeline guide: [docs/TURBOREPO.md](docs/TURBOREPO.md)
 - Contribution guide: [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## License
