@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { formatMarkdown } from '../src/formatters/markdown.js';
 import { formatSarif } from '../src/formatters/sarif.js';
 import { formatTable } from '../src/formatters/table.js';
 
@@ -52,30 +51,6 @@ const resultWithLocation = {
 };
 
 describe('formatters', () => {
-  it('keeps markdown output unchanged when findings have no source locations', () => {
-    expect(formatMarkdown(resultWithoutLocation)).toBe(`## CloudBurn Findings
-
-### aws
-
-#### CLDBRN-AWS-EBS-1
-
-| Source | Service | Resource | Message |
-| --- | --- | --- | --- |
-| discovery | ebs | vol-123 | EBS volumes should use current-generation storage. |`);
-  });
-
-  it('adds a Location column to markdown output when a finding has a source location', () => {
-    expect(formatMarkdown(resultWithLocation)).toBe(`## CloudBurn Findings
-
-### aws
-
-#### CLDBRN-AWS-EBS-1
-
-| Source | Service | Resource | Message | Location |
-| --- | --- | --- | --- | --- |
-| iac | ebs | aws_ebs_volume.gp2_logs | EBS volumes should use current-generation storage. | main.tf:4:3 |`);
-  });
-
   it('flattens provider-grouped findings for table output', () => {
     expect(formatTable(resultWithLocation)).toBe(
       'aws CLDBRN-AWS-EBS-1 iac ebs aws_ebs_volume.gp2_logs main.tf:4:3 EBS volumes should use current-generation storage.',

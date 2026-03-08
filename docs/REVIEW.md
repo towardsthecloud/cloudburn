@@ -74,7 +74,7 @@ Cache is invalidated by changes to `tsconfig.base.json`, `biome.jsonc`, `pnpm-lo
 
 ## Formatter and Exit Code Contract
 
-All formatters share the signature `(result: ScanResult) => string`. Available: `formatJson`, `formatTable`, `formatMarkdown`, `formatSarif`.
+All formatters share the signature `(result: ScanResult) => string`. Available: `formatJson`, `formatTable`, `formatSarif`.
 
 Exit codes:
 
@@ -88,7 +88,7 @@ Exit codes:
 
 Published packages: `cloudburn` (cli), `@cloudburn/sdk`, `@cloudburn/rules`. They version independently.
 
-A PR that changes a published package **requires a `.changeset/*.md` file**. Write them manually — do not use the interactive prompt. `patch` for fixes, `minor` for features, `major` for breaking. Only include packages directly changed — not transitive dependents.
+A PR that changes a published package **requires a `.changeset/*.md` file**. Write them manually — do not use the interactive prompt. Use `patch` for fixes and `minor` for features or intentional breaking changes, because this repo does not ship `major` changesets. Call out any breaking change explicitly in the changeset body. Only include packages directly changed — not transitive dependents.
 
 ## Commit Conventions
 

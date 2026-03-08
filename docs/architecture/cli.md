@@ -10,7 +10,7 @@ graph TD
   Root --> Estimate["estimate"]
   Rules --> RulesList["list"]
 
-  Scan -.- ScanFlags["--live\n--format table|json|markdown|sarif\n--exit-code"]
+  Scan -.- ScanFlags["--live\n--format table|json|sarif\n--exit-code"]
   Estimate -.- EstimateFlags["--server url"]
 ```
 
@@ -21,11 +21,9 @@ graph LR
   Result["ScanResult"] --> Dispatch{"options.format"}
   Dispatch -->|table| Table["formatTable"]
   Dispatch -->|json| JSON["formatJson"]
-  Dispatch -->|markdown| MD["formatMarkdown"]
   Dispatch -->|sarif| SARIF["formatSarif"]
   Table --> Stdout["process.stdout"]
   JSON --> Stdout
-  MD --> Stdout
   SARIF --> Stdout
 ```
 
@@ -35,7 +33,6 @@ All formatters now share the signature `(result: ScanResult) => string`.
 | ---------------- | ------ |
 | `formatJson`     | Pretty JSON preserving the lean `providers -> rules -> findings` contract |
 | `formatTable`    | One flattened line per nested match: `provider ruleId source service resourceId [location] message` using rule-group metadata plus nested finding data |
-| `formatMarkdown` | Provider headings, rule headings, then a match table |
 | `formatSarif`    | SARIF 2.1.0 JSON flattened from nested matches |
 
 ## Scan Command Behavior

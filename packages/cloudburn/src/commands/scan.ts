@@ -1,21 +1,30 @@
 import { CloudBurnScanner, type ScanResult } from '@cloudburn/sdk';
-import type { Command } from 'commander';
+import { type Command, InvalidArgumentError } from 'commander';
 import { EXIT_CODE_OK, EXIT_CODE_POLICY_VIOLATION } from '../exit-codes.js';
 import { formatJson } from '../formatters/json.js';
-import { formatMarkdown } from '../formatters/markdown.js';
 import { formatSarif } from '../formatters/sarif.js';
 import { countScanResultFindings } from '../formatters/shared.js';
 import { formatTable } from '../formatters/table.js';
 
+const supportedScanFormats = ['table', 'json', 'sarif'] as const;
+type ScanFormat = (typeof supportedScanFormats)[number];
+
+const parseScanFormat = (value: string): ScanFormat => {
+  if (supportedScanFormats.includes(value as ScanFormat)) {
+    return value as ScanFormat;
+  }
+
+  throw new InvalidArgumentError(`Invalid format "${value}". Allowed formats: ${supportedScanFormats.join(', ')}.`);
+};
+
 type ScanOptions = {
   live?: boolean;
-  format?: 'table' | 'json' | 'markdown' | 'sarif';
+  format?: ScanFormat;
   exitCode?: boolean;
 };
 
-const formatters: Record<string, (result: ScanResult) => string> = {
+const formatters: Record<ScanFormat, (result: ScanResult) => string> = {
   json: formatJson,
-  markdown: formatMarkdown,
   sarif: formatSarif,
   table: formatTable,
 };
@@ -27,13 +36,13 @@ export const registerScanCommand = (program: Command): void => {
     .command('scan [path]')
     .description('Run static IaC scan or live AWS scan')
     .option('--live', 'Run live AWS scan')
-    .option('--format <format>', 'Output format: table|json|markdown|sarif', 'table')
+    .option('--format <format>', 'Output format: table|json|sarif', parseScanFormat, 'table')
     .option('--exit-code', 'Exit with code 1 when findings exist')
     .action(async (path: string | undefined, options: ScanOptions) => {
       const scanner = new CloudBurnScanner();
       const result = options.live ? await scanner.scanLive() : await scanner.scanStatic(path ?? process.cwd());
 
-      const format = formatters[options.format ?? 'table'] ?? formatTable;
+      const format = formatters[options.format ?? 'table'];
       const output = format(result);
 
       process.stdout.write(`${output}\n`);
