@@ -4,13 +4,16 @@
 /** Indicates how a rule discovers resources: live AWS API calls or IaC file parsing. */
 export type ScanSource = 'discovery' | 'iac';
 
-/** Structured location of a cloud resource identified by a finding. */
-export type ResourceLocation = {
-  provider: 'aws' | 'azure' | 'gcp';
-  accountId: string;
-  region: string;
-  service: string;
-  resourceId: string;
+/** Supported cloud providers for built-in and custom rules. */
+export type CloudProvider = 'aws' | 'azure' | 'gcp';
+
+/** Source coordinates for an IaC declaration that produced a finding. */
+export type SourceLocation = {
+  path: string;
+  startLine: number;
+  startColumn: number;
+  endLine?: number;
+  endColumn?: number;
 };
 
 export type AwsEbsVolume = {
@@ -23,6 +26,7 @@ export type AwsEbsVolume = {
 export type AwsEbsVolumeDefinition = {
   resourceId: string;
   volumeType: string;
+  location?: SourceLocation;
 };
 
 export type LiveEvaluationContext = {
@@ -34,13 +38,21 @@ export type StaticEvaluationContext = {
   awsEbsVolumes: AwsEbsVolumeDefinition[];
 };
 
-/** A single policy violation emitted by a rule evaluation. */
+/** A resource-level policy match emitted inside a rule finding group. */
+export type FindingMatch = {
+  resourceId: string;
+  accountId?: string;
+  region?: string;
+  location?: SourceLocation;
+};
+
+/** A rule-level finding group containing all matched resources for that rule. */
 export type Finding = {
-  id: string;
   ruleId: string;
-  message: string;
-  resource: ResourceLocation;
+  service: string;
   source: ScanSource;
+  message: string;
+  findings: FindingMatch[];
 };
 
 /** A declarative cost-optimization rule with optional live and static evaluators. */
@@ -48,9 +60,10 @@ export type Rule = {
   id: string;
   name: string;
   description: string;
-  provider: 'aws' | 'azure' | 'gcp';
+  message: string;
+  provider: CloudProvider;
   service: string;
   supports: ScanSource[];
-  evaluateLive?: (context: LiveEvaluationContext) => Finding[];
-  evaluateStatic?: (context: StaticEvaluationContext) => Finding[];
+  evaluateLive?: (context: LiveEvaluationContext) => Finding | null;
+  evaluateStatic?: (context: StaticEvaluationContext) => Finding | null;
 };

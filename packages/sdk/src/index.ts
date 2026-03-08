@@ -4,10 +4,14 @@ export { awsCorePreset } from '@cloudburn/rules';
 export { CloudBurnScanner } from './scanner.js';
 export type {
   CloudBurnConfig,
+  CloudProvider,
   Finding,
+  FindingMatch,
+  ProviderFindingGroup,
   RegisteredRules,
   Rule,
   RuleConfig,
   ScanResult,
   ScanSource,
+  SourceLocation,
 } from './types.js';

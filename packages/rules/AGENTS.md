@@ -4,15 +4,16 @@
 
 - `createRule` is mandatory for built-in rule declarations.
 - Rule IDs must use `CLDBRN-{PROVIDER}-{SERVICE}-{N}` in uppercase with no zero-padding. Never renumber existing IDs; gaps are allowed.
-- Finding IDs must use `{ruleId}:{resourceId}`.
+- Rule evaluators return lean rule-level groups that include `ruleId`, `service`, `source`, `message`, and nested `FindingMatch[]`.
 - Rule names must describe the policy being enforced, not the migration or fix action.
+- Rule-level `message` is the canonical public policy text for scan output.
 - Declare `supports` accurately and only implement evaluators for the supported scan modes.
-- Set `accountId` to `''` in rule evaluators. The SDK injects the real value after evaluation.
+- Omit `accountId` and `region` when they are not available. Do not emit empty-string placeholders.
 
 ## Type Contracts
 
 - Keep this package pure. No engine logic, config loading, I/O, or AWS SDK calls.
-- `createRule` and `Rule` are the stable API surface for custom rule authors.
+- `createRule`, `createFinding`, and `Rule` are the stable API surface for custom rule authors.
 - Keep exported rule metadata, finding types, and helpers ergonomic for consumers authoring custom rules.
 - Treat changes to shared metadata, helper signatures, or evaluation context types as contract changes for both the SDK and user-authored rules.
 

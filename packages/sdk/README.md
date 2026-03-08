@@ -12,6 +12,22 @@ npm install @cloudburn/sdk
 
 ```ts
 import { CloudBurnScanner } from "@cloudburn/sdk";
+
+const scanner = new CloudBurnScanner();
+const result = await scanner.scanStatic("./terraform");
+
+for (const providerGroup of result.providers) {
+  for (const ruleFindingGroup of providerGroup.rules) {
+    console.log(
+      providerGroup.provider,
+      ruleFindingGroup.ruleId,
+      ruleFindingGroup.service,
+      ruleFindingGroup.source,
+      ruleFindingGroup.message,
+      ruleFindingGroup.findings.length,
+    );
+  }
+}
 ```
 
 ## License

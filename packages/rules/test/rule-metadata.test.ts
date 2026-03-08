@@ -7,6 +7,7 @@ describe('rule metadata', () => {
       expect(rule.id.length).toBeGreaterThan(0);
       expect(rule.name.length).toBeGreaterThan(0);
       expect(rule.description.length).toBeGreaterThan(0);
+      expect(rule.message.length).toBeGreaterThan(0);
       expect(rule.supports.length).toBeGreaterThan(0);
     }
   });

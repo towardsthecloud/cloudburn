@@ -55,6 +55,8 @@ cloudburn init
 cloudburn rules list
 ```
 
+JSON scan output is grouped as `providers -> rules -> findings`, with `ruleId`, `service`, `source`, and `message` on each rule group and only varying fields on each nested finding.
+
 ## Configuration
 
 CloudBurn reads `.cloudburn.yml`.
@@ -95,7 +97,7 @@ pnpm verify
 
 ## Architecture
 
-- Public architecture overview: [docs/architecture.md](docs/architecture.md)
+- Public architecture overview: [ARCHITECTURE.md](ARCHITECTURE.md)
 - Turborepo pipeline guide: [docs/turborepo.md](docs/turborepo.md)
 - Contribution guide: [CONTRIBUTING.md](CONTRIBUTING.md)
 

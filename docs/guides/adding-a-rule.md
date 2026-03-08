@@ -12,55 +12,64 @@ Place it in `packages/rules/src/{provider}/{service}/{kebab-case-name}.ts`.
 
 Example: `packages/rules/src/aws/ebs/volume-type-current-gen.ts`
 
-```typescript
-import { createRule, type Finding, type LiveEvaluationContext, type StaticEvaluationContext } from '../../shared/index.js';
+```ts
+import { createFinding, createRule } from '../../shared/helpers.js';
+import type {
+  Finding,
+  FindingMatch,
+  LiveEvaluationContext,
+  StaticEvaluationContext,
+  SourceLocation,
+} from '../../shared/metadata.js';
 
 const RULE_ID = 'CLDBRN-AWS-EBS-1';
+const RULE_MESSAGE = 'EBS volumes should use current-generation storage.';
 
-const createFinding = (resourceId: string, source: 'discovery' | 'iac', region: string): Finding => ({
-  id: `${RULE_ID}:${resourceId}`,
-  ruleId: RULE_ID,
-  message: `EBS volume ${resourceId} uses gp2; migrate to gp3.`,
-  resource: {
-    provider: 'aws',
-    accountId: '',     // always '' — SDK injects real value
-    region,
-    service: 'ebs',
-    resourceId,
-  },
-  source,
+const createFindingMatch = (resourceId: string, region?: string, location?: SourceLocation): FindingMatch => ({
+  resourceId,
+  ...(region ? { region } : {}),
+  ...(location ? { location } : {}),
 });
 
 export const ebsVolumeTypeCurrentGenRule = createRule({
   id: RULE_ID,
   name: 'EBS Volume Type Not Current Generation',
   description: 'Flag EBS volumes using previous-generation gp2 type instead of gp3.',
+  message: RULE_MESSAGE,
   provider: 'aws',
   service: 'ebs',
   supports: ['discovery', 'iac'],
-  evaluateLive: ({ ebsVolumes }: LiveEvaluationContext): Finding[] =>
-    ebsVolumes
-      .filter((v) => v.volumeType === 'gp2')
-      .map((v) => createFinding(v.volumeId, 'discovery', v.region)),
-  evaluateStatic: ({ awsEbsVolumes }: StaticEvaluationContext): Finding[] =>
-    awsEbsVolumes
-      .filter((v) => v.volumeType === 'gp2')
-      .map((v) => createFinding(v.resourceId, 'iac', '')),
+  evaluateLive: ({ ebsVolumes }: LiveEvaluationContext): Finding | null => {
+    const findings = ebsVolumes
+      .filter((volume) => volume.volumeType === 'gp2')
+      .map((volume) => createFindingMatch(volume.volumeId, volume.region));
+
+    return createFinding(ebsVolumeTypeCurrentGenRule, 'discovery', findings);
+  },
+  evaluateStatic: ({ awsEbsVolumes }: StaticEvaluationContext): Finding | null => {
+    const findings = awsEbsVolumes
+      .filter((volume) => volume.volumeType === 'gp2')
+      .map((volume) => createFindingMatch(volume.resourceId, undefined, volume.location));
+
+    return createFinding(ebsVolumeTypeCurrentGenRule, 'iac', findings);
+  },
 });
 ```
 
 Key patterns:
 
-- Use `createRule()` — mandatory convention.
-- `supports` declares which scan modes the rule implements.
-- Set `accountId: ''` and `region: ''` (for IaC) — the SDK fills these in post-evaluation.
-- Finding `id` is always `{ruleId}:{resourceId}`.
+- Use `createRule()` for all built-in rules.
+- Add a generic rule-level `message` that works for both discovery and IaC.
+- Return one grouped `Finding` or `null`, never a flat `Finding[]`.
+- Keep `ruleId`, `service`, `source`, and `message` on the parent group.
+- Put only varying resource-level data on each `FindingMatch`.
+- Omit unavailable `accountId` and `region` fields instead of emitting empty strings.
 
 ## 3. Register in the Service Index
 
 Add your rule export to `packages/rules/src/aws/{service}/index.ts`:
 
-```typescript
+```ts
 import { ebsVolumeTypeCurrentGenRule } from './volume-type-current-gen.js';
 
 export const ebsRules = [ebsVolumeTypeCurrentGenRule];
@@ -72,36 +81,30 @@ If this is a new service, create the `index.ts` and add the service rules array 
 
 Ensure the service array is spread into `packages/rules/src/aws/index.ts`:
 
-```typescript
+```ts
 export const awsRules = [...ec2Rules, ...ebsRules, ...rdsRules, ...s3Rules, ...lambdaRules];
 ```
 
 ## 5. Preset Inclusion
 
-`awsCorePreset` in `packages/rules/src/presets/aws-core.ts` uses `toRuleIds(awsRules)`, so new rules are automatically included when added to `awsRules`. No manual preset change needed.
+`awsCorePreset` in `packages/rules/src/presets/aws-core.ts` uses `toRuleIds(awsRules)`, so new rules are automatically included when added to `awsRules`. No manual preset change is needed.
 
-## 6. Write Tests (Three Layers)
+## 6. Write Tests
 
 All tests live in `packages/rules/test/`.
 
-### Layer 1 — Export surface (`exports.test.ts`)
+- `exports.test.ts` verifies the package export surface remains valid.
+- `rule-metadata.test.ts` verifies metadata fields are populated.
+- Add a rule-specific evaluator test file for behavior.
 
-Existing tests verify `awsRules` is non-empty and `awsCorePreset.ruleIds.length === awsRules.length`. Adding a rule to the service index is sufficient — no test changes needed unless you add a new provider.
+Pattern:
 
-### Layer 2 — Metadata contract (`rule-metadata.test.ts`)
-
-Existing tests iterate all rules and verify `id`, `name`, `description`, and `supports` are non-empty. No changes needed.
-
-### Layer 3 — Evaluator behavior (new test file)
-
-Create `packages/rules/test/{kebab-case-name}.test.ts`. Pattern:
-
-```typescript
+```ts
 import { describe, expect, it } from 'vitest';
 import { ebsVolumeTypeCurrentGenRule } from '../src/aws/ebs/volume-type-current-gen.js';
 import type { AwsEbsVolume } from '../src/shared/metadata.js';
 
-const createVolume = (overrides?: Partial<AwsEbsVolume>): AwsEbsVolume => ({
+const createVolume = (overrides: Partial<AwsEbsVolume> = {}): AwsEbsVolume => ({
   volumeId: 'vol-test',
   volumeType: 'gp2',
   region: 'us-east-1',
@@ -109,29 +112,39 @@ const createVolume = (overrides?: Partial<AwsEbsVolume>): AwsEbsVolume => ({
 });
 
 describe('CLDBRN-AWS-EBS-1', () => {
-  describe('evaluateLive', () => {
-    it('flags gp2 volumes', () => {
-      const findings = ebsVolumeTypeCurrentGenRule.evaluateLive!({
-        ebsVolumes: [createVolume()],
-      });
-      expect(findings).toHaveLength(1);
-      expect(findings[0].ruleId).toBe('CLDBRN-AWS-EBS-1');
+  it('groups matching discovery resources under one rule finding', () => {
+    const finding = ebsVolumeTypeCurrentGenRule.evaluateLive?.({
+      ebsVolumes: [createVolume()],
     });
 
-    it('skips gp3 volumes', () => {
-      const findings = ebsVolumeTypeCurrentGenRule.evaluateLive!({
-        ebsVolumes: [createVolume({ volumeType: 'gp3' })],
-      });
-      expect(findings).toHaveLength(0);
+    expect(finding).toEqual({
+      ruleId: 'CLDBRN-AWS-EBS-1',
+      service: 'ebs',
+      source: 'discovery',
+      message: 'EBS volumes should use current-generation storage.',
+      findings: [
+        {
+          resourceId: 'vol-test',
+          region: 'us-east-1',
+        },
+      ],
     });
+  });
+
+  it('returns null when nothing matches', () => {
+    const finding = ebsVolumeTypeCurrentGenRule.evaluateLive?.({
+      ebsVolumes: [createVolume({ volumeType: 'gp3' })],
+    });
+
+    expect(finding).toBeNull();
   });
 });
 ```
 
-Test the full finding payload shape, both `evaluateLive` and `evaluateStatic`, and negative cases.
-
 ## 7. Verify
 
 ```bash
-pnpm verify   # lint + typecheck + test across all packages
+pnpm verify
 ```
+
+The SDK later groups these rule-level findings under providers in the public `ScanResult`.

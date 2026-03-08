@@ -37,7 +37,7 @@ sequenceDiagram
   loop Each rule where supports includes 'iac'
     Engine->>Engine: rule.evaluateStatic(context)
   end
-  Engine-->>Scanner: ScanResult { source: 'iac', findings[] }
+  Engine-->>Scanner: ScanResult { providers: ProviderFindingGroup[] }
   Scanner-->>CLI: ScanResult
 ```
 
@@ -63,7 +63,7 @@ sequenceDiagram
   loop Each rule where supports includes 'discovery'
     Engine->>Engine: rule.evaluateLive(context)
   end
-  Engine-->>Scanner: ScanResult { source: 'discovery', findings[] }
+  Engine-->>Scanner: ScanResult { providers: ProviderFindingGroup[] }
   Scanner-->>CLI: ScanResult
 ```
 

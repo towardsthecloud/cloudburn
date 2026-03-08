@@ -11,63 +11,66 @@ const createVolume = (overrides: Partial<AwsEbsVolume> = {}): AwsEbsVolume => ({
 
 describe('ebsVolumeTypeCurrentGenRule', () => {
   it('evaluates gp2 volumes in discovery mode only', () => {
-    const findings = ebsVolumeTypeCurrentGenRule.evaluateLive?.({
+    const finding = ebsVolumeTypeCurrentGenRule.evaluateLive?.({
       ebsVolumes: [createVolume()],
     });
 
     expect(ebsVolumeTypeCurrentGenRule.supports).toEqual(['discovery', 'iac']);
-    expect(findings).toEqual([
-      {
-        id: 'CLDBRN-AWS-EBS-1:vol-123',
-        ruleId: 'CLDBRN-AWS-EBS-1',
-        message: 'EBS volume vol-123 uses gp2; migrate to gp3.',
-        resource: {
-          provider: 'aws',
-          accountId: '',
-          region: 'eu-west-1',
-          service: 'ebs',
+    expect(finding).toEqual({
+      ruleId: 'CLDBRN-AWS-EBS-1',
+      service: 'ebs',
+      source: 'discovery',
+      message: 'EBS volumes should use current-generation storage.',
+      findings: [
+        {
           resourceId: 'vol-123',
+          region: 'eu-west-1',
         },
-        source: 'discovery',
-      },
-    ]);
+      ],
+    });
   });
 
   it('evaluates gp2 volumes in iac mode', () => {
-    const staticContext: StaticEvaluationContext = {
+    const staticContext = {
       awsEbsVolumes: [
         {
           resourceId: 'aws_ebs_volume.gp2_data',
           volumeType: 'gp2',
+          location: {
+            path: 'main.tf',
+            startLine: 4,
+            startColumn: 3,
+          },
         },
       ],
-    };
-    const findings = ebsVolumeTypeCurrentGenRule.evaluateStatic?.({
+    } satisfies StaticEvaluationContext;
+    const finding = ebsVolumeTypeCurrentGenRule.evaluateStatic?.({
       ...staticContext,
     });
 
-    expect(findings).toEqual([
-      {
-        id: 'CLDBRN-AWS-EBS-1:aws_ebs_volume.gp2_data',
-        ruleId: 'CLDBRN-AWS-EBS-1',
-        message: 'EBS volume aws_ebs_volume.gp2_data uses gp2; migrate to gp3.',
-        resource: {
-          provider: 'aws',
-          accountId: '',
-          region: '',
-          service: 'ebs',
+    expect(finding).toEqual({
+      ruleId: 'CLDBRN-AWS-EBS-1',
+      service: 'ebs',
+      source: 'iac',
+      message: 'EBS volumes should use current-generation storage.',
+      findings: [
+        {
           resourceId: 'aws_ebs_volume.gp2_data',
+          location: {
+            path: 'main.tf',
+            startLine: 4,
+            startColumn: 3,
+          },
         },
-        source: 'iac',
-      },
-    ]);
+      ],
+    });
   });
 
   it('ignores non-gp2 volumes', () => {
-    const findings = ebsVolumeTypeCurrentGenRule.evaluateLive?.({
+    const finding = ebsVolumeTypeCurrentGenRule.evaluateLive?.({
       ebsVolumes: [createVolume({ volumeType: 'gp3' })],
     });
 
-    expect(findings).toEqual([]);
+    expect(finding).toBeNull();
   });
 });

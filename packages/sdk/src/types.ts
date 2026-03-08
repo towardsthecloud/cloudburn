@@ -1,7 +1,7 @@
-import type { Finding, Rule, ScanSource } from '@cloudburn/rules';
+import type { CloudProvider, Finding, FindingMatch, Rule, ScanSource, SourceLocation } from '@cloudburn/rules';
 
 // Intent: define SDK-facing contracts for scanner orchestration.
-// TODO(cloudburn): align these interfaces with final CLI output and config schema.
+// TODO(cloudburn): extend config and result metadata as new providers/resources land.
 
 export type RuleConfig = Record<string, unknown>;
 
@@ -17,14 +17,19 @@ export type CloudBurnConfig = {
   };
 };
 
-/** Result of a scan execution containing the source mode and all findings. */
+/** Rule finding groups organized under a cloud provider in scan output. */
+export type ProviderFindingGroup = {
+  provider: CloudProvider;
+  rules: Finding[];
+};
+
+/** Result of a scan execution containing provider-grouped lean rule findings. */
 export type ScanResult = {
-  source: ScanSource;
-  findings: Finding[];
+  providers: ProviderFindingGroup[];
 };
 
 export type RegisteredRules = {
   activeRules: Rule[];
 };
 
-export type { Finding, Rule, ScanSource };
+export type { CloudProvider, Finding, FindingMatch, Rule, ScanSource, SourceLocation };

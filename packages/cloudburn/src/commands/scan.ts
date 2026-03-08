@@ -1,9 +1,10 @@
-import { CloudBurnScanner, type Finding } from '@cloudburn/sdk';
+import { CloudBurnScanner, type ScanResult } from '@cloudburn/sdk';
 import type { Command } from 'commander';
 import { EXIT_CODE_OK, EXIT_CODE_POLICY_VIOLATION } from '../exit-codes.js';
 import { formatJson } from '../formatters/json.js';
 import { formatMarkdown } from '../formatters/markdown.js';
 import { formatSarif } from '../formatters/sarif.js';
+import { countScanResultFindings } from '../formatters/shared.js';
 import { formatTable } from '../formatters/table.js';
 
 type ScanOptions = {
@@ -12,7 +13,7 @@ type ScanOptions = {
   exitCode?: boolean;
 };
 
-const formatters: Record<string, (findings: Finding[]) => string> = {
+const formatters: Record<string, (result: ScanResult) => string> = {
   json: formatJson,
   markdown: formatMarkdown,
   sarif: formatSarif,
@@ -33,11 +34,11 @@ export const registerScanCommand = (program: Command): void => {
       const result = options.live ? await scanner.scanLive() : await scanner.scanStatic(path ?? process.cwd());
 
       const format = formatters[options.format ?? 'table'] ?? formatTable;
-      const output = format(result.findings);
+      const output = format(result);
 
       process.stdout.write(`${output}\n`);
 
-      if (options.exitCode && result.findings.length > 0) {
+      if (options.exitCode && countScanResultFindings(result) > 0) {
         process.exitCode = EXIT_CODE_POLICY_VIOLATION;
         return;
       }

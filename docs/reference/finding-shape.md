@@ -1,70 +1,122 @@
 # Finding and ScanResult Shape Reference
 
-Source of truth: `packages/rules/src/shared/metadata.ts` (types), `packages/sdk/src/types.ts` (SDK re-exports).
-
-## `Finding`
-
-```typescript
-type Finding = {
-  id: string;
-  ruleId: string;
-  message: string;
-  resource: ResourceLocation;
-  source: ScanSource;
-};
-```
-
-| Field      | Type               | Description                                                                                         |
-| ---------- | ------------------ | --------------------------------------------------------------------------------------------------- |
-| `id`       | `string`           | Unique finding identifier. Format: `{ruleId}:{resourceId}`. Example: `CLDBRN-AWS-EBS-1:vol-0abc123` |
-| `ruleId`   | `string`           | The rule that produced this finding. Matches `Rule.id`.                                             |
-| `message`  | `string`           | Human-readable description of the issue.                                                            |
-| `resource` | `ResourceLocation` | Location of the resource that triggered the finding.                                                |
-| `source`   | `ScanSource`       | Which scan mode produced this finding: `'discovery'` or `'iac'`.                                    |
-
-## `ResourceLocation`
-
-```typescript
-type ResourceLocation = {
-  provider: 'aws' | 'azure' | 'gcp';
-  accountId: string;
-  region: string;
-  service: string;
-  resourceId: string;
-};
-```
-
-| Field        | Type                        | Description                                                                                          |
-| ------------ | --------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `provider`   | `'aws' \| 'azure' \| 'gcp'` | Cloud provider.                                                                                      |
-| `accountId`  | `string`                    | Always `''` inside rule evaluators. The SDK injects the real account ID after evaluation.            |
-| `region`     | `string`                    | AWS region for live findings (e.g. `us-east-1`). Empty string `''` for IaC findings.                 |
-| `service`    | `string`                    | Service name (e.g. `ebs`, `ec2`).                                                                    |
-| `resourceId` | `string`                    | Live: AWS resource ID (e.g. `vol-0abc123`). IaC: Terraform address (e.g. `aws_ebs_volume.gp2_data`). |
+Source of truth: `packages/rules/src/shared/metadata.ts` (rule contracts) and `packages/sdk/src/types.ts` (SDK scan result contracts).
 
 ## `ScanSource`
 
-```typescript
+```ts
 type ScanSource = 'discovery' | 'iac';
 ```
 
-| Value         | Meaning                                                     |
-| ------------- | ----------------------------------------------------------- |
-| `'discovery'` | Finding produced by a live AWS API scan (`evaluateLive`).   |
-| `'iac'`       | Finding produced by static IaC analysis (`evaluateStatic`). |
+`source` stays on each rule-level finding group. There is no top-level `source` field on `ScanResult`.
 
-## `ScanResult`
+## `SourceLocation`
 
-```typescript
-type ScanResult = {
-  source: ScanSource;
-  findings: Finding[];
+```ts
+type SourceLocation = {
+  path: string;
+  startLine: number;
+  startColumn: number;
+  endLine?: number;
+  endColumn?: number;
 };
 ```
 
-| Field      | Type         | Description                                                       |
-| ---------- | ------------ | ----------------------------------------------------------------- |
-| `source`   | `ScanSource` | The scan mode that produced this result.                          |
-| `findings` | `Finding[]`  | All findings from the scan. Empty array when no issues are found. |
+IaC findings may include `location`. Live discovery findings omit it.
 
-The `source` field on `ScanResult` is set by the engine (`'iac'` for `runStaticScan`, `'discovery'` for `runLiveScan`). Each `Finding` inside also carries its own `source` field, which should match.
+## `FindingMatch`
+
+```ts
+type FindingMatch = {
+  resourceId: string;
+  accountId?: string;
+  region?: string;
+  location?: SourceLocation;
+};
+```
+
+| Field        | Type             | Description |
+| ------------ | ---------------- | ----------- |
+| `resourceId` | `string`         | Provider-specific resource identity. Terraform uses resource addresses today; future CloudFormation support can use logical IDs or paths in the same field. |
+| `accountId`  | `string?`        | Account identifier when available. Omit it when unavailable. |
+| `region`     | `string?`        | Region when available. Omit it when unavailable. |
+| `location`   | `SourceLocation` | Source coordinates for IaC matches when available. |
+
+## `Finding`
+
+```ts
+type Finding = {
+  ruleId: string;
+  service: string;
+  source: ScanSource;
+  message: string;
+  findings: FindingMatch[];
+};
+```
+
+This is the rule-level group returned by a rule evaluator. Empty groups are not returned; evaluators return `null` instead.
+
+| Field      | Type          | Description |
+| ---------- | ------------- | ----------- |
+| `ruleId`   | `string`      | Stable CloudBurn rule identifier. |
+| `service`  | `string`      | Service name such as `ebs` or `ec2`. |
+| `source`   | `ScanSource`  | Whether the matches came from live discovery or static IaC analysis. |
+| `message`  | `string`      | Generic rule-level policy text shared by every nested match. |
+| `findings` | `FindingMatch[]` | Nested resource-level matches for the rule. |
+
+## `ProviderFindingGroup`
+
+```ts
+type ProviderFindingGroup = {
+  provider: 'aws' | 'azure' | 'gcp';
+  rules: Finding[];
+};
+```
+
+This is the provider-level group returned by the SDK scan engines.
+
+## `ScanResult`
+
+```ts
+type ScanResult = {
+  providers: ProviderFindingGroup[];
+};
+```
+
+Clean scans return:
+
+```json
+{
+  "providers": []
+}
+```
+
+Example non-empty shape:
+
+```json
+{
+  "providers": [
+    {
+      "provider": "aws",
+      "rules": [
+        {
+          "ruleId": "CLDBRN-AWS-EBS-1",
+          "service": "ebs",
+          "source": "iac",
+          "message": "EBS volumes should use current-generation storage.",
+          "findings": [
+            {
+              "resourceId": "aws_ebs_volume.gp2_data",
+              "location": {
+                "path": "main.tf",
+                "startLine": 4,
+                "startColumn": 3
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```

@@ -13,9 +13,55 @@ describe('parsers', () => {
         service: 'ebs',
         type: 'aws_ebs_volume',
         name: 'gp2_data',
+        location: {
+          path: 'ebs-gp2.tf',
+          startLine: 1,
+          startColumn: 1,
+        },
+        attributeLocations: {
+          type: {
+            path: 'ebs-gp2.tf',
+            startLine: 4,
+            startColumn: 3,
+          },
+        },
         attributes: {
           availability_zone: 'eu-west-1a',
           size: 100,
+          type: 'gp2',
+        },
+      },
+    ]);
+  });
+
+  it('captures the top-level type attribute location when nested maps also define type keys', async () => {
+    const resourcePath = fileURLToPath(new URL('./fixtures/terraform/ebs-nested-type.tf', import.meta.url));
+    const resources = await parseTerraform(resourcePath);
+
+    expect(resources).toEqual([
+      {
+        provider: 'aws',
+        service: 'ebs',
+        type: 'aws_ebs_volume',
+        name: 'nested_type',
+        location: {
+          path: 'ebs-nested-type.tf',
+          startLine: 1,
+          startColumn: 1,
+        },
+        attributeLocations: {
+          type: {
+            path: 'ebs-nested-type.tf',
+            startLine: 8,
+            startColumn: 3,
+          },
+        },
+        attributes: {
+          availability_zone: 'eu-west-1a',
+          size: 100,
+          tags: {
+            type: 'important',
+          },
           type: 'gp2',
         },
       },
@@ -32,6 +78,18 @@ describe('parsers', () => {
         service: 'ebs',
         type: 'aws_ebs_volume',
         name: 'gp2_logs',
+        location: {
+          path: 'main.tf',
+          startLine: 1,
+          startColumn: 1,
+        },
+        attributeLocations: {
+          type: {
+            path: 'main.tf',
+            startLine: 4,
+            startColumn: 3,
+          },
+        },
         attributes: {
           availability_zone: 'eu-west-1a',
           size: 50,
@@ -43,6 +101,18 @@ describe('parsers', () => {
         service: 'ebs',
         type: 'aws_ebs_volume',
         name: 'gp3_data',
+        location: {
+          path: 'main.tf',
+          startLine: 7,
+          startColumn: 1,
+        },
+        attributeLocations: {
+          type: {
+            path: 'main.tf',
+            startLine: 10,
+            startColumn: 3,
+          },
+        },
         attributes: {
           availability_zone: 'eu-west-1a',
           size: 200,
@@ -54,6 +124,18 @@ describe('parsers', () => {
         service: 'ebs',
         type: 'aws_ebs_volume',
         name: 'var_backed',
+        location: {
+          path: 'variables.tf',
+          startLine: 6,
+          startColumn: 1,
+        },
+        attributeLocations: {
+          type: {
+            path: 'variables.tf',
+            startLine: 9,
+            startColumn: 3,
+          },
+        },
         attributes: {
           availability_zone: 'eu-west-1a',
           size: 25,

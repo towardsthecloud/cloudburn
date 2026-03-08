@@ -8,27 +8,27 @@ classDiagram
     +string id
     +string name
     +string description
+    +string message
     +provider: 'aws' | 'azure' | 'gcp'
     +string service
     +ScanSource[] supports
-    +evaluateLive(ctx: LiveEvaluationContext)? Finding[]
-    +evaluateStatic(ctx: StaticEvaluationContext)? Finding[]
+    +evaluateLive(ctx: LiveEvaluationContext)? Finding
+    +evaluateStatic(ctx: StaticEvaluationContext)? Finding
   }
 
   class Finding {
-    +string id
     +string ruleId
-    +string message
-    +ResourceLocation resource
+    +string service
     +ScanSource source
+    +string message
+    +FindingMatch[] findings
   }
 
-  class ResourceLocation {
-    +provider: 'aws' | 'azure' | 'gcp'
-    +string accountId
-    +string region
-    +string service
+  class FindingMatch {
     +string resourceId
+    +string accountId?
+    +string region?
+    +SourceLocation location?
   }
 
   class LiveEvaluationContext {
@@ -39,26 +39,13 @@ classDiagram
     +AwsEbsVolumeDefinition[] awsEbsVolumes
   }
 
-  class AwsEbsVolume {
-    +string volumeId
-    +string volumeType
-    +string region
-  }
-
-  class AwsEbsVolumeDefinition {
-    +string resourceId
-    +string volumeType
-  }
-
   Rule --> Finding : produces
-  Finding --> ResourceLocation : contains
+  Finding --> FindingMatch : contains
   Rule --> LiveEvaluationContext : evaluateLive input
   Rule --> StaticEvaluationContext : evaluateStatic input
-  LiveEvaluationContext --> AwsEbsVolume : contains
-  StaticEvaluationContext --> AwsEbsVolumeDefinition : contains
 ```
 
-`ScanSource` is a string union: `'discovery' | 'iac'`.
+Rules now return a single grouped `Finding` or `null`. The SDK is responsible for regrouping those rule findings under providers in the public `ScanResult`.
 
 ## Rule Assembly Chain
 
@@ -71,22 +58,19 @@ graph LR
   Preset --> Export
 ```
 
-### Step by step
+## Authoring Rules
 
-1. **Rule file** — declares a single rule using `createRule({ id, name, description, provider, service, supports, evaluateLive?, evaluateStatic? })`.
-2. **Service index** (e.g. `aws/ebs/index.ts`) — aggregates rules for one service: `export const ebsRules = [ebsVolumeTypeCurrentGenRule]`.
-3. **Provider index** (`aws/index.ts`) — spreads all service arrays: `export const awsRules = [...ec2Rules, ...ebsRules, ...rdsRules, ...s3Rules, ...lambdaRules]`.
-4. **Preset** (`presets/aws-core.ts`) — maps provider rules to IDs: `{ id: 'aws-core', ruleIds: toRuleIds(awsRules) }`.
-5. **Public export** (`index.ts`) — re-exports `awsRules`, `awsCorePreset`, `createRule`, `toRuleIds`, and all types.
+1. Use `createRule({ ... })`.
+2. Keep the stable rule metadata, including the canonical public `message`, on the `Rule` object itself.
+3. Build lean resource-level `FindingMatch` values inside the evaluator.
+4. Return `{ ruleId, service, source, message, findings }` when there are matches.
+5. Return `null` when nothing matches.
 
 ## ID Convention
 
-- **Rule ID:** `CLDBRN-{PROVIDER}-{SERVICE}-{N}` — all uppercase, no zero-padding.
-  - Examples: `CLDBRN-AWS-EBS-1`, `CLDBRN-AWS-EC2-1`, `CLDBRN-AWS-LAMBDA-1`
-- **Finding ID:** `{ruleId}:{resourceId}`
-  - Live example: `CLDBRN-AWS-EBS-1:vol-0abc123`
-  - IaC example: `CLDBRN-AWS-EBS-1:aws_ebs_volume.gp2_data`
-- **No-renumbering policy:** IDs are stable. Gaps are allowed when rules are removed.
+- **Rule ID:** `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
+- Rule IDs remain stable and drive presets, configuration, and public scan output.
+- There are no per-resource finding IDs in the public rules contract anymore.
 
 ## Current Rules
 

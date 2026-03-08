@@ -12,20 +12,23 @@ describe('scan command e2e', () => {
   it('prints live findings as json and leaves a success exit code', async () => {
     const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
     const scanLive = vi.spyOn(CloudBurnScanner.prototype, 'scanLive').mockResolvedValue({
-      source: 'discovery',
-      findings: [
+      providers: [
         {
-          id: 'CLDBRN-AWS-EBS-1:vol-123',
-          ruleId: 'CLDBRN-AWS-EBS-1',
-          message: 'EBS volume vol-123 uses gp2; migrate to gp3.',
-          resource: {
-            provider: 'aws',
-            accountId: '',
-            region: 'us-east-1',
-            service: 'ebs',
-            resourceId: 'vol-123',
-          },
-          source: 'discovery',
+          provider: 'aws',
+          rules: [
+            {
+              ruleId: 'CLDBRN-AWS-EBS-1',
+              service: 'ebs',
+              source: 'discovery',
+              message: 'EBS volumes should use current-generation storage.',
+              findings: [
+                {
+                  resourceId: 'vol-123',
+                  region: 'us-east-1',
+                },
+              ],
+            },
+          ],
         },
       ],
     });
@@ -34,19 +37,23 @@ describe('scan command e2e', () => {
 
     expect(scanLive).toHaveBeenCalledTimes(1);
     expect(stdout).toHaveBeenCalledWith(`{
-  "findings": [
+  "providers": [
     {
-      "id": "CLDBRN-AWS-EBS-1:vol-123",
-      "ruleId": "CLDBRN-AWS-EBS-1",
-      "message": "EBS volume vol-123 uses gp2; migrate to gp3.",
-      "resource": {
-        "provider": "aws",
-        "accountId": "",
-        "region": "us-east-1",
-        "service": "ebs",
-        "resourceId": "vol-123"
-      },
-      "source": "discovery"
+      "provider": "aws",
+      "rules": [
+        {
+          "ruleId": "CLDBRN-AWS-EBS-1",
+          "service": "ebs",
+          "source": "discovery",
+          "message": "EBS volumes should use current-generation storage.",
+          "findings": [
+            {
+              "resourceId": "vol-123",
+              "region": "us-east-1"
+            }
+          ]
+        }
+      ]
     }
   ]
 }\n`);
@@ -57,20 +64,27 @@ describe('scan command e2e', () => {
     const fixturePath = fileURLToPath(new URL('../../sdk/test/fixtures/terraform/scan-dir', import.meta.url));
     const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
     const scanStatic = vi.spyOn(CloudBurnScanner.prototype, 'scanStatic').mockResolvedValue({
-      source: 'iac',
-      findings: [
+      providers: [
         {
-          id: 'CLDBRN-AWS-EBS-1:aws_ebs_volume.gp2_logs',
-          ruleId: 'CLDBRN-AWS-EBS-1',
-          message: 'EBS volume aws_ebs_volume.gp2_logs uses gp2; migrate to gp3.',
-          resource: {
-            provider: 'aws',
-            accountId: '',
-            region: '',
-            service: 'ebs',
-            resourceId: 'aws_ebs_volume.gp2_logs',
-          },
-          source: 'iac',
+          provider: 'aws',
+          rules: [
+            {
+              ruleId: 'CLDBRN-AWS-EBS-1',
+              service: 'ebs',
+              source: 'iac',
+              message: 'EBS volumes should use current-generation storage.',
+              findings: [
+                {
+                  resourceId: 'aws_ebs_volume.gp2_logs',
+                  location: {
+                    path: 'main.tf',
+                    startLine: 4,
+                    startColumn: 3,
+                  },
+                },
+              ],
+            },
+          ],
         },
       ],
     });
@@ -79,19 +93,27 @@ describe('scan command e2e', () => {
 
     expect(scanStatic).toHaveBeenCalledWith(fixturePath);
     expect(stdout).toHaveBeenCalledWith(`{
-  "findings": [
+  "providers": [
     {
-      "id": "CLDBRN-AWS-EBS-1:aws_ebs_volume.gp2_logs",
-      "ruleId": "CLDBRN-AWS-EBS-1",
-      "message": "EBS volume aws_ebs_volume.gp2_logs uses gp2; migrate to gp3.",
-      "resource": {
-        "provider": "aws",
-        "accountId": "",
-        "region": "",
-        "service": "ebs",
-        "resourceId": "aws_ebs_volume.gp2_logs"
-      },
-      "source": "iac"
+      "provider": "aws",
+      "rules": [
+        {
+          "ruleId": "CLDBRN-AWS-EBS-1",
+          "service": "ebs",
+          "source": "iac",
+          "message": "EBS volumes should use current-generation storage.",
+          "findings": [
+            {
+              "resourceId": "aws_ebs_volume.gp2_logs",
+              "location": {
+                "path": "main.tf",
+                "startLine": 4,
+                "startColumn": 3
+              }
+            }
+          ]
+        }
+      ]
     }
   ]
 }\n`);

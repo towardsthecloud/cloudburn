@@ -50,7 +50,7 @@ pnpm verify
 2. Create a rule file using `createRule(...)` from `shared/helpers.ts`.
 3. Include mandatory metadata:
 
-- `id`, `name`, `description`, `provider`, `service`, `supports`
+- `id`, `name`, `description`, `message`, `provider`, `service`, `supports`
 
 Keep provider discovery, parsers, and cloud SDK calls in `@cloudburn/sdk`. Rule files in
 `@cloudburn/rules` should stay pure and expose evaluators over normalized inputs.
@@ -63,6 +63,7 @@ Keep provider discovery, parsers, and cloud SDK calls in `@cloudburn/sdk`. Rule 
 
 - IDs use the `CLDBRN-{PROVIDER}-{SERVICE}-{N}` format (uppercase, no zero-padding, sequential per service).
 - Keep descriptions user-facing and actionable.
+- Keep `message` as the generic public policy text for grouped scan output.
 - Prefer `supports: ['iac', 'discovery']` only when both are implemented.
 - Use `supports: ['discovery']` or `supports: ['iac']` when a rule only has one real evaluator.
 - `CLDBRN-AWS-EBS-1` (`volume-type-current-gen`) is the reference example for a rule supporting both discovery and IaC evaluation.

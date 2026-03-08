@@ -9,7 +9,7 @@
 ## Integration Contracts
 
 - Preserve stable return shapes from scanner methods and config loaders.
-- Keep runtime-injected fields explicit. Rules stay pure and the engine supplies runtime context such as `accountId`.
+- Keep the canonical `providers -> rules -> findings` result shape stable. Rules stay pure and the SDK only regroups non-empty rule outputs under providers.
 - Design new integration points for external callers first, not only the CLI.
 
 ## Boundaries

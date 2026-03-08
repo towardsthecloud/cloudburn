@@ -11,60 +11,64 @@ classDiagram
   }
 ```
 
-The facade is the only public entry point. It delegates to the config system and engine functions.
+The facade is the only public entry point. It delegates to config loading, resource discovery/parsing, rule evaluation, and provider grouping.
 
-## Config Pipeline
-
-```mermaid
-graph LR
-  Caller["Caller (CLI or direct)"] -->|"config?"| Facade["CloudBurnScanner"]
-  Facade --> Loader["loadConfig(path?)"]
-  Loader --> Merge["mergeConfig(partial?)"]
-  Merge --> Defaults["defaultConfig"]
-  Merge --> Result["CloudBurnConfig"]
-```
-
-- `loadConfig(path?)` — currently returns `mergeConfig()` (pure defaults). YAML file reading is a TODO.
-- `mergeConfig(partial?)` — deep-spreads caller overrides into `defaultConfig`. Explicit sub-object merging for `profiles`, `rules`, `live` (including `live.tags`, `live.regions`).
-- `defaultConfig` — baseline: `{ version: 1, profile: 'dev', profiles: {}, rules: {}, customRules: [], live: { tags: {}, regions: [] } }`.
-- `CLOUDBURN_CONFIG_VERSION` — currently `1` (from `schema.ts`).
-
-## Engine
+## Engine Flow
 
 ```mermaid
 graph TD
   subgraph Static["runStaticScan(path, config)"]
     SR[buildRuleRegistry] --> SP[parseTerraform]
     SP --> SC[toStaticContext]
-    SC --> SE["rule.evaluateStatic()"]
-    SE --> SOut["ScanResult { source: 'iac' }"]
+    SC --> SE["rule.evaluateStatic() => Finding | null"]
+    SE --> SG[groupFindingsByProvider]
+    SG --> SOut["ScanResult { providers: ProviderFindingGroup[] }"]
   end
 
   subgraph Live["runLiveScan(config)"]
     LR[buildRuleRegistry] --> LA[scanAwsResources]
-    LA --> LE["rule.evaluateLive()"]
-    LE --> LOut["ScanResult { source: 'discovery' }"]
+    LA --> LE["rule.evaluateLive() => Finding | null"]
+    LE --> LG[groupFindingsByProvider]
+    LG --> LOut["ScanResult { providers: ProviderFindingGroup[] }"]
   end
 ```
 
-### Rule Registry (`engine/registry.ts`)
+### Static Scan
 
-`buildRuleRegistry(config)` assembles the active rule set. Currently returns all `awsRules` from `@cloudburn/rules` unconditionally — enable/disable filtering and custom rule loading are TODOs.
+1. Build the rule registry.
+2. Parse Terraform into normalized `IaCResource[]`.
+3. Build `StaticEvaluationContext`.
+4. Invoke each static evaluator.
+5. Group non-null rule findings under `providers -> rules -> findings`.
 
-### Static Scan (`engine/run-static.ts`)
+### Live Scan
 
-1. Build rule registry
-2. `parseTerraform(path)` — parse `.tf` files into `IaCResource[]`
-3. `toStaticContext(resources)` — maps `IaCResource[]` to `StaticEvaluationContext` (currently handles `aws_ebs_volume` only)
-4. Filter rules to those with `supports.includes('iac')` and `evaluateStatic` defined
-5. Invoke each rule's `evaluateStatic(context)`, collect findings
+1. Build the rule registry.
+2. Discover live AWS resources.
+3. Build `LiveEvaluationContext`.
+4. Invoke each live evaluator.
+5. Group non-null rule findings under `providers -> rules -> findings`.
 
-### Live Scan (`engine/run-live.ts`)
+## Public Result Shape
 
-1. Build rule registry
-2. `scanAwsResources(regions)` — discover live AWS resources into `LiveEvaluationContext`
-3. Filter rules to those with `supports.includes('discovery')` and `evaluateLive` defined
-4. Invoke each rule's `evaluateLive(context)`, collect findings
+```ts
+type ScanResult = {
+  providers: Array<{
+    provider: 'aws' | 'azure' | 'gcp';
+    rules: Array<{
+      ruleId: string;
+      service: string;
+      source: ScanSource;
+      message: string;
+      findings: FindingMatch[];
+    }>;
+  }>;
+};
+```
+
+- Empty scans return `{ providers: [] }`.
+- `source`, `service`, and `message` are carried on each rule group, not on `ScanResult`.
+- IaC matches may include `location`.
 
 ## Parser Layer
 
@@ -77,26 +81,8 @@ graph LR
   Extract --> IaC["IaCResource[]"]
 ```
 
-`IaCResource` shape: `{ provider, service, type, name, attributes }`.
+`IaCResource` now carries normalized attributes plus optional block- and attribute-level source locations for supported Terraform resources.
 
-Currently only `aws_ebs_volume` resources are extracted. A CloudFormation parser (`parseCloudFormation`) is re-exported but not yet implemented.
+## Provider Layer
 
-## AWS Provider Layer
-
-```mermaid
-graph TD
-  ScanAws["scanAwsResources(regions)"] --> Resolve["resolveAwsRegions(regions)"]
-  Resolve --> EBS["discoverAwsEbsVolumes(regions)"]
-  EBS --> Context["LiveEvaluationContext { ebsVolumes }"]
-```
-
-| Discoverer               | Status                                               |
-| ------------------------ | ---------------------------------------------------- |
-| `discoverAwsEbsVolumes`  | Implemented — paginates `DescribeVolumes` per region |
-| `discoverEc2Resources`   | Stub (returns `[]`)                                  |
-| `discoverRdsResources`   | Stub (returns `[]`)                                  |
-| `discoverS3Resources`    | Stub (returns `[]`)                                  |
-| `discoverElbV2Resources` | Stub (returns `[]`)                                  |
-| `fetchCloudWatchSignals` | Stub (returns `[]`)                                  |
-
-`resolveAwsRegions` auto-detects the current region via the EC2 client if no regions are configured.
+`buildRuleRegistry(config)` still decides which rules are active. The engines use `rule.provider` to place each non-null rule finding into the correct top-level provider group in `ScanResult`.

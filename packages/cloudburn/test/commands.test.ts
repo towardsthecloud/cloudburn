@@ -4,23 +4,27 @@ import { formatJson } from '../src/formatters/json.js';
 
 const findings = [
   {
-    id: 'CLDBRN-AWS-EC2-1:i-placeholder',
-    ruleId: 'CLDBRN-AWS-EC2-1',
-    message: 'Placeholder finding',
-    resource: {
-      provider: 'aws' as const,
-      accountId: '',
-      region: 'us-east-1',
-      service: 'ec2',
-      resourceId: 'i-placeholder',
-    },
-    source: 'iac' as const,
+    provider: 'aws' as const,
+    rules: [
+      {
+        ruleId: 'CLDBRN-AWS-EC2-1',
+        service: 'ec2',
+        source: 'iac' as const,
+        message: 'EC2 instances should use approved instance-type profiles.',
+        findings: [
+          {
+            resourceId: 'i-placeholder',
+            region: 'us-east-1',
+          },
+        ],
+      },
+    ],
   },
 ];
 
 describe('commands and formatters', () => {
   it('formats findings as JSON', () => {
-    const output = formatJson(findings);
+    const output = formatJson({ providers: findings });
 
     expect(output).toContain('CLDBRN-AWS-EC2-1');
   });

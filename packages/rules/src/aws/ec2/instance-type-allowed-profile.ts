@@ -6,6 +6,7 @@ export const ec2InstanceTypeAllowedProfileRule = createRule({
   id: 'CLDBRN-AWS-EC2-1',
   name: 'EC2 Instance Type Not in Allowed Profile',
   description: 'Ensure EC2 instance types match allowed profile policy.',
+  message: 'EC2 instances should use approved instance-type profiles.',
   provider: 'aws',
   service: 'ec2',
   supports: ['iac', 'discovery'],
