@@ -1,5 +1,11 @@
 # @cloudburn/rules
 
+## 0.5.0
+
+### Minor Changes
+
+- [#14](https://github.com/towardsthecloud/cloudburn/pull/14) [`a16b579`](https://github.com/towardsthecloud/cloudburn/commit/a16b579bd223464a55245dd8459e6a062626d9e2) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Replace service-specific Terraform static context fields with a generic `terraformResources` catalog for static rule evaluation.
+
 ## 0.4.0
 
 ### Minor Changes

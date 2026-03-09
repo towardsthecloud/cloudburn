@@ -1,5 +1,18 @@
 # cloudburn
 
+## 0.3.0
+
+### Minor Changes
+
+- [#13](https://github.com/towardsthecloud/cloudburn/pull/13) [`409f439`](https://github.com/towardsthecloud/cloudburn/commit/409f43936fac5e5380bf0f8a2866a359db0f5027) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Remove Markdown as a supported `cloudburn scan --format` value.
+
+  This is a breaking CLI change: `cloudburn scan --format markdown` now fails as an invalid format. Use `table`, `json`, or `sarif` instead.
+
+### Patch Changes
+
+- Updated dependencies [[`a16b579`](https://github.com/towardsthecloud/cloudburn/commit/a16b579bd223464a55245dd8459e6a062626d9e2)]:
+  - @cloudburn/sdk@0.5.0
+
 ## 0.2.0
 
 ### Minor Changes

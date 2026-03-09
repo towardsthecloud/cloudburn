@@ -1,5 +1,16 @@
 # @cloudburn/sdk
 
+## 0.5.0
+
+### Minor Changes
+
+- [#14](https://github.com/towardsthecloud/cloudburn/pull/14) [`a16b579`](https://github.com/towardsthecloud/cloudburn/commit/a16b579bd223464a55245dd8459e6a062626d9e2) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Generalize Terraform parsing to extract all AWS `resource` blocks into a shared static resource catalog for rule evaluation.
+
+### Patch Changes
+
+- Updated dependencies [[`a16b579`](https://github.com/towardsthecloud/cloudburn/commit/a16b579bd223464a55245dd8459e6a062626d9e2)]:
+  - @cloudburn/rules@0.5.0
+
 ## 0.4.0
 
 ### Minor Changes
