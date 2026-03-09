@@ -8,19 +8,7 @@ import { buildRuleRegistry } from './registry.js';
 // Intent: orchestrate static IaC scans by parser -> registry -> rule evaluation.
 // TODO(cloudburn): evaluate static rule handlers and return real findings.
 const toStaticContext = (resources: IaCResource[]): StaticEvaluationContext => ({
-  awsEbsVolumes: resources.flatMap((resource) => {
-    if (resource.provider !== 'aws' || resource.service !== 'ebs' || resource.type !== 'aws_ebs_volume') {
-      return [];
-    }
-
-    return [
-      {
-        resourceId: `${resource.type}.${resource.name}`,
-        volumeType: typeof resource.attributes.type === 'string' ? resource.attributes.type : '',
-        location: resource.attributeLocations?.type ?? resource.location,
-      },
-    ];
-  }),
+  terraformResources: resources,
 });
 
 export const runStaticScan = async (path: string, config: CloudBurnConfig): Promise<ScanResult> => {

@@ -1,11 +1,33 @@
 import { describe, expect, it } from 'vitest';
 import { ebsVolumeTypeCurrentGenRule } from '../src/aws/ebs/volume-type-current-gen.js';
-import type { AwsEbsVolume, StaticEvaluationContext } from '../src/index.js';
+import type { AwsEbsVolume, IaCResource, StaticEvaluationContext } from '../src/index.js';
 
 const createVolume = (overrides: Partial<AwsEbsVolume> = {}): AwsEbsVolume => ({
   volumeId: 'vol-123',
   volumeType: 'gp2',
   region: 'eu-west-1',
+  ...overrides,
+});
+
+const createTerraformResource = (overrides: Partial<IaCResource> = {}): IaCResource => ({
+  provider: 'aws',
+  type: 'aws_ebs_volume',
+  name: 'gp2_data',
+  location: {
+    path: 'main.tf',
+    startLine: 1,
+    startColumn: 1,
+  },
+  attributeLocations: {
+    type: {
+      path: 'main.tf',
+      startLine: 4,
+      startColumn: 3,
+    },
+  },
+  attributes: {
+    type: 'gp2',
+  },
   ...overrides,
 });
 
@@ -32,17 +54,7 @@ describe('ebsVolumeTypeCurrentGenRule', () => {
 
   it('evaluates gp2 volumes in iac mode', () => {
     const staticContext = {
-      awsEbsVolumes: [
-        {
-          resourceId: 'aws_ebs_volume.gp2_data',
-          volumeType: 'gp2',
-          location: {
-            path: 'main.tf',
-            startLine: 4,
-            startColumn: 3,
-          },
-        },
-      ],
+      terraformResources: [createTerraformResource()],
     } satisfies StaticEvaluationContext;
     const finding = ebsVolumeTypeCurrentGenRule.evaluateStatic?.({
       ...staticContext,
@@ -69,6 +81,29 @@ describe('ebsVolumeTypeCurrentGenRule', () => {
   it('ignores non-gp2 volumes', () => {
     const finding = ebsVolumeTypeCurrentGenRule.evaluateLive?.({
       ebsVolumes: [createVolume({ volumeType: 'gp3' })],
+    });
+
+    expect(finding).toBeNull();
+  });
+
+  it('ignores non-ebs terraform resources in iac mode', () => {
+    const finding = ebsVolumeTypeCurrentGenRule.evaluateStatic?.({
+      terraformResources: [
+        createTerraformResource({
+          type: 'aws_instance',
+          name: 'web',
+          attributes: {
+            instance_type: 't3.micro',
+          },
+          attributeLocations: {
+            instance_type: {
+              path: 'main.tf',
+              startLine: 8,
+              startColumn: 3,
+            },
+          },
+        }),
+      ],
     });
 
     expect(finding).toBeNull();

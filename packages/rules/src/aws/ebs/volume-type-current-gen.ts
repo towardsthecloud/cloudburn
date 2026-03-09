@@ -34,10 +34,17 @@ export const ebsVolumeTypeCurrentGenRule = createRule({
       findings,
     );
   },
-  evaluateStatic: ({ awsEbsVolumes }) => {
-    const findings = awsEbsVolumes
-      .filter((volume) => volume.volumeType === 'gp2')
-      .map((volume) => createFindingMatch(volume.resourceId, undefined, volume.location));
+  evaluateStatic: ({ terraformResources }) => {
+    const findings = terraformResources
+      .filter((resource) => resource.provider === 'aws' && resource.type === 'aws_ebs_volume')
+      .filter((resource) => resource.attributes.type === 'gp2')
+      .map((resource) =>
+        createFindingMatch(
+          `${resource.type}.${resource.name}`,
+          undefined,
+          resource.attributeLocations?.type ?? resource.location,
+        ),
+      );
 
     return createFinding(
       {

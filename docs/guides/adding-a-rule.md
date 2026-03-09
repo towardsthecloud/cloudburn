@@ -17,6 +17,7 @@ import { createFinding, createRule } from '../../shared/helpers.js';
 import type {
   Finding,
   FindingMatch,
+  IaCResource,
   LiveEvaluationContext,
   StaticEvaluationContext,
   SourceLocation,
@@ -30,6 +31,9 @@ const createFindingMatch = (resourceId: string, region?: string, location?: Sour
   ...(region ? { region } : {}),
   ...(location ? { location } : {}),
 });
+
+const isAwsEbsVolume = (resource: IaCResource): boolean =>
+  resource.provider === 'aws' && resource.type === 'aws_ebs_volume';
 
 export const ebsVolumeTypeCurrentGenRule = createRule({
   id: RULE_ID,
@@ -46,10 +50,17 @@ export const ebsVolumeTypeCurrentGenRule = createRule({
 
     return createFinding(ebsVolumeTypeCurrentGenRule, 'discovery', findings);
   },
-  evaluateStatic: ({ awsEbsVolumes }: StaticEvaluationContext): Finding | null => {
-    const findings = awsEbsVolumes
-      .filter((volume) => volume.volumeType === 'gp2')
-      .map((volume) => createFindingMatch(volume.resourceId, undefined, volume.location));
+  evaluateStatic: ({ terraformResources }: StaticEvaluationContext): Finding | null => {
+    const findings = terraformResources
+      .filter(isAwsEbsVolume)
+      .filter((resource) => resource.attributes.type === 'gp2')
+      .map((resource) =>
+        createFindingMatch(
+          `${resource.type}.${resource.name}`,
+          undefined,
+          resource.attributeLocations?.type ?? resource.location,
+        ),
+      );
 
     return createFinding(ebsVolumeTypeCurrentGenRule, 'iac', findings);
   },
@@ -60,6 +71,7 @@ Key patterns:
 
 - Use `createRule()` for all built-in rules.
 - Add a generic rule-level `message` that works for both discovery and IaC.
+- For Terraform scans, filter `terraformResources` by Terraform resource type inside the rule.
 - Return one grouped `Finding` or `null`, never a flat `Finding[]`.
 - Keep `ruleId`, `service`, `source`, and `message` on the parent group.
 - Put only varying resource-level data on each `FindingMatch`.

@@ -57,6 +57,7 @@
 
 - Published packages: `cloudburn` (cli), `@cloudburn/sdk`, `@cloudburn/rules`.
 - Write `.changeset/<random-kebab-case-slug>.md` directly — do not use the interactive `pnpm changeset` prompt.
+- Changeset files must use full frontmatter delimiters: opening `---`, then the package bump lines, then closing `---`.
 - Use `patch` for fixes and `minor` for new features. Never use `major` changesets.
 - Only include packages directly changed by the PR.
 - **One changeset file per package** — never list multiple packages in one file (the summary gets duplicated to all of them).

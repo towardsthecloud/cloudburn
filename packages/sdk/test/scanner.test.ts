@@ -56,7 +56,7 @@ describe('CloudBurnScanner', () => {
     });
   });
 
-  it('returns a static ebs finding for literal gp2 terraform resources', async () => {
+  it('returns a static ebs finding from the generic terraform resource catalog', async () => {
     const scanner = new CloudBurnScanner();
     const fixturePath = fileURLToPath(new URL('./fixtures/terraform/scan-dir', import.meta.url));
 
@@ -89,7 +89,7 @@ describe('CloudBurnScanner', () => {
     });
   });
 
-  it('returns an empty static scan result when terraform files have no supported resources', async () => {
+  it('returns an empty static scan result when terraform files have no aws resources', async () => {
     const scanner = new CloudBurnScanner();
     const fixturePath = fileURLToPath(new URL('./fixtures/terraform/no-resources', import.meta.url));
 

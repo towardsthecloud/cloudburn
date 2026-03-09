@@ -22,20 +22,26 @@ export type AwsEbsVolume = {
   region: string;
 };
 
-/** A Terraform-declared EBS volume available to static rule evaluators. */
-export type AwsEbsVolumeDefinition = {
-  resourceId: string;
-  volumeType: string;
+/**
+ * Normalized IaC resource shape shared across Terraform and CloudFormation
+ * parsers.
+ */
+export type IaCResource = {
+  provider: CloudProvider;
+  type: string;
+  name: string;
   location?: SourceLocation;
+  attributeLocations?: Record<string, SourceLocation>;
+  attributes: Record<string, unknown>;
 };
 
 export type LiveEvaluationContext = {
   ebsVolumes: AwsEbsVolume[];
 };
 
-/** Provider-normalized IaC resources available to static rule evaluators. */
+/** Provider-normalized Terraform resources available to static rule evaluators. */
 export type StaticEvaluationContext = {
-  awsEbsVolumes: AwsEbsVolumeDefinition[];
+  terraformResources: IaCResource[];
 };
 
 /** A resource-level policy match emitted inside a rule finding group. */

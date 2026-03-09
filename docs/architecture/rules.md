@@ -35,14 +35,24 @@ classDiagram
     +AwsEbsVolume[] ebsVolumes
   }
 
+  class IaCResource {
+    +provider
+    +type
+    +name
+    +attributes
+    +location?
+    +attributeLocations?
+  }
+
   class StaticEvaluationContext {
-    +AwsEbsVolumeDefinition[] awsEbsVolumes
+    +IaCResource[] terraformResources
   }
 
   Rule --> Finding : produces
   Finding --> FindingMatch : contains
   Rule --> LiveEvaluationContext : evaluateLive input
   Rule --> StaticEvaluationContext : evaluateStatic input
+  StaticEvaluationContext --> IaCResource : contains
 ```
 
 Rules now return a single grouped `Finding` or `null`. The SDK is responsible for regrouping those rule findings under providers in the public `ScanResult`.

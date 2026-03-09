@@ -37,7 +37,7 @@ graph TD
 
 1. Build the rule registry.
 2. Parse Terraform into normalized `IaCResource[]`.
-3. Build `StaticEvaluationContext`.
+3. Build `StaticEvaluationContext` with `terraformResources`.
 4. Invoke each static evaluator.
 5. Group non-null rule findings under `providers -> rules -> findings`.
 
@@ -77,11 +77,11 @@ graph LR
   Path["file or directory"] --> TF["parseTerraform(path)"]
   TF --> Walk["recursive walk\n(skips .git, .terraform, node_modules)"]
   Walk --> HCL["@cdktf/hcl2json"]
-  HCL --> Extract["extract resource.aws_ebs_volume blocks"]
+  HCL --> Extract["extract all aws_* resource blocks"]
   Extract --> IaC["IaCResource[]"]
 ```
 
-`IaCResource` now carries normalized attributes plus optional block- and attribute-level source locations for supported Terraform resources.
+`IaCResource` carries normalized attributes plus optional block- and attribute-level source locations for parsed AWS Terraform resources. Rules filter that shared catalog by Terraform resource type such as `aws_ebs_volume` or `aws_instance`.
 
 ## Provider Layer
 

@@ -69,7 +69,9 @@ const countBraceDelta = (line: string): number => {
   return delta;
 };
 
-const locateAwsEbsVolumeBlocks = (contents: string, path: string): Map<string, ResourceLocationMetadata> => {
+const toResourceLocationKey = (resourceType: string, resourceName: string): string => `${resourceType}.${resourceName}`;
+
+const locateResourceBlocks = (contents: string, path: string): Map<string, ResourceLocationMetadata> => {
   const lines = contents.split(/\r?\n/u);
   const locations = new Map<string, ResourceLocationMetadata>();
 
@@ -80,16 +82,17 @@ const locateAwsEbsVolumeBlocks = (contents: string, path: string): Map<string, R
       continue;
     }
 
-    const blockMatch = /^(\s*)resource\s+"aws_ebs_volume"\s+"([^"]+)"\s*\{/u.exec(line);
+    const blockMatch = /^(\s*)resource\s+"([^"]+)"\s+"([^"]+)"\s*\{/u.exec(line);
 
     if (!blockMatch) {
       continue;
     }
 
     const leadingWhitespace = blockMatch[1] ?? '';
-    const resourceName = blockMatch[2];
+    const resourceType = blockMatch[2];
+    const resourceName = blockMatch[3];
 
-    if (!resourceName) {
+    if (!resourceType || !resourceName) {
       continue;
     }
 
@@ -108,17 +111,20 @@ const locateAwsEbsVolumeBlocks = (contents: string, path: string): Map<string, R
         continue;
       }
 
-      if (depth === 1 && !attributeLocations.type) {
-        const typeMatch = /^(\s*)type\s*=/u.exec(blockLine);
+      if (depth === 1) {
+        const attributeMatch = /^(\s*)([A-Za-z0-9_]+)\s*=/u.exec(blockLine);
 
-        if (typeMatch) {
-          const attributeLeadingWhitespace = typeMatch[1] ?? '';
+        if (attributeMatch) {
+          const attributeLeadingWhitespace = attributeMatch[1] ?? '';
+          const attributeName = attributeMatch[2];
 
-          attributeLocations.type = {
-            path,
-            startLine: blockLineIndex + 1,
-            startColumn: attributeLeadingWhitespace.length + 1,
-          };
+          if (attributeName && !attributeLocations[attributeName]) {
+            attributeLocations[attributeName] = {
+              path,
+              startLine: blockLineIndex + 1,
+              startColumn: attributeLeadingWhitespace.length + 1,
+            };
+          }
         }
       }
 
@@ -129,7 +135,7 @@ const locateAwsEbsVolumeBlocks = (contents: string, path: string): Map<string, R
       }
     }
 
-    locations.set(resourceName, {
+    locations.set(toResourceLocationKey(resourceType, resourceName), {
       blockLocation,
       attributeLocations,
     });
@@ -145,39 +151,69 @@ const toIaCResources = async (path: string, scanRoot: string): Promise<IaCResour
 
   const contents = await readFile(path, 'utf8');
   const relativePath = toRelativePath(path, scanRoot);
-  const locations = locateAwsEbsVolumeBlocks(contents, relativePath);
+  const locations = locateResourceBlocks(contents, relativePath);
   const parsed = await parseHcl(path, contents);
-  const ebsResources = parsed.resource?.aws_ebs_volume;
+  const parsedResources = parsed.resource;
 
-  if (!ebsResources || typeof ebsResources !== 'object') {
+  if (!parsedResources || typeof parsedResources !== 'object') {
     return [];
   }
 
-  return Object.entries(ebsResources).flatMap(([name, definitions]) => {
-    if (!Array.isArray(definitions)) {
+  const resources = Object.entries(parsedResources).flatMap(([resourceType, namedResources]) => {
+    if (!resourceType.startsWith('aws_') || typeof namedResources !== 'object' || namedResources === null) {
       return [];
     }
 
-    return definitions
-      .filter(
-        (definition): definition is Record<string, unknown> => typeof definition === 'object' && definition !== null,
-      )
-      .map((definition) => {
-        const resourceLocations = locations.get(name);
+    return Object.entries(namedResources).flatMap(([name, definitions]) => {
+      if (!Array.isArray(definitions)) {
+        return [];
+      }
 
-        return {
-          provider: 'aws',
-          service: 'ebs',
-          type: 'aws_ebs_volume',
-          name,
-          location: resourceLocations?.blockLocation,
-          attributeLocations:
-            resourceLocations && Object.keys(resourceLocations.attributeLocations).length > 0
-              ? resourceLocations.attributeLocations
-              : undefined,
-          attributes: definition,
-        };
-      });
+      return definitions
+        .filter(
+          (definition): definition is Record<string, unknown> => typeof definition === 'object' && definition !== null,
+        )
+        .map((definition) => {
+          const resourceLocations = locations.get(toResourceLocationKey(resourceType, name));
+
+          return {
+            provider: 'aws' as const,
+            type: resourceType,
+            name,
+            location: resourceLocations?.blockLocation,
+            attributeLocations:
+              resourceLocations && Object.keys(resourceLocations.attributeLocations).length > 0
+                ? resourceLocations.attributeLocations
+                : undefined,
+            attributes: definition,
+          };
+        });
+    });
+  });
+
+  return resources.sort((left, right) => {
+    const leftPath = left.location?.path ?? '';
+    const rightPath = right.location?.path ?? '';
+
+    if (leftPath !== rightPath) {
+      return leftPath.localeCompare(rightPath);
+    }
+
+    const leftLine = left.location?.startLine ?? 0;
+    const rightLine = right.location?.startLine ?? 0;
+
+    if (leftLine !== rightLine) {
+      return leftLine - rightLine;
+    }
+
+    const leftColumn = left.location?.startColumn ?? 0;
+    const rightColumn = right.location?.startColumn ?? 0;
+
+    if (leftColumn !== rightColumn) {
+      return leftColumn - rightColumn;
+    }
+
+    return toResourceLocationKey(left.type, left.name).localeCompare(toResourceLocationKey(right.type, right.name));
   });
 };
 
@@ -191,7 +227,9 @@ const parseTerraformPath = async (path: string, scanRoot: string): Promise<IaCRe
   if (!pathStats.isDirectory()) {
     return [];
   }
-  const entries = await readdir(path, { withFileTypes: true });
+  const entries = (await readdir(path, { withFileTypes: true })).sort((left, right) =>
+    left.name.localeCompare(right.name),
+  );
   const resources = await Promise.all(
     entries.flatMap((entry) => {
       if (entry.isDirectory() && SKIPPED_DIRECTORIES.has(entry.name)) {
@@ -210,5 +248,5 @@ const parseTerraformPath = async (path: string, scanRoot: string): Promise<IaCRe
 };
 
 // Intent: parse Terraform files into normalized IaCResource entries.
-// TODO(cloudburn): integrate HCL parser and map TF resources to services.
+// TODO(cloudburn): extend parsing beyond AWS resources as new providers land.
 export const parseTerraform = async (path: string): Promise<IaCResource[]> => parseTerraformPath(path, path);

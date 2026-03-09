@@ -7,10 +7,10 @@ export { awsCorePreset } from './presets/aws-core.js';
 export { createFinding, createRule, toRuleIds } from './shared/helpers.js';
 export type {
   AwsEbsVolume,
-  AwsEbsVolumeDefinition,
   CloudProvider,
   Finding,
   FindingMatch,
+  IaCResource,
   LiveEvaluationContext,
   Rule,
   ScanSource,

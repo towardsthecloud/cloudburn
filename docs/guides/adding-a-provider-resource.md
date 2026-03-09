@@ -4,10 +4,12 @@ How to extend the SDK provider layer to discover a new AWS resource type, and wi
 
 ## Overview
 
-Adding a new resource requires changes across two packages:
+Adding a new live AWS resource requires changes across two packages:
 
 1. **`@cloudburn/rules`** — extend evaluation context types
-2. **`@cloudburn/sdk`** — add discoverer, wire into scanner, extend static context mapping
+2. **`@cloudburn/sdk`** — add discoverer and wire it into the scanner
+
+For static Terraform scans, AWS `resource` blocks are already parsed into `StaticEvaluationContext.terraformResources`. Adding a new AWS Terraform rule usually does not require parser or static-context changes.
 
 ## 1. Add Resource Types to Rules
 
@@ -34,21 +36,13 @@ export type LiveEvaluationContext = {
 };
 ```
 
-### IaC resource type (if supporting static scans)
+### Static Terraform support
 
-```typescript
-export type AwsEc2InstanceDefinition = {
-  resourceId: string;
-  instanceType: string;
-};
-```
-
-### Extend `StaticEvaluationContext`
+No `StaticEvaluationContext` change is required for a new AWS Terraform rule. Static evaluators receive the shared Terraform catalog:
 
 ```typescript
 export type StaticEvaluationContext = {
-  awsEbsVolumes: AwsEbsVolumeDefinition[];
-  awsEc2Instances: AwsEc2InstanceDefinition[];   // new
+  terraformResources: IaCResource[];
 };
 ```
 
@@ -107,24 +101,23 @@ export const scanAwsResources = async (regions: string[]): Promise<LiveEvaluatio
 };
 ```
 
-## 4. Extend Static Context Mapping
+## 4. Write the Static Rule Against `terraformResources`
 
-Update `toStaticContext()` in `packages/sdk/src/engine/run-static.ts` to map the new resource type from `IaCResource[]`:
+If the rule supports Terraform scanning, filter `terraformResources` by Terraform resource type inside the rule:
 
 ```typescript
-const toStaticContext = (resources: IaCResource[]): StaticEvaluationContext => ({
-  awsEbsVolumes: resources
-    .filter((r) => r.type === 'aws_ebs_volume')
-    .map((r) => ({ resourceId: r.name, volumeType: r.attributes.type as string })),
-  awsEc2Instances: resources                                      // new
-    .filter((r) => r.type === 'aws_instance')
-    .map((r) => ({ resourceId: r.name, instanceType: r.attributes.instance_type as string })),
-});
+evaluateStatic: ({ terraformResources }) => {
+  const findings = terraformResources
+    .filter((resource) => resource.provider === 'aws' && resource.type === 'aws_instance')
+    .filter((resource) => resource.attributes.instance_type === 't3.nano');
+
+  // map findings here
+}
 ```
 
-## 5. Extend Terraform Parser (if needed)
+## 5. Extend Terraform Parser (rarely needed)
 
-If the parser only extracts specific resource types, update `packages/sdk/src/parsers/terraform.ts` to include the new Terraform resource type (e.g. `aws_instance`) in its extraction logic.
+The Terraform parser already extracts all AWS `resource` blocks (`aws_*`). Only change `packages/sdk/src/parsers/terraform.ts` when the generic extraction contract itself needs to expand, such as adding new providers or richer source-location capture.
 
 ## 6. Write Rules
 
@@ -136,4 +129,4 @@ With the context types extended, you can now write rules that use the new fields
 pnpm verify   # lint + typecheck + test across all packages
 ```
 
-Ensure no type errors in either `@cloudburn/rules` or `@cloudburn/sdk` — extending the context types may require updating existing evaluator signatures and tests.
+Ensure no type errors in either `@cloudburn/rules` or `@cloudburn/sdk`. Live discovery additions still require `LiveEvaluationContext` updates; Terraform-only AWS rules should not require new static context fields.
