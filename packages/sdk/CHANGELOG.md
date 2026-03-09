@@ -1,5 +1,18 @@
 # @cloudburn/sdk
 
+## 0.7.0
+
+### Minor Changes
+
+- [#21](https://github.com/towardsthecloud/cloudburn/pull/21) [`c0a57c8`](https://github.com/towardsthecloud/cloudburn/commit/c0a57c8642c94cd46835d3b0550696f255ebff23) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Add Lambda function discoverer using `paginateListFunctions` and wire `lambdaFunctions` into the AWS scanner's `LiveEvaluationContext`.
+
+### Patch Changes
+
+- [#21](https://github.com/towardsthecloud/cloudburn/pull/21) [`c0a57c8`](https://github.com/towardsthecloud/cloudburn/commit/c0a57c8642c94cd46835d3b0550696f255ebff23) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Run AWS live discoverers concurrently, degrade to partial results when individual discoverers or Lambda regions fail, and add focused Lambda discovery coverage for normalization and live-scan findings.
+
+- Updated dependencies [[`c0a57c8`](https://github.com/towardsthecloud/cloudburn/commit/c0a57c8642c94cd46835d3b0550696f255ebff23), [`c0a57c8`](https://github.com/towardsthecloud/cloudburn/commit/c0a57c8642c94cd46835d3b0550696f255ebff23)]:
+  - @cloudburn/rules@0.7.0
+
 ## 0.6.1
 
 ### Patch Changes

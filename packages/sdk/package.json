@@ -1,6 +1,6 @@
 {
   "name": "@cloudburn/sdk",
-  "version": "0.6.1",
+  "version": "0.7.0",
   "description": "Cloudburn SDK for cloud cost optimization",
   "type": "module",
   "exports": {
