@@ -1,0 +1,9 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Resources:
+  MyVolume:
+    Type: AWS::EC2::Volume
+    Condition: CreateVolume
+    Properties:
+      AvailabilityZone: !Ref AvailabilityZone
+      Size: 100
+      VolumeType: gp2

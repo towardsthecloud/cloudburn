@@ -1,0 +1,7 @@
+Resources:
+  MyVolume:
+    Type: AWS::EC2::Volume
+    Properties:
+      AvailabilityZone: eu-west-1a
+      Size: 100
+      VolumeType: gp2

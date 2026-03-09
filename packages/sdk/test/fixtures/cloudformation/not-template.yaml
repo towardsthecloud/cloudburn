@@ -1,0 +1,4 @@
+service: cloudburn
+providers:
+  aws:
+    region: eu-west-1

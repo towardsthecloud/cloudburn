@@ -297,8 +297,241 @@ describe('parsers', () => {
     expect(resources).toEqual([]);
   });
 
-  it('returns empty cloudformation resources in scaffold mode', async () => {
-    const resources = await parseCloudFormation('fixtures/template.yaml');
+  it('parses a cloudformation yaml resource and preserves raw intrinsic functions', async () => {
+    const resourcePath = fileURLToPath(new URL('./fixtures/cloudformation/ebs-volume.yaml', import.meta.url));
+    const resources = await parseCloudFormation(resourcePath);
+
+    expect(resources).toEqual([
+      {
+        provider: 'aws',
+        type: 'AWS::EC2::Volume',
+        name: 'MyVolume',
+        location: {
+          path: 'ebs-volume.yaml',
+          startLine: 3,
+          startColumn: 3,
+        },
+        attributeLocations: {
+          Type: {
+            path: 'ebs-volume.yaml',
+            startLine: 4,
+            startColumn: 5,
+          },
+          Condition: {
+            path: 'ebs-volume.yaml',
+            startLine: 5,
+            startColumn: 5,
+          },
+          Properties: {
+            path: 'ebs-volume.yaml',
+            startLine: 6,
+            startColumn: 5,
+          },
+          'Properties.AvailabilityZone': {
+            path: 'ebs-volume.yaml',
+            startLine: 7,
+            startColumn: 7,
+          },
+          'Properties.Size': {
+            path: 'ebs-volume.yaml',
+            startLine: 8,
+            startColumn: 7,
+          },
+          'Properties.VolumeType': {
+            path: 'ebs-volume.yaml',
+            startLine: 9,
+            startColumn: 7,
+          },
+        },
+        attributes: {
+          Condition: 'CreateVolume',
+          Properties: {
+            AvailabilityZone: {
+              Ref: 'AvailabilityZone',
+            },
+            Size: 100,
+            VolumeType: 'gp2',
+          },
+        },
+      },
+    ]);
+  });
+
+  it('parses a cloudformation json resource', async () => {
+    const resourcePath = fileURLToPath(new URL('./fixtures/cloudformation/ebs-volume.json', import.meta.url));
+    const resources = await parseCloudFormation(resourcePath);
+
+    expect(resources).toEqual([
+      {
+        provider: 'aws',
+        type: 'AWS::EC2::Volume',
+        name: 'MyVolume',
+        location: {
+          path: 'ebs-volume.json',
+          startLine: 3,
+          startColumn: 5,
+        },
+        attributeLocations: {
+          Type: {
+            path: 'ebs-volume.json',
+            startLine: 4,
+            startColumn: 7,
+          },
+          Properties: {
+            path: 'ebs-volume.json',
+            startLine: 5,
+            startColumn: 7,
+          },
+          'Properties.AvailabilityZone': {
+            path: 'ebs-volume.json',
+            startLine: 6,
+            startColumn: 9,
+          },
+          'Properties.Size': {
+            path: 'ebs-volume.json',
+            startLine: 7,
+            startColumn: 9,
+          },
+          'Properties.VolumeType': {
+            path: 'ebs-volume.json',
+            startLine: 8,
+            startColumn: 9,
+          },
+        },
+        attributes: {
+          Properties: {
+            AvailabilityZone: {
+              Ref: 'AvailabilityZone',
+            },
+            Size: 100,
+            VolumeType: 'gp2',
+          },
+        },
+      },
+    ]);
+  });
+
+  it('returns no cloudformation resources for yaml files without a Resources section', async () => {
+    const resourcePath = fileURLToPath(new URL('./fixtures/cloudformation/not-template.yaml', import.meta.url));
+    const resources = await parseCloudFormation(resourcePath);
+
+    expect(resources).toEqual([]);
+  });
+
+  it('preserves additional cloudformation short-form intrinsics as raw canonical objects', async () => {
+    const resourcePath = fileURLToPath(new URL('./fixtures/cloudformation/intrinsics.yaml', import.meta.url));
+    const resources = await parseCloudFormation(resourcePath);
+
+    expect(resources).toEqual([
+      {
+        provider: 'aws',
+        type: 'AWS::EC2::Volume',
+        name: 'MyVolume',
+        location: {
+          path: 'intrinsics.yaml',
+          startLine: 2,
+          startColumn: 3,
+        },
+        attributeLocations: {
+          Type: {
+            path: 'intrinsics.yaml',
+            startLine: 3,
+            startColumn: 5,
+          },
+          Properties: {
+            path: 'intrinsics.yaml',
+            startLine: 4,
+            startColumn: 5,
+          },
+          'Properties.AvailabilityZone': {
+            path: 'intrinsics.yaml',
+            startLine: 5,
+            startColumn: 7,
+          },
+          'Properties.Encrypted': {
+            path: 'intrinsics.yaml',
+            startLine: 6,
+            startColumn: 7,
+          },
+          'Properties.KmsKeyId': {
+            path: 'intrinsics.yaml',
+            startLine: 7,
+            startColumn: 7,
+          },
+          'Properties.Tags': {
+            path: 'intrinsics.yaml',
+            startLine: 8,
+            startColumn: 7,
+          },
+          'Properties.VolumeType': {
+            path: 'intrinsics.yaml',
+            startLine: 11,
+            startColumn: 7,
+          },
+        },
+        attributes: {
+          Properties: {
+            AvailabilityZone: {
+              'Fn::GetAZs': '',
+            },
+            Encrypted: {
+              'Fn::If': ['UseEncryption', true, false],
+            },
+            KmsKeyId: {
+              'Fn::GetAtt': 'VolumeKey.Arn',
+            },
+            Tags: [
+              {
+                Key: 'Subnets',
+                Value: {
+                  'Fn::Cidr': ['10.0.0.0/16', 4, 8],
+                },
+              },
+            ],
+            VolumeType: 'gp2',
+          },
+        },
+      },
+      {
+        provider: 'aws',
+        type: 'AWS::CloudFormation::CustomResource',
+        name: 'CustomThing',
+        location: {
+          path: 'intrinsics.yaml',
+          startLine: 12,
+          startColumn: 3,
+        },
+        attributeLocations: {
+          Type: {
+            path: 'intrinsics.yaml',
+            startLine: 13,
+            startColumn: 5,
+          },
+          Metadata: {
+            path: 'intrinsics.yaml',
+            startLine: 14,
+            startColumn: 5,
+          },
+        },
+        attributes: {
+          Metadata: {
+            Macro: {
+              'Fn::Transform': {
+                Name: 'AWS::Include',
+                Parameters: {
+                  Location: 's3://bucket/snippet.yaml',
+                },
+              },
+            },
+          },
+        },
+      },
+    ]);
+  });
+
+  it('returns no cloudformation resources for invalid yaml templates', async () => {
+    const resourcePath = fileURLToPath(new URL('./fixtures/cloudformation/invalid-template.yaml', import.meta.url));
+    const resources = await parseCloudFormation(resourcePath);
 
     expect(resources).toEqual([]);
   });

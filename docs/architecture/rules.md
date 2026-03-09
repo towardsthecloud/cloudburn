@@ -45,7 +45,7 @@ classDiagram
   }
 
   class StaticEvaluationContext {
-    +IaCResource[] terraformResources
+    +IaCResource[] iacResources
   }
 
   Rule --> Finding : produces

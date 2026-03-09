@@ -18,7 +18,7 @@ The facade is the only public entry point. It delegates to config loading, resou
 ```mermaid
 graph TD
   subgraph Static["runStaticScan(path, config)"]
-    SR[buildRuleRegistry] --> SP[parseTerraform]
+    SR[buildRuleRegistry] --> SP[parseIaC]
     SP --> SC[toStaticContext]
     SC --> SE["rule.evaluateStatic() => Finding | null"]
     SE --> SG[groupFindingsByProvider]
@@ -36,8 +36,8 @@ graph TD
 ### Static Scan
 
 1. Build the rule registry.
-2. Parse Terraform into normalized `IaCResource[]`.
-3. Build `StaticEvaluationContext` with `terraformResources`.
+2. Parse Terraform and CloudFormation into normalized `IaCResource[]`.
+3. Build `StaticEvaluationContext` with `iacResources`.
 4. Invoke each static evaluator.
 5. Group non-null rule findings under `providers -> rules -> findings`.
 
@@ -75,13 +75,15 @@ type ScanResult = {
 ```mermaid
 graph LR
   Path["file or directory"] --> TF["parseTerraform(path)"]
+  Path["file or directory"] --> CFN["parseCloudFormation(path)"]
   TF --> Walk["recursive walk\n(skips .git, .terraform, node_modules)"]
-  Walk --> HCL["@cdktf/hcl2json"]
-  HCL --> Extract["extract all aws_* resource blocks"]
+  CFN --> Walk
+  Walk --> HCL["@cdktf/hcl2json / YAML+JSON parse"]
+  HCL --> Extract["extract AWS Terraform blocks\nand AWS:: CloudFormation resources"]
   Extract --> IaC["IaCResource[]"]
 ```
 
-`IaCResource` carries normalized attributes plus optional block- and attribute-level source locations for parsed AWS Terraform resources. Rules filter that shared catalog by Terraform resource type such as `aws_ebs_volume` or `aws_instance`.
+`IaCResource` carries normalized attributes plus optional block- and attribute-level source locations for parsed AWS Terraform and CloudFormation resources. Rules filter that shared catalog by source-native resource type such as `aws_ebs_volume`, `aws_instance`, or `AWS::EC2::Volume`.
 
 ## Provider Layer
 

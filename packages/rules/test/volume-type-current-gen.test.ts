@@ -31,6 +31,30 @@ const createTerraformResource = (overrides: Partial<IaCResource> = {}): IaCResou
   ...overrides,
 });
 
+const createCloudFormationResource = (overrides: Partial<IaCResource> = {}): IaCResource => ({
+  provider: 'aws',
+  type: 'AWS::EC2::Volume',
+  name: 'MyVolume',
+  location: {
+    path: 'template.yaml',
+    startLine: 3,
+    startColumn: 3,
+  },
+  attributeLocations: {
+    'Properties.VolumeType': {
+      path: 'template.yaml',
+      startLine: 6,
+      startColumn: 7,
+    },
+  },
+  attributes: {
+    Properties: {
+      VolumeType: 'gp2',
+    },
+  },
+  ...overrides,
+});
+
 describe('ebsVolumeTypeCurrentGenRule', () => {
   it('evaluates gp2 volumes in discovery mode only', () => {
     const finding = ebsVolumeTypeCurrentGenRule.evaluateLive?.({
@@ -54,7 +78,7 @@ describe('ebsVolumeTypeCurrentGenRule', () => {
 
   it('evaluates gp2 volumes in iac mode', () => {
     const staticContext = {
-      terraformResources: [createTerraformResource()],
+      iacResources: [createTerraformResource()],
     } satisfies StaticEvaluationContext;
     const finding = ebsVolumeTypeCurrentGenRule.evaluateStatic?.({
       ...staticContext,
@@ -78,6 +102,29 @@ describe('ebsVolumeTypeCurrentGenRule', () => {
     });
   });
 
+  it('evaluates cloudformation gp2 volumes in iac mode', () => {
+    const finding = ebsVolumeTypeCurrentGenRule.evaluateStatic?.({
+      iacResources: [createCloudFormationResource()],
+    });
+
+    expect(finding).toEqual({
+      ruleId: 'CLDBRN-AWS-EBS-1',
+      service: 'ebs',
+      source: 'iac',
+      message: 'EBS volumes should use current-generation storage.',
+      findings: [
+        {
+          resourceId: 'MyVolume',
+          location: {
+            path: 'template.yaml',
+            startLine: 6,
+            startColumn: 7,
+          },
+        },
+      ],
+    });
+  });
+
   it('ignores non-gp2 volumes', () => {
     const finding = ebsVolumeTypeCurrentGenRule.evaluateLive?.({
       ebsVolumes: [createVolume({ volumeType: 'gp3' })],
@@ -88,7 +135,7 @@ describe('ebsVolumeTypeCurrentGenRule', () => {
 
   it('ignores non-ebs terraform resources in iac mode', () => {
     const finding = ebsVolumeTypeCurrentGenRule.evaluateStatic?.({
-      terraformResources: [
+      iacResources: [
         createTerraformResource({
           type: 'aws_instance',
           name: 'web',

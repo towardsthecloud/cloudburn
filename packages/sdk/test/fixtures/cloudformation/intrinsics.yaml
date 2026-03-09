@@ -1,0 +1,18 @@
+Resources:
+  MyVolume:
+    Type: AWS::EC2::Volume
+    Properties:
+      AvailabilityZone: !GetAZs ''
+      Encrypted: !If [UseEncryption, true, false]
+      KmsKeyId: !GetAtt VolumeKey.Arn
+      Tags:
+        - Key: Subnets
+          Value: !Cidr [10.0.0.0/16, 4, 8]
+      VolumeType: gp2
+  CustomThing:
+    Type: AWS::CloudFormation::CustomResource
+    Metadata:
+      Macro: !Transform
+        Name: AWS::Include
+        Parameters:
+          Location: s3://bucket/snippet.yaml

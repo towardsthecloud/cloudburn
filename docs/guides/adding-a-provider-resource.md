@@ -9,7 +9,7 @@ Adding a new live AWS resource requires changes across two packages:
 1. **`@cloudburn/rules`** — extend evaluation context types
 2. **`@cloudburn/sdk`** — add discoverer and wire it into the scanner
 
-For static Terraform scans, AWS `resource` blocks are already parsed into `StaticEvaluationContext.terraformResources`. Adding a new AWS Terraform rule usually does not require parser or static-context changes.
+For static IaC scans, Terraform and CloudFormation resources are already parsed into `StaticEvaluationContext.iacResources`. Adding a new AWS static rule usually does not require parser or static-context changes.
 
 ## 1. Add Resource Types to Rules
 
@@ -36,13 +36,13 @@ export type LiveEvaluationContext = {
 };
 ```
 
-### Static Terraform support
+### Static IaC support
 
-No `StaticEvaluationContext` change is required for a new AWS Terraform rule. Static evaluators receive the shared Terraform catalog:
+No `StaticEvaluationContext` change is required for a new AWS static rule. Static evaluators receive the shared IaC catalog:
 
 ```typescript
 export type StaticEvaluationContext = {
-  terraformResources: IaCResource[];
+  iacResources: IaCResource[];
 };
 ```
 
@@ -101,13 +101,13 @@ export const scanAwsResources = async (regions: string[]): Promise<LiveEvaluatio
 };
 ```
 
-## 4. Write the Static Rule Against `terraformResources`
+## 4. Write the Static Rule Against `iacResources`
 
-If the rule supports Terraform scanning, filter `terraformResources` by Terraform resource type inside the rule:
+If the rule supports static IaC scanning, filter `iacResources` by source-native resource type inside the rule:
 
 ```typescript
-evaluateStatic: ({ terraformResources }) => {
-  const findings = terraformResources
+evaluateStatic: ({ iacResources }) => {
+  const findings = iacResources
     .filter((resource) => resource.provider === 'aws' && resource.type === 'aws_instance')
     .filter((resource) => resource.attributes.instance_type === 't3.nano');
 
@@ -129,4 +129,4 @@ With the context types extended, you can now write rules that use the new fields
 pnpm verify   # lint + typecheck + test across all packages
 ```
 
-Ensure no type errors in either `@cloudburn/rules` or `@cloudburn/sdk`. Live discovery additions still require `LiveEvaluationContext` updates; Terraform-only AWS rules should not require new static context fields.
+Ensure no type errors in either `@cloudburn/rules` or `@cloudburn/sdk`. Live discovery additions still require `LiveEvaluationContext` updates; new AWS static rules should not require new static context fields.

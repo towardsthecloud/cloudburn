@@ -22,7 +22,7 @@ sequenceDiagram
   participant Scanner as CloudBurnScanner
   participant Config as Config Loader
   participant Registry as Rule Registry
-  participant Parser as Terraform Parser
+  participant Parser as IaC Parser
   participant Engine as runStaticScan
 
   CLI->>Scanner: scanStatic(path, config?)
@@ -31,7 +31,7 @@ sequenceDiagram
   Scanner->>Engine: runStaticScan(path, config)
   Engine->>Registry: buildRuleRegistry(config)
   Registry-->>Engine: activeRules[]
-  Engine->>Parser: parseTerraform(path)
+  Engine->>Parser: parseIaC(path)
   Parser-->>Engine: IaCResource[]
   Engine->>Engine: toStaticContext(resources)
   loop Each rule where supports includes 'iac'

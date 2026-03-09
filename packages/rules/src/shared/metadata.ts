@@ -39,9 +39,9 @@ export type LiveEvaluationContext = {
   ebsVolumes: AwsEbsVolume[];
 };
 
-/** Provider-normalized Terraform resources available to static rule evaluators. */
+/** Provider-normalized IaC resources available to static rule evaluators. */
 export type StaticEvaluationContext = {
-  terraformResources: IaCResource[];
+  iacResources: IaCResource[];
 };
 
 /** A resource-level policy match emitted inside a rule finding group. */

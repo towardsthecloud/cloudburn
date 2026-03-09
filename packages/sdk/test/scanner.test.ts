@@ -89,6 +89,47 @@ describe('CloudBurnScanner', () => {
     });
   });
 
+  it('returns static ebs findings from terraform and cloudformation resources in the same directory', async () => {
+    const scanner = new CloudBurnScanner();
+    const fixturePath = fileURLToPath(new URL('./fixtures/iac-mixed', import.meta.url));
+
+    const result = await scanner.scanStatic(fixturePath);
+
+    expect(result).toEqual({
+      providers: [
+        {
+          provider: 'aws',
+          rules: [
+            {
+              ruleId: 'CLDBRN-AWS-EBS-1',
+              service: 'ebs',
+              source: 'iac',
+              message: 'EBS volumes should use current-generation storage.',
+              findings: [
+                {
+                  resourceId: 'aws_ebs_volume.gp2_logs',
+                  location: {
+                    path: 'main.tf',
+                    startLine: 4,
+                    startColumn: 3,
+                  },
+                },
+                {
+                  resourceId: 'MyVolume',
+                  location: {
+                    path: 'template.yaml',
+                    startLine: 7,
+                    startColumn: 7,
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+  });
+
   it('returns an empty static scan result when terraform files have no aws resources', async () => {
     const scanner = new CloudBurnScanner();
     const fixturePath = fileURLToPath(new URL('./fixtures/terraform/no-resources', import.meta.url));

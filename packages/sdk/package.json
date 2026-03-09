@@ -33,7 +33,8 @@
   "dependencies": {
     "@aws-sdk/client-ec2": "^3.1003.0",
     "@cdktf/hcl2json": "^0.21.0",
-    "@cloudburn/rules": "workspace:*"
+    "@cloudburn/rules": "workspace:*",
+    "yaml": "^2.8.2"
   },
   "devDependencies": {
     "@biomejs/biome": "catalog:",
