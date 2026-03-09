@@ -1,5 +1,11 @@
 # @cloudburn/sdk
 
+## 0.6.1
+
+### Patch Changes
+
+- [#19](https://github.com/towardsthecloud/cloudburn/pull/19) [`231a7b0`](https://github.com/towardsthecloud/cloudburn/commit/231a7b06d4acfe34f3d2fd749fd118c71c6a0483) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Expose `parseIaC` from the SDK package root as a public autodetect parser helper for Terraform and CloudFormation inputs.
+
 ## 0.6.0
 
 ### Minor Changes
