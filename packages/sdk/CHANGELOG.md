@@ -1,5 +1,16 @@
 # @cloudburn/sdk
 
+## 0.6.0
+
+### Minor Changes
+
+- [#16](https://github.com/towardsthecloud/cloudburn/pull/16) [`dee5aa0`](https://github.com/towardsthecloud/cloudburn/commit/dee5aa012f4b11da2fd4bc102f63bcdf2acc1b98) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Add CloudFormation static parsing and aggregate Terraform and CloudFormation resources through a shared static IaC scan path.
+
+### Patch Changes
+
+- Updated dependencies [[`dee5aa0`](https://github.com/towardsthecloud/cloudburn/commit/dee5aa012f4b11da2fd4bc102f63bcdf2acc1b98)]:
+  - @cloudburn/rules@0.6.0
+
 ## 0.5.0
 
 ### Minor Changes
