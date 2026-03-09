@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { formatError } from '../src/formatters/error.js';
 import { formatSarif } from '../src/formatters/sarif.js';
 import { formatTable } from '../src/formatters/table.js';
 
@@ -98,5 +99,61 @@ describe('formatters', () => {
         },
       },
     ]);
+  });
+});
+
+describe('formatError', () => {
+  it('categorizes CredentialsProviderError as CREDENTIALS_ERROR', () => {
+    const err = new Error('Could not load credentials');
+    err.name = 'CredentialsProviderError';
+
+    const output = JSON.parse(formatError(err)) as { error: { code: string; message: string } };
+
+    expect(output.error.code).toBe('CREDENTIALS_ERROR');
+    expect(output.error.message).toContain('AWS credentials not found or expired');
+  });
+
+  it('categorizes ExpiredTokenException as CREDENTIALS_ERROR', () => {
+    const err = new Error('Token expired');
+    err.name = 'ExpiredTokenException';
+
+    const output = JSON.parse(formatError(err)) as { error: { code: string; message: string } };
+
+    expect(output.error.code).toBe('CREDENTIALS_ERROR');
+  });
+
+  it('categorizes AccessDeniedException as ACCESS_DENIED', () => {
+    const err = new Error('Access denied');
+    err.name = 'AccessDeniedException';
+
+    const output = JSON.parse(formatError(err)) as { error: { code: string; message: string } };
+
+    expect(output.error.code).toBe('ACCESS_DENIED');
+    expect(output.error.message).toContain('Insufficient AWS permissions');
+  });
+
+  it('categorizes ENOENT as PATH_NOT_FOUND', () => {
+    const err = Object.assign(new Error('ENOENT: no such file'), { code: 'ENOENT', path: '/missing/dir' });
+
+    const output = JSON.parse(formatError(err)) as { error: { code: string; message: string } };
+
+    expect(output.error.code).toBe('PATH_NOT_FOUND');
+    expect(output.error.message).toContain('/missing/dir');
+  });
+
+  it('falls back to RUNTIME_ERROR for unknown errors', () => {
+    const err = new Error('Something broke');
+
+    const output = JSON.parse(formatError(err)) as { error: { code: string; message: string } };
+
+    expect(output.error.code).toBe('RUNTIME_ERROR');
+    expect(output.error.message).toBe('Something broke');
+  });
+
+  it('handles non-Error values gracefully', () => {
+    const output = JSON.parse(formatError('string error')) as { error: { code: string; message: string } };
+
+    expect(output.error.code).toBe('RUNTIME_ERROR');
+    expect(output.error.message).toBe('An unexpected error occurred.');
   });
 });

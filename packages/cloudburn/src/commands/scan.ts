@@ -1,6 +1,7 @@
 import { CloudBurnScanner, type ScanResult } from '@cloudburn/sdk';
 import { type Command, InvalidArgumentError } from 'commander';
-import { EXIT_CODE_OK, EXIT_CODE_POLICY_VIOLATION } from '../exit-codes.js';
+import { EXIT_CODE_OK, EXIT_CODE_POLICY_VIOLATION, EXIT_CODE_RUNTIME_ERROR } from '../exit-codes.js';
+import { formatError } from '../formatters/error.js';
 import { formatJson } from '../formatters/json.js';
 import { formatSarif } from '../formatters/sarif.js';
 import { countScanResultFindings } from '../formatters/shared.js';
@@ -39,19 +40,24 @@ export const registerScanCommand = (program: Command): void => {
     .option('--format <format>', 'Output format: table|json|sarif', parseScanFormat, 'table')
     .option('--exit-code', 'Exit with code 1 when findings exist')
     .action(async (path: string | undefined, options: ScanOptions) => {
-      const scanner = new CloudBurnScanner();
-      const result = options.live ? await scanner.scanLive() : await scanner.scanStatic(path ?? process.cwd());
+      try {
+        const scanner = new CloudBurnScanner();
+        const result = options.live ? await scanner.scanLive() : await scanner.scanStatic(path ?? process.cwd());
 
-      const format = formatters[options.format ?? 'table'];
-      const output = format(result);
+        const format = formatters[options.format ?? 'table'];
+        const output = format(result);
 
-      process.stdout.write(`${output}\n`);
+        process.stdout.write(`${output}\n`);
 
-      if (options.exitCode && countScanResultFindings(result) > 0) {
-        process.exitCode = EXIT_CODE_POLICY_VIOLATION;
-        return;
+        if (options.exitCode && countScanResultFindings(result) > 0) {
+          process.exitCode = EXIT_CODE_POLICY_VIOLATION;
+          return;
+        }
+
+        process.exitCode = EXIT_CODE_OK;
+      } catch (err) {
+        process.stderr.write(`${formatError(err)}\n`);
+        process.exitCode = EXIT_CODE_RUNTIME_ERROR;
       }
-
-      process.exitCode = EXIT_CODE_OK;
     });
 };

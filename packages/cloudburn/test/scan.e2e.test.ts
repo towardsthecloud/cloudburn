@@ -196,4 +196,45 @@ describe('scan command e2e', () => {
     expect(scanStatic).not.toHaveBeenCalled();
     expect(stderr).toHaveBeenCalled();
   });
+
+  it('writes CREDENTIALS_ERROR json to stderr on AWS credential failures', async () => {
+    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    const err = new Error('Could not load credentials');
+    err.name = 'CredentialsProviderError';
+    vi.spyOn(CloudBurnScanner.prototype, 'scanLive').mockRejectedValue(err);
+
+    await createProgram().parseAsync(['scan', '--live'], { from: 'user' });
+
+    expect(process.exitCode).toBe(2);
+    const output = (stderr.mock.calls[0]?.[0] as string) ?? '';
+    const parsed = JSON.parse(output) as { error: { code: string } };
+    expect(parsed.error.code).toBe('CREDENTIALS_ERROR');
+  });
+
+  it('writes PATH_NOT_FOUND json to stderr on ENOENT from scanStatic', async () => {
+    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    const err = Object.assign(new Error('ENOENT'), { code: 'ENOENT', path: '/no/such/path' });
+    vi.spyOn(CloudBurnScanner.prototype, 'scanStatic').mockRejectedValue(err);
+
+    await createProgram().parseAsync(['scan', '/no/such/path'], { from: 'user' });
+
+    expect(process.exitCode).toBe(2);
+    const output = (stderr.mock.calls[0]?.[0] as string) ?? '';
+    const parsed = JSON.parse(output) as { error: { code: string; message: string } };
+    expect(parsed.error.code).toBe('PATH_NOT_FOUND');
+    expect(parsed.error.message).toContain('/no/such/path');
+  });
+
+  it('writes RUNTIME_ERROR json to stderr on unknown errors', async () => {
+    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    vi.spyOn(CloudBurnScanner.prototype, 'scanLive').mockRejectedValue(new Error('Something unexpected'));
+
+    await createProgram().parseAsync(['scan', '--live'], { from: 'user' });
+
+    expect(process.exitCode).toBe(2);
+    const output = (stderr.mock.calls[0]?.[0] as string) ?? '';
+    const parsed = JSON.parse(output) as { error: { code: string; message: string } };
+    expect(parsed.error.code).toBe('RUNTIME_ERROR');
+    expect(parsed.error.message).toBe('Something unexpected');
+  });
 });
