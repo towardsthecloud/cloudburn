@@ -41,6 +41,13 @@
 
 - Do not mark done without proof (tests, logs, or behavior checks).
 - Review-ready requires a fresh local test run in this session.
+- For multi-step tasks, track all steps and mark any blocked step with what is missing.
+
+## Missing Context
+
+- Do not guess rule IDs, config shapes, types, or provider behavior — look them up first.
+- If a search returns empty or narrow results, try at least one fallback (alternate query, broader pattern) before concluding.
+- Label assumptions explicitly when proceeding without full context.
 
 ## Git & PRs
 
@@ -67,3 +74,4 @@
 
 - Dependency direction: `cli → sdk → rules`. No reverse imports. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for diagrams.
 - When working inside `packages/cloudburn`, `packages/sdk`, or `packages/rules`, follow that package's local `AGENTS.md` or `CLAUDE.md` for package-specific constraints.
+- Before changing a type or export in `rules` or `sdk`, check downstream consumers for required updates.
