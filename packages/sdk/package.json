@@ -32,6 +32,8 @@
   },
   "dependencies": {
     "@aws-sdk/client-ec2": "^3.1003.0",
+    "@aws-sdk/client-lambda": "^3.1003.0",
+    "@aws-sdk/client-sts": "^3.1003.0",
     "@cdktf/hcl2json": "^0.21.0",
     "@cloudburn/rules": "workspace:*",
     "yaml": "^2.8.2"

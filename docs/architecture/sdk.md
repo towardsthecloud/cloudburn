@@ -46,10 +46,16 @@ graph TD
 ### Live Scan
 
 1. Build the rule registry.
-2. Discover live AWS resources.
+2. Discover live AWS resources. AWS service discoverers run concurrently after shared region/account resolution.
 3. Build `LiveEvaluationContext`.
 4. Invoke each live evaluator.
 5. Group non-null rule findings under `providers -> rules -> findings`.
+
+Current live-discovery behavior:
+- `scanAwsResources()` degrades to partial results when an AWS discoverer fails, returning an empty list for the failed discoverer instead of aborting the whole scan.
+- Lambda discovery also degrades to partial results per region, so a failed `ListFunctions` call only drops that region's Lambda resources.
+- Missing Lambda `Architectures` values from AWS are normalized to `['x86_64']`, matching the AWS default architecture.
+- Live scans still require shared AWS identity access (`sts:GetCallerIdentity`) plus per-service read permissions such as `ec2:DescribeVolumes` and `lambda:ListFunctions`.
 
 ## Public Result Shape
 

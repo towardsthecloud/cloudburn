@@ -7,9 +7,10 @@ const RULE_MESSAGE = 'EBS volumes should use current-generation storage.';
 const TERRAFORM_EBS_VOLUME_TYPE = 'aws_ebs_volume';
 const CLOUDFORMATION_EBS_VOLUME_TYPE = 'AWS::EC2::Volume';
 
-const createFindingMatch = (resourceId: string, region?: string, location?: SourceLocation) => ({
+const createFindingMatch = (resourceId: string, region?: string, accountId?: string, location?: SourceLocation) => ({
   resourceId,
   ...(region ? { region } : {}),
+  ...(accountId ? { accountId } : {}),
   ...(location ? { location } : {}),
 });
 
@@ -27,6 +28,7 @@ const toStaticFindingMatch = (
   createFindingMatch(
     resourceId,
     undefined,
+    undefined,
     resource.attributeLocations?.type ?? resource.attributeLocations?.['Properties.VolumeType'] ?? resource.location,
   );
 
@@ -41,7 +43,7 @@ export const ebsVolumeTypeCurrentGenRule = createRule({
   evaluateLive: ({ ebsVolumes }) => {
     const findings = ebsVolumes
       .filter((volume) => volume.volumeType === 'gp2')
-      .map((volume) => createFindingMatch(volume.volumeId, volume.region));
+      .map((volume) => createFindingMatch(volume.volumeId, volume.region, volume.accountId));
 
     return createFinding(
       {

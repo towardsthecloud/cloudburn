@@ -20,6 +20,16 @@ export type AwsEbsVolume = {
   volumeId: string;
   volumeType: string;
   region: string;
+  accountId: string;
+};
+
+/** Discovered AWS Lambda function with architecture metadata. */
+export type AwsLambdaFunction = {
+  functionName: string;
+  /** Normalized function architectures. Missing AWS API values default to `['x86_64']`. */
+  architectures: string[];
+  region: string;
+  accountId: string;
 };
 
 /**
@@ -37,6 +47,7 @@ export type IaCResource = {
 
 export type LiveEvaluationContext = {
   ebsVolumes: AwsEbsVolume[];
+  lambdaFunctions: AwsLambdaFunction[];
 };
 
 /** Provider-normalized IaC resources available to static rule evaluators. */

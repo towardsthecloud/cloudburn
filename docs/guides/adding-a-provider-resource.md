@@ -82,7 +82,7 @@ export const discoverAwsEc2Instances = async (regions: string[]): Promise<AwsEc2
 };
 ```
 
-Pattern: fan out across regions in parallel with `Promise.all`, paginate the AWS API, skip entries with missing required fields.
+Pattern: fan out across regions in parallel with `Promise.all`, paginate the AWS API, skip entries with missing required fields, and document any normalization rules the discoverer applies. For example, Lambda discovery normalizes a missing `Architectures` value to `['x86_64']` because that is Lambda's default architecture.
 
 ## 3. Wire Into `scanAwsResources`
 
@@ -93,13 +93,20 @@ import { discoverAwsEbsVolumes } from './resources/ebs.js';
 import { discoverAwsEc2Instances } from './resources/ec2.js';   // new
 
 export const scanAwsResources = async (regions: string[]): Promise<LiveEvaluationContext> => {
-  const resolvedRegions = await resolveAwsRegions(regions);
+  const [resolvedRegions, accountId] = await Promise.all([resolveAwsRegions(regions), resolveAwsAccountId()]);
+  const [ebsVolumesResult, ec2InstancesResult] = await Promise.allSettled([
+    discoverAwsEbsVolumes(resolvedRegions, accountId),
+    discoverAwsEc2Instances(resolvedRegions, accountId),
+  ]);
+
   return {
-    ebsVolumes: await discoverAwsEbsVolumes(resolvedRegions),
-    ec2Instances: await discoverAwsEc2Instances(resolvedRegions),   // new
+    ebsVolumes: ebsVolumesResult.status === 'fulfilled' ? ebsVolumesResult.value : [],
+    ec2Instances: ec2InstancesResult.status === 'fulfilled' ? ec2InstancesResult.value : [],   // new
   };
 };
 ```
+
+Pattern: resolve shared prerequisites once, then run service discoverers concurrently. Prefer degraded partial results for individual discoverer failures unless the feature explicitly requires fail-fast behavior.
 
 ## 4. Write the Static Rule Against `iacResources`
 
@@ -130,3 +137,5 @@ pnpm verify   # lint + typecheck + test across all packages
 ```
 
 Ensure no type errors in either `@cloudburn/rules` or `@cloudburn/sdk`. Live discovery additions still require `LiveEvaluationContext` updates; new AWS static rules should not require new static context fields.
+
+Also document any new IAM requirements alongside the discoverer. For Lambda, live discovery requires `lambda:ListFunctions`.

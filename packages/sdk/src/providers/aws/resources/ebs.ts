@@ -2,7 +2,7 @@ import { paginateDescribeVolumes } from '@aws-sdk/client-ec2';
 import type { AwsEbsVolume } from '@cloudburn/rules';
 import { createEc2Client } from '../client.js';
 
-export const discoverAwsEbsVolumes = async (regions: string[]): Promise<AwsEbsVolume[]> => {
+export const discoverAwsEbsVolumes = async (regions: string[], accountId: string): Promise<AwsEbsVolume[]> => {
   const volumePages = await Promise.all(
     regions.map(async (region) => {
       const client = createEc2Client({ region });
@@ -18,6 +18,7 @@ export const discoverAwsEbsVolumes = async (regions: string[]): Promise<AwsEbsVo
             volumeId: volume.VolumeId,
             volumeType: volume.VolumeType,
             region,
+            accountId,
           });
         }
       }

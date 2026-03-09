@@ -6,6 +6,7 @@ const createVolume = (overrides: Partial<AwsEbsVolume> = {}): AwsEbsVolume => ({
   volumeId: 'vol-123',
   volumeType: 'gp2',
   region: 'eu-west-1',
+  accountId: '123456789012',
   ...overrides,
 });
 
@@ -59,6 +60,7 @@ describe('ebsVolumeTypeCurrentGenRule', () => {
   it('evaluates gp2 volumes in discovery mode only', () => {
     const finding = ebsVolumeTypeCurrentGenRule.evaluateLive?.({
       ebsVolumes: [createVolume()],
+      lambdaFunctions: [],
     });
 
     expect(ebsVolumeTypeCurrentGenRule.supports).toEqual(['discovery', 'iac']);
@@ -71,6 +73,7 @@ describe('ebsVolumeTypeCurrentGenRule', () => {
         {
           resourceId: 'vol-123',
           region: 'eu-west-1',
+          accountId: '123456789012',
         },
       ],
     });
@@ -128,6 +131,7 @@ describe('ebsVolumeTypeCurrentGenRule', () => {
   it('ignores non-gp2 volumes', () => {
     const finding = ebsVolumeTypeCurrentGenRule.evaluateLive?.({
       ebsVolumes: [createVolume({ volumeType: 'gp3' })],
+      lambdaFunctions: [],
     });
 
     expect(finding).toBeNull();

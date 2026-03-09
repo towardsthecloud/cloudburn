@@ -17,9 +17,10 @@ describe('CloudBurnScanner', () => {
   it('passes configured regions to the aws provider scanner and returns gp2 findings', async () => {
     mockedScanAwsResources.mockResolvedValue({
       ebsVolumes: [
-        { volumeId: 'vol-123', volumeType: 'gp2', region: 'us-east-1' },
-        { volumeId: 'vol-456', volumeType: 'gp3', region: 'us-east-1' },
+        { volumeId: 'vol-123', volumeType: 'gp2', region: 'us-east-1', accountId: '123456789012' },
+        { volumeId: 'vol-456', volumeType: 'gp3', region: 'us-east-1', accountId: '123456789012' },
       ],
+      lambdaFunctions: [],
     });
 
     const scanner = new CloudBurnScanner();
@@ -47,6 +48,49 @@ describe('CloudBurnScanner', () => {
                 {
                   resourceId: 'vol-123',
                   region: 'us-east-1',
+                  accountId: '123456789012',
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+  });
+
+  it('returns lambda architecture findings discovered during live scans', async () => {
+    mockedScanAwsResources.mockResolvedValue({
+      ebsVolumes: [],
+      lambdaFunctions: [
+        { functionName: 'legacy-func', architectures: ['x86_64'], region: 'us-east-1', accountId: '123456789012' },
+        { functionName: 'arm-func', architectures: ['arm64'], region: 'us-east-1', accountId: '123456789012' },
+      ],
+    });
+
+    const scanner = new CloudBurnScanner();
+
+    const result = await scanner.scanLive({
+      live: {
+        regions: ['us-east-1'],
+        tags: {},
+      },
+    });
+
+    expect(result).toEqual({
+      providers: [
+        {
+          provider: 'aws',
+          rules: [
+            {
+              ruleId: 'CLDBRN-AWS-LAMBDA-1',
+              service: 'lambda',
+              source: 'discovery',
+              message: 'Lambda functions should use arm64 architecture when compatible to reduce running costs.',
+              findings: [
+                {
+                  resourceId: 'legacy-func',
+                  region: 'us-east-1',
+                  accountId: '123456789012',
                 },
               ],
             },
