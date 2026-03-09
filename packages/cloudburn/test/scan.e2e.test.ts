@@ -124,6 +124,35 @@ describe('scan command e2e', () => {
     expect(process.exitCode).toBe(0);
   });
 
+  it('passes a cloudformation template path through to static autodetection', async () => {
+    const fixturePath = fileURLToPath(
+      new URL('../../sdk/test/fixtures/cloudformation/ebs-volume.yaml', import.meta.url),
+    );
+    const scanStatic = vi.spyOn(CloudBurnScanner.prototype, 'scanStatic').mockResolvedValue(staticScanResult);
+
+    await createProgram().parseAsync(['scan', fixturePath, '--format', 'json'], { from: 'user' });
+
+    expect(scanStatic).toHaveBeenCalledWith(fixturePath);
+    expect(process.exitCode).toBe(0);
+  });
+
+  it('describes static autodetection in scan help output', () => {
+    const program = createProgram();
+    const scanCommand = program.commands.find((command) => command.name() === 'scan');
+    const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+
+    scanCommand?.outputHelp();
+
+    const help = stdout.mock.calls.map(([chunk]) => String(chunk)).join('');
+
+    expect(help).toContain('Terraform file, CloudFormation template, or directory');
+    expect(help).toContain('cloudburn scan ./main.tf');
+    expect(help).toContain('cloudburn scan ./template.yaml');
+    expect(help).toContain('cloudburn scan ./iac');
+    expect(help).toContain('cloudburn scan --live');
+    expect(help).not.toContain('--type');
+  });
+
   it.each([
     {
       format: 'table',

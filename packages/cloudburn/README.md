@@ -14,6 +14,16 @@ npm install -g cloudburn
 cloudburn
 ```
 
+Static scans auto-detect Terraform and CloudFormation from the file or
+directory path you pass to `cloudburn scan`.
+
+```sh
+cloudburn scan ./main.tf
+cloudburn scan ./template.yaml
+cloudburn scan ./iac
+cloudburn scan --live
+```
+
 `cloudburn scan --format json` emits the lean canonical grouped result:
 
 ```json

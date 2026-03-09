@@ -48,7 +48,9 @@ pnpm --filter cloudburn exec cloudburn scan .
 ### Example commands
 
 ```bash
-cloudburn scan ./terraform
+cloudburn scan ./main.tf
+cloudburn scan ./template.yaml
+cloudburn scan ./iac
 cloudburn scan --live
 cloudburn scan --format sarif --exit-code
 cloudburn init
@@ -83,7 +85,10 @@ custom_rules:
   - ./rules/
 ```
 
-Static Terraform parsing now extracts all AWS `resource` blocks into a generic catalog for rule evaluation. Rule coverage still depends on implemented evaluators, and Terraform expression resolution is still being added.
+Static IaC parsing now auto-detects Terraform and CloudFormation files, extracts
+AWS resources into a generic catalog for rule evaluation, and supports mixed
+directories. Rule coverage still depends on implemented evaluators, and
+Terraform expression resolution is still being added.
 
 ## Development
 

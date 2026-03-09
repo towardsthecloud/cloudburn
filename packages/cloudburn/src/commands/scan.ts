@@ -34,11 +34,22 @@ const formatters: Record<ScanFormat, (result: ScanResult) => string> = {
 // TODO(cloudburn): support profile, severity filtering, and custom rules path options.
 export const registerScanCommand = (program: Command): void => {
   program
-    .command('scan [path]')
-    .description('Run static IaC scan or live AWS scan')
+    .command('scan')
+    .description('Run an autodetected static IaC scan, or a live AWS scan with --live')
+    .argument('[path]', 'Terraform file, CloudFormation template, or directory to scan')
     .option('--live', 'Run live AWS scan')
     .option('--format <format>', 'Output format: table|json|sarif', parseScanFormat, 'table')
     .option('--exit-code', 'Exit with code 1 when findings exist')
+    .addHelpText(
+      'after',
+      `
+Examples:
+  cloudburn scan ./main.tf
+  cloudburn scan ./template.yaml
+  cloudburn scan ./iac
+  cloudburn scan --live
+`,
+    )
     .action(async (path: string | undefined, options: ScanOptions) => {
       try {
         const scanner = new CloudBurnScanner();

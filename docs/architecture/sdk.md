@@ -11,7 +11,9 @@ classDiagram
   }
 ```
 
-The facade is the only public entry point. It delegates to config loading, resource discovery/parsing, rule evaluation, and provider grouping.
+`CloudBurnScanner` is the primary public entry point. The SDK also exposes
+`parseIaC(path)` as a lower-level helper for callers that want autodetected
+Terraform and CloudFormation resources without running rule evaluation.
 
 ## Engine Flow
 
@@ -36,7 +38,7 @@ graph TD
 ### Static Scan
 
 1. Build the rule registry.
-2. Parse Terraform and CloudFormation into normalized `IaCResource[]`.
+2. Auto-detect Terraform and CloudFormation inputs and parse them into normalized `IaCResource[]`.
 3. Build `StaticEvaluationContext` with `iacResources`.
 4. Invoke each static evaluator.
 5. Group non-null rule findings under `providers -> rules -> findings`.
@@ -74,8 +76,9 @@ type ScanResult = {
 
 ```mermaid
 graph LR
-  Path["file or directory"] --> TF["parseTerraform(path)"]
-  Path["file or directory"] --> CFN["parseCloudFormation(path)"]
+  Path["file or directory"] --> PI["parseIaC(path)"]
+  PI --> TF["parseTerraform(path)"]
+  PI --> CFN["parseCloudFormation(path)"]
   TF --> Walk["recursive walk\n(skips .git, .terraform, node_modules)"]
   CFN --> Walk
   Walk --> HCL["@cdktf/hcl2json / YAML+JSON parse"]
@@ -83,7 +86,12 @@ graph LR
   Extract --> IaC["IaCResource[]"]
 ```
 
-`IaCResource` carries normalized attributes plus optional block- and attribute-level source locations for parsed AWS Terraform and CloudFormation resources. Rules filter that shared catalog by source-native resource type such as `aws_ebs_volume`, `aws_instance`, or `AWS::EC2::Volume`.
+`parseIaC(path)` accepts a Terraform file, CloudFormation template, or directory.
+It aggregates both parsers, ignores unsupported files, and preserves stable
+ordering for mixed directories. `IaCResource` carries normalized attributes plus
+optional block- and attribute-level source locations for parsed AWS Terraform
+and CloudFormation resources. Rules filter that shared catalog by source-native
+resource type such as `aws_ebs_volume`, `aws_instance`, or `AWS::EC2::Volume`.
 
 ## Provider Layer
 

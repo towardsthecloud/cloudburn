@@ -28,10 +28,15 @@ const compareIaCResources = (left: IaCResource, right: IaCResource): number => {
 };
 
 /**
- * Parse Terraform and CloudFormation inputs behind a single static IaC entrypoint.
+ * Parses a file or directory by auto-detecting supported Terraform and
+ * CloudFormation inputs.
  *
- * The individual parsers are responsible for file detection inside their own
- * supported formats; this helper only aggregates and normalizes ordering.
+ * Aggregates resources from both parsers, preserves stable ordering for mixed
+ * directories, and ignores unsupported files or invalid CloudFormation
+ * templates that do not match the expected shape.
+ *
+ * @param path - Terraform file, CloudFormation template, or directory to scan.
+ * @returns Normalized IaC resources discovered from supported inputs.
  */
 export const parseIaC = async (path: string): Promise<IaCResource[]> => {
   const [terraformResources, cloudFormationResources] = await Promise.all([

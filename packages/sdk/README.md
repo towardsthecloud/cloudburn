@@ -11,10 +11,13 @@ npm install @cloudburn/sdk
 ## Usage
 
 ```ts
-import { CloudBurnScanner } from "@cloudburn/sdk";
+import { CloudBurnScanner, parseIaC } from "@cloudburn/sdk";
 
 const scanner = new CloudBurnScanner();
-const result = await scanner.scanStatic("./terraform");
+const result = await scanner.scanStatic("./iac");
+
+const resources = await parseIaC("./template.yaml");
+console.log(resources.length);
 
 for (const providerGroup of result.providers) {
   for (const ruleFindingGroup of providerGroup.rules) {
@@ -29,6 +32,10 @@ for (const providerGroup of result.providers) {
   }
 }
 ```
+
+`scanStatic(path)` is the main high-level entrypoint. `parseIaC(path)` is the
+lower-level helper when you want normalized Terraform and CloudFormation
+resources without running the rule engine.
 
 ## License
 

@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { parseCloudFormation, parseTerraform } from '../src/parsers/index.js';
+import { parseCloudFormation, parseIaC, parseTerraform } from '../src/parsers/index.js';
 
 describe('parsers', () => {
   it('parses a literal aws_ebs_volume terraform resource', async () => {
@@ -283,6 +283,46 @@ describe('parsers', () => {
     ]);
   });
 
+  it('auto-detects terraform resources from a .tf file', async () => {
+    const resourcePath = fileURLToPath(new URL('./fixtures/terraform/ebs-gp2.tf', import.meta.url));
+    const resources = await parseIaC(resourcePath);
+
+    expect(resources).toEqual([
+      {
+        provider: 'aws',
+        type: 'aws_ebs_volume',
+        name: 'gp2_data',
+        location: {
+          path: 'ebs-gp2.tf',
+          startLine: 1,
+          startColumn: 1,
+        },
+        attributeLocations: {
+          availability_zone: {
+            path: 'ebs-gp2.tf',
+            startLine: 2,
+            startColumn: 3,
+          },
+          size: {
+            path: 'ebs-gp2.tf',
+            startLine: 3,
+            startColumn: 3,
+          },
+          type: {
+            path: 'ebs-gp2.tf',
+            startLine: 4,
+            startColumn: 3,
+          },
+        },
+        attributes: {
+          availability_zone: 'eu-west-1a',
+          size: 100,
+          type: 'gp2',
+        },
+      },
+    ]);
+  });
+
   it('returns no terraform resources for unsupported file extensions', async () => {
     const resourcePath = fileURLToPath(new URL('./fixtures/terraform/scan-dir/notes.txt', import.meta.url));
     const resources = await parseTerraform(resourcePath);
@@ -293,6 +333,13 @@ describe('parsers', () => {
   it('returns no terraform resources when files contain only non-aws resources', async () => {
     const resourcePath = fileURLToPath(new URL('./fixtures/terraform/no-resources', import.meta.url));
     const resources = await parseTerraform(resourcePath);
+
+    expect(resources).toEqual([]);
+  });
+
+  it('returns no autodetected resources for unsupported file extensions', async () => {
+    const resourcePath = fileURLToPath(new URL('./fixtures/terraform/scan-dir/notes.txt', import.meta.url));
+    const resources = await parseIaC(resourcePath);
 
     expect(resources).toEqual([]);
   });
@@ -399,6 +446,66 @@ describe('parsers', () => {
           },
         },
         attributes: {
+          Properties: {
+            AvailabilityZone: {
+              Ref: 'AvailabilityZone',
+            },
+            Size: 100,
+            VolumeType: 'gp2',
+          },
+        },
+      },
+    ]);
+  });
+
+  it('auto-detects cloudformation resources from a template file', async () => {
+    const resourcePath = fileURLToPath(new URL('./fixtures/cloudformation/ebs-volume.yaml', import.meta.url));
+    const resources = await parseIaC(resourcePath);
+
+    expect(resources).toEqual([
+      {
+        provider: 'aws',
+        type: 'AWS::EC2::Volume',
+        name: 'MyVolume',
+        location: {
+          path: 'ebs-volume.yaml',
+          startLine: 3,
+          startColumn: 3,
+        },
+        attributeLocations: {
+          Type: {
+            path: 'ebs-volume.yaml',
+            startLine: 4,
+            startColumn: 5,
+          },
+          Condition: {
+            path: 'ebs-volume.yaml',
+            startLine: 5,
+            startColumn: 5,
+          },
+          Properties: {
+            path: 'ebs-volume.yaml',
+            startLine: 6,
+            startColumn: 5,
+          },
+          'Properties.AvailabilityZone': {
+            path: 'ebs-volume.yaml',
+            startLine: 7,
+            startColumn: 7,
+          },
+          'Properties.Size': {
+            path: 'ebs-volume.yaml',
+            startLine: 8,
+            startColumn: 7,
+          },
+          'Properties.VolumeType': {
+            path: 'ebs-volume.yaml',
+            startLine: 9,
+            startColumn: 7,
+          },
+        },
+        attributes: {
+          Condition: 'CreateVolume',
           Properties: {
             AvailabilityZone: {
               Ref: 'AvailabilityZone',
@@ -534,5 +641,55 @@ describe('parsers', () => {
     const resources = await parseCloudFormation(resourcePath);
 
     expect(resources).toEqual([]);
+  });
+
+  it('auto-detects mixed terraform and cloudformation directories in stable order', async () => {
+    const resourcePath = fileURLToPath(new URL('./fixtures/iac-mixed', import.meta.url));
+    const resources = await parseIaC(resourcePath);
+
+    expect(resources.map((resource) => `${resource.location?.path}:${resource.type}.${resource.name}`)).toEqual([
+      'main.tf:aws_ebs_volume.gp2_logs',
+      'template.yaml:AWS::EC2::Volume.MyVolume',
+    ]);
+  });
+
+  it('keeps terraform resources when a sibling cloudformation template is invalid', async () => {
+    const resourcePath = fileURLToPath(new URL('./fixtures/iac-invalid-cloudformation', import.meta.url));
+    const resources = await parseIaC(resourcePath);
+
+    expect(resources).toEqual([
+      {
+        provider: 'aws',
+        type: 'aws_ebs_volume',
+        name: 'gp2_logs',
+        location: {
+          path: 'main.tf',
+          startLine: 1,
+          startColumn: 1,
+        },
+        attributeLocations: {
+          availability_zone: {
+            path: 'main.tf',
+            startLine: 2,
+            startColumn: 3,
+          },
+          size: {
+            path: 'main.tf',
+            startLine: 3,
+            startColumn: 3,
+          },
+          type: {
+            path: 'main.tf',
+            startLine: 4,
+            startColumn: 3,
+          },
+        },
+        attributes: {
+          availability_zone: 'eu-west-1a',
+          size: 50,
+          type: 'gp2',
+        },
+      },
+    ]);
   });
 });

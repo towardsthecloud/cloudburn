@@ -38,9 +38,19 @@ All formatters now share the signature `(result: ScanResult) => string`.
 ## Scan Command Behavior
 
 - `scan --live` calls `CloudBurnScanner.scanLive()`.
-- `scan [path]` calls `CloudBurnScanner.scanStatic(path)`.
+- `scan [path]` accepts a Terraform file, CloudFormation template, or directory and calls `CloudBurnScanner.scanStatic(path)`.
+- Static path parsing is auto-detected by the SDK parser layer; the CLI does not expose an IaC-type flag.
 - The selected formatter receives the full grouped `ScanResult`.
 - `--exit-code` counts nested matches across all provider and rule groups.
+
+### Scan Help Examples
+
+```text
+cloudburn scan ./main.tf
+cloudburn scan ./template.yaml
+cloudburn scan ./iac
+cloudburn scan --live
+```
 
 ## Exit-Code Contract
 
