@@ -35,6 +35,7 @@ classDiagram
   class LiveEvaluationContext {
     +AwsDiscoveryCatalog catalog
     +AwsEbsVolume[] ebsVolumes
+    +AwsEc2Instance[] ec2Instances
     +AwsLambdaFunction[] lambdaFunctions
   }
 
@@ -90,7 +91,7 @@ graph LR
 
 | ID                    | Name                                      | Service | Supports       | Status      |
 | --------------------- | ----------------------------------------- | ------- | -------------- | ----------- |
-| `CLDBRN-AWS-EC2-1`    | EC2 Instance Type Not in Allowed Profile  | ec2     | iac, discovery | Scaffold    |
+| `CLDBRN-AWS-EC2-1`    | EC2 Instance Type Not Preferred           | ec2     | iac, discovery | Implemented |
 | `CLDBRN-AWS-EBS-1`    | EBS Volume Type Not Current Generation    | ebs     | discovery, iac | Implemented |
 | `CLDBRN-AWS-RDS-1`    | RDS Instance Class Not in Allowed Profile | rds     | iac, discovery | Scaffold    |
 | `CLDBRN-AWS-S3-1`     | S3 Missing Lifecycle Configuration        | s3      | iac, discovery | Scaffold    |

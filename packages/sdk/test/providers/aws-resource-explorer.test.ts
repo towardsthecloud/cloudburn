@@ -190,6 +190,24 @@ describe('resource explorer discovery', () => {
     });
   });
 
+  it('fails when Resource Explorer returns a malformed index region', async () => {
+    vi.spyOn(clientModule, 'resolveCurrentAwsRegion').mockResolvedValue('eu-central-1');
+    vi.spyOn(clientModule, 'createResourceExplorerClient').mockReturnValue({
+      send: vi.fn().mockResolvedValue({
+        Indexes: [
+          {
+            Region: 'eu-central-1 region:malicious',
+            Type: 'AGGREGATOR',
+          },
+        ],
+      }),
+    } as never);
+
+    await expect(buildAwsDiscoveryCatalog({ mode: 'current' }, ['ec2:volume'])).rejects.toMatchObject({
+      code: 'INVALID_AWS_REGION',
+    });
+  });
+
   it('lists enabled index regions from the current control region', async () => {
     vi.spyOn(clientModule, 'resolveCurrentAwsRegion').mockResolvedValue('us-east-1');
     vi.spyOn(clientModule, 'createResourceExplorerClient').mockReturnValue({

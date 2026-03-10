@@ -12,7 +12,7 @@ Source of truth: `packages/sdk/src/types.ts` (type), `packages/sdk/src/config/de
 | `rules`        | `Record<string, RuleConfig>`                 | `{}`    | TODO   | Global rule configuration overrides. Not yet consumed by `buildRuleRegistry`. |
 | `customRules`  | `string[]`                                   | `[]`    | TODO   | Paths to custom rule modules. Not yet loaded by the registry. |
 
-`RuleConfig` is `Record<string, unknown>` — an open bag for rule-specific settings (for example `allow: [...]` for allowed-instance-type rules).
+`RuleConfig` is `Record<string, unknown>` — an open bag for rule-specific settings and future per-rule overrides.
 
 ## Merge Behavior
 
@@ -37,13 +37,8 @@ Printed by `cloudburn init` (from `packages/cloudburn/src/commands/init.ts`):
 version: 1
 profile: dev
 
-profiles:
-  dev:
-    ec2-allowed-instance-types:
-      allow: [t3.micro, t3.small, t3.medium]
-
 rules:
-  ec2-allowed-instance-types:
+  ec2-instance-type-preferred:
     severity: error
 ```
 

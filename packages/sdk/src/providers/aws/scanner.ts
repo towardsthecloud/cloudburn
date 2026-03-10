@@ -14,6 +14,7 @@ import {
   listAwsDiscoverySupportedResourceTypes,
 } from './resource-explorer.js';
 import { hydrateAwsEbsVolumes } from './resources/ebs.js';
+import { hydrateAwsEc2Instances } from './resources/ec2.js';
 import { hydrateAwsLambdaFunctions } from './resources/lambda.js';
 
 const sortUnique = (values: string[]): string[] =>
@@ -84,15 +85,18 @@ export const scanAwsResources = async (rules: Rule[], target: AwsDiscoveryTarget
         indexType: 'LOCAL',
       },
       ebsVolumes: [],
+      ec2Instances: [],
       lambdaFunctions: [],
     };
   }
 
   const catalog = await buildAwsDiscoveryCatalog(target, requirements.resourceTypes);
   const ebsResources = catalog.resources.filter((resource) => resource.resourceType === 'ec2:volume');
+  const ec2Resources = catalog.resources.filter((resource) => resource.resourceType === 'ec2:instance');
   const lambdaResources = catalog.resources.filter((resource) => resource.resourceType === 'lambda:function');
-  const [ebsVolumes, lambdaFunctions] = await Promise.all([
+  const [ebsVolumes, ec2Instances, lambdaFunctions] = await Promise.all([
     requirements.hydrators.has('aws-ebs-volume') ? hydrateAwsEbsVolumes(ebsResources) : Promise.resolve([]),
+    requirements.hydrators.has('aws-ec2-instance') ? hydrateAwsEc2Instances(ec2Resources) : Promise.resolve([]),
     requirements.hydrators.has('aws-lambda-function')
       ? hydrateAwsLambdaFunctions(lambdaResources)
       : Promise.resolve([]),
@@ -101,6 +105,7 @@ export const scanAwsResources = async (rules: Rule[], target: AwsDiscoveryTarget
   return {
     catalog,
     ebsVolumes,
+    ec2Instances,
     lambdaFunctions,
   };
 };

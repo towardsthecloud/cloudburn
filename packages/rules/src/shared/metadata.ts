@@ -23,6 +23,14 @@ export type AwsEbsVolume = {
   accountId: string;
 };
 
+/** Discovered AWS EC2 instance with its normalized instance type. */
+export type AwsEc2Instance = {
+  instanceId: string;
+  instanceType: string;
+  region: string;
+  accountId: string;
+};
+
 /** Discovered AWS Lambda function with architecture metadata. */
 export type AwsLambdaFunction = {
   functionName: string;
@@ -59,7 +67,7 @@ export type AwsDiscoveryCatalog = {
 };
 
 /** Optional hydrator keys that enrich catalog matches with service-specific data. */
-export type LiveHydratorKey = 'aws-ebs-volume' | 'aws-lambda-function';
+export type LiveHydratorKey = 'aws-ebs-volume' | 'aws-ec2-instance' | 'aws-lambda-function';
 
 /** Rule-owned discovery metadata that drives catalog filtering and hydration. */
 export type LiveDiscoveryDefinition = {
@@ -83,6 +91,7 @@ export type IaCResource = {
 export type LiveEvaluationContext = {
   catalog: AwsDiscoveryCatalog;
   ebsVolumes: AwsEbsVolume[];
+  ec2Instances: AwsEc2Instance[];
   lambdaFunctions: AwsLambdaFunction[];
 };
 

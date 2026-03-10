@@ -27,6 +27,7 @@ describe('CloudBurnClient', () => {
         { volumeId: 'vol-123', volumeType: 'gp2', region: 'us-east-1', accountId: '123456789012' },
         { volumeId: 'vol-456', volumeType: 'gp3', region: 'us-east-1', accountId: '123456789012' },
       ],
+      ec2Instances: [],
       lambdaFunctions: [],
     });
 
@@ -72,6 +73,7 @@ describe('CloudBurnClient', () => {
     mockedScanAwsResources.mockResolvedValue({
       catalog: discoveryCatalog,
       ebsVolumes: [],
+      ec2Instances: [],
       lambdaFunctions: [
         { functionName: 'legacy-func', architectures: ['x86_64'], region: 'us-east-1', accountId: '123456789012' },
         { functionName: 'arm-func', architectures: ['arm64'], region: 'us-east-1', accountId: '123456789012' },
@@ -111,10 +113,65 @@ describe('CloudBurnClient', () => {
     });
   });
 
+  it('returns non-preferred EC2 instance findings discovered during live scans', async () => {
+    mockedScanAwsResources.mockResolvedValue({
+      catalog: discoveryCatalog,
+      ebsVolumes: [],
+      ec2Instances: [
+        {
+          accountId: '123456789012',
+          instanceId: 'i-legacy',
+          instanceType: 'c6i.large',
+          region: 'us-east-1',
+        },
+        {
+          accountId: '123456789012',
+          instanceId: 'i-current',
+          instanceType: 'm8i.large',
+          region: 'us-east-1',
+        },
+      ],
+      lambdaFunctions: [],
+    });
+
+    const scanner = new CloudBurnClient();
+
+    const result = await scanner.discover({
+      target: {
+        mode: 'region',
+        region: 'us-east-1',
+      },
+    });
+
+    expect(result).toEqual({
+      providers: [
+        {
+          provider: 'aws',
+          rules: [
+            {
+              ruleId: 'CLDBRN-AWS-EC2-1',
+              service: 'ec2',
+              source: 'discovery',
+              message: 'EC2 instances should use preferred instance types.',
+              findings: [
+                {
+                  resourceId: 'i-legacy',
+                  region: 'us-east-1',
+                  accountId: '123456789012',
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+  });
+
   it('defaults discover to the current region target when none is provided', async () => {
     mockedScanAwsResources.mockResolvedValue({
       catalog: discoveryCatalog,
       ebsVolumes: [],
+      ec2Instances: [],
       lambdaFunctions: [],
     });
 
@@ -138,6 +195,22 @@ describe('CloudBurnClient', () => {
         {
           provider: 'aws',
           rules: [
+            {
+              ruleId: 'CLDBRN-AWS-EC2-1',
+              service: 'ec2',
+              source: 'iac',
+              message: 'EC2 instances should use preferred instance types.',
+              findings: [
+                {
+                  resourceId: 'aws_instance.web',
+                  location: {
+                    path: 'variables.tf',
+                    startLine: 14,
+                    startColumn: 3,
+                  },
+                },
+              ],
+            },
             {
               ruleId: 'CLDBRN-AWS-EBS-1',
               service: 'ebs',

@@ -75,6 +75,7 @@ describe('lambdaCostOptimalArchitectureRule', () => {
         indexType: 'LOCAL',
       },
       ebsVolumes: [],
+      ec2Instances: [],
       lambdaFunctions: [createLambdaFunction()],
     });
 
@@ -105,6 +106,7 @@ describe('lambdaCostOptimalArchitectureRule', () => {
         indexType: 'LOCAL',
       },
       ebsVolumes: [],
+      ec2Instances: [],
       lambdaFunctions: [createLambdaFunction({ architectures: ['arm64'] })],
     });
 

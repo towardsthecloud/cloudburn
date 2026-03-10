@@ -1,19 +1,10 @@
 import { GetFunctionConfigurationCommand } from '@aws-sdk/client-lambda';
 import type { AwsDiscoveredResource, AwsLambdaFunction } from '@cloudburn/rules';
 import { createLambdaClient } from '../client.js';
+import { chunkItems } from './utils.js';
 
 const DEFAULT_LAMBDA_ARCHITECTURES = ['x86_64'];
 const LAMBDA_CONFIGURATION_CONCURRENCY = 10;
-
-const chunk = <T>(items: T[], size: number): T[][] => {
-  const chunks: T[][] = [];
-
-  for (let index = 0; index < items.length; index += size) {
-    chunks.push(items.slice(index, index + size));
-  }
-
-  return chunks;
-};
 
 const inferFunctionName = (arn: string): string | null => {
   const arnSegments = arn.split(':');
@@ -50,7 +41,7 @@ export const hydrateAwsLambdaFunctions = async (resources: AwsDiscoveredResource
       const client = createLambdaClient({ region });
       const functions: AwsLambdaFunction[] = [];
 
-      for (const batch of chunk(regionResources, LAMBDA_CONFIGURATION_CONCURRENCY)) {
+      for (const batch of chunkItems(regionResources, LAMBDA_CONFIGURATION_CONCURRENCY)) {
         const hydratedBatch = await Promise.all(
           batch.map(async (resource) => {
             const response = await client.send(

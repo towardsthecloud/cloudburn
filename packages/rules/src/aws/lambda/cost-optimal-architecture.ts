@@ -1,20 +1,16 @@
-import { createFinding, createRule } from '../../shared/helpers.js';
-import type { SourceLocation } from '../../shared/metadata.js';
+import {
+  createFinding,
+  createFindingMatch,
+  createRule,
+  createStaticFindingMatch,
+  isRecord,
+} from '../../shared/helpers.js';
 
 const RULE_ID = 'CLDBRN-AWS-LAMBDA-1';
 const RULE_SERVICE = 'lambda';
 const RULE_MESSAGE = 'Lambda functions should use arm64 architecture when compatible to reduce running costs.';
 const TERRAFORM_LAMBDA_TYPE = 'aws_lambda_function';
 const CLOUDFORMATION_LAMBDA_TYPE = 'AWS::Lambda::Function';
-
-const createFindingMatch = (resourceId: string, region?: string, accountId?: string, location?: SourceLocation) => ({
-  resourceId,
-  ...(region ? { region } : {}),
-  ...(accountId ? { accountId } : {}),
-  ...(location ? { location } : {}),
-});
-
-const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
 
 type ArchitectureState = 'arm64' | 'non-arm64' | 'unknown';
 
@@ -29,24 +25,6 @@ const getArchitectureState = (architectures: unknown): ArchitectureState => {
 
   return architectures.includes('arm64') ? 'arm64' : 'non-arm64';
 };
-
-const toStaticFindingMatch = (
-  resource: {
-    type: string;
-    name: string;
-    location?: SourceLocation;
-    attributeLocations?: Record<string, SourceLocation>;
-  },
-  resourceId: string,
-) =>
-  createFindingMatch(
-    resourceId,
-    undefined,
-    undefined,
-    resource.attributeLocations?.architectures ??
-      resource.attributeLocations?.['Properties.Architectures'] ??
-      resource.location,
-  );
 
 /** Flag Lambda functions that are not configured for arm64, as an advisory when compatible. */
 export const lambdaCostOptimalArchitectureRule = createRule({
@@ -78,7 +56,12 @@ export const lambdaCostOptimalArchitectureRule = createRule({
         resource.type === TERRAFORM_LAMBDA_TYPE &&
         getArchitectureState(resource.attributes.architectures) === 'non-arm64'
       ) {
-        return [toStaticFindingMatch(resource, `${resource.type}.${resource.name}`)];
+        return [
+          createStaticFindingMatch(resource, `${resource.type}.${resource.name}`, [
+            'architectures',
+            'Properties.Architectures',
+          ]),
+        ];
       }
 
       const properties = isRecord(resource.attributes.Properties) ? resource.attributes.Properties : undefined;
@@ -88,7 +71,7 @@ export const lambdaCostOptimalArchitectureRule = createRule({
         properties &&
         getArchitectureState(properties.Architectures) === 'non-arm64'
       ) {
-        return [toStaticFindingMatch(resource, resource.name)];
+        return [createStaticFindingMatch(resource, resource.name, ['architectures', 'Properties.Architectures'])];
       }
 
       return [];

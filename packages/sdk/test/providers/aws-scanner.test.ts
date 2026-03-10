@@ -8,6 +8,7 @@ import {
   listAwsDiscoverySupportedResourceTypes,
 } from '../../src/providers/aws/resource-explorer.js';
 import { hydrateAwsEbsVolumes } from '../../src/providers/aws/resources/ebs.js';
+import { hydrateAwsEc2Instances } from '../../src/providers/aws/resources/ec2.js';
 import { hydrateAwsLambdaFunctions } from '../../src/providers/aws/resources/lambda.js';
 import {
   initializeAwsDiscovery,
@@ -32,6 +33,10 @@ vi.mock('../../src/providers/aws/resources/ebs.js', () => ({
   hydrateAwsEbsVolumes: vi.fn(),
 }));
 
+vi.mock('../../src/providers/aws/resources/ec2.js', () => ({
+  hydrateAwsEc2Instances: vi.fn(),
+}));
+
 vi.mock('../../src/providers/aws/resources/lambda.js', () => ({
   hydrateAwsLambdaFunctions: vi.fn(),
 }));
@@ -43,6 +48,7 @@ const mockedCreateAwsResourceExplorerSetup = vi.mocked(createAwsResourceExplorer
 const mockedListAwsDiscoveryIndexes = vi.mocked(listAwsDiscoveryIndexes);
 const mockedListAwsDiscoverySupportedResourceTypes = vi.mocked(listAwsDiscoverySupportedResourceTypes);
 const mockedHydrateAwsEbsVolumes = vi.mocked(hydrateAwsEbsVolumes);
+const mockedHydrateAwsEc2Instances = vi.mocked(hydrateAwsEc2Instances);
 const mockedHydrateAwsLambdaFunctions = vi.mocked(hydrateAwsLambdaFunctions);
 
 const catalog: AwsDiscoveryCatalog = {
@@ -54,6 +60,14 @@ const catalog: AwsDiscoveryCatalog = {
       properties: [],
       region: 'us-east-1',
       resourceType: 'ec2:volume',
+      service: 'ec2',
+    },
+    {
+      accountId: '123456789012',
+      arn: 'arn:aws:ec2:us-east-1:123456789012:instance/i-123',
+      properties: [],
+      region: 'us-east-1',
+      resourceType: 'ec2:instance',
       service: 'ec2',
     },
     {
@@ -90,6 +104,14 @@ describe('scanAwsResources', () => {
     mockedHydrateAwsEbsVolumes.mockResolvedValue([
       { accountId: '123456789012', region: 'us-east-1', volumeId: 'vol-123', volumeType: 'gp2' },
     ]);
+    mockedHydrateAwsEc2Instances.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        instanceId: 'i-123',
+        instanceType: 'c6i.large',
+        region: 'us-east-1',
+      },
+    ]);
     mockedHydrateAwsLambdaFunctions.mockResolvedValue([
       { accountId: '123456789012', architectures: ['x86_64'], functionName: 'my-func', region: 'us-east-1' },
     ]);
@@ -105,6 +127,13 @@ describe('scanAwsResources', () => {
         createRule({
           id: 'CLDBRN-AWS-TEST-2',
           liveDiscovery: {
+            hydrator: 'aws-ec2-instance',
+            resourceTypes: ['ec2:instance'],
+          },
+        }),
+        createRule({
+          id: 'CLDBRN-AWS-TEST-3',
+          liveDiscovery: {
             hydrator: 'aws-lambda-function',
             resourceTypes: ['lambda:function', 'ec2:volume'],
           },
@@ -115,14 +144,24 @@ describe('scanAwsResources', () => {
     );
 
     expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith({ mode: 'region', region: 'us-east-1' }, [
+      'ec2:instance',
       'ec2:volume',
       'lambda:function',
     ]);
     expect(mockedHydrateAwsEbsVolumes).toHaveBeenCalledWith([catalog.resources[0]]);
-    expect(mockedHydrateAwsLambdaFunctions).toHaveBeenCalledWith([catalog.resources[1]]);
+    expect(mockedHydrateAwsEc2Instances).toHaveBeenCalledWith([catalog.resources[1]]);
+    expect(mockedHydrateAwsLambdaFunctions).toHaveBeenCalledWith([catalog.resources[2]]);
     expect(result).toEqual({
       catalog,
       ebsVolumes: [{ accountId: '123456789012', region: 'us-east-1', volumeId: 'vol-123', volumeType: 'gp2' }],
+      ec2Instances: [
+        {
+          accountId: '123456789012',
+          instanceId: 'i-123',
+          instanceType: 'c6i.large',
+          region: 'us-east-1',
+        },
+      ],
       lambdaFunctions: [
         { accountId: '123456789012', architectures: ['x86_64'], functionName: 'my-func', region: 'us-east-1' },
       ],
@@ -149,6 +188,7 @@ describe('scanAwsResources', () => {
         searchRegion: 'us-east-1',
       },
       ebsVolumes: [],
+      ec2Instances: [],
       lambdaFunctions: [],
     });
   });

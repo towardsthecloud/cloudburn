@@ -404,6 +404,52 @@ describe('parsers', () => {
     ]);
   });
 
+  it('parses a cloudformation EC2 instance resource', async () => {
+    const resourcePath = fileURLToPath(new URL('./fixtures/cloudformation/ec2-instance.yaml', import.meta.url));
+    const resources = await parseCloudFormation(resourcePath);
+
+    expect(resources).toEqual([
+      {
+        provider: 'aws',
+        type: 'AWS::EC2::Instance',
+        name: 'LegacyWeb',
+        location: {
+          path: 'ec2-instance.yaml',
+          startLine: 3,
+          startColumn: 3,
+        },
+        attributeLocations: {
+          Type: {
+            path: 'ec2-instance.yaml',
+            startLine: 4,
+            startColumn: 5,
+          },
+          Properties: {
+            path: 'ec2-instance.yaml',
+            startLine: 5,
+            startColumn: 5,
+          },
+          'Properties.ImageId': {
+            path: 'ec2-instance.yaml',
+            startLine: 6,
+            startColumn: 7,
+          },
+          'Properties.InstanceType': {
+            path: 'ec2-instance.yaml',
+            startLine: 7,
+            startColumn: 7,
+          },
+        },
+        attributes: {
+          Properties: {
+            ImageId: 'ami-1234567890abcdef0',
+            InstanceType: 'm4.large',
+          },
+        },
+      },
+    ]);
+  });
+
   it('parses a cloudformation json resource', async () => {
     const resourcePath = fileURLToPath(new URL('./fixtures/cloudformation/ebs-volume.json', import.meta.url));
     const resources = await parseCloudFormation(resourcePath);

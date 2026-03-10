@@ -1,0 +1,7 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Resources:
+  LegacyWeb:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: ami-1234567890abcdef0
+      InstanceType: m4.large

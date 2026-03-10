@@ -3,13 +3,9 @@ import type { Command } from 'commander';
 const starterConfig = `version: 1
 profile: dev
 
-profiles:
-  dev:
-    ec2-allowed-instance-types:
-      allow: [t3.micro, t3.small, t3.medium]
-
+# Profiles are parsed but not applied yet, so configure the active rules block directly for now.
 rules:
-  ec2-allowed-instance-types:
+  ec2-instance-type-preferred:
     severity: error
 `;
 

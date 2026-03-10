@@ -56,7 +56,7 @@ const mapIndex = (index: Index): AwsDiscoveryRegion | null => {
   }
 
   return {
-    region: index.Region,
+    region: assertValidAwsRegion(index.Region),
     type: index.Type === 'AGGREGATOR' ? 'aggregator' : 'local',
   };
 };
@@ -138,8 +138,13 @@ const resolveSearchPlan = async (
   };
 };
 
-const buildFilterString = (resourceType: string, regionFilter?: string): string =>
-  regionFilter ? `resourcetype:${resourceType} region:${regionFilter}` : `resourcetype:${resourceType}`;
+const buildFilterString = (resourceType: string, regionFilter?: string): string => {
+  if (!regionFilter) {
+    return `resourcetype:${resourceType}`;
+  }
+
+  return `resourcetype:${resourceType} region:${assertValidAwsRegion(regionFilter)}`;
+};
 
 const resolveSearchViewArn = async (searchRegion: string): Promise<string> => {
   const client = createResourceExplorerClient({ region: searchRegion });

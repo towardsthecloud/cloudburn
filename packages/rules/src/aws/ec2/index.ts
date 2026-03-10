@@ -1,5 +1,4 @@
-import { ec2InstanceTypeAllowedProfileRule } from './instance-type-allowed-profile.js';
+import { ec2PreferredInstanceTypeRule } from './preferred-instance-types.js';
 
-// Intent: aggregate AWS EC2 rule definitions.
-// TODO(cloudburn): add additional EC2 optimization and utilization rules.
-export const ec2Rules = [ec2InstanceTypeAllowedProfileRule];
+/** Aggregate AWS EC2 rule definitions. */
+export const ec2Rules = [ec2PreferredInstanceTypeRule];

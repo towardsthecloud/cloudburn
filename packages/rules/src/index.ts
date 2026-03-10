@@ -4,11 +4,19 @@ export { awsRules } from './aws/index.js';
 export { azureRules } from './azure/index.js';
 export { gcpRules } from './gcp/index.js';
 export { awsCorePreset } from './presets/aws-core.js';
-export { createFinding, createRule, toRuleIds } from './shared/helpers.js';
+export {
+  createFinding,
+  createFindingMatch,
+  createRule,
+  createStaticFindingMatch,
+  isRecord,
+  toRuleIds,
+} from './shared/helpers.js';
 export type {
   AwsDiscoveredResource,
   AwsDiscoveryCatalog,
   AwsEbsVolume,
+  AwsEc2Instance,
   AwsLambdaFunction,
   AwsResourceProperty,
   CloudProvider,

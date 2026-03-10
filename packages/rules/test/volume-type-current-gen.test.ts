@@ -75,6 +75,7 @@ describe('ebsVolumeTypeCurrentGenRule', () => {
         indexType: 'LOCAL',
       },
       ebsVolumes: [createVolume()],
+      ec2Instances: [],
       lambdaFunctions: [],
     });
 
@@ -155,6 +156,7 @@ describe('ebsVolumeTypeCurrentGenRule', () => {
         indexType: 'LOCAL',
       },
       ebsVolumes: [createVolume({ volumeType: 'gp3' })],
+      ec2Instances: [],
       lambdaFunctions: [],
     });
 

@@ -10,7 +10,7 @@ const findings = [
         ruleId: 'CLDBRN-AWS-EC2-1',
         service: 'ec2',
         source: 'iac' as const,
-        message: 'EC2 instances should use approved instance-type profiles.',
+        message: 'EC2 instances should use preferred instance types.',
         findings: [
           {
             resourceId: 'i-placeholder',

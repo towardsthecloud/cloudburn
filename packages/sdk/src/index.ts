@@ -12,6 +12,7 @@ export type {
   AwsDiscoveryRegion,
   AwsDiscoveryTarget,
   AwsEbsVolume,
+  AwsEc2Instance,
   AwsLambdaFunction,
   AwsSupportedResourceType,
   CloudBurnConfig,
