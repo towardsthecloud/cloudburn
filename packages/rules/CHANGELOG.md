@@ -1,5 +1,11 @@
 # @cloudburn/rules
 
+## 0.8.1
+
+### Patch Changes
+
+- [#26](https://github.com/towardsthecloud/cloudburn/pull/26) [`c474ddb`](https://github.com/towardsthecloud/cloudburn/commit/c474ddbf534190efe7dd9bb585d24ba1c503dfb1) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Add an EC2 preferred-instance rule for static and discovery scans, including curated family recommendations and EC2 instance hydration support.
+
 ## 0.8.0
 
 ### Minor Changes

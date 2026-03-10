@@ -1,6 +1,6 @@
 {
   "name": "@cloudburn/rules",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "Cloudburn cost optimization rules",
   "type": "module",
   "exports": {
