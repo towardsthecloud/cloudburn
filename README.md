@@ -53,12 +53,19 @@ cloudburn scan ./template.yaml
 cloudburn scan ./iac
 cloudburn discover
 cloudburn discover --region all
-cloudburn scan --format sarif --exit-code
+cloudburn --format json scan ./iac
+cloudburn discover list-enabled-regions --format text
 cloudburn init
 cloudburn rules list
 ```
 
-JSON scan output is grouped as `providers -> rules -> findings`, with `ruleId`, `service`, `source`, and `message` on each rule group and only varying fields on each nested finding.
+Supported output formats:
+
+- `table` for human-readable terminal output
+- `text` for tab-delimited output that works well with `grep`, `sed`, and `awk`
+- `json` for machine-readable output in automation and downstream systems
+
+JSON scan output is grouped as `providers -> rules -> findings`, with `ruleId`, `service`, `source`, and `message` on each rule group and only varying fields on each nested finding. `--format` is a global CLI option and defaults to `table`; `cloudburn init` keeps raw YAML text by default so it can still be redirected into `.cloudburn.yml`.
 
 ## Configuration
 

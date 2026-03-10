@@ -58,7 +58,14 @@ Mock boundaries:
 
 ## Formatter and Exit Code Contract
 
-All rule-result formatters share the signature `(result: ScanResult) => string`. Available: `formatJson`, `formatTable`, `formatSarif`.
+All stdout-producing commands should build a typed `CliResponse` and render it through the shared `renderResponse(response, format)` pipeline.
+
+Supported stdout formats are `text`, `json`, and `table` only.
+
+- `--format` is a global CLI option, with command-local compatibility aliases allowed only to preserve post-command placement.
+- `text` output should remain tab-delimited for row-like data.
+- `table` output should remain stable ASCII tables.
+- Runtime errors should continue to emit the JSON `stderr` envelope rather than following the selected stdout format.
 
 Exit codes:
 

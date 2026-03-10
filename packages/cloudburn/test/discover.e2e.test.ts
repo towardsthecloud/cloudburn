@@ -64,6 +64,17 @@ describe('discover command e2e', () => {
     expect(process.exitCode).toBe(0);
   });
 
+  it('accepts the global root format flag for discovery scans', async () => {
+    const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    const discover = vi.spyOn(CloudBurnClient.prototype, 'discover').mockResolvedValue(liveScanResult);
+
+    await createProgram().parseAsync(['--format', 'json', 'discover'], { from: 'user' });
+
+    expect(discover).toHaveBeenCalledWith({ target: { mode: 'current' } });
+    expect(stdout).toHaveBeenCalledWith(expect.stringContaining('"source": "discovery"'));
+    expect(process.exitCode).toBe(0);
+  });
+
   it('passes an explicit region target to the sdk discover method', async () => {
     const discover = vi.spyOn(CloudBurnClient.prototype, 'discover').mockResolvedValue({ providers: [] });
 
@@ -114,6 +125,8 @@ describe('discover command e2e', () => {
 
     expect(help).toContain('Run a live AWS discovery');
     expect(help).toContain('--region <region>');
+    expect(help).toContain('text: tab-delimited');
+    expect(help).toContain('output for grep, sed, and awk');
     expect(help).toContain('cloudburn discover');
     expect(help).toContain('cloudburn discover --region all');
     expect(help).toContain('cloudburn discover list-enabled-regions');
@@ -142,6 +155,19 @@ describe('discover command e2e', () => {
     expect(process.exitCode).toBe(0);
   });
 
+  it('formats enabled regions as text and respects parent discover format compatibility', async () => {
+    const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    vi.spyOn(CloudBurnClient.prototype, 'listEnabledDiscoveryRegions').mockResolvedValue([
+      { region: 'eu-west-1', type: 'local' },
+      { region: 'eu-central-1', type: 'aggregator' },
+    ]);
+
+    await createProgram().parseAsync(['discover', '--format', 'text', 'list-enabled-regions'], { from: 'user' });
+
+    expect(stdout).toHaveBeenCalledWith('eu-west-1\tlocal\neu-central-1\taggregator\n');
+    expect(process.exitCode).toBe(0);
+  });
+
   it('initializes resource explorer setup via the sdk', async () => {
     const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
     const initializeDiscovery = vi.spyOn(CloudBurnClient.prototype, 'initializeDiscovery').mockResolvedValue({
@@ -153,7 +179,31 @@ describe('discover command e2e', () => {
     await createProgram().parseAsync(['discover', 'init'], { from: 'user' });
 
     expect(initializeDiscovery).toHaveBeenCalledWith({ region: undefined });
-    expect(stdout).toHaveBeenCalledWith('Resource Explorer setup created in eu-west-1.\n');
+    expect(stdout).toHaveBeenCalledWith(expect.stringContaining('Resource Explorer setup created in eu-west-1.'));
+    expect(stdout).toHaveBeenCalledWith(expect.stringContaining('| aggregatorRegion | eu-west-1'));
+    expect(process.exitCode).toBe(0);
+  });
+
+  it('formats discover init as structured json', async () => {
+    const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    vi.spyOn(CloudBurnClient.prototype, 'initializeDiscovery').mockResolvedValue({
+      status: 'CREATED',
+      aggregatorRegion: 'eu-west-1',
+      regions: ['eu-west-1'],
+      taskId: 'task-123',
+    });
+
+    await createProgram().parseAsync(['discover', 'init', '--format', 'json'], { from: 'user' });
+
+    expect(stdout).toHaveBeenCalledWith(`{
+  "aggregatorRegion": "eu-west-1",
+  "message": "Resource Explorer setup created in eu-west-1.",
+  "regions": [
+    "eu-west-1"
+  ],
+  "status": "CREATED",
+  "taskId": "task-123"
+}\n`);
     expect(process.exitCode).toBe(0);
   });
 
@@ -209,6 +259,19 @@ describe('discover command e2e', () => {
     const output = (stderr.mock.calls[0]?.[0] as string) ?? '';
     const parsed = JSON.parse(output) as { error: { code: string } };
     expect(parsed.error.code).toBe('CREDENTIALS_ERROR');
+  });
+
+  it('formats supported resource types via the shared formatter system', async () => {
+    const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    vi.spyOn(CloudBurnClient.prototype, 'listSupportedDiscoveryResourceTypes').mockResolvedValue([
+      { resourceType: 'AWS::EC2::Instance', service: 'ec2' },
+      { resourceType: 'AWS::S3::Bucket' },
+    ]);
+
+    await createProgram().parseAsync(['discover', 'supported-resource-types', '--format', 'text'], { from: 'user' });
+
+    expect(stdout).toHaveBeenCalledWith('AWS::EC2::Instance\tec2\nAWS::S3::Bucket\tunknown\n');
+    expect(process.exitCode).toBe(0);
   });
 
   it('writes a setup-specific error payload for disabled resource explorer', async () => {

@@ -14,10 +14,9 @@ graph TD
   Discover --> DiscoverInit["init"]
   Discover --> DiscoverTypes["supported-resource-types"]
 
-  Scan -.- ScanFlags["--format table|json|sarif\n--exit-code"]
-  Discover -.- DiscoverFlags["--region <region|all>\n--format table|json|sarif\n--exit-code"]
-  DiscoverRegions -.- DiscoverInfoFlags["--format table|json"]
-  DiscoverTypes -.- DiscoverInfoFlags
+  Root -.- RootFlags["--format text|json|table"]
+  Scan -.- ScanFlags["--exit-code"]
+  Discover -.- DiscoverFlags["--region <region|all>\n--exit-code"]
   Estimate -.- EstimateFlags["--server url"]
 ```
 
@@ -25,22 +24,23 @@ graph TD
 
 ```mermaid
 graph LR
-  Result["ScanResult"] --> Dispatch{"options.format"}
-  Dispatch -->|table| Table["formatTable"]
-  Dispatch -->|json| JSON["formatJson"]
-  Dispatch -->|sarif| SARIF["formatSarif"]
-  Table --> Stdout["process.stdout"]
+  Command["Command action"] --> Response["CliResponse"]
+  Response --> Dispatch{"resolved format"}
+  Dispatch -->|text| Text["renderResponse(..., 'text')"]
+  Dispatch -->|json| JSON["renderResponse(..., 'json')"]
+  Dispatch -->|table| Table["renderResponse(..., 'table')"]
+  Text --> Stdout["process.stdout"]
   JSON --> Stdout
-  SARIF --> Stdout
+  Table --> Stdout
 ```
 
-All rule-evaluation formatters share the signature `(result: ScanResult) => string`.
+All stdout-producing commands return a typed `CliResponse` and share the same format resolver.
 
-| Formatter     | Output |
-| ------------- | ------ |
-| `formatJson`  | Pretty JSON preserving the lean `providers -> rules -> findings` contract |
-| `formatTable` | One flattened line per nested match: `provider ruleId source service resourceId [location] message` using rule-group metadata plus nested finding data |
-| `formatSarif` | SARIF 2.1.0 JSON flattened from nested matches |
+| Format | Output |
+| ------ | ------ |
+| `json` | Pretty JSON for the underlying response payload |
+| `text` | Tab-delimited rows for list-like output, or raw human-readable text for status/document output |
+| `table` | ASCII tables for scans, record lists, string lists, and key/value status output |
 
 ## Command Behavior
 
@@ -48,9 +48,12 @@ All rule-evaluation formatters share the signature `(result: ScanResult) => stri
 - `discover` runs live AWS discovery and rule evaluation through `CloudBurnClient.discover({ target })`.
 - `discover --region all` requires a Resource Explorer aggregator index.
 - `discover --region <region>` targets one enabled Resource Explorer index region.
-- `discover list-enabled-regions` and `discover supported-resource-types` use table or JSON output only.
-- `discover init` bootstraps Resource Explorer through the SDK and prints a short status message.
+- `discover list-enabled-regions` and `discover supported-resource-types` use the shared `text|json|table` renderer.
+- `discover init` bootstraps Resource Explorer through the SDK and renders a status response through the shared formatter system.
+- `init`, `rules list`, and `estimate` also use the shared formatter system instead of ad hoc string output.
+- `--format` is documented as a global option and defaults to `table`, except `init`, which preserves raw YAML text by default for redirection workflows.
 - `--exit-code` counts nested matches across all provider and rule groups.
+- Runtime errors still write a structured JSON envelope to `stderr`.
 
 ### Help Examples
 
@@ -63,6 +66,7 @@ cloudburn discover --region eu-central-1
 cloudburn discover --region all
 cloudburn discover list-enabled-regions
 cloudburn discover init
+cloudburn --format json scan ./iac
 ```
 
 ## Exit-Code Contract

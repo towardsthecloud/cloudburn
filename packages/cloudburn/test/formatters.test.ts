@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { formatError } from '../src/formatters/error.js';
-import { formatSarif } from '../src/formatters/sarif.js';
-import { formatTable } from '../src/formatters/table.js';
+import { parseOutputFormat, renderResponse } from '../src/formatters/output.js';
 
 const resultWithoutLocation = {
   providers: [
@@ -15,6 +14,7 @@ const resultWithoutLocation = {
           message: 'EBS volumes should use current-generation storage.',
           findings: [
             {
+              accountId: '123456789012',
               resourceId: 'vol-123',
               region: 'us-east-1',
             },
@@ -51,54 +51,142 @@ const resultWithLocation = {
   ],
 };
 
-describe('formatters', () => {
-  it('flattens provider-grouped findings for table output', () => {
-    expect(formatTable(resultWithLocation)).toBe(
-      'aws CLDBRN-AWS-EBS-1 iac ebs aws_ebs_volume.gp2_logs main.tf:4:3 EBS volumes should use current-generation storage.',
+describe('renderResponse', () => {
+  it('renders scan results as tab-delimited text rows', () => {
+    expect(renderResponse({ kind: 'scan-result', result: resultWithLocation }, 'text')).toBe(
+      'aws\tCLDBRN-AWS-EBS-1\tiac\tebs\taws_ebs_volume.gp2_logs\t\t\tmain.tf\t4\t3\tEBS volumes should use current-generation storage.',
     );
   });
 
-  it('omits sarif locations when a finding has no source location', () => {
-    const output = JSON.parse(formatSarif(resultWithoutLocation)) as {
-      runs: Array<{
-        results: Array<{
-          message: { text: string };
-          locations?: Array<Record<string, unknown>>;
-        }>;
-      }>;
-    };
-
-    expect(output.runs[0]?.results[0]?.message.text).toBe('EBS volumes should use current-generation storage.');
-    expect(output.runs[0]?.results[0]).not.toHaveProperty('locations');
+  it('renders scan results as json', () => {
+    expect(renderResponse({ kind: 'scan-result', result: resultWithoutLocation }, 'json')).toContain('123456789012');
   });
 
-  it('emits sarif locations when a finding has a source location', () => {
-    const output = JSON.parse(formatSarif(resultWithLocation)) as {
-      runs: Array<{
-        results: Array<{
-          locations?: Array<{
-            physicalLocation: {
-              artifactLocation: { uri: string };
-              region: Record<string, number>;
-            };
-          }>;
-        }>;
-      }>;
-    };
+  it('renders scan results as an ascii table', () => {
+    expect(renderResponse({ kind: 'scan-result', result: resultWithoutLocation }, 'table')).toMatchInlineSnapshot(`
+      "+----------+------------------+-----------+---------+------------+--------------+-----------+------+-----------+-------------+----------------------------------------------------+
+      | Provider | RuleId           | Source    | Service | ResourceId | AccountId    | Region    | Path | StartLine | StartColumn | Message                                            |
+      +----------+------------------+-----------+---------+------------+--------------+-----------+------+-----------+-------------+----------------------------------------------------+
+      | aws      | CLDBRN-AWS-EBS-1 | discovery | ebs     | vol-123    | 123456789012 | us-east-1 |      |           |             | EBS volumes should use current-generation storage. |
+      +----------+------------------+-----------+---------+------------+--------------+-----------+------+-----------+-------------+----------------------------------------------------+"
+    `);
+  });
 
-    expect(output.runs[0]?.results[0]?.locations).toEqual([
-      {
-        physicalLocation: {
-          artifactLocation: {
-            uri: 'main.tf',
-          },
-          region: {
-            startLine: 4,
-            startColumn: 3,
-          },
+  it('renders known record lists with stable text column order', () => {
+    expect(
+      renderResponse(
+        {
+          kind: 'record-list',
+          columns: [
+            { key: 'region', header: 'Region' },
+            { key: 'type', header: 'Type' },
+          ],
+          emptyMessage: 'No regions.',
+          rows: [
+            { region: 'eu-west-1', type: 'local' },
+            { region: 'eu-central-1', type: 'aggregator' },
+          ],
         },
-      },
-    ]);
+        'text',
+      ),
+    ).toBe('eu-west-1\tlocal\neu-central-1\taggregator');
+  });
+
+  it('renders generic record lists alphabetically in text mode', () => {
+    expect(
+      renderResponse(
+        {
+          kind: 'record-list',
+          emptyMessage: 'No rows.',
+          rows: [{ zeta: 'last', alpha: 'first' }],
+        },
+        'text',
+      ),
+    ).toBe('first\tlast');
+  });
+
+  it('renders string lists as one value per line in text mode', () => {
+    expect(
+      renderResponse(
+        {
+          kind: 'string-list',
+          columnHeader: 'RuleId',
+          emptyMessage: 'No rules.',
+          values: ['CLDBRN-AWS-EBS-1', 'CLDBRN-AWS-LAMBDA-1'],
+        },
+        'text',
+      ),
+    ).toBe('CLDBRN-AWS-EBS-1\nCLDBRN-AWS-LAMBDA-1');
+  });
+
+  it('renders status responses as structured json', () => {
+    expect(
+      renderResponse(
+        {
+          kind: 'status',
+          data: {
+            message: 'Resource Explorer setup created in eu-west-1.',
+            regions: ['eu-west-1'],
+            status: 'CREATED',
+          },
+          text: 'Resource Explorer setup created in eu-west-1.',
+        },
+        'json',
+      ),
+    ).toBe(`{
+  "message": "Resource Explorer setup created in eu-west-1.",
+  "regions": [
+    "eu-west-1"
+  ],
+  "status": "CREATED"
+}`);
+  });
+
+  it('renders documents as raw text and structured json', () => {
+    expect(
+      renderResponse(
+        {
+          kind: 'document',
+          content: 'version: 1\\nprofile: dev',
+          contentType: 'application/yaml',
+        },
+        'text',
+      ),
+    ).toBe('version: 1\\nprofile: dev');
+
+    expect(
+      renderResponse(
+        {
+          kind: 'document',
+          content: 'version: 1\\nprofile: dev',
+          contentType: 'application/yaml',
+        },
+        'json',
+      ),
+    ).toBe(`{
+  "content": "version: 1\\\\nprofile: dev",
+  "contentType": "application/yaml"
+}`);
+  });
+
+  it('returns friendly empty messages for empty human-readable output', () => {
+    expect(renderResponse({ kind: 'scan-result', result: { providers: [] } }, 'table')).toBe('No findings.');
+    expect(
+      renderResponse(
+        {
+          kind: 'record-list',
+          emptyMessage: 'No rows.',
+          rows: [],
+        },
+        'text',
+      ),
+    ).toBe('No rows.');
+  });
+});
+
+describe('parseOutputFormat', () => {
+  it('rejects sarif and other unsupported values', () => {
+    expect(() => parseOutputFormat('sarif')).toThrow('Allowed formats: text, json, table.');
   });
 });
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { EXIT_CODE_POLICY_VIOLATION } from '../src/exit-codes.js';
-import { formatJson } from '../src/formatters/json.js';
+import { renderResponse } from '../src/formatters/output.js';
 
 const findings = [
   {
@@ -24,7 +24,7 @@ const findings = [
 
 describe('commands and formatters', () => {
   it('formats findings as JSON', () => {
-    const output = formatJson({ providers: findings });
+    const output = renderResponse({ kind: 'scan-result', result: { providers: findings } }, 'json');
 
     expect(output).toContain('CLDBRN-AWS-EC2-1');
   });

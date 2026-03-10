@@ -5,6 +5,7 @@ import { registerEstimateCommand } from './commands/estimate.js';
 import { registerInitCommand } from './commands/init.js';
 import { registerRulesListCommand } from './commands/rules-list.js';
 import { registerScanCommand } from './commands/scan.js';
+import { OUTPUT_FORMAT_OPTION_DESCRIPTION, parseOutputFormat } from './formatters/output.js';
 
 declare const __VERSION__: string;
 
@@ -12,7 +13,11 @@ declare const __VERSION__: string;
 // TODO(cloudburn): add global flags for profile, config path, and debug logging.
 export const createProgram = (): Command => {
   const program = new Command();
-  program.name('cloudburn').description('Know what you spend. Fix what you waste.').version(__VERSION__);
+  program
+    .name('cloudburn')
+    .description('Know what you spend. Fix what you waste.')
+    .version(__VERSION__)
+    .option('--format <format>', OUTPUT_FORMAT_OPTION_DESCRIPTION, parseOutputFormat);
 
   registerDiscoverCommand(program);
   registerScanCommand(program);

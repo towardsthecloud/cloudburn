@@ -54,11 +54,12 @@ Mock at the SDK boundary — do not run real scans.
 **Test focus areas:**
 
 - Each command produces correct output for a given `ScanResult`
-- `--format` selects the right formatter
+- Root and command-local `--format` resolve to the expected `text|json|table` output
 - `--exit-code` sets `process.exitCode = 1` when findings exist
 - `--exit-code` without findings sets `process.exitCode = 0`
-- `discover list-enabled-regions` and `discover supported-resource-types` support table and JSON output
-- `discover init` reports setup status without re-testing AWS internals
+- `discover list-enabled-regions`, `discover supported-resource-types`, `discover init`, `init`, `rules list`, and `estimate` all go through the shared formatter system
+- `text` output stays tab-delimited and `table` output stays human-readable
+- Runtime errors remain structured JSON on `stderr` regardless of stdout format
 
 ## Running Tests
 

@@ -1,32 +1,18 @@
-import { CloudBurnClient, type ScanResult } from '@cloudburn/sdk';
-import { type Command, InvalidArgumentError } from 'commander';
+import { CloudBurnClient } from '@cloudburn/sdk';
+import type { Command } from 'commander';
 import { EXIT_CODE_OK, EXIT_CODE_POLICY_VIOLATION, EXIT_CODE_RUNTIME_ERROR } from '../exit-codes.js';
 import { formatError } from '../formatters/error.js';
-import { formatJson } from '../formatters/json.js';
-import { formatSarif } from '../formatters/sarif.js';
+import {
+  OUTPUT_FORMAT_OPTION_DESCRIPTION,
+  parseOutputFormat,
+  renderResponse,
+  resolveOutputFormat,
+} from '../formatters/output.js';
 import { countScanResultFindings } from '../formatters/shared.js';
-import { formatTable } from '../formatters/table.js';
-
-const supportedScanFormats = ['table', 'json', 'sarif'] as const;
-type ScanFormat = (typeof supportedScanFormats)[number];
-
-const parseScanFormat = (value: string): ScanFormat => {
-  if (supportedScanFormats.includes(value as ScanFormat)) {
-    return value as ScanFormat;
-  }
-
-  throw new InvalidArgumentError(`Invalid format "${value}". Allowed formats: ${supportedScanFormats.join(', ')}.`);
-};
 
 type ScanOptions = {
-  format?: ScanFormat;
   exitCode?: boolean;
-};
-
-const formatters: Record<ScanFormat, (result: ScanResult) => string> = {
-  json: formatJson,
-  sarif: formatSarif,
-  table: formatTable,
+  format?: 'json' | 'table' | 'text';
 };
 
 // Intent: attach the primary scanning command surface to the CLI.
@@ -36,7 +22,7 @@ export const registerScanCommand = (program: Command): void => {
     .command('scan')
     .description('Run an autodetected static IaC scan')
     .argument('[path]', 'Terraform file, CloudFormation template, or directory to scan')
-    .option('--format <format>', 'Output format: table|json|sarif', parseScanFormat, 'table')
+    .option('--format <format>', OUTPUT_FORMAT_OPTION_DESCRIPTION, parseOutputFormat)
     .option('--exit-code', 'Exit with code 1 when findings exist')
     .addHelpText(
       'after',
@@ -47,13 +33,13 @@ Examples:
   cloudburn scan ./iac
 `,
     )
-    .action(async (path: string | undefined, options: ScanOptions) => {
+    .action(async (path: string | undefined, options: ScanOptions, command: Command) => {
       try {
         const scanner = new CloudBurnClient();
         const result = await scanner.scanStatic(path ?? process.cwd());
 
-        const format = formatters[options.format ?? 'table'];
-        const output = format(result);
+        const format = resolveOutputFormat(command, options.format);
+        const output = renderResponse({ kind: 'scan-result', result }, format);
 
         process.stdout.write(`${output}\n`);
 
