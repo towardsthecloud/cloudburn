@@ -48,8 +48,8 @@ Mock at the SDK boundary — do not run real scans.
 
 | Boundary           | Mock strategy |
 | ------------------ | ------------- |
-| `CloudBurnClient` | Mock `.scanStatic()`, `.discover()`, and discovery helper methods |
-| `awsCorePreset`    | Use real preset (it's static data) |
+| `CloudBurnClient`      | Mock `.scanStatic()`, `.discover()`, and discovery helper methods |
+| `builtInRuleMetadata` | Use real built-in metadata unless explicitly testing the empty state |
 
 **Test focus areas:**
 

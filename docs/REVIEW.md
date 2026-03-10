@@ -64,7 +64,7 @@ Supported stdout formats are `text`, `json`, and `table` only.
 
 - `--format` is a global CLI option, with command-local compatibility aliases allowed only to preserve post-command placement.
 - `text` output should remain tab-delimited for row-like data.
-- `table` output should remain stable ASCII tables.
+- `table` output should remain stable ASCII tables, except `rules list`, which intentionally uses a grouped outline.
 - Runtime errors should continue to emit the JSON `stderr` envelope rather than following the selected stdout format.
 
 Exit codes:

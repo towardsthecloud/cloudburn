@@ -41,6 +41,38 @@
 - Review-ready requires a fresh local test run in this session.
 - For multi-step tasks, track all steps and mark any blocked step with what is missing.
 
+## Missing Context
+
+- Do not guess rule IDs, config shapes, types, or provider behavior — look them up first.
+- If a search returns empty or narrow results, try at least one fallback (alternate query, broader pattern) before concluding.
+- Label assumptions explicitly when proceeding without full context.
+
+## Git & PRs
+
+- On `main`, never commit or open a PR unless the user explicitly asks.
+- On any branch other than `main`, commit after each meaningful set of edits.
+- Use Conventional Commits (`feat|fix|refactor|build|ci|chore|revert|docs|style|perf|test`).
+- When the change is for a package, include the scope: `feat(cli):`, `fix(sdk):`, `refactor(rules):`.
+- When done on a non-`main` branch, open a PR to `main`:
+  1. PR title matches the Conventional Commits spec
+  2. Apply a label matching the commit type: `enhancement` for `feat`, `bug` for `fix`, `documentation` for `docs`
+  3. If the PR changes a published package, write a changeset (see Changesets section below).
+- The PR must use the the following template (`.github/pull_request_template.md`):
+  1. Summary: Intent of the change and solution that was provided
+  2. Diagram: Add Mermaid diagram to visualize the intended technical changes
+  3. Check off all completed tasks
+  4. Related issues: Search for related issues with `gh issue list` and note any to link
+
+## Changesets
+
+- Published packages: `cloudburn` (cli), `@cloudburn/sdk`, `@cloudburn/rules`.
+- Write `.changeset/<random-kebab-case-slug>.md` directly — do not use the interactive `pnpm changeset` prompt.
+- Changeset files must use full frontmatter delimiters: opening `---`, then the package bump lines, then closing `---`.
+- Use `patch` for fixes and `minor` for new features. Never use `major` changesets.
+- Only include packages directly changed by the PR.
+- **One changeset file per package** — never list multiple packages in one file (the summary gets duplicated to all of them).
+- Do not run `pnpm changeset:version` or `pnpm release` — those happen in the automated release PR.
+
 ## Architecture Boundaries
 
 - Dependency direction: `cli → sdk → rules`. No reverse imports.

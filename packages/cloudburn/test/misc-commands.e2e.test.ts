@@ -12,15 +12,32 @@ describe('misc command e2e', () => {
     await createProgram().parseAsync(['rules', 'list', '--format', 'text'], { from: 'user' });
     const textOutput = stdout.mock.calls.map(([chunk]) => String(chunk)).join('');
 
-    expect(textOutput).toContain('CLDBRN-AWS-EBS-1');
+    expect(textOutput).toContain('aws');
+    expect(textOutput).toContain('  ebs');
+    expect(textOutput).toContain(
+      '    CLDBRN-AWS-EBS-1: Flag EBS volumes using previous-generation gp2 type instead of gp3.',
+    );
+    expect(textOutput).toContain(
+      '    CLDBRN-AWS-EC2-1: Flag direct EC2 instances that do not use curated preferred instance types.',
+    );
 
     stdout.mockClear();
 
     await createProgram().parseAsync(['rules', 'list', '--format', 'json'], { from: 'user' });
     const jsonOutput = stdout.mock.calls.map(([chunk]) => String(chunk)).join('');
 
-    expect(jsonOutput).toContain('CLDBRN-AWS-EBS-1');
-    expect(jsonOutput.trim().startsWith('[')).toBe(true);
+    expect(JSON.parse(jsonOutput)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          description: 'Flag EBS volumes using previous-generation gp2 type instead of gp3.',
+          id: 'CLDBRN-AWS-EBS-1',
+          name: 'EBS Volume Type Not Current Generation',
+          provider: 'aws',
+          service: 'ebs',
+          supports: ['discovery', 'iac'],
+        }),
+      ]),
+    );
   });
 
   it('formats rules list as a table from the global root flag', async () => {
@@ -30,8 +47,9 @@ describe('misc command e2e', () => {
 
     const output = stdout.mock.calls.map(([chunk]) => String(chunk)).join('');
 
-    expect(output).toContain('| RuleId');
-    expect(output).toContain('CLDBRN-AWS-EBS-1');
+    expect(output).toContain('aws');
+    expect(output).toContain('  lambda');
+    expect(output).toContain('CLDBRN-AWS-LAMBDA-1: Recommend arm64 architecture when compatible.');
   });
 
   it('formats estimate status in text, json, and table', async () => {

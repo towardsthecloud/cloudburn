@@ -3,6 +3,10 @@
 - What changed?
 - Why was this needed?
 
+## Diagram
+
+<!-- Insert Mermaid diagram to visualize changes-->
+
 ## Scope
 
 - [ ] `cloudburn` (cli)

@@ -17,6 +17,9 @@ import type {
 
 export type RuleConfig = Record<string, unknown>;
 
+/** Serializable metadata surfaced for built-in rules in SDK and CLI inspection commands. */
+export type BuiltInRuleMetadata = Pick<Rule, 'id' | 'name' | 'description' | 'provider' | 'service' | 'supports'>;
+
 /** Selects how a live AWS discovery resolves its search region or index scope. */
 export type AwsDiscoveryTarget =
   | { mode: 'current' }

@@ -1,4 +1,4 @@
-import type { ScanResult } from '@cloudburn/sdk';
+import type { BuiltInRuleMetadata, ScanResult } from '@cloudburn/sdk';
 import { type Command, InvalidArgumentError } from 'commander';
 import { flattenScanResult } from './shared.js';
 
@@ -31,6 +31,11 @@ export type CliResponse =
   | {
       kind: 'scan-result';
       result: ScanResult;
+    }
+  | {
+      kind: 'rule-list';
+      emptyMessage: string;
+      rules: BuiltInRuleMetadata[];
     }
   | {
       kind: 'status';
@@ -107,6 +112,8 @@ const renderJson = (response: CliResponse): string => {
       return JSON.stringify({ content: response.content, contentType: response.contentType }, null, 2);
     case 'record-list':
       return JSON.stringify(response.rows, null, 2);
+    case 'rule-list':
+      return JSON.stringify(response.rules, null, 2);
     case 'scan-result':
       return JSON.stringify(response.result, null, 2);
     case 'status':
@@ -122,6 +129,8 @@ const renderText = (response: CliResponse): string => {
       return response.content;
     case 'record-list':
       return renderTextRows(response.rows, response.columns, response.emptyMessage);
+    case 'rule-list':
+      return renderRuleList(response.rules, response.emptyMessage);
     case 'scan-result':
       return renderTextRows(projectScanRows(response.result), scanColumns, 'No findings.');
     case 'status':
@@ -148,6 +157,8 @@ const renderTable = (response: CliResponse): string => {
       return response.rows.length === 0
         ? response.emptyMessage
         : renderAsciiTable(response.rows, response.columns ?? inferColumns(response.rows));
+    case 'rule-list':
+      return renderRuleList(response.rules, response.emptyMessage);
     case 'scan-result': {
       const rows = projectScanRows(response.result);
       return rows.length === 0 ? 'No findings.' : renderAsciiTable(rows, scanColumns);
@@ -200,6 +211,33 @@ const inferColumns = (rows: RecordRow[]): ColumnSpec[] => {
     left.localeCompare(right),
   );
   return keys.map((key) => ({ key, header: key }));
+};
+
+const renderRuleList = (rules: BuiltInRuleMetadata[], emptyMessage: string): string => {
+  if (rules.length === 0) {
+    return emptyMessage;
+  }
+
+  let currentProvider = '';
+  let currentService = '';
+  const lines: string[] = [];
+
+  for (const rule of rules) {
+    if (rule.provider !== currentProvider) {
+      currentProvider = rule.provider;
+      currentService = '';
+      lines.push(rule.provider);
+    }
+
+    if (rule.service !== currentService) {
+      currentService = rule.service;
+      lines.push(`  ${rule.service}`);
+    }
+
+    lines.push(`    ${rule.id}: ${rule.description}`);
+  }
+
+  return lines.join('\n');
 };
 
 const toTextCell = (value: CellValue): string => {
