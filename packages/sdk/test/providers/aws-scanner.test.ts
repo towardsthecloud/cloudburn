@@ -1,122 +1,237 @@
+import type { AwsDiscoveryCatalog, Rule } from '@cloudburn/rules';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { resolveAwsAccountId, resolveAwsRegions } from '../../src/providers/aws/client.js';
-import { discoverAwsEbsVolumes } from '../../src/providers/aws/resources/ebs.js';
-import { discoverAwsLambdaFunctions } from '../../src/providers/aws/resources/lambda.js';
-import { scanAwsResources } from '../../src/providers/aws/scanner.js';
+import { listEnabledAwsRegions, resolveCurrentAwsRegion } from '../../src/providers/aws/client.js';
+import {
+  buildAwsDiscoveryCatalog,
+  createAwsResourceExplorerSetup,
+  listAwsDiscoveryIndexes,
+  listAwsDiscoverySupportedResourceTypes,
+} from '../../src/providers/aws/resource-explorer.js';
+import { hydrateAwsEbsVolumes } from '../../src/providers/aws/resources/ebs.js';
+import { hydrateAwsLambdaFunctions } from '../../src/providers/aws/resources/lambda.js';
+import {
+  initializeAwsDiscovery,
+  listEnabledAwsDiscoveryRegions,
+  listSupportedAwsResourceTypes,
+  scanAwsResources,
+} from '../../src/providers/aws/scanner.js';
 
 vi.mock('../../src/providers/aws/client.js', () => ({
-  resolveAwsRegions: vi.fn(),
-  resolveAwsAccountId: vi.fn(),
+  listEnabledAwsRegions: vi.fn(),
+  resolveCurrentAwsRegion: vi.fn(),
+}));
+
+vi.mock('../../src/providers/aws/resource-explorer.js', () => ({
+  buildAwsDiscoveryCatalog: vi.fn(),
+  createAwsResourceExplorerSetup: vi.fn(),
+  listAwsDiscoveryIndexes: vi.fn(),
+  listAwsDiscoverySupportedResourceTypes: vi.fn(),
 }));
 
 vi.mock('../../src/providers/aws/resources/ebs.js', () => ({
-  discoverAwsEbsVolumes: vi.fn(),
+  hydrateAwsEbsVolumes: vi.fn(),
 }));
 
 vi.mock('../../src/providers/aws/resources/lambda.js', () => ({
-  discoverAwsLambdaFunctions: vi.fn(),
+  hydrateAwsLambdaFunctions: vi.fn(),
 }));
 
-const mockedResolveAwsRegions = vi.mocked(resolveAwsRegions);
-const mockedResolveAwsAccountId = vi.mocked(resolveAwsAccountId);
-const mockedDiscoverAwsEbsVolumes = vi.mocked(discoverAwsEbsVolumes);
-const mockedDiscoverAwsLambdaFunctions = vi.mocked(discoverAwsLambdaFunctions);
+const mockedResolveCurrentAwsRegion = vi.mocked(resolveCurrentAwsRegion);
+const mockedListEnabledAwsRegions = vi.mocked(listEnabledAwsRegions);
+const mockedBuildAwsDiscoveryCatalog = vi.mocked(buildAwsDiscoveryCatalog);
+const mockedCreateAwsResourceExplorerSetup = vi.mocked(createAwsResourceExplorerSetup);
+const mockedListAwsDiscoveryIndexes = vi.mocked(listAwsDiscoveryIndexes);
+const mockedListAwsDiscoverySupportedResourceTypes = vi.mocked(listAwsDiscoverySupportedResourceTypes);
+const mockedHydrateAwsEbsVolumes = vi.mocked(hydrateAwsEbsVolumes);
+const mockedHydrateAwsLambdaFunctions = vi.mocked(hydrateAwsLambdaFunctions);
 
-const flushMicrotasks = async (): Promise<void> => {
-  await Promise.resolve();
-  await Promise.resolve();
+const catalog: AwsDiscoveryCatalog = {
+  indexType: 'LOCAL',
+  resources: [
+    {
+      accountId: '123456789012',
+      arn: 'arn:aws:ec2:us-east-1:123456789012:volume/vol-123',
+      properties: [],
+      region: 'us-east-1',
+      resourceType: 'ec2:volume',
+      service: 'ec2',
+    },
+    {
+      accountId: '123456789012',
+      arn: 'arn:aws:lambda:us-east-1:123456789012:function:my-func',
+      properties: [],
+      region: 'us-east-1',
+      resourceType: 'lambda:function',
+      service: 'lambda',
+    },
+  ],
+  searchRegion: 'us-east-1',
 };
+
+const createRule = (overrides: Partial<Rule> = {}): Rule => ({
+  description: 'test rule',
+  evaluateLive: () => null,
+  id: 'CLDBRN-AWS-TEST-1',
+  message: 'test rule',
+  name: 'test rule',
+  provider: 'aws',
+  service: 'ec2',
+  supports: ['discovery'],
+  ...overrides,
+});
 
 describe('scanAwsResources', () => {
   beforeEach(() => {
     vi.resetAllMocks();
   });
 
-  it('resolves regions and account id once, then passes them to all discoverers', async () => {
-    mockedResolveAwsRegions.mockResolvedValue(['us-east-1', 'us-west-2']);
-    mockedResolveAwsAccountId.mockResolvedValue('123456789012');
-    mockedDiscoverAwsEbsVolumes.mockResolvedValue([
-      { volumeId: 'vol-123', volumeType: 'gp2', region: 'us-east-1', accountId: '123456789012' },
+  it('builds a catalog from unique rule resource types and hydrates only requested resource kinds', async () => {
+    mockedBuildAwsDiscoveryCatalog.mockResolvedValue(catalog);
+    mockedHydrateAwsEbsVolumes.mockResolvedValue([
+      { accountId: '123456789012', region: 'us-east-1', volumeId: 'vol-123', volumeType: 'gp2' },
     ]);
-    mockedDiscoverAwsLambdaFunctions.mockResolvedValue([
-      { functionName: 'my-func', architectures: ['x86_64'], region: 'us-east-1', accountId: '123456789012' },
+    mockedHydrateAwsLambdaFunctions.mockResolvedValue([
+      { accountId: '123456789012', architectures: ['x86_64'], functionName: 'my-func', region: 'us-east-1' },
     ]);
 
-    const result = await scanAwsResources(['us-east-1']);
+    const result = await scanAwsResources(
+      [
+        createRule({
+          liveDiscovery: {
+            hydrator: 'aws-ebs-volume',
+            resourceTypes: ['ec2:volume'],
+          },
+        }),
+        createRule({
+          id: 'CLDBRN-AWS-TEST-2',
+          liveDiscovery: {
+            hydrator: 'aws-lambda-function',
+            resourceTypes: ['lambda:function', 'ec2:volume'],
+          },
+          service: 'lambda',
+        }),
+      ],
+      { mode: 'region', region: 'us-east-1' },
+    );
 
-    expect(mockedResolveAwsRegions).toHaveBeenCalledWith(['us-east-1']);
-    expect(mockedResolveAwsAccountId).toHaveBeenCalledOnce();
-    expect(mockedDiscoverAwsEbsVolumes).toHaveBeenCalledWith(['us-east-1', 'us-west-2'], '123456789012');
-    expect(mockedDiscoverAwsLambdaFunctions).toHaveBeenCalledWith(['us-east-1', 'us-west-2'], '123456789012');
+    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith({ mode: 'region', region: 'us-east-1' }, [
+      'ec2:volume',
+      'lambda:function',
+    ]);
+    expect(mockedHydrateAwsEbsVolumes).toHaveBeenCalledWith([catalog.resources[0]]);
+    expect(mockedHydrateAwsLambdaFunctions).toHaveBeenCalledWith([catalog.resources[1]]);
     expect(result).toEqual({
-      ebsVolumes: [{ volumeId: 'vol-123', volumeType: 'gp2', region: 'us-east-1', accountId: '123456789012' }],
+      catalog,
+      ebsVolumes: [{ accountId: '123456789012', region: 'us-east-1', volumeId: 'vol-123', volumeType: 'gp2' }],
       lambdaFunctions: [
-        { functionName: 'my-func', architectures: ['x86_64'], region: 'us-east-1', accountId: '123456789012' },
+        { accountId: '123456789012', architectures: ['x86_64'], functionName: 'my-func', region: 'us-east-1' },
       ],
     });
   });
 
-  it('starts all discoverers before awaiting their results', async () => {
-    let resolveRegions: (value: string[]) => void;
-    let resolveAccountId: (value: string) => void;
-    let resolveEbs: (value: Awaited<ReturnType<typeof discoverAwsEbsVolumes>>) => void;
-    let resolveLambda: (value: Awaited<ReturnType<typeof discoverAwsLambdaFunctions>>) => void;
-    const regionsPromise = new Promise<string[]>((resolve) => {
-      resolveRegions = resolve;
-    });
-    const accountIdPromise = new Promise<string>((resolve) => {
-      resolveAccountId = resolve;
-    });
-    const ebsPromise = new Promise<Awaited<ReturnType<typeof discoverAwsEbsVolumes>>>((resolve) => {
-      resolveEbs = resolve;
-    });
-    const lambdaPromise = new Promise<Awaited<ReturnType<typeof discoverAwsLambdaFunctions>>>((resolve) => {
-      resolveLambda = resolve;
-    });
+  it('returns an empty catalog without Resource Explorer calls when no live rules require discovery metadata', async () => {
+    mockedResolveCurrentAwsRegion.mockResolvedValue('us-east-1');
 
-    mockedResolveAwsRegions.mockReturnValue(regionsPromise);
-    mockedResolveAwsAccountId.mockReturnValue(accountIdPromise);
-    mockedDiscoverAwsEbsVolumes.mockReturnValue(ebsPromise);
-    mockedDiscoverAwsLambdaFunctions.mockReturnValue(lambdaPromise);
+    const result = await scanAwsResources(
+      [
+        createRule({
+          evaluateLive: undefined,
+        }),
+      ],
+      { mode: 'current' },
+    );
 
-    const scanPromise = scanAwsResources(['us-east-1']);
-
-    expect(mockedDiscoverAwsEbsVolumes).not.toHaveBeenCalled();
-    expect(mockedDiscoverAwsLambdaFunctions).not.toHaveBeenCalled();
-
-    if (!resolveRegions || !resolveAccountId || !resolveEbs || !resolveLambda) {
-      throw new Error('Expected deferred discoverer resolvers to be initialized');
-    }
-
-    resolveRegions(['us-east-1']);
-    resolveAccountId('123456789012');
-    await flushMicrotasks();
-
-    expect(mockedDiscoverAwsEbsVolumes).toHaveBeenCalledWith(['us-east-1'], '123456789012');
-    expect(mockedDiscoverAwsLambdaFunctions).toHaveBeenCalledWith(['us-east-1'], '123456789012');
-
-    resolveEbs([]);
-    resolveLambda([]);
-
-    await expect(scanPromise).resolves.toEqual({
+    expect(mockedBuildAwsDiscoveryCatalog).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      catalog: {
+        indexType: 'LOCAL',
+        resources: [],
+        searchRegion: 'us-east-1',
+      },
       ebsVolumes: [],
       lambdaFunctions: [],
     });
   });
 
-  it('returns partial results when one discoverer fails', async () => {
-    mockedResolveAwsRegions.mockResolvedValue(['us-east-1']);
-    mockedResolveAwsAccountId.mockResolvedValue('123456789012');
-    mockedDiscoverAwsEbsVolumes.mockRejectedValue(new Error('UnauthorizedOperation'));
-    mockedDiscoverAwsLambdaFunctions.mockResolvedValue([
-      { functionName: 'my-func', architectures: ['x86_64'], region: 'us-east-1', accountId: '123456789012' },
+  it('fails fast when a discovery rule has an evaluator but no live discovery metadata', async () => {
+    await expect(
+      scanAwsResources(
+        [
+          createRule({
+            liveDiscovery: undefined,
+          }),
+        ],
+        { mode: 'current' },
+      ),
+    ).rejects.toThrow('Discovery rule CLDBRN-AWS-TEST-1 is missing liveDiscovery metadata.');
+
+    expect(mockedBuildAwsDiscoveryCatalog).not.toHaveBeenCalled();
+  });
+
+  it('fails fast when a discovery rule declares an invalid Resource Explorer resource type', async () => {
+    await expect(
+      scanAwsResources(
+        [
+          createRule({
+            liveDiscovery: {
+              resourceTypes: ['ec2:volume region:us-east-1'],
+            },
+          }),
+        ],
+        { mode: 'current' },
+      ),
+    ).rejects.toMatchObject({
+      code: 'INVALID_RESOURCE_EXPLORER_RESOURCE_TYPE',
+    });
+
+    expect(mockedBuildAwsDiscoveryCatalog).not.toHaveBeenCalled();
+  });
+});
+
+describe('discovery support commands', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
+  it('returns existing setup details when an aggregator index already exists', async () => {
+    mockedListAwsDiscoveryIndexes.mockResolvedValue([
+      { region: 'eu-west-1', type: 'local' },
+      { region: 'us-east-1', type: 'aggregator' },
     ]);
 
-    await expect(scanAwsResources(['us-east-1'])).resolves.toEqual({
-      ebsVolumes: [],
-      lambdaFunctions: [
-        { functionName: 'my-func', architectures: ['x86_64'], region: 'us-east-1', accountId: '123456789012' },
-      ],
+    await expect(initializeAwsDiscovery()).resolves.toEqual({
+      aggregatorRegion: 'us-east-1',
+      regions: ['eu-west-1', 'us-east-1'],
+      status: 'EXISTING',
     });
+    expect(mockedCreateAwsResourceExplorerSetup).not.toHaveBeenCalled();
+  });
+
+  it('creates a new setup in the current region when no aggregator exists', async () => {
+    mockedListAwsDiscoveryIndexes.mockResolvedValue([]);
+    mockedResolveCurrentAwsRegion.mockResolvedValue('eu-central-1');
+    mockedListEnabledAwsRegions.mockResolvedValue(['eu-central-1', 'eu-west-1']);
+    mockedCreateAwsResourceExplorerSetup.mockResolvedValue({
+      aggregatorRegion: 'eu-central-1',
+      regions: ['eu-central-1', 'eu-west-1'],
+      status: 'CREATED',
+      taskId: 'task-123',
+    });
+
+    await expect(initializeAwsDiscovery()).resolves.toEqual({
+      aggregatorRegion: 'eu-central-1',
+      regions: ['eu-central-1', 'eu-west-1'],
+      status: 'CREATED',
+      taskId: 'task-123',
+    });
+    expect(mockedCreateAwsResourceExplorerSetup).toHaveBeenCalledWith('eu-central-1', ['eu-central-1', 'eu-west-1']);
+  });
+
+  it('delegates region listing and supported resource type listing to the resource explorer module', async () => {
+    mockedListAwsDiscoveryIndexes.mockResolvedValue([{ region: 'eu-west-1', type: 'local' }]);
+    mockedListAwsDiscoverySupportedResourceTypes.mockResolvedValue([{ resourceType: 'ec2:volume', service: 'ec2' }]);
+
+    await expect(listEnabledAwsDiscoveryRegions()).resolves.toEqual([{ region: 'eu-west-1', type: 'local' }]);
+    await expect(listSupportedAwsResourceTypes()).resolves.toEqual([{ resourceType: 'ec2:volume', service: 'ec2' }]);
   });
 });

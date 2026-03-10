@@ -11,10 +11,10 @@ npm install @cloudburn/sdk
 ## Usage
 
 ```ts
-import { CloudBurnScanner, parseIaC } from "@cloudburn/sdk";
+import { CloudBurnClient, parseIaC } from "@cloudburn/sdk";
 
-const scanner = new CloudBurnScanner();
-const result = await scanner.scanStatic("./iac");
+const client = new CloudBurnClient();
+const result = await client.scanStatic("./iac");
 
 const resources = await parseIaC("./template.yaml");
 console.log(resources.length);

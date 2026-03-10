@@ -1,27 +1,49 @@
-import type { CloudBurnConfig } from '../types.js';
+import type { CloudBurnConfig, RuleConfig } from '../types.js';
 import { defaultConfig } from './defaults.js';
 
-// Intent: merge caller-provided config into known defaults.
-// TODO(cloudburn): implement deep merge with profile-aware precedence.
-export const mergeConfig = (config?: Partial<CloudBurnConfig>): CloudBurnConfig => ({
-  ...defaultConfig,
+const mergeRuleConfigMap = (
+  baseRules: Record<string, RuleConfig>,
+  overrides?: Record<string, RuleConfig>,
+): Record<string, RuleConfig> => {
+  const mergedRules: Record<string, RuleConfig> = { ...baseRules };
+
+  for (const [ruleId, ruleConfig] of Object.entries(overrides ?? {})) {
+    mergedRules[ruleId] = {
+      ...(baseRules[ruleId] ?? {}),
+      ...ruleConfig,
+    };
+  }
+
+  return mergedRules;
+};
+
+const mergeProfiles = (
+  baseProfiles: CloudBurnConfig['profiles'],
+  overrides?: Partial<CloudBurnConfig>['profiles'],
+): CloudBurnConfig['profiles'] => {
+  const mergedProfiles: CloudBurnConfig['profiles'] = { ...baseProfiles };
+
+  for (const [profileName, profileRules] of Object.entries(overrides ?? {})) {
+    mergedProfiles[profileName] = mergeRuleConfigMap(baseProfiles[profileName] ?? {}, profileRules);
+  }
+
+  return mergedProfiles;
+};
+
+/**
+ * Merges runtime config overrides onto a resolved base CloudBurn config.
+ *
+ * @param config - Optional runtime overrides.
+ * @param baseConfig - Already-resolved config loaded from defaults or disk.
+ * @returns The normalized effective config.
+ */
+export const mergeConfig = (
+  config?: Partial<CloudBurnConfig>,
+  baseConfig: CloudBurnConfig = defaultConfig,
+): CloudBurnConfig => ({
+  ...baseConfig,
   ...config,
-  profiles: {
-    ...defaultConfig.profiles,
-    ...(config?.profiles ?? {}),
-  },
-  rules: {
-    ...defaultConfig.rules,
-    ...(config?.rules ?? {}),
-  },
-  customRules: config?.customRules ?? defaultConfig.customRules,
-  live: {
-    ...defaultConfig.live,
-    ...(config?.live ?? {}),
-    tags: {
-      ...defaultConfig.live.tags,
-      ...(config?.live?.tags ?? {}),
-    },
-    regions: config?.live?.regions ?? defaultConfig.live.regions,
-  },
+  profiles: mergeProfiles(baseConfig.profiles, config?.profiles),
+  rules: mergeRuleConfigMap(baseConfig.rules, config?.rules),
+  customRules: config?.customRules ?? baseConfig.customRules,
 });

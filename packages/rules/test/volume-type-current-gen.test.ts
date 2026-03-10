@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ebsVolumeTypeCurrentGenRule } from '../src/aws/ebs/volume-type-current-gen.js';
-import type { AwsEbsVolume, IaCResource, StaticEvaluationContext } from '../src/index.js';
+import type { AwsDiscoveredResource, AwsEbsVolume, IaCResource, StaticEvaluationContext } from '../src/index.js';
 
 const createVolume = (overrides: Partial<AwsEbsVolume> = {}): AwsEbsVolume => ({
   volumeId: 'vol-123',
@@ -56,14 +56,33 @@ const createCloudFormationResource = (overrides: Partial<IaCResource> = {}): IaC
   ...overrides,
 });
 
+const createDiscoveredResource = (overrides: Partial<AwsDiscoveredResource> = {}): AwsDiscoveredResource => ({
+  arn: 'arn:aws:ec2:eu-west-1:123456789012:volume/vol-123',
+  accountId: '123456789012',
+  region: 'eu-west-1',
+  service: 'ec2',
+  resourceType: 'ec2:volume',
+  properties: [],
+  ...overrides,
+});
+
 describe('ebsVolumeTypeCurrentGenRule', () => {
   it('evaluates gp2 volumes in discovery mode only', () => {
     const finding = ebsVolumeTypeCurrentGenRule.evaluateLive?.({
+      catalog: {
+        resources: [createDiscoveredResource()],
+        searchRegion: 'eu-west-1',
+        indexType: 'LOCAL',
+      },
       ebsVolumes: [createVolume()],
       lambdaFunctions: [],
     });
 
     expect(ebsVolumeTypeCurrentGenRule.supports).toEqual(['discovery', 'iac']);
+    expect(ebsVolumeTypeCurrentGenRule.liveDiscovery).toEqual({
+      hydrator: 'aws-ebs-volume',
+      resourceTypes: ['ec2:volume'],
+    });
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-EBS-1',
       service: 'ebs',
@@ -130,6 +149,11 @@ describe('ebsVolumeTypeCurrentGenRule', () => {
 
   it('ignores non-gp2 volumes', () => {
     const finding = ebsVolumeTypeCurrentGenRule.evaluateLive?.({
+      catalog: {
+        resources: [createDiscoveredResource()],
+        searchRegion: 'eu-west-1',
+        indexType: 'LOCAL',
+      },
       ebsVolumes: [createVolume({ volumeType: 'gp3' })],
       lambdaFunctions: [],
     });

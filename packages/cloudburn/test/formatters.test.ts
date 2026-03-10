@@ -142,12 +142,33 @@ describe('formatError', () => {
   });
 
   it('falls back to RUNTIME_ERROR for unknown errors', () => {
-    const err = new Error('Something broke');
+    const err = new Error('Timeout reached http://169.254.169.254/latest/meta-data/iam/security-credentials/');
 
     const output = JSON.parse(formatError(err)) as { error: { code: string; message: string } };
 
     expect(output.error.code).toBe('RUNTIME_ERROR');
-    expect(output.error.message).toBe('Something broke');
+    expect(output.error.message).toBe(
+      'Timeout reached http://[redacted-host]/latest/meta-data/iam/security-credentials/',
+    );
+    expect(output.error.message).not.toContain('169.254.169.254');
+  });
+
+  it('preserves non-sensitive unknown runtime errors for diagnostics', () => {
+    const err = new Error('YAML parse error in template.yaml at line 12, column 4');
+
+    const output = JSON.parse(formatError(err)) as { error: { code: string; message: string } };
+
+    expect(output.error.code).toBe('RUNTIME_ERROR');
+    expect(output.error.message).toBe('YAML parse error in template.yaml at line 12, column 4');
+  });
+
+  it('preserves typed aws discovery errors in the formatter output', () => {
+    const err = Object.assign(new Error('Invalid AWS region provided.'), { code: 'INVALID_AWS_REGION' });
+
+    const output = JSON.parse(formatError(err)) as { error: { code: string; message: string } };
+
+    expect(output.error.code).toBe('INVALID_AWS_REGION');
+    expect(output.error.message).toBe('Invalid AWS region provided.');
   });
 
   it('handles non-Error values gracefully', () => {

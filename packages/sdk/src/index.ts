@@ -2,8 +2,18 @@
 // TODO(cloudburn): stabilize API before first public release.
 export { awsCorePreset } from '@cloudburn/rules';
 export { parseIaC } from './parsers/index.js';
-export { CloudBurnScanner } from './scanner.js';
+export { assertValidAwsRegion } from './providers/aws/client.js';
+export { isAwsDiscoveryErrorCode } from './providers/aws/errors.js';
+export { CloudBurnClient } from './scanner.js';
 export type {
+  AwsDiscoveredResource,
+  AwsDiscoveryCatalog,
+  AwsDiscoveryInitialization,
+  AwsDiscoveryRegion,
+  AwsDiscoveryTarget,
+  AwsEbsVolume,
+  AwsLambdaFunction,
+  AwsSupportedResourceType,
   CloudBurnConfig,
   CloudProvider,
   Finding,

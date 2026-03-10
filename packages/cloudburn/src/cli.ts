@@ -1,5 +1,6 @@
 import { pathToFileURL } from 'node:url';
 import { Command } from 'commander';
+import { registerDiscoverCommand } from './commands/discover.js';
 import { registerEstimateCommand } from './commands/estimate.js';
 import { registerInitCommand } from './commands/init.js';
 import { registerRulesListCommand } from './commands/rules-list.js';
@@ -13,6 +14,7 @@ export const createProgram = (): Command => {
   const program = new Command();
   program.name('cloudburn').description('Know what you spend. Fix what you waste.').version(__VERSION__);
 
+  registerDiscoverCommand(program);
   registerScanCommand(program);
   registerInitCommand(program);
   registerRulesListCommand(program);

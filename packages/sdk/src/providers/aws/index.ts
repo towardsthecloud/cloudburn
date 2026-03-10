@@ -1,2 +1,14 @@
-export { createEc2Client, resolveAwsRegions } from './client.js';
-export { scanAwsResources } from './scanner.js';
+export {
+  createEc2Client,
+  createLambdaClient,
+  createResourceExplorerClient,
+  listEnabledAwsRegions,
+  resolveAwsAccountId,
+  resolveCurrentAwsRegion,
+} from './client.js';
+export {
+  initializeAwsDiscovery,
+  listEnabledAwsDiscoveryRegions,
+  listSupportedAwsResourceTypes,
+  scanAwsResources,
+} from './scanner.js';

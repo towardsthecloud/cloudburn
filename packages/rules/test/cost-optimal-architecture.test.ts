@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { lambdaCostOptimalArchitectureRule } from '../src/aws/lambda/cost-optimal-architecture.js';
-import type { AwsLambdaFunction, IaCResource, StaticEvaluationContext } from '../src/index.js';
+import type { AwsDiscoveredResource, AwsLambdaFunction, IaCResource, StaticEvaluationContext } from '../src/index.js';
 
 const createLambdaFunction = (overrides: Partial<AwsLambdaFunction> = {}): AwsLambdaFunction => ({
   functionName: 'my-function',
@@ -56,13 +56,32 @@ const createCloudFormationResource = (overrides: Partial<IaCResource> = {}): IaC
   ...overrides,
 });
 
+const createDiscoveredResource = (overrides: Partial<AwsDiscoveredResource> = {}): AwsDiscoveredResource => ({
+  arn: 'arn:aws:lambda:us-east-1:123456789012:function:my-function',
+  accountId: '123456789012',
+  region: 'us-east-1',
+  service: 'lambda',
+  resourceType: 'lambda:function',
+  properties: [],
+  ...overrides,
+});
+
 describe('lambdaCostOptimalArchitectureRule', () => {
   it('flags x86_64 functions in discovery mode', () => {
     const finding = lambdaCostOptimalArchitectureRule.evaluateLive?.({
+      catalog: {
+        resources: [createDiscoveredResource()],
+        searchRegion: 'us-east-1',
+        indexType: 'LOCAL',
+      },
       ebsVolumes: [],
       lambdaFunctions: [createLambdaFunction()],
     });
 
+    expect(lambdaCostOptimalArchitectureRule.liveDiscovery).toEqual({
+      hydrator: 'aws-lambda-function',
+      resourceTypes: ['lambda:function'],
+    });
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-LAMBDA-1',
       service: 'lambda',
@@ -80,6 +99,11 @@ describe('lambdaCostOptimalArchitectureRule', () => {
 
   it('skips arm64 functions in discovery mode', () => {
     const finding = lambdaCostOptimalArchitectureRule.evaluateLive?.({
+      catalog: {
+        resources: [createDiscoveredResource()],
+        searchRegion: 'us-east-1',
+        indexType: 'LOCAL',
+      },
       ebsVolumes: [],
       lambdaFunctions: [createLambdaFunction({ architectures: ['arm64'] })],
     });

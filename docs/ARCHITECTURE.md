@@ -19,7 +19,7 @@ Dependency direction is strictly left-to-right. No reverse imports. Enforced by 
 ```mermaid
 sequenceDiagram
   participant CLI
-  participant Scanner as CloudBurnScanner
+  participant Scanner as CloudBurnClient
   participant Config as Config Loader
   participant Registry as Rule Registry
   participant Parser as IaC Parser
@@ -46,19 +46,19 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
   participant CLI
-  participant Scanner as CloudBurnScanner
+  participant Scanner as CloudBurnClient
   participant Config as Config Loader
   participant Registry as Rule Registry
   participant AWS as AWS Provider
   participant Engine as runLiveScan
 
-  CLI->>Scanner: scanLive(config?)
+  CLI->>Scanner: discover({ target })
   Scanner->>Config: loadConfig()
   Config-->>Scanner: CloudBurnConfig
-  Scanner->>Engine: runLiveScan(config)
+  Scanner->>Engine: runLiveScan(config, target)
   Engine->>Registry: buildRuleRegistry(config)
   Registry-->>Engine: activeRules[]
-  Engine->>AWS: scanAwsResources(regions)
+  Engine->>AWS: scanAwsResources(target, activeRules)
   AWS-->>Engine: LiveEvaluationContext
   loop Each rule where supports includes 'discovery'
     Engine->>Engine: rule.evaluateLive(context)
@@ -74,6 +74,8 @@ sequenceDiagram
 | `cloudburn` (cli)  | Command parsing, output formatters, exit-code behavior                      | Scanning logic, rule definitions |
 | `@cloudburn/sdk`   | Scanner facade, config system, engine orchestration, parsers, AWS providers | Rule definitions, CLI concerns   |
 | `@cloudburn/rules` | Rule definitions, presets, type contracts, helper utilities                 | I/O, AWS SDK calls, engine logic |
+
+Live AWS discovery now uses one Resource Explorer-backed catalog plus optional hydrators for service-specific fields. The CLI keeps `scan` static-only and uses `discover` for live AWS evaluation and setup flows.
 
 ## Multi-Cloud Strategy
 

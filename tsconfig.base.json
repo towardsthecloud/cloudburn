@@ -1,6 +1,7 @@
 {
   "compilerOptions": {
     "target": "ES2023",
+    "baseUrl": ".",
     "module": "Node16",
     "moduleResolution": "Node16",
     "lib": ["ES2023"],
@@ -14,6 +15,10 @@
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    "paths": {
+      "@cloudburn/rules": ["packages/rules/src/index.ts"],
+      "@cloudburn/sdk": ["packages/sdk/src/index.ts"]
+    }
   }
 }

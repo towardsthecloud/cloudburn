@@ -21,7 +21,8 @@ directory path you pass to `cloudburn scan`.
 cloudburn scan ./main.tf
 cloudburn scan ./template.yaml
 cloudburn scan ./iac
-cloudburn scan --live
+cloudburn discover
+cloudburn discover --region all
 ```
 
 `cloudburn scan --format json` emits the lean canonical grouped result:

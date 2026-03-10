@@ -11,11 +11,6 @@ profiles:
 rules:
   ec2-allowed-instance-types:
     severity: error
-
-live:
-  tags:
-    Project: myapp
-  regions: [us-east-1]
 `;
 
 // Intent: scaffold starter config for new projects.

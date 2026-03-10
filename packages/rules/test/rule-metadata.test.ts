@@ -9,6 +9,11 @@ describe('rule metadata', () => {
       expect(rule.description.length).toBeGreaterThan(0);
       expect(rule.message.length).toBeGreaterThan(0);
       expect(rule.supports.length).toBeGreaterThan(0);
+
+      if (rule.supports.includes('discovery') && rule.evaluateLive) {
+        expect(rule.liveDiscovery).toBeDefined();
+        expect(rule.liveDiscovery?.resourceTypes.length).toBeGreaterThan(0);
+      }
     }
   });
 });

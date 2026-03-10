@@ -1,120 +1,167 @@
-import { paginateListFunctions } from '@aws-sdk/client-lambda';
+import type { GetFunctionConfigurationCommand } from '@aws-sdk/client-lambda';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createLambdaClient } from '../../src/providers/aws/client.js';
-import { discoverAwsLambdaFunctions } from '../../src/providers/aws/resources/lambda.js';
-
-vi.mock('@aws-sdk/client-lambda', () => ({
-  paginateListFunctions: vi.fn(),
-}));
+import { hydrateAwsLambdaFunctions } from '../../src/providers/aws/resources/lambda.js';
 
 vi.mock('../../src/providers/aws/client.js', () => ({
   createLambdaClient: vi.fn(),
 }));
 
-const mockedPaginateListFunctions = vi.mocked(paginateListFunctions);
 const mockedCreateLambdaClient = vi.mocked(createLambdaClient);
 
-const createAsyncIterable = <T>(pages: T[]): AsyncIterable<T> => ({
-  async *[Symbol.asyncIterator]() {
-    for (const page of pages) {
-      yield page;
-    }
-  },
-});
-
-const createRejectedAsyncIterable = <T>(error: Error): AsyncIterable<T> => ({
-  // biome-ignore lint/correctness/useYield: intentionally throws before yielding to simulate API failure
-  async *[Symbol.asyncIterator]() {
-    throw error;
-  },
-});
-
-describe('discoverAwsLambdaFunctions', () => {
+describe('hydrateAwsLambdaFunctions', () => {
   beforeEach(() => {
     vi.resetAllMocks();
   });
 
-  it('paginates functions across regions, skips unnamed functions, and defaults missing architectures to x86_64', async () => {
-    mockedCreateLambdaClient.mockImplementation(({ region }) => ({ region }) as never);
-    mockedPaginateListFunctions.mockImplementation(({ client }) => {
-      const region = (client as { region: string }).region;
+  it('hydrates discovered functions with region-specific clients and defaults missing architectures to x86_64', async () => {
+    const send = vi.fn(async (command: GetFunctionConfigurationCommand) => {
+      const input = command.input as { FunctionName?: string };
 
-      if (region === 'us-east-1') {
-        return createAsyncIterable([
-          {
-            Functions: [
-              { FunctionName: 'arm-function', Architectures: ['arm64'] },
-              { FunctionName: 'default-function' },
-              { Architectures: ['x86_64'] },
-            ],
-          },
-          {
-            Functions: [{ FunctionName: 'x86-function', Architectures: ['x86_64'] }],
-          },
-        ]);
+      if (input.FunctionName?.includes(':first-function')) {
+        return {
+          Architectures: undefined,
+          FunctionName: 'first-function',
+        };
       }
 
-      return createAsyncIterable([
-        {
-          Functions: [{ FunctionName: 'west-function', Architectures: ['arm64'] }],
-        },
-      ]);
+      return {
+        Architectures: ['arm64'],
+        FunctionName: 'second-function',
+      };
     });
 
-    const functions = await discoverAwsLambdaFunctions(['us-east-1', 'us-west-2'], '123456789012');
+    mockedCreateLambdaClient.mockReturnValue({ send } as never);
 
-    expect(mockedCreateLambdaClient).toHaveBeenCalledTimes(2);
+    const functions = await hydrateAwsLambdaFunctions([
+      {
+        accountId: '123456789012',
+        arn: 'arn:aws:lambda:us-east-1:123456789012:function:first-function',
+        properties: [],
+        region: 'us-east-1',
+        resourceType: 'lambda:function',
+        service: 'lambda',
+      },
+      {
+        accountId: '123456789012',
+        arn: 'arn:aws:lambda:us-east-1:123456789012:function:second-function',
+        properties: [],
+        region: 'us-east-1',
+        resourceType: 'lambda:function',
+        service: 'lambda',
+      },
+    ]);
+
+    expect(mockedCreateLambdaClient).toHaveBeenCalledTimes(1);
     expect(functions).toEqual([
       {
-        functionName: 'arm-function',
-        architectures: ['arm64'],
-        region: 'us-east-1',
         accountId: '123456789012',
-      },
-      {
-        functionName: 'default-function',
         architectures: ['x86_64'],
+        functionName: 'first-function',
         region: 'us-east-1',
-        accountId: '123456789012',
       },
       {
-        functionName: 'x86-function',
-        architectures: ['x86_64'],
-        region: 'us-east-1',
         accountId: '123456789012',
-      },
-      {
-        functionName: 'west-function',
         architectures: ['arm64'],
-        region: 'us-west-2',
-        accountId: '123456789012',
+        functionName: 'second-function',
+        region: 'us-east-1',
       },
     ]);
   });
 
-  it('returns partial results when one region fails to list functions', async () => {
-    mockedCreateLambdaClient.mockImplementation(({ region }) => ({ region }) as never);
-    mockedPaginateListFunctions.mockImplementation(({ client }) => {
-      const region = (client as { region: string }).region;
+  it('reuses the cached client for same-region functions while requests are still in flight', async () => {
+    const pendingResponses = new Map<string, (value: { Architectures?: string[]; FunctionName?: string }) => void>();
+    const send = vi.fn(
+      (command: GetFunctionConfigurationCommand) =>
+        new Promise<{ Architectures?: string[]; FunctionName?: string }>((resolve) => {
+          const input = command.input as { FunctionName?: string };
+          pendingResponses.set(input.FunctionName ?? '', resolve);
+        }),
+    );
 
-      if (region === 'us-east-1') {
-        return createAsyncIterable([
-          {
-            Functions: [{ FunctionName: 'east-function', Architectures: ['x86_64'] }],
-          },
-        ]);
-      }
+    mockedCreateLambdaClient.mockReturnValue({ send } as never);
 
-      return createRejectedAsyncIterable(new Error('AccessDeniedException'));
-    });
-
-    await expect(discoverAwsLambdaFunctions(['us-east-1', 'us-west-2'], '123456789012')).resolves.toEqual([
+    const hydration = hydrateAwsLambdaFunctions([
       {
-        functionName: 'east-function',
-        architectures: ['x86_64'],
-        region: 'us-east-1',
         accountId: '123456789012',
+        arn: 'arn:aws:lambda:us-east-1:123456789012:function:first-function',
+        properties: [],
+        region: 'us-east-1',
+        resourceType: 'lambda:function',
+        service: 'lambda',
+      },
+      {
+        accountId: '123456789012',
+        arn: 'arn:aws:lambda:us-east-1:123456789012:function:second-function',
+        properties: [],
+        region: 'us-east-1',
+        resourceType: 'lambda:function',
+        service: 'lambda',
       },
     ]);
+
+    expect(mockedCreateLambdaClient).toHaveBeenCalledTimes(1);
+
+    pendingResponses.get('arn:aws:lambda:us-east-1:123456789012:function:first-function')?.({
+      Architectures: ['arm64'],
+      FunctionName: 'first-function',
+    });
+    pendingResponses.get('arn:aws:lambda:us-east-1:123456789012:function:second-function')?.({
+      Architectures: ['x86_64'],
+      FunctionName: 'second-function',
+    });
+
+    await expect(hydration).resolves.toEqual([
+      {
+        accountId: '123456789012',
+        architectures: ['arm64'],
+        functionName: 'first-function',
+        region: 'us-east-1',
+      },
+      {
+        accountId: '123456789012',
+        architectures: ['x86_64'],
+        functionName: 'second-function',
+        region: 'us-east-1',
+      },
+    ]);
+  });
+
+  it('caps in-flight lambda configuration requests per region', async () => {
+    let currentInFlight = 0;
+    let maxInFlight = 0;
+    const send = vi.fn(
+      async (command: GetFunctionConfigurationCommand) =>
+        new Promise<{ Architectures?: string[]; FunctionName?: string }>((resolve) => {
+          currentInFlight += 1;
+          maxInFlight = Math.max(maxInFlight, currentInFlight);
+
+          const input = command.input as { FunctionName?: string };
+          const functionName = input.FunctionName?.split(':').at(-1) ?? 'unknown';
+
+          setTimeout(() => {
+            currentInFlight -= 1;
+            resolve({
+              Architectures: ['arm64'],
+              FunctionName: functionName,
+            });
+          }, 0);
+        }),
+    );
+
+    mockedCreateLambdaClient.mockReturnValue({ send } as never);
+
+    const resources = Array.from({ length: 30 }, (_, index) => ({
+      accountId: '123456789012',
+      arn: `arn:aws:lambda:us-east-1:123456789012:function:function-${index}`,
+      properties: [],
+      region: 'us-east-1',
+      resourceType: 'lambda:function',
+      service: 'lambda',
+    }));
+
+    await hydrateAwsLambdaFunctions(resources);
+
+    expect(maxInFlight).toBeLessThanOrEqual(10);
   });
 });

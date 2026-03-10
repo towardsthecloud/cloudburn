@@ -57,6 +57,10 @@ export const lambdaCostOptimalArchitectureRule = createRule({
   provider: 'aws',
   service: RULE_SERVICE,
   supports: ['iac', 'discovery'],
+  liveDiscovery: {
+    hydrator: 'aws-lambda-function',
+    resourceTypes: ['lambda:function'],
+  },
   evaluateLive: ({ lambdaFunctions }) => {
     const findings = lambdaFunctions
       .filter((fn) => !fn.architectures.includes('arm64'))

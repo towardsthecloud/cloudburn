@@ -1,9 +1,22 @@
+import { isAwsDiscoveryErrorCode } from '@cloudburn/sdk';
+
 type ErrorEnvelope = {
   error: {
     code: string;
     message: string;
   };
 };
+
+const sanitizeRuntimeErrorMessage = (message: string): string =>
+  message
+    .replace(/169\.254\.169\.254/g, '[redacted-host]')
+    .replace(/fd00:ec2::254/gi, '[redacted-host]')
+    .replace(/(https?:\/\/)([^/\s:@]+):([^/\s@]+)@/gi, '$1[redacted-auth]@')
+    .replace(
+      /([?&](?:access_token|authorization|token|x-amz-security-token|x-amz-signature|signature)=)[^&\s]+/gi,
+      '$1[redacted]',
+    )
+    .replace(/(Bearer\s+)[A-Za-z0-9._~+/-]+/gi, '$1[redacted]');
 
 /**
  * Categorizes a runtime error and returns a structured JSON string
@@ -38,5 +51,17 @@ const categorize = (err: unknown): ErrorEnvelope['error'] => {
     return { code: 'PATH_NOT_FOUND', message: `Path not found: ${path}` };
   }
 
-  return { code: 'RUNTIME_ERROR', message: err.message || 'An unexpected error occurred.' };
+  if ('code' in err && typeof err.code === 'string' && isAwsDiscoveryErrorCode(err.code)) {
+    return {
+      code: err.code,
+      message: sanitizeRuntimeErrorMessage(err.message).trim() || 'AWS Resource Explorer discovery failed.',
+    };
+  }
+
+  const sanitizedMessage = sanitizeRuntimeErrorMessage(err.message).trim();
+
+  return {
+    code: 'RUNTIME_ERROR',
+    message: sanitizedMessage || 'An unexpected error occurred.',
+  };
 };

@@ -4,33 +4,30 @@ Source of truth: `packages/sdk/src/types.ts` (type), `packages/sdk/src/config/de
 
 ## `CloudBurnConfig` Fields
 
-| Field          | Type                                         | Default | Status | Description                                                                                                        |
-| -------------- | -------------------------------------------- | ------- | ------ | ------------------------------------------------------------------------------------------------------------------ |
-| `version`      | `number`                                     | `1`     | Active | Config schema version. Currently always `1` (`CLOUDBURN_CONFIG_VERSION` in `schema.ts`).                           |
-| `profile`      | `string`                                     | `'dev'` | Active | Active profile name. Selects which entry in `profiles` to apply.                                                   |
+| Field          | Type                                         | Default | Status | Description |
+| -------------- | -------------------------------------------- | ------- | ------ | ----------- |
+| `version`      | `number`                                     | `1`     | Active | Config schema version. Currently always `1` (`CLOUDBURN_CONFIG_VERSION` in `schema.ts`). |
+| `profile`      | `string`                                     | `'dev'` | Active | Active profile name. Selects which entry in `profiles` to apply. |
 | `profiles`     | `Record<string, Record<string, RuleConfig>>` | `{}`    | TODO   | Named profile definitions. Each profile maps rule names to `RuleConfig` overrides. Not yet consumed by the engine. |
-| `rules`        | `Record<string, RuleConfig>`                 | `{}`    | TODO   | Global rule configuration overrides. Not yet consumed by `buildRuleRegistry`.                                      |
-| `customRules`  | `string[]`                                   | `[]`    | TODO   | Paths to custom rule modules. Not yet loaded by the registry.                                                      |
-| `live.tags`    | `Record<string, string>`                     | `{}`    | TODO   | Tag filters for live AWS resource discovery. Passed through config but not yet used by providers.                  |
-| `live.regions` | `string[]`                                   | `[]`    | Active | AWS regions to scan. Empty means auto-detect via the default EC2 client region.                                    |
+| `rules`        | `Record<string, RuleConfig>`                 | `{}`    | TODO   | Global rule configuration overrides. Not yet consumed by `buildRuleRegistry`. |
+| `customRules`  | `string[]`                                   | `[]`    | TODO   | Paths to custom rule modules. Not yet loaded by the registry. |
 
-`RuleConfig` is `Record<string, unknown>` — an open bag for rule-specific settings (e.g. `allow: [...]` for allowed-instance-type rules).
+`RuleConfig` is `Record<string, unknown>` — an open bag for rule-specific settings (for example `allow: [...]` for allowed-instance-type rules).
 
 ## Merge Behavior
 
 `mergeConfig(partial?)` in `config/merge.ts`:
 
-1. Start with `defaultConfig` (all defaults above).
+1. Start with `defaultConfig`.
 2. Shallow-spread top-level scalar fields (`version`, `profile`, `customRules`).
-3. Deep-spread `profiles` — `{ ...defaults.profiles, ...partial.profiles }`.
-4. Deep-spread `rules` — `{ ...defaults.rules, ...partial.rules }`.
-5. Deep-spread `live` — merge `tags` and `regions` individually.
+3. Deep-spread `profiles`.
+4. Deep-spread `rules`.
 
-The facade's `CloudBurnScanner` does an additional shallow spread: `{ ...await this.loadConfig(), ...config }` when a caller passes overrides directly.
+The `CloudBurnClient` facade also merges runtime overrides through `mergeConfig()`.
 
 ## Config Loading
 
-`loadConfig(path?)` in `config/loader.ts` currently ignores the `path` argument and returns `mergeConfig()` (pure defaults). Reading `.cloudburn.yml` from disk is a TODO.
+`loadConfig(path?)` in `config/loader.ts` currently ignores the `path` argument and returns `mergeConfig()` (pure defaults). Reading `.cloudburn.yml` from disk is still a TODO.
 
 ## Starter YAML
 
@@ -48,9 +45,11 @@ profiles:
 rules:
   ec2-allowed-instance-types:
     severity: error
-
-live:
-  tags:
-    Project: myapp
-  regions: [us-east-1]
 ```
+
+## Live Discovery Semantics
+
+- `cloudburn discover` defaults to the current region.
+- Current region resolution order is `AWS_REGION`, `AWS_DEFAULT_REGION`, `aws_region`, then the AWS SDK region provider chain.
+- `discover({ target })` is the SDK live-discovery entrypoint.
+- `--region all` requires an aggregator index and an unfiltered default Resource Explorer view in the aggregator region.

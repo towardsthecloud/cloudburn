@@ -6,13 +6,18 @@ export { gcpRules } from './gcp/index.js';
 export { awsCorePreset } from './presets/aws-core.js';
 export { createFinding, createRule, toRuleIds } from './shared/helpers.js';
 export type {
+  AwsDiscoveredResource,
+  AwsDiscoveryCatalog,
   AwsEbsVolume,
   AwsLambdaFunction,
+  AwsResourceProperty,
   CloudProvider,
   Finding,
   FindingMatch,
   IaCResource,
+  LiveDiscoveryDefinition,
   LiveEvaluationContext,
+  LiveHydratorKey,
   Rule,
   ScanSource,
   SourceLocation,

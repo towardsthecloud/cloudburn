@@ -51,7 +51,8 @@ pnpm --filter cloudburn exec cloudburn scan .
 cloudburn scan ./main.tf
 cloudburn scan ./template.yaml
 cloudburn scan ./iac
-cloudburn scan --live
+cloudburn discover
+cloudburn discover --region all
 cloudburn scan --format sarif --exit-code
 cloudburn init
 cloudburn rules list
@@ -75,11 +76,6 @@ profiles:
 rules:
   ebs-gp2-to-gp3:
     severity: error
-
-live:
-  tags:
-    Project: myapp
-  regions: [us-east-1]
 
 custom_rules:
   - ./rules/

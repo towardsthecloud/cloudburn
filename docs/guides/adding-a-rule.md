@@ -43,6 +43,10 @@ export const ebsVolumeTypeCurrentGenRule = createRule({
   provider: 'aws',
   service: 'ebs',
   supports: ['discovery', 'iac'],
+  liveDiscovery: {
+    hydrator: 'aws-ebs-volume',
+    resourceTypes: ['ec2:volume'],
+  },
   evaluateLive: ({ ebsVolumes }: LiveEvaluationContext): Finding | null => {
     const findings = ebsVolumes
       .filter((volume) => volume.volumeType === 'gp2')
@@ -71,6 +75,7 @@ Key patterns:
 
 - Use `createRule()` for all built-in rules.
 - Add a generic rule-level `message` that works for both discovery and IaC.
+- For live AWS rules, declare `liveDiscovery.resourceTypes` and an optional hydrator.
 - For static IaC scans, filter `iacResources` by the source-native resource type inside the rule.
 - Return one grouped `Finding` or `null`, never a flat `Finding[]`.
 - Keep `ruleId`, `service`, `source`, and `message` on the parent group.
@@ -126,7 +131,13 @@ const createVolume = (overrides: Partial<AwsEbsVolume> = {}): AwsEbsVolume => ({
 describe('CLDBRN-AWS-EBS-1', () => {
   it('groups matching discovery resources under one rule finding', () => {
     const finding = ebsVolumeTypeCurrentGenRule.evaluateLive?.({
+      catalog: {
+        resources: [],
+        searchRegion: 'us-east-1',
+        indexType: 'LOCAL',
+      },
       ebsVolumes: [createVolume()],
+      lambdaFunctions: [],
     });
 
     expect(finding).toEqual({
@@ -145,7 +156,13 @@ describe('CLDBRN-AWS-EBS-1', () => {
 
   it('returns null when nothing matches', () => {
     const finding = ebsVolumeTypeCurrentGenRule.evaluateLive?.({
+      catalog: {
+        resources: [],
+        searchRegion: 'us-east-1',
+        indexType: 'LOCAL',
+      },
       ebsVolumes: [createVolume({ volumeType: 'gp3' })],
+      lambdaFunctions: [],
     });
 
     expect(finding).toBeNull();

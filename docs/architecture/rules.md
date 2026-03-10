@@ -12,6 +12,7 @@ classDiagram
     +provider: 'aws' | 'azure' | 'gcp'
     +string service
     +ScanSource[] supports
+    +LiveDiscoveryDefinition liveDiscovery?
     +evaluateLive(ctx: LiveEvaluationContext)? Finding
     +evaluateStatic(ctx: StaticEvaluationContext)? Finding
   }
@@ -32,6 +33,7 @@ classDiagram
   }
 
   class LiveEvaluationContext {
+    +AwsDiscoveryCatalog catalog
     +AwsEbsVolume[] ebsVolumes
     +AwsLambdaFunction[] lambdaFunctions
   }
@@ -73,9 +75,10 @@ graph LR
 
 1. Use `createRule({ ... })`.
 2. Keep the stable rule metadata, including the canonical public `message`, on the `Rule` object itself.
-3. Build lean resource-level `FindingMatch` values inside the evaluator.
-4. Return `{ ruleId, service, source, message, findings }` when there are matches.
-5. Return `null` when nothing matches.
+3. For live AWS rules, declare `liveDiscovery.resourceTypes` and an optional hydrator key.
+4. Build lean resource-level `FindingMatch` values inside the evaluator.
+5. Return `{ ruleId, service, source, message, findings }` when there are matches.
+6. Return `null` when nothing matches.
 
 ## ID Convention
 

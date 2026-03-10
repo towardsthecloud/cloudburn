@@ -1,141 +1,124 @@
 # Adding a Provider Resource
 
-How to extend the SDK provider layer to discover a new AWS resource type, and wire it through to rule evaluation.
+How to extend live AWS discovery when a new rule needs another Resource Explorer type or a new hydrator.
 
 ## Overview
 
-Adding a new live AWS resource requires changes across two packages:
+Adding a new live AWS resource now follows the same high-level pattern as static IaC scanning:
 
-1. **`@cloudburn/rules`** — extend evaluation context types
-2. **`@cloudburn/sdk`** — add discoverer and wire it into the scanner
+1. `@cloudburn/rules` declares what the rule needs from the shared discovery catalog
+2. `@cloudburn/sdk` lists Resource Explorer resources for those resource types
+3. The SDK optionally hydrates the matching catalog entries with service-specific data
+4. The rule evaluates against normalized hydrated models
 
-For static IaC scans, Terraform and CloudFormation resources are already parsed into `StaticEvaluationContext.iacResources`. Adding a new AWS static rule usually does not require parser or static-context changes.
+This replaces the old per-service, per-region fan-out discoverer model.
 
-## 1. Add Resource Types to Rules
+## 1. Declare Catalog Requirements in the Rule
 
-### Live resource type
+Live discovery rules must declare `liveDiscovery` metadata in `packages/rules/src/shared/metadata.ts` via `createRule()`:
 
-Add a new type in `packages/rules/src/shared/metadata.ts`:
+```typescript
+liveDiscovery: {
+  resourceTypes: ['ec2:instance'],
+  hydrator: 'aws-ec2-instance',
+}
+```
+
+- `resourceTypes` are Resource Explorer resource type identifiers.
+- `hydrator` is optional. Omit it when the catalog already includes everything the rule needs.
+
+Rules still read from `LiveEvaluationContext`. If a rule needs new hydrated fields, extend that context type in `@cloudburn/rules`.
+
+## 2. Add or Reuse a Hydrated Model
+
+If the rule needs fields that Resource Explorer does not provide directly, add a normalized model in `packages/rules/src/shared/metadata.ts`:
 
 ```typescript
 export type AwsEc2Instance = {
   instanceId: string;
   instanceType: string;
   region: string;
+  accountId: string;
 };
 ```
 
-### Extend `LiveEvaluationContext`
-
-In the same file, add the new field:
+Then extend `LiveEvaluationContext`:
 
 ```typescript
 export type LiveEvaluationContext = {
+  catalog: AwsDiscoveryCatalog;
   ebsVolumes: AwsEbsVolume[];
-  ec2Instances: AwsEc2Instance[];   // new
+  lambdaFunctions: AwsLambdaFunction[];
+  ec2Instances: AwsEc2Instance[];
 };
 ```
 
-### Static IaC support
+## 3. Implement the Hydrator in the SDK
 
-No `StaticEvaluationContext` change is required for a new AWS static rule. Static evaluators receive the shared IaC catalog:
+Create or update `packages/sdk/src/providers/aws/resources/{service}.ts`.
+
+Hydrators receive catalog resources that have already been filtered by Resource Explorer type. They should:
+
+- reuse one AWS client per region
+- fetch only the matched resources
+- normalize service responses into the shared rule-facing type
+- fail loudly if the underlying AWS call fails
+
+Example shape:
 
 ```typescript
-export type StaticEvaluationContext = {
-  iacResources: IaCResource[];
+export const hydrateAwsEc2Instances = async (
+  resources: AwsDiscoveredResource[],
+): Promise<AwsEc2Instance[]> => {
+  // group by region, batch ids, call the narrow AWS API, normalize output
 };
 ```
 
-## 2. Add the Discoverer
+Pattern: hydrate only the matched candidates, not the whole account.
 
-Create `packages/sdk/src/providers/aws/resources/{service}.ts`.
+## 4. Wire the Hydrator Into the AWS Scanner
 
-Reference implementation: `ebs.ts` (uses `paginateDescribeVolumes`).
+Update `packages/sdk/src/providers/aws/scanner.ts` to recognize the new hydrator key:
 
 ```typescript
-import { paginateDescribeInstances, EC2Client } from '@aws-sdk/client-ec2';
-import type { AwsEc2Instance } from '@cloudburn/rules';
-import { createEc2Client } from '../client.js';
+const [ec2Instances] = await Promise.all([
+  requirements.hydrators.has('aws-ec2-instance')
+    ? hydrateAwsEc2Instances(ec2Resources)
+    : Promise.resolve([]),
+]);
+```
 
-export const discoverAwsEc2Instances = async (regions: string[]): Promise<AwsEc2Instance[]> => {
-  const results = await Promise.all(
-    regions.map(async (region) => {
-      const client = createEc2Client({ region });
-      const instances: AwsEc2Instance[] = [];
-      for await (const page of paginateDescribeInstances({ client }, {})) {
-        for (const reservation of page.Reservations ?? []) {
-          for (const instance of reservation.Instances ?? []) {
-            if (instance.InstanceId && instance.InstanceType) {
-              instances.push({
-                instanceId: instance.InstanceId,
-                instanceType: instance.InstanceType,
-                region,
-              });
-            }
-          }
-        }
-      }
-      return instances;
-    }),
-  );
-  return results.flat();
+The scanner already:
+
+- collects unique `resourceTypes` from active rules
+- builds one Resource Explorer catalog
+- filters catalog resources by type
+- invokes only the hydrators required by active rules
+
+Keep that model intact. Do not reintroduce account-wide service discovery fan-out.
+
+## 5. Write the Rule
+
+With the hydrated model available, implement the rule in `@cloudburn/rules` and keep it pure:
+
+```typescript
+evaluateLive: ({ ec2Instances }) => {
+  const findings = ec2Instances
+    .filter((instance) => instance.instanceType === 't3.nano')
+    .map((instance) => ({
+      resourceId: instance.instanceId,
+      region: instance.region,
+      accountId: instance.accountId,
+    }));
+
+  return createFinding(rule, 'discovery', findings);
 };
 ```
 
-Pattern: fan out across regions in parallel with `Promise.all`, paginate the AWS API, skip entries with missing required fields, and document any normalization rules the discoverer applies. For example, Lambda discovery normalizes a missing `Architectures` value to `['x86_64']` because that is Lambda's default architecture.
-
-## 3. Wire Into `scanAwsResources`
-
-Update `packages/sdk/src/providers/aws/scanner.ts`:
-
-```typescript
-import { discoverAwsEbsVolumes } from './resources/ebs.js';
-import { discoverAwsEc2Instances } from './resources/ec2.js';   // new
-
-export const scanAwsResources = async (regions: string[]): Promise<LiveEvaluationContext> => {
-  const [resolvedRegions, accountId] = await Promise.all([resolveAwsRegions(regions), resolveAwsAccountId()]);
-  const [ebsVolumesResult, ec2InstancesResult] = await Promise.allSettled([
-    discoverAwsEbsVolumes(resolvedRegions, accountId),
-    discoverAwsEc2Instances(resolvedRegions, accountId),
-  ]);
-
-  return {
-    ebsVolumes: ebsVolumesResult.status === 'fulfilled' ? ebsVolumesResult.value : [],
-    ec2Instances: ec2InstancesResult.status === 'fulfilled' ? ec2InstancesResult.value : [],   // new
-  };
-};
-```
-
-Pattern: resolve shared prerequisites once, then run service discoverers concurrently. Prefer degraded partial results for individual discoverer failures unless the feature explicitly requires fail-fast behavior.
-
-## 4. Write the Static Rule Against `iacResources`
-
-If the rule supports static IaC scanning, filter `iacResources` by source-native resource type inside the rule:
-
-```typescript
-evaluateStatic: ({ iacResources }) => {
-  const findings = iacResources
-    .filter((resource) => resource.provider === 'aws' && resource.type === 'aws_instance')
-    .filter((resource) => resource.attributes.instance_type === 't3.nano');
-
-  // map findings here
-}
-```
-
-## 5. Extend Terraform Parser (rarely needed)
-
-The Terraform parser already extracts all AWS `resource` blocks (`aws_*`). Only change `packages/sdk/src/parsers/terraform.ts` when the generic extraction contract itself needs to expand, such as adding new providers or richer source-location capture.
-
-## 6. Write Rules
-
-With the context types extended, you can now write rules that use the new fields. See [adding-a-rule.md](./adding-a-rule.md).
-
-## 7. Verify
+## 6. Verify
 
 ```bash
-pnpm verify   # lint + typecheck + test across all packages
+pnpm verify
 ```
 
-Ensure no type errors in either `@cloudburn/rules` or `@cloudburn/sdk`. Live discovery additions still require `LiveEvaluationContext` updates; new AWS static rules should not require new static context fields.
-
-Also document any new IAM requirements alongside the discoverer. For Lambda, live discovery requires `lambda:ListFunctions`.
+Also document any new IAM requirements. Resource Explorer remains the discovery source of truth, but each hydrator still needs its own narrow AWS permissions.

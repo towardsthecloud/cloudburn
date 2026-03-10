@@ -32,6 +32,41 @@ export type AwsLambdaFunction = {
   accountId: string;
 };
 
+/** Normalized AWS Resource Explorer property attached to a discovered resource. */
+export type AwsResourceProperty = {
+  name?: string;
+  data?: unknown;
+  lastReportedAt?: string;
+};
+
+/** Generic AWS resource returned by the live discovery catalog. */
+export type AwsDiscoveredResource = {
+  arn: string;
+  accountId: string;
+  region: string;
+  service: string;
+  resourceType: string;
+  name?: string;
+  properties: AwsResourceProperty[];
+};
+
+/** Resource Explorer-backed discovery catalog used as the live scan seed. */
+export type AwsDiscoveryCatalog = {
+  resources: AwsDiscoveredResource[];
+  searchRegion: string;
+  indexType: 'LOCAL' | 'AGGREGATOR';
+  viewArn?: string;
+};
+
+/** Optional hydrator keys that enrich catalog matches with service-specific data. */
+export type LiveHydratorKey = 'aws-ebs-volume' | 'aws-lambda-function';
+
+/** Rule-owned discovery metadata that drives catalog filtering and hydration. */
+export type LiveDiscoveryDefinition = {
+  resourceTypes: string[];
+  hydrator?: LiveHydratorKey;
+};
+
 /**
  * Normalized IaC resource shape shared across Terraform and CloudFormation
  * parsers.
@@ -46,6 +81,7 @@ export type IaCResource = {
 };
 
 export type LiveEvaluationContext = {
+  catalog: AwsDiscoveryCatalog;
   ebsVolumes: AwsEbsVolume[];
   lambdaFunctions: AwsLambdaFunction[];
 };
@@ -81,6 +117,7 @@ export type Rule = {
   provider: CloudProvider;
   service: string;
   supports: ScanSource[];
+  liveDiscovery?: LiveDiscoveryDefinition;
   evaluateLive?: (context: LiveEvaluationContext) => Finding | null;
   evaluateStatic?: (context: StaticEvaluationContext) => Finding | null;
 };
