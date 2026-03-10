@@ -1,5 +1,11 @@
 # @cloudburn/rules
 
+## 0.8.0
+
+### Minor Changes
+
+- [#24](https://github.com/towardsthecloud/cloudburn/pull/24) [`0bf6dc3`](https://github.com/towardsthecloud/cloudburn/commit/0bf6dc3bbda5fbb4788258fc4cdc0560156a0398) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Add `liveDiscovery` rule metadata and a catalog-aware live evaluation context for Resource Explorer-backed AWS discovery.
+
 ## 0.7.0
 
 ### Minor Changes

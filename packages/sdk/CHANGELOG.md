@@ -1,5 +1,16 @@
 # @cloudburn/sdk
 
+## 0.8.0
+
+### Minor Changes
+
+- [#24](https://github.com/towardsthecloud/cloudburn/pull/24) [`0bf6dc3`](https://github.com/towardsthecloud/cloudburn/commit/0bf6dc3bbda5fbb4788258fc4cdc0560156a0398) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Route live AWS discovery through AWS Resource Explorer catalogs plus targeted hydrators, expose discovery setup and introspection helpers on `CloudBurnClient`, remove the legacy `scanLive()` / `live.*` compatibility surface, require discovery rules to declare `liveDiscovery`, and fail fast on missing or filtered default Resource Explorer views.
+
+### Patch Changes
+
+- Updated dependencies [[`0bf6dc3`](https://github.com/towardsthecloud/cloudburn/commit/0bf6dc3bbda5fbb4788258fc4cdc0560156a0398)]:
+  - @cloudburn/rules@0.8.0
+
 ## 0.7.0
 
 ### Minor Changes
