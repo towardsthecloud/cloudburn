@@ -18,7 +18,6 @@ import type {
   Finding,
   FindingMatch,
   IaCResource,
-  LiveEvaluationContext,
   StaticEvaluationContext,
   SourceLocation,
 } from '../../shared/metadata.js';
@@ -43,12 +42,10 @@ export const ebsVolumeTypeCurrentGenRule = createRule({
   provider: 'aws',
   service: 'ebs',
   supports: ['discovery', 'iac'],
-  liveDiscovery: {
-    hydrator: 'aws-ebs-volume',
-    resourceTypes: ['ec2:volume'],
-  },
-  evaluateLive: ({ ebsVolumes }: LiveEvaluationContext): Finding | null => {
-    const findings = ebsVolumes
+  discoveryDependencies: ['aws-ebs-volumes'],
+  evaluateLive: ({ resources }): Finding | null => {
+    const findings = resources
+      .get('aws-ebs-volumes')
       .filter((volume) => volume.volumeType === 'gp2')
       .map((volume) => createFindingMatch(volume.volumeId, volume.region));
 
@@ -75,7 +72,9 @@ Key patterns:
 
 - Use `createRule()` for all built-in rules.
 - Add a generic rule-level `message` that works for both discovery and IaC.
-- For live AWS rules, declare `liveDiscovery.resourceTypes` and an optional hydrator.
+- For live AWS rules, declare `discoveryDependencies` dataset keys.
+- Read discovery data from `LiveEvaluationContext.resources` with `resources.get('<dataset-key>')`.
+- Do not declare Resource Explorer `resourceTypes` or hydrator keys in rule files.
 - For static IaC scans, filter `iacResources` by the source-native resource type inside the rule.
 - Return one grouped `Finding` or `null`, never a flat `Finding[]`.
 - Keep `ruleId`, `service`, `source`, and `message` on the parent group.
@@ -119,6 +118,7 @@ Pattern:
 ```ts
 import { describe, expect, it } from 'vitest';
 import { ebsVolumeTypeCurrentGenRule } from '../src/aws/ebs/volume-type-current-gen.js';
+import { LiveResourceBag } from '../src/shared/metadata.js';
 import type { AwsEbsVolume } from '../src/shared/metadata.js';
 
 const createVolume = (overrides: Partial<AwsEbsVolume> = {}): AwsEbsVolume => ({
@@ -136,8 +136,9 @@ describe('CLDBRN-AWS-EBS-1', () => {
         searchRegion: 'us-east-1',
         indexType: 'LOCAL',
       },
-      ebsVolumes: [createVolume()],
-      lambdaFunctions: [],
+      resources: new LiveResourceBag({
+        'aws-ebs-volumes': [createVolume()],
+      }),
     });
 
     expect(finding).toEqual({
@@ -161,8 +162,9 @@ describe('CLDBRN-AWS-EBS-1', () => {
         searchRegion: 'us-east-1',
         indexType: 'LOCAL',
       },
-      ebsVolumes: [createVolume({ volumeType: 'gp3' })],
-      lambdaFunctions: [],
+      resources: new LiveResourceBag({
+        'aws-ebs-volumes': [createVolume({ volumeType: 'gp3' })],
+      }),
     });
 
     expect(finding).toBeNull();

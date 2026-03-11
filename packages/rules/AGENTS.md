@@ -8,7 +8,9 @@
 - Rule names must describe the policy being enforced, not the migration or fix action.
 - Rule-level `message` is the canonical public policy text for scan output.
 - Declare `supports` accurately and only implement evaluators for the supported scan modes.
-- Discovery-capable rules should declare `liveDiscovery.resourceTypes`, and only declare a `hydrator` when catalog data alone is insufficient.
+- Discovery-capable rules should declare `discoveryDependencies` dataset keys.
+- Rules should never declare Resource Explorer `resourceTypes` or hydrator wiring directly; the SDK discovery registry owns that mapping.
+- Discovery evaluators read datasets from `LiveEvaluationContext.resources` via `resources.get('<dataset-key>')`.
 - Omit `accountId` and `region` when they are not available. Do not emit empty-string placeholders.
 
 ## Type Contracts

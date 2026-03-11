@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { lambdaCostOptimalArchitectureRule } from '../src/aws/lambda/cost-optimal-architecture.js';
 import type { AwsDiscoveredResource, AwsLambdaFunction, IaCResource, StaticEvaluationContext } from '../src/index.js';
+import { LiveResourceBag } from '../src/index.js';
 
 const createLambdaFunction = (overrides: Partial<AwsLambdaFunction> = {}): AwsLambdaFunction => ({
   functionName: 'my-function',
@@ -74,15 +75,12 @@ describe('lambdaCostOptimalArchitectureRule', () => {
         searchRegion: 'us-east-1',
         indexType: 'LOCAL',
       },
-      ebsVolumes: [],
-      ec2Instances: [],
-      lambdaFunctions: [createLambdaFunction()],
+      resources: new LiveResourceBag({
+        'aws-lambda-functions': [createLambdaFunction()],
+      }),
     });
 
-    expect(lambdaCostOptimalArchitectureRule.liveDiscovery).toEqual({
-      hydrator: 'aws-lambda-function',
-      resourceTypes: ['lambda:function'],
-    });
+    expect(lambdaCostOptimalArchitectureRule.discoveryDependencies).toEqual(['aws-lambda-functions']);
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-LAMBDA-1',
       service: 'lambda',
@@ -105,9 +103,9 @@ describe('lambdaCostOptimalArchitectureRule', () => {
         searchRegion: 'us-east-1',
         indexType: 'LOCAL',
       },
-      ebsVolumes: [],
-      ec2Instances: [],
-      lambdaFunctions: [createLambdaFunction({ architectures: ['arm64'] })],
+      resources: new LiveResourceBag({
+        'aws-lambda-functions': [createLambdaFunction({ architectures: ['arm64'] })],
+      }),
     });
 
     expect(finding).toBeNull();

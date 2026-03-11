@@ -31,7 +31,7 @@ Mock at the provider/parser boundary — do not call real AWS APIs or read real 
 **Test focus areas:**
 
 - `runStaticScan` — registry + parse + context mapping + evaluation
-- `runLiveScan` — registry + Resource Explorer catalog + hydration + evaluation
+- `runLiveScan` — registry + dataset dependency resolution + Resource Explorer catalog + dataset loading + evaluation
 - `buildRuleRegistry` — rule filtering (once implemented)
 - `mergeConfig` — deep merge behavior
 - `CloudBurnClient` — facade delegates correctly to engine and provider helpers
@@ -39,8 +39,8 @@ Mock at the provider/parser boundary — do not call real AWS APIs or read real 
 Split live AWS provider tests into three layers:
 
 1. Resource Explorer catalog tests
-2. Hydrator tests per service
-3. Orchestration tests in `scanAwsResources`
+2. Dataset loader/hydrator tests per service
+3. Orchestration tests in `discoverAwsResources`
 
 ### `cloudburn` (CLI)
 

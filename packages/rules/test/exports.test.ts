@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { AwsEc2Instance } from '../src/index.js';
+import type { AwsEc2Instance, DiscoveryDatasetKey } from '../src/index.js';
 import {
   awsCorePreset,
   awsRules,
@@ -8,6 +8,7 @@ import {
   createStaticFindingMatch,
   gcpRules,
   isRecord,
+  LiveResourceBag,
 } from '../src/index.js';
 
 describe('rule exports', () => {
@@ -23,6 +24,7 @@ describe('rule exports', () => {
     expect(createFindingMatch).toBeTypeOf('function');
     expect(createStaticFindingMatch).toBeTypeOf('function');
     expect(isRecord).toBeTypeOf('function');
+    expect(LiveResourceBag).toBeTypeOf('function');
 
     const instance: AwsEc2Instance = {
       accountId: '123456789012',
@@ -32,6 +34,10 @@ describe('rule exports', () => {
     };
 
     expect(instance.instanceType).toBe('m8azn.large');
+
+    const datasetKey: DiscoveryDatasetKey = 'aws-ec2-instances';
+
+    expect(datasetKey).toBe('aws-ec2-instances');
   });
 
   it('exports placeholder multi-cloud arrays', () => {

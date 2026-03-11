@@ -1,13 +1,14 @@
 import { fileURLToPath } from 'node:url';
+import { LiveResourceBag } from '@cloudburn/rules';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { scanAwsResources } from '../src/providers/aws/scanner.js';
+import { discoverAwsResources } from '../src/providers/aws/discovery.js';
 import { CloudBurnClient } from '../src/scanner.js';
 
-vi.mock('../src/providers/aws/scanner.js', () => ({
-  scanAwsResources: vi.fn(),
+vi.mock('../src/providers/aws/discovery.js', () => ({
+  discoverAwsResources: vi.fn(),
 }));
 
-const mockedScanAwsResources = vi.mocked(scanAwsResources);
+const mockedDiscoverAwsResources = vi.mocked(discoverAwsResources);
 
 const discoveryCatalog = {
   resources: [],
@@ -21,14 +22,14 @@ describe('CloudBurnClient', () => {
   });
 
   it('passes the explicit discovery target to the aws provider scanner and returns gp2 findings', async () => {
-    mockedScanAwsResources.mockResolvedValue({
+    mockedDiscoverAwsResources.mockResolvedValue({
       catalog: discoveryCatalog,
-      ebsVolumes: [
-        { volumeId: 'vol-123', volumeType: 'gp2', region: 'us-east-1', accountId: '123456789012' },
-        { volumeId: 'vol-456', volumeType: 'gp3', region: 'us-east-1', accountId: '123456789012' },
-      ],
-      ec2Instances: [],
-      lambdaFunctions: [],
+      resources: new LiveResourceBag({
+        'aws-ebs-volumes': [
+          { volumeId: 'vol-123', volumeType: 'gp2', region: 'us-east-1', accountId: '123456789012' },
+          { volumeId: 'vol-456', volumeType: 'gp3', region: 'us-east-1', accountId: '123456789012' },
+        ],
+      }),
     });
 
     const scanner = new CloudBurnClient();
@@ -40,7 +41,7 @@ describe('CloudBurnClient', () => {
       },
     });
 
-    expect(mockedScanAwsResources).toHaveBeenCalledWith(expect.any(Array), {
+    expect(mockedDiscoverAwsResources).toHaveBeenCalledWith(expect.any(Array), {
       mode: 'region',
       region: 'us-east-1',
     });
@@ -70,14 +71,14 @@ describe('CloudBurnClient', () => {
   });
 
   it('returns lambda architecture findings discovered during live scans', async () => {
-    mockedScanAwsResources.mockResolvedValue({
+    mockedDiscoverAwsResources.mockResolvedValue({
       catalog: discoveryCatalog,
-      ebsVolumes: [],
-      ec2Instances: [],
-      lambdaFunctions: [
-        { functionName: 'legacy-func', architectures: ['x86_64'], region: 'us-east-1', accountId: '123456789012' },
-        { functionName: 'arm-func', architectures: ['arm64'], region: 'us-east-1', accountId: '123456789012' },
-      ],
+      resources: new LiveResourceBag({
+        'aws-lambda-functions': [
+          { functionName: 'legacy-func', architectures: ['x86_64'], region: 'us-east-1', accountId: '123456789012' },
+          { functionName: 'arm-func', architectures: ['arm64'], region: 'us-east-1', accountId: '123456789012' },
+        ],
+      }),
     });
 
     const scanner = new CloudBurnClient();
@@ -114,24 +115,24 @@ describe('CloudBurnClient', () => {
   });
 
   it('returns non-preferred EC2 instance findings discovered during live scans', async () => {
-    mockedScanAwsResources.mockResolvedValue({
+    mockedDiscoverAwsResources.mockResolvedValue({
       catalog: discoveryCatalog,
-      ebsVolumes: [],
-      ec2Instances: [
-        {
-          accountId: '123456789012',
-          instanceId: 'i-legacy',
-          instanceType: 'c6i.large',
-          region: 'us-east-1',
-        },
-        {
-          accountId: '123456789012',
-          instanceId: 'i-current',
-          instanceType: 'm8i.large',
-          region: 'us-east-1',
-        },
-      ],
-      lambdaFunctions: [],
+      resources: new LiveResourceBag({
+        'aws-ec2-instances': [
+          {
+            accountId: '123456789012',
+            instanceId: 'i-legacy',
+            instanceType: 'c6i.large',
+            region: 'us-east-1',
+          },
+          {
+            accountId: '123456789012',
+            instanceId: 'i-current',
+            instanceType: 'm8i.large',
+            region: 'us-east-1',
+          },
+        ],
+      }),
     });
 
     const scanner = new CloudBurnClient();
@@ -168,18 +169,16 @@ describe('CloudBurnClient', () => {
   });
 
   it('defaults discover to the current region target when none is provided', async () => {
-    mockedScanAwsResources.mockResolvedValue({
+    mockedDiscoverAwsResources.mockResolvedValue({
       catalog: discoveryCatalog,
-      ebsVolumes: [],
-      ec2Instances: [],
-      lambdaFunctions: [],
+      resources: new LiveResourceBag(),
     });
 
     const scanner = new CloudBurnClient();
 
     await scanner.discover();
 
-    expect(mockedScanAwsResources).toHaveBeenCalledWith(expect.any(Array), {
+    expect(mockedDiscoverAwsResources).toHaveBeenCalledWith(expect.any(Array), {
       mode: 'current',
     });
   });

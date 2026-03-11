@@ -29,10 +29,11 @@ graph TD
   end
 
   subgraph Live["runLiveScan(config, target)"]
-    LR[buildRuleRegistry] --> LT[collect discovery requirements]
-    LT --> LC[buildAwsDiscoveryCatalog]
-    LC --> LH[hydrate matched resources]
-    LH --> LX[build LiveEvaluationContext]
+    LR[buildRuleRegistry] --> LD[collect discoveryDependencies]
+    LD --> LRg[resolve dataset registry entries]
+    LRg --> LC[buildAwsDiscoveryCatalog]
+    LC --> LL[load required datasets]
+    LL --> LX[build LiveEvaluationContext]
     LX --> LE["rule.evaluateLive() => Finding | null"]
     LE --> LG[groupFindingsByProvider]
     LG --> LOut["ScanResult { providers: ProviderFindingGroup[] }"]
@@ -50,21 +51,24 @@ graph TD
 ### Live Scan
 
 1. Build the rule registry.
-2. Collect unique Resource Explorer `resourceTypes` from active discovery rules.
-3. Build one AWS discovery catalog through Resource Explorer filter-only list queries.
-4. Hydrate only the matched resources that active rules need extra fields for.
-5. Build `LiveEvaluationContext`.
-6. Invoke each live evaluator.
-7. Group non-null rule findings under `providers -> rules -> findings`.
+2. Collect unique `discoveryDependencies` from active discovery rules.
+3. Resolve those dataset keys through the AWS discovery dataset registry.
+4. Union required Resource Explorer `resourceTypes` from the resolved dataset definitions.
+5. Build one AWS discovery catalog through Resource Explorer filter-only list queries.
+6. Load only the required datasets (including hydrator-backed loaders when needed).
+7. Build `LiveEvaluationContext` with `{ catalog, resources: LiveResourceBag }`.
+8. Invoke each live evaluator.
+9. Group non-null rule findings under `providers -> rules -> findings`.
 
 Current live-discovery behavior:
 
 - `discover` is the live entrypoint for both the CLI and direct SDK callers.
+- `discoverAwsResources` in `src/providers/aws/discovery.ts` is the AWS live orchestration entrypoint.
 - Default discovery target is the current region, resolved from `AWS_REGION`, then `AWS_DEFAULT_REGION`, then `aws_region`, then the AWS SDK region provider chain.
 - `--region all` requires an aggregator index and fails fast when one is not enabled.
 - Discovery resolves the explicit default Resource Explorer view in the chosen search region and fails if no default view exists or if that default view applies additional filters.
 - Catalog collection uses Resource Explorer `ListResources` with filter strings instead of `Search`, which avoids the 1,000-result ceiling on filter-only queries.
-- Resource Explorer inventory failures and hydrator failures are fatal. The SDK no longer degrades to partial live results.
+- Resource Explorer inventory failures and dataset loader failures are fatal. The SDK does not degrade to partial live results.
 - Missing Lambda `Architectures` values from AWS are normalized to `['x86_64']`, matching the AWS default architecture.
 - Lambda hydrators limit in-flight `GetFunctionConfiguration` calls per region to avoid API throttling in large accounts.
 - Live scans require Resource Explorer access plus narrow hydrator permissions such as `ec2:DescribeVolumes`, `ec2:DescribeInstances`, and `lambda:GetFunctionConfiguration`.
@@ -108,10 +112,12 @@ graph LR
 
 ## Provider Layer
 
-`buildRuleRegistry(config)` still decides which rules are active. Live AWS rules now also declare `liveDiscovery` metadata in `@cloudburn/rules`, which the SDK uses to:
+`buildRuleRegistry(config)` still decides which rules are active. Live AWS rules declare `discoveryDependencies` dataset keys in `@cloudburn/rules`, and the SDK discovery registry resolves each key into:
 
-- collect unique Resource Explorer `resourceTypes`
-- decide which hydrators to invoke
-- keep service-specific AWS calls out of the generic discovery path
+- Resource Explorer `resourceTypes` needed to seed the dataset
+- dataset loader behavior (projection-only or hydrator-backed)
+- normalized dataset output exposed through `LiveResourceBag`
+
+This keeps service-specific AWS calls out of the generic discovery path while allowing new datasets without changing core orchestration flow.
 
 The engines still use `rule.provider` to place each non-null rule finding into the correct top-level provider group in `ScanResult`.

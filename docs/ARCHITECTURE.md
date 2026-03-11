@@ -58,7 +58,7 @@ sequenceDiagram
   Scanner->>Engine: runLiveScan(config, target)
   Engine->>Registry: buildRuleRegistry(config)
   Registry-->>Engine: activeRules[]
-  Engine->>AWS: scanAwsResources(target, activeRules)
+  Engine->>AWS: discoverAwsResources(target, activeRules)
   AWS-->>Engine: LiveEvaluationContext
   loop Each rule where supports includes 'discovery'
     Engine->>Engine: rule.evaluateLive(context)
@@ -75,7 +75,7 @@ sequenceDiagram
 | `@cloudburn/sdk`   | Scanner facade, config system, engine orchestration, parsers, AWS providers | Rule definitions, CLI concerns   |
 | `@cloudburn/rules` | Rule definitions, presets, type contracts, helper utilities                 | I/O, AWS SDK calls, engine logic |
 
-Live AWS discovery now uses one Resource Explorer-backed catalog plus optional hydrators for service-specific fields. The CLI keeps `scan` static-only and uses `discover` for live AWS evaluation and setup flows.
+Live AWS discovery now uses one Resource Explorer-backed catalog plus dataset-driven loaders. Rules declare `discoveryDependencies`, and SDK discovery orchestration in `providers/aws/discovery.ts` resolves those dependencies into datasets exposed through `LiveResourceBag`. The CLI keeps `scan` static-only and uses `discover` for live AWS evaluation and setup flows.
 
 ## Multi-Cloud Strategy
 

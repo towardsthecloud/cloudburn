@@ -23,8 +23,10 @@ const gp2Rule = createRule({
   provider: "aws",
   service: "ebs",
   supports: ["discovery"],
-  evaluateLive: ({ ebsVolumes }) => {
-    const findings: FindingMatch[] = ebsVolumes
+  discoveryDependencies: ["aws-ebs-volumes"],
+  evaluateLive: ({ resources }) => {
+    const findings: FindingMatch[] = resources
+      .get("aws-ebs-volumes")
       .filter((volume) => volume.volumeType === "gp2")
       .map((volume) => ({
         resourceId: volume.volumeId,

@@ -7,8 +7,8 @@ export {
   resolveCurrentAwsRegion,
 } from './client.js';
 export {
+  discoverAwsResources,
   initializeAwsDiscovery,
   listEnabledAwsDiscoveryRegions,
   listSupportedAwsResourceTypes,
-  scanAwsResources,
-} from './scanner.js';
+} from './discovery.js';

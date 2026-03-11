@@ -1,6 +1,13 @@
 import type { AwsDiscoveryCatalog, Rule } from '@cloudburn/rules';
+import { LiveResourceBag } from '@cloudburn/rules';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { listEnabledAwsRegions, resolveCurrentAwsRegion } from '../../src/providers/aws/client.js';
+import {
+  discoverAwsResources,
+  initializeAwsDiscovery,
+  listEnabledAwsDiscoveryRegions,
+  listSupportedAwsResourceTypes,
+} from '../../src/providers/aws/discovery.js';
 import {
   buildAwsDiscoveryCatalog,
   createAwsResourceExplorerSetup,
@@ -10,12 +17,6 @@ import {
 import { hydrateAwsEbsVolumes } from '../../src/providers/aws/resources/ebs.js';
 import { hydrateAwsEc2Instances } from '../../src/providers/aws/resources/ec2.js';
 import { hydrateAwsLambdaFunctions } from '../../src/providers/aws/resources/lambda.js';
-import {
-  initializeAwsDiscovery,
-  listEnabledAwsDiscoveryRegions,
-  listSupportedAwsResourceTypes,
-  scanAwsResources,
-} from '../../src/providers/aws/scanner.js';
 
 vi.mock('../../src/providers/aws/client.js', () => ({
   listEnabledAwsRegions: vi.fn(),
@@ -94,7 +95,7 @@ const createRule = (overrides: Partial<Rule> = {}): Rule => ({
   ...overrides,
 });
 
-describe('scanAwsResources', () => {
+describe('discoverAwsResources', () => {
   beforeEach(() => {
     vi.resetAllMocks();
   });
@@ -116,27 +117,18 @@ describe('scanAwsResources', () => {
       { accountId: '123456789012', architectures: ['x86_64'], functionName: 'my-func', region: 'us-east-1' },
     ]);
 
-    const result = await scanAwsResources(
+    const result = await discoverAwsResources(
       [
         createRule({
-          liveDiscovery: {
-            hydrator: 'aws-ebs-volume',
-            resourceTypes: ['ec2:volume'],
-          },
+          discoveryDependencies: ['aws-ebs-volumes'],
         }),
         createRule({
           id: 'CLDBRN-AWS-TEST-2',
-          liveDiscovery: {
-            hydrator: 'aws-ec2-instance',
-            resourceTypes: ['ec2:instance'],
-          },
+          discoveryDependencies: ['aws-ec2-instances'],
         }),
         createRule({
           id: 'CLDBRN-AWS-TEST-3',
-          liveDiscovery: {
-            hydrator: 'aws-lambda-function',
-            resourceTypes: ['lambda:function', 'ec2:volume'],
-          },
+          discoveryDependencies: ['aws-lambda-functions', 'aws-ebs-volumes'],
           service: 'lambda',
         }),
       ],
@@ -151,27 +143,28 @@ describe('scanAwsResources', () => {
     expect(mockedHydrateAwsEbsVolumes).toHaveBeenCalledWith([catalog.resources[0]]);
     expect(mockedHydrateAwsEc2Instances).toHaveBeenCalledWith([catalog.resources[1]]);
     expect(mockedHydrateAwsLambdaFunctions).toHaveBeenCalledWith([catalog.resources[2]]);
-    expect(result).toEqual({
-      catalog,
-      ebsVolumes: [{ accountId: '123456789012', region: 'us-east-1', volumeId: 'vol-123', volumeType: 'gp2' }],
-      ec2Instances: [
-        {
-          accountId: '123456789012',
-          instanceId: 'i-123',
-          instanceType: 'c6i.large',
-          region: 'us-east-1',
-        },
-      ],
-      lambdaFunctions: [
-        { accountId: '123456789012', architectures: ['x86_64'], functionName: 'my-func', region: 'us-east-1' },
-      ],
-    });
+    expect(result.catalog).toEqual(catalog);
+    expect(result.resources).toBeInstanceOf(LiveResourceBag);
+    expect(result.resources.get('aws-ebs-volumes')).toEqual([
+      { accountId: '123456789012', region: 'us-east-1', volumeId: 'vol-123', volumeType: 'gp2' },
+    ]);
+    expect(result.resources.get('aws-ec2-instances')).toEqual([
+      {
+        accountId: '123456789012',
+        instanceId: 'i-123',
+        instanceType: 'c6i.large',
+        region: 'us-east-1',
+      },
+    ]);
+    expect(result.resources.get('aws-lambda-functions')).toEqual([
+      { accountId: '123456789012', architectures: ['x86_64'], functionName: 'my-func', region: 'us-east-1' },
+    ]);
   });
 
   it('returns an empty catalog without Resource Explorer calls when no live rules require discovery metadata', async () => {
     mockedResolveCurrentAwsRegion.mockResolvedValue('us-east-1');
 
-    const result = await scanAwsResources(
+    const result = await discoverAwsResources(
       [
         createRule({
           evaluateLive: undefined,
@@ -181,48 +174,58 @@ describe('scanAwsResources', () => {
     );
 
     expect(mockedBuildAwsDiscoveryCatalog).not.toHaveBeenCalled();
-    expect(result).toEqual({
-      catalog: {
-        indexType: 'LOCAL',
-        resources: [],
-        searchRegion: 'us-east-1',
-      },
-      ebsVolumes: [],
-      ec2Instances: [],
-      lambdaFunctions: [],
+    expect(result.catalog).toEqual({
+      indexType: 'LOCAL',
+      resources: [],
+      searchRegion: 'us-east-1',
     });
+    expect(result.resources).toBeInstanceOf(LiveResourceBag);
+    expect(result.resources.get('aws-ebs-volumes')).toEqual([]);
+    expect(result.resources.get('aws-ec2-instances')).toEqual([]);
+    expect(result.resources.get('aws-lambda-functions')).toEqual([]);
   });
 
-  it('fails fast when a discovery rule has an evaluator but no live discovery metadata', async () => {
+  it('fails fast when a discovery rule has an evaluator but no discoveryDependencies metadata', async () => {
     await expect(
-      scanAwsResources(
+      discoverAwsResources(
         [
           createRule({
-            liveDiscovery: undefined,
+            discoveryDependencies: undefined,
           }),
         ],
         { mode: 'current' },
       ),
-    ).rejects.toThrow('Discovery rule CLDBRN-AWS-TEST-1 is missing liveDiscovery metadata.');
+    ).rejects.toThrow('Discovery rule CLDBRN-AWS-TEST-1 is missing discoveryDependencies metadata.');
 
     expect(mockedBuildAwsDiscoveryCatalog).not.toHaveBeenCalled();
   });
 
-  it('fails fast when a discovery rule declares an invalid Resource Explorer resource type', async () => {
+  it('fails fast when a discovery rule declares an unknown discovery dependency', async () => {
     await expect(
-      scanAwsResources(
+      discoverAwsResources(
         [
           createRule({
-            liveDiscovery: {
-              resourceTypes: ['ec2:volume region:us-east-1'],
-            },
+            discoveryDependencies: ['aws-missing-dataset' as Rule['discoveryDependencies'][number]],
           }),
         ],
         { mode: 'current' },
       ),
-    ).rejects.toMatchObject({
-      code: 'INVALID_RESOURCE_EXPLORER_RESOURCE_TYPE',
-    });
+    ).rejects.toThrow("Discovery rule CLDBRN-AWS-TEST-1 declares unknown discovery dependency 'aws-missing-dataset'.");
+
+    expect(mockedBuildAwsDiscoveryCatalog).not.toHaveBeenCalled();
+  });
+
+  it('treats prototype keys as unknown discovery dependencies', async () => {
+    await expect(
+      discoverAwsResources(
+        [
+          createRule({
+            discoveryDependencies: ['__proto__' as Rule['discoveryDependencies'][number]],
+          }),
+        ],
+        { mode: 'current' },
+      ),
+    ).rejects.toThrow("Discovery rule CLDBRN-AWS-TEST-1 declares unknown discovery dependency '__proto__'.");
 
     expect(mockedBuildAwsDiscoveryCatalog).not.toHaveBeenCalled();
   });

@@ -20,14 +20,15 @@ export type {
   AwsLambdaFunction,
   AwsResourceProperty,
   CloudProvider,
+  DiscoveryDatasetKey,
+  DiscoveryDatasetMap,
   Finding,
   FindingMatch,
   IaCResource,
-  LiveDiscoveryDefinition,
   LiveEvaluationContext,
-  LiveHydratorKey,
   Rule,
   ScanSource,
   SourceLocation,
   StaticEvaluationContext,
 } from './shared/metadata.js';
+export { LiveResourceBag } from './shared/metadata.js';

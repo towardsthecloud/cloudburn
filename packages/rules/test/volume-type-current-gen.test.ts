@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ebsVolumeTypeCurrentGenRule } from '../src/aws/ebs/volume-type-current-gen.js';
 import type { AwsDiscoveredResource, AwsEbsVolume, IaCResource, StaticEvaluationContext } from '../src/index.js';
+import { LiveResourceBag } from '../src/index.js';
 
 const createVolume = (overrides: Partial<AwsEbsVolume> = {}): AwsEbsVolume => ({
   volumeId: 'vol-123',
@@ -74,16 +75,13 @@ describe('ebsVolumeTypeCurrentGenRule', () => {
         searchRegion: 'eu-west-1',
         indexType: 'LOCAL',
       },
-      ebsVolumes: [createVolume()],
-      ec2Instances: [],
-      lambdaFunctions: [],
+      resources: new LiveResourceBag({
+        'aws-ebs-volumes': [createVolume()],
+      }),
     });
 
     expect(ebsVolumeTypeCurrentGenRule.supports).toEqual(['discovery', 'iac']);
-    expect(ebsVolumeTypeCurrentGenRule.liveDiscovery).toEqual({
-      hydrator: 'aws-ebs-volume',
-      resourceTypes: ['ec2:volume'],
-    });
+    expect(ebsVolumeTypeCurrentGenRule.discoveryDependencies).toEqual(['aws-ebs-volumes']);
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-EBS-1',
       service: 'ebs',
@@ -155,9 +153,9 @@ describe('ebsVolumeTypeCurrentGenRule', () => {
         searchRegion: 'eu-west-1',
         indexType: 'LOCAL',
       },
-      ebsVolumes: [createVolume({ volumeType: 'gp3' })],
-      ec2Instances: [],
-      lambdaFunctions: [],
+      resources: new LiveResourceBag({
+        'aws-ebs-volumes': [createVolume({ volumeType: 'gp3' })],
+      }),
     });
 
     expect(finding).toBeNull();

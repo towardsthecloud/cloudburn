@@ -34,7 +34,9 @@ Output is a three-level hierarchy: `providers -> rules -> findings`.
 - Rule names describe the policy, not the remediation.
 - The canonical `message` is set once on the `Rule` object and must work for both `discovery` and `iac`.
 - Only implement evaluators for modes declared in `supports`.
-- Discovery-capable rules with `evaluateLive` must declare `liveDiscovery.resourceTypes`, and declare a `hydrator` only when catalog data alone is insufficient.
+- Discovery-capable rules with `evaluateLive` must declare `discoveryDependencies`.
+- Rules must not declare Resource Explorer `resourceTypes` or hydrator keys directly.
+- Discovery evaluators should read from `LiveEvaluationContext.resources.get('<dataset-key>')`.
 
 ## Testing Layers
 
@@ -49,7 +51,7 @@ Mock boundaries:
 | Package            | What to mock |
 | ------------------ | ------------ |
 | `@cloudburn/rules` | Nothing — pure unit tests |
-| `@cloudburn/sdk`   | Resource Explorer catalog helpers, hydrators, `parseTerraform`, `loadConfig` |
+| `@cloudburn/sdk`   | Resource Explorer catalog helpers, dataset loaders/hydrators, `parseTerraform`, `loadConfig` |
 | `cloudburn` (cli)  | `CloudBurnClient.scanStatic()` / `.discover()` |
 
 ## Build Pipeline

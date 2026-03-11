@@ -12,7 +12,7 @@ classDiagram
     +provider: 'aws' | 'azure' | 'gcp'
     +string service
     +ScanSource[] supports
-    +LiveDiscoveryDefinition liveDiscovery?
+    +DiscoveryDatasetKey[] discoveryDependencies?
     +evaluateLive(ctx: LiveEvaluationContext)? Finding
     +evaluateStatic(ctx: StaticEvaluationContext)? Finding
   }
@@ -34,9 +34,11 @@ classDiagram
 
   class LiveEvaluationContext {
     +AwsDiscoveryCatalog catalog
-    +AwsEbsVolume[] ebsVolumes
-    +AwsEc2Instance[] ec2Instances
-    +AwsLambdaFunction[] lambdaFunctions
+    +LiveResourceBag resources
+  }
+
+  class LiveResourceBag {
+    +get(key: DiscoveryDatasetKey) DiscoveryDatasetMap[key]
   }
 
   class IaCResource {
@@ -55,6 +57,7 @@ classDiagram
   Rule --> Finding : produces
   Finding --> FindingMatch : contains
   Rule --> LiveEvaluationContext : evaluateLive input
+  LiveEvaluationContext --> LiveResourceBag : contains
   Rule --> StaticEvaluationContext : evaluateStatic input
   StaticEvaluationContext --> IaCResource : contains
 ```
@@ -76,10 +79,12 @@ graph LR
 
 1. Use `createRule({ ... })`.
 2. Keep the stable rule metadata, including the canonical public `message`, on the `Rule` object itself.
-3. For live AWS rules, declare `liveDiscovery.resourceTypes` and an optional hydrator key.
+3. For live AWS rules, declare `discoveryDependencies` dataset keys.
 4. Build lean resource-level `FindingMatch` values inside the evaluator.
 5. Return `{ ruleId, service, source, message, findings }` when there are matches.
 6. Return `null` when nothing matches.
+
+Rule evaluators consume live datasets through `context.resources.get('<dataset-key>')`. Rules should not declare Resource Explorer `resourceTypes` or hydrator wiring.
 
 ## ID Convention
 

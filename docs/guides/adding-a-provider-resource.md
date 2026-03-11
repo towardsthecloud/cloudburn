@@ -1,39 +1,29 @@
 # Adding a Provider Resource
 
-How to extend live AWS discovery when a new rule needs another Resource Explorer type or a new hydrator.
+Use this guide when a new AWS service needs live discovery support.
 
-## Overview
+The current model is dataset-driven:
 
-Adding a new live AWS resource now follows the same high-level pattern as static IaC scanning:
+1. Rules declare `discoveryDependencies` dataset keys.
+2. SDK discovery registry maps dataset keys to Resource Explorer `resourceTypes` and dataset loaders.
+3. `discoverAwsResources` builds one catalog and loads only required datasets.
+4. Rules read normalized datasets from `LiveResourceBag` with `resources.get('<dataset-key>')`.
 
-1. `@cloudburn/rules` declares what the rule needs from the shared discovery catalog
-2. `@cloudburn/sdk` lists Resource Explorer resources for those resource types
-3. The SDK optionally hydrates the matching catalog entries with service-specific data
-4. The rule evaluates against normalized hydrated models
+## 1. Pick a Dataset Key
 
-This replaces the old per-service, per-region fan-out discoverer model.
+Define a dataset key in `@cloudburn/rules` metadata that represents one normalized resource collection.
 
-## 1. Declare Catalog Requirements in the Rule
+Use dataset-oriented keys, not service buckets:
 
-Live discovery rules must declare `liveDiscovery` metadata in `packages/rules/src/shared/metadata.ts` via `createRule()`:
+- `aws-rds-instances`
+- `aws-rds-clusters`
+- `aws-elbv2-load-balancers`
 
-```typescript
-liveDiscovery: {
-  resourceTypes: ['ec2:instance'],
-  hydrator: 'aws-ec2-instance',
-}
-```
+## 2. Add the Rule-Facing Type
 
-- `resourceTypes` are Resource Explorer resource type identifiers.
-- `hydrator` is optional. Omit it when the catalog already includes everything the rule needs.
+Add or reuse a normalized model in `packages/rules/src/shared/metadata.ts`.
 
-Rules still read from `LiveEvaluationContext`. If a rule needs new hydrated fields, extend that context type in `@cloudburn/rules`.
-
-## 2. Add or Reuse a Hydrated Model
-
-If the rule needs fields that Resource Explorer does not provide directly, add a normalized model in `packages/rules/src/shared/metadata.ts`:
-
-```typescript
+```ts
 export type AwsEc2Instance = {
   instanceId: string;
   instanceType: string;
@@ -42,68 +32,69 @@ export type AwsEc2Instance = {
 };
 ```
 
-Then extend `LiveEvaluationContext`:
+Register the dataset key and shape:
 
-```typescript
-export type LiveEvaluationContext = {
-  catalog: AwsDiscoveryCatalog;
-  ebsVolumes: AwsEbsVolume[];
-  lambdaFunctions: AwsLambdaFunction[];
-  ec2Instances: AwsEc2Instance[];
+```ts
+export type DiscoveryDatasetMap = {
+  'aws-ec2-instances': AwsEc2Instance[];
 };
 ```
 
-## 3. Implement the Hydrator in the SDK
+## 3. Add a Dataset Loader
 
 Create or update `packages/sdk/src/providers/aws/resources/{service}.ts`.
 
-Hydrators receive catalog resources that have already been filtered by Resource Explorer type. They should:
+Dataset loaders should:
 
-- reuse one AWS client per region
-- fetch only the matched resources
-- normalize service responses into the shared rule-facing type
-- fail loudly if the underlying AWS call fails
+- receive only catalog resources matched for the dataset
+- use narrow AWS APIs only when catalog fields are insufficient
+- normalize into the rule-facing dataset type
+- fail loudly when the underlying AWS API call fails
 
-Example shape:
-
-```typescript
+```ts
 export const hydrateAwsEc2Instances = async (
   resources: AwsDiscoveredResource[],
 ): Promise<AwsEc2Instance[]> => {
-  // group by region, batch ids, call the narrow AWS API, normalize output
+  // group by region, call DescribeInstances, normalize
 };
 ```
 
-Pattern: hydrate only the matched candidates, not the whole account.
+## 4. Register the Dataset in SDK Discovery
 
-## 4. Wire the Hydrator Into the AWS Scanner
+Update `packages/sdk/src/providers/aws/discovery-registry.ts` with:
 
-Update `packages/sdk/src/providers/aws/scanner.ts` to recognize the new hydrator key:
+- `datasetKey`
+- required `resourceTypes`
+- `load` function
 
-```typescript
-const [ec2Instances] = await Promise.all([
-  requirements.hydrators.has('aws-ec2-instance')
-    ? hydrateAwsEc2Instances(ec2Resources)
-    : Promise.resolve([]),
-]);
+```ts
+'aws-ec2-instances': {
+  datasetKey: 'aws-ec2-instances',
+  resourceTypes: ['ec2:instance'],
+  load: hydrateAwsEc2Instances,
+}
 ```
 
-The scanner already:
+`discoverAwsResources` in `packages/sdk/src/providers/aws/discovery.ts` already:
 
-- collects unique `resourceTypes` from active rules
+- collects dataset keys from active rules
+- resolves registry entries
+- unions required `resourceTypes`
 - builds one Resource Explorer catalog
-- filters catalog resources by type
-- invokes only the hydrators required by active rules
+- loads only required datasets
+- builds `LiveEvaluationContext` with `resources: LiveResourceBag`
 
-Keep that model intact. Do not reintroduce account-wide service discovery fan-out.
+Do not add service-specific branching to discovery orchestration.
 
-## 5. Write the Rule
+## 5. Write or Update Rules
 
-With the hydrated model available, implement the rule in `@cloudburn/rules` and keep it pure:
+In `@cloudburn/rules`, consume the dataset key:
 
-```typescript
-evaluateLive: ({ ec2Instances }) => {
-  const findings = ec2Instances
+```ts
+discoveryDependencies: ['aws-ec2-instances'],
+evaluateLive: ({ resources }) => {
+  const findings = resources
+    .get('aws-ec2-instances')
     .filter((instance) => instance.instanceType === 't3.nano')
     .map((instance) => ({
       resourceId: instance.instanceId,
@@ -121,4 +112,4 @@ evaluateLive: ({ ec2Instances }) => {
 pnpm verify
 ```
 
-Also document any new IAM requirements. Resource Explorer remains the discovery source of truth, but each hydrator still needs its own narrow AWS permissions.
+Also document IAM permissions for any new loader-backed AWS API calls.

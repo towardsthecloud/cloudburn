@@ -1,4 +1,5 @@
-import type { LiveEvaluationContext, Rule } from '@cloudburn/rules';
+import type { DiscoveryDatasetKey, DiscoveryDatasetMap, LiveEvaluationContext, Rule } from '@cloudburn/rules';
+import { LiveResourceBag } from '@cloudburn/rules';
 import type {
   AwsDiscoveryInitialization,
   AwsDiscoveryRegion,
@@ -6,6 +7,7 @@ import type {
   AwsSupportedResourceType,
 } from '../../types.js';
 import { assertValidAwsRegion, listEnabledAwsRegions, resolveCurrentAwsRegion } from './client.js';
+import { getAwsDiscoveryDatasetDefinition } from './discovery-registry.js';
 import { AwsDiscoveryError } from './errors.js';
 import {
   buildAwsDiscoveryCatalog,
@@ -13,9 +15,6 @@ import {
   listAwsDiscoveryIndexes,
   listAwsDiscoverySupportedResourceTypes,
 } from './resource-explorer.js';
-import { hydrateAwsEbsVolumes } from './resources/ebs.js';
-import { hydrateAwsEc2Instances } from './resources/ec2.js';
-import { hydrateAwsLambdaFunctions } from './resources/lambda.js';
 
 const sortUnique = (values: string[]): string[] =>
   [...new Set(values)].sort((left, right) => left.localeCompare(right));
@@ -33,80 +32,83 @@ const assertValidResourceExplorerResourceType = (resourceType: string): string =
   return resourceType;
 };
 
-const collectLiveDiscoveryRequirements = (
-  rules: Rule[],
-): {
-  hydrators: Set<string>;
-  resourceTypes: string[];
-} => {
-  const hydrators = new Set<string>();
-  const resourceTypes: string[] = [];
+const collectDiscoveryDependencies = (rules: Rule[]): DiscoveryDatasetKey[] => {
+  const datasetKeys: DiscoveryDatasetKey[] = [];
 
   for (const rule of rules) {
     if (!rule.supports.includes('discovery') || !rule.evaluateLive) {
       continue;
     }
 
-    if (!rule.liveDiscovery) {
-      throw new Error(`Discovery rule ${rule.id} is missing liveDiscovery metadata.`);
+    if (!rule.discoveryDependencies || rule.discoveryDependencies.length === 0) {
+      throw new Error(`Discovery rule ${rule.id} is missing discoveryDependencies metadata.`);
     }
 
-    for (const resourceType of rule.liveDiscovery.resourceTypes) {
-      resourceTypes.push(assertValidResourceExplorerResourceType(resourceType));
-    }
+    for (const datasetKey of rule.discoveryDependencies) {
+      const definition = getAwsDiscoveryDatasetDefinition(datasetKey);
+      if (!definition) {
+        throw new Error(`Discovery rule ${rule.id} declares unknown discovery dependency '${datasetKey}'.`);
+      }
 
-    if (rule.liveDiscovery.hydrator) {
-      hydrators.add(rule.liveDiscovery.hydrator);
+      datasetKeys.push(definition.datasetKey);
     }
   }
 
-  return {
-    hydrators,
-    resourceTypes: sortUnique(resourceTypes),
-  };
+  return sortUnique(datasetKeys) as DiscoveryDatasetKey[];
 };
 
 /**
  * Discovers AWS resources for live rule evaluation using Resource Explorer and
- * targeted hydrators.
+ * registry-driven discovery datasets.
  *
- * @param rules - Active rules that declare their discovery requirements.
+ * @param rules - Active rules that declare their discovery dataset requirements.
  * @param target - Discovery target controlling current-region, explicit-region, or all-region behavior.
  * @returns Hydrated live evaluation context.
  */
-export const scanAwsResources = async (rules: Rule[], target: AwsDiscoveryTarget): Promise<LiveEvaluationContext> => {
-  const requirements = collectLiveDiscoveryRequirements(rules);
+export const discoverAwsResources = async (
+  rules: Rule[],
+  target: AwsDiscoveryTarget,
+): Promise<LiveEvaluationContext> => {
+  const datasetKeys = collectDiscoveryDependencies(rules);
 
-  if (requirements.resourceTypes.length === 0) {
+  if (datasetKeys.length === 0) {
     return {
       catalog: {
         resources: [],
         searchRegion: await resolveCurrentAwsRegion(),
         indexType: 'LOCAL',
       },
-      ebsVolumes: [],
-      ec2Instances: [],
-      lambdaFunctions: [],
+      resources: new LiveResourceBag(),
     };
   }
 
-  const catalog = await buildAwsDiscoveryCatalog(target, requirements.resourceTypes);
-  const ebsResources = catalog.resources.filter((resource) => resource.resourceType === 'ec2:volume');
-  const ec2Resources = catalog.resources.filter((resource) => resource.resourceType === 'ec2:instance');
-  const lambdaResources = catalog.resources.filter((resource) => resource.resourceType === 'lambda:function');
-  const [ebsVolumes, ec2Instances, lambdaFunctions] = await Promise.all([
-    requirements.hydrators.has('aws-ebs-volume') ? hydrateAwsEbsVolumes(ebsResources) : Promise.resolve([]),
-    requirements.hydrators.has('aws-ec2-instance') ? hydrateAwsEc2Instances(ec2Resources) : Promise.resolve([]),
-    requirements.hydrators.has('aws-lambda-function')
-      ? hydrateAwsLambdaFunctions(lambdaResources)
-      : Promise.resolve([]),
-  ]);
+  const datasetDefinitions = datasetKeys.map((datasetKey) => {
+    const definition = getAwsDiscoveryDatasetDefinition(datasetKey);
+
+    if (!definition) {
+      throw new Error(`Unknown discovery dataset '${datasetKey}'.`);
+    }
+
+    return definition;
+  });
+  const resourceTypes = sortUnique(
+    datasetDefinitions.flatMap((definition) => definition.resourceTypes.map(assertValidResourceExplorerResourceType)),
+  );
+  const catalog = await buildAwsDiscoveryCatalog(target, resourceTypes);
+  const loadedDatasets = await Promise.all(
+    datasetDefinitions.map(async (definition) => {
+      const matchingResources = catalog.resources.filter((resource) =>
+        definition.resourceTypes.includes(resource.resourceType),
+      );
+
+      return [definition.datasetKey, await definition.load(matchingResources)] as const;
+    }),
+  );
+  const resources = new LiveResourceBag(Object.fromEntries(loadedDatasets) as Partial<DiscoveryDatasetMap>);
 
   return {
     catalog,
-    ebsVolumes,
-    ec2Instances,
-    lambdaFunctions,
+    resources,
   };
 };
 

@@ -36,12 +36,10 @@ export const ec2PreferredInstanceTypeRule = createRule({
   provider: 'aws',
   service: RULE_SERVICE,
   supports: ['iac', 'discovery'],
-  liveDiscovery: {
-    hydrator: 'aws-ec2-instance',
-    resourceTypes: ['ec2:instance'],
-  },
-  evaluateLive: ({ ec2Instances }) => {
-    const findings = ec2Instances
+  discoveryDependencies: ['aws-ec2-instances'],
+  evaluateLive: ({ resources }) => {
+    const findings = resources
+      .get('aws-ec2-instances')
       .filter((instance) => getPreferredInstanceState(instance.instanceType) === 'non-preferred')
       .map((instance) => createFindingMatch(instance.instanceId, instance.region, instance.accountId));
 

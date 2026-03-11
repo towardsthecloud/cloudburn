@@ -6,11 +6,11 @@
 | -------------------------- | ---------------------------------------------------------------------------------------- | -------------- |
 | **Architecture**           | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)                                           | Package graph, static scan flow, live discovery flow |
 | CLI internals              | [`docs/architecture/cli.md`](docs/architecture/cli.md)                                   | `scan` vs `discover`, formatter pipeline, exit-code contract |
-| SDK internals              | [`docs/architecture/sdk.md`](docs/architecture/sdk.md)                                   | Scanner facade, config pipeline, Resource Explorer catalog, hydrators |
-| Rules internals            | [`docs/architecture/rules.md`](docs/architecture/rules.md)                               | Type hierarchy, rule assembly chain, ID convention |
+| SDK internals              | [`docs/architecture/sdk.md`](docs/architecture/sdk.md)                                   | Scanner facade, config pipeline, dataset-driven live discovery, Resource Explorer catalog |
+| Rules internals            | [`docs/architecture/rules.md`](docs/architecture/rules.md)                               | Type hierarchy, dataset dependencies, rule assembly chain, ID convention |
 | **Guides**                 |                                                                                          |                |
 | Adding a rule              | [`docs/guides/adding-a-rule.md`](docs/guides/adding-a-rule.md)                           | End-to-end: file placement, createRule, tests, registration |
-| Adding a provider resource | [`docs/guides/adding-a-provider-resource.md`](docs/guides/adding-a-provider-resource.md) | Resource Explorer catalog requirements, hydrators, context type extension |
+| Adding a provider resource | [`docs/guides/adding-a-provider-resource.md`](docs/guides/adding-a-provider-resource.md) | Discovery dataset registry entries, dataset loaders, and rule-facing dataset contracts |
 | **Reference**              |                                                                                          |                |
 | Config schema              | [`docs/reference/config-schema.md`](docs/reference/config-schema.md)                     | Every `CloudBurnConfig` field, defaults, merge behavior |
 | Rule IDs                   | [`docs/reference/rule-ids.md`](docs/reference/rule-ids.md)                               | ID table, naming convention, presets |
@@ -77,6 +77,9 @@
 
 - Dependency direction: `cli → sdk → rules`. No reverse imports.
 - `scan` is static IaC only. `discover` is the live AWS command surface.
-- Live AWS work should follow the Resource Explorer catalog-first model with optional hydrators. Do not add new account-wide per-service region fan-out discoverers unless the architecture docs explicitly change.
+- Live AWS work should follow the Resource Explorer catalog-first model with dataset-driven orchestration in `providers/aws/discovery.ts`.
+- Rules declare `discoveryDependencies` dataset keys. The SDK owns Resource Explorer `resourceTypes`, dataset loaders, and hydration wiring.
+- `LiveEvaluationContext` exposes `catalog` plus `resources: LiveResourceBag`; discovery rules read datasets through `resources.get('<dataset-key>')`.
+- Do not add new account-wide per-service region fan-out discoverers unless the architecture docs explicitly change.
 - When working inside `packages/cloudburn`, `packages/sdk`, or `packages/rules`, follow that package's local `AGENTS.md`.
 - Before changing a type or export in `rules` or `sdk`, check downstream consumers for required updates.

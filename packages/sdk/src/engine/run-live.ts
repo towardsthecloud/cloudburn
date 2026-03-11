@@ -1,11 +1,11 @@
-import { scanAwsResources } from '../providers/aws/scanner.js';
+import { discoverAwsResources } from '../providers/aws/discovery.js';
 import type { AwsDiscoveryTarget, CloudBurnConfig, ScanResult } from '../types.js';
 import { groupFindingsByProvider } from './group-findings.js';
 import { buildRuleRegistry } from './registry.js';
 
 export const runLiveScan = async (config: CloudBurnConfig, target: AwsDiscoveryTarget): Promise<ScanResult> => {
   const registry = buildRuleRegistry(config);
-  const liveContext = await scanAwsResources(registry.activeRules, target);
+  const liveContext = await discoverAwsResources(registry.activeRules, target);
   const findings = groupFindingsByProvider(
     registry.activeRules.map((rule) => {
       if (!rule.supports.includes('discovery') || !rule.evaluateLive) {

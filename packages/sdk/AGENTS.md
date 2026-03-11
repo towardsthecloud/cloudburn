@@ -15,8 +15,10 @@
 ## Boundaries
 
 - SDK owns config loading, IaC parsing, live discovery, rule registry assembly, and scan orchestration.
-- Live AWS discovery is Resource Explorer first. Build one catalog, then hydrate only the matched resources that need extra service data.
-- Do not add new account-wide per-service region fan-out discoverers. Prefer extending rule `liveDiscovery` metadata and adding narrow hydrators.
+- Live AWS discovery is Resource Explorer first and dataset-driven. Build one catalog, then load only the datasets required by active rules.
+- Rules must declare `discoveryDependencies` keys only. SDK owns dataset-to-resource-type mapping and dataset loader wiring.
+- Keep AWS live orchestration in `src/providers/aws/discovery.ts` (`discoverAwsResources`). Do not reintroduce hardcoded resource/service branching in orchestration.
+- Do not add new account-wide per-service region fan-out discoverers.
 - Keep user-facing CLI concerns out of the SDK.
 - Keep pure rule declarations, finding shapes, and authoring helpers in `rules`.
 

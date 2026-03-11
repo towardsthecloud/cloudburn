@@ -20,12 +20,10 @@ export const ebsVolumeTypeCurrentGenRule = createRule({
   provider: 'aws',
   service: RULE_SERVICE,
   supports: ['discovery', 'iac'],
-  liveDiscovery: {
-    hydrator: 'aws-ebs-volume',
-    resourceTypes: ['ec2:volume'],
-  },
-  evaluateLive: ({ ebsVolumes }) => {
-    const findings = ebsVolumes
+  discoveryDependencies: ['aws-ebs-volumes'],
+  evaluateLive: ({ resources }) => {
+    const findings = resources
+      .get('aws-ebs-volumes')
       .filter((volume) => volume.volumeType === 'gp2')
       .map((volume) => createFindingMatch(volume.volumeId, volume.region, volume.accountId));
 

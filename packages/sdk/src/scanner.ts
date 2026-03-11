@@ -6,7 +6,7 @@ import {
   initializeAwsDiscovery,
   listEnabledAwsDiscoveryRegions,
   listSupportedAwsResourceTypes,
-} from './providers/aws/scanner.js';
+} from './providers/aws/discovery.js';
 import type {
   AwsDiscoveryInitialization,
   AwsDiscoveryRegion,

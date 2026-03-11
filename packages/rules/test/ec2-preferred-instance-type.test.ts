@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ec2PreferredInstanceTypeRule } from '../src/aws/ec2/preferred-instance-types.js';
 import type { AwsDiscoveredResource, AwsEc2Instance, IaCResource, StaticEvaluationContext } from '../src/index.js';
+import { LiveResourceBag } from '../src/index.js';
 
 const createEc2Instance = (overrides: Partial<AwsEc2Instance> = {}): AwsEc2Instance => ({
   instanceId: 'i-1234567890abcdef0',
@@ -68,10 +69,7 @@ const createCloudFormationResource = (overrides: Partial<IaCResource> = {}): IaC
 
 describe('ec2PreferredInstanceTypeRule', () => {
   it('declares the live discovery metadata for direct EC2 instances', () => {
-    expect(ec2PreferredInstanceTypeRule.liveDiscovery).toEqual({
-      hydrator: 'aws-ec2-instance',
-      resourceTypes: ['ec2:instance'],
-    });
+    expect(ec2PreferredInstanceTypeRule.discoveryDependencies).toEqual(['aws-ec2-instances']);
   });
 
   it('flags non-preferred EC2 instances in discovery mode', () => {
@@ -81,9 +79,9 @@ describe('ec2PreferredInstanceTypeRule', () => {
         searchRegion: 'us-east-1',
         indexType: 'LOCAL',
       },
-      ebsVolumes: [],
-      lambdaFunctions: [],
-      ec2Instances: [createEc2Instance()],
+      resources: new LiveResourceBag({
+        'aws-ec2-instances': [createEc2Instance()],
+      }),
     });
 
     expect(finding).toEqual({
@@ -193,9 +191,9 @@ describe('ec2PreferredInstanceTypeRule', () => {
         searchRegion: 'us-east-1',
         indexType: 'LOCAL',
       },
-      ebsVolumes: [],
-      lambdaFunctions: [],
-      ec2Instances: [createEc2Instance({ instanceType: 'c6i.large' })],
+      resources: new LiveResourceBag({
+        'aws-ec2-instances': [createEc2Instance({ instanceType: 'c6i.large' })],
+      }),
     });
 
     expect(finding).toEqual({
@@ -220,9 +218,9 @@ describe('ec2PreferredInstanceTypeRule', () => {
         searchRegion: 'us-east-1',
         indexType: 'LOCAL',
       },
-      ebsVolumes: [],
-      lambdaFunctions: [],
-      ec2Instances: [createEc2Instance({ instanceType: 'm8azn.large' })],
+      resources: new LiveResourceBag({
+        'aws-ec2-instances': [createEc2Instance({ instanceType: 'm8azn.large' })],
+      }),
     });
 
     expect(finding).toBeNull();

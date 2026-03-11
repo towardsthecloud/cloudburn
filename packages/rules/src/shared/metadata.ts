@@ -66,14 +66,42 @@ export type AwsDiscoveryCatalog = {
   viewArn?: string;
 };
 
-/** Optional hydrator keys that enrich catalog matches with service-specific data. */
-export type LiveHydratorKey = 'aws-ebs-volume' | 'aws-ec2-instance' | 'aws-lambda-function';
+/** Rule-facing live discovery dataset key exposed through the evaluation context. */
+export type DiscoveryDatasetKey = 'aws-ebs-volumes' | 'aws-ec2-instances' | 'aws-lambda-functions';
 
-/** Rule-owned discovery metadata that drives catalog filtering and hydration. */
-export type LiveDiscoveryDefinition = {
-  resourceTypes: string[];
-  hydrator?: LiveHydratorKey;
+/** Normalized live discovery datasets available to rule evaluators. */
+export type DiscoveryDatasetMap = {
+  'aws-ebs-volumes': AwsEbsVolume[];
+  'aws-ec2-instances': AwsEc2Instance[];
+  'aws-lambda-functions': AwsLambdaFunction[];
 };
+
+/** Typed bag of normalized live discovery datasets prepared by the SDK. */
+export class LiveResourceBag {
+  readonly #datasets: Partial<DiscoveryDatasetMap>;
+
+  /**
+   * Creates a new dataset bag for live rule evaluation.
+   *
+   * @param datasets - Optional preloaded normalized datasets keyed by dataset name.
+   */
+  public constructor(datasets: Partial<DiscoveryDatasetMap> = {}) {
+    this.#datasets = { ...datasets };
+  }
+
+  /**
+   * Returns the normalized dataset for a specific discovery dependency.
+   *
+   * Missing datasets default to an empty array so rules can read dependencies
+   * without defensive checks.
+   *
+   * @param key - Stable dataset key declared by a discovery-capable rule.
+   * @returns The normalized dataset value for the requested key.
+   */
+  public get<K extends DiscoveryDatasetKey>(key: K): DiscoveryDatasetMap[K] {
+    return (this.#datasets[key] ?? []) as DiscoveryDatasetMap[K];
+  }
+}
 
 /**
  * Normalized IaC resource shape shared across Terraform and CloudFormation
@@ -90,9 +118,7 @@ export type IaCResource = {
 
 export type LiveEvaluationContext = {
   catalog: AwsDiscoveryCatalog;
-  ebsVolumes: AwsEbsVolume[];
-  ec2Instances: AwsEc2Instance[];
-  lambdaFunctions: AwsLambdaFunction[];
+  resources: LiveResourceBag;
 };
 
 /** Provider-normalized IaC resources available to static rule evaluators. */
@@ -126,7 +152,7 @@ export type Rule = {
   provider: CloudProvider;
   service: string;
   supports: ScanSource[];
-  liveDiscovery?: LiveDiscoveryDefinition;
+  discoveryDependencies?: DiscoveryDatasetKey[];
   evaluateLive?: (context: LiveEvaluationContext) => Finding | null;
   evaluateStatic?: (context: StaticEvaluationContext) => Finding | null;
 };

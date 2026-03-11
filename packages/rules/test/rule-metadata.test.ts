@@ -11,8 +11,8 @@ describe('rule metadata', () => {
       expect(rule.supports.length).toBeGreaterThan(0);
 
       if (rule.supports.includes('discovery') && rule.evaluateLive) {
-        expect(rule.liveDiscovery).toBeDefined();
-        expect(rule.liveDiscovery?.resourceTypes.length).toBeGreaterThan(0);
+        expect(rule.discoveryDependencies).toBeDefined();
+        expect(rule.discoveryDependencies?.length).toBeGreaterThan(0);
       }
     }
   });
@@ -29,10 +29,7 @@ describe('rule metadata', () => {
       provider: 'aws',
       service: 'ec2',
       supports: ['iac', 'discovery'],
-      liveDiscovery: {
-        hydrator: 'aws-ec2-instance',
-        resourceTypes: ['ec2:instance'],
-      },
+      discoveryDependencies: ['aws-ec2-instances'],
     });
   });
 
