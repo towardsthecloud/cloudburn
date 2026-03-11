@@ -1,5 +1,22 @@
 # cloudburn
 
+## 0.6.0
+
+### Minor Changes
+
+- [#29](https://github.com/towardsthecloud/cloudburn/pull/29) [`b734230`](https://github.com/towardsthecloud/cloudburn/commit/b734230a2151e5e6d4d366e1fa36bc408a7de1c8) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Expose built-in rule metadata through the SDK and enrich `cloudburn rules list` to group rules by provider and service.
+
+  `cloudburn rules list` now shows `RULE_ID: description` in human-readable output and returns rule metadata objects in JSON instead of bare rule ID strings.
+
+- [#28](https://github.com/towardsthecloud/cloudburn/pull/28) [`bfcf54d`](https://github.com/towardsthecloud/cloudburn/commit/bfcf54df3dd005a9264ff89f013906d5f9b31b75) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Refactor the CLI output system around a global `--format` flag with `text`, `json`, and `table` output, while preserving raw YAML as the default for `cloudburn init`.
+
+  This removes `sarif` output support from the CLI, which is a breaking change for existing integrations using `--format sarif`.
+
+### Patch Changes
+
+- Updated dependencies [[`b734230`](https://github.com/towardsthecloud/cloudburn/commit/b734230a2151e5e6d4d366e1fa36bc408a7de1c8)]:
+  - @cloudburn/sdk@0.8.2
+
 ## 0.5.1
 
 ### Patch Changes
