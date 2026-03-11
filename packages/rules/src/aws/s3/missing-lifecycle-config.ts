@@ -1,5 +1,4 @@
 import { createFinding, createFindingMatch, createRule } from '../../shared/helpers.js';
-import { analyzeS3Buckets } from './bucket-analysis.js';
 
 const RULE_ID = 'CLDBRN-AWS-S3-1';
 const RULE_SERVICE = 's3';
@@ -14,10 +13,12 @@ export const s3MissingLifecycleConfigRule = createRule({
   provider: 'aws',
   service: RULE_SERVICE,
   supports: ['iac'],
-  evaluateStatic: ({ iacResources }) => {
-    const findings = analyzeS3Buckets(iacResources)
+  staticDependencies: ['aws-s3-bucket-analyses'],
+  evaluateStatic: ({ resources }) => {
+    const findings = resources
+      .get('aws-s3-bucket-analyses')
       .filter((bucket) => !bucket.hasCostFocusedLifecycle)
-      .map((bucket) => createFindingMatch(bucket.bucketResourceId, undefined, undefined, bucket.bucket.location));
+      .map((bucket) => createFindingMatch(bucket.resourceId, undefined, undefined, bucket.location));
 
     return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'iac', findings);
   },

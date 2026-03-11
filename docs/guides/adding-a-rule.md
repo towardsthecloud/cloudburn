@@ -14,13 +14,7 @@ Example: `packages/rules/src/aws/ebs/volume-type-current-gen.ts`
 
 ```ts
 import { createFinding, createRule } from '../../shared/helpers.js';
-import type {
-  Finding,
-  FindingMatch,
-  IaCResource,
-  StaticEvaluationContext,
-  SourceLocation,
-} from '../../shared/metadata.js';
+import type { Finding, FindingMatch, SourceLocation } from '../../shared/metadata.js';
 
 const RULE_ID = 'CLDBRN-AWS-EBS-1';
 const RULE_MESSAGE = 'EBS volumes should use current-generation storage.';
@@ -31,9 +25,6 @@ const createFindingMatch = (resourceId: string, region?: string, location?: Sour
   ...(location ? { location } : {}),
 });
 
-const isAwsEbsVolume = (resource: IaCResource): boolean =>
-  resource.provider === 'aws' && resource.type === 'aws_ebs_volume';
-
 export const ebsVolumeTypeCurrentGenRule = createRule({
   id: RULE_ID,
   name: 'EBS Volume Type Not Current Generation',
@@ -43,6 +34,7 @@ export const ebsVolumeTypeCurrentGenRule = createRule({
   service: 'ebs',
   supports: ['discovery', 'iac'],
   discoveryDependencies: ['aws-ebs-volumes'],
+  staticDependencies: ['aws-ebs-volumes'],
   evaluateLive: ({ resources }): Finding | null => {
     const findings = resources
       .get('aws-ebs-volumes')
@@ -51,17 +43,11 @@ export const ebsVolumeTypeCurrentGenRule = createRule({
 
     return createFinding(ebsVolumeTypeCurrentGenRule, 'discovery', findings);
   },
-  evaluateStatic: ({ iacResources }: StaticEvaluationContext): Finding | null => {
-    const findings = iacResources
-      .filter(isAwsEbsVolume)
-      .filter((resource) => resource.attributes.type === 'gp2')
-      .map((resource) =>
-        createFindingMatch(
-          `${resource.type}.${resource.name}`,
-          undefined,
-          resource.attributeLocations?.type ?? resource.location,
-        ),
-      );
+  evaluateStatic: ({ resources }): Finding | null => {
+    const findings = resources
+      .get('aws-ebs-volumes')
+      .filter((volume) => volume.volumeType === 'gp2')
+      .map((volume) => createFindingMatch(volume.resourceId, undefined, volume.location));
 
     return createFinding(ebsVolumeTypeCurrentGenRule, 'iac', findings);
   },
@@ -72,10 +58,11 @@ Key patterns:
 
 - Use `createRule()` for all built-in rules.
 - Add a generic rule-level `message` that works for both discovery and IaC.
+- For static IaC rules, declare `staticDependencies` dataset keys.
 - For live AWS rules, declare `discoveryDependencies` dataset keys.
+- Read static data from `StaticEvaluationContext.resources` with `resources.get('<dataset-key>')`.
 - Read discovery data from `LiveEvaluationContext.resources` with `resources.get('<dataset-key>')`.
-- Do not declare Resource Explorer `resourceTypes` or hydrator keys in rule files.
-- For static IaC scans, filter `iacResources` by the source-native resource type inside the rule.
+- Do not declare Terraform type strings, CloudFormation type strings, Resource Explorer `resourceTypes`, or loader wiring in rule files.
 - Return one grouped `Finding` or `null`, never a flat `Finding[]`.
 - Keep `ruleId`, `service`, `source`, and `message` on the parent group.
 - Put only varying resource-level data on each `FindingMatch`.
@@ -118,13 +105,19 @@ Pattern:
 ```ts
 import { describe, expect, it } from 'vitest';
 import { ebsVolumeTypeCurrentGenRule } from '../src/aws/ebs/volume-type-current-gen.js';
-import { LiveResourceBag } from '../src/shared/metadata.js';
-import type { AwsEbsVolume } from '../src/shared/metadata.js';
+import { LiveResourceBag, StaticResourceBag } from '../src/shared/metadata.js';
+import type { AwsEbsVolume, AwsStaticEbsVolume } from '../src/shared/metadata.js';
 
 const createVolume = (overrides: Partial<AwsEbsVolume> = {}): AwsEbsVolume => ({
   volumeId: 'vol-test',
   volumeType: 'gp2',
   region: 'us-east-1',
+  ...overrides,
+});
+
+const createStaticVolume = (overrides: Partial<AwsStaticEbsVolume> = {}): AwsStaticEbsVolume => ({
+  resourceId: 'aws_ebs_volume.logs',
+  volumeType: 'gp2',
   ...overrides,
 });
 
@@ -168,6 +161,26 @@ describe('CLDBRN-AWS-EBS-1', () => {
     });
 
     expect(finding).toBeNull();
+  });
+
+  it('groups matching static resources under one rule finding', () => {
+    const finding = ebsVolumeTypeCurrentGenRule.evaluateStatic?.({
+      resources: new StaticResourceBag({
+        'aws-ebs-volumes': [createStaticVolume()],
+      }),
+    });
+
+    expect(finding).toEqual({
+      ruleId: 'CLDBRN-AWS-EBS-1',
+      service: 'ebs',
+      source: 'iac',
+      message: 'EBS volumes should use current-generation storage.',
+      findings: [
+        {
+          resourceId: 'aws_ebs_volume.logs',
+        },
+      ],
+    });
   });
 });
 ```

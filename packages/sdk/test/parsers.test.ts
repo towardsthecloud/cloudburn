@@ -738,4 +738,15 @@ describe('parsers', () => {
       },
     ]);
   });
+
+  it('parses only the requested source kinds for dataset-driven static scans', async () => {
+    const resourcePath = fileURLToPath(new URL('./fixtures/iac-mixed', import.meta.url));
+    const resources = await parseIaC(resourcePath, {
+      sourceKinds: ['terraform'],
+    });
+
+    expect(resources.map((resource) => `${resource.location?.path}:${resource.type}.${resource.name}`)).toEqual([
+      'main.tf:aws_ebs_volume.gp2_logs',
+    ]);
+  });
 });

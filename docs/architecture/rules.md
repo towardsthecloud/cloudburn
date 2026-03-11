@@ -13,6 +13,7 @@ classDiagram
     +string service
     +ScanSource[] supports
     +DiscoveryDatasetKey[] discoveryDependencies?
+    +StaticDatasetKey[] staticDependencies?
     +evaluateLive(ctx: LiveEvaluationContext)? Finding
     +evaluateStatic(ctx: StaticEvaluationContext)? Finding
   }
@@ -41,17 +42,12 @@ classDiagram
     +get(key: DiscoveryDatasetKey) DiscoveryDatasetMap[key]
   }
 
-  class IaCResource {
-    +provider
-    +type
-    +name
-    +attributes
-    +location?
-    +attributeLocations?
+  class StaticResourceBag {
+    +get(key: StaticDatasetKey) StaticDatasetMap[key]
   }
 
   class StaticEvaluationContext {
-    +IaCResource[] iacResources
+    +StaticResourceBag resources
   }
 
   Rule --> Finding : produces
@@ -59,7 +55,7 @@ classDiagram
   Rule --> LiveEvaluationContext : evaluateLive input
   LiveEvaluationContext --> LiveResourceBag : contains
   Rule --> StaticEvaluationContext : evaluateStatic input
-  StaticEvaluationContext --> IaCResource : contains
+  StaticEvaluationContext --> StaticResourceBag : contains
 ```
 
 Rules now return a single grouped `Finding` or `null`. The SDK is responsible for regrouping those rule findings under providers in the public `ScanResult`.
@@ -79,12 +75,13 @@ graph LR
 
 1. Use `createRule({ ... })`.
 2. Keep the stable rule metadata, including the canonical public `message`, on the `Rule` object itself.
-3. For live AWS rules, declare `discoveryDependencies` dataset keys.
-4. Build lean resource-level `FindingMatch` values inside the evaluator.
-5. Return `{ ruleId, service, source, message, findings }` when there are matches.
-6. Return `null` when nothing matches.
+3. For static IaC rules, declare `staticDependencies` dataset keys.
+4. For live AWS rules, declare `discoveryDependencies` dataset keys.
+5. Build lean resource-level `FindingMatch` values inside the evaluator.
+6. Return `{ ruleId, service, source, message, findings }` when there are matches.
+7. Return `null` when nothing matches.
 
-Rule evaluators consume live datasets through `context.resources.get('<dataset-key>')`. Rules should not declare Resource Explorer `resourceTypes` or hydrator wiring.
+Rule evaluators consume static and live datasets through `context.resources.get('<dataset-key>')`. Rules should not declare Terraform resource type strings, CloudFormation type strings, Resource Explorer `resourceTypes`, or loader wiring directly.
 
 ## ID Convention
 

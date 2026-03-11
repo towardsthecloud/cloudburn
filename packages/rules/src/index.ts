@@ -19,6 +19,11 @@ export type {
   AwsEc2Instance,
   AwsLambdaFunction,
   AwsResourceProperty,
+  AwsStaticEbsVolume,
+  AwsStaticEc2Instance,
+  AwsStaticEc2VpcEndpoint,
+  AwsStaticLambdaFunction,
+  AwsStaticS3BucketAnalysis,
   CloudProvider,
   DiscoveryDatasetKey,
   DiscoveryDatasetMap,
@@ -29,6 +34,8 @@ export type {
   Rule,
   ScanSource,
   SourceLocation,
+  StaticDatasetKey,
+  StaticDatasetMap,
   StaticEvaluationContext,
 } from './shared/metadata.js';
-export { LiveResourceBag } from './shared/metadata.js';
+export { LiveResourceBag, StaticResourceBag } from './shared/metadata.js';

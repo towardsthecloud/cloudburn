@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ebsVolumeTypeCurrentGenRule } from '../src/aws/ebs/volume-type-current-gen.js';
-import type { AwsDiscoveredResource, AwsEbsVolume, IaCResource, StaticEvaluationContext } from '../src/index.js';
-import { LiveResourceBag } from '../src/index.js';
+import type { AwsDiscoveredResource, AwsEbsVolume, AwsStaticEbsVolume } from '../src/index.js';
+import { LiveResourceBag, StaticResourceBag } from '../src/index.js';
 
 const createVolume = (overrides: Partial<AwsEbsVolume> = {}): AwsEbsVolume => ({
   volumeId: 'vol-123',
@@ -11,49 +11,14 @@ const createVolume = (overrides: Partial<AwsEbsVolume> = {}): AwsEbsVolume => ({
   ...overrides,
 });
 
-const createTerraformResource = (overrides: Partial<IaCResource> = {}): IaCResource => ({
-  provider: 'aws',
-  type: 'aws_ebs_volume',
-  name: 'gp2_data',
+const createStaticVolume = (overrides: Partial<AwsStaticEbsVolume> = {}): AwsStaticEbsVolume => ({
   location: {
     path: 'main.tf',
-    startLine: 1,
-    startColumn: 1,
-  },
-  attributeLocations: {
-    type: {
-      path: 'main.tf',
-      startLine: 4,
-      startColumn: 3,
-    },
-  },
-  attributes: {
-    type: 'gp2',
-  },
-  ...overrides,
-});
-
-const createCloudFormationResource = (overrides: Partial<IaCResource> = {}): IaCResource => ({
-  provider: 'aws',
-  type: 'AWS::EC2::Volume',
-  name: 'MyVolume',
-  location: {
-    path: 'template.yaml',
-    startLine: 3,
+    startLine: 4,
     startColumn: 3,
   },
-  attributeLocations: {
-    'Properties.VolumeType': {
-      path: 'template.yaml',
-      startLine: 6,
-      startColumn: 7,
-    },
-  },
-  attributes: {
-    Properties: {
-      VolumeType: 'gp2',
-    },
-  },
+  resourceId: 'aws_ebs_volume.gp2_data',
+  volumeType: 'gp2',
   ...overrides,
 });
 
@@ -82,6 +47,7 @@ describe('ebsVolumeTypeCurrentGenRule', () => {
 
     expect(ebsVolumeTypeCurrentGenRule.supports).toEqual(['discovery', 'iac']);
     expect(ebsVolumeTypeCurrentGenRule.discoveryDependencies).toEqual(['aws-ebs-volumes']);
+    expect(ebsVolumeTypeCurrentGenRule.staticDependencies).toEqual(['aws-ebs-volumes']);
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-EBS-1',
       service: 'ebs',
@@ -98,11 +64,10 @@ describe('ebsVolumeTypeCurrentGenRule', () => {
   });
 
   it('evaluates gp2 volumes in iac mode', () => {
-    const staticContext = {
-      iacResources: [createTerraformResource()],
-    } satisfies StaticEvaluationContext;
     const finding = ebsVolumeTypeCurrentGenRule.evaluateStatic?.({
-      ...staticContext,
+      resources: new StaticResourceBag({
+        'aws-ebs-volumes': [createStaticVolume()],
+      }),
     });
 
     expect(finding).toEqual({
@@ -125,7 +90,18 @@ describe('ebsVolumeTypeCurrentGenRule', () => {
 
   it('evaluates cloudformation gp2 volumes in iac mode', () => {
     const finding = ebsVolumeTypeCurrentGenRule.evaluateStatic?.({
-      iacResources: [createCloudFormationResource()],
+      resources: new StaticResourceBag({
+        'aws-ebs-volumes': [
+          createStaticVolume({
+            location: {
+              path: 'template.yaml',
+              startLine: 6,
+              startColumn: 7,
+            },
+            resourceId: 'MyVolume',
+          }),
+        ],
+      }),
     });
 
     expect(finding).toEqual({
@@ -163,22 +139,9 @@ describe('ebsVolumeTypeCurrentGenRule', () => {
 
   it('ignores non-ebs terraform resources in iac mode', () => {
     const finding = ebsVolumeTypeCurrentGenRule.evaluateStatic?.({
-      iacResources: [
-        createTerraformResource({
-          type: 'aws_instance',
-          name: 'web',
-          attributes: {
-            instance_type: 't3.micro',
-          },
-          attributeLocations: {
-            instance_type: {
-              path: 'main.tf',
-              startLine: 8,
-              startColumn: 3,
-            },
-          },
-        }),
-      ],
+      resources: new StaticResourceBag({
+        'aws-ebs-volumes': [],
+      }),
     });
 
     expect(finding).toBeNull();

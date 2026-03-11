@@ -30,11 +30,16 @@ Mock at the provider/parser boundary — do not call real AWS APIs or read real 
 
 **Test focus areas:**
 
-- `runStaticScan` — registry + parse + context mapping + evaluation
+- `runStaticScan` — registry + static dataset dependency resolution + parser selection + dataset loading + evaluation
 - `runLiveScan` — registry + dataset dependency resolution + Resource Explorer catalog + dataset loading + evaluation
 - `buildRuleRegistry` — rule filtering (once implemented)
 - `mergeConfig` — deep merge behavior
 - `CloudBurnClient` — facade delegates correctly to engine and provider helpers
+
+Split static AWS provider tests into two layers:
+
+1. Static dataset loader tests per dataset
+2. Orchestration tests in `loadAwsStaticResources`
 
 Split live AWS provider tests into three layers:
 

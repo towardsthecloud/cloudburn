@@ -21,8 +21,11 @@
 ```mermaid
 graph TD
   subgraph Static["runStaticScan(path, config)"]
-    SR[buildRuleRegistry] --> SP[parseIaC]
-    SP --> SC[toStaticContext]
+    SR[buildRuleRegistry] --> SD[collect staticDependencies]
+    SD --> SRg[resolve static dataset registry entries]
+    SRg --> SP[parseIaC(required sourceKinds)]
+    SP --> SL[load required static datasets]
+    SL --> SC[build StaticEvaluationContext]
     SC --> SE["rule.evaluateStatic() => Finding | null"]
     SE --> SG[groupFindingsByProvider]
     SG --> SOut["ScanResult { providers: ProviderFindingGroup[] }"]
@@ -43,10 +46,14 @@ graph TD
 ### Static Scan
 
 1. Build the rule registry.
-2. Auto-detect Terraform and CloudFormation inputs and parse them into normalized `IaCResource[]`.
-3. Build `StaticEvaluationContext` with `iacResources`.
-4. Invoke each static evaluator.
-5. Group non-null rule findings under `providers -> rules -> findings`.
+2. Collect unique `staticDependencies` from active static rules.
+3. Resolve those dataset keys through the AWS static dataset registry.
+4. Union required IaC source kinds from the resolved dataset definitions.
+5. Parse only the required Terraform and CloudFormation inputs.
+6. Load only the requested normalized static datasets.
+7. Build `StaticEvaluationContext` with `{ resources: StaticResourceBag }`.
+8. Invoke each static evaluator.
+9. Group non-null rule findings under `providers -> rules -> findings`.
 
 ### Live Scan
 
@@ -108,16 +115,24 @@ graph LR
   Extract --> IaC["IaCResource[]"]
 ```
 
-`parseIaC(path)` accepts a Terraform file, CloudFormation template, or directory. It aggregates both parsers, ignores unsupported files, and preserves stable ordering for mixed directories.
+`parseIaC(path, { sourceKinds? })` accepts a Terraform file, CloudFormation template, or directory. It can limit parsing to the source kinds required by active static datasets, ignores unsupported files, and preserves stable ordering for mixed directories.
 
 ## Provider Layer
 
-`buildRuleRegistry(config)` still decides which rules are active. Live AWS rules declare `discoveryDependencies` dataset keys in `@cloudburn/rules`, and the SDK discovery registry resolves each key into:
+`buildRuleRegistry(config)` still decides which rules are active.
+
+Static AWS rules declare `staticDependencies` dataset keys in `@cloudburn/rules`, and the SDK static registry resolves each key into:
+
+- required IaC `sourceKinds` (`terraform`, `cloudformation`)
+- source-native resource type mapping owned by the SDK
+- normalized dataset output exposed through `StaticResourceBag`
+
+Live AWS rules declare `discoveryDependencies` dataset keys in `@cloudburn/rules`, and the SDK discovery registry resolves each key into:
 
 - Resource Explorer `resourceTypes` needed to seed the dataset
 - dataset loader behavior (projection-only or hydrator-backed)
 - normalized dataset output exposed through `LiveResourceBag`
 
-This keeps service-specific AWS calls out of the generic discovery path while allowing new datasets without changing core orchestration flow.
+This keeps Terraform, CloudFormation, and Resource Explorer specifics out of rule files while allowing new static or live datasets without changing core orchestration flow.
 
 The engines still use `rule.provider` to place each non-null rule finding into the correct top-level provider group in `ScanResult`.

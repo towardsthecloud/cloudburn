@@ -14,6 +14,11 @@ describe('rule metadata', () => {
         expect(rule.discoveryDependencies).toBeDefined();
         expect(rule.discoveryDependencies?.length).toBeGreaterThan(0);
       }
+
+      if (rule.supports.includes('iac') && rule.evaluateStatic) {
+        expect(rule.staticDependencies).toBeDefined();
+        expect(rule.staticDependencies?.length).toBeGreaterThan(0);
+      }
     }
   });
 
@@ -30,6 +35,7 @@ describe('rule metadata', () => {
       service: 'ec2',
       supports: ['iac', 'discovery'],
       discoveryDependencies: ['aws-ec2-instances'],
+      staticDependencies: ['aws-ec2-instances'],
     });
   });
 
@@ -45,6 +51,7 @@ describe('rule metadata', () => {
       provider: 'aws',
       service: 's3',
       supports: ['iac'],
+      staticDependencies: ['aws-s3-bucket-analyses'],
     });
   });
 
@@ -61,6 +68,7 @@ describe('rule metadata', () => {
       provider: 'aws',
       service: 's3',
       supports: ['iac'],
+      staticDependencies: ['aws-s3-bucket-analyses'],
     });
   });
 
@@ -76,6 +84,7 @@ describe('rule metadata', () => {
       provider: 'aws',
       service: 'ec2',
       supports: ['iac'],
+      staticDependencies: ['aws-ec2-vpc-endpoints'],
     });
   });
 });

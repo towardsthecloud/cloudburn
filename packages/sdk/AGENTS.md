@@ -15,8 +15,10 @@
 ## Boundaries
 
 - SDK owns config loading, IaC parsing, live discovery, rule registry assembly, and scan orchestration.
+- Static IaC scanning is dataset-driven. Parse only the source kinds required by active `staticDependencies`, then load the requested datasets into `StaticResourceBag`.
 - Live AWS discovery is Resource Explorer first and dataset-driven. Build one catalog, then load only the datasets required by active rules.
-- Rules must declare `discoveryDependencies` keys only. SDK owns dataset-to-resource-type mapping and dataset loader wiring.
+- Rules must declare `staticDependencies` and `discoveryDependencies` keys only. SDK owns dataset-to-resource-type mapping and dataset loader wiring.
+- Keep AWS static orchestration in `src/providers/aws/static.ts` (`loadAwsStaticResources`). Do not reintroduce hardcoded Terraform/CloudFormation/service branching in orchestration.
 - Keep AWS live orchestration in `src/providers/aws/discovery.ts` (`discoverAwsResources`). Do not reintroduce hardcoded resource/service branching in orchestration.
 - Do not add new account-wide per-service region fan-out discoverers.
 - Keep user-facing CLI concerns out of the SDK.
@@ -27,4 +29,5 @@
 - Cover `CloudBurnClient` facade behavior directly.
 - Test config behavior, orchestration flow, and provider integration seams.
 - Mock provider or external boundaries instead of re-testing the CLI or downstream SDK clients.
+- Static provider tests should split into dataset loader tests and orchestration tests.
 - Live provider tests should split into Resource Explorer catalog tests, hydrator tests, and orchestration tests.

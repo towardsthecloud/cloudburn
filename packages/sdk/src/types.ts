@@ -4,6 +4,11 @@ import type {
   AwsEbsVolume,
   AwsEc2Instance,
   AwsLambdaFunction,
+  AwsStaticEbsVolume,
+  AwsStaticEc2Instance,
+  AwsStaticEc2VpcEndpoint,
+  AwsStaticLambdaFunction,
+  AwsStaticS3BucketAnalysis,
   CloudProvider,
   DiscoveryDatasetKey,
   DiscoveryDatasetMap,
@@ -13,6 +18,9 @@ import type {
   Rule,
   ScanSource,
   SourceLocation,
+  StaticDatasetKey,
+  StaticDatasetMap,
+  StaticResourceBag,
 } from '@cloudburn/rules';
 
 // Intent: define SDK-facing contracts for scanner orchestration.
@@ -82,6 +90,11 @@ export type {
   AwsEbsVolume,
   AwsEc2Instance,
   AwsLambdaFunction,
+  AwsStaticEbsVolume,
+  AwsStaticEc2Instance,
+  AwsStaticEc2VpcEndpoint,
+  AwsStaticLambdaFunction,
+  AwsStaticS3BucketAnalysis,
   CloudProvider,
   DiscoveryDatasetKey,
   DiscoveryDatasetMap,
@@ -91,4 +104,7 @@ export type {
   Rule,
   ScanSource,
   SourceLocation,
+  StaticDatasetKey,
+  StaticDatasetMap,
+  StaticResourceBag,
 };

@@ -1,16 +1,8 @@
-import {
-  createFinding,
-  createFindingMatch,
-  createRule,
-  createStaticFindingMatch,
-  isRecord,
-} from '../../shared/helpers.js';
+import { createFinding, createFindingMatch, createRule } from '../../shared/helpers.js';
 
 const RULE_ID = 'CLDBRN-AWS-EBS-1';
 const RULE_SERVICE = 'ebs';
 const RULE_MESSAGE = 'EBS volumes should use current-generation storage.';
-const TERRAFORM_EBS_VOLUME_TYPE = 'aws_ebs_volume';
-const CLOUDFORMATION_EBS_VOLUME_TYPE = 'AWS::EC2::Volume';
 
 export const ebsVolumeTypeCurrentGenRule = createRule({
   id: RULE_ID,
@@ -21,6 +13,7 @@ export const ebsVolumeTypeCurrentGenRule = createRule({
   service: RULE_SERVICE,
   supports: ['discovery', 'iac'],
   discoveryDependencies: ['aws-ebs-volumes'],
+  staticDependencies: ['aws-ebs-volumes'],
   evaluateLive: ({ resources }) => {
     const findings = resources
       .get('aws-ebs-volumes')
@@ -37,26 +30,11 @@ export const ebsVolumeTypeCurrentGenRule = createRule({
       findings,
     );
   },
-  evaluateStatic: ({ iacResources }) => {
-    const findings = iacResources.flatMap((resource) => {
-      if (resource.provider !== 'aws') {
-        return [];
-      }
-
-      if (resource.type === TERRAFORM_EBS_VOLUME_TYPE && resource.attributes.type === 'gp2') {
-        return [
-          createStaticFindingMatch(resource, `${resource.type}.${resource.name}`, ['type', 'Properties.VolumeType']),
-        ];
-      }
-
-      const properties = isRecord(resource.attributes.Properties) ? resource.attributes.Properties : undefined;
-
-      if (resource.type === CLOUDFORMATION_EBS_VOLUME_TYPE && properties && properties.VolumeType === 'gp2') {
-        return [createStaticFindingMatch(resource, resource.name, ['type', 'Properties.VolumeType'])];
-      }
-
-      return [];
-    });
+  evaluateStatic: ({ resources }) => {
+    const findings = resources
+      .get('aws-ebs-volumes')
+      .filter((volume) => volume.volumeType === 'gp2')
+      .map((volume) => createFindingMatch(volume.resourceId, undefined, undefined, volume.location));
 
     return createFinding(
       {

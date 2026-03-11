@@ -1,6 +1,6 @@
 # Adding a Provider Resource
 
-Use this guide when a new AWS service needs live discovery support.
+Use this guide when a new AWS service needs live discovery support. For static IaC datasets, use [adding-a-static-dataset.md](./adding-a-static-dataset.md).
 
 The current model is dataset-driven:
 

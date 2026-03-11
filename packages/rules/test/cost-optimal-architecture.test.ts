@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { lambdaCostOptimalArchitectureRule } from '../src/aws/lambda/cost-optimal-architecture.js';
-import type { AwsDiscoveredResource, AwsLambdaFunction, IaCResource, StaticEvaluationContext } from '../src/index.js';
-import { LiveResourceBag } from '../src/index.js';
+import type { AwsDiscoveredResource, AwsLambdaFunction, AwsStaticLambdaFunction } from '../src/index.js';
+import { LiveResourceBag, StaticResourceBag } from '../src/index.js';
 
 const createLambdaFunction = (overrides: Partial<AwsLambdaFunction> = {}): AwsLambdaFunction => ({
   functionName: 'my-function',
@@ -11,49 +11,14 @@ const createLambdaFunction = (overrides: Partial<AwsLambdaFunction> = {}): AwsLa
   ...overrides,
 });
 
-const createTerraformResource = (overrides: Partial<IaCResource> = {}): IaCResource => ({
-  provider: 'aws',
-  type: 'aws_lambda_function',
-  name: 'my_function',
+const createStaticLambdaFunction = (overrides: Partial<AwsStaticLambdaFunction> = {}): AwsStaticLambdaFunction => ({
+  architectures: ['x86_64'],
   location: {
     path: 'main.tf',
-    startLine: 1,
-    startColumn: 1,
-  },
-  attributeLocations: {
-    architectures: {
-      path: 'main.tf',
-      startLine: 5,
-      startColumn: 3,
-    },
-  },
-  attributes: {
-    architectures: ['x86_64'],
-  },
-  ...overrides,
-});
-
-const createCloudFormationResource = (overrides: Partial<IaCResource> = {}): IaCResource => ({
-  provider: 'aws',
-  type: 'AWS::Lambda::Function',
-  name: 'MyFunction',
-  location: {
-    path: 'template.yaml',
-    startLine: 3,
+    startLine: 5,
     startColumn: 3,
   },
-  attributeLocations: {
-    'Properties.Architectures': {
-      path: 'template.yaml',
-      startLine: 7,
-      startColumn: 7,
-    },
-  },
-  attributes: {
-    Properties: {
-      Architectures: ['x86_64'],
-    },
-  },
+  resourceId: 'aws_lambda_function.my_function',
   ...overrides,
 });
 
@@ -81,6 +46,7 @@ describe('lambdaCostOptimalArchitectureRule', () => {
     });
 
     expect(lambdaCostOptimalArchitectureRule.discoveryDependencies).toEqual(['aws-lambda-functions']);
+    expect(lambdaCostOptimalArchitectureRule.staticDependencies).toEqual(['aws-lambda-functions']);
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-LAMBDA-1',
       service: 'lambda',
@@ -112,11 +78,11 @@ describe('lambdaCostOptimalArchitectureRule', () => {
   });
 
   it('flags Terraform aws_lambda_function with x86_64 architecture', () => {
-    const staticContext = {
-      iacResources: [createTerraformResource()],
-    } satisfies StaticEvaluationContext;
-
-    const finding = lambdaCostOptimalArchitectureRule.evaluateStatic?.(staticContext);
+    const finding = lambdaCostOptimalArchitectureRule.evaluateStatic?.({
+      resources: new StaticResourceBag({
+        'aws-lambda-functions': [createStaticLambdaFunction()],
+      }),
+    });
 
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-LAMBDA-1',
@@ -138,12 +104,18 @@ describe('lambdaCostOptimalArchitectureRule', () => {
 
   it('flags Terraform resource with no architectures attribute', () => {
     const finding = lambdaCostOptimalArchitectureRule.evaluateStatic?.({
-      iacResources: [
-        createTerraformResource({
-          attributes: {},
-          attributeLocations: {},
-        }),
-      ],
+      resources: new StaticResourceBag({
+        'aws-lambda-functions': [
+          createStaticLambdaFunction({
+            architectures: ['x86_64'],
+            location: {
+              path: 'main.tf',
+              startLine: 1,
+              startColumn: 1,
+            },
+          }),
+        ],
+      }),
     });
 
     expect(finding).toEqual({
@@ -166,7 +138,18 @@ describe('lambdaCostOptimalArchitectureRule', () => {
 
   it('flags CloudFormation AWS::Lambda::Function with x86_64 architecture', () => {
     const finding = lambdaCostOptimalArchitectureRule.evaluateStatic?.({
-      iacResources: [createCloudFormationResource()],
+      resources: new StaticResourceBag({
+        'aws-lambda-functions': [
+          createStaticLambdaFunction({
+            location: {
+              path: 'template.yaml',
+              startLine: 7,
+              startColumn: 7,
+            },
+            resourceId: 'MyFunction',
+          }),
+        ],
+      }),
     });
 
     expect(finding).toEqual({
@@ -189,14 +172,19 @@ describe('lambdaCostOptimalArchitectureRule', () => {
 
   it('flags CloudFormation resource with no Architectures property', () => {
     const finding = lambdaCostOptimalArchitectureRule.evaluateStatic?.({
-      iacResources: [
-        createCloudFormationResource({
-          attributes: {
-            Properties: {},
-          },
-          attributeLocations: {},
-        }),
-      ],
+      resources: new StaticResourceBag({
+        'aws-lambda-functions': [
+          createStaticLambdaFunction({
+            architectures: ['x86_64'],
+            location: {
+              path: 'template.yaml',
+              startLine: 3,
+              startColumn: 3,
+            },
+            resourceId: 'MyFunction',
+          }),
+        ],
+      }),
     });
 
     expect(finding).toEqual({
@@ -219,11 +207,13 @@ describe('lambdaCostOptimalArchitectureRule', () => {
 
   it('skips arm64 Terraform resource', () => {
     const finding = lambdaCostOptimalArchitectureRule.evaluateStatic?.({
-      iacResources: [
-        createTerraformResource({
-          attributes: { architectures: ['arm64'] },
-        }),
-      ],
+      resources: new StaticResourceBag({
+        'aws-lambda-functions': [
+          createStaticLambdaFunction({
+            architectures: ['arm64'],
+          }),
+        ],
+      }),
     });
 
     expect(finding).toBeNull();
@@ -231,11 +221,13 @@ describe('lambdaCostOptimalArchitectureRule', () => {
 
   it('skips Terraform resource when architectures are computed', () => {
     const finding = lambdaCostOptimalArchitectureRule.evaluateStatic?.({
-      iacResources: [
-        createTerraformResource({
-          attributes: { architectures: 'var.lambda_architectures' },
-        }),
-      ],
+      resources: new StaticResourceBag({
+        'aws-lambda-functions': [
+          createStaticLambdaFunction({
+            architectures: null,
+          }),
+        ],
+      }),
     });
 
     expect(finding).toBeNull();
@@ -243,15 +235,14 @@ describe('lambdaCostOptimalArchitectureRule', () => {
 
   it('skips CloudFormation resource when Architectures uses an intrinsic value', () => {
     const finding = lambdaCostOptimalArchitectureRule.evaluateStatic?.({
-      iacResources: [
-        createCloudFormationResource({
-          attributes: {
-            Properties: {
-              Architectures: { Ref: 'LambdaArchitectures' },
-            },
-          },
-        }),
-      ],
+      resources: new StaticResourceBag({
+        'aws-lambda-functions': [
+          createStaticLambdaFunction({
+            architectures: null,
+            resourceId: 'MyFunction',
+          }),
+        ],
+      }),
     });
 
     expect(finding).toBeNull();
@@ -259,13 +250,9 @@ describe('lambdaCostOptimalArchitectureRule', () => {
 
   it('skips non-Lambda resource type', () => {
     const finding = lambdaCostOptimalArchitectureRule.evaluateStatic?.({
-      iacResources: [
-        createTerraformResource({
-          type: 'aws_instance',
-          name: 'web',
-          attributes: { instance_type: 't3.micro' },
-        }),
-      ],
+      resources: new StaticResourceBag({
+        'aws-lambda-functions': [],
+      }),
     });
 
     expect(finding).toBeNull();

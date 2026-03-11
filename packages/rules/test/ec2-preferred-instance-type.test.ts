@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ec2PreferredInstanceTypeRule } from '../src/aws/ec2/preferred-instance-types.js';
-import type { AwsDiscoveredResource, AwsEc2Instance, IaCResource, StaticEvaluationContext } from '../src/index.js';
-import { LiveResourceBag } from '../src/index.js';
+import type { AwsDiscoveredResource, AwsEc2Instance, AwsStaticEc2Instance } from '../src/index.js';
+import { LiveResourceBag, StaticResourceBag } from '../src/index.js';
 
 const createEc2Instance = (overrides: Partial<AwsEc2Instance> = {}): AwsEc2Instance => ({
   instanceId: 'i-1234567890abcdef0',
@@ -21,55 +21,21 @@ const createDiscoveredResource = (overrides: Partial<AwsDiscoveredResource> = {}
   ...overrides,
 });
 
-const createTerraformResource = (overrides: Partial<IaCResource> = {}): IaCResource => ({
-  provider: 'aws',
-  type: 'aws_instance',
-  name: 'legacy_web',
+const createStaticInstance = (overrides: Partial<AwsStaticEc2Instance> = {}): AwsStaticEc2Instance => ({
+  instanceType: 'm4.large',
   location: {
     path: 'main.tf',
-    startLine: 1,
-    startColumn: 1,
-  },
-  attributeLocations: {
-    instance_type: {
-      path: 'main.tf',
-      startLine: 4,
-      startColumn: 3,
-    },
-  },
-  attributes: {
-    instance_type: 'm4.large',
-  },
-  ...overrides,
-});
-
-const createCloudFormationResource = (overrides: Partial<IaCResource> = {}): IaCResource => ({
-  provider: 'aws',
-  type: 'AWS::EC2::Instance',
-  name: 'LegacyWeb',
-  location: {
-    path: 'template.yaml',
-    startLine: 3,
+    startLine: 4,
     startColumn: 3,
   },
-  attributeLocations: {
-    'Properties.InstanceType': {
-      path: 'template.yaml',
-      startLine: 6,
-      startColumn: 7,
-    },
-  },
-  attributes: {
-    Properties: {
-      InstanceType: 'm4.large',
-    },
-  },
+  resourceId: 'aws_instance.legacy_web',
   ...overrides,
 });
 
 describe('ec2PreferredInstanceTypeRule', () => {
   it('declares the live discovery metadata for direct EC2 instances', () => {
     expect(ec2PreferredInstanceTypeRule.discoveryDependencies).toEqual(['aws-ec2-instances']);
+    expect(ec2PreferredInstanceTypeRule.staticDependencies).toEqual(['aws-ec2-instances']);
   });
 
   it('flags non-preferred EC2 instances in discovery mode', () => {
@@ -100,11 +66,11 @@ describe('ec2PreferredInstanceTypeRule', () => {
   });
 
   it('flags non-preferred Terraform aws_instance resources', () => {
-    const staticContext = {
-      iacResources: [createTerraformResource()],
-    } satisfies StaticEvaluationContext;
-
-    const finding = ec2PreferredInstanceTypeRule.evaluateStatic?.(staticContext);
+    const finding = ec2PreferredInstanceTypeRule.evaluateStatic?.({
+      resources: new StaticResourceBag({
+        'aws-ec2-instances': [createStaticInstance()],
+      }),
+    });
 
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-EC2-1',
@@ -126,14 +92,14 @@ describe('ec2PreferredInstanceTypeRule', () => {
 
   it('flags curated non-preferred Terraform aws_instance families such as c6i', () => {
     const finding = ec2PreferredInstanceTypeRule.evaluateStatic?.({
-      iacResources: [
-        createTerraformResource({
-          name: 'compute_web',
-          attributes: {
-            instance_type: 'c6i.large',
-          },
-        }),
-      ],
+      resources: new StaticResourceBag({
+        'aws-ec2-instances': [
+          createStaticInstance({
+            instanceType: 'c6i.large',
+            resourceId: 'aws_instance.compute_web',
+          }),
+        ],
+      }),
     });
 
     expect(finding).toEqual({
@@ -156,14 +122,14 @@ describe('ec2PreferredInstanceTypeRule', () => {
 
   it('flags curated non-preferred Terraform aws_instance families such as c7in', () => {
     const finding = ec2PreferredInstanceTypeRule.evaluateStatic?.({
-      iacResources: [
-        createTerraformResource({
-          name: 'network_web',
-          attributes: {
-            instance_type: 'c7in.large',
-          },
-        }),
-      ],
+      resources: new StaticResourceBag({
+        'aws-ec2-instances': [
+          createStaticInstance({
+            instanceType: 'c7in.large',
+            resourceId: 'aws_instance.network_web',
+          }),
+        ],
+      }),
     });
 
     expect(finding).toEqual({
@@ -228,7 +194,18 @@ describe('ec2PreferredInstanceTypeRule', () => {
 
   it('flags non-preferred CloudFormation AWS::EC2::Instance resources', () => {
     const finding = ec2PreferredInstanceTypeRule.evaluateStatic?.({
-      iacResources: [createCloudFormationResource()],
+      resources: new StaticResourceBag({
+        'aws-ec2-instances': [
+          createStaticInstance({
+            location: {
+              path: 'template.yaml',
+              startLine: 6,
+              startColumn: 7,
+            },
+            resourceId: 'LegacyWeb',
+          }),
+        ],
+      }),
     });
 
     expect(finding).toEqual({
@@ -251,13 +228,13 @@ describe('ec2PreferredInstanceTypeRule', () => {
 
   it('skips Terraform aws_instance resources when the instance type is computed', () => {
     const finding = ec2PreferredInstanceTypeRule.evaluateStatic?.({
-      iacResources: [
-        createTerraformResource({
-          attributes: {
-            instance_type: '${' + 'var.instance_type}',
-          },
-        }),
-      ],
+      resources: new StaticResourceBag({
+        'aws-ec2-instances': [
+          createStaticInstance({
+            instanceType: null,
+          }),
+        ],
+      }),
     });
 
     expect(finding).toBeNull();
@@ -265,17 +242,14 @@ describe('ec2PreferredInstanceTypeRule', () => {
 
   it('skips CloudFormation AWS::EC2::Instance resources when the instance type is intrinsic', () => {
     const finding = ec2PreferredInstanceTypeRule.evaluateStatic?.({
-      iacResources: [
-        createCloudFormationResource({
-          attributes: {
-            Properties: {
-              InstanceType: {
-                Ref: 'InstanceType',
-              },
-            },
-          },
-        }),
-      ],
+      resources: new StaticResourceBag({
+        'aws-ec2-instances': [
+          createStaticInstance({
+            instanceType: null,
+            resourceId: 'LegacyWeb',
+          }),
+        ],
+      }),
     });
 
     expect(finding).toBeNull();
@@ -283,13 +257,13 @@ describe('ec2PreferredInstanceTypeRule', () => {
 
   it('skips unknown instance families in static mode', () => {
     const finding = ec2PreferredInstanceTypeRule.evaluateStatic?.({
-      iacResources: [
-        createTerraformResource({
-          attributes: {
-            instance_type: 'zz9.large',
-          },
-        }),
-      ],
+      resources: new StaticResourceBag({
+        'aws-ec2-instances': [
+          createStaticInstance({
+            instanceType: 'zz9.large',
+          }),
+        ],
+      }),
     });
 
     expect(finding).toBeNull();

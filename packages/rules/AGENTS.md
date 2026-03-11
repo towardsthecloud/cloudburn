@@ -8,8 +8,10 @@
 - Rule names must describe the policy being enforced, not the migration or fix action.
 - Rule-level `message` is the canonical public policy text for scan output.
 - Declare `supports` accurately and only implement evaluators for the supported scan modes.
+- Static-capable rules should declare `staticDependencies` dataset keys.
 - Discovery-capable rules should declare `discoveryDependencies` dataset keys.
-- Rules should never declare Resource Explorer `resourceTypes` or hydrator wiring directly; the SDK discovery registry owns that mapping.
+- Rules should never declare Terraform type strings, CloudFormation type strings, Resource Explorer `resourceTypes`, or loader wiring directly; the SDK registries own that mapping.
+- Static evaluators read datasets from `StaticEvaluationContext.resources` via `resources.get('<dataset-key>')`.
 - Discovery evaluators read datasets from `LiveEvaluationContext.resources` via `resources.get('<dataset-key>')`.
 - Omit `accountId` and `region` when they are not available. Do not emit empty-string placeholders.
 

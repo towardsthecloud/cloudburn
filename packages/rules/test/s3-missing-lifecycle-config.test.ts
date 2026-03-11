@@ -1,104 +1,31 @@
 import { describe, expect, it } from 'vitest';
 import { s3MissingLifecycleConfigRule } from '../src/aws/s3/missing-lifecycle-config.js';
-import type { IaCResource, StaticEvaluationContext } from '../src/index.js';
+import type { AwsStaticS3BucketAnalysis } from '../src/index.js';
+import { StaticResourceBag } from '../src/index.js';
 
-const createTerraformBucket = (overrides: Partial<IaCResource> = {}): IaCResource => ({
-  provider: 'aws',
-  type: 'aws_s3_bucket',
-  name: 'logs',
+const createBucketAnalysis = (overrides: Partial<AwsStaticS3BucketAnalysis> = {}): AwsStaticS3BucketAnalysis => ({
+  hasAlternativeStorageClassTransition: false,
+  hasCostFocusedLifecycle: false,
+  hasIntelligentTieringConfiguration: false,
+  hasIntelligentTieringTransition: false,
+  hasLifecycleSignal: false,
+  hasUnclassifiedTransition: false,
   location: {
     path: 'main.tf',
     startLine: 1,
     startColumn: 1,
   },
-  attributeLocations: {
-    bucket: {
-      path: 'main.tf',
-      startLine: 2,
-      startColumn: 3,
-    },
-  },
-  attributes: {
-    bucket: 'example-logs',
-  },
-  ...overrides,
-});
-
-const createTerraformLifecycleConfiguration = (overrides: Partial<IaCResource> = {}): IaCResource => ({
-  provider: 'aws',
-  type: 'aws_s3_bucket_lifecycle_configuration',
-  name: 'logs',
-  location: {
-    path: 'main.tf',
-    startLine: 5,
-    startColumn: 1,
-  },
-  attributeLocations: {
-    bucket: {
-      path: 'main.tf',
-      startLine: 6,
-      startColumn: 3,
-    },
-    rule: {
-      path: 'main.tf',
-      startLine: 8,
-      startColumn: 3,
-    },
-  },
-  attributes: {
-    bucket: '${' + 'aws_s3_bucket.logs.id}',
-    rule: [
-      {
-        id: 'transition',
-        status: 'Enabled',
-        transition: [
-          {
-            days: 30,
-            storage_class: 'INTELLIGENT_TIERING',
-          },
-        ],
-      },
-    ],
-  },
-  ...overrides,
-});
-
-const createCloudFormationBucket = (overrides: Partial<IaCResource> = {}): IaCResource => ({
-  provider: 'aws',
-  type: 'AWS::S3::Bucket',
-  name: 'LogsBucket',
-  location: {
-    path: 'template.yaml',
-    startLine: 3,
-    startColumn: 3,
-  },
-  attributeLocations: {
-    'Properties.BucketName': {
-      path: 'template.yaml',
-      startLine: 5,
-      startColumn: 7,
-    },
-    'Properties.LifecycleConfiguration': {
-      path: 'template.yaml',
-      startLine: 6,
-      startColumn: 7,
-    },
-  },
-  attributes: {
-    Properties: {
-      BucketName: 'logs-bucket',
-    },
-  },
+  resourceId: 'aws_s3_bucket.logs',
   ...overrides,
 });
 
 describe('s3MissingLifecycleConfigRule', () => {
   it('flags Terraform buckets without a lifecycle configuration', () => {
-    const staticContext = {
-      iacResources: [createTerraformBucket()],
-    } satisfies StaticEvaluationContext;
-
-    const finding = s3MissingLifecycleConfigRule.evaluateStatic?.(staticContext);
+    const finding = s3MissingLifecycleConfigRule.evaluateStatic?.({
+      resources: new StaticResourceBag({
+        'aws-s3-bucket-analyses': [createBucketAnalysis()],
+      }),
+    });
 
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-S3-1',
@@ -120,7 +47,9 @@ describe('s3MissingLifecycleConfigRule', () => {
 
   it('passes Terraform buckets with an enabled lifecycle transition rule', () => {
     const finding = s3MissingLifecycleConfigRule.evaluateStatic?.({
-      iacResources: [createTerraformBucket(), createTerraformLifecycleConfiguration()],
+      resources: new StaticResourceBag({
+        'aws-s3-bucket-analyses': [createBucketAnalysis({ hasCostFocusedLifecycle: true, hasLifecycleSignal: true })],
+      }),
     });
 
     expect(finding).toBeNull();
@@ -128,25 +57,9 @@ describe('s3MissingLifecycleConfigRule', () => {
 
   it('passes Terraform buckets with inline lifecycle rules that use enabled = true', () => {
     const finding = s3MissingLifecycleConfigRule.evaluateStatic?.({
-      iacResources: [
-        createTerraformBucket({
-          attributes: {
-            bucket: 'example-logs',
-            lifecycle_rule: [
-              {
-                id: 'transition',
-                enabled: true,
-                transition: [
-                  {
-                    days: 30,
-                    storage_class: 'INTELLIGENT_TIERING',
-                  },
-                ],
-              },
-            ],
-          },
-        }),
-      ],
+      resources: new StaticResourceBag({
+        'aws-s3-bucket-analyses': [createBucketAnalysis({ hasCostFocusedLifecycle: true, hasLifecycleSignal: true })],
+      }),
     });
 
     expect(finding).toBeNull();
@@ -154,26 +67,9 @@ describe('s3MissingLifecycleConfigRule', () => {
 
   it('passes Terraform buckets whose lifecycle configuration references aws_s3_bucket.<name>.bucket', () => {
     const finding = s3MissingLifecycleConfigRule.evaluateStatic?.({
-      iacResources: [
-        createTerraformBucket(),
-        createTerraformLifecycleConfiguration({
-          attributes: {
-            bucket: '${' + 'aws_s3_bucket.logs.bucket}',
-            rule: [
-              {
-                id: 'transition',
-                status: 'Enabled',
-                transition: [
-                  {
-                    days: 30,
-                    storage_class: 'INTELLIGENT_TIERING',
-                  },
-                ],
-              },
-            ],
-          },
-        }),
-      ],
+      resources: new StaticResourceBag({
+        'aws-s3-bucket-analyses': [createBucketAnalysis({ hasCostFocusedLifecycle: true, hasLifecycleSignal: true })],
+      }),
     });
 
     expect(finding).toBeNull();
@@ -181,21 +77,9 @@ describe('s3MissingLifecycleConfigRule', () => {
 
   it('passes Terraform buckets with generated names when linked lifecycle config uses aws_s3_bucket.<name>.id', () => {
     const finding = s3MissingLifecycleConfigRule.evaluateStatic?.({
-      iacResources: [
-        createTerraformBucket({
-          attributes: {
-            bucket_prefix: 'logs-',
-          },
-          attributeLocations: {
-            bucket_prefix: {
-              path: 'main.tf',
-              startLine: 2,
-              startColumn: 3,
-            },
-          },
-        }),
-        createTerraformLifecycleConfiguration(),
-      ],
+      resources: new StaticResourceBag({
+        'aws-s3-bucket-analyses': [createBucketAnalysis({ hasCostFocusedLifecycle: true, hasLifecycleSignal: true })],
+      }),
     });
 
     expect(finding).toBeNull();
@@ -203,25 +87,9 @@ describe('s3MissingLifecycleConfigRule', () => {
 
   it('flags Terraform buckets when lifecycle rules are enabled but do not transition or expire objects', () => {
     const finding = s3MissingLifecycleConfigRule.evaluateStatic?.({
-      iacResources: [
-        createTerraformBucket(),
-        createTerraformLifecycleConfiguration({
-          attributes: {
-            bucket: '${' + 'aws_s3_bucket.logs.id}',
-            rule: [
-              {
-                id: 'metadata-only',
-                status: 'Enabled',
-                filter: [
-                  {
-                    prefix: 'logs/',
-                  },
-                ],
-              },
-            ],
-          },
-        }),
-      ],
+      resources: new StaticResourceBag({
+        'aws-s3-bucket-analyses': [createBucketAnalysis({ hasLifecycleSignal: true })],
+      }),
     });
 
     expect(finding).toEqual({
@@ -244,26 +112,11 @@ describe('s3MissingLifecycleConfigRule', () => {
 
   it('passes Terraform buckets with enabled transition actions even when the storage class is computed', () => {
     const finding = s3MissingLifecycleConfigRule.evaluateStatic?.({
-      iacResources: [
-        createTerraformBucket(),
-        createTerraformLifecycleConfiguration({
-          attributes: {
-            bucket: '${' + 'aws_s3_bucket.logs.id}',
-            rule: [
-              {
-                id: 'transition',
-                status: 'Enabled',
-                transition: [
-                  {
-                    days: 30,
-                    storage_class: '${' + 'var.storage_class}',
-                  },
-                ],
-              },
-            ],
-          },
-        }),
-      ],
+      resources: new StaticResourceBag({
+        'aws-s3-bucket-analyses': [
+          createBucketAnalysis({ hasCostFocusedLifecycle: true, hasUnclassifiedTransition: true }),
+        ],
+      }),
     });
 
     expect(finding).toBeNull();
@@ -271,24 +124,19 @@ describe('s3MissingLifecycleConfigRule', () => {
 
   it('passes CloudFormation buckets with an enabled expiration lifecycle rule', () => {
     const finding = s3MissingLifecycleConfigRule.evaluateStatic?.({
-      iacResources: [
-        createCloudFormationBucket({
-          attributes: {
-            Properties: {
-              BucketName: 'logs-bucket',
-              LifecycleConfiguration: {
-                Rules: [
-                  {
-                    Id: 'expire-old-logs',
-                    Status: 'Enabled',
-                    ExpirationInDays: 30,
-                  },
-                ],
-              },
+      resources: new StaticResourceBag({
+        'aws-s3-bucket-analyses': [
+          createBucketAnalysis({
+            hasCostFocusedLifecycle: true,
+            location: {
+              path: 'template.yaml',
+              startLine: 3,
+              startColumn: 3,
             },
-          },
-        }),
-      ],
+            resourceId: 'LogsBucket',
+          }),
+        ],
+      }),
     });
 
     expect(finding).toBeNull();
@@ -296,20 +144,13 @@ describe('s3MissingLifecycleConfigRule', () => {
 
   it('flags Terraform buckets with generated names when no lifecycle config exists', () => {
     const finding = s3MissingLifecycleConfigRule.evaluateStatic?.({
-      iacResources: [
-        createTerraformBucket({
-          attributes: {
-            bucket_prefix: 'logs-',
-          },
-          attributeLocations: {
-            bucket_prefix: {
-              path: 'main.tf',
-              startLine: 2,
-              startColumn: 3,
-            },
-          },
-        }),
-      ],
+      resources: new StaticResourceBag({
+        'aws-s3-bucket-analyses': [
+          createBucketAnalysis({
+            resourceId: 'aws_s3_bucket.generated_logs',
+          }),
+        ],
+      }),
     });
 
     expect(finding).toEqual({
@@ -319,7 +160,7 @@ describe('s3MissingLifecycleConfigRule', () => {
       message: 'S3 buckets should define lifecycle management policies.',
       findings: [
         {
-          resourceId: 'aws_s3_bucket.logs',
+          resourceId: 'aws_s3_bucket.generated_logs',
           location: {
             path: 'main.tf',
             startLine: 1,

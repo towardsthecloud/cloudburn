@@ -1,17 +1,9 @@
-import {
-  createFinding,
-  createFindingMatch,
-  createRule,
-  createStaticFindingMatch,
-  isRecord,
-} from '../../shared/helpers.js';
+import { createFinding, createFindingMatch, createRule } from '../../shared/helpers.js';
 import { getAwsEc2PreferredInstanceFamilyState } from './preferred-instance-families.js';
 
 const RULE_ID = 'CLDBRN-AWS-EC2-1';
 const RULE_SERVICE = 'ec2';
 const RULE_MESSAGE = 'EC2 instances should use preferred instance types.';
-const TERRAFORM_INSTANCE_TYPE = 'aws_instance';
-const CLOUDFORMATION_INSTANCE_TYPE = 'AWS::EC2::Instance';
 const INSTANCE_TYPE_PATTERN = /^[a-z0-9-]+\.[a-z0-9-]+$/i;
 
 const getLiteralInstanceType = (value: unknown): string | null =>
@@ -37,6 +29,7 @@ export const ec2PreferredInstanceTypeRule = createRule({
   service: RULE_SERVICE,
   supports: ['iac', 'discovery'],
   discoveryDependencies: ['aws-ec2-instances'],
+  staticDependencies: ['aws-ec2-instances'],
   evaluateLive: ({ resources }) => {
     const findings = resources
       .get('aws-ec2-instances')
@@ -45,36 +38,11 @@ export const ec2PreferredInstanceTypeRule = createRule({
 
     return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
   },
-  evaluateStatic: ({ iacResources }) => {
-    const findings = iacResources.flatMap((resource) => {
-      if (resource.provider !== 'aws') {
-        return [];
-      }
-
-      if (
-        resource.type === TERRAFORM_INSTANCE_TYPE &&
-        getPreferredInstanceState(resource.attributes.instance_type) === 'non-preferred'
-      ) {
-        return [
-          createStaticFindingMatch(resource, `${resource.type}.${resource.name}`, [
-            'instance_type',
-            'Properties.InstanceType',
-          ]),
-        ];
-      }
-
-      const properties = isRecord(resource.attributes.Properties) ? resource.attributes.Properties : undefined;
-
-      if (
-        resource.type === CLOUDFORMATION_INSTANCE_TYPE &&
-        properties &&
-        getPreferredInstanceState(properties.InstanceType) === 'non-preferred'
-      ) {
-        return [createStaticFindingMatch(resource, resource.name, ['instance_type', 'Properties.InstanceType'])];
-      }
-
-      return [];
-    });
+  evaluateStatic: ({ resources }) => {
+    const findings = resources
+      .get('aws-ec2-instances')
+      .filter((instance) => getPreferredInstanceState(instance.instanceType) === 'non-preferred')
+      .map((instance) => createFindingMatch(instance.resourceId, undefined, undefined, instance.location));
 
     return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'iac', findings);
   },

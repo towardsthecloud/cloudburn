@@ -2,6 +2,19 @@ import { parseCloudFormation } from './cloudformation.js';
 import { parseTerraform } from './terraform.js';
 import type { IaCResource } from './types.js';
 
+const PARSER_LOADERS = {
+  cloudformation: parseCloudFormation,
+  terraform: parseTerraform,
+} as const;
+
+/** Supported static IaC source kinds that can be parsed for dataset loading. */
+export type IaCSourceKind = keyof typeof PARSER_LOADERS;
+
+/** Optional parser selection controls for static scan orchestration. */
+export type ParseIaCOptions = {
+  sourceKinds?: IaCSourceKind[];
+};
+
 const compareIaCResources = (left: IaCResource, right: IaCResource): number => {
   const leftPath = left.location?.path ?? '';
   const rightPath = right.location?.path ?? '';
@@ -36,15 +49,14 @@ const compareIaCResources = (left: IaCResource, right: IaCResource): number => {
  * templates that do not match the expected shape.
  *
  * @param path - Terraform file, CloudFormation template, or directory to scan.
+ * @param options - Optional parser selection for dataset-driven static scans.
  * @returns Normalized IaC resources discovered from supported inputs.
  */
-export const parseIaC = async (path: string): Promise<IaCResource[]> => {
-  const [terraformResources, cloudFormationResources] = await Promise.all([
-    parseTerraform(path),
-    parseCloudFormation(path),
-  ]);
+export const parseIaC = async (path: string, options?: ParseIaCOptions): Promise<IaCResource[]> => {
+  const sourceKinds = options?.sourceKinds ?? ['terraform', 'cloudformation'];
+  const resourceGroups = await Promise.all(sourceKinds.map((sourceKind) => PARSER_LOADERS[sourceKind](path)));
 
-  return [...terraformResources, ...cloudFormationResources].sort(compareIaCResources);
+  return resourceGroups.flat().sort(compareIaCResources);
 };
 
 // Intent: expose parser entrypoints behind a stable SDK surface.

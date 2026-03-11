@@ -34,8 +34,10 @@ Output is a three-level hierarchy: `providers -> rules -> findings`.
 - Rule names describe the policy, not the remediation.
 - The canonical `message` is set once on the `Rule` object and must work for both `discovery` and `iac`.
 - Only implement evaluators for modes declared in `supports`.
+- Static-capable rules with `evaluateStatic` must declare `staticDependencies`.
 - Discovery-capable rules with `evaluateLive` must declare `discoveryDependencies`.
-- Rules must not declare Resource Explorer `resourceTypes` or hydrator keys directly.
+- Rules must not declare Terraform type strings, CloudFormation type strings, Resource Explorer `resourceTypes`, or loader wiring directly.
+- Static evaluators should read from `StaticEvaluationContext.resources.get('<dataset-key>')`.
 - Discovery evaluators should read from `LiveEvaluationContext.resources.get('<dataset-key>')`.
 
 ## Testing Layers
@@ -51,7 +53,7 @@ Mock boundaries:
 | Package            | What to mock |
 | ------------------ | ------------ |
 | `@cloudburn/rules` | Nothing — pure unit tests |
-| `@cloudburn/sdk`   | Resource Explorer catalog helpers, dataset loaders/hydrators, `parseTerraform`, `loadConfig` |
+| `@cloudburn/sdk`   | Static dataset loaders/orchestration seams, Resource Explorer catalog helpers, discovery hydrators, `loadConfig` |
 | `cloudburn` (cli)  | `CloudBurnClient.scanStatic()` / `.discover()` |
 
 ## Build Pipeline

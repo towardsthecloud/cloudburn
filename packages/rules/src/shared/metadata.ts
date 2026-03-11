@@ -76,6 +76,59 @@ export type DiscoveryDatasetMap = {
   'aws-lambda-functions': AwsLambdaFunction[];
 };
 
+/** Rule-facing static IaC dataset key exposed through the evaluation context. */
+export type StaticDatasetKey = DiscoveryDatasetKey | 'aws-ec2-vpc-endpoints' | 'aws-s3-bucket-analyses';
+
+/** Normalized static EBS volume dataset entry with a precomputed finding target. */
+export type AwsStaticEbsVolume = {
+  resourceId: string;
+  volumeType: string | null;
+  location?: SourceLocation;
+};
+
+/** Normalized static EC2 instance dataset entry with a precomputed finding target. */
+export type AwsStaticEc2Instance = {
+  resourceId: string;
+  instanceType: string | null;
+  location?: SourceLocation;
+};
+
+/** Normalized static Lambda function dataset entry with source-aware architecture metadata. */
+export type AwsStaticLambdaFunction = {
+  resourceId: string;
+  architectures: string[] | null;
+  location?: SourceLocation;
+};
+
+/** Normalized static EC2 VPC endpoint dataset entry with preselected source location. */
+export type AwsStaticEc2VpcEndpoint = {
+  resourceId: string;
+  serviceName: string | null;
+  vpcEndpointType: string | null;
+  location?: SourceLocation;
+};
+
+/** Aggregated static S3 bucket analysis dataset entry. */
+export type AwsStaticS3BucketAnalysis = {
+  resourceId: string;
+  location?: SourceLocation;
+  hasLifecycleSignal: boolean;
+  hasCostFocusedLifecycle: boolean;
+  hasIntelligentTieringConfiguration: boolean;
+  hasIntelligentTieringTransition: boolean;
+  hasAlternativeStorageClassTransition: boolean;
+  hasUnclassifiedTransition: boolean;
+};
+
+/** Normalized static datasets available to rule evaluators. */
+export type StaticDatasetMap = {
+  'aws-ebs-volumes': AwsStaticEbsVolume[];
+  'aws-ec2-instances': AwsStaticEc2Instance[];
+  'aws-lambda-functions': AwsStaticLambdaFunction[];
+  'aws-ec2-vpc-endpoints': AwsStaticEc2VpcEndpoint[];
+  'aws-s3-bucket-analyses': AwsStaticS3BucketAnalysis[];
+};
+
 /** Typed bag of normalized live discovery datasets prepared by the SDK. */
 export class LiveResourceBag {
   readonly #datasets: Partial<DiscoveryDatasetMap>;
@@ -103,6 +156,33 @@ export class LiveResourceBag {
   }
 }
 
+/** Typed bag of normalized static IaC datasets prepared by the SDK. */
+export class StaticResourceBag {
+  readonly #datasets: Partial<StaticDatasetMap>;
+
+  /**
+   * Creates a new dataset bag for static rule evaluation.
+   *
+   * @param datasets - Optional preloaded normalized datasets keyed by dataset name.
+   */
+  public constructor(datasets: Partial<StaticDatasetMap> = {}) {
+    this.#datasets = { ...datasets };
+  }
+
+  /**
+   * Returns the normalized dataset for a specific static dependency.
+   *
+   * Missing datasets default to an empty array so rules can read dependencies
+   * without defensive checks.
+   *
+   * @param key - Stable dataset key declared by a static-capable rule.
+   * @returns The normalized dataset value for the requested key.
+   */
+  public get<K extends StaticDatasetKey>(key: K): StaticDatasetMap[K] {
+    return (this.#datasets[key] ?? []) as StaticDatasetMap[K];
+  }
+}
+
 /**
  * Normalized IaC resource shape shared across Terraform and CloudFormation
  * parsers.
@@ -123,7 +203,7 @@ export type LiveEvaluationContext = {
 
 /** Provider-normalized IaC resources available to static rule evaluators. */
 export type StaticEvaluationContext = {
-  iacResources: IaCResource[];
+  resources: StaticResourceBag;
 };
 
 /** A resource-level policy match emitted inside a rule finding group. */
@@ -153,6 +233,7 @@ export type Rule = {
   service: string;
   supports: ScanSource[];
   discoveryDependencies?: DiscoveryDatasetKey[];
+  staticDependencies?: StaticDatasetKey[];
   evaluateLive?: (context: LiveEvaluationContext) => Finding | null;
   evaluateStatic?: (context: StaticEvaluationContext) => Finding | null;
 };

@@ -1,16 +1,8 @@
-import {
-  createFinding,
-  createFindingMatch,
-  createRule,
-  createStaticFindingMatch,
-  isRecord,
-} from '../../shared/helpers.js';
+import { createFinding, createFindingMatch, createRule } from '../../shared/helpers.js';
 
 const RULE_ID = 'CLDBRN-AWS-LAMBDA-1';
 const RULE_SERVICE = 'lambda';
 const RULE_MESSAGE = 'Lambda functions should use arm64 architecture when compatible to reduce running costs.';
-const TERRAFORM_LAMBDA_TYPE = 'aws_lambda_function';
-const CLOUDFORMATION_LAMBDA_TYPE = 'AWS::Lambda::Function';
 
 type ArchitectureState = 'arm64' | 'non-arm64' | 'unknown';
 
@@ -36,6 +28,7 @@ export const lambdaCostOptimalArchitectureRule = createRule({
   service: RULE_SERVICE,
   supports: ['iac', 'discovery'],
   discoveryDependencies: ['aws-lambda-functions'],
+  staticDependencies: ['aws-lambda-functions'],
   evaluateLive: ({ resources }) => {
     const findings = resources
       .get('aws-lambda-functions')
@@ -44,36 +37,11 @@ export const lambdaCostOptimalArchitectureRule = createRule({
 
     return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
   },
-  evaluateStatic: ({ iacResources }) => {
-    const findings = iacResources.flatMap((resource) => {
-      if (resource.provider !== 'aws') {
-        return [];
-      }
-
-      if (
-        resource.type === TERRAFORM_LAMBDA_TYPE &&
-        getArchitectureState(resource.attributes.architectures) === 'non-arm64'
-      ) {
-        return [
-          createStaticFindingMatch(resource, `${resource.type}.${resource.name}`, [
-            'architectures',
-            'Properties.Architectures',
-          ]),
-        ];
-      }
-
-      const properties = isRecord(resource.attributes.Properties) ? resource.attributes.Properties : undefined;
-
-      if (
-        resource.type === CLOUDFORMATION_LAMBDA_TYPE &&
-        properties &&
-        getArchitectureState(properties.Architectures) === 'non-arm64'
-      ) {
-        return [createStaticFindingMatch(resource, resource.name, ['architectures', 'Properties.Architectures'])];
-      }
-
-      return [];
-    });
+  evaluateStatic: ({ resources }) => {
+    const findings = resources
+      .get('aws-lambda-functions')
+      .filter((fn) => getArchitectureState(fn.architectures) === 'non-arm64')
+      .map((fn) => createFindingMatch(fn.resourceId, undefined, undefined, fn.location));
 
     return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'iac', findings);
   },

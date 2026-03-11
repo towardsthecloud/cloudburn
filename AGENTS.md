@@ -10,6 +10,7 @@
 | Rules internals            | [`docs/architecture/rules.md`](docs/architecture/rules.md)                               | Type hierarchy, dataset dependencies, rule assembly chain, ID convention |
 | **Guides**                 |                                                                                          |                |
 | Adding a rule              | [`docs/guides/adding-a-rule.md`](docs/guides/adding-a-rule.md)                           | End-to-end: file placement, createRule, tests, registration |
+| Adding a static dataset    | [`docs/guides/adding-a-static-dataset.md`](docs/guides/adding-a-static-dataset.md)       | Static dataset registry entries, parser selection, and rule-facing dataset contracts |
 | Adding a provider resource | [`docs/guides/adding-a-provider-resource.md`](docs/guides/adding-a-provider-resource.md) | Discovery dataset registry entries, dataset loaders, and rule-facing dataset contracts |
 | **Reference**              |                                                                                          |                |
 | Config schema              | [`docs/reference/config-schema.md`](docs/reference/config-schema.md)                     | Every `CloudBurnConfig` field, defaults, merge behavior |
@@ -77,8 +78,10 @@
 
 - Dependency direction: `cli → sdk → rules`. No reverse imports.
 - `scan` is static IaC only. `discover` is the live AWS command surface.
+- Static IaC work should follow the dataset-driven model in `providers/aws/static.ts`.
 - Live AWS work should follow the Resource Explorer catalog-first model with dataset-driven orchestration in `providers/aws/discovery.ts`.
-- Rules declare `discoveryDependencies` dataset keys. The SDK owns Resource Explorer `resourceTypes`, dataset loaders, and hydration wiring.
+- Rules declare `staticDependencies` and `discoveryDependencies` dataset keys. The SDK owns IaC source-type mapping, Resource Explorer `resourceTypes`, dataset loaders, and hydration wiring.
+- `StaticEvaluationContext` exposes `resources: StaticResourceBag`; static rules read datasets through `resources.get('<dataset-key>')`.
 - `LiveEvaluationContext` exposes `catalog` plus `resources: LiveResourceBag`; discovery rules read datasets through `resources.get('<dataset-key>')`.
 - Do not add new account-wide per-service region fan-out discoverers unless the architecture docs explicitly change.
 - When working inside `packages/cloudburn`, `packages/sdk`, or `packages/rules`, follow that package's local `AGENTS.md`.
