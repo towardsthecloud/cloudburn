@@ -35,4 +35,50 @@ describe('rule metadata', () => {
       },
     });
   });
+
+  it('defines the expected S3 lifecycle rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-S3-1');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-S3-1',
+      name: 'S3 Bucket Missing Lifecycle Configuration',
+      description: 'Ensure S3 buckets define lifecycle management policies.',
+      message: 'S3 buckets should define lifecycle management policies.',
+      provider: 'aws',
+      service: 's3',
+      supports: ['iac'],
+    });
+  });
+
+  it('defines the expected S3 storage-class rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-S3-2');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-S3-2',
+      name: 'S3 Bucket Storage Class Not Optimized',
+      description:
+        'Recommend Intelligent-Tiering or another explicit storage-class transition for lifecycle-managed buckets.',
+      message: 'S3 buckets with lifecycle management should match object access patterns to the right storage class.',
+      provider: 'aws',
+      service: 's3',
+      supports: ['iac'],
+    });
+  });
+
+  it('defines the expected EC2 S3 endpoint rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-EC2-2');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-EC2-2',
+      name: 'S3 Interface VPC Endpoint Used',
+      description: 'Flag S3 interface endpoints when a gateway endpoint is the cheaper in-VPC option.',
+      message: 'S3 access inside a VPC should prefer gateway endpoints over interface endpoints when possible.',
+      provider: 'aws',
+      service: 'ec2',
+      supports: ['iac'],
+    });
+  });
 });

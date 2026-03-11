@@ -17,14 +17,16 @@ Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
 | ID                    | Name                                      | Service | Supports       | Status      |
 | --------------------- | ----------------------------------------- | ------- | -------------- | ----------- |
 | `CLDBRN-AWS-EC2-1`    | EC2 Instance Type Not Preferred           | ec2     | iac, discovery | Implemented |
+| `CLDBRN-AWS-EC2-2`    | S3 Interface VPC Endpoint Used            | ec2     | iac            | Implemented |
 | `CLDBRN-AWS-EBS-1`    | EBS Volume Type Not Current Generation    | ebs     | discovery, iac | Implemented |
 | `CLDBRN-AWS-RDS-1`    | RDS Instance Class Not in Allowed Profile | rds     | iac, discovery | Scaffold    |
-| `CLDBRN-AWS-S3-1`     | S3 Missing Lifecycle Configuration        | s3      | iac, discovery | Scaffold    |
+| `CLDBRN-AWS-S3-1`     | S3 Missing Lifecycle Configuration        | s3      | iac            | Implemented |
+| `CLDBRN-AWS-S3-2`     | S3 Bucket Storage Class Not Optimized     | s3      | iac            | Implemented |
 | `CLDBRN-AWS-LAMBDA-1` | Lambda Cost Optimal Architecture          | lambda  | iac, discovery | Implemented |
 
 **Status key:**
 
-- **Implemented** — has both `evaluateLive` and `evaluateStatic` evaluators with tests
+- **Implemented** — has evaluator coverage for every scan mode listed in `supports`
 - **Scaffold** — metadata defined, no evaluator implementations yet
 
 ## Presets

@@ -43,6 +43,13 @@ describe('sdk exports', () => {
         supports: ['iac', 'discovery'],
       },
       {
+        description: 'Flag S3 interface endpoints when a gateway endpoint is the cheaper in-VPC option.',
+        id: 'CLDBRN-AWS-EC2-2',
+        provider: 'aws',
+        service: 'ec2',
+        supports: ['iac'],
+      },
+      {
         description: 'Recommend arm64 architecture when compatible.',
         id: 'CLDBRN-AWS-LAMBDA-1',
         provider: 'aws',
@@ -61,7 +68,15 @@ describe('sdk exports', () => {
         id: 'CLDBRN-AWS-S3-1',
         provider: 'aws',
         service: 's3',
-        supports: ['iac', 'discovery'],
+        supports: ['iac'],
+      },
+      {
+        description:
+          'Recommend Intelligent-Tiering or another explicit storage-class transition for lifecycle-managed buckets.',
+        id: 'CLDBRN-AWS-S3-2',
+        provider: 'aws',
+        service: 's3',
+        supports: ['iac'],
       },
     ]);
   });

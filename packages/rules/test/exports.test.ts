@@ -14,6 +14,9 @@ describe('rule exports', () => {
   it('exports non-empty AWS rules and preset IDs', () => {
     expect(awsRules.length).toBeGreaterThan(0);
     expect(awsCorePreset.ruleIds.length).toBe(awsRules.length);
+    expect(awsRules.map((rule) => rule.id)).toEqual(
+      expect.arrayContaining(['CLDBRN-AWS-EC2-2', 'CLDBRN-AWS-S3-1', 'CLDBRN-AWS-S3-2']),
+    );
   });
 
   it('exports shared helpers and EC2 discovery types used by the preferred-instance rule', () => {
