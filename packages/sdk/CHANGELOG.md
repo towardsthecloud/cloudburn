@@ -1,5 +1,18 @@
 # @cloudburn/sdk
 
+## 0.9.0
+
+### Minor Changes
+
+- [#31](https://github.com/towardsthecloud/cloudburn/pull/31) [`163bab8`](https://github.com/towardsthecloud/cloudburn/commit/163bab87b4677e91b130bfcabb1e5ee6c0535079) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Refresh SDK-exposed built-in rule metadata to include the new S3 and EC2 cost optimization rules and updated S3 scan-mode support.
+
+- [#33](https://github.com/towardsthecloud/cloudburn/pull/33) [`ac6a4be`](https://github.com/towardsthecloud/cloudburn/commit/ac6a4be9584481e7e887b8b5d9223a5b5494cb9b) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Refactor AWS live discovery to a registry-driven dataset orchestration flow and rename the provider orchestration module to `discovery.ts`.
+
+### Patch Changes
+
+- Updated dependencies [[`ac6a4be`](https://github.com/towardsthecloud/cloudburn/commit/ac6a4be9584481e7e887b8b5d9223a5b5494cb9b), [`163bab8`](https://github.com/towardsthecloud/cloudburn/commit/163bab87b4677e91b130bfcabb1e5ee6c0535079)]:
+  - @cloudburn/rules@0.9.0
+
 ## 0.8.2
 
 ### Patch Changes

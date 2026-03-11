@@ -1,5 +1,13 @@
 # @cloudburn/rules
 
+## 0.9.0
+
+### Minor Changes
+
+- [#33](https://github.com/towardsthecloud/cloudburn/pull/33) [`ac6a4be`](https://github.com/towardsthecloud/cloudburn/commit/ac6a4be9584481e7e887b8b5d9223a5b5494cb9b) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Refactor live rule authoring to use SDK-owned discovery dataset dependencies and a typed `LiveResourceBag` instead of rule-level `liveDiscovery` wiring and fixed context arrays.
+
+- [#31](https://github.com/towardsthecloud/cloudburn/pull/31) [`163bab8`](https://github.com/towardsthecloud/cloudburn/commit/163bab87b4677e91b130bfcabb1e5ee6c0535079) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Add static AWS cost rules for S3 lifecycle coverage, S3 storage-class optimization, and S3 interface VPC endpoints.
+
 ## 0.8.1
 
 ### Patch Changes
