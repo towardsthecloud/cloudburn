@@ -1,5 +1,11 @@
 # @cloudburn/rules
 
+## 0.10.0
+
+### Minor Changes
+
+- [#35](https://github.com/towardsthecloud/cloudburn/pull/35) [`267db25`](https://github.com/towardsthecloud/cloudburn/commit/267db25a3e3480d443d58a11cd3a7580646ad113) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Add `staticDependencies` and `StaticResourceBag` to the rule contract so static IaC rules can consume normalized SDK datasets instead of filtering raw parsed resources.
+
 ## 0.9.0
 
 ### Minor Changes

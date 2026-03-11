@@ -1,5 +1,16 @@
 # @cloudburn/sdk
 
+## 0.10.0
+
+### Minor Changes
+
+- [#35](https://github.com/towardsthecloud/cloudburn/pull/35) [`267db25`](https://github.com/towardsthecloud/cloudburn/commit/267db25a3e3480d443d58a11cd3a7580646ad113) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Refactor static IaC scanning to use SDK-owned dataset registries and `StaticResourceBag`, so new static rules can be added without expanding the scan engine.
+
+### Patch Changes
+
+- Updated dependencies [[`267db25`](https://github.com/towardsthecloud/cloudburn/commit/267db25a3e3480d443d58a11cd3a7580646ad113)]:
+  - @cloudburn/rules@0.10.0
+
 ## 0.9.0
 
 ### Minor Changes
