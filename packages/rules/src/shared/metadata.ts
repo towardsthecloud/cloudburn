@@ -40,6 +40,23 @@ export type AwsLambdaFunction = {
   accountId: string;
 };
 
+/** Shared S3 lifecycle and storage-optimization analysis flags across scan modes. */
+export type AwsS3BucketAnalysisFlags = {
+  hasLifecycleSignal: boolean;
+  hasCostFocusedLifecycle: boolean;
+  hasIntelligentTieringConfiguration: boolean;
+  hasIntelligentTieringTransition: boolean;
+  hasAlternativeStorageClassTransition: boolean;
+  hasUnclassifiedTransition: boolean;
+};
+
+/** Discovered AWS S3 bucket normalized for live cost-optimization evaluation. */
+export type AwsS3BucketAnalysis = AwsS3BucketAnalysisFlags & {
+  bucketName: string;
+  region: string;
+  accountId: string;
+};
+
 /** Normalized AWS Resource Explorer property attached to a discovered resource. */
 export type AwsResourceProperty = {
   name?: string;
@@ -67,13 +84,18 @@ export type AwsDiscoveryCatalog = {
 };
 
 /** Rule-facing live discovery dataset key exposed through the evaluation context. */
-export type DiscoveryDatasetKey = 'aws-ebs-volumes' | 'aws-ec2-instances' | 'aws-lambda-functions';
+export type DiscoveryDatasetKey =
+  | 'aws-ebs-volumes'
+  | 'aws-ec2-instances'
+  | 'aws-lambda-functions'
+  | 'aws-s3-bucket-analyses';
 
 /** Normalized live discovery datasets available to rule evaluators. */
 export type DiscoveryDatasetMap = {
   'aws-ebs-volumes': AwsEbsVolume[];
   'aws-ec2-instances': AwsEc2Instance[];
   'aws-lambda-functions': AwsLambdaFunction[];
+  'aws-s3-bucket-analyses': AwsS3BucketAnalysis[];
 };
 
 /** Rule-facing static IaC dataset key exposed through the evaluation context. */
@@ -109,15 +131,9 @@ export type AwsStaticEc2VpcEndpoint = {
 };
 
 /** Aggregated static S3 bucket analysis dataset entry. */
-export type AwsStaticS3BucketAnalysis = {
+export type AwsStaticS3BucketAnalysis = AwsS3BucketAnalysisFlags & {
   resourceId: string;
   location?: SourceLocation;
-  hasLifecycleSignal: boolean;
-  hasCostFocusedLifecycle: boolean;
-  hasIntelligentTieringConfiguration: boolean;
-  hasIntelligentTieringTransition: boolean;
-  hasAlternativeStorageClassTransition: boolean;
-  hasUnclassifiedTransition: boolean;
 };
 
 /** Normalized static datasets available to rule evaluators. */

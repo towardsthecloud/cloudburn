@@ -19,6 +19,8 @@ export type {
   AwsEc2Instance,
   AwsLambdaFunction,
   AwsResourceProperty,
+  AwsS3BucketAnalysis,
+  AwsS3BucketAnalysisFlags,
   AwsStaticEbsVolume,
   AwsStaticEc2Instance,
   AwsStaticEc2VpcEndpoint,

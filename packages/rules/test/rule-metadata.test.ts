@@ -50,7 +50,8 @@ describe('rule metadata', () => {
       message: 'S3 buckets should define lifecycle management policies.',
       provider: 'aws',
       service: 's3',
-      supports: ['iac'],
+      supports: ['iac', 'discovery'],
+      discoveryDependencies: ['aws-s3-bucket-analyses'],
       staticDependencies: ['aws-s3-bucket-analyses'],
     });
   });
@@ -67,7 +68,8 @@ describe('rule metadata', () => {
       message: 'S3 buckets with lifecycle management should match object access patterns to the right storage class.',
       provider: 'aws',
       service: 's3',
-      supports: ['iac'],
+      supports: ['iac', 'discovery'],
+      discoveryDependencies: ['aws-s3-bucket-analyses'],
       staticDependencies: ['aws-s3-bucket-analyses'],
     });
   });

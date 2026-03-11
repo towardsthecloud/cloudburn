@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { s3StorageClassOptimizationRule } from '../src/aws/s3/storage-class-optimization.js';
-import type { AwsStaticS3BucketAnalysis } from '../src/index.js';
-import { StaticResourceBag } from '../src/index.js';
+import type { AwsS3BucketAnalysis, AwsStaticS3BucketAnalysis } from '../src/index.js';
+import { LiveResourceBag, StaticResourceBag } from '../src/index.js';
 
 const createBucketAnalysis = (overrides: Partial<AwsStaticS3BucketAnalysis> = {}): AwsStaticS3BucketAnalysis => ({
   hasAlternativeStorageClassTransition: false,
@@ -19,11 +19,77 @@ const createBucketAnalysis = (overrides: Partial<AwsStaticS3BucketAnalysis> = {}
   ...overrides,
 });
 
+const createLiveBucketAnalysis = (overrides: Partial<AwsS3BucketAnalysis> = {}): AwsS3BucketAnalysis => ({
+  accountId: '123456789012',
+  bucketName: 'logs-bucket',
+  hasAlternativeStorageClassTransition: false,
+  hasCostFocusedLifecycle: false,
+  hasIntelligentTieringConfiguration: false,
+  hasIntelligentTieringTransition: false,
+  hasLifecycleSignal: false,
+  hasUnclassifiedTransition: false,
+  region: 'us-east-1',
+  ...overrides,
+});
+
 describe('s3StorageClassOptimizationRule', () => {
+  it('flags live buckets that never select a cheaper storage class', () => {
+    const finding = s3StorageClassOptimizationRule.evaluateLive?.({
+      catalog: {
+        resources: [],
+        searchRegion: 'us-east-1',
+        indexType: 'LOCAL',
+      },
+      resources: new LiveResourceBag({
+        'aws-s3-bucket-analyses': [
+          createLiveBucketAnalysis({
+            hasCostFocusedLifecycle: true,
+            hasLifecycleSignal: true,
+          }),
+        ],
+      }),
+    });
+
+    expect(s3StorageClassOptimizationRule.discoveryDependencies).toEqual(['aws-s3-bucket-analyses']);
+    expect(s3StorageClassOptimizationRule.staticDependencies).toEqual(['aws-s3-bucket-analyses']);
+    expect(finding).toEqual({
+      ruleId: 'CLDBRN-AWS-S3-2',
+      service: 's3',
+      source: 'discovery',
+      message: 'S3 buckets with lifecycle management should match object access patterns to the right storage class.',
+      findings: [
+        {
+          resourceId: 'logs-bucket',
+          region: 'us-east-1',
+          accountId: '123456789012',
+        },
+      ],
+    });
+  });
+
   it('skips bare buckets with no lifecycle or tiering signal', () => {
     const finding = s3StorageClassOptimizationRule.evaluateStatic?.({
       resources: new StaticResourceBag({
         'aws-s3-bucket-analyses': [createBucketAnalysis()],
+      }),
+    });
+
+    expect(finding).toBeNull();
+  });
+
+  it('passes live buckets with an explicit Intelligent-Tiering strategy', () => {
+    const finding = s3StorageClassOptimizationRule.evaluateLive?.({
+      catalog: {
+        resources: [],
+        searchRegion: 'us-east-1',
+        indexType: 'LOCAL',
+      },
+      resources: new LiveResourceBag({
+        'aws-s3-bucket-analyses': [
+          createLiveBucketAnalysis({
+            hasIntelligentTieringConfiguration: true,
+          }),
+        ],
       }),
     });
 

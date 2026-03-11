@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { s3MissingLifecycleConfigRule } from '../src/aws/s3/missing-lifecycle-config.js';
-import type { AwsStaticS3BucketAnalysis } from '../src/index.js';
-import { StaticResourceBag } from '../src/index.js';
+import type { AwsS3BucketAnalysis, AwsStaticS3BucketAnalysis } from '../src/index.js';
+import { LiveResourceBag, StaticResourceBag } from '../src/index.js';
 
 const createBucketAnalysis = (overrides: Partial<AwsStaticS3BucketAnalysis> = {}): AwsStaticS3BucketAnalysis => ({
   hasAlternativeStorageClassTransition: false,
@@ -19,7 +19,49 @@ const createBucketAnalysis = (overrides: Partial<AwsStaticS3BucketAnalysis> = {}
   ...overrides,
 });
 
+const createLiveBucketAnalysis = (overrides: Partial<AwsS3BucketAnalysis> = {}): AwsS3BucketAnalysis => ({
+  accountId: '123456789012',
+  bucketName: 'logs-bucket',
+  hasAlternativeStorageClassTransition: false,
+  hasCostFocusedLifecycle: false,
+  hasIntelligentTieringConfiguration: false,
+  hasIntelligentTieringTransition: false,
+  hasLifecycleSignal: false,
+  hasUnclassifiedTransition: false,
+  region: 'us-east-1',
+  ...overrides,
+});
+
 describe('s3MissingLifecycleConfigRule', () => {
+  it('flags live buckets without a lifecycle configuration', () => {
+    const finding = s3MissingLifecycleConfigRule.evaluateLive?.({
+      catalog: {
+        resources: [],
+        searchRegion: 'us-east-1',
+        indexType: 'LOCAL',
+      },
+      resources: new LiveResourceBag({
+        'aws-s3-bucket-analyses': [createLiveBucketAnalysis()],
+      }),
+    });
+
+    expect(s3MissingLifecycleConfigRule.discoveryDependencies).toEqual(['aws-s3-bucket-analyses']);
+    expect(s3MissingLifecycleConfigRule.staticDependencies).toEqual(['aws-s3-bucket-analyses']);
+    expect(finding).toEqual({
+      ruleId: 'CLDBRN-AWS-S3-1',
+      service: 's3',
+      source: 'discovery',
+      message: 'S3 buckets should define lifecycle management policies.',
+      findings: [
+        {
+          resourceId: 'logs-bucket',
+          region: 'us-east-1',
+          accountId: '123456789012',
+        },
+      ],
+    });
+  });
+
   it('flags Terraform buckets without a lifecycle configuration', () => {
     const finding = s3MissingLifecycleConfigRule.evaluateStatic?.({
       resources: new StaticResourceBag({
@@ -49,6 +91,26 @@ describe('s3MissingLifecycleConfigRule', () => {
     const finding = s3MissingLifecycleConfigRule.evaluateStatic?.({
       resources: new StaticResourceBag({
         'aws-s3-bucket-analyses': [createBucketAnalysis({ hasCostFocusedLifecycle: true, hasLifecycleSignal: true })],
+      }),
+    });
+
+    expect(finding).toBeNull();
+  });
+
+  it('passes live buckets with an enabled lifecycle rule', () => {
+    const finding = s3MissingLifecycleConfigRule.evaluateLive?.({
+      catalog: {
+        resources: [],
+        searchRegion: 'us-east-1',
+        indexType: 'LOCAL',
+      },
+      resources: new LiveResourceBag({
+        'aws-s3-bucket-analyses': [
+          createLiveBucketAnalysis({
+            hasCostFocusedLifecycle: true,
+            hasLifecycleSignal: true,
+          }),
+        ],
       }),
     });
 

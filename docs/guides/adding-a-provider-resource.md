@@ -9,6 +9,12 @@ The current model is dataset-driven:
 3. `discoverAwsResources` builds one catalog and loads only required datasets.
 4. Rules read normalized datasets from `LiveResourceBag` with `resources.get('<dataset-key>')`.
 
+Before creating a new discovery dataset, check whether the service already exposes one.
+
+- Reuse an existing dataset when the current normalized shape already supports the new rule.
+- Extend the existing dataset when a service is already modeled but needs additional live metadata.
+- If the same conceptual dataset should back both `iac` and `discovery`, keep the dataset key aligned across both maps and share the common normalized fields in `@cloudburn/rules`.
+
 ## 1. Pick a Dataset Key
 
 Define a dataset key in `@cloudburn/rules` metadata that represents one normalized resource collection.
@@ -50,6 +56,7 @@ Dataset loaders should:
 - use narrow AWS APIs only when catalog fields are insufficient
 - normalize into the rule-facing dataset type
 - fail loudly when the underlying AWS API call fails
+- group work by region and bound in-flight hydration concurrency when the loader fans out per resource
 
 ```ts
 export const hydrateAwsEc2Instances = async (
@@ -113,3 +120,5 @@ pnpm verify
 ```
 
 Also document IAM permissions for any new loader-backed AWS API calls.
+
+For existing services such as S3, prefer extending the existing discovery dataset and hydrator instead of adding a second service-specific path for a closely related rule family.

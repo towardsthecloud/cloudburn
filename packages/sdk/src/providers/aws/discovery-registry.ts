@@ -2,6 +2,7 @@ import type { AwsDiscoveredResource, DiscoveryDatasetKey, DiscoveryDatasetMap } 
 import { hydrateAwsEbsVolumes } from './resources/ebs.js';
 import { hydrateAwsEc2Instances } from './resources/ec2.js';
 import { hydrateAwsLambdaFunctions } from './resources/lambda.js';
+import { hydrateAwsS3BucketAnalyses } from './resources/s3.js';
 
 /** Declarative definition for one rule-facing AWS discovery dataset. */
 export type AwsDiscoveryDatasetDefinition<K extends DiscoveryDatasetKey = DiscoveryDatasetKey> = {
@@ -27,6 +28,11 @@ const awsDiscoveryDatasetRegistry: {
     datasetKey: 'aws-lambda-functions',
     resourceTypes: ['lambda:function'],
     load: hydrateAwsLambdaFunctions,
+  },
+  'aws-s3-bucket-analyses': {
+    datasetKey: 'aws-s3-bucket-analyses',
+    resourceTypes: ['s3:bucket'],
+    load: hydrateAwsS3BucketAnalyses,
   },
 };
 

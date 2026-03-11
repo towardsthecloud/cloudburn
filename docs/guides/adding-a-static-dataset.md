@@ -9,6 +9,12 @@ The static scan model is dataset-driven:
 3. `loadAwsStaticResources` parses only the required source kinds and loads only the requested datasets.
 4. Rules read normalized datasets from `StaticResourceBag` with `resources.get('<dataset-key>')`.
 
+Before creating a new dataset, check whether the service already has one you can extend.
+
+- Reuse the existing dataset when your new rule fits the current normalized shape.
+- Extend the existing dataset when the service is already modeled but needs additional normalized fields.
+- If the same conceptual dataset should support both static IaC and discovery, keep one shared dataset key across `StaticDatasetMap` and `DiscoveryDatasetMap` and share the common analysis flags or value objects in `@cloudburn/rules`.
+
 ## 1. Pick a Dataset Key
 
 Define a dataset key in `@cloudburn/rules` metadata that represents one normalized static resource collection.
@@ -40,6 +46,8 @@ export type StaticDatasetMap = {
 };
 ```
 
+If the service also has a live discovery dataset for the same concept, prefer a shared base type for the common fields and keep the mode-specific identity fields separate.
+
 ## 3. Add a Dataset Loader
 
 Update `packages/sdk/src/providers/aws/static-registry.ts` with a dataset definition that declares:
@@ -55,6 +63,7 @@ Dataset loaders should:
 - own Terraform and CloudFormation type strings
 - normalize computed or unresolved values into explicit `null` or defaulted states
 - precompute `resourceId` and preferred source `location`
+- preserve existing classification semantics when refactoring loader logic into shared helpers
 
 ```ts
 'aws-ec2-vpc-endpoints': {

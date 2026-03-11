@@ -407,4 +407,110 @@ describe('aws static dataset registry', () => {
       },
     ]);
   });
+
+  it('treats Terraform computed lifecycle storage classes as unclassified transitions', () => {
+    const definition = getAwsStaticDatasetDefinition('aws-s3-bucket-analyses');
+
+    expect(
+      definition?.load([
+        createIaCResource({
+          type: 'aws_s3_bucket',
+          name: 'logs',
+          location: {
+            path: 'main.tf',
+            startLine: 1,
+            startColumn: 1,
+          },
+          attributes: {
+            bucket: 'example-logs',
+          },
+        }),
+        createIaCResource({
+          type: 'aws_s3_bucket_lifecycle_configuration',
+          name: 'logs',
+          attributes: {
+            bucket: '${' + 'aws_s3_bucket.logs.id}',
+            rule: [
+              {
+                id: 'transition',
+                status: 'Enabled',
+                transition: [
+                  {
+                    days: 30,
+                    storage_class: '${' + 'var.storage_class}',
+                  },
+                ],
+              },
+            ],
+          },
+        }),
+      ]),
+    ).toEqual([
+      {
+        hasAlternativeStorageClassTransition: false,
+        hasCostFocusedLifecycle: true,
+        hasIntelligentTieringConfiguration: false,
+        hasIntelligentTieringTransition: false,
+        hasLifecycleSignal: true,
+        hasUnclassifiedTransition: true,
+        location: {
+          path: 'main.tf',
+          startLine: 1,
+          startColumn: 1,
+        },
+        resourceId: 'aws_s3_bucket.logs',
+      },
+    ]);
+  });
+
+  it('treats CloudFormation intrinsic storage classes as unclassified transitions', () => {
+    const definition = getAwsStaticDatasetDefinition('aws-s3-bucket-analyses');
+
+    expect(
+      definition?.load([
+        createIaCResource({
+          type: 'AWS::S3::Bucket',
+          name: 'LogsBucket',
+          location: {
+            path: 'template.yaml',
+            startLine: 3,
+            startColumn: 3,
+          },
+          attributes: {
+            Properties: {
+              LifecycleConfiguration: {
+                Rules: [
+                  {
+                    Status: 'Enabled',
+                    Transitions: [
+                      {
+                        StorageClass: {
+                          Ref: 'ArchiveClass',
+                        },
+                      },
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+        }),
+      ]),
+    ).toEqual([
+      {
+        hasAlternativeStorageClassTransition: false,
+        hasCostFocusedLifecycle: true,
+        hasIntelligentTieringConfiguration: false,
+        hasIntelligentTieringTransition: false,
+        hasLifecycleSignal: true,
+        hasUnclassifiedTransition: true,
+        location: {
+          path: 'template.yaml',
+          startLine: 3,
+          startColumn: 3,
+        },
+        resourceId: 'LogsBucket',
+      },
+    ]);
+  });
 });

@@ -4,11 +4,33 @@ import { LiveResourceBag, StaticResourceBag } from '../src/index.js';
 describe('LiveResourceBag', () => {
   it('returns stored datasets by key', () => {
     const bag = new LiveResourceBag({
-      'aws-ebs-volumes': [{ accountId: '123456789012', region: 'us-east-1', volumeId: 'vol-123', volumeType: 'gp2' }],
+      'aws-s3-bucket-analyses': [
+        {
+          accountId: '123456789012',
+          bucketName: 'logs-bucket',
+          hasAlternativeStorageClassTransition: false,
+          hasCostFocusedLifecycle: false,
+          hasIntelligentTieringConfiguration: false,
+          hasIntelligentTieringTransition: false,
+          hasLifecycleSignal: false,
+          hasUnclassifiedTransition: false,
+          region: 'us-east-1',
+        },
+      ],
     });
 
-    expect(bag.get('aws-ebs-volumes')).toEqual([
-      { accountId: '123456789012', region: 'us-east-1', volumeId: 'vol-123', volumeType: 'gp2' },
+    expect(bag.get('aws-s3-bucket-analyses')).toEqual([
+      {
+        accountId: '123456789012',
+        bucketName: 'logs-bucket',
+        hasAlternativeStorageClassTransition: false,
+        hasCostFocusedLifecycle: false,
+        hasIntelligentTieringConfiguration: false,
+        hasIntelligentTieringTransition: false,
+        hasLifecycleSignal: false,
+        hasUnclassifiedTransition: false,
+        region: 'us-east-1',
+      },
     ]);
   });
 
@@ -17,6 +39,7 @@ describe('LiveResourceBag', () => {
 
     expect(bag.get('aws-ec2-instances')).toEqual([]);
     expect(bag.get('aws-lambda-functions')).toEqual([]);
+    expect(bag.get('aws-s3-bucket-analyses')).toEqual([]);
   });
 });
 

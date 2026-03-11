@@ -97,8 +97,8 @@ Rule evaluators consume static and live datasets through `context.resources.get(
 | `CLDBRN-AWS-EC2-2`    | S3 Interface VPC Endpoint Used            | ec2     | iac            | Implemented |
 | `CLDBRN-AWS-EBS-1`    | EBS Volume Type Not Current Generation    | ebs     | discovery, iac | Implemented |
 | `CLDBRN-AWS-RDS-1`    | RDS Instance Class Not in Allowed Profile | rds     | iac, discovery | Scaffold    |
-| `CLDBRN-AWS-S3-1`     | S3 Missing Lifecycle Configuration        | s3      | iac            | Implemented |
-| `CLDBRN-AWS-S3-2`     | S3 Bucket Storage Class Not Optimized     | s3      | iac            | Implemented |
+| `CLDBRN-AWS-S3-1`     | S3 Missing Lifecycle Configuration        | s3      | iac, discovery | Implemented |
+| `CLDBRN-AWS-S3-2`     | S3 Bucket Storage Class Not Optimized     | s3      | iac, discovery | Implemented |
 | `CLDBRN-AWS-LAMBDA-1` | Lambda Cost Optimal Architecture          | lambda  | iac, discovery | Implemented |
 
 `CLDBRN-AWS-LAMBDA-1` is an advisory rule. It recommends `arm64` only when compatibility is known or explicitly declared, and the static evaluator skips computed or otherwise unknown architecture values instead of treating them as definite `x86_64`.

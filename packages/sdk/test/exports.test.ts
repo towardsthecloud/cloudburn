@@ -68,7 +68,7 @@ describe('sdk exports', () => {
         id: 'CLDBRN-AWS-S3-1',
         provider: 'aws',
         service: 's3',
-        supports: ['iac'],
+        supports: ['iac', 'discovery'],
       },
       {
         description:
@@ -76,7 +76,7 @@ describe('sdk exports', () => {
         id: 'CLDBRN-AWS-S3-2',
         provider: 'aws',
         service: 's3',
-        supports: ['iac'],
+        supports: ['iac', 'discovery'],
       },
     ]);
   });

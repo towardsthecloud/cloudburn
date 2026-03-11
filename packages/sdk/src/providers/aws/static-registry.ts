@@ -11,6 +11,7 @@ import type {
 } from '@cloudburn/rules';
 import { isRecord } from '@cloudburn/rules';
 import type { IaCSourceKind } from '../../parsers/index.js';
+import { buildS3BucketAnalysisFlags } from './resources/s3-analysis.js';
 
 type AwsStaticDatasetDefinition<K extends StaticDatasetKey = StaticDatasetKey> = {
   datasetKey: K;
@@ -61,56 +62,6 @@ const getLiteralStringArray = (value: unknown): string[] | null => {
 const toRecordArray = (value: unknown): Record<string, unknown>[] =>
   Array.isArray(value) ? value.filter((entry): entry is Record<string, unknown> => isRecord(entry)) : [];
 
-const hasNonEmptyRecordArray = (value: unknown): boolean => toRecordArray(value).length > 0;
-
-const hasScalarValue = (value: unknown): boolean => value !== undefined && value !== null;
-
-const isEnabledStatus = (value: unknown): boolean => typeof value === 'string' && value.toLowerCase() === 'enabled';
-
-const ruleHasTerraformExpiration = (rule: Record<string, unknown>): boolean =>
-  hasNonEmptyRecordArray(rule.expiration) || hasNonEmptyRecordArray(rule.noncurrent_version_expiration);
-
-const ruleHasCloudFormationExpiration = (rule: Record<string, unknown>): boolean =>
-  hasScalarValue(rule.ExpirationInDays) ||
-  hasScalarValue(rule.ExpirationDate) ||
-  hasScalarValue(rule.ExpiredObjectDeleteMarker) ||
-  isRecord(rule.NoncurrentVersionExpiration);
-
-const getTerraformTransitions = (rule: Record<string, unknown>): Record<string, unknown>[] => [
-  ...toRecordArray(rule.transition),
-  ...toRecordArray(rule.noncurrent_version_transition),
-];
-
-const getCloudFormationTransitions = (rule: Record<string, unknown>): Record<string, unknown>[] => [
-  ...toRecordArray(rule.Transitions),
-  ...toRecordArray(rule.NoncurrentVersionTransitions),
-];
-
-const getTransitionStorageClasses = (rule: Record<string, unknown>): string[] =>
-  [...getTerraformTransitions(rule), ...getCloudFormationTransitions(rule)]
-    .map((transition) => getLiteralString(transition.storage_class ?? transition.StorageClass))
-    .filter((storageClass): storageClass is string => Boolean(storageClass))
-    .map((storageClass) => storageClass.toUpperCase());
-
-const hasTransitionAction = (rule: Record<string, unknown>): boolean =>
-  getTerraformTransitions(rule).length > 0 || getCloudFormationTransitions(rule).length > 0;
-
-const hasUnclassifiedTransition = (rule: Record<string, unknown>): boolean =>
-  [...getTerraformTransitions(rule), ...getCloudFormationTransitions(rule)].some(
-    (transition) => getLiteralString(transition.storage_class ?? transition.StorageClass) === null,
-  );
-
-const isLifecycleRuleEnabled = (rule: Record<string, unknown>): boolean =>
-  rule.enabled === true || isEnabledStatus(rule.status) || isEnabledStatus(rule.Status);
-
-const hasCostFocusedLifecycleRule = (rule: Record<string, unknown>): boolean => {
-  if (!isLifecycleRuleEnabled(rule)) {
-    return false;
-  }
-
-  return ruleHasTerraformExpiration(rule) || ruleHasCloudFormationExpiration(rule) || hasTransitionAction(rule);
-};
-
 const getTerraformBucketReferenceKey = (value: unknown): string | null => {
   const literal = getLiteralString(value);
 
@@ -145,24 +96,16 @@ const getTerraformLifecycleRules = (
 const hasEnabledTerraformIntelligentTieringConfiguration = (
   intelligentTieringConfigurations: IaCResource[],
   identityKeys: Set<string>,
-): boolean =>
-  intelligentTieringConfigurations.some((resource) => {
+): Record<string, unknown>[] =>
+  intelligentTieringConfigurations.flatMap((resource) => {
     const targetKey = getTerraformBucketReferenceKey(resource.attributes.bucket);
-    const status = resource.attributes.status;
 
-    return targetKey !== null && identityKeys.has(targetKey) && (status === undefined || isEnabledStatus(status));
+    if (targetKey === null || !identityKeys.has(targetKey)) {
+      return [];
+    }
+
+    return [{ status: resource.attributes.status }];
   });
-
-const hasEnabledCloudFormationIntelligentTieringConfiguration = (bucket: IaCResource): boolean => {
-  const properties = isRecord(bucket.attributes.Properties) ? bucket.attributes.Properties : undefined;
-  const configurations = toRecordArray(properties?.IntelligentTieringConfigurations);
-
-  return configurations.some((configuration) => {
-    const status = configuration.Status;
-
-    return status === undefined || isEnabledStatus(status);
-  });
-};
 
 const createTerraformS3BucketAnalysis = (
   bucket: IaCResource,
@@ -180,26 +123,14 @@ const createTerraformS3BucketAnalysis = (
     ...toRecordArray(bucket.attributes.lifecycle_rule),
     ...getTerraformLifecycleRules(lifecycleConfigurations, identityKeys),
   ];
-  const transitionStorageClasses = lifecycleRules
-    .filter((rule) => isLifecycleRuleEnabled(rule))
-    .flatMap((rule) => getTransitionStorageClasses(rule));
 
   return {
     resourceId: toStaticResourceId(bucket),
     location: bucket.location,
-    hasLifecycleSignal: lifecycleRules.length > 0,
-    hasCostFocusedLifecycle: lifecycleRules.some((rule) => hasCostFocusedLifecycleRule(rule)),
-    hasIntelligentTieringConfiguration: hasEnabledTerraformIntelligentTieringConfiguration(
-      intelligentTieringConfigurations,
-      identityKeys,
+    ...buildS3BucketAnalysisFlags(
+      lifecycleRules,
+      hasEnabledTerraformIntelligentTieringConfiguration(intelligentTieringConfigurations, identityKeys),
     ),
-    hasIntelligentTieringTransition: transitionStorageClasses.includes('INTELLIGENT_TIERING'),
-    hasAlternativeStorageClassTransition: transitionStorageClasses.some(
-      (storageClass) => storageClass !== 'STANDARD' && storageClass !== 'INTELLIGENT_TIERING',
-    ),
-    hasUnclassifiedTransition: lifecycleRules
-      .filter((rule) => isLifecycleRuleEnabled(rule))
-      .some((rule) => hasUnclassifiedTransition(rule)),
   };
 };
 
@@ -209,23 +140,12 @@ const createCloudFormationS3BucketAnalysis = (bucket: IaCResource): AwsStaticS3B
     ? properties.LifecycleConfiguration
     : undefined;
   const lifecycleRules = toRecordArray(lifecycleConfiguration?.Rules);
-  const transitionStorageClasses = lifecycleRules
-    .filter((rule) => isLifecycleRuleEnabled(rule))
-    .flatMap((rule) => getTransitionStorageClasses(rule));
+  const intelligentTieringConfigurations = toRecordArray(properties?.IntelligentTieringConfigurations);
 
   return {
     resourceId: toStaticResourceId(bucket),
     location: bucket.location,
-    hasLifecycleSignal: lifecycleRules.length > 0,
-    hasCostFocusedLifecycle: lifecycleRules.some((rule) => hasCostFocusedLifecycleRule(rule)),
-    hasIntelligentTieringConfiguration: hasEnabledCloudFormationIntelligentTieringConfiguration(bucket),
-    hasIntelligentTieringTransition: transitionStorageClasses.includes('INTELLIGENT_TIERING'),
-    hasAlternativeStorageClassTransition: transitionStorageClasses.some(
-      (storageClass) => storageClass !== 'STANDARD' && storageClass !== 'INTELLIGENT_TIERING',
-    ),
-    hasUnclassifiedTransition: lifecycleRules
-      .filter((rule) => isLifecycleRuleEnabled(rule))
-      .some((rule) => hasUnclassifiedTransition(rule)),
+    ...buildS3BucketAnalysisFlags(lifecycleRules, intelligentTieringConfigurations),
   };
 };
 

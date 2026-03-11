@@ -17,6 +17,7 @@ import {
 import { hydrateAwsEbsVolumes } from '../../src/providers/aws/resources/ebs.js';
 import { hydrateAwsEc2Instances } from '../../src/providers/aws/resources/ec2.js';
 import { hydrateAwsLambdaFunctions } from '../../src/providers/aws/resources/lambda.js';
+import { hydrateAwsS3BucketAnalyses } from '../../src/providers/aws/resources/s3.js';
 
 vi.mock('../../src/providers/aws/client.js', () => ({
   listEnabledAwsRegions: vi.fn(),
@@ -42,6 +43,10 @@ vi.mock('../../src/providers/aws/resources/lambda.js', () => ({
   hydrateAwsLambdaFunctions: vi.fn(),
 }));
 
+vi.mock('../../src/providers/aws/resources/s3.js', () => ({
+  hydrateAwsS3BucketAnalyses: vi.fn(),
+}));
+
 const mockedResolveCurrentAwsRegion = vi.mocked(resolveCurrentAwsRegion);
 const mockedListEnabledAwsRegions = vi.mocked(listEnabledAwsRegions);
 const mockedBuildAwsDiscoveryCatalog = vi.mocked(buildAwsDiscoveryCatalog);
@@ -51,6 +56,7 @@ const mockedListAwsDiscoverySupportedResourceTypes = vi.mocked(listAwsDiscoveryS
 const mockedHydrateAwsEbsVolumes = vi.mocked(hydrateAwsEbsVolumes);
 const mockedHydrateAwsEc2Instances = vi.mocked(hydrateAwsEc2Instances);
 const mockedHydrateAwsLambdaFunctions = vi.mocked(hydrateAwsLambdaFunctions);
+const mockedHydrateAwsS3BucketAnalyses = vi.mocked(hydrateAwsS3BucketAnalyses);
 
 const catalog: AwsDiscoveryCatalog = {
   indexType: 'LOCAL',
@@ -78,6 +84,14 @@ const catalog: AwsDiscoveryCatalog = {
       region: 'us-east-1',
       resourceType: 'lambda:function',
       service: 'lambda',
+    },
+    {
+      accountId: '123456789012',
+      arn: 'arn:aws:s3:::logs-bucket',
+      properties: [],
+      region: 'us-east-1',
+      resourceType: 's3:bucket',
+      service: 's3',
     },
   ],
   searchRegion: 'us-east-1',
@@ -116,6 +130,19 @@ describe('discoverAwsResources', () => {
     mockedHydrateAwsLambdaFunctions.mockResolvedValue([
       { accountId: '123456789012', architectures: ['x86_64'], functionName: 'my-func', region: 'us-east-1' },
     ]);
+    mockedHydrateAwsS3BucketAnalyses.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        bucketName: 'logs-bucket',
+        hasAlternativeStorageClassTransition: false,
+        hasCostFocusedLifecycle: false,
+        hasIntelligentTieringConfiguration: false,
+        hasIntelligentTieringTransition: false,
+        hasLifecycleSignal: false,
+        hasUnclassifiedTransition: false,
+        region: 'us-east-1',
+      },
+    ]);
 
     const result = await discoverAwsResources(
       [
@@ -131,6 +158,11 @@ describe('discoverAwsResources', () => {
           discoveryDependencies: ['aws-lambda-functions', 'aws-ebs-volumes'],
           service: 'lambda',
         }),
+        createRule({
+          id: 'CLDBRN-AWS-TEST-4',
+          discoveryDependencies: ['aws-s3-bucket-analyses'],
+          service: 's3',
+        }),
       ],
       { mode: 'region', region: 'us-east-1' },
     );
@@ -139,10 +171,12 @@ describe('discoverAwsResources', () => {
       'ec2:instance',
       'ec2:volume',
       'lambda:function',
+      's3:bucket',
     ]);
     expect(mockedHydrateAwsEbsVolumes).toHaveBeenCalledWith([catalog.resources[0]]);
     expect(mockedHydrateAwsEc2Instances).toHaveBeenCalledWith([catalog.resources[1]]);
     expect(mockedHydrateAwsLambdaFunctions).toHaveBeenCalledWith([catalog.resources[2]]);
+    expect(mockedHydrateAwsS3BucketAnalyses).toHaveBeenCalledWith([catalog.resources[3]]);
     expect(result.catalog).toEqual(catalog);
     expect(result.resources).toBeInstanceOf(LiveResourceBag);
     expect(result.resources.get('aws-ebs-volumes')).toEqual([
@@ -159,6 +193,52 @@ describe('discoverAwsResources', () => {
     expect(result.resources.get('aws-lambda-functions')).toEqual([
       { accountId: '123456789012', architectures: ['x86_64'], functionName: 'my-func', region: 'us-east-1' },
     ]);
+    expect(result.resources.get('aws-s3-bucket-analyses')).toEqual([
+      {
+        accountId: '123456789012',
+        bucketName: 'logs-bucket',
+        hasAlternativeStorageClassTransition: false,
+        hasCostFocusedLifecycle: false,
+        hasIntelligentTieringConfiguration: false,
+        hasIntelligentTieringTransition: false,
+        hasLifecycleSignal: false,
+        hasUnclassifiedTransition: false,
+        region: 'us-east-1',
+      },
+    ]);
+  });
+
+  it('loads only the S3 hydrator when active rules require only S3 bucket analyses', async () => {
+    mockedBuildAwsDiscoveryCatalog.mockResolvedValue(catalog);
+    mockedHydrateAwsS3BucketAnalyses.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        bucketName: 'logs-bucket',
+        hasAlternativeStorageClassTransition: false,
+        hasCostFocusedLifecycle: false,
+        hasIntelligentTieringConfiguration: false,
+        hasIntelligentTieringTransition: false,
+        hasLifecycleSignal: false,
+        hasUnclassifiedTransition: false,
+        region: 'us-east-1',
+      },
+    ]);
+
+    await discoverAwsResources(
+      [
+        createRule({
+          discoveryDependencies: ['aws-s3-bucket-analyses'],
+          service: 's3',
+        }),
+      ],
+      { mode: 'region', region: 'us-east-1' },
+    );
+
+    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith({ mode: 'region', region: 'us-east-1' }, ['s3:bucket']);
+    expect(mockedHydrateAwsS3BucketAnalyses).toHaveBeenCalledWith([catalog.resources[3]]);
+    expect(mockedHydrateAwsEbsVolumes).not.toHaveBeenCalled();
+    expect(mockedHydrateAwsEc2Instances).not.toHaveBeenCalled();
+    expect(mockedHydrateAwsLambdaFunctions).not.toHaveBeenCalled();
   });
 
   it('returns an empty catalog without Resource Explorer calls when no live rules require discovery metadata', async () => {
@@ -183,6 +263,7 @@ describe('discoverAwsResources', () => {
     expect(result.resources.get('aws-ebs-volumes')).toEqual([]);
     expect(result.resources.get('aws-ec2-instances')).toEqual([]);
     expect(result.resources.get('aws-lambda-functions')).toEqual([]);
+    expect(result.resources.get('aws-s3-bucket-analyses')).toEqual([]);
   });
 
   it('fails fast when a discovery rule has an evaluator but no discoveryDependencies metadata', async () => {

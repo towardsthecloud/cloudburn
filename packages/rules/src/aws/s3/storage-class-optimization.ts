@@ -1,4 +1,9 @@
-import { createFinding, createFindingMatch, createRule } from '../../shared/helpers.js';
+import { createFinding, createRule } from '../../shared/helpers.js';
+import {
+  createLiveS3BucketFindingMatch,
+  createStaticS3BucketFindingMatch,
+  hasMissingStorageClassOptimization,
+} from './shared.js';
 
 const RULE_ID = 'CLDBRN-AWS-S3-2';
 const RULE_SERVICE = 's3';
@@ -14,20 +19,22 @@ export const s3StorageClassOptimizationRule = createRule({
   message: RULE_MESSAGE,
   provider: 'aws',
   service: RULE_SERVICE,
-  supports: ['iac'],
+  supports: ['iac', 'discovery'],
+  discoveryDependencies: ['aws-s3-bucket-analyses'],
   staticDependencies: ['aws-s3-bucket-analyses'],
+  evaluateLive: ({ resources }) => {
+    const findings = resources
+      .get('aws-s3-bucket-analyses')
+      .filter((bucket) => hasMissingStorageClassOptimization(bucket))
+      .map((bucket) => createLiveS3BucketFindingMatch(bucket));
+
+    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+  },
   evaluateStatic: ({ resources }) => {
     const findings = resources
       .get('aws-s3-bucket-analyses')
-      .filter((bucket) => bucket.hasLifecycleSignal || bucket.hasIntelligentTieringConfiguration)
-      .filter(
-        (bucket) =>
-          !bucket.hasUnclassifiedTransition &&
-          !bucket.hasIntelligentTieringConfiguration &&
-          !bucket.hasIntelligentTieringTransition &&
-          !bucket.hasAlternativeStorageClassTransition,
-      )
-      .map((bucket) => createFindingMatch(bucket.resourceId, undefined, undefined, bucket.location));
+      .filter((bucket) => hasMissingStorageClassOptimization(bucket))
+      .map((bucket) => createStaticS3BucketFindingMatch(bucket));
 
     return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'iac', findings);
   },
