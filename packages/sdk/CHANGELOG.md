@@ -1,5 +1,18 @@
 # @cloudburn/sdk
 
+## 0.12.0
+
+### Minor Changes
+
+- [#41](https://github.com/towardsthecloud/cloudburn/pull/41) [`1e54a6b`](https://github.com/towardsthecloud/cloudburn/commit/1e54a6b5d747d4ef08915e98122a5cd26aa75b3d) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Add static `aws-rds-instances` dataset loading so IaC scans can evaluate RDS DB instance class optimization rules.
+
+- [#42](https://github.com/towardsthecloud/cloudburn/pull/42) [`6e7e1ac`](https://github.com/towardsthecloud/cloudburn/commit/6e7e1accc9aa3a58bb0d08a4dea7c63d9d7e0c67) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Add real `.cloudburn.yml` and `.cloudburn.yaml` support with mode-specific `iac` and `discovery` config, explicit config-path loading, and mode-aware rule filtering.
+
+### Patch Changes
+
+- Updated dependencies [[`1e54a6b`](https://github.com/towardsthecloud/cloudburn/commit/1e54a6b5d747d4ef08915e98122a5cd26aa75b3d)]:
+  - @cloudburn/rules@0.12.0
+
 ## 0.11.0
 
 ### Minor Changes

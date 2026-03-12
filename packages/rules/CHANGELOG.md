@@ -1,5 +1,11 @@
 # @cloudburn/rules
 
+## 0.12.0
+
+### Minor Changes
+
+- [#41](https://github.com/towardsthecloud/cloudburn/pull/41) [`1e54a6b`](https://github.com/towardsthecloud/cloudburn/commit/1e54a6b5d747d4ef08915e98122a5cd26aa75b3d) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Add an IaC-only RDS preferred instance-class rule that flags curated older-generation DB instance families.
+
 ## 0.11.0
 
 ### Minor Changes
