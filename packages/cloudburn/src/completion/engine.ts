@@ -17,7 +17,7 @@ const buildCompletionTree = (command: Command): CompletionNode => {
   return {
     commands: help.visibleCommands(command).map((childCommand) => buildCompletionTree(childCommand)),
     name: command.name(),
-    options: collectVisibleOptions(help.visibleOptions(command)),
+    options: collectVisibleOptions([...help.visibleOptions(command), ...help.visibleGlobalOptions(command)]),
   };
 };
 

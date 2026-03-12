@@ -8,7 +8,7 @@ Load the Turborepo skill and help with monorepo task orchestration: creating wor
 
 ### Step 1: Load turborepo skill
 
-```
+```text
 skill({ name: 'turborepo' })
 ```
 
@@ -56,7 +56,7 @@ Apply Turborepo-specific patterns from references to complete the user's request
 
 ### Step 5: Summarize
 
-```
+```text
 === Turborepo Task Complete ===
 
 Topic: <configuration|caching|filtering|environment|ci|cli>

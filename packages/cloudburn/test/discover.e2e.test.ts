@@ -126,7 +126,7 @@ describe('discover command e2e', () => {
     expect(help).toContain('Run a live AWS discovery');
     expect(help).toContain('--region <region>');
     expect(help).toContain('text: tab-delimited');
-    expect(help).toContain('output for grep, sed, and awk');
+    expect(help).toContain('grep, sed,');
     expect(help).toContain('cloudburn discover');
     expect(help).toContain('cloudburn discover --region all');
     expect(help).toContain('cloudburn discover list-enabled-regions');

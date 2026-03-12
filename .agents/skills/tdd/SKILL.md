@@ -28,7 +28,7 @@ This produces **crap tests**:
 
 **Correct approach**: Vertical slices via tracer bullets. One test → one implementation → repeat. Each test responds to what you learned from the previous cycle. Because you just wrote the code, you know exactly what behavior matters and how to verify it.
 
-```
+```text
 WRONG (horizontal):
   RED:   test1, test2, test3, test4, test5
   GREEN: impl1, impl2, impl3, impl4, impl5
@@ -61,7 +61,7 @@ Ask: "What should the public interface look like? Which behaviors are most impor
 
 Write ONE test that confirms ONE thing about the system:
 
-```
+```text
 RED:   Write test for first behavior → test fails
 GREEN: Write minimal code to pass → test passes
 ```
@@ -72,7 +72,7 @@ This is your tracer bullet - proves the path works end-to-end.
 
 For each remaining behavior:
 
-```
+```text
 RED:   Write next test → fails
 GREEN: Minimal code to pass → passes
 ```
@@ -98,7 +98,7 @@ After all tests pass, look for [refactor candidates](refactoring.md):
 
 ## Checklist Per Cycle
 
-```
+```text
 [ ] Test describes behavior, not implementation
 [ ] Test uses public interface only
 [ ] Test would survive internal refactor

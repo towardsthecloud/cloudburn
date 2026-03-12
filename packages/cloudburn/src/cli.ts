@@ -1,5 +1,5 @@
 import { pathToFileURL } from 'node:url';
-import { Command } from 'commander';
+import type { Command } from 'commander';
 import { registerCompletionCommand } from './commands/completion.js';
 import { registerDiscoverCommand } from './commands/discover.js';
 import { registerEstimateCommand } from './commands/estimate.js';
@@ -7,18 +7,21 @@ import { registerInitCommand } from './commands/init.js';
 import { registerRulesListCommand } from './commands/rules-list.js';
 import { registerScanCommand } from './commands/scan.js';
 import { OUTPUT_FORMAT_OPTION_DESCRIPTION, parseOutputFormat } from './formatters/output.js';
+import { configureCliHelp, createCliCommand } from './help.js';
 
 declare const __VERSION__: string;
 
 // Intent: construct the CloudBurn CLI command tree.
 // TODO(cloudburn): add global flags for profile, config path, and debug logging.
 export const createProgram = (): Command => {
-  const program = new Command();
+  const program = createCliCommand();
   program
     .name('cloudburn')
+    .usage('[command]')
     .description('Know what you spend. Fix what you waste.')
     .version(__VERSION__)
     .option('--format <format>', OUTPUT_FORMAT_OPTION_DESCRIPTION, parseOutputFormat);
+  configureCliHelp(program);
 
   registerCompletionCommand(program);
   registerDiscoverCommand(program);

@@ -210,7 +210,7 @@ printf '%s\\n' "\${COMPREPLY[@]}"
     expect(script).toContain('__complete --');
   });
 
-  it('rejects unsupported completion shells', async () => {
+  it('rejects unsupported completion shell usage', async () => {
     const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     const program = createProgram();
     const completionCommand = program.commands.find((command) => command.name() === 'completion');
@@ -219,10 +219,11 @@ printf '%s\\n' "\${COMPREPLY[@]}"
     completionCommand?.exitOverride();
 
     await expect(program.parseAsync(['completion', 'powershell'], { from: 'user' })).rejects.toMatchObject({
-      code: 'commander.invalidArgument',
+      code: 'commander.unknownCommand',
       exitCode: 1,
-      message: expect.stringContaining('powershell'),
+      message: expect.stringContaining("unknown command 'powershell'"),
     });
     expect(stderr).toHaveBeenCalled();
+    expect(stderr.mock.calls.map(([chunk]) => String(chunk)).join('')).toContain('Available Commands:');
   });
 });

@@ -4,7 +4,7 @@ Turborepo's core principle: **never do the same work twice**.
 
 ## The Cache Equation
 
-```
+```text
 fingerprint(inputs) → stored outputs
 ```
 
@@ -67,7 +67,7 @@ These affect specific tasks:
 
 ## Local Cache Location
 
-```
+```text
 .turbo/cache/
 ├── <hash1>.tar.zst    # compressed outputs
 ├── <hash2>.tar.zst

@@ -35,12 +35,12 @@ type FindingMatch = {
 };
 ```
 
-| Field        | Type             | Description |
-| ------------ | ---------------- | ----------- |
+| Field        | Type             | Description                                                                                                                                                 |
+| ------------ | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `resourceId` | `string`         | Provider-specific resource identity. Terraform uses resource addresses today; future CloudFormation support can use logical IDs or paths in the same field. |
-| `accountId`  | `string?`        | Account identifier when available. Omit it when unavailable. |
-| `region`     | `string?`        | Region when available. Omit it when unavailable. |
-| `location`   | `SourceLocation` | Source coordinates for IaC matches when available. |
+| `accountId`  | `string?`        | Account identifier when available. Omit it when unavailable.                                                                                                |
+| `region`     | `string?`        | Region when available. Omit it when unavailable.                                                                                                            |
+| `location`   | `SourceLocation` | Source coordinates for IaC matches when available.                                                                                                          |
 
 ## `Finding`
 
@@ -56,13 +56,13 @@ type Finding = {
 
 This is the rule-level group returned by a rule evaluator. Empty groups are not returned; evaluators return `null` instead.
 
-| Field      | Type          | Description |
-| ---------- | ------------- | ----------- |
-| `ruleId`   | `string`      | Stable CloudBurn rule identifier. |
-| `service`  | `string`      | Service name such as `ebs` or `ec2`. |
-| `source`   | `ScanSource`  | Whether the matches came from live discovery or static IaC analysis. |
-| `message`  | `string`      | Generic rule-level policy text shared by every nested match. |
-| `findings` | `FindingMatch[]` | Nested resource-level matches for the rule. |
+| Field      | Type             | Description                                                          |
+| ---------- | ---------------- | -------------------------------------------------------------------- |
+| `ruleId`   | `string`         | Stable CloudBurn rule identifier.                                    |
+| `service`  | `string`         | Service name such as `ebs` or `ec2`.                                 |
+| `source`   | `ScanSource`     | Whether the matches came from live discovery or static IaC analysis. |
+| `message`  | `string`         | Generic rule-level policy text shared by every nested match.         |
+| `findings` | `FindingMatch[]` | Nested resource-level matches for the rule.                          |
 
 ## `ProviderFindingGroup`
 

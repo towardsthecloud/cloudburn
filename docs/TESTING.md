@@ -12,20 +12,20 @@
 
 Three test layers, all in `packages/rules/test/`:
 
-| Layer                     | File                    | What it verifies |
-| ------------------------- | ----------------------- | ---------------- |
-| **1. Export surface**     | `exports.test.ts`       | `awsRules` is non-empty, preset rule count matches, `azureRules`/`gcpRules` are empty |
-| **2. Metadata contract**  | `rule-metadata.test.ts` | Every rule has non-empty `id`, `name`, `description`, and `supports` |
+| Layer                     | File                    | What it verifies                                                                        |
+| ------------------------- | ----------------------- | --------------------------------------------------------------------------------------- |
+| **1. Export surface**     | `exports.test.ts`       | `awsRules` is non-empty, preset rule count matches, `azureRules`/`gcpRules` are empty   |
+| **2. Metadata contract**  | `rule-metadata.test.ts` | Every rule has non-empty `id`, `name`, `description`, and `supports`                    |
 | **3. Evaluator behavior** | `{rule-name}.test.ts`   | Full finding payloads for both `evaluateLive` and `evaluateStatic`, plus negative cases |
 
 ### `@cloudburn/sdk`
 
 Mock at the provider/parser boundary — do not call real AWS APIs or read real files in unit tests.
 
-| Boundary         | Mock strategy |
-| ---------------- | ------------- |
-| AWS providers    | Mock Resource Explorer catalog helpers and hydrators to return fixture data |
-| Terraform parser | Mock `parseTerraform` to return `IaCResource[]` fixtures |
+| Boundary         | Mock strategy                                                                     |
+| ---------------- | --------------------------------------------------------------------------------- |
+| AWS providers    | Mock Resource Explorer catalog helpers and hydrators to return fixture data       |
+| Terraform parser | Mock `parseTerraform` to return `IaCResource[]` fixtures                          |
 | Config loader    | Mock `loadConfig` or pass config directly via `CloudBurnClient` runtime overrides |
 
 **Test focus areas:**
@@ -51,9 +51,9 @@ Split live AWS provider tests into three layers:
 
 Mock at the SDK boundary — do not run real scans.
 
-| Boundary           | Mock strategy |
-| ------------------ | ------------- |
-| `CloudBurnClient`      | Mock `.scanStatic()`, `.discover()`, and discovery helper methods |
+| Boundary              | Mock strategy                                                        |
+| --------------------- | -------------------------------------------------------------------- |
+| `CloudBurnClient`     | Mock `.scanStatic()`, `.discover()`, and discovery helper methods    |
 | `builtInRuleMetadata` | Use real built-in metadata unless explicitly testing the empty state |
 
 **Test focus areas:**

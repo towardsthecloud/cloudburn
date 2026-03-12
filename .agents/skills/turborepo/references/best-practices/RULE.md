@@ -6,7 +6,7 @@ Essential patterns for structuring and maintaining a healthy Turborepo monorepo.
 
 ### Standard Layout
 
-```
+```text
 my-monorepo/
 ├── apps/                    # Application packages (deployable)
 │   ├── web/
@@ -200,7 +200,7 @@ import { Button } from "@repo/ui/button";
 
 ### Shared Code in Apps
 
-```
+```text
 // BAD
 apps/
   web/

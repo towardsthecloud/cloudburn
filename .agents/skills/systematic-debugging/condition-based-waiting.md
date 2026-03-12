@@ -22,12 +22,14 @@ digraph when_to_use {
 ```
 
 **Use when:**
+
 - Tests have arbitrary delays (`setTimeout`, `sleep`, `time.sleep()`)
 - Tests are flaky (pass sometimes, fail under load)
 - Tests timeout when run in parallel
 - Waiting for async operations to complete
 
 **Don't use when:**
+
 - Testing actual timing behavior (debounce, throttle intervals)
 - Always document WHY if using arbitrary timeout
 
@@ -47,17 +49,18 @@ expect(result).toBeDefined();
 
 ## Quick Patterns
 
-| Scenario | Pattern |
-|----------|---------|
-| Wait for event | `waitFor(() => events.find(e => e.type === 'DONE'))` |
-| Wait for state | `waitFor(() => machine.state === 'ready')` |
-| Wait for count | `waitFor(() => items.length >= 5)` |
-| Wait for file | `waitFor(() => fs.existsSync(path))` |
-| Complex condition | `waitFor(() => obj.ready && obj.value > 10)` |
+| Scenario          | Pattern                                              |
+| ----------------- | ---------------------------------------------------- |
+| Wait for event    | `waitFor(() => events.find(e => e.type === 'DONE'))` |
+| Wait for state    | `waitFor(() => machine.state === 'ready')`           |
+| Wait for count    | `waitFor(() => items.length >= 5)`                   |
+| Wait for file     | `waitFor(() => fs.existsSync(path))`                 |
+| Complex condition | `waitFor(() => obj.ready && obj.value > 10)`         |
 
 ## Implementation
 
 Generic polling function:
+
 ```typescript
 async function waitFor<T>(
   condition: () => T | undefined | null | false,
@@ -102,6 +105,7 @@ await new Promise(r => setTimeout(r, 200));   // Then: wait for timed behavior
 ```
 
 **Requirements:**
+
 1. First wait for triggering condition
 2. Based on known timing (not guessing)
 3. Comment explaining WHY
@@ -109,6 +113,7 @@ await new Promise(r => setTimeout(r, 200));   // Then: wait for timed behavior
 ## Real-World Impact
 
 From debugging session (2025-10-03):
+
 - Fixed 15 flaky tests across 3 files
 - Pass rate: 60% → 100%
 - Execution time: 40% faster

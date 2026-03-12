@@ -6,7 +6,7 @@ Configuration reference for Turborepo. Full docs: https://turborepo.dev/docs/ref
 
 Root `turbo.json` lives at repo root, sibling to root `package.json`:
 
-```
+```text
 my-monorepo/
 ├── turbo.json        # Root configuration
 ├── package.json

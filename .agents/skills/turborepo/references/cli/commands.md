@@ -188,7 +188,7 @@ turbo build --ui=stream  # streaming logs (default in CI)
 
 ---
 
-# turbo-ignore
+## turbo-ignore
 
 Full docs: https://turborepo.dev/docs/reference/turbo-ignore
 
@@ -240,7 +240,7 @@ npx turbo-ignore --fallback=main
 
 ---
 
-# Other Commands
+## Other Commands
 
 ## turbo boundaries
 

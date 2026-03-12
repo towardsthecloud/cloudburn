@@ -10,6 +10,13 @@ npm install -g cloudburn
 
 ## Shell completion
 
+Inspect the available completion subcommands:
+
+```sh
+cloudburn completion
+cloudburn completion zsh --help
+```
+
 Generate a completion script for your shell and source it directly:
 
 ```sh
@@ -46,6 +53,8 @@ cloudburn scan ./template.yaml
 cloudburn scan ./iac
 cloudburn discover
 cloudburn discover --region all
+cloudburn rules
+cloudburn completion
 cloudburn completion zsh
 ```
 

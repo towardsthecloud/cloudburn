@@ -100,7 +100,7 @@ Root Tasks (`//#taskname`) are ONLY for tasks that truly cannot exist in package
 
 ### "I need to configure a task"
 
-```
+```text
 Configure a task?
 ├─ Define task dependencies → references/configuration/tasks.md
 ├─ Lint/check-types (parallel + caching) → Use Transit Nodes pattern (see below)
@@ -113,7 +113,7 @@ Configure a task?
 
 ### "My cache isn't working"
 
-```
+```text
 Cache problems?
 ├─ Tasks run but outputs not restored → Missing `outputs` key
 ├─ Cache misses unexpectedly → references/caching/gotchas.md
@@ -125,7 +125,7 @@ Cache problems?
 
 ### "I want to run only changed packages"
 
-```
+```text
 Run only what changed?
 ├─ Changed packages + dependents (RECOMMENDED) → turbo run build --affected
 ├─ Custom base branch → --affected --affected-base=origin/develop
@@ -137,7 +137,7 @@ Run only what changed?
 
 ### "I want to filter packages"
 
-```
+```text
 Filter packages?
 ├─ Only changed packages → --affected (see above)
 ├─ By package name → --filter=web
@@ -149,7 +149,7 @@ Filter packages?
 
 ### "Environment variables aren't working"
 
-```
+```text
 Environment issues?
 ├─ Vars not available at runtime → Strict mode filtering (default)
 ├─ Cache hits with wrong env → Var not in `env` key
@@ -160,7 +160,7 @@ Environment issues?
 
 ### "I need to set up CI"
 
-```
+```text
 CI setup?
 ├─ GitHub Actions → references/ci/github-actions.md
 ├─ Vercel deployment → references/ci/vercel.md
@@ -172,7 +172,7 @@ CI setup?
 
 ### "I want to watch for changes during development"
 
-```
+```text
 Watch mode?
 ├─ Re-run tasks on change → turbo watch (references/watch/RULE.md)
 ├─ Dev servers with dependencies → Use `with` key (references/configuration/tasks.md#with)
@@ -182,7 +182,7 @@ Watch mode?
 
 ### "I need to create/structure a package"
 
-```
+```text
 Package creation/structure?
 ├─ Create an internal package → references/best-practices/packages.md
 ├─ Repository structure → references/best-practices/structure.md
@@ -194,7 +194,7 @@ Package creation/structure?
 
 ### "How should I structure my monorepo?"
 
-```
+```text
 Monorepo structure?
 ├─ Standard layout (apps/, packages/) → references/best-practices/RULE.md
 ├─ Package types (apps vs libraries) → references/best-practices/RULE.md#package-types
@@ -207,7 +207,7 @@ Monorepo structure?
 
 ### "I want to enforce architectural boundaries"
 
-```
+```text
 Enforce boundaries?
 ├─ Check for violations → turbo boundaries
 ├─ Tag packages → references/boundaries/RULE.md#tags
@@ -629,7 +629,7 @@ Turbo does NOT load `.env` files - your framework does. But Turbo needs to know 
 
 A `.env` file at the repo root is an anti-pattern — even for small monorepos or starter templates. It creates implicit coupling between packages and makes it unclear which packages depend on which variables.
 
-```
+```text
 // WRONG - root .env affects all packages implicitly
 my-monorepo/
 ├── .env              # Which packages use this?
@@ -674,7 +674,7 @@ Or use `--env-mode=loose` (not recommended for production).
 
 ### Shared Code in Apps (Should Be a Package)
 
-```
+```text
 // WRONG: Shared code inside an app
 apps/
   web/

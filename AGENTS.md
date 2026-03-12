@@ -4,24 +4,24 @@
 
 <!-- Doc Mapping inspired by: https://openai.com/index/harness-engineering/ -->
 
-| Area                       | Doc                                                                                      | What it covers |
-| -------------------------- | ---------------------------------------------------------------------------------------- | -------------- |
-| **Architecture**           | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)                                           | Package graph, static scan flow, live discovery flow |
-| CLI internals              | [`docs/architecture/cli.md`](docs/architecture/cli.md)                                   | `scan` vs `discover`, formatter pipeline, exit-code contract |
+| Area                       | Doc                                                                                      | What it covers                                                                            |
+| -------------------------- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| **Architecture**           | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)                                           | Package graph, static scan flow, live discovery flow                                      |
+| CLI internals              | [`docs/architecture/cli.md`](docs/architecture/cli.md)                                   | `scan` vs `discover`, formatter pipeline, exit-code contract                              |
 | SDK internals              | [`docs/architecture/sdk.md`](docs/architecture/sdk.md)                                   | Scanner facade, config pipeline, dataset-driven live discovery, Resource Explorer catalog |
-| Rules internals            | [`docs/architecture/rules.md`](docs/architecture/rules.md)                               | Type hierarchy, dataset dependencies, rule assembly chain, ID convention |
-| **Guides**                 |                                                                                          |                |
-| Adding a rule              | [`docs/guides/adding-a-rule.md`](docs/guides/adding-a-rule.md)                           | End-to-end: file placement, createRule, tests, registration |
-| Adding a static dataset    | [`docs/guides/adding-a-static-dataset.md`](docs/guides/adding-a-static-dataset.md)       | Static dataset registry entries, parser selection, and rule-facing dataset contracts |
-| Adding a provider resource | [`docs/guides/adding-a-provider-resource.md`](docs/guides/adding-a-provider-resource.md) | Discovery dataset registry entries, dataset loaders, and rule-facing dataset contracts |
-| **Reference**              |                                                                                          |                |
-| Config schema              | [`docs/reference/config-schema.md`](docs/reference/config-schema.md)                     | Every `CloudBurnConfig` field, defaults, merge behavior |
-| Rule IDs                   | [`docs/reference/rule-ids.md`](docs/reference/rule-ids.md)                               | ID table, naming convention, presets |
-| Finding shape              | [`docs/reference/finding-shape.md`](docs/reference/finding-shape.md)                     | `Finding`, `ResourceLocation`, `ScanResult` type contracts |
-| **Infrastructure**         |                                                                                          |                |
-| Testing                    | [`docs/TESTING.md`](docs/TESTING.md)                                                     | Three-package test strategy, fixtures, TDD flow |
-| Turborepo                  | [`docs/TURBOREPO.md`](docs/TURBOREPO.md)                                                 | Task pipeline, boundaries, filtering |
-| Code review                | [`docs/REVIEW.md`](docs/REVIEW.md)                                                       | Non-obvious conventions and constraints for PR reviewers |
+| Rules internals            | [`docs/architecture/rules.md`](docs/architecture/rules.md)                               | Type hierarchy, dataset dependencies, rule assembly chain, ID convention                  |
+| **Guides**                 |                                                                                          |                                                                                           |
+| Adding a rule              | [`docs/guides/adding-a-rule.md`](docs/guides/adding-a-rule.md)                           | End-to-end: file placement, createRule, tests, registration                               |
+| Adding a static dataset    | [`docs/guides/adding-a-static-dataset.md`](docs/guides/adding-a-static-dataset.md)       | Static dataset registry entries, parser selection, and rule-facing dataset contracts      |
+| Adding a provider resource | [`docs/guides/adding-a-provider-resource.md`](docs/guides/adding-a-provider-resource.md) | Discovery dataset registry entries, dataset loaders, and rule-facing dataset contracts    |
+| **Reference**              |                                                                                          |                                                                                           |
+| Config schema              | [`docs/reference/config-schema.md`](docs/reference/config-schema.md)                     | Every `CloudBurnConfig` field, defaults, merge behavior                                   |
+| Rule IDs                   | [`docs/reference/rule-ids.md`](docs/reference/rule-ids.md)                               | ID table, naming convention, presets                                                      |
+| Finding shape              | [`docs/reference/finding-shape.md`](docs/reference/finding-shape.md)                     | `Finding`, `ResourceLocation`, `ScanResult` type contracts                                |
+| **Infrastructure**         |                                                                                          |                                                                                           |
+| Testing                    | [`docs/TESTING.md`](docs/TESTING.md)                                                     | Three-package test strategy, fixtures, TDD flow                                           |
+| Turborepo                  | [`docs/TURBOREPO.md`](docs/TURBOREPO.md)                                                 | Task pipeline, boundaries, filtering                                                      |
+| Code review                | [`docs/REVIEW.md`](docs/REVIEW.md)                                                       | Non-obvious conventions and constraints for PR reviewers                                  |
 
 ## Code Style
 

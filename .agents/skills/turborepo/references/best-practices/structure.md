@@ -130,7 +130,7 @@ packages:
 
 This allows:
 
-```
+```text
 packages/
 ├── ui/
 ├── utils/
@@ -155,7 +155,7 @@ packages:
 
 ### Minimum Required Files
 
-```
+```text
 packages/ui/
 ├── package.json    # Required: Makes it a package
 ├── src/            # Source code
@@ -183,7 +183,7 @@ packages/ui/
 
 Create a shared TypeScript config package:
 
-```
+```text
 packages/
 └── typescript-config/
     ├── package.json
@@ -229,7 +229,7 @@ You likely don't need a `tsconfig.json` in the workspace root. Each package shou
 
 ### Shared Config Package
 
-```
+```text
 packages/
 └── eslint-config/
     ├── package.json

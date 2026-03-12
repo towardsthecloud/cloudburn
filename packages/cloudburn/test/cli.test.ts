@@ -35,7 +35,7 @@ describe('cli', () => {
     const help = stdout.mock.calls.map(([chunk]) => String(chunk)).join('');
 
     expect(help).toContain('--format <format>');
-    expect(help).toContain('completion <shell>');
+    expect(help).toContain('completion');
     expect(help).toContain('table: human-readable terminal output');
     expect(help).toContain('text: tab-delimited output for grep, sed, and awk');
     expect(help).toContain('json: machine-readable output for automation and');

@@ -4,13 +4,13 @@ Source of truth: `packages/sdk/src/types.ts` (type), `packages/sdk/src/config/de
 
 ## `CloudBurnConfig` Fields
 
-| Field          | Type                                         | Default | Status | Description |
-| -------------- | -------------------------------------------- | ------- | ------ | ----------- |
-| `version`      | `number`                                     | `1`     | Active | Config schema version. Currently always `1` (`CLOUDBURN_CONFIG_VERSION` in `schema.ts`). |
-| `profile`      | `string`                                     | `'dev'` | Active | Active profile name. Selects which entry in `profiles` to apply. |
-| `profiles`     | `Record<string, Record<string, RuleConfig>>` | `{}`    | TODO   | Named profile definitions. Each profile maps rule names to `RuleConfig` overrides. Not yet consumed by the engine. |
-| `rules`        | `Record<string, RuleConfig>`                 | `{}`    | TODO   | Global rule configuration overrides. Not yet consumed by `buildRuleRegistry`. |
-| `customRules`  | `string[]`                                   | `[]`    | TODO   | Paths to custom rule modules. Not yet loaded by the registry. |
+| Field         | Type                                         | Default | Status | Description                                                                                                        |
+| ------------- | -------------------------------------------- | ------- | ------ | ------------------------------------------------------------------------------------------------------------------ |
+| `version`     | `number`                                     | `1`     | Active | Config schema version. Currently always `1` (`CLOUDBURN_CONFIG_VERSION` in `schema.ts`).                           |
+| `profile`     | `string`                                     | `'dev'` | Active | Active profile name. Selects which entry in `profiles` to apply.                                                   |
+| `profiles`    | `Record<string, Record<string, RuleConfig>>` | `{}`    | TODO   | Named profile definitions. Each profile maps rule names to `RuleConfig` overrides. Not yet consumed by the engine. |
+| `rules`       | `Record<string, RuleConfig>`                 | `{}`    | TODO   | Global rule configuration overrides. Not yet consumed by `buildRuleRegistry`.                                      |
+| `customRules` | `string[]`                                   | `[]`    | TODO   | Paths to custom rule modules. Not yet loaded by the registry.                                                      |
 
 `RuleConfig` is `Record<string, unknown>` — an open bag for rule-specific settings and future per-rule overrides.
 

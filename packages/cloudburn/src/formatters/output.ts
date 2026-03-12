@@ -66,7 +66,7 @@ const scanColumns: ColumnSpec[] = [
 ];
 
 const formatOptionDescription =
-  'Output format. table: human-readable terminal output. text: tab-delimited output for grep, sed, and awk. json: machine-readable output for automation and downstream systems.';
+  'Options: table: human-readable terminal output.\ntext: tab-delimited output for grep, sed, and awk.\njson: machine-readable output for automation and downstream systems.';
 
 /** Shared `--format` help text used across root and compatibility aliases. */
 export const OUTPUT_FORMAT_OPTION_DESCRIPTION = formatOptionDescription;

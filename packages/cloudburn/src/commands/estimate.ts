@@ -1,13 +1,7 @@
 import type { Command } from 'commander';
-import {
-  OUTPUT_FORMAT_OPTION_DESCRIPTION,
-  parseOutputFormat,
-  renderResponse,
-  resolveOutputFormat,
-} from '../formatters/output.js';
+import { renderResponse, resolveOutputFormat } from '../formatters/output.js';
 
 type EstimateOptions = {
-  format?: 'json' | 'table' | 'text';
   server?: string;
 };
 
@@ -17,10 +11,9 @@ export const registerEstimateCommand = (program: Command): void => {
   program
     .command('estimate')
     .description('Request optional pricing estimates from a self-hosted dashboard')
-    .option('--format <format>', OUTPUT_FORMAT_OPTION_DESCRIPTION, parseOutputFormat)
     .option('--server <url>', 'Dashboard API base URL')
     .action((options: EstimateOptions, command: Command) => {
-      const format = resolveOutputFormat(command, options.format);
+      const format = resolveOutputFormat(command);
 
       if (!options.server) {
         const output = renderResponse(

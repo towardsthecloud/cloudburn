@@ -50,11 +50,11 @@ Vitest across all three packages. When adding or modifying a rule, all three tes
 
 Mock boundaries:
 
-| Package            | What to mock |
-| ------------------ | ------------ |
-| `@cloudburn/rules` | Nothing — pure unit tests |
+| Package            | What to mock                                                                                                     |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| `@cloudburn/rules` | Nothing — pure unit tests                                                                                        |
 | `@cloudburn/sdk`   | Static dataset loaders/orchestration seams, Resource Explorer catalog helpers, discovery hydrators, `loadConfig` |
-| `cloudburn` (cli)  | `CloudBurnClient.scanStatic()` / `.discover()` |
+| `cloudburn` (cli)  | `CloudBurnClient.scanStatic()` / `.discover()`                                                                   |
 
 ## Build Pipeline
 

@@ -151,7 +151,7 @@ export default function Page() {
 
 ### Good Examples
 
-```
+```text
 packages/
 ├── ui/                  # Shared UI components
 ├── utils/               # General utilities
@@ -164,7 +164,7 @@ packages/
 
 ### Avoid Mega-Packages
 
-```
+```text
 // BAD: One package for everything
 packages/
 └── shared/
