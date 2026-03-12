@@ -1,7 +1,32 @@
 import { describe, expect, it } from 'vitest';
 import { rdsPreferredInstanceClassRule } from '../src/aws/rds/preferred-instance-classes.js';
-import type { AwsStaticRdsInstance } from '../src/index.js';
-import { StaticResourceBag } from '../src/index.js';
+import type { AwsDiscoveredResource, AwsStaticRdsInstance } from '../src/index.js';
+import { LiveResourceBag, StaticResourceBag } from '../src/index.js';
+
+const createDiscoveredResource = (overrides: Partial<AwsDiscoveredResource> = {}): AwsDiscoveredResource => ({
+  arn: 'arn:aws:rds:us-east-1:123456789012:db:legacy-db',
+  accountId: '123456789012',
+  region: 'us-east-1',
+  service: 'rds',
+  resourceType: 'rds:db',
+  properties: [],
+  ...overrides,
+});
+
+const createLiveRdsInstance = (
+  overrides: Partial<{
+    accountId: string;
+    dbInstanceIdentifier: string;
+    instanceClass: string;
+    region: string;
+  }> = {},
+) => ({
+  accountId: '123456789012',
+  dbInstanceIdentifier: 'legacy-db',
+  instanceClass: 'db.m6i.large',
+  region: 'us-east-1',
+  ...overrides,
+});
 
 const createStaticRdsInstance = (overrides: Partial<AwsStaticRdsInstance> = {}): AwsStaticRdsInstance => ({
   instanceClass: 'db.m6i.large',
@@ -15,10 +40,38 @@ const createStaticRdsInstance = (overrides: Partial<AwsStaticRdsInstance> = {}):
 });
 
 describe('rdsPreferredInstanceClassRule', () => {
-  it('declares static IaC metadata for RDS DB instances', () => {
-    expect(rdsPreferredInstanceClassRule.supports).toEqual(['iac']);
+  it('flags non-preferred RDS DB instances in discovery mode', () => {
+    const finding = rdsPreferredInstanceClassRule.evaluateLive?.({
+      catalog: {
+        resources: [createDiscoveredResource()],
+        searchRegion: 'us-east-1',
+        indexType: 'LOCAL',
+      },
+      resources: new LiveResourceBag({
+        'aws-rds-instances': [createLiveRdsInstance()],
+      } as never),
+    });
+
+    expect(finding).toEqual({
+      ruleId: 'CLDBRN-AWS-RDS-1',
+      service: 'rds',
+      source: 'discovery',
+      message: 'RDS DB instances should use preferred instance classes.',
+      findings: [
+        {
+          resourceId: 'legacy-db',
+          region: 'us-east-1',
+          accountId: '123456789012',
+        },
+      ],
+    });
+  });
+
+  it('declares static and live metadata for RDS DB instances', () => {
+    expect(rdsPreferredInstanceClassRule.supports).toEqual(['iac', 'discovery']);
+    expect(rdsPreferredInstanceClassRule.discoveryDependencies).toEqual(['aws-rds-instances']);
     expect(rdsPreferredInstanceClassRule.staticDependencies).toEqual(['aws-rds-instances']);
-    expect(rdsPreferredInstanceClassRule.evaluateLive).toBeUndefined();
+    expect(rdsPreferredInstanceClassRule.evaluateLive).toBeTypeOf('function');
   });
 
   it('flags non-preferred Terraform aws_db_instance resources', () => {

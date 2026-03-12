@@ -18,6 +18,7 @@ export type {
   AwsEbsVolume,
   AwsEc2Instance,
   AwsLambdaFunction,
+  AwsRdsInstance,
   AwsResourceProperty,
   AwsS3BucketAnalysis,
   AwsS3BucketAnalysisFlags,

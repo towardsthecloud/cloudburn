@@ -1,7 +1,7 @@
 import { awsRules } from '@cloudburn/rules';
 import { describe, expect, it } from 'vitest';
 import { listBuiltInRuleMetadata } from '../src/built-in-rules.js';
-import { builtInRuleMetadata, parseIaC, type Rule } from '../src/index.js';
+import { type AwsRdsInstance, builtInRuleMetadata, parseIaC, type Rule } from '../src/index.js';
 
 const createRuleFixture = (id: string): Rule => ({
   description: id,
@@ -61,7 +61,7 @@ describe('sdk exports', () => {
         id: 'CLDBRN-AWS-RDS-1',
         provider: 'aws',
         service: 'rds',
-        supports: ['iac'],
+        supports: ['iac', 'discovery'],
       },
       {
         description: 'Ensure S3 buckets define lifecycle management policies.',
@@ -89,6 +89,17 @@ describe('sdk exports', () => {
         createRuleFixture('CLDBRN-AWS-EC2-1'),
       ]).map((rule) => rule.id),
     ).toEqual(['CLDBRN-AWS-EC2-1', 'CLDBRN-AWS-EC2-2', 'CLDBRN-AWS-EC2-10']);
+  });
+
+  it('exports live RDS dataset types from the package root', () => {
+    const instance: AwsRdsInstance = {
+      accountId: '123456789012',
+      dbInstanceIdentifier: 'legacy-db',
+      instanceClass: 'db.m6i.large',
+      region: 'us-east-1',
+    };
+
+    expect(instance.dbInstanceIdentifier).toBe('legacy-db');
   });
 
   it('clones supports arrays so metadata consumers cannot mutate source rule definitions', () => {

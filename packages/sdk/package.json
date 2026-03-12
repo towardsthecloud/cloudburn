@@ -33,6 +33,7 @@
   "dependencies": {
     "@aws-sdk/client-ec2": "^3.1003.0",
     "@aws-sdk/client-lambda": "^3.1003.0",
+    "@aws-sdk/client-rds": "^3.1003.0",
     "@aws-sdk/client-resource-explorer-2": "^3.1003.0",
     "@aws-sdk/client-s3": "^3.1006.0",
     "@aws-sdk/client-sts": "^3.1003.0",

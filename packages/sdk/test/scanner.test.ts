@@ -168,6 +168,60 @@ describe('CloudBurnClient', () => {
     });
   });
 
+  it('returns non-preferred RDS DB instance findings discovered during live scans', async () => {
+    mockedDiscoverAwsResources.mockResolvedValue({
+      catalog: discoveryCatalog,
+      resources: new LiveResourceBag({
+        'aws-rds-instances': [
+          {
+            accountId: '123456789012',
+            dbInstanceIdentifier: 'legacy-db',
+            instanceClass: 'db.m6i.large',
+            region: 'us-east-1',
+          },
+          {
+            accountId: '123456789012',
+            dbInstanceIdentifier: 'current-db',
+            instanceClass: 'db.r8g.large',
+            region: 'us-east-1',
+          },
+        ],
+      } as never),
+    });
+
+    const scanner = new CloudBurnClient();
+
+    const result = await scanner.discover({
+      target: {
+        mode: 'region',
+        region: 'us-east-1',
+      },
+    });
+
+    expect(result).toEqual({
+      providers: [
+        {
+          provider: 'aws',
+          rules: [
+            {
+              ruleId: 'CLDBRN-AWS-RDS-1',
+              service: 'rds',
+              source: 'discovery',
+              message: 'RDS DB instances should use preferred instance classes.',
+              findings: [
+                {
+                  resourceId: 'legacy-db',
+                  region: 'us-east-1',
+                  accountId: '123456789012',
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+  });
+
   it('defaults discover to the current region target when none is provided', async () => {
     mockedDiscoverAwsResources.mockResolvedValue({
       catalog: discoveryCatalog,

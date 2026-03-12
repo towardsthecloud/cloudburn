@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import type { AwsEc2Instance, AwsStaticRdsInstance, DiscoveryDatasetKey, StaticDatasetKey } from '../src/index.js';
+import type {
+  AwsEc2Instance,
+  AwsRdsInstance,
+  AwsStaticRdsInstance,
+  DiscoveryDatasetKey,
+  StaticDatasetKey,
+} from '../src/index.js';
 import {
   awsCorePreset,
   awsRules,
@@ -42,10 +48,18 @@ describe('rule exports', () => {
       resourceId: 'aws_db_instance.current',
     };
 
-    const datasetKey: DiscoveryDatasetKey = 'aws-ec2-instances';
+    const liveRdsInstance: AwsRdsInstance = {
+      accountId: '123456789012',
+      dbInstanceIdentifier: 'legacy-db',
+      instanceClass: 'db.m6i.large',
+      region: 'us-east-1',
+    };
+
+    const datasetKey: DiscoveryDatasetKey = 'aws-rds-instances';
     const staticDatasetKey: StaticDatasetKey = 'aws-rds-instances';
 
-    expect(datasetKey).toBe('aws-ec2-instances');
+    expect(datasetKey).toBe('aws-rds-instances');
+    expect(liveRdsInstance.dbInstanceIdentifier).toBe('legacy-db');
     expect(rdsInstance.instanceClass).toBe('db.m8g.large');
     expect(staticDatasetKey).toBe('aws-rds-instances');
   });

@@ -17,6 +17,7 @@ import {
 import { hydrateAwsEbsVolumes } from '../../src/providers/aws/resources/ebs.js';
 import { hydrateAwsEc2Instances } from '../../src/providers/aws/resources/ec2.js';
 import { hydrateAwsLambdaFunctions } from '../../src/providers/aws/resources/lambda.js';
+import { hydrateAwsRdsInstances } from '../../src/providers/aws/resources/rds.js';
 import { hydrateAwsS3BucketAnalyses } from '../../src/providers/aws/resources/s3.js';
 
 vi.mock('../../src/providers/aws/client.js', () => ({
@@ -43,6 +44,10 @@ vi.mock('../../src/providers/aws/resources/lambda.js', () => ({
   hydrateAwsLambdaFunctions: vi.fn(),
 }));
 
+vi.mock('../../src/providers/aws/resources/rds.js', () => ({
+  hydrateAwsRdsInstances: vi.fn(),
+}));
+
 vi.mock('../../src/providers/aws/resources/s3.js', () => ({
   hydrateAwsS3BucketAnalyses: vi.fn(),
 }));
@@ -56,6 +61,7 @@ const mockedListAwsDiscoverySupportedResourceTypes = vi.mocked(listAwsDiscoveryS
 const mockedHydrateAwsEbsVolumes = vi.mocked(hydrateAwsEbsVolumes);
 const mockedHydrateAwsEc2Instances = vi.mocked(hydrateAwsEc2Instances);
 const mockedHydrateAwsLambdaFunctions = vi.mocked(hydrateAwsLambdaFunctions);
+const mockedHydrateAwsRdsInstances = vi.mocked(hydrateAwsRdsInstances);
 const mockedHydrateAwsS3BucketAnalyses = vi.mocked(hydrateAwsS3BucketAnalyses);
 
 const catalog: AwsDiscoveryCatalog = {
@@ -92,6 +98,14 @@ const catalog: AwsDiscoveryCatalog = {
       region: 'us-east-1',
       resourceType: 's3:bucket',
       service: 's3',
+    },
+    {
+      accountId: '123456789012',
+      arn: 'arn:aws:rds:us-east-1:123456789012:db:legacy-db',
+      properties: [],
+      region: 'us-east-1',
+      resourceType: 'rds:db',
+      service: 'rds',
     },
   ],
   searchRegion: 'us-east-1',
@@ -239,6 +253,39 @@ describe('discoverAwsResources', () => {
     expect(mockedHydrateAwsEbsVolumes).not.toHaveBeenCalled();
     expect(mockedHydrateAwsEc2Instances).not.toHaveBeenCalled();
     expect(mockedHydrateAwsLambdaFunctions).not.toHaveBeenCalled();
+  });
+
+  it('hydrates RDS DB instances when an active rule requires the shared RDS dataset', async () => {
+    mockedBuildAwsDiscoveryCatalog.mockResolvedValue(catalog);
+    mockedHydrateAwsRdsInstances.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        dbInstanceIdentifier: 'legacy-db',
+        instanceClass: 'db.m6i.large',
+        region: 'us-east-1',
+      },
+    ]);
+
+    const result = await discoverAwsResources(
+      [
+        createRule({
+          discoveryDependencies: ['aws-rds-instances' as Rule['discoveryDependencies'][number]],
+          service: 'rds',
+        }),
+      ],
+      { mode: 'region', region: 'us-east-1' },
+    );
+
+    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith({ mode: 'region', region: 'us-east-1' }, ['rds:db']);
+    expect(mockedHydrateAwsRdsInstances).toHaveBeenCalledWith([catalog.resources[4]]);
+    expect(result.resources.get('aws-rds-instances' as never)).toEqual([
+      {
+        accountId: '123456789012',
+        dbInstanceIdentifier: 'legacy-db',
+        instanceClass: 'db.m6i.large',
+        region: 'us-east-1',
+      },
+    ]);
   });
 
   it('returns an empty catalog without Resource Explorer calls when no live rules require discovery metadata', async () => {

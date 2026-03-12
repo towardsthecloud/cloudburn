@@ -1,5 +1,6 @@
 import { DescribeRegionsCommand, EC2Client } from '@aws-sdk/client-ec2';
 import { LambdaClient } from '@aws-sdk/client-lambda';
+import { RDSClient } from '@aws-sdk/client-rds';
 import { ResourceExplorer2Client } from '@aws-sdk/client-resource-explorer-2';
 import { S3Client } from '@aws-sdk/client-s3';
 import { GetCallerIdentityCommand, STSClient } from '@aws-sdk/client-sts';
@@ -37,6 +38,12 @@ export const createEc2Client = (config: AwsClientConfig): EC2Client =>
 /** Creates an AWS Lambda client for a specific region. */
 export const createLambdaClient = (config: AwsClientConfig): LambdaClient =>
   new LambdaClient({
+    region: config.region,
+  });
+
+/** Creates an AWS RDS client for a specific region. */
+export const createRdsClient = (config: AwsClientConfig): RDSClient =>
+  new RDSClient({
     region: config.region,
   });
 

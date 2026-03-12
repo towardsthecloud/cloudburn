@@ -40,6 +40,14 @@ export type AwsLambdaFunction = {
   accountId: string;
 };
 
+/** Discovered AWS RDS DB instance with its normalized instance class. */
+export type AwsRdsInstance = {
+  dbInstanceIdentifier: string;
+  instanceClass: string;
+  region: string;
+  accountId: string;
+};
+
 /** Shared S3 lifecycle and storage-optimization analysis flags across scan modes. */
 export type AwsS3BucketAnalysisFlags = {
   hasLifecycleSignal: boolean;
@@ -88,6 +96,7 @@ export type DiscoveryDatasetKey =
   | 'aws-ebs-volumes'
   | 'aws-ec2-instances'
   | 'aws-lambda-functions'
+  | 'aws-rds-instances'
   | 'aws-s3-bucket-analyses';
 
 /** Normalized live discovery datasets available to rule evaluators. */
@@ -95,15 +104,12 @@ export type DiscoveryDatasetMap = {
   'aws-ebs-volumes': AwsEbsVolume[];
   'aws-ec2-instances': AwsEc2Instance[];
   'aws-lambda-functions': AwsLambdaFunction[];
+  'aws-rds-instances': AwsRdsInstance[];
   'aws-s3-bucket-analyses': AwsS3BucketAnalysis[];
 };
 
 /** Rule-facing static IaC dataset key exposed through the evaluation context. */
-export type StaticDatasetKey =
-  | DiscoveryDatasetKey
-  | 'aws-ec2-vpc-endpoints'
-  | 'aws-rds-instances'
-  | 'aws-s3-bucket-analyses';
+export type StaticDatasetKey = DiscoveryDatasetKey | 'aws-ec2-vpc-endpoints' | 'aws-s3-bucket-analyses';
 
 /** Normalized static EBS volume dataset entry with a precomputed finding target. */
 export type AwsStaticEbsVolume = {

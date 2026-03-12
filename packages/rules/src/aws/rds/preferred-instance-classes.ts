@@ -21,8 +21,17 @@ export const rdsPreferredInstanceClassRule = createRule({
   message: RULE_MESSAGE,
   provider: 'aws',
   service: RULE_SERVICE,
-  supports: ['iac'],
+  supports: ['iac', 'discovery'],
+  discoveryDependencies: ['aws-rds-instances'],
   staticDependencies: ['aws-rds-instances'],
+  evaluateLive: ({ resources }) => {
+    const findings = resources
+      .get('aws-rds-instances')
+      .filter((instance) => getPreferredInstanceState(instance.instanceClass) === 'non-preferred')
+      .map((instance) => createFindingMatch(instance.dbInstanceIdentifier, instance.region, instance.accountId));
+
+    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+  },
   evaluateStatic: ({ resources }) => {
     const findings = resources
       .get('aws-rds-instances')

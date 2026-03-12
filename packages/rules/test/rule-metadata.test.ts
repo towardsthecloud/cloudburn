@@ -67,7 +67,8 @@ describe('rule metadata', () => {
       message: 'RDS DB instances should use preferred instance classes.',
       provider: 'aws',
       service: 'rds',
-      supports: ['iac'],
+      supports: ['iac', 'discovery'],
+      discoveryDependencies: ['aws-rds-instances'],
       staticDependencies: ['aws-rds-instances'],
     });
   });

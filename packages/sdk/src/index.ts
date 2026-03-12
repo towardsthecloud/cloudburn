@@ -15,6 +15,7 @@ export type {
   AwsEbsVolume,
   AwsEc2Instance,
   AwsLambdaFunction,
+  AwsRdsInstance,
   AwsSupportedResourceType,
   BuiltInRuleMetadata,
   CloudBurnConfig,
