@@ -1,5 +1,6 @@
 import { pathToFileURL } from 'node:url';
 import { Command } from 'commander';
+import { registerCompletionCommand } from './commands/completion.js';
 import { registerDiscoverCommand } from './commands/discover.js';
 import { registerEstimateCommand } from './commands/estimate.js';
 import { registerInitCommand } from './commands/init.js';
@@ -19,6 +20,7 @@ export const createProgram = (): Command => {
     .version(__VERSION__)
     .option('--format <format>', OUTPUT_FORMAT_OPTION_DESCRIPTION, parseOutputFormat);
 
+  registerCompletionCommand(program);
   registerDiscoverCommand(program);
   registerScanCommand(program);
   registerInitCommand(program);

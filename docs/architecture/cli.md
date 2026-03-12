@@ -9,6 +9,7 @@ graph TD
   Root --> Init["init"]
   Root --> Rules["rules"]
   Root --> Estimate["estimate"]
+  Root --> Completion["completion <shell>"]
   Rules --> RulesList["list"]
   Discover --> DiscoverRegions["list-enabled-regions"]
   Discover --> DiscoverInit["init"]
@@ -52,7 +53,9 @@ All stdout-producing commands return a typed `CliResponse` and share the same fo
 - `discover init` bootstraps Resource Explorer through the SDK and renders a status response through the shared formatter system.
 - `rules list` renders built-in rule metadata grouped by provider and service for human-readable output and emits flat rule metadata objects in JSON mode.
 - `init`, `rules list`, and `estimate` also use the shared formatter system instead of ad hoc string output.
+- `completion <shell>` prints shell completion scripts for `zsh`, `bash`, and `fish`.
 - `--format` is documented as a global option and defaults to `table`, except `init`, which preserves raw YAML text by default for redirection workflows, and `rules list`, which defaults to grouped text output.
+- The hidden `__complete` command exists only as the runtime hook for generated shell scripts.
 - `--exit-code` counts nested matches across all provider and rule groups.
 - Runtime errors still write a structured JSON envelope to `stderr`.
 
@@ -68,6 +71,7 @@ cloudburn discover --region all
 cloudburn discover list-enabled-regions
 cloudburn discover init
 cloudburn rules list
+cloudburn completion zsh
 cloudburn --format json scan ./iac
 ```
 

@@ -2,6 +2,8 @@
 
 ## Documentation Map
 
+<!-- Doc Mapping inspired by: https://openai.com/index/harness-engineering/ -->
+
 | Area                       | Doc                                                                                      | What it covers |
 | -------------------------- | ---------------------------------------------------------------------------------------- | -------------- |
 | **Architecture**           | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)                                           | Package graph, static scan flow, live discovery flow |

@@ -8,6 +8,29 @@ Command-line interface for Cloudburn cloud cost optimization.
 npm install -g cloudburn
 ```
 
+## Shell completion
+
+Generate a completion script for your shell and source it directly:
+
+```sh
+source <(cloudburn completion zsh)
+source <(cloudburn completion bash)
+cloudburn completion fish | source
+```
+
+To enable completion persistently, add one of the following lines to your shell config:
+
+```sh
+# ~/.zshrc
+source <(cloudburn completion zsh)
+
+# ~/.bashrc
+source <(cloudburn completion bash)
+
+# ~/.config/fish/config.fish
+cloudburn completion fish | source
+```
+
 ## Usage
 
 ```sh
@@ -23,6 +46,7 @@ cloudburn scan ./template.yaml
 cloudburn scan ./iac
 cloudburn discover
 cloudburn discover --region all
+cloudburn completion zsh
 ```
 
 `cloudburn scan --format json` emits the lean canonical grouped result:
