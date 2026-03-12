@@ -4,42 +4,74 @@ Source of truth: `packages/sdk/src/types.ts` (type), `packages/sdk/src/config/de
 
 ## `CloudBurnConfig` Fields
 
-| Field         | Type                                         | Default | Status | Description                                                                                                        |
-| ------------- | -------------------------------------------- | ------- | ------ | ------------------------------------------------------------------------------------------------------------------ |
-| `version`     | `number`                                     | `1`     | Active | Config schema version. Currently always `1` (`CLOUDBURN_CONFIG_VERSION` in `schema.ts`).                           |
-| `profile`     | `string`                                     | `'dev'` | Active | Active profile name. Selects which entry in `profiles` to apply.                                                   |
-| `profiles`    | `Record<string, Record<string, RuleConfig>>` | `{}`    | TODO   | Named profile definitions. Each profile maps rule names to `RuleConfig` overrides. Not yet consumed by the engine. |
-| `rules`       | `Record<string, RuleConfig>`                 | `{}`    | TODO   | Global rule configuration overrides. Not yet consumed by `buildRuleRegistry`.                                      |
-| `customRules` | `string[]`                                   | `[]`    | TODO   | Paths to custom rule modules. Not yet loaded by the registry.                                                      |
+| Field       | Type                   | Default | Description                                                                 |
+| ----------- | ---------------------- | ------- | --------------------------------------------------------------------------- |
+| `iac`       | `CloudBurnModeConfig`  | `{}`    | Default rule and format settings for `cloudburn scan`.                      |
+| `discovery` | `CloudBurnModeConfig`  | `{}`    | Default rule and format settings for `cloudburn discover`.                  |
 
-`RuleConfig` is `Record<string, unknown>` — an open bag for rule-specific settings and future per-rule overrides.
+Each mode uses the same fields:
+
+| Field            | Type                         | Default | Description                                                                 |
+| ---------------- | ---------------------------- | ------- | --------------------------------------------------------------------------- |
+| `enabled-rules`  | `string[]`                   | unset   | If present, only the listed rule IDs remain active for that mode.          |
+| `disabled-rules` | `string[]`                   | unset   | Rule IDs to remove from the active set after `enabled-rules` is applied.   |
+| `format`         | `'text' \| 'json' \| 'table'` | unset   | Default CLI output format for that mode when `--format` is not passed.     |
 
 ## Merge Behavior
 
 `mergeConfig(partial?)` in `config/merge.ts`:
 
 1. Start with `defaultConfig`.
-2. Shallow-spread top-level scalar fields (`version`, `profile`, `customRules`).
-3. Deep-spread `profiles`.
-4. Deep-spread `rules`.
+2. Merge `iac` and `discovery` independently.
+3. Replace `enabledRules` and `disabledRules` arrays when an override is present.
+4. Preserve untouched fields in the other mode or on the same mode.
 
 The `CloudBurnClient` facade also merges runtime overrides through `mergeConfig()`.
 
 ## Config Loading
 
-`loadConfig(path?)` in `config/loader.ts` currently ignores the `path` argument and returns `mergeConfig()` (pure defaults). Reading `.cloudburn.yml` from disk is still a TODO.
+`loadConfig(path?)` in `config/loader.ts` behaves as follows:
+
+- explicit `path`: load that exact file
+- no `path`: search upward from `process.cwd()` for `.cloudburn.yml` or `.cloudburn.yaml`
+- stop the upward search at the git root if one exists, otherwise at the filesystem root
+- if no config file is found, return defaults
+
+Validation fails fast for:
+
+- invalid YAML
+- unknown top-level or section keys
+- invalid field types
+- invalid `format`
+- unknown rule IDs
+- rule IDs that do not support the targeted mode
+- the same rule ID appearing in both `enabled-rules` and `disabled-rules`
+- both `.cloudburn.yml` and `.cloudburn.yaml` in the same directory
 
 ## Starter YAML
 
-Printed by `cloudburn init` (from `packages/cloudburn/src/commands/init.ts`):
+Printed by `cloudburn init config --print` (from `packages/cloudburn/src/commands/init.ts`):
 
 ```yaml
-version: 1
-profile: dev
+# Static IaC scan configuration.
+# enabled-rules restricts scans to only the listed rule IDs.
+# disabled-rules removes specific rule IDs from the active set.
+# format sets the default output format when --format is not passed.
+iac:
+  enabled-rules:
+    - CLDBRN-AWS-EBS-1
+  disabled-rules:
+    - CLDBRN-AWS-EC2-2
+  format: table
 
-rules:
-  ec2-instance-type-preferred:
-    severity: error
+# Live AWS discovery configuration.
+# Use the same rule controls here to tune discover runs separately from IaC scans.
+discovery:
+  enabled-rules:
+    - CLDBRN-AWS-EBS-1
+  disabled-rules:
+    - CLDBRN-AWS-S3-1
+  format: json
 ```
 
 ## Live Discovery Semantics

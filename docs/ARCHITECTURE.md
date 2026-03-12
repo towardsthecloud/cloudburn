@@ -25,11 +25,11 @@ sequenceDiagram
   participant Parser as IaC Parser
   participant Engine as runStaticScan
 
-  CLI->>Scanner: scanStatic(path, config?)
+  CLI->>Scanner: scanStatic(path, config?, { configPath? })
   Scanner->>Config: loadConfig()
   Config-->>Scanner: CloudBurnConfig
   Scanner->>Engine: runStaticScan(path, config)
-  Engine->>Registry: buildRuleRegistry(config)
+  Engine->>Registry: buildRuleRegistry(config, 'iac')
   Registry-->>Engine: activeRules[]
   Engine->>Engine: collect staticDependencies
   Engine->>Parser: parseIaC(path, required sourceKinds)
@@ -53,11 +53,11 @@ sequenceDiagram
   participant AWS as AWS Provider
   participant Engine as runLiveScan
 
-  CLI->>Scanner: discover({ target })
+  CLI->>Scanner: discover({ target, config?, configPath? })
   Scanner->>Config: loadConfig()
   Config-->>Scanner: CloudBurnConfig
   Scanner->>Engine: runLiveScan(config, target)
-  Engine->>Registry: buildRuleRegistry(config)
+  Engine->>Registry: buildRuleRegistry(config, 'discovery')
   Registry-->>Engine: activeRules[]
   Engine->>AWS: discoverAwsResources(target, activeRules)
   AWS-->>Engine: LiveEvaluationContext

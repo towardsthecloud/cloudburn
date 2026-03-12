@@ -28,7 +28,18 @@ import type {
 // Intent: define SDK-facing contracts for scanner orchestration.
 // TODO(cloudburn): extend config and result metadata as new providers/resources land.
 
-export type RuleConfig = Record<string, unknown>;
+/** Supported output formats that can be configured for scan and discovery commands. */
+export type ConfigOutputFormat = 'text' | 'json' | 'table';
+
+/** Configurable rule and format settings for one scan mode. */
+export type CloudBurnModeConfig = {
+  enabledRules?: string[];
+  disabledRules?: string[];
+  format?: ConfigOutputFormat;
+};
+
+/** Deprecated compatibility alias for historical SDK consumers. */
+export type RuleConfig = CloudBurnModeConfig;
 
 /** Serializable metadata surfaced for built-in rules in SDK and CLI inspection commands. */
 export type BuiltInRuleMetadata = Pick<Rule, 'id' | 'name' | 'description' | 'provider' | 'service' | 'supports'>;
@@ -64,11 +75,8 @@ export type AwsSupportedResourceType = {
 };
 
 export type CloudBurnConfig = {
-  version: number;
-  profile: string;
-  profiles: Record<string, Record<string, RuleConfig>>;
-  rules: Record<string, RuleConfig>;
-  customRules: string[];
+  discovery: CloudBurnModeConfig;
+  iac: CloudBurnModeConfig;
 };
 
 /** Rule finding groups organized under a cloud provider in scan output. */

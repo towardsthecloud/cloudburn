@@ -114,6 +114,58 @@ describe('discover command e2e', () => {
     expect(process.exitCode).toBe(1);
   });
 
+  it('uses the discovery config format when --format is not provided', async () => {
+    const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+
+    vi.spyOn(CloudBurnClient.prototype, 'loadConfig').mockResolvedValue({
+      discovery: { format: 'text' },
+      iac: {},
+    });
+    vi.spyOn(CloudBurnClient.prototype, 'discover').mockResolvedValue(liveScanResult);
+
+    await createProgram().parseAsync(['discover'], { from: 'user' });
+
+    expect(stdout).toHaveBeenCalledWith(
+      'aws\tCLDBRN-AWS-EBS-1\tdiscovery\tebs\tvol-123\t\tus-east-1\t\t\t\tEBS volumes should use current-generation storage.\n',
+    );
+    expect(process.exitCode).toBe(0);
+  });
+
+  it('passes comma-separated rule overrides and an explicit config path to the sdk discover method', async () => {
+    const configPath = '/tmp/cloudburn-discovery.yml';
+
+    vi.spyOn(CloudBurnClient.prototype, 'loadConfig').mockResolvedValue({
+      discovery: {},
+      iac: {},
+    });
+    const discover = vi.spyOn(CloudBurnClient.prototype, 'discover').mockResolvedValue(liveScanResult);
+
+    await createProgram().parseAsync(
+      [
+        'discover',
+        '--config',
+        configPath,
+        '--enabled-rules',
+        'CLDBRN-AWS-EBS-1,CLDBRN-AWS-EC2-1',
+        '--disabled-rules',
+        'CLDBRN-AWS-S3-1',
+      ],
+      { from: 'user' },
+    );
+
+    expect(discover).toHaveBeenCalledWith({
+      config: {
+        discovery: {
+          disabledRules: ['CLDBRN-AWS-S3-1'],
+          enabledRules: ['CLDBRN-AWS-EBS-1', 'CLDBRN-AWS-EC2-1'],
+        },
+      },
+      configPath,
+      target: { mode: 'current' },
+    });
+    expect(process.exitCode).toBe(0);
+  });
+
   it('describes region targeting in discover help output', () => {
     const program = createProgram();
     const discoverCommand = program.commands.find((command) => command.name() === 'discover');
@@ -125,6 +177,9 @@ describe('discover command e2e', () => {
 
     expect(help).toContain('Run a live AWS discovery');
     expect(help).toContain('--region <region>');
+    expect(help).toContain('--config <path>');
+    expect(help).toContain('--enabled-rules <ruleIds>');
+    expect(help).toContain('--disabled-rules <ruleIds>');
     expect(help).toContain('text: tab-delimited');
     expect(help).toContain('grep, sed,');
     expect(help).toContain('cloudburn discover');

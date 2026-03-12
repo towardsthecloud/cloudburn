@@ -24,10 +24,11 @@ export class CloudBurnClient {
    * Merges runtime config overrides onto the loaded CloudBurn config.
    *
    * @param config - Optional runtime config overrides.
+   * @param configPath - Optional explicit path to the config file on disk.
    * @returns The merged effective config for the requested operation.
    */
-  private async getEffectiveConfig(config?: Partial<CloudBurnConfig>): Promise<CloudBurnConfig> {
-    const loadedConfig = await this.loadConfig();
+  private async getEffectiveConfig(config?: Partial<CloudBurnConfig>, configPath?: string): Promise<CloudBurnConfig> {
+    const loadedConfig = await this.loadConfig(configPath);
 
     return mergeConfig(config, loadedConfig);
   }
@@ -40,10 +41,15 @@ export class CloudBurnClient {
    *
    * @param path - Terraform file, CloudFormation template, or directory to scan.
    * @param config - Optional config overrides merged onto the loaded config.
+   * @param options - Optional SDK execution options.
    * @returns Grouped static scan findings.
    */
-  public async scanStatic(path: string, config?: Partial<CloudBurnConfig>): Promise<ScanResult> {
-    const effectiveConfig = await this.getEffectiveConfig(config);
+  public async scanStatic(
+    path: string,
+    config?: Partial<CloudBurnConfig>,
+    options?: { configPath?: string },
+  ): Promise<ScanResult> {
+    const effectiveConfig = await this.getEffectiveConfig(config, options?.configPath);
 
     return runStaticScan(path, effectiveConfig);
   }
@@ -57,8 +63,9 @@ export class CloudBurnClient {
   public async discover(options?: {
     target?: AwsDiscoveryTarget;
     config?: Partial<CloudBurnConfig>;
+    configPath?: string;
   }): Promise<ScanResult> {
-    const effectiveConfig = await this.getEffectiveConfig(options?.config);
+    const effectiveConfig = await this.getEffectiveConfig(options?.config, options?.configPath);
 
     return runLiveScan(effectiveConfig, options?.target ?? { mode: 'current' });
   }

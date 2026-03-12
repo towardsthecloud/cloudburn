@@ -5,8 +5,8 @@
 ```mermaid
   classDiagram
   class CloudBurnClient {
-    +scanStatic(path: string, config?: Partial~CloudBurnConfig~) Promise~ScanResult~
-    +discover(options?: { target?: AwsDiscoveryTarget, config?: Partial~CloudBurnConfig~ }) Promise~ScanResult~
+    +scanStatic(path: string, config?: Partial~CloudBurnConfig~, options?: { configPath?: string }) Promise~ScanResult~
+    +discover(options?: { target?: AwsDiscoveryTarget, config?: Partial~CloudBurnConfig~, configPath?: string }) Promise~ScanResult~
     +listEnabledDiscoveryRegions() Promise~AwsDiscoveryRegion[]~
     +initializeDiscovery(options?: { region?: string }) Promise~AwsDiscoveryInitialization~
     +listSupportedDiscoveryResourceTypes() Promise~AwsSupportedResourceType[]~
@@ -14,7 +14,7 @@
   }
 ```
 
-`CloudBurnClient` is the primary public entry point. Static IaC scans go through `scanStatic()`, and live AWS discovery goes through `discover()`.
+`CloudBurnClient` is the primary public entry point. Static IaC scans go through `scanStatic()`, and live AWS discovery goes through `discover()`. Both methods can accept runtime config overrides plus an explicit `configPath` when callers need to load a specific `.cloudburn.yml` file.
 
 ## Engine Flow
 
@@ -119,7 +119,14 @@ graph LR
 
 ## Provider Layer
 
-`buildRuleRegistry(config)` still decides which rules are active.
+`buildRuleRegistry(config, mode)` decides which rules are active for the requested mode.
+
+Config behavior:
+
+- `loadConfig(path?)` loads an explicit path when provided, otherwise searches upward for `.cloudburn.yml` or `.cloudburn.yaml`
+- `CloudBurnConfig` now owns per-mode `iac` and `discovery` sections
+- each mode can set `enabledRules`, `disabledRules`, and `format`
+- registry filtering is mode-aware and only activates rules that support the requested source
 
 Static AWS rules declare `staticDependencies` dataset keys in `@cloudburn/rules`, and the SDK static registry resolves each key into:
 

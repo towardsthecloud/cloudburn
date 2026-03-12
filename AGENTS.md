@@ -48,6 +48,7 @@
 ## Missing Context
 
 - Do not guess rule IDs, config shapes, types, or provider behavior — look them up first.
+- CloudBurn config is mode-specific under `iac` and `discovery`; rule references use stable public IDs such as `CLDBRN-AWS-EBS-1`.
 - If a search returns empty or narrow results, try at least one fallback (alternate query, broader pattern) before concluding.
 - Label assumptions explicitly when proceeding without full context.
 

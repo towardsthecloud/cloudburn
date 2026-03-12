@@ -1,34 +1,13 @@
-import type { CloudBurnConfig, RuleConfig } from '../types.js';
+import type { CloudBurnConfig, CloudBurnModeConfig } from '../types.js';
 import { defaultConfig } from './defaults.js';
+import { validateConfig } from './validate.js';
 
-const mergeRuleConfigMap = (
-  baseRules: Record<string, RuleConfig>,
-  overrides?: Record<string, RuleConfig>,
-): Record<string, RuleConfig> => {
-  const mergedRules: Record<string, RuleConfig> = { ...baseRules };
-
-  for (const [ruleId, ruleConfig] of Object.entries(overrides ?? {})) {
-    mergedRules[ruleId] = {
-      ...(baseRules[ruleId] ?? {}),
-      ...ruleConfig,
-    };
-  }
-
-  return mergedRules;
-};
-
-const mergeProfiles = (
-  baseProfiles: CloudBurnConfig['profiles'],
-  overrides?: Partial<CloudBurnConfig>['profiles'],
-): CloudBurnConfig['profiles'] => {
-  const mergedProfiles: CloudBurnConfig['profiles'] = { ...baseProfiles };
-
-  for (const [profileName, profileRules] of Object.entries(overrides ?? {})) {
-    mergedProfiles[profileName] = mergeRuleConfigMap(baseProfiles[profileName] ?? {}, profileRules);
-  }
-
-  return mergedProfiles;
-};
+const mergeModeConfig = (baseConfig: CloudBurnModeConfig, overrides?: CloudBurnModeConfig): CloudBurnModeConfig => ({
+  ...baseConfig,
+  ...overrides,
+  disabledRules: overrides?.disabledRules ?? baseConfig.disabledRules,
+  enabledRules: overrides?.enabledRules ?? baseConfig.enabledRules,
+});
 
 /**
  * Merges runtime config overrides onto a resolved base CloudBurn config.
@@ -40,10 +19,8 @@ const mergeProfiles = (
 export const mergeConfig = (
   config?: Partial<CloudBurnConfig>,
   baseConfig: CloudBurnConfig = defaultConfig,
-): CloudBurnConfig => ({
-  ...baseConfig,
-  ...config,
-  profiles: mergeProfiles(baseConfig.profiles, config?.profiles),
-  rules: mergeRuleConfigMap(baseConfig.rules, config?.rules),
-  customRules: config?.customRules ?? baseConfig.customRules,
-});
+): CloudBurnConfig =>
+  validateConfig({
+    discovery: mergeModeConfig(baseConfig.discovery, config?.discovery),
+    iac: mergeModeConfig(baseConfig.iac, config?.iac),
+  });

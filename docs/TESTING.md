@@ -34,8 +34,8 @@ Mock at the provider/parser boundary — do not call real AWS APIs or read real 
 
 - `runStaticScan` — registry + static dataset dependency resolution + parser selection + dataset loading + evaluation
 - `runLiveScan` — registry + dataset dependency resolution + Resource Explorer catalog + dataset loading + evaluation
-- `buildRuleRegistry` — rule filtering (once implemented)
-- `mergeConfig` — deep merge behavior
+- `buildRuleRegistry` — mode-aware rule filtering for `iac` and `discovery`
+- `mergeConfig` — per-mode merge behavior and runtime override precedence
 - `CloudBurnClient` — facade delegates correctly to engine and provider helpers
 
 Split static AWS provider tests into two layers:
@@ -64,9 +64,11 @@ Mock at the SDK boundary — do not run real scans.
 
 - Each command produces correct output for a given `ScanResult`
 - Root and command-local `--format` resolve to the expected `text|json|table` output
+- Config-provided mode formats become the default when `--format` is absent
+- `--config`, `--enabled-rules`, and `--disabled-rules` pass the expected runtime overrides to the SDK
 - `--exit-code` sets `process.exitCode = 1` when findings exist
 - `--exit-code` without findings sets `process.exitCode = 0`
-- `discover list-enabled-regions`, `discover supported-resource-types`, `discover init`, `init`, `rules list`, and `estimate` all go through the shared formatter system
+- `discover list-enabled-regions`, `discover supported-resource-types`, `discover init`, `init config`, `rules list`, and `estimate` all go through the shared formatter system
 - `text` output stays tab-delimited and `table` output stays human-readable
 - Runtime errors remain structured JSON on `stderr` regardless of stdout format
 

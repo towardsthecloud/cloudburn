@@ -183,6 +183,23 @@ describe('CloudBurnClient', () => {
     });
   });
 
+  it('passes an explicit config path through discovery config loading', async () => {
+    mockedDiscoverAwsResources.mockResolvedValue({
+      catalog: discoveryCatalog,
+      resources: new LiveResourceBag(),
+    });
+
+    const scanner = new CloudBurnClient();
+    const loadConfig = vi.spyOn(scanner, 'loadConfig').mockResolvedValue({
+      discovery: {},
+      iac: {},
+    });
+
+    await scanner.discover({ configPath: '/tmp/cloudburn.yml' });
+
+    expect(loadConfig).toHaveBeenCalledWith('/tmp/cloudburn.yml');
+  });
+
   it('returns a static ebs finding from the generic terraform resource catalog', async () => {
     const scanner = new CloudBurnClient();
     const fixturePath = fileURLToPath(new URL('./fixtures/terraform/scan-dir', import.meta.url));
@@ -537,5 +554,18 @@ describe('CloudBurnClient', () => {
     expect(result).toEqual({
       providers: [],
     });
+  });
+
+  it('passes an explicit config path through static scan config loading', async () => {
+    const scanner = new CloudBurnClient();
+    const fixturePath = fileURLToPath(new URL('./fixtures/terraform/no-resources', import.meta.url));
+    const loadConfig = vi.spyOn(scanner, 'loadConfig').mockResolvedValue({
+      discovery: {},
+      iac: {},
+    });
+
+    await scanner.scanStatic(fixturePath, undefined, { configPath: '/tmp/cloudburn.yml' });
+
+    expect(loadConfig).toHaveBeenCalledWith('/tmp/cloudburn.yml');
   });
 });

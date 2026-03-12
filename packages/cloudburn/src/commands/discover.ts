@@ -5,8 +5,12 @@ import { formatError } from '../formatters/error.js';
 import { renderResponse, resolveOutputFormat } from '../formatters/output.js';
 import { countScanResultFindings } from '../formatters/shared.js';
 import { setCommandExamples } from '../help.js';
+import { parseRuleIdList } from './config-options.js';
 
 type DiscoverOptions = {
+  config?: string;
+  disabledRules?: string[];
+  enabledRules?: string[];
   exitCode?: boolean;
   region?: string;
 };
@@ -36,6 +40,19 @@ const parseDiscoverRegion = (value: string): string => {
 const resolveDiscoveryTarget = (region?: string): AwsDiscoveryTarget =>
   region === undefined ? { mode: 'current' } : region === 'all' ? { mode: 'all' } : { mode: 'region', region };
 
+const toDiscoveryConfigOverride = (options: DiscoverOptions) => {
+  if (options.enabledRules === undefined && options.disabledRules === undefined) {
+    return undefined;
+  }
+
+  return {
+    discovery: {
+      disabledRules: options.disabledRules,
+      enabledRules: options.enabledRules,
+    },
+  };
+};
+
 const runCommand = async (action: () => Promise<number | undefined>): Promise<void> => {
   try {
     process.exitCode = (await action()) ?? EXIT_CODE_OK;
@@ -62,12 +79,33 @@ export const registerDiscoverCommand = (program: Command): void => {
         'Discovery region to use. Pass "all" to require an aggregator index.',
         parseDiscoverRegion,
       )
+      .option('--config <path>', 'Explicit CloudBurn config file to load')
+      .option('--enabled-rules <ruleIds>', 'Comma-separated rule IDs to enable', parseRuleIdList)
+      .option('--disabled-rules <ruleIds>', 'Comma-separated rule IDs to disable', parseRuleIdList)
       .option('--exit-code', 'Exit with code 1 when findings exist')
       .action(async (options: DiscoverOptions, command: Command) => {
         await runCommand(async () => {
           const scanner = new CloudBurnClient();
-          const result = await scanner.discover({ target: resolveDiscoveryTarget(options.region) });
-          const format = resolveOutputFormat(command);
+          const loadedConfig = await scanner.loadConfig(options.config);
+          const discoveryOptions: {
+            target: AwsDiscoveryTarget;
+            config?: ReturnType<typeof toDiscoveryConfigOverride>;
+            configPath?: string;
+          } = {
+            target: resolveDiscoveryTarget(options.region),
+          };
+          const configOverride = toDiscoveryConfigOverride(options);
+
+          if (configOverride !== undefined) {
+            discoveryOptions.config = configOverride;
+          }
+
+          if (options.config !== undefined) {
+            discoveryOptions.configPath = options.config;
+          }
+
+          const result = await scanner.discover(discoveryOptions);
+          const format = resolveOutputFormat(command, undefined, loadedConfig.discovery.format ?? 'table');
           const output = renderResponse({ kind: 'scan-result', result }, format);
 
           process.stdout.write(`${output}\n`);

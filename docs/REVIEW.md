@@ -79,13 +79,11 @@ Exit codes:
 
 `--exit-code` counts nested matches across all providers and rules.
 
-## Config System (Partial Implementation)
+## Config System
 
-Several config fields are declared in the type but not yet wired:
-
-- `profiles` — parsed but not applied by rule registry
-- `rules` — parsed but `buildRuleRegistry` ignores it
-- `customRules` — paths declared but not loaded
-- `loadConfig()` currently ignores the `path` argument and returns defaults
-
-Don't flag these as bugs — they are known TODOs.
+- `.cloudburn.yml` and `.cloudburn.yaml` are both supported; treat both present in one directory as a real bug.
+- Config is mode-specific: only `iac` and `discovery` are valid top-level sections.
+- Rule references in config and CLI overrides must use stable public rule IDs such as `CLDBRN-AWS-EBS-1`.
+- `scan` and `discover` accept `--config`, `--enabled-rules`, and `--disabled-rules`; these runtime overrides should take precedence over file config for the same field.
+- `buildRuleRegistry(config, mode)` must stay mode-aware. Reviewers should flag regressions that accidentally re-enable unsupported rules.
+- `customRules` is still not implemented. That gap is intentional and should not be flagged unless a change claims to add it.

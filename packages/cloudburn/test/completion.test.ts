@@ -61,6 +61,9 @@ describe('completion command', () => {
         'init',
         'list-enabled-regions',
         'supported-resource-types',
+        '--config',
+        '--disabled-rules',
+        '--enabled-rules',
         '--region',
         '--format',
         '--exit-code',
@@ -83,6 +86,12 @@ describe('completion command', () => {
 
   it('filters command suggestions by the current token prefix', async () => {
     expect(toLines(await runCompletion('ru'))).toEqual(['rules']);
+  });
+
+  it('suggests init subcommands', async () => {
+    const suggestions = toLines(await runCompletion('init', ''));
+
+    expect(suggestions).toEqual(expect.arrayContaining(['config', '--format', '-h', '--help']));
   });
 
   it('prints a zsh completion script', async () => {

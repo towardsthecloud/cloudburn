@@ -8,7 +8,7 @@ CloudBurn is an open-source cloud cost policy engine. It helps teams catch optim
 
 - Open-source scanner (`cloudburn` (cli), `@cloudburn/sdk`, `@cloudburn/rules`) under Apache-2.0.
 - Works standalone for IaC policy scanning and live AWS optimization checks.
-- Policy-as-code workflow with profiles, severity overrides, and custom rules.
+- Policy-as-code workflow with stable rule IDs, mode-specific config, and CLI overrides.
 
 ## Packages
 
@@ -53,9 +53,13 @@ cloudburn scan ./template.yaml
 cloudburn scan ./iac
 cloudburn discover
 cloudburn discover --region all
+cloudburn discover --config .cloudburn.yml --enabled-rules CLDBRN-AWS-EBS-1
 cloudburn --format json scan ./iac
+cloudburn scan ./iac --disabled-rules CLDBRN-AWS-S3-1
 cloudburn discover list-enabled-regions --format text
 cloudburn init
+cloudburn init config
+cloudburn init config --print
 cloudburn rules list
 ```
 
@@ -65,28 +69,31 @@ Supported output formats:
 - `text` for tab-delimited output that works well with `grep`, `sed`, and `awk`
 - `json` for machine-readable output in automation and downstream systems
 
-JSON scan output is grouped as `providers -> rules -> findings`, with `ruleId`, `service`, `source`, and `message` on each rule group and only varying fields on each nested finding. `--format` is a global CLI option and defaults to `table`; `cloudburn init` keeps raw YAML text by default so it can still be redirected into `.cloudburn.yml`.
+JSON scan output is grouped as `providers -> rules -> findings`, with `ruleId`, `service`, `source`, and `message` on each rule group and only varying fields on each nested finding. `--format` is a global CLI option and defaults to `table`; `cloudburn init` and `cloudburn init config --print` keep raw YAML text by default so they can still be redirected into `.cloudburn.yml`.
 
 ## Configuration
 
-CloudBurn reads `.cloudburn.yml`.
+CloudBurn reads `.cloudburn.yml` or `.cloudburn.yaml`. By default it searches upward from the current directory until it finds a config file or reaches the git root. Use `--config <path>` on `scan` or `discover` to load an exact file instead.
 
 ```yaml
-version: 1
-profile: dev
+iac:
+  enabled-rules:
+    - CLDBRN-AWS-EBS-1
+  disabled-rules:
+    - CLDBRN-AWS-EC2-2
+  format: table
 
-profiles:
-  dev:
-    ec2-allowed-instance-types:
-      allow: [t3.micro, t3.small]
-
-rules:
-  ebs-gp2-to-gp3:
-    severity: error
-
-custom_rules:
-  - ./rules/
+discovery:
+  disabled-rules:
+    - CLDBRN-AWS-S3-1
+  format: json
 ```
+
+- `enabled-rules` restricts a mode to only the listed rule IDs.
+- `disabled-rules` subtracts rule IDs from the active set for that mode.
+- `format` sets the default output format for that mode unless `--format` is passed.
+- Rule references must use stable public IDs such as `CLDBRN-AWS-EBS-1`.
+- `scan` and `discover` also accept `--enabled-rules`, `--disabled-rules`, and `--config` for one-off overrides.
 
 Static IaC parsing now auto-detects Terraform and CloudFormation files, extracts
 AWS resources into a generic catalog for rule evaluation, and supports mixed
