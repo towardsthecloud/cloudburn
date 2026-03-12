@@ -32,8 +32,8 @@ const createStaticRdsInstance = (overrides: Partial<AwsStaticRdsInstance> = {}):
   instanceClass: 'db.m6i.large',
   location: {
     path: 'main.tf',
-    startLine: 6,
-    startColumn: 3,
+    line: 6,
+    column: 3,
   },
   resourceId: 'aws_db_instance.legacy',
   ...overrides,
@@ -91,8 +91,8 @@ describe('rdsPreferredInstanceClassRule', () => {
           resourceId: 'aws_db_instance.legacy',
           location: {
             path: 'main.tf',
-            startLine: 6,
-            startColumn: 3,
+            line: 6,
+            column: 3,
           },
         },
       ],
@@ -107,8 +107,8 @@ describe('rdsPreferredInstanceClassRule', () => {
             instanceClass: 'db.r6g.large',
             location: {
               path: 'template.yaml',
-              startLine: 8,
-              startColumn: 7,
+              line: 8,
+              column: 7,
             },
             resourceId: 'LegacyDatabase',
           }),
@@ -126,8 +126,8 @@ describe('rdsPreferredInstanceClassRule', () => {
           resourceId: 'LegacyDatabase',
           location: {
             path: 'template.yaml',
-            startLine: 8,
-            startColumn: 7,
+            line: 8,
+            column: 7,
           },
         },
       ],

@@ -10,8 +10,8 @@ export type CloudProvider = 'aws' | 'azure' | 'gcp';
 /** Source coordinates for an IaC declaration that produced a finding. */
 export type SourceLocation = {
   path: string;
-  startLine: number;
-  startColumn: number;
+  line: number;
+  column: number;
   endLine?: number;
   endColumn?: number;
 };

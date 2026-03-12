@@ -15,8 +15,8 @@ type ScanSource = 'discovery' | 'iac';
 ```ts
 type SourceLocation = {
   path: string;
-  startLine: number;
-  startColumn: number;
+  line: number;
+  column: number;
   endLine?: number;
   endColumn?: number;
 };
@@ -109,8 +109,8 @@ Example non-empty shape:
               "resourceId": "aws_ebs_volume.gp2_data",
               "location": {
                 "path": "main.tf",
-                "startLine": 4,
-                "startColumn": 3
+                "line": 4,
+                "column": 3
               }
             }
           ]

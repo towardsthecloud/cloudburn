@@ -15,8 +15,8 @@ const createStaticLambdaFunction = (overrides: Partial<AwsStaticLambdaFunction> 
   architectures: ['x86_64'],
   location: {
     path: 'main.tf',
-    startLine: 5,
-    startColumn: 3,
+    line: 5,
+    column: 3,
   },
   resourceId: 'aws_lambda_function.my_function',
   ...overrides,
@@ -94,8 +94,8 @@ describe('lambdaCostOptimalArchitectureRule', () => {
           resourceId: 'aws_lambda_function.my_function',
           location: {
             path: 'main.tf',
-            startLine: 5,
-            startColumn: 3,
+            line: 5,
+            column: 3,
           },
         },
       ],
@@ -110,8 +110,8 @@ describe('lambdaCostOptimalArchitectureRule', () => {
             architectures: ['x86_64'],
             location: {
               path: 'main.tf',
-              startLine: 1,
-              startColumn: 1,
+              line: 1,
+              column: 1,
             },
           }),
         ],
@@ -128,8 +128,8 @@ describe('lambdaCostOptimalArchitectureRule', () => {
           resourceId: 'aws_lambda_function.my_function',
           location: {
             path: 'main.tf',
-            startLine: 1,
-            startColumn: 1,
+            line: 1,
+            column: 1,
           },
         },
       ],
@@ -143,8 +143,8 @@ describe('lambdaCostOptimalArchitectureRule', () => {
           createStaticLambdaFunction({
             location: {
               path: 'template.yaml',
-              startLine: 7,
-              startColumn: 7,
+              line: 7,
+              column: 7,
             },
             resourceId: 'MyFunction',
           }),
@@ -162,8 +162,8 @@ describe('lambdaCostOptimalArchitectureRule', () => {
           resourceId: 'MyFunction',
           location: {
             path: 'template.yaml',
-            startLine: 7,
-            startColumn: 7,
+            line: 7,
+            column: 7,
           },
         },
       ],
@@ -178,8 +178,8 @@ describe('lambdaCostOptimalArchitectureRule', () => {
             architectures: ['x86_64'],
             location: {
               path: 'template.yaml',
-              startLine: 3,
-              startColumn: 3,
+              line: 3,
+              column: 3,
             },
             resourceId: 'MyFunction',
           }),
@@ -197,8 +197,8 @@ describe('lambdaCostOptimalArchitectureRule', () => {
           resourceId: 'MyFunction',
           location: {
             path: 'template.yaml',
-            startLine: 3,
-            startColumn: 3,
+            line: 3,
+            column: 3,
           },
         },
       ],

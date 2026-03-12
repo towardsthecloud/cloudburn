@@ -76,8 +76,8 @@ cloudburn completion zsh
               "resourceId": "aws_ebs_volume.gp2_data",
               "location": {
                 "path": "main.tf",
-                "startLine": 4,
-                "startColumn": 3
+                "line": 4,
+                "column": 3
               }
             }
           ]

@@ -50,8 +50,8 @@ describe('StaticResourceBag', () => {
         {
           location: {
             path: 'main.tf',
-            startColumn: 3,
-            startLine: 4,
+            column: 3,
+            line: 4,
           },
           resourceId: 'aws_vpc_endpoint.s3',
           serviceName: 'com.amazonaws.us-east-1.s3',
@@ -64,8 +64,8 @@ describe('StaticResourceBag', () => {
       {
         location: {
           path: 'main.tf',
-          startColumn: 3,
-          startLine: 4,
+          column: 3,
+          line: 4,
         },
         resourceId: 'aws_vpc_endpoint.s3',
         serviceName: 'com.amazonaws.us-east-1.s3',

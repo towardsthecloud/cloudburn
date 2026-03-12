@@ -23,15 +23,15 @@ const compareIaCResources = (left: IaCResource, right: IaCResource): number => {
     return leftPath.localeCompare(rightPath);
   }
 
-  const leftLine = left.location?.startLine ?? 0;
-  const rightLine = right.location?.startLine ?? 0;
+  const leftLine = left.location?.line ?? 0;
+  const rightLine = right.location?.line ?? 0;
 
   if (leftLine !== rightLine) {
     return leftLine - rightLine;
   }
 
-  const leftColumn = left.location?.startColumn ?? 0;
-  const rightColumn = right.location?.startColumn ?? 0;
+  const leftColumn = left.location?.column ?? 0;
+  const rightColumn = right.location?.column ?? 0;
 
   if (leftColumn !== rightColumn) {
     return leftColumn - rightColumn;

@@ -6,8 +6,8 @@ import { StaticResourceBag } from '../src/index.js';
 const createVpcEndpoint = (overrides: Partial<AwsStaticEc2VpcEndpoint> = {}): AwsStaticEc2VpcEndpoint => ({
   location: {
     path: 'main.tf',
-    startLine: 4,
-    startColumn: 3,
+    line: 4,
+    column: 3,
   },
   resourceId: 'aws_vpc_endpoint.s3_private_link',
   serviceName: 'com.amazonaws.us-east-1.s3',
@@ -33,8 +33,8 @@ describe('ec2S3InterfaceEndpointRule', () => {
           resourceId: 'aws_vpc_endpoint.s3_private_link',
           location: {
             path: 'main.tf',
-            startLine: 4,
-            startColumn: 3,
+            line: 4,
+            column: 3,
           },
         },
       ],
@@ -48,8 +48,8 @@ describe('ec2S3InterfaceEndpointRule', () => {
           createVpcEndpoint({
             location: {
               path: 'template.yaml',
-              startLine: 7,
-              startColumn: 7,
+              line: 7,
+              column: 7,
             },
             resourceId: 'S3Endpoint',
           }),
@@ -67,8 +67,8 @@ describe('ec2S3InterfaceEndpointRule', () => {
           resourceId: 'S3Endpoint',
           location: {
             path: 'template.yaml',
-            startLine: 7,
-            startColumn: 7,
+            line: 7,
+            column: 7,
           },
         },
       ],

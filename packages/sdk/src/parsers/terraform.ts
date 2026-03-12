@@ -98,8 +98,8 @@ const locateResourceBlocks = (contents: string, path: string): Map<string, Resou
 
     const blockLocation: SourceLocation = {
       path,
-      startLine: lineIndex + 1,
-      startColumn: leadingWhitespace.length + 1,
+      line: lineIndex + 1,
+      column: leadingWhitespace.length + 1,
     };
     const attributeLocations: Record<string, SourceLocation> = {};
     let depth = countBraceDelta(line);
@@ -121,8 +121,8 @@ const locateResourceBlocks = (contents: string, path: string): Map<string, Resou
           if (attributeName && !attributeLocations[attributeName]) {
             attributeLocations[attributeName] = {
               path,
-              startLine: blockLineIndex + 1,
-              startColumn: attributeLeadingWhitespace.length + 1,
+              line: blockLineIndex + 1,
+              column: attributeLeadingWhitespace.length + 1,
             };
           }
         }
@@ -199,15 +199,15 @@ const toIaCResources = async (path: string, scanRoot: string): Promise<IaCResour
       return leftPath.localeCompare(rightPath);
     }
 
-    const leftLine = left.location?.startLine ?? 0;
-    const rightLine = right.location?.startLine ?? 0;
+    const leftLine = left.location?.line ?? 0;
+    const rightLine = right.location?.line ?? 0;
 
     if (leftLine !== rightLine) {
       return leftLine - rightLine;
     }
 
-    const leftColumn = left.location?.startColumn ?? 0;
-    const rightColumn = right.location?.startColumn ?? 0;
+    const leftColumn = left.location?.column ?? 0;
+    const rightColumn = right.location?.column ?? 0;
 
     if (leftColumn !== rightColumn) {
       return leftColumn - rightColumn;

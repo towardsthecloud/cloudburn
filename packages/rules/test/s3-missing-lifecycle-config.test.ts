@@ -12,8 +12,8 @@ const createBucketAnalysis = (overrides: Partial<AwsStaticS3BucketAnalysis> = {}
   hasUnclassifiedTransition: false,
   location: {
     path: 'main.tf',
-    startLine: 1,
-    startColumn: 1,
+    line: 1,
+    column: 1,
   },
   resourceId: 'aws_s3_bucket.logs',
   ...overrides,
@@ -79,8 +79,8 @@ describe('s3MissingLifecycleConfigRule', () => {
           resourceId: 'aws_s3_bucket.logs',
           location: {
             path: 'main.tf',
-            startLine: 1,
-            startColumn: 1,
+            line: 1,
+            column: 1,
           },
         },
       ],
@@ -94,8 +94,8 @@ describe('s3MissingLifecycleConfigRule', () => {
           createBucketAnalysis({
             location: {
               path: 'template.yaml',
-              startLine: 3,
-              startColumn: 3,
+              line: 3,
+              column: 3,
             },
             resourceId: 'LogsBucket',
           }),
@@ -113,8 +113,8 @@ describe('s3MissingLifecycleConfigRule', () => {
           resourceId: 'LogsBucket',
           location: {
             path: 'template.yaml',
-            startLine: 3,
-            startColumn: 3,
+            line: 3,
+            column: 3,
           },
         },
       ],
@@ -198,8 +198,8 @@ describe('s3MissingLifecycleConfigRule', () => {
           resourceId: 'aws_s3_bucket.logs',
           location: {
             path: 'main.tf',
-            startLine: 1,
-            startColumn: 1,
+            line: 1,
+            column: 1,
           },
         },
       ],
@@ -226,8 +226,8 @@ describe('s3MissingLifecycleConfigRule', () => {
             hasCostFocusedLifecycle: true,
             location: {
               path: 'template.yaml',
-              startLine: 3,
-              startColumn: 3,
+              line: 3,
+              column: 3,
             },
             resourceId: 'LogsBucket',
           }),
@@ -259,8 +259,8 @@ describe('s3MissingLifecycleConfigRule', () => {
           resourceId: 'aws_s3_bucket.generated_logs',
           location: {
             path: 'main.tf',
-            startLine: 1,
-            startColumn: 1,
+            line: 1,
+            column: 1,
           },
         },
       ],

@@ -15,6 +15,10 @@ type ColumnSpec = {
 
 type RecordRow = Record<string, CellValue>;
 
+const DEFAULT_TABLE_WIDTH = 200;
+const MIN_COLUMN_WIDTH = 4;
+const PREFERRED_MIN_COLUMN_WIDTH = 8;
+
 /** Structured stdout payload emitted by CloudBurn commands. */
 export type CliResponse =
   | {
@@ -60,8 +64,8 @@ const scanColumns: ColumnSpec[] = [
   { key: 'accountId', header: 'AccountId' },
   { key: 'region', header: 'Region' },
   { key: 'path', header: 'Path' },
-  { key: 'startLine', header: 'StartLine' },
-  { key: 'startColumn', header: 'StartColumn' },
+  { key: 'line', header: 'Line' },
+  { key: 'column', header: 'Column' },
   { key: 'message', header: 'Message' },
 ];
 
@@ -192,8 +196,8 @@ const projectScanRows = (result: ScanResult): RecordRow[] =>
     ruleId,
     service,
     source,
-    startColumn: finding.location?.startColumn ?? '',
-    startLine: finding.location?.startLine ?? '',
+    column: finding.location?.column ?? '',
+    line: finding.location?.line ?? '',
   }));
 
 const renderTextRows = (rows: RecordRow[], columns: ColumnSpec[] | undefined, emptyMessage: string): string => {
@@ -256,19 +260,155 @@ const toTextCell = (value: CellValue): string => {
   return JSON.stringify(value);
 };
 
-const toTableCell = (value: CellValue): string => toTextCell(value).replace(/\r?\n/g, '\\n');
+const toTableCell = (value: CellValue): string => {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => toTextCell(item))
+      .join(', ')
+      .replace(/\r?\n/g, '\\n');
+  }
 
-const renderAsciiTable = (rows: RecordRow[], columns: ColumnSpec[]): string => {
-  const widths = columns.map((column) =>
+  return toTextCell(value).replace(/\r?\n/g, '\\n');
+};
+
+const resolveTableColumns = (rows: RecordRow[], columns: ColumnSpec[]): ColumnSpec[] => {
+  const visibleColumns = columns.filter((column) => rows.some((row) => toTableCell(row[column.key]).length > 0));
+  return visibleColumns.length === 0 ? columns : visibleColumns;
+};
+
+const getTargetTableWidth = (): number => {
+  const terminalWidth = process.stdout.columns;
+  return typeof terminalWidth === 'number' && Number.isFinite(terminalWidth) && terminalWidth > 0
+    ? terminalWidth
+    : DEFAULT_TABLE_WIDTH;
+};
+
+const measureTableWidth = (widths: number[]): number =>
+  widths.reduce((total, width) => total + width, 0) + widths.length * 3 + 1;
+
+const fitColumnWidths = (columns: ColumnSpec[], rows: RecordRow[]): number[] => {
+  const maxWidths = columns.map((column) =>
     Math.max(column.header.length, ...rows.map((row) => toTableCell(row[column.key]).length)),
   );
+  const minWidths = columns.map((column, index) =>
+    Math.min(
+      maxWidths[index] ?? MIN_COLUMN_WIDTH,
+      Math.max(MIN_COLUMN_WIDTH, Math.min(column.header.length, PREFERRED_MIN_COLUMN_WIDTH)),
+    ),
+  );
+  const widths = [...maxWidths];
+  const targetWidth = getTargetTableWidth();
 
+  while (measureTableWidth(widths) > targetWidth) {
+    let widestColumnIndex = -1;
+
+    for (let index = 0; index < widths.length; index += 1) {
+      if ((widths[index] ?? 0) <= (minWidths[index] ?? MIN_COLUMN_WIDTH)) {
+        continue;
+      }
+
+      if (widestColumnIndex === -1 || (widths[index] ?? 0) > (widths[widestColumnIndex] ?? 0)) {
+        widestColumnIndex = index;
+      }
+    }
+
+    if (widestColumnIndex === -1) {
+      break;
+    }
+
+    widths[widestColumnIndex] = Math.max(MIN_COLUMN_WIDTH, (widths[widestColumnIndex] ?? MIN_COLUMN_WIDTH) - 1);
+  }
+
+  return widths;
+};
+
+const wrapToken = (token: string, width: number): string[] => {
+  if (token.length <= width) {
+    return [token];
+  }
+
+  const segments: string[] = [];
+
+  for (let start = 0; start < token.length; start += width) {
+    segments.push(token.slice(start, start + width));
+  }
+
+  return segments;
+};
+
+const wrapCell = (value: string, width: number): string[] => {
+  if (value.length <= width) {
+    return [value];
+  }
+
+  const words = value.split(/\s+/).filter((word) => word.length > 0);
+
+  if (words.length === 0) {
+    return [''];
+  }
+
+  const lines: string[] = [];
+  let currentLine = '';
+
+  for (const word of words) {
+    if (word.length > width) {
+      if (currentLine.length > 0) {
+        lines.push(currentLine);
+        currentLine = '';
+      }
+
+      lines.push(...wrapToken(word, width));
+      continue;
+    }
+
+    if (currentLine.length === 0) {
+      currentLine = word;
+      continue;
+    }
+
+    if (currentLine.length + 1 + word.length <= width) {
+      currentLine = `${currentLine} ${word}`;
+      continue;
+    }
+
+    lines.push(currentLine);
+    currentLine = word;
+  }
+
+  if (currentLine.length > 0) {
+    lines.push(currentLine);
+  }
+
+  return lines;
+};
+
+const renderTableLines = (cells: string[], widths: number[]): string[] => {
+  const wrappedCells = cells.map((cell, index) => wrapCell(cell, widths[index] ?? MIN_COLUMN_WIDTH));
+  const height = Math.max(...wrappedCells.map((lines) => lines.length));
+
+  return Array.from({ length: height }, (_, lineIndex) => {
+    const line = wrappedCells
+      .map((lines, index) => (lines[lineIndex] ?? '').padEnd(widths[index] ?? MIN_COLUMN_WIDTH))
+      .join(' | ');
+
+    return `| ${line} |`;
+  });
+};
+
+const renderAsciiTable = (rows: RecordRow[], columns: ColumnSpec[]): string => {
+  const visibleColumns = resolveTableColumns(rows, columns);
+  const widths = fitColumnWidths(visibleColumns, rows);
   const border = `+${widths.map((width) => '-'.repeat(width + 2)).join('+')}+`;
-  const header = `| ${columns.map((column, index) => column.header.padEnd(widths[index] ?? 0)).join(' | ')} |`;
-  const body = rows.map(
-    (row) =>
-      `| ${columns.map((column, index) => toTableCell(row[column.key]).padEnd(widths[index] ?? 0)).join(' | ')} |`,
+  const header = renderTableLines(
+    visibleColumns.map((column) => column.header),
+    widths,
+  );
+  const body = rows.flatMap((row) =>
+    renderTableLines(
+      visibleColumns.map((column) => toTableCell(row[column.key])),
+      widths,
+    ),
   );
 
-  return [border, header, border, ...body, border].join('\n');
+  return [border, ...header, border, ...body, border].join('\n');
 };

@@ -40,8 +40,8 @@ const resultWithLocation = {
               resourceId: 'aws_ebs_volume.gp2_logs',
               location: {
                 path: 'main.tf',
-                startLine: 4,
-                startColumn: 3,
+                line: 4,
+                column: 3,
               },
             },
           ],
@@ -49,6 +49,25 @@ const resultWithLocation = {
       ],
     },
   ],
+};
+
+const withStdoutColumns = (columns: number, run: () => void): void => {
+  const descriptor = Object.getOwnPropertyDescriptor(process.stdout, 'columns');
+
+  Object.defineProperty(process.stdout, 'columns', {
+    configurable: true,
+    value: columns,
+  });
+
+  try {
+    run();
+  } finally {
+    if (descriptor) {
+      Object.defineProperty(process.stdout, 'columns', descriptor);
+    } else {
+      delete (process.stdout as NodeJS.WriteStream & { columns?: number }).columns;
+    }
+  }
 };
 
 describe('renderResponse', () => {
@@ -64,12 +83,57 @@ describe('renderResponse', () => {
 
   it('renders scan results as an ascii table', () => {
     expect(renderResponse({ kind: 'scan-result', result: resultWithoutLocation }, 'table')).toMatchInlineSnapshot(`
-      "+----------+------------------+-----------+---------+------------+--------------+-----------+------+-----------+-------------+----------------------------------------------------+
-      | Provider | RuleId           | Source    | Service | ResourceId | AccountId    | Region    | Path | StartLine | StartColumn | Message                                            |
-      +----------+------------------+-----------+---------+------------+--------------+-----------+------+-----------+-------------+----------------------------------------------------+
-      | aws      | CLDBRN-AWS-EBS-1 | discovery | ebs     | vol-123    | 123456789012 | us-east-1 |      |           |             | EBS volumes should use current-generation storage. |
-      +----------+------------------+-----------+---------+------------+--------------+-----------+------+-----------+-------------+----------------------------------------------------+"
+      "+----------+------------------+-----------+---------+------------+--------------+-----------+----------------------------------------------------+
+      | Provider | RuleId           | Source    | Service | ResourceId | AccountId    | Region    | Message                                            |
+      +----------+------------------+-----------+---------+------------+--------------+-----------+----------------------------------------------------+
+      | aws      | CLDBRN-AWS-EBS-1 | discovery | ebs     | vol-123    | 123456789012 | us-east-1 | EBS volumes should use current-generation storage. |
+      +----------+------------------+-----------+---------+------------+--------------+-----------+----------------------------------------------------+"
     `);
+  });
+
+  it('wraps long status values to the available terminal width in table mode', () => {
+    withStdoutColumns(60, () => {
+      const output = renderResponse(
+        {
+          kind: 'status',
+          data: {
+            aggregatorRegion: 'eu-west-1',
+            indexType: 'aggregator',
+            message: 'Resource Explorer setup already exists in eu-west-1.',
+            regions: [
+              'ap-northeast-1',
+              'ap-northeast-2',
+              'ap-northeast-3',
+              'ap-south-1',
+              'ap-southeast-1',
+              'ap-southeast-2',
+              'ca-central-1',
+              'eu-central-1',
+              'eu-north-1',
+              'eu-west-1',
+              'eu-west-2',
+              'eu-west-3',
+            ],
+            status: 'EXISTING',
+          },
+          text: 'Resource Explorer setup already exists in eu-west-1.',
+        },
+        'table',
+      );
+
+      expect(output.split('\n').every((line) => line.length <= 60)).toBe(true);
+      expect(output).toContain('ap-northeast-1,');
+      expect(output).toContain('eu-west-3');
+    });
+  });
+
+  it('omits columns that are empty for every scan result row', () => {
+    const output = renderResponse({ kind: 'scan-result', result: resultWithLocation }, 'table');
+
+    expect(output).not.toContain('AccountId');
+    expect(output).not.toContain('Region');
+    expect(output).toContain('Path');
+    expect(output).toContain('Column');
   });
 
   it('renders known record lists with stable text column order', () => {

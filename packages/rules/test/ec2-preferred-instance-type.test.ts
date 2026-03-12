@@ -25,8 +25,8 @@ const createStaticInstance = (overrides: Partial<AwsStaticEc2Instance> = {}): Aw
   instanceType: 'm4.large',
   location: {
     path: 'main.tf',
-    startLine: 4,
-    startColumn: 3,
+    line: 4,
+    column: 3,
   },
   resourceId: 'aws_instance.legacy_web',
   ...overrides,
@@ -82,8 +82,8 @@ describe('ec2PreferredInstanceTypeRule', () => {
           resourceId: 'aws_instance.legacy_web',
           location: {
             path: 'main.tf',
-            startLine: 4,
-            startColumn: 3,
+            line: 4,
+            column: 3,
           },
         },
       ],
@@ -112,8 +112,8 @@ describe('ec2PreferredInstanceTypeRule', () => {
           resourceId: 'aws_instance.compute_web',
           location: {
             path: 'main.tf',
-            startLine: 4,
-            startColumn: 3,
+            line: 4,
+            column: 3,
           },
         },
       ],
@@ -142,8 +142,8 @@ describe('ec2PreferredInstanceTypeRule', () => {
           resourceId: 'aws_instance.network_web',
           location: {
             path: 'main.tf',
-            startLine: 4,
-            startColumn: 3,
+            line: 4,
+            column: 3,
           },
         },
       ],
@@ -199,8 +199,8 @@ describe('ec2PreferredInstanceTypeRule', () => {
           createStaticInstance({
             location: {
               path: 'template.yaml',
-              startLine: 6,
-              startColumn: 7,
+              line: 6,
+              column: 7,
             },
             resourceId: 'LegacyWeb',
           }),
@@ -218,8 +218,8 @@ describe('ec2PreferredInstanceTypeRule', () => {
           resourceId: 'LegacyWeb',
           location: {
             path: 'template.yaml',
-            startLine: 6,
-            startColumn: 7,
+            line: 6,
+            column: 7,
           },
         },
       ],

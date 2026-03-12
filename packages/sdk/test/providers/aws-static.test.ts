@@ -49,8 +49,8 @@ describe('loadAwsStaticResources', () => {
         attributeLocations: {
           type: {
             path: 'main.tf',
-            startLine: 4,
-            startColumn: 3,
+            line: 4,
+            column: 3,
           },
         },
         attributes: {
@@ -63,8 +63,8 @@ describe('loadAwsStaticResources', () => {
         attributeLocations: {
           'Properties.InstanceType': {
             path: 'template.yaml',
-            startLine: 8,
-            startColumn: 7,
+            line: 8,
+            column: 7,
           },
         },
         attributes: {
@@ -93,8 +93,8 @@ describe('loadAwsStaticResources', () => {
       {
         location: {
           path: 'main.tf',
-          startLine: 4,
-          startColumn: 3,
+          line: 4,
+          column: 3,
         },
         resourceId: 'aws_ebs_volume.logs',
         volumeType: 'gp2',
@@ -105,8 +105,8 @@ describe('loadAwsStaticResources', () => {
         instanceType: 'c6i.large',
         location: {
           path: 'template.yaml',
-          startLine: 8,
-          startColumn: 7,
+          line: 8,
+          column: 7,
         },
         resourceId: 'AppServer',
       },
@@ -121,8 +121,8 @@ describe('loadAwsStaticResources', () => {
         attributeLocations: {
           instance_class: {
             path: 'main.tf',
-            startLine: 5,
-            startColumn: 3,
+            line: 5,
+            column: 3,
           },
         },
         attributes: {
@@ -135,8 +135,8 @@ describe('loadAwsStaticResources', () => {
         attributeLocations: {
           'Properties.DBInstanceClass': {
             path: 'template.yaml',
-            startLine: 9,
-            startColumn: 7,
+            line: 9,
+            column: 7,
           },
         },
         attributes: {
@@ -161,8 +161,8 @@ describe('loadAwsStaticResources', () => {
         instanceClass: 'db.m6i.large',
         location: {
           path: 'main.tf',
-          startLine: 5,
-          startColumn: 3,
+          line: 5,
+          column: 3,
         },
         resourceId: 'aws_db_instance.legacy',
       },
@@ -170,8 +170,8 @@ describe('loadAwsStaticResources', () => {
         instanceClass: 'db.r7g.large',
         location: {
           path: 'template.yaml',
-          startLine: 9,
-          startColumn: 7,
+          line: 9,
+          column: 7,
         },
         resourceId: 'Database',
       },
@@ -240,8 +240,8 @@ describe('aws static dataset registry', () => {
           attributeLocations: {
             type: {
               path: 'main.tf',
-              startLine: 4,
-              startColumn: 3,
+              line: 4,
+              column: 3,
             },
           },
           attributes: {
@@ -254,8 +254,8 @@ describe('aws static dataset registry', () => {
           attributeLocations: {
             'Properties.VolumeType': {
               path: 'template.yaml',
-              startLine: 10,
-              startColumn: 7,
+              line: 10,
+              column: 7,
             },
           },
           attributes: {
@@ -269,8 +269,8 @@ describe('aws static dataset registry', () => {
       {
         location: {
           path: 'main.tf',
-          startLine: 4,
-          startColumn: 3,
+          line: 4,
+          column: 3,
         },
         resourceId: 'aws_ebs_volume.logs',
         volumeType: 'gp2',
@@ -278,8 +278,8 @@ describe('aws static dataset registry', () => {
       {
         location: {
           path: 'template.yaml',
-          startLine: 10,
-          startColumn: 7,
+          line: 10,
+          column: 7,
         },
         resourceId: 'DataVolume',
         volumeType: 'gp3',
@@ -298,8 +298,8 @@ describe('aws static dataset registry', () => {
           attributeLocations: {
             instance_type: {
               path: 'main.tf',
-              startLine: 3,
-              startColumn: 3,
+              line: 3,
+              column: 3,
             },
           },
           attributes: {
@@ -312,8 +312,8 @@ describe('aws static dataset registry', () => {
         instanceType: null,
         location: {
           path: 'main.tf',
-          startLine: 3,
-          startColumn: 3,
+          line: 3,
+          column: 3,
         },
         resourceId: 'aws_instance.legacy',
       },
@@ -331,8 +331,8 @@ describe('aws static dataset registry', () => {
           attributeLocations: {
             architectures: {
               path: 'main.tf',
-              startLine: 6,
-              startColumn: 3,
+              line: 6,
+              column: 3,
             },
           },
           attributes: {},
@@ -343,8 +343,8 @@ describe('aws static dataset registry', () => {
           attributeLocations: {
             'Properties.Architectures': {
               path: 'template.yaml',
-              startLine: 12,
-              startColumn: 7,
+              line: 12,
+              column: 7,
             },
           },
           attributes: {
@@ -359,8 +359,8 @@ describe('aws static dataset registry', () => {
         architectures: ['x86_64'],
         location: {
           path: 'main.tf',
-          startLine: 6,
-          startColumn: 3,
+          line: 6,
+          column: 3,
         },
         resourceId: 'aws_lambda_function.worker',
       },
@@ -368,8 +368,8 @@ describe('aws static dataset registry', () => {
         architectures: null,
         location: {
           path: 'template.yaml',
-          startLine: 12,
-          startColumn: 7,
+          line: 12,
+          column: 7,
         },
         resourceId: 'Fn',
       },
@@ -387,8 +387,8 @@ describe('aws static dataset registry', () => {
           attributeLocations: {
             instance_class: {
               path: 'main.tf',
-              startLine: 4,
-              startColumn: 3,
+              line: 4,
+              column: 3,
             },
           },
           attributes: {
@@ -401,8 +401,8 @@ describe('aws static dataset registry', () => {
           attributeLocations: {
             'Properties.DBInstanceClass': {
               path: 'template.yaml',
-              startLine: 11,
-              startColumn: 7,
+              line: 11,
+              column: 7,
             },
           },
           attributes: {
@@ -419,8 +419,8 @@ describe('aws static dataset registry', () => {
         instanceClass: 'db.m6i.large',
         location: {
           path: 'main.tf',
-          startLine: 4,
-          startColumn: 3,
+          line: 4,
+          column: 3,
         },
         resourceId: 'aws_db_instance.legacy',
       },
@@ -428,8 +428,8 @@ describe('aws static dataset registry', () => {
         instanceClass: null,
         location: {
           path: 'template.yaml',
-          startLine: 11,
-          startColumn: 7,
+          line: 11,
+          column: 7,
         },
         resourceId: 'Database',
       },
@@ -447,13 +447,13 @@ describe('aws static dataset registry', () => {
           attributeLocations: {
             'Properties.ServiceName': {
               path: 'template.yaml',
-              startLine: 7,
-              startColumn: 7,
+              line: 7,
+              column: 7,
             },
             'Properties.VpcEndpointType': {
               path: 'template.yaml',
-              startLine: 8,
-              startColumn: 7,
+              line: 8,
+              column: 7,
             },
           },
           attributes: {
@@ -468,8 +468,8 @@ describe('aws static dataset registry', () => {
       {
         location: {
           path: 'template.yaml',
-          startLine: 8,
-          startColumn: 7,
+          line: 8,
+          column: 7,
         },
         resourceId: 'S3Endpoint',
         serviceName: 'com.amazonaws.us-east-1.s3',
@@ -488,8 +488,8 @@ describe('aws static dataset registry', () => {
           name: 'logs',
           location: {
             path: 'main.tf',
-            startLine: 1,
-            startColumn: 1,
+            line: 1,
+            column: 1,
           },
           attributes: {
             bucket: 'example-logs',
@@ -525,8 +525,8 @@ describe('aws static dataset registry', () => {
         hasUnclassifiedTransition: false,
         location: {
           path: 'main.tf',
-          startLine: 1,
-          startColumn: 1,
+          line: 1,
+          column: 1,
         },
         resourceId: 'aws_s3_bucket.logs',
       },
@@ -543,8 +543,8 @@ describe('aws static dataset registry', () => {
           name: 'logs',
           location: {
             path: 'main.tf',
-            startLine: 1,
-            startColumn: 1,
+            line: 1,
+            column: 1,
           },
           attributes: {
             bucket: 'example-logs',
@@ -580,8 +580,8 @@ describe('aws static dataset registry', () => {
         hasUnclassifiedTransition: true,
         location: {
           path: 'main.tf',
-          startLine: 1,
-          startColumn: 1,
+          line: 1,
+          column: 1,
         },
         resourceId: 'aws_s3_bucket.logs',
       },
@@ -598,8 +598,8 @@ describe('aws static dataset registry', () => {
           name: 'LogsBucket',
           location: {
             path: 'template.yaml',
-            startLine: 3,
-            startColumn: 3,
+            line: 3,
+            column: 3,
           },
           attributes: {
             Properties: {
@@ -631,8 +631,8 @@ describe('aws static dataset registry', () => {
         hasUnclassifiedTransition: true,
         location: {
           path: 'template.yaml',
-          startLine: 3,
-          startColumn: 3,
+          line: 3,
+          column: 3,
         },
         resourceId: 'LogsBucket',
       },

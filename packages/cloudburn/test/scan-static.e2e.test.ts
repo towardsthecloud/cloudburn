@@ -18,8 +18,8 @@ const staticScanResult = {
               resourceId: 'aws_ebs_volume.gp2_logs',
               location: {
                 path: 'main.tf',
-                startLine: 4,
-                startColumn: 3,
+                line: 4,
+                column: 3,
               },
             },
           ],
@@ -58,8 +58,8 @@ describe('scan command e2e', () => {
               "resourceId": "aws_ebs_volume.gp2_logs",
               "location": {
                 "path": "main.tf",
-                "startLine": 4,
-                "startColumn": 3
+                "line": 4,
+                "column": 3
               }
             }
           ]
@@ -98,11 +98,11 @@ describe('scan command e2e', () => {
   it.each([
     {
       format: 'table',
-      expectedOutput: `+----------+------------------+--------+---------+-------------------------+-----------+--------+---------+-----------+-------------+----------------------------------------------------+
-| Provider | RuleId           | Source | Service | ResourceId              | AccountId | Region | Path    | StartLine | StartColumn | Message                                            |
-+----------+------------------+--------+---------+-------------------------+-----------+--------+---------+-----------+-------------+----------------------------------------------------+
-| aws      | CLDBRN-AWS-EBS-1 | iac    | ebs     | aws_ebs_volume.gp2_logs |           |        | main.tf | 4         | 3           | EBS volumes should use current-generation storage. |
-+----------+------------------+--------+---------+-------------------------+-----------+--------+---------+-----------+-------------+----------------------------------------------------+
+      expectedOutput: `+----------+------------------+--------+---------+-------------------------+---------+------+--------+----------------------------------------------------+
+| Provider | RuleId           | Source | Service | ResourceId              | Path    | Line | Column | Message                                            |
++----------+------------------+--------+---------+-------------------------+---------+------+--------+----------------------------------------------------+
+| aws      | CLDBRN-AWS-EBS-1 | iac    | ebs     | aws_ebs_volume.gp2_logs | main.tf | 4    | 3      | EBS volumes should use current-generation storage. |
++----------+------------------+--------+---------+-------------------------+---------+------+--------+----------------------------------------------------+
 `,
     },
     {

@@ -14,8 +14,8 @@ const createVolume = (overrides: Partial<AwsEbsVolume> = {}): AwsEbsVolume => ({
 const createStaticVolume = (overrides: Partial<AwsStaticEbsVolume> = {}): AwsStaticEbsVolume => ({
   location: {
     path: 'main.tf',
-    startLine: 4,
-    startColumn: 3,
+    line: 4,
+    column: 3,
   },
   resourceId: 'aws_ebs_volume.gp2_data',
   volumeType: 'gp2',
@@ -80,8 +80,8 @@ describe('ebsVolumeTypeCurrentGenRule', () => {
           resourceId: 'aws_ebs_volume.gp2_data',
           location: {
             path: 'main.tf',
-            startLine: 4,
-            startColumn: 3,
+            line: 4,
+            column: 3,
           },
         },
       ],
@@ -95,8 +95,8 @@ describe('ebsVolumeTypeCurrentGenRule', () => {
           createStaticVolume({
             location: {
               path: 'template.yaml',
-              startLine: 6,
-              startColumn: 7,
+              line: 6,
+              column: 7,
             },
             resourceId: 'MyVolume',
           }),
@@ -114,8 +114,8 @@ describe('ebsVolumeTypeCurrentGenRule', () => {
           resourceId: 'MyVolume',
           location: {
             path: 'template.yaml',
-            startLine: 6,
-            startColumn: 7,
+            line: 6,
+            column: 7,
           },
         },
       ],
