@@ -1,5 +1,11 @@
 # @cloudburn/rules
 
+## 0.13.0
+
+### Minor Changes
+
+- [#44](https://github.com/towardsthecloud/cloudburn/pull/44) [`de903f2`](https://github.com/towardsthecloud/cloudburn/commit/de903f25fac295271b4d2c5457d48e0b7fd3c20d) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Add discovery support for `CLDBRN-AWS-RDS-1` so the preferred RDS instance-class policy now evaluates live RDS DB instances as well as Terraform and CloudFormation resources.
+
 ## 0.12.0
 
 ### Minor Changes

@@ -1,5 +1,16 @@
 # @cloudburn/sdk
 
+## 0.13.0
+
+### Minor Changes
+
+- [#44](https://github.com/towardsthecloud/cloudburn/pull/44) [`de903f2`](https://github.com/towardsthecloud/cloudburn/commit/de903f25fac295271b4d2c5457d48e0b7fd3c20d) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Add AWS RDS DB instance discovery hydration and registry wiring for the shared `aws-rds-instances` dataset used by the built-in RDS preferred instance-class rule.
+
+### Patch Changes
+
+- Updated dependencies [[`de903f2`](https://github.com/towardsthecloud/cloudburn/commit/de903f25fac295271b4d2c5457d48e0b7fd3c20d)]:
+  - @cloudburn/rules@0.13.0
+
 ## 0.12.0
 
 ### Minor Changes
