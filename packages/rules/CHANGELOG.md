@@ -1,5 +1,11 @@
 # @cloudburn/rules
 
+## 0.13.1
+
+### Patch Changes
+
+- [#46](https://github.com/towardsthecloud/cloudburn/pull/46) [`3839f9b`](https://github.com/towardsthecloud/cloudburn/commit/3839f9b0ea143984426caba4b53f7ae46abfbde8) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Rename rule source location fields from `startLine` and `startColumn` to `line` and `column`.
+
 ## 0.13.0
 
 ### Minor Changes

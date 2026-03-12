@@ -1,5 +1,14 @@
 # cloudburn
 
+## 0.8.2
+
+### Patch Changes
+
+- [#46](https://github.com/towardsthecloud/cloudburn/pull/46) [`3839f9b`](https://github.com/towardsthecloud/cloudburn/commit/3839f9b0ea143984426caba4b53f7ae46abfbde8) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Wrap wide CLI table cells to terminal width, hide columns that are empty for every row, and rename scan location fields from `startLine`/`startColumn` to `line`/`column`.
+
+- Updated dependencies [[`3839f9b`](https://github.com/towardsthecloud/cloudburn/commit/3839f9b0ea143984426caba4b53f7ae46abfbde8)]:
+  - @cloudburn/sdk@0.13.1
+
 ## 0.8.1
 
 ### Patch Changes

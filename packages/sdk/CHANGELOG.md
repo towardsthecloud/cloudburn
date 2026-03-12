@@ -1,5 +1,14 @@
 # @cloudburn/sdk
 
+## 0.13.1
+
+### Patch Changes
+
+- [#46](https://github.com/towardsthecloud/cloudburn/pull/46) [`3839f9b`](https://github.com/towardsthecloud/cloudburn/commit/3839f9b0ea143984426caba4b53f7ae46abfbde8) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Rename IaC source location fields from `startLine` and `startColumn` to `line` and `column` in parser and scanner results.
+
+- Updated dependencies [[`3839f9b`](https://github.com/towardsthecloud/cloudburn/commit/3839f9b0ea143984426caba4b53f7ae46abfbde8)]:
+  - @cloudburn/rules@0.13.1
+
 ## 0.13.0
 
 ### Minor Changes
