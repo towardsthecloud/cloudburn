@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { AwsEc2Instance, DiscoveryDatasetKey, StaticDatasetKey } from '../src/index.js';
+import type { AwsEc2Instance, AwsStaticRdsInstance, DiscoveryDatasetKey, StaticDatasetKey } from '../src/index.js';
 import {
   awsCorePreset,
   awsRules,
@@ -21,7 +21,7 @@ describe('rule exports', () => {
     );
   });
 
-  it('exports shared helpers and EC2 discovery types used by the preferred-instance rule', () => {
+  it('exports shared helpers and dataset types used by built-in AWS rules', () => {
     expect(createFindingMatch).toBeTypeOf('function');
     expect(createStaticFindingMatch).toBeTypeOf('function');
     expect(isRecord).toBeTypeOf('function');
@@ -37,11 +37,17 @@ describe('rule exports', () => {
 
     expect(instance.instanceType).toBe('m8azn.large');
 
+    const rdsInstance: AwsStaticRdsInstance = {
+      instanceClass: 'db.m8g.large',
+      resourceId: 'aws_db_instance.current',
+    };
+
     const datasetKey: DiscoveryDatasetKey = 'aws-ec2-instances';
-    const staticDatasetKey: StaticDatasetKey = 'aws-ec2-vpc-endpoints';
+    const staticDatasetKey: StaticDatasetKey = 'aws-rds-instances';
 
     expect(datasetKey).toBe('aws-ec2-instances');
-    expect(staticDatasetKey).toBe('aws-ec2-vpc-endpoints');
+    expect(rdsInstance.instanceClass).toBe('db.m8g.large');
+    expect(staticDatasetKey).toBe('aws-rds-instances');
   });
 
   it('exports placeholder multi-cloud arrays', () => {

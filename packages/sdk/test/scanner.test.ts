@@ -232,6 +232,39 @@ describe('CloudBurnClient', () => {
     });
   });
 
+  it('returns a static EC2 finding from a CloudFormation template', async () => {
+    const scanner = new CloudBurnClient();
+    const fixturePath = fileURLToPath(new URL('./fixtures/cloudformation/ec2-instance.yaml', import.meta.url));
+
+    const result = await scanner.scanStatic(fixturePath);
+
+    expect(result).toEqual({
+      providers: [
+        {
+          provider: 'aws',
+          rules: [
+            {
+              ruleId: 'CLDBRN-AWS-EC2-1',
+              service: 'ec2',
+              source: 'iac',
+              message: 'EC2 instances should use preferred instance types.',
+              findings: [
+                {
+                  resourceId: 'LegacyWeb',
+                  location: {
+                    path: 'ec2-instance.yaml',
+                    startLine: 7,
+                    startColumn: 7,
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+  });
+
   it('returns static ebs findings from terraform and cloudformation resources in the same directory', async () => {
     const scanner = new CloudBurnClient();
     const fixturePath = fileURLToPath(new URL('./fixtures/iac-mixed', import.meta.url));
@@ -263,6 +296,228 @@ describe('CloudBurnClient', () => {
                     path: 'template.yaml',
                     startLine: 7,
                     startColumn: 7,
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+  });
+
+  it('returns static RDS findings from Terraform DB instance resources', async () => {
+    const scanner = new CloudBurnClient();
+    const fixturePath = fileURLToPath(new URL('./fixtures/terraform/rds-scan-dir', import.meta.url));
+
+    const result = await scanner.scanStatic(fixturePath);
+
+    expect(result).toEqual({
+      providers: [
+        {
+          provider: 'aws',
+          rules: [
+            {
+              ruleId: 'CLDBRN-AWS-RDS-1',
+              service: 'rds',
+              source: 'iac',
+              message: 'RDS DB instances should use preferred instance classes.',
+              findings: [
+                {
+                  resourceId: 'aws_db_instance.legacy',
+                  location: {
+                    path: 'main.tf',
+                    startLine: 4,
+                    startColumn: 3,
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+  });
+
+  it('returns static RDS findings from terraform and cloudformation resources in the same directory', async () => {
+    const scanner = new CloudBurnClient();
+    const fixturePath = fileURLToPath(new URL('./fixtures/iac-rds-mixed', import.meta.url));
+
+    const result = await scanner.scanStatic(fixturePath);
+
+    expect(result).toEqual({
+      providers: [
+        {
+          provider: 'aws',
+          rules: [
+            {
+              ruleId: 'CLDBRN-AWS-RDS-1',
+              service: 'rds',
+              source: 'iac',
+              message: 'RDS DB instances should use preferred instance classes.',
+              findings: [
+                {
+                  resourceId: 'aws_db_instance.legacy',
+                  location: {
+                    path: 'main.tf',
+                    startLine: 4,
+                    startColumn: 3,
+                  },
+                },
+                {
+                  resourceId: 'LegacyDatabase',
+                  location: {
+                    path: 'template.yaml',
+                    startLine: 7,
+                    startColumn: 7,
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+  });
+
+  it('returns static EC2 endpoint findings from terraform and cloudformation resources in the same directory', async () => {
+    const scanner = new CloudBurnClient();
+    const fixturePath = fileURLToPath(new URL('./fixtures/iac-ec2-endpoint-mixed', import.meta.url));
+
+    const result = await scanner.scanStatic(fixturePath);
+
+    expect(result).toEqual({
+      providers: [
+        {
+          provider: 'aws',
+          rules: [
+            {
+              ruleId: 'CLDBRN-AWS-EC2-2',
+              service: 'ec2',
+              source: 'iac',
+              message: 'S3 access inside a VPC should prefer gateway endpoints over interface endpoints when possible.',
+              findings: [
+                {
+                  resourceId: 'aws_vpc_endpoint.s3_private_link',
+                  location: {
+                    path: 'main.tf',
+                    startLine: 4,
+                    startColumn: 3,
+                  },
+                },
+                {
+                  resourceId: 'S3Endpoint',
+                  location: {
+                    path: 'template.yaml',
+                    startLine: 7,
+                    startColumn: 7,
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+  });
+
+  it('returns static Lambda findings from terraform and cloudformation resources in the same directory', async () => {
+    const scanner = new CloudBurnClient();
+    const fixturePath = fileURLToPath(new URL('./fixtures/iac-lambda-mixed', import.meta.url));
+
+    const result = await scanner.scanStatic(fixturePath);
+
+    expect(result).toEqual({
+      providers: [
+        {
+          provider: 'aws',
+          rules: [
+            {
+              ruleId: 'CLDBRN-AWS-LAMBDA-1',
+              service: 'lambda',
+              source: 'iac',
+              message: 'Lambda functions should use arm64 architecture when compatible to reduce running costs.',
+              findings: [
+                {
+                  resourceId: 'aws_lambda_function.legacy',
+                  location: {
+                    path: 'main.tf',
+                    startLine: 7,
+                    startColumn: 3,
+                  },
+                },
+                {
+                  resourceId: 'LegacyFunction',
+                  location: {
+                    path: 'template.yaml',
+                    startLine: 10,
+                    startColumn: 7,
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+  });
+
+  it('returns static S3 findings from terraform and cloudformation resources in the same directory', async () => {
+    const scanner = new CloudBurnClient();
+    const fixturePath = fileURLToPath(new URL('./fixtures/iac-s3-mixed', import.meta.url));
+
+    const result = await scanner.scanStatic(fixturePath);
+
+    expect(result).toEqual({
+      providers: [
+        {
+          provider: 'aws',
+          rules: [
+            {
+              ruleId: 'CLDBRN-AWS-S3-1',
+              service: 's3',
+              source: 'iac',
+              message: 'S3 buckets should define lifecycle management policies.',
+              findings: [
+                {
+                  resourceId: 'aws_s3_bucket.missing_lifecycle',
+                  location: {
+                    path: 'main.tf',
+                    startLine: 1,
+                    startColumn: 1,
+                  },
+                },
+                {
+                  resourceId: 'MissingLifecycleBucket',
+                  location: {
+                    path: 'template.yaml',
+                    startLine: 2,
+                    startColumn: 3,
+                  },
+                },
+              ],
+            },
+            {
+              ruleId: 'CLDBRN-AWS-S3-2',
+              service: 's3',
+              source: 'iac',
+              message:
+                'S3 buckets with lifecycle management should match object access patterns to the right storage class.',
+              findings: [
+                {
+                  resourceId: 'aws_s3_bucket.expire_only',
+                  location: {
+                    path: 'main.tf',
+                    startLine: 5,
+                    startColumn: 1,
+                  },
+                },
+                {
+                  resourceId: 'ExpireOnlyBucket',
+                  location: {
+                    path: 'template.yaml',
+                    startLine: 4,
+                    startColumn: 3,
                   },
                 },
               ],

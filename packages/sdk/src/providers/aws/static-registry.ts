@@ -3,6 +3,7 @@ import type {
   AwsStaticEc2Instance,
   AwsStaticEc2VpcEndpoint,
   AwsStaticLambdaFunction,
+  AwsStaticRdsInstance,
   AwsStaticS3BucketAnalysis,
   IaCResource,
   SourceLocation,
@@ -24,6 +25,8 @@ const TERRAFORM_EBS_VOLUME_TYPE = 'aws_ebs_volume';
 const CLOUDFORMATION_EBS_VOLUME_TYPE = 'AWS::EC2::Volume';
 const TERRAFORM_INSTANCE_TYPE = 'aws_instance';
 const CLOUDFORMATION_INSTANCE_TYPE = 'AWS::EC2::Instance';
+const TERRAFORM_RDS_INSTANCE_TYPE = 'aws_db_instance';
+const CLOUDFORMATION_RDS_INSTANCE_TYPE = 'AWS::RDS::DBInstance';
 const TERRAFORM_LAMBDA_TYPE = 'aws_lambda_function';
 const CLOUDFORMATION_LAMBDA_TYPE = 'AWS::Lambda::Function';
 const TERRAFORM_VPC_ENDPOINT_TYPE = 'aws_vpc_endpoint';
@@ -175,6 +178,19 @@ const loadStaticEc2Instances = (resources: IaCResource[]): AwsStaticEc2Instance[
     location: pickLocation(resource, ['instance_type', 'Properties.InstanceType']),
   }));
 
+const loadStaticRdsInstances = (resources: IaCResource[]): AwsStaticRdsInstance[] =>
+  resources.map((resource) => ({
+    resourceId: toStaticResourceId(resource),
+    instanceClass: getLiteralString(
+      resource.type === TERRAFORM_RDS_INSTANCE_TYPE
+        ? resource.attributes.instance_class
+        : isRecord(resource.attributes.Properties)
+          ? resource.attributes.Properties.DBInstanceClass
+          : undefined,
+    ),
+    location: pickLocation(resource, ['instance_class', 'Properties.DBInstanceClass']),
+  }));
+
 const loadStaticLambdaFunctions = (resources: IaCResource[]): AwsStaticLambdaFunction[] =>
   resources.map((resource) => ({
     resourceId: toStaticResourceId(resource),
@@ -256,6 +272,12 @@ const awsStaticDatasetRegistry: Record<StaticDatasetKey, AwsStaticDatasetDefinit
     sourceKinds: ['terraform', 'cloudformation'],
     resourceTypes: [TERRAFORM_LAMBDA_TYPE, CLOUDFORMATION_LAMBDA_TYPE],
     load: loadStaticLambdaFunctions,
+  },
+  'aws-rds-instances': {
+    datasetKey: 'aws-rds-instances',
+    sourceKinds: ['terraform', 'cloudformation'],
+    resourceTypes: [TERRAFORM_RDS_INSTANCE_TYPE, CLOUDFORMATION_RDS_INSTANCE_TYPE],
+    load: loadStaticRdsInstances,
   },
   'aws-ec2-vpc-endpoints': {
     datasetKey: 'aws-ec2-vpc-endpoints',

@@ -99,7 +99,11 @@ export type DiscoveryDatasetMap = {
 };
 
 /** Rule-facing static IaC dataset key exposed through the evaluation context. */
-export type StaticDatasetKey = DiscoveryDatasetKey | 'aws-ec2-vpc-endpoints' | 'aws-s3-bucket-analyses';
+export type StaticDatasetKey =
+  | DiscoveryDatasetKey
+  | 'aws-ec2-vpc-endpoints'
+  | 'aws-rds-instances'
+  | 'aws-s3-bucket-analyses';
 
 /** Normalized static EBS volume dataset entry with a precomputed finding target. */
 export type AwsStaticEbsVolume = {
@@ -112,6 +116,13 @@ export type AwsStaticEbsVolume = {
 export type AwsStaticEc2Instance = {
   resourceId: string;
   instanceType: string | null;
+  location?: SourceLocation;
+};
+
+/** Normalized static RDS instance dataset entry with a precomputed finding target. */
+export type AwsStaticRdsInstance = {
+  resourceId: string;
+  instanceClass: string | null;
   location?: SourceLocation;
 };
 
@@ -142,6 +153,7 @@ export type StaticDatasetMap = {
   'aws-ec2-instances': AwsStaticEc2Instance[];
   'aws-lambda-functions': AwsStaticLambdaFunction[];
   'aws-ec2-vpc-endpoints': AwsStaticEc2VpcEndpoint[];
+  'aws-rds-instances': AwsStaticRdsInstance[];
   'aws-s3-bucket-analyses': AwsStaticS3BucketAnalysis[];
 };
 

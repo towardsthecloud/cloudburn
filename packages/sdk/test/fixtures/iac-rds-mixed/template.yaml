@@ -1,0 +1,13 @@
+Resources:
+  LegacyDatabase:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      Engine: postgres
+      AllocatedStorage: 100
+      DBInstanceClass: db.r6g.large
+  CurrentDatabase:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      Engine: postgres
+      AllocatedStorage: 100
+      DBInstanceClass: db.r8g.large

@@ -1,0 +1,10 @@
+Resources:
+  MissingLifecycleBucket:
+    Type: AWS::S3::Bucket
+  ExpireOnlyBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      LifecycleConfiguration:
+        Rules:
+          - Status: Enabled
+            ExpirationInDays: 30

@@ -27,4 +27,5 @@
 - Keep three layers when adding implemented rules: export surface, metadata contract, and evaluator behavior.
 - Test metadata completeness when adding rule packs or changing shared rule contracts.
 - Test real evaluator behavior with fixture builders and asserted finding payloads, not only export presence.
+- For static IaC rules, cover both Terraform-shaped and CloudFormation-shaped resources in evaluator tests.
 - When changing shared helpers or metadata, add coverage that reflects downstream rule-authoring usage.

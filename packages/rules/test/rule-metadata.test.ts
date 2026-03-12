@@ -56,6 +56,22 @@ describe('rule metadata', () => {
     });
   });
 
+  it('defines the expected RDS preferred-instance-class rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-RDS-1');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-RDS-1',
+      name: 'RDS Instance Class Not Preferred',
+      description: 'Flag RDS DB instances that do not use curated preferred instance classes.',
+      message: 'RDS DB instances should use preferred instance classes.',
+      provider: 'aws',
+      service: 'rds',
+      supports: ['iac'],
+      staticDependencies: ['aws-rds-instances'],
+    });
+  });
+
   it('defines the expected S3 storage-class rule metadata', () => {
     const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-S3-2');
 

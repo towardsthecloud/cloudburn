@@ -201,6 +201,12 @@ describe('CLDBRN-AWS-EBS-1', () => {
 
 For dual-mode rules on an existing service, add both live and static evaluator coverage unless the rule is intentionally single-mode.
 
+For IaC-capable rules, do not stop at one source kind:
+
+- Add evaluator coverage for Terraform-shaped static resources.
+- Add evaluator coverage for CloudFormation-shaped static resources.
+- Add or extend SDK static dataset/scanner tests when needed so both source kinds are exercised through the loading pipeline.
+
 ## 8. Verify
 
 ```bash

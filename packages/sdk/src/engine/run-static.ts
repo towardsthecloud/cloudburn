@@ -4,7 +4,6 @@ import { groupFindingsByProvider } from './group-findings.js';
 import { buildRuleRegistry } from './registry.js';
 
 // Intent: orchestrate static IaC scans by parser -> registry -> rule evaluation.
-// TODO(cloudburn): evaluate static rule handlers and return real findings.
 export const runStaticScan = async (path: string, config: CloudBurnConfig): Promise<ScanResult> => {
   const registry = buildRuleRegistry(config);
   const staticContext = await loadAwsStaticResources(path, registry.activeRules);

@@ -1,0 +1,11 @@
+Resources:
+  LegacyFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        ZipFile: exports.handler = async () => "ok";
+      Handler: index.handler
+      Role: arn:aws:iam::123456789012:role/example
+      Runtime: nodejs20.x
+      Architectures:
+        - x86_64

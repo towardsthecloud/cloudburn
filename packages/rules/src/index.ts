@@ -25,6 +25,7 @@ export type {
   AwsStaticEc2Instance,
   AwsStaticEc2VpcEndpoint,
   AwsStaticLambdaFunction,
+  AwsStaticRdsInstance,
   AwsStaticS3BucketAnalysis,
   CloudProvider,
   DiscoveryDatasetKey,

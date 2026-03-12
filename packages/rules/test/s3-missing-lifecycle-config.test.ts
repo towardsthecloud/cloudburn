@@ -87,6 +87,40 @@ describe('s3MissingLifecycleConfigRule', () => {
     });
   });
 
+  it('flags CloudFormation buckets without a lifecycle configuration', () => {
+    const finding = s3MissingLifecycleConfigRule.evaluateStatic?.({
+      resources: new StaticResourceBag({
+        'aws-s3-bucket-analyses': [
+          createBucketAnalysis({
+            location: {
+              path: 'template.yaml',
+              startLine: 3,
+              startColumn: 3,
+            },
+            resourceId: 'LogsBucket',
+          }),
+        ],
+      }),
+    });
+
+    expect(finding).toEqual({
+      ruleId: 'CLDBRN-AWS-S3-1',
+      service: 's3',
+      source: 'iac',
+      message: 'S3 buckets should define lifecycle management policies.',
+      findings: [
+        {
+          resourceId: 'LogsBucket',
+          location: {
+            path: 'template.yaml',
+            startLine: 3,
+            startColumn: 3,
+          },
+        },
+      ],
+    });
+  });
+
   it('passes Terraform buckets with an enabled lifecycle transition rule', () => {
     const finding = s3MissingLifecycleConfigRule.evaluateStatic?.({
       resources: new StaticResourceBag({

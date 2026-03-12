@@ -57,11 +57,11 @@ describe('sdk exports', () => {
         supports: ['iac', 'discovery'],
       },
       {
-        description: 'Ensure RDS instance classes match allowed profile policy.',
+        description: 'Flag RDS DB instances that do not use curated preferred instance classes.',
         id: 'CLDBRN-AWS-RDS-1',
         provider: 'aws',
         service: 'rds',
-        supports: ['iac', 'discovery'],
+        supports: ['iac'],
       },
       {
         description: 'Ensure S3 buckets define lifecycle management policies.',

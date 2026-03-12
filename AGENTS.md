@@ -35,6 +35,7 @@
 
 - On branches/worktrees (non main), use the `tdd` skill (red-green-refactor) as the default build flow for features and bug fixes.
 - Work in vertical slices: one test → minimal impl → refactor → commit. Never batch all tests first.
+- For IaC rule work, add test coverage for both Terraform and CloudFormation inputs. Do not ship static-rule behavior validated against only one IaC source kind.
 - When tests are green and you're ready to commit, run `pnpm verify` first (covers lint, typecheck, and test).
 - Include verification tasks in plans, not only build tasks.
 

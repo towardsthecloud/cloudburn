@@ -113,6 +113,71 @@ describe('loadAwsStaticResources', () => {
     ]);
   });
 
+  it('loads RDS instance datasets for Terraform and CloudFormation resources', async () => {
+    mockedParseIaC.mockResolvedValue([
+      createIaCResource({
+        type: 'aws_db_instance',
+        name: 'legacy',
+        attributeLocations: {
+          instance_class: {
+            path: 'main.tf',
+            startLine: 5,
+            startColumn: 3,
+          },
+        },
+        attributes: {
+          instance_class: 'db.m6i.large',
+        },
+      }),
+      createIaCResource({
+        type: 'AWS::RDS::DBInstance',
+        name: 'Database',
+        attributeLocations: {
+          'Properties.DBInstanceClass': {
+            path: 'template.yaml',
+            startLine: 9,
+            startColumn: 7,
+          },
+        },
+        attributes: {
+          Properties: {
+            DBInstanceClass: 'db.r7g.large',
+          },
+        },
+      }),
+    ]);
+
+    const result = await loadAwsStaticResources('/tmp/iac', [
+      createRule({
+        staticDependencies: ['aws-rds-instances'],
+      }),
+    ]);
+
+    expect(mockedParseIaC).toHaveBeenCalledWith('/tmp/iac', {
+      sourceKinds: ['cloudformation', 'terraform'],
+    });
+    expect(result.resources.get('aws-rds-instances')).toEqual([
+      {
+        instanceClass: 'db.m6i.large',
+        location: {
+          path: 'main.tf',
+          startLine: 5,
+          startColumn: 3,
+        },
+        resourceId: 'aws_db_instance.legacy',
+      },
+      {
+        instanceClass: 'db.r7g.large',
+        location: {
+          path: 'template.yaml',
+          startLine: 9,
+          startColumn: 7,
+        },
+        resourceId: 'Database',
+      },
+    ]);
+  });
+
   it('returns an empty bag without parsing when no static rules require datasets', async () => {
     const result = await loadAwsStaticResources('/tmp/iac', [
       createRule({
@@ -307,6 +372,66 @@ describe('aws static dataset registry', () => {
           startColumn: 7,
         },
         resourceId: 'Fn',
+      },
+    ]);
+  });
+
+  it('normalizes RDS instances and preserves null for unresolved instance classes', () => {
+    const definition = getAwsStaticDatasetDefinition('aws-rds-instances');
+
+    expect(
+      definition?.load([
+        createIaCResource({
+          type: 'aws_db_instance',
+          name: 'legacy',
+          attributeLocations: {
+            instance_class: {
+              path: 'main.tf',
+              startLine: 4,
+              startColumn: 3,
+            },
+          },
+          attributes: {
+            instance_class: 'db.m6i.large',
+          },
+        }),
+        createIaCResource({
+          type: 'AWS::RDS::DBInstance',
+          name: 'Database',
+          attributeLocations: {
+            'Properties.DBInstanceClass': {
+              path: 'template.yaml',
+              startLine: 11,
+              startColumn: 7,
+            },
+          },
+          attributes: {
+            Properties: {
+              DBInstanceClass: {
+                Ref: 'InstanceClass',
+              },
+            },
+          },
+        }),
+      ]),
+    ).toEqual([
+      {
+        instanceClass: 'db.m6i.large',
+        location: {
+          path: 'main.tf',
+          startLine: 4,
+          startColumn: 3,
+        },
+        resourceId: 'aws_db_instance.legacy',
+      },
+      {
+        instanceClass: null,
+        location: {
+          path: 'template.yaml',
+          startLine: 11,
+          startColumn: 7,
+        },
+        resourceId: 'Database',
       },
     ]);
   });

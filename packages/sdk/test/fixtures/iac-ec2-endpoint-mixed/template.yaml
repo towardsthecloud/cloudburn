@@ -1,0 +1,7 @@
+Resources:
+  S3Endpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: vpc-12345678
+      ServiceName: com.amazonaws.us-east-1.s3
+      VpcEndpointType: Interface

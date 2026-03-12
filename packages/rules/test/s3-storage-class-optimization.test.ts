@@ -126,6 +126,42 @@ describe('s3StorageClassOptimizationRule', () => {
     });
   });
 
+  it('flags CloudFormation buckets that only expire objects but never select a cheaper storage class', () => {
+    const finding = s3StorageClassOptimizationRule.evaluateStatic?.({
+      resources: new StaticResourceBag({
+        'aws-s3-bucket-analyses': [
+          createBucketAnalysis({
+            hasCostFocusedLifecycle: true,
+            hasLifecycleSignal: true,
+            location: {
+              path: 'template.yaml',
+              startLine: 3,
+              startColumn: 3,
+            },
+            resourceId: 'LogsBucket',
+          }),
+        ],
+      }),
+    });
+
+    expect(finding).toEqual({
+      ruleId: 'CLDBRN-AWS-S3-2',
+      service: 's3',
+      source: 'iac',
+      message: 'S3 buckets with lifecycle management should match object access patterns to the right storage class.',
+      findings: [
+        {
+          resourceId: 'LogsBucket',
+          location: {
+            path: 'template.yaml',
+            startLine: 3,
+            startColumn: 3,
+          },
+        },
+      ],
+    });
+  });
+
   it('passes buckets with an enabled transition to Intelligent-Tiering', () => {
     const finding = s3StorageClassOptimizationRule.evaluateStatic?.({
       resources: new StaticResourceBag({

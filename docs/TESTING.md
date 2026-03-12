@@ -18,6 +18,8 @@ Three test layers, all in `packages/rules/test/`:
 | **2. Metadata contract**  | `rule-metadata.test.ts` | Every rule has non-empty `id`, `name`, `description`, and `supports`                    |
 | **3. Evaluator behavior** | `{rule-name}.test.ts`   | Full finding payloads for both `evaluateLive` and `evaluateStatic`, plus negative cases |
 
+For static IaC rules, evaluator coverage must include both Terraform-shaped and CloudFormation-shaped resources. A passing test suite for only one source kind is incomplete.
+
 ### `@cloudburn/sdk`
 
 Mock at the provider/parser boundary — do not call real AWS APIs or read real files in unit tests.
@@ -40,6 +42,8 @@ Split static AWS provider tests into two layers:
 
 1. Static dataset loader tests per dataset
 2. Orchestration tests in `loadAwsStaticResources`
+
+When a new IaC rule or dataset is added, the static provider/scanner coverage should prove both Terraform and CloudFormation inputs reach the expected finding path.
 
 Split live AWS provider tests into three layers:
 
