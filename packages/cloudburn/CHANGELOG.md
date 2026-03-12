@@ -1,5 +1,18 @@
 # cloudburn
 
+## 0.7.0
+
+### Minor Changes
+
+- [#39](https://github.com/towardsthecloud/cloudburn/pull/39) [`c85a92e`](https://github.com/towardsthecloud/cloudburn/commit/c85a92eaa76e820bb6c0734ad96e22185d3079de) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Add `cloudburn completion <shell>` to generate tab completion scripts for zsh, bash, and fish.
+
+### Patch Changes
+
+- [#40](https://github.com/towardsthecloud/cloudburn/pull/40) [`a0798c9`](https://github.com/towardsthecloud/cloudburn/commit/a0798c9e7581400a87807af34ca889792f5043bb) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Improve CLI help output with shared Cobra-style command sections, inherited global flags, and structured completion subcommands.
+
+- Updated dependencies [[`685a2c5`](https://github.com/towardsthecloud/cloudburn/commit/685a2c501e543e8d7b59b37c8aa4263d8bc4ce8a)]:
+  - @cloudburn/sdk@0.11.0
+
 ## 0.6.2
 
 ### Patch Changes

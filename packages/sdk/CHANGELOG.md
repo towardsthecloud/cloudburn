@@ -1,5 +1,16 @@
 # @cloudburn/sdk
 
+## 0.11.0
+
+### Minor Changes
+
+- [#37](https://github.com/towardsthecloud/cloudburn/pull/37) [`685a2c5`](https://github.com/towardsthecloud/cloudburn/commit/685a2c501e543e8d7b59b37c8aa4263d8bc4ce8a) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Add S3 bucket discovery hydration for lifecycle and intelligent-tiering based optimization rules.
+
+### Patch Changes
+
+- Updated dependencies [[`685a2c5`](https://github.com/towardsthecloud/cloudburn/commit/685a2c501e543e8d7b59b37c8aa4263d8bc4ce8a)]:
+  - @cloudburn/rules@0.11.0
+
 ## 0.10.0
 
 ### Minor Changes

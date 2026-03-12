@@ -1,5 +1,11 @@
 # @cloudburn/rules
 
+## 0.11.0
+
+### Minor Changes
+
+- [#37](https://github.com/towardsthecloud/cloudburn/pull/37) [`685a2c5`](https://github.com/towardsthecloud/cloudburn/commit/685a2c501e543e8d7b59b37c8aa4263d8bc4ce8a) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Add discovery support to the existing S3 lifecycle and storage-class optimization rules.
+
 ## 0.10.0
 
 ### Minor Changes
