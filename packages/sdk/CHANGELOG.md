@@ -1,5 +1,16 @@
 # @cloudburn/sdk
 
+## 0.14.0
+
+### Minor Changes
+
+- [#55](https://github.com/towardsthecloud/cloudburn/pull/55) [`c25f3cd`](https://github.com/towardsthecloud/cloudburn/commit/c25f3cda250f1e6f558d1c65137cdade9f556640) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Add AWS datasets and hydrators for ECR lifecycle policy discovery, Elastic IP association state, interface VPC endpoint activity, RDS idle detection, and EC2 low-utilization evaluation.
+
+### Patch Changes
+
+- Updated dependencies [[`c25f3cd`](https://github.com/towardsthecloud/cloudburn/commit/c25f3cda250f1e6f558d1c65137cdade9f556640)]:
+  - @cloudburn/rules@0.14.0
+
 ## 0.13.3
 
 ### Patch Changes

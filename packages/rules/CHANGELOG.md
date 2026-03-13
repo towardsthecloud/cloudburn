@@ -1,5 +1,11 @@
 # @cloudburn/rules
 
+## 0.14.0
+
+### Minor Changes
+
+- [#55](https://github.com/towardsthecloud/cloudburn/pull/55) [`c25f3cd`](https://github.com/towardsthecloud/cloudburn/commit/c25f3cda250f1e6f558d1c65137cdade9f556640) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Add new AWS cost rules for missing ECR lifecycle policies, unassociated Elastic IPs, inactive interface VPC endpoints, idle RDS DB instances, and low-utilization EC2 instances.
+
 ## 0.13.2
 
 ### Patch Changes
