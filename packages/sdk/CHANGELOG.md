@@ -1,5 +1,14 @@
 # @cloudburn/sdk
 
+## 0.13.3
+
+### Patch Changes
+
+- [#50](https://github.com/towardsthecloud/cloudburn/pull/50) [`e44707c`](https://github.com/towardsthecloud/cloudburn/commit/e44707cf0a0c25e0addbad9fc0de4556ecdb475f) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Refresh the npm README with clearer SDK docs for static scans, discovery setup, and core entrypoints.
+
+- Updated dependencies [[`e44707c`](https://github.com/towardsthecloud/cloudburn/commit/e44707cf0a0c25e0addbad9fc0de4556ecdb475f)]:
+  - @cloudburn/rules@0.13.2
+
 ## 0.13.2
 
 ### Patch Changes

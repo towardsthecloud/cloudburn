@@ -1,6 +1,6 @@
 {
   "name": "@cloudburn/rules",
-  "version": "0.13.1",
+  "version": "0.13.2",
   "description": "Cloudburn cost optimization rules",
   "homepage": "https://cloudburn.io/docs",
   "bugs": {

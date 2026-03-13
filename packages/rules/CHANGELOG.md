@@ -1,5 +1,11 @@
 # @cloudburn/rules
 
+## 0.13.2
+
+### Patch Changes
+
+- [#50](https://github.com/towardsthecloud/cloudburn/pull/50) [`e44707c`](https://github.com/towardsthecloud/cloudburn/commit/e44707cf0a0c25e0addbad9fc0de4556ecdb475f) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Refresh the npm README with clearer docs for built-in rule packs and custom rule authoring.
+
 ## 0.13.1
 
 ### Patch Changes

@@ -1,5 +1,14 @@
 # cloudburn
 
+## 0.8.5
+
+### Patch Changes
+
+- [#50](https://github.com/towardsthecloud/cloudburn/pull/50) [`e44707c`](https://github.com/towardsthecloud/cloudburn/commit/e44707cf0a0c25e0addbad9fc0de4556ecdb475f) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Refresh the npm README with clearer install and getting started docs for scan and discover.
+
+- Updated dependencies [[`e44707c`](https://github.com/towardsthecloud/cloudburn/commit/e44707cf0a0c25e0addbad9fc0de4556ecdb475f)]:
+  - @cloudburn/sdk@0.13.3
+
 ## 0.8.4
 
 ### Patch Changes
