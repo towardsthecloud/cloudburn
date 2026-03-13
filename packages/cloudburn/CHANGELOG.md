@@ -1,5 +1,18 @@
 # cloudburn
 
+## 0.8.3
+
+### Patch Changes
+
+- [#48](https://github.com/towardsthecloud/cloudburn/pull/48) [`e754f73`](https://github.com/towardsthecloud/cloudburn/commit/e754f73d73051d2965d5ba50559474e0362d1df5) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Fix Resource Explorer discovery and setup messaging for local-only AWS accounts by documenting current-region overrides, surfacing local setup status, and preserving the original AWS access-denied message in CLI errors.
+
+- [#48](https://github.com/towardsthecloud/cloudburn/pull/48) [`e754f73`](https://github.com/towardsthecloud/cloudburn/commit/e754f73d73051d2965d5ba50559474e0362d1df5) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Clarify the `--enabled-rules` and `--disabled-rules` CLI help text so it is explicit that all rules run by default, `--enabled-rules` restricts execution to the listed IDs, and `--disabled-rules` excludes only the listed IDs.
+
+- [#48](https://github.com/towardsthecloud/cloudburn/pull/48) [`e754f73`](https://github.com/towardsthecloud/cloudburn/commit/e754f73d73051d2965d5ba50559474e0362d1df5) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Show non-fatal live discovery service diagnostics in CLI output when CloudBurn is blocked from inspecting a service, instead of exiting before other findings can be reported.
+
+- Updated dependencies [[`e754f73`](https://github.com/towardsthecloud/cloudburn/commit/e754f73d73051d2965d5ba50559474e0362d1df5), [`e754f73`](https://github.com/towardsthecloud/cloudburn/commit/e754f73d73051d2965d5ba50559474e0362d1df5)]:
+  - @cloudburn/sdk@0.13.2
+
 ## 0.8.2
 
 ### Patch Changes

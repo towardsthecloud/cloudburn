@@ -1,5 +1,13 @@
 # @cloudburn/sdk
 
+## 0.13.2
+
+### Patch Changes
+
+- [#48](https://github.com/towardsthecloud/cloudburn/pull/48) [`e754f73`](https://github.com/towardsthecloud/cloudburn/commit/e754f73d73051d2965d5ba50559474e0362d1df5) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Fix AWS Resource Explorer discovery and initialization for local-only accounts by using the selected region as the control plane, reusing existing local indexes, and falling back to local-only setup when cross-region aggregator creation is denied.
+
+- [#48](https://github.com/towardsthecloud/cloudburn/pull/48) [`e754f73`](https://github.com/towardsthecloud/cloudburn/commit/e754f73d73051d2965d5ba50559474e0362d1df5) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Treat AWS service access-denied errors during live discovery hydration as non-fatal diagnostics so CloudBurn can continue evaluating other datasets instead of aborting the full discover run.
+
 ## 0.13.1
 
 ### Patch Changes
