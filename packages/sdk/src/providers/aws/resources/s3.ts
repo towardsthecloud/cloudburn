@@ -6,7 +6,7 @@ import {
 import type { AwsDiscoveredResource, AwsS3BucketAnalysis } from '@cloudburn/rules';
 import { createS3Client } from '../client.js';
 import { buildS3BucketAnalysisFlags } from './s3-analysis.js';
-import { chunkItems } from './utils.js';
+import { chunkItems, withAwsServiceErrorContext } from './utils.js';
 
 const S3_HYDRATION_CONCURRENCY = 10;
 
@@ -19,12 +19,25 @@ const extractBucketName = (resource: AwsDiscoveredResource): string | null => {
   return arnSegments[5] ?? null;
 };
 
-const loadBucketLifecycleRules = async (client: S3Client, bucketName: string): Promise<Record<string, unknown>[]> => {
+const loadBucketLifecycleRules = async (
+  client: S3Client,
+  bucketName: string,
+  region: string,
+): Promise<Record<string, unknown>[]> => {
   try {
-    const response = await client.send(
-      new GetBucketLifecycleConfigurationCommand({
-        Bucket: bucketName,
-      }),
+    const response = await withAwsServiceErrorContext(
+      'Amazon S3',
+      'GetBucketLifecycleConfiguration',
+      region,
+      () =>
+        client.send(
+          new GetBucketLifecycleConfigurationCommand({
+            Bucket: bucketName,
+          }),
+        ),
+      {
+        passthrough: (error) => error instanceof Error && error.name === 'NoSuchLifecycleConfiguration',
+      },
     );
 
     return (response.Rules ?? []).flatMap((rule): Record<string, unknown>[] =>
@@ -34,7 +47,6 @@ const loadBucketLifecycleRules = async (client: S3Client, bucketName: string): P
     if (error instanceof Error && error.name === 'NoSuchLifecycleConfiguration') {
       return [];
     }
-
     throw error;
   }
 };
@@ -42,16 +54,23 @@ const loadBucketLifecycleRules = async (client: S3Client, bucketName: string): P
 const loadBucketIntelligentTieringConfigurations = async (
   client: S3Client,
   bucketName: string,
+  region: string,
 ): Promise<Record<string, unknown>[]> => {
   const configurations: Record<string, unknown>[] = [];
   let continuationToken: string | undefined;
 
   do {
-    const response = await client.send(
-      new ListBucketIntelligentTieringConfigurationsCommand({
-        Bucket: bucketName,
-        ContinuationToken: continuationToken,
-      }),
+    const response = await withAwsServiceErrorContext(
+      'Amazon S3',
+      'ListBucketIntelligentTieringConfigurations',
+      region,
+      () =>
+        client.send(
+          new ListBucketIntelligentTieringConfigurationsCommand({
+            Bucket: bucketName,
+            ContinuationToken: continuationToken,
+          }),
+        ),
     );
 
     configurations.push(
@@ -102,8 +121,8 @@ export const hydrateAwsS3BucketAnalyses = async (
             return [
               (async (): Promise<AwsS3BucketAnalysis> => {
                 const [lifecycleRules, intelligentTieringConfigurations] = await Promise.all([
-                  loadBucketLifecycleRules(client, bucketName),
-                  loadBucketIntelligentTieringConfigurations(client, bucketName),
+                  loadBucketLifecycleRules(client, bucketName, region),
+                  loadBucketIntelligentTieringConfigurations(client, bucketName, region),
                 ]);
 
                 return {

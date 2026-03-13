@@ -162,6 +162,57 @@ describe('hydrateAwsLambdaFunctions', () => {
 
     await hydrateAwsLambdaFunctions(resources);
 
-    expect(maxInFlight).toBeLessThanOrEqual(10);
+    expect(maxInFlight).toBeLessThanOrEqual(5);
+  });
+
+  it('retries throttled lambda configuration lookups before failing', async () => {
+    const send = vi
+      .fn()
+      .mockRejectedValueOnce(
+        Object.assign(new Error('Rate exceeded'), {
+          name: 'TooManyRequestsException',
+          $metadata: {
+            httpStatusCode: 429,
+            requestId: 'request-789',
+          },
+        }),
+      )
+      .mockRejectedValueOnce(
+        Object.assign(new Error('Rate exceeded'), {
+          name: 'TooManyRequestsException',
+          $metadata: {
+            httpStatusCode: 429,
+            requestId: 'request-790',
+          },
+        }),
+      )
+      .mockResolvedValueOnce({
+        Architectures: ['arm64'],
+        FunctionName: 'retry-function',
+      });
+
+    mockedCreateLambdaClient.mockReturnValue({ send } as never);
+
+    await expect(
+      hydrateAwsLambdaFunctions([
+        {
+          accountId: '123456789012',
+          arn: 'arn:aws:lambda:eu-central-1:123456789012:function:retry-function',
+          properties: [],
+          region: 'eu-central-1',
+          resourceType: 'lambda:function',
+          service: 'lambda',
+        },
+      ]),
+    ).resolves.toEqual([
+      {
+        accountId: '123456789012',
+        architectures: ['arm64'],
+        functionName: 'retry-function',
+        region: 'eu-central-1',
+      },
+    ]);
+
+    expect(send).toHaveBeenCalledTimes(3);
   });
 });

@@ -53,10 +53,12 @@ All stdout-producing commands return a typed `CliResponse` and share the same fo
 - `scan` accepts `--config`, `--enabled-rules`, and `--disabled-rules` as one-off overrides on top of the config file defaults.
 - `discover` runs live AWS discovery and rule evaluation through `CloudBurnClient.discover({ target, config?, configPath? })`.
 - `discover` accepts `--config`, `--enabled-rules`, and `--disabled-rules` for one-off overrides of discovery config.
+- `discover --region <region>` overrides the current AWS region resolved from `AWS_REGION`, `AWS_DEFAULT_REGION`, `aws_region`, then the AWS SDK region provider chain.
 - `discover --region all` requires a Resource Explorer aggregator index.
 - `discover --region <region>` targets one enabled Resource Explorer index region.
 - `discover list-enabled-regions` and `discover supported-resource-types` use the shared `text|json|table` renderer.
-- `discover init` bootstraps Resource Explorer through the SDK and renders a status response through the shared formatter system.
+- `discover init` bootstraps Resource Explorer through the SDK, defaults to the current AWS region, accepts `--region <region>` as an override, and falls back to local-only setup when cross-region bootstrap is denied.
+- `discover init` status output includes the resolved setup `indexType` so users can distinguish local-only setup from aggregator setup.
 - `rules list` renders built-in rule metadata grouped by provider and service for human-readable output and emits flat rule metadata objects in JSON mode.
 - `init` preserves the legacy starter-YAML output for backward compatibility.
 - `init config` creates `.cloudburn.yml`, while `init config --print` renders the same template through the shared formatter system.

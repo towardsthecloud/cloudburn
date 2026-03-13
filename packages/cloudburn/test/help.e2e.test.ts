@@ -115,6 +115,25 @@ describe('cli help e2e', () => {
     expect(help).not.toContain('Use "cloudburn completion zsh [command] --help"');
   });
 
+  it('does not label parent command flags as global flags on nested help', () => {
+    const program = createProgram();
+    const discoverCommand = program.commands.find((command) => command.name() === 'discover');
+    const initCommand = discoverCommand?.commands.find((command) => command.name() === 'init');
+    const help = initCommand?.helpInformation() ?? '';
+
+    expect(help).toContain('Usage: cloudburn discover init [options]');
+    expect(help).toContain('Flags:');
+    expect(help).toContain('Requested aggregator region to create or reuse');
+    expect(help).toContain('during setup.');
+    expect(help).toContain('Global Flags:');
+    expect(help).toContain('--format <format>');
+    expect(help).not.toContain('Discovery region to use. Defaults to the current AWS region from AWS_REGION');
+    expect(help).not.toContain('--config <path>');
+    expect(help).not.toContain('--enabled-rules <ruleIds>');
+    expect(help).not.toContain('--disabled-rules <ruleIds>');
+    expect(help).not.toContain('--exit-code');
+  });
+
   it('shows command descriptions before usage for leaf command help', () => {
     const program = createProgram();
     const scanCommand = program.commands.find((command) => command.name() === 'scan');

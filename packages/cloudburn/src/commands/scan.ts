@@ -36,8 +36,16 @@ export const registerScanCommand = (program: Command): void => {
       .description('Run an autodetected static IaC scan')
       .argument('[path]', 'Terraform file, CloudFormation template, or directory to scan')
       .option('--config <path>', 'Explicit CloudBurn config file to load')
-      .option('--enabled-rules <ruleIds>', 'Comma-separated rule IDs to enable', parseRuleIdList)
-      .option('--disabled-rules <ruleIds>', 'Comma-separated rule IDs to disable', parseRuleIdList)
+      .option(
+        '--enabled-rules <ruleIds>',
+        'Comma-separated rule IDs to enable. When set, CloudBurn checks only these rules. By default, all rules are enabled.',
+        parseRuleIdList,
+      )
+      .option(
+        '--disabled-rules <ruleIds>',
+        'Comma-separated rule IDs to disable. By default, all rules are enabled; use this to exclude specific rules.',
+        parseRuleIdList,
+      )
       .option('--exit-code', 'Exit with code 1 when findings exist')
       .action(async (path: string | undefined, options: ScanOptions, command: Command) => {
         try {

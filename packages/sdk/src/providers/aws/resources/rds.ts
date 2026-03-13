@@ -1,7 +1,7 @@
 import { DescribeDBInstancesCommand } from '@aws-sdk/client-rds';
 import type { AwsDiscoveredResource, AwsRdsInstance } from '@cloudburn/rules';
 import { createRdsClient } from '../client.js';
-import { chunkItems } from './utils.js';
+import { chunkItems, withAwsServiceErrorContext } from './utils.js';
 
 const RDS_DB_ARN_PREFIX = 'db:';
 const RDS_HYDRATION_CONCURRENCY = 10;
@@ -48,10 +48,12 @@ export const hydrateAwsRdsInstances = async (resources: AwsDiscoveredResource[])
       for (const batch of chunkItems(regionResources, RDS_HYDRATION_CONCURRENCY)) {
         const hydratedBatch = await Promise.all(
           batch.map(async (resource) => {
-            const response = await client.send(
-              new DescribeDBInstancesCommand({
-                DBInstanceIdentifier: resource.dbInstanceIdentifier,
-              }),
+            const response = await withAwsServiceErrorContext('Amazon RDS', 'DescribeDBInstances', region, () =>
+              client.send(
+                new DescribeDBInstancesCommand({
+                  DBInstanceIdentifier: resource.dbInstanceIdentifier,
+                }),
+              ),
             );
             const instance = response.DBInstances?.[0];
 

@@ -60,13 +60,44 @@ export type AwsDiscoveryRegion = {
   type: 'local' | 'aggregator';
 };
 
+/** Observed Resource Explorer state for one AWS region. */
+export type AwsDiscoveryRegionStatus = {
+  region: string;
+  indexType?: 'local' | 'aggregator';
+  isAggregator?: boolean;
+  status: 'indexed' | 'not_indexed' | 'access_denied' | 'error' | 'unsupported';
+  viewStatus?: 'present' | 'missing' | 'filtered' | 'access_denied' | 'error' | 'unknown';
+  errorCode?: string;
+  notes?: string;
+};
+
+/** Observed Resource Explorer status across the account's enabled AWS regions. */
+export type AwsDiscoveryStatus = {
+  aggregatorRegion?: string;
+  accessibleRegionCount: number;
+  coverage: 'full' | 'partial' | 'local_only' | 'none';
+  indexedRegionCount: number;
+  regions: AwsDiscoveryRegionStatus[];
+  totalRegionCount: number;
+  warning?: string;
+};
+
 /** Result returned after CloudBurn bootstraps AWS Resource Explorer. */
 export type AwsDiscoveryInitialization = {
   status: 'CREATED' | 'EXISTING';
+  indexType: 'local' | 'aggregator';
   aggregatorRegion: string;
+  aggregatorAction: 'created' | 'none' | 'promoted' | 'unchanged';
+  createdIndexCount: number;
+  reusedIndexCount: number;
   regions: string[];
+  coverage: AwsDiscoveryStatus['coverage'];
+  verificationStatus: 'verified' | 'timed_out';
+  observedStatus: AwsDiscoveryStatus;
   /** AWS setup task ID when a new setup task was created. */
   taskId?: string;
+  /** Optional warning surfaced when setup falls back to local-only behavior. */
+  warning?: string;
 };
 
 /** Supported AWS resource type exposed through Resource Explorer. */
@@ -86,8 +117,21 @@ export type ProviderFindingGroup = {
   rules: Finding[];
 };
 
+/** Non-fatal scan diagnostic surfaced when CloudBurn cannot inspect part of a target. */
+export type ScanDiagnostic = {
+  provider: CloudProvider;
+  service: string;
+  source: ScanSource;
+  status: 'access_denied';
+  message: string;
+  code?: string;
+  details?: string;
+  region?: string;
+};
+
 /** Result of a scan execution containing provider-grouped lean rule findings. */
 export type ScanResult = {
+  diagnostics?: ScanDiagnostic[];
   providers: ProviderFindingGroup[];
 };
 

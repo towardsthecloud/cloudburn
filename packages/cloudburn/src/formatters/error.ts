@@ -32,17 +32,26 @@ const categorize = (err: unknown): ErrorEnvelope['error'] => {
     return { code: 'RUNTIME_ERROR', message: 'An unexpected error occurred.' };
   }
 
-  if (err.name === 'CredentialsProviderError' || err.name === 'ExpiredTokenException') {
+  const code = 'code' in err && typeof err.code === 'string' ? err.code : undefined;
+
+  if (
+    err.name === 'CredentialsProviderError' ||
+    err.name === 'ExpiredTokenException' ||
+    code === 'CredentialsProviderError' ||
+    code === 'ExpiredTokenException'
+  ) {
     return {
       code: 'CREDENTIALS_ERROR',
       message: "AWS credentials not found or expired. Run 'aws sts get-caller-identity' to verify your session.",
     };
   }
 
-  if (err.name.includes('AccessDenied')) {
+  if (err.name.includes('AccessDenied') || code?.includes('AccessDenied') === true) {
     return {
       code: 'ACCESS_DENIED',
-      message: 'Insufficient AWS permissions. Check your IAM role or policy.',
+      message:
+        sanitizeRuntimeErrorMessage(err.message).trim() ||
+        'Insufficient AWS permissions. Check your IAM role or policy.',
     };
   }
 
@@ -51,9 +60,9 @@ const categorize = (err: unknown): ErrorEnvelope['error'] => {
     return { code: 'PATH_NOT_FOUND', message: `Path not found: ${path}` };
   }
 
-  if ('code' in err && typeof err.code === 'string' && isAwsDiscoveryErrorCode(err.code)) {
+  if (code && isAwsDiscoveryErrorCode(code)) {
     return {
-      code: err.code,
+      code,
       message: sanitizeRuntimeErrorMessage(err.message).trim() || 'AWS Resource Explorer discovery failed.',
     };
   }

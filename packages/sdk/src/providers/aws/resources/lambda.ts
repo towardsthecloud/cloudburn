@@ -1,10 +1,10 @@
 import { GetFunctionConfigurationCommand } from '@aws-sdk/client-lambda';
 import type { AwsDiscoveredResource, AwsLambdaFunction } from '@cloudburn/rules';
 import { createLambdaClient } from '../client.js';
-import { chunkItems } from './utils.js';
+import { chunkItems, withAwsServiceErrorContext } from './utils.js';
 
 const DEFAULT_LAMBDA_ARCHITECTURES = ['x86_64'];
-const LAMBDA_CONFIGURATION_CONCURRENCY = 10;
+const LAMBDA_CONFIGURATION_CONCURRENCY = 5;
 
 const inferFunctionName = (arn: string): string | null => {
   const arnSegments = arn.split(':');
@@ -44,10 +44,12 @@ export const hydrateAwsLambdaFunctions = async (resources: AwsDiscoveredResource
       for (const batch of chunkItems(regionResources, LAMBDA_CONFIGURATION_CONCURRENCY)) {
         const hydratedBatch = await Promise.all(
           batch.map(async (resource) => {
-            const response = await client.send(
-              new GetFunctionConfigurationCommand({
-                FunctionName: resource.arn,
-              }),
+            const response = await withAwsServiceErrorContext('AWS Lambda', 'GetFunctionConfiguration', region, () =>
+              client.send(
+                new GetFunctionConfigurationCommand({
+                  FunctionName: resource.arn,
+                }),
+              ),
             );
 
             const functionName = response.FunctionName ?? inferFunctionName(resource.arn);

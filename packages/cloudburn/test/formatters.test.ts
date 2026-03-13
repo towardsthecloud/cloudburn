@@ -206,6 +206,139 @@ describe('renderResponse', () => {
 }`);
   });
 
+  it('renders discovery status responses as text and structured json', () => {
+    const response = {
+      kind: 'discovery-status' as const,
+      columns: [
+        { key: 'region', header: 'Region' },
+        { key: 'indexType', header: 'IndexType' },
+        { key: 'status', header: 'Status' },
+      ],
+      rows: [
+        {
+          region: 'eu-west-1',
+          indexType: 'aggregator (active)',
+          status: 'indexed',
+        },
+        {
+          region: 'ap-south-1',
+          indexType: '',
+          status: 'access_denied',
+        },
+      ],
+      summary: {
+        aggregatorRegion: 'eu-west-1',
+        coverage: 'partial',
+        indexedRegionCount: 1,
+        totalRegionCount: 17,
+      },
+      summaryText: 'Coverage: partial. Indexed 1 of 17 enabled regions. Aggregator region: eu-west-1.',
+    };
+
+    expect(renderResponse(response, 'text')).toBe(
+      'Coverage: partial. Indexed 1 of 17 enabled regions. Aggregator region: eu-west-1.\neu-west-1\taggregator (active)\tindexed\nap-south-1\t\taccess_denied',
+    );
+
+    expect(renderResponse(response, 'json')).toBe(`{
+  "summary": {
+    "aggregatorRegion": "eu-west-1",
+    "coverage": "partial",
+    "indexedRegionCount": 1,
+    "totalRegionCount": 17
+  },
+  "regions": [
+    {
+      "region": "eu-west-1",
+      "indexType": "aggregator (active)",
+      "status": "indexed"
+    },
+    {
+      "region": "ap-south-1",
+      "indexType": "",
+      "status": "access_denied"
+    }
+  ]
+}`);
+  });
+
+  it('renders discovery status responses as structured json', () => {
+    expect(
+      renderResponse(
+        {
+          kind: 'discovery-status',
+          summary: {
+            aggregatorRegion: 'eu-central-1',
+            coverage: 'partial',
+            indexedRegionCount: 3,
+            totalRegionCount: 17,
+          },
+          summaryText: 'Coverage: partial. Indexed 3 of 17 enabled regions. Aggregator region: eu-central-1.',
+          rows: [
+            {
+              region: 'eu-central-1',
+              indexType: 'aggregator (active)',
+              status: 'indexed',
+              viewStatus: 'present',
+              notes: '',
+            },
+          ],
+        },
+        'json',
+      ),
+    ).toBe(`{
+  "summary": {
+    "aggregatorRegion": "eu-central-1",
+    "coverage": "partial",
+    "indexedRegionCount": 3,
+    "totalRegionCount": 17
+  },
+  "regions": [
+    {
+      "region": "eu-central-1",
+      "indexType": "aggregator (active)",
+      "status": "indexed",
+      "viewStatus": "present",
+      "notes": ""
+    }
+  ]
+}`);
+  });
+
+  it('renders discovery status responses as text', () => {
+    expect(
+      renderResponse(
+        {
+          kind: 'discovery-status',
+          columns: [
+            { key: 'region', header: 'Region' },
+            { key: 'indexType', header: 'IndexType' },
+            { key: 'status', header: 'Status' },
+          ],
+          summary: {
+            aggregatorRegion: 'eu-central-1',
+            coverage: 'partial',
+          },
+          summaryText: 'Coverage: partial. Indexed 3 of 17 enabled regions. Aggregator region: eu-central-1.',
+          rows: [
+            {
+              region: 'eu-central-1',
+              indexType: 'aggregator (active)',
+              status: 'indexed',
+            },
+            {
+              region: 'ap-south-1',
+              indexType: '',
+              status: 'access_denied',
+            },
+          ],
+        },
+        'text',
+      ),
+    ).toBe(
+      'Coverage: partial. Indexed 3 of 17 enabled regions. Aggregator region: eu-central-1.\neu-central-1\taggregator (active)\tindexed\nap-south-1\t\taccess_denied',
+    );
+  });
+
   it('renders documents as raw text and structured json', () => {
     expect(
       renderResponse(
@@ -275,13 +408,26 @@ describe('formatError', () => {
   });
 
   it('categorizes AccessDeniedException as ACCESS_DENIED', () => {
-    const err = new Error('Access denied');
+    const err = new Error('User is not authorized to perform: resource-explorer-2:ListIndexes');
     err.name = 'AccessDeniedException';
 
     const output = JSON.parse(formatError(err)) as { error: { code: string; message: string } };
 
     expect(output.error.code).toBe('ACCESS_DENIED');
-    expect(output.error.message).toContain('Insufficient AWS permissions');
+    expect(output.error.message).toBe('User is not authorized to perform: resource-explorer-2:ListIndexes');
+  });
+
+  it('categorizes preserved AccessDeniedException codes as ACCESS_DENIED', () => {
+    const err = Object.assign(
+      new Error('AWS Lambda GetFunctionConfiguration failed in us-east-1 with AccessDeniedException: denied.'),
+      {
+        code: 'AccessDeniedException',
+      },
+    );
+
+    const output = JSON.parse(formatError(err)) as { error: { code: string; message: string } };
+
+    expect(output.error.code).toBe('ACCESS_DENIED');
   });
 
   it('categorizes ENOENT as PATH_NOT_FOUND', () => {

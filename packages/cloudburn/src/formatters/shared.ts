@@ -1,4 +1,4 @@
-import type { Finding, FindingMatch, ProviderFindingGroup, ScanResult } from '@cloudburn/sdk';
+import type { Finding, FindingMatch, ProviderFindingGroup, ScanDiagnostic, ScanResult } from '@cloudburn/sdk';
 
 /** A nested finding annotated with its parent provider and rule-group metadata. */
 export type FlattenedFinding = {
@@ -27,3 +27,6 @@ export const flattenScanResult = (result: ScanResult): FlattenedFinding[] =>
 
 /** Counts nested resource-level findings across the full scan result. */
 export const countScanResultFindings = (result: ScanResult): number => flattenScanResult(result).length;
+
+/** Returns the non-fatal scan diagnostics attached to a result. */
+export const getScanDiagnostics = (result: ScanResult): ScanDiagnostic[] => result.diagnostics ?? [];

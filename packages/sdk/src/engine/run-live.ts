@@ -5,7 +5,7 @@ import { buildRuleRegistry } from './registry.js';
 
 export const runLiveScan = async (config: CloudBurnConfig, target: AwsDiscoveryTarget): Promise<ScanResult> => {
   const registry = buildRuleRegistry(config, 'discovery');
-  const liveContext = await discoverAwsResources(registry.activeRules, target);
+  const { diagnostics = [], ...liveContext } = await discoverAwsResources(registry.activeRules, target);
   const findings = groupFindingsByProvider(
     registry.activeRules.map((rule) => {
       if (!rule.supports.includes('discovery') || !rule.evaluateLive) {
@@ -23,6 +23,7 @@ export const runLiveScan = async (config: CloudBurnConfig, target: AwsDiscoveryT
   );
 
   return {
+    ...(diagnostics.length > 0 ? { diagnostics } : {}),
     providers: findings,
   };
 };

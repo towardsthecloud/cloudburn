@@ -1,6 +1,6 @@
 import type { BuiltInRuleMetadata, ScanResult } from '@cloudburn/sdk';
 import { type Command, InvalidArgumentError } from 'commander';
-import { flattenScanResult } from './shared.js';
+import { flattenScanResult, getScanDiagnostics } from './shared.js';
 
 /** Supported stdout formats for CloudBurn CLI responses. */
 export type OutputFormat = 'text' | 'json' | 'table';
@@ -31,6 +31,13 @@ export type CliResponse =
       columns?: ColumnSpec[];
       emptyMessage: string;
       rows: RecordRow[];
+    }
+  | {
+      kind: 'discovery-status';
+      columns?: ColumnSpec[];
+      rows: RecordRow[];
+      summary: RecordRow;
+      summaryText: string;
     }
   | {
       kind: 'scan-result';
@@ -114,6 +121,8 @@ const renderJson = (response: CliResponse): string => {
   switch (response.kind) {
     case 'document':
       return JSON.stringify({ content: response.content, contentType: response.contentType }, null, 2);
+    case 'discovery-status':
+      return JSON.stringify({ summary: response.summary, regions: response.rows }, null, 2);
     case 'record-list':
       return JSON.stringify(response.rows, null, 2);
     case 'rule-list':
@@ -131,6 +140,8 @@ const renderText = (response: CliResponse): string => {
   switch (response.kind) {
     case 'document':
       return response.content;
+    case 'discovery-status':
+      return `${response.summaryText}\n${renderTextRows(response.rows, response.columns, 'No discovery status available.')}`;
     case 'record-list':
       return renderTextRows(response.rows, response.columns, response.emptyMessage);
     case 'rule-list':
@@ -157,6 +168,21 @@ const renderTable = (response: CliResponse): string => {
           { key: 'Value', header: 'Value' },
         ],
       );
+    case 'discovery-status': {
+      const summaryTable = renderAsciiTable(
+        Object.entries(response.summary).map(([field, value]) => ({ Field: field, Value: value })),
+        [
+          { key: 'Field', header: 'Field' },
+          { key: 'Value', header: 'Value' },
+        ],
+      );
+      const regionsTable =
+        response.rows.length === 0
+          ? 'No discovery status available.'
+          : renderAsciiTable(response.rows, response.columns ?? inferColumns(response.rows));
+
+      return `${summaryTable}\n\n${regionsTable}`;
+    }
     case 'record-list':
       return response.rows.length === 0
         ? response.emptyMessage
@@ -185,8 +211,8 @@ const renderTable = (response: CliResponse): string => {
   }
 };
 
-const projectScanRows = (result: ScanResult): RecordRow[] =>
-  flattenScanResult(result).map(({ finding, message, provider, ruleId, service, source }) => ({
+const projectScanRows = (result: ScanResult): RecordRow[] => [
+  ...flattenScanResult(result).map(({ finding, message, provider, ruleId, service, source }) => ({
     accountId: finding.accountId ?? '',
     message,
     path: finding.location?.path ?? '',
@@ -198,7 +224,21 @@ const projectScanRows = (result: ScanResult): RecordRow[] =>
     source,
     column: finding.location?.column ?? '',
     line: finding.location?.line ?? '',
-  }));
+  })),
+  ...getScanDiagnostics(result).map((diagnostic) => ({
+    accountId: '',
+    column: '',
+    line: '',
+    message: diagnostic.message,
+    path: '',
+    provider: diagnostic.provider,
+    region: diagnostic.region ?? '',
+    resourceId: '',
+    ruleId: '',
+    service: diagnostic.service,
+    source: diagnostic.source,
+  })),
+];
 
 const renderTextRows = (rows: RecordRow[], columns: ColumnSpec[] | undefined, emptyMessage: string): string => {
   if (rows.length === 0) {

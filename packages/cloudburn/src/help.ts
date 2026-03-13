@@ -39,6 +39,16 @@ const buildCommandPath = (command: Command): string => {
   return names.join(' ');
 };
 
+const getRootCommand = (command: Command): Command => {
+  let current = command;
+
+  while (current.parent !== null) {
+    current = current.parent;
+  }
+
+  return current;
+};
+
 const visibleCommands = (command: Command): Command[] =>
   command.commands.filter((subcommand) => !(subcommand as Command & { _hidden?: boolean })._hidden);
 
@@ -133,8 +143,9 @@ const formatCloudBurnHelp: HelpConfiguration['formatHelp'] = (command, helper) =
   const cloudBurnHelp = helper as CloudBurnHelp;
   const helpWidth = helper.helpWidth ?? 80;
   const scenario = getHelpScenario(command);
-  const localOptions = helper.visibleOptions(command);
-  const globalOptions = helper.visibleGlobalOptions(command);
+  const rootCommand = getRootCommand(command);
+  const localOptions = helper.visibleOptions(command).filter((option) => command.options.includes(option));
+  const globalOptions = helper.visibleGlobalOptions(command).filter((option) => rootCommand.options.includes(option));
   const commands = helper.visibleCommands(command);
   const examples = getCommandExamples(command);
   const usageGuidance = getCommandUsageGuidance(command);

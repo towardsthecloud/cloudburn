@@ -256,7 +256,13 @@ describe('scan command e2e', () => {
     expect(help).toContain('cloudburn scan ./iac');
     expect(help).toContain('--config <path>');
     expect(help).toContain('--enabled-rules <ruleIds>');
+    expect(help).toContain('When set,');
+    expect(help).toContain('CloudBurn checks only these rules');
+    expect(help).toContain('By default, all');
+    expect(help).toContain('rules are enabled');
     expect(help).toContain('--disabled-rules <ruleIds>');
+    expect(help).toContain('use this to exclude');
+    expect(help).toContain('specific rules');
     expect(help).not.toContain('--live');
   });
 });

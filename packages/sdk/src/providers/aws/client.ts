@@ -95,10 +95,13 @@ export const resolveAwsAccountId = async (): Promise<string> => {
 /**
  * Lists enabled EC2 regions for the current account.
  *
+ * @param region - Optional preferred region for the EC2 control plane call.
  * @returns Region names available for Resource Explorer setup.
  */
-export const listEnabledAwsRegions = async (): Promise<string[]> => {
-  const client = createEc2Client({});
+export const listEnabledAwsRegions = async (region?: string): Promise<string[]> => {
+  const client = createEc2Client({
+    ...(region ? { region: assertValidAwsRegion(region) } : {}),
+  });
   const { Regions } = await client.send(new DescribeRegionsCommand({ AllRegions: false }));
 
   return (Regions ?? []).flatMap((region) => (region.RegionName ? [region.RegionName] : []));

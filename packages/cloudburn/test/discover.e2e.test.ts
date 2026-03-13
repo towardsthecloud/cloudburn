@@ -24,6 +24,84 @@ const liveScanResult = {
   ],
 };
 
+const liveScanResultWithDiagnostic = {
+  providers: liveScanResult.providers,
+  diagnostics: [
+    {
+      code: 'AccessDeniedException',
+      details:
+        'AWS Lambda GetFunctionConfiguration failed in us-east-1 with AccessDeniedException: Access denied by SCP. Request ID: req-123.',
+      message: 'Skipped lambda discovery in us-east-1 because access is denied by a service control policy (SCP).',
+      provider: 'aws' as const,
+      region: 'us-east-1',
+      service: 'lambda',
+      source: 'discovery' as const,
+      status: 'access_denied' as const,
+    },
+  ],
+};
+
+const observedAggregatorStatus = {
+  aggregatorRegion: 'eu-west-1',
+  accessibleRegionCount: 3,
+  coverage: 'partial' as const,
+  indexedRegionCount: 3,
+  regions: [
+    {
+      region: 'eu-west-1',
+      indexType: 'aggregator' as const,
+      isAggregator: true,
+      status: 'indexed' as const,
+      viewStatus: 'present' as const,
+    },
+    {
+      region: 'us-east-1',
+      indexType: 'local' as const,
+      status: 'indexed' as const,
+      viewStatus: 'present' as const,
+    },
+    {
+      region: 'eu-central-1',
+      indexType: 'local' as const,
+      status: 'indexed' as const,
+      viewStatus: 'present' as const,
+    },
+    {
+      region: 'ap-south-1',
+      status: 'access_denied' as const,
+      errorCode: 'AccessDeniedException',
+      notes: 'Access denied. This may be intentional if SCPs restrict regional Resource Explorer access.',
+    },
+  ],
+  totalRegionCount: 17,
+  warning:
+    'Discovery coverage is limited. 14 of 17 regions could not be inspected, which may be intentional if SCPs restrict regional Resource Explorer access.',
+};
+
+const observedLocalStatus = {
+  aggregatorRegion: 'eu-central-1',
+  accessibleRegionCount: 1,
+  coverage: 'local_only' as const,
+  indexedRegionCount: 1,
+  regions: [
+    {
+      region: 'eu-central-1',
+      indexType: 'local' as const,
+      status: 'indexed' as const,
+      viewStatus: 'present' as const,
+    },
+    {
+      region: 'us-east-1',
+      status: 'access_denied' as const,
+      errorCode: 'AccessDeniedException',
+      notes: 'Access denied. This may be intentional if SCPs restrict regional Resource Explorer access.',
+    },
+  ],
+  totalRegionCount: 17,
+  warning:
+    'Discovery coverage is limited. 16 of 17 regions could not be inspected, which may be intentional if SCPs restrict regional Resource Explorer access.',
+};
+
 describe('discover command e2e', () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -114,6 +192,20 @@ describe('discover command e2e', () => {
     expect(process.exitCode).toBe(1);
   });
 
+  it('renders service diagnostics without aborting the discover output', async () => {
+    const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    vi.spyOn(CloudBurnClient.prototype, 'discover').mockResolvedValue(liveScanResultWithDiagnostic);
+
+    await createProgram().parseAsync(['discover'], { from: 'user' });
+
+    const output = stdout.mock.calls.map(([chunk]) => String(chunk)).join('');
+
+    expect(output).toContain('CLDBRN-AWS-EBS-1');
+    expect(output).toContain('lambda');
+    expect(output).toContain('Skipped lambda discovery in us-east-1');
+    expect(process.exitCode).toBe(0);
+  });
+
   it('uses the discovery config format when --format is not provided', async () => {
     const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
 
@@ -177,9 +269,19 @@ describe('discover command e2e', () => {
 
     expect(help).toContain('Run a live AWS discovery');
     expect(help).toContain('--region <region>');
+    expect(help).toContain('Defaults to the current');
+    expect(help).toContain('AWS region from AWS_REGION');
+    expect(help).toContain('Pass "all" to check resources in all');
+    expect(help).toContain('regions that are indexed in AWS Resource Explorer');
     expect(help).toContain('--config <path>');
     expect(help).toContain('--enabled-rules <ruleIds>');
+    expect(help).toContain('When set,');
+    expect(help).toContain('CloudBurn checks only these rules');
+    expect(help).toContain('By default, all');
+    expect(help).toContain('rules are enabled');
     expect(help).toContain('--disabled-rules <ruleIds>');
+    expect(help).toContain('use this to exclude');
+    expect(help).toContain('specific rules');
     expect(help).toContain('text: tab-delimited');
     expect(help).toContain('grep, sed,');
     expect(help).toContain('cloudburn discover');
@@ -226,47 +328,128 @@ describe('discover command e2e', () => {
   it('initializes resource explorer setup via the sdk', async () => {
     const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
     const initializeDiscovery = vi.spyOn(CloudBurnClient.prototype, 'initializeDiscovery').mockResolvedValue({
+      aggregatorAction: 'created',
       status: 'CREATED',
       aggregatorRegion: 'eu-west-1',
-      regions: ['eu-west-1'],
+      coverage: 'partial',
+      createdIndexCount: 3,
+      indexType: 'aggregator',
+      observedStatus: observedAggregatorStatus,
+      regions: ['eu-west-1', 'us-east-1', 'eu-central-1'],
+      reusedIndexCount: 0,
+      verificationStatus: 'verified',
     });
 
     await createProgram().parseAsync(['discover', 'init'], { from: 'user' });
 
+    const output = stdout.mock.calls.map(([chunk]) => String(chunk)).join('');
+
     expect(initializeDiscovery).toHaveBeenCalledWith({ region: undefined });
-    expect(stdout).toHaveBeenCalledWith(expect.stringContaining('Resource Explorer setup created in eu-west-1.'));
-    expect(stdout).toHaveBeenCalledWith(expect.stringContaining('| aggregatorRegion | eu-west-1'));
+    expect(output).toContain('Configured eu-west-1 as the Resource Explorer aggregator.');
+    expect(output).toContain('Created 3 indexes.');
+    expect(output).toContain('aggregatorRegion');
+    expect(output).toContain('aggregatorAction');
+    expect(output).toContain('eu-west-1');
+    expect(output).toContain('coverage');
+    expect(output).toContain('createdIndexes');
+    expect(output).toContain('3');
+    expect(output).toContain('partial');
+    expect(output).toContain('indexedSummary');
+    expect(output).toContain('3 of 17');
+    expect(output).toContain('reusedIndexes');
+    expect(output).toContain('0');
+    expect(output).toContain('restrictedRegions');
+    expect(output).toContain('14');
+    expect(output).toContain('Run `cloudburn discover status` for per-region details.');
+    expect(output).not.toContain('observedStatus');
     expect(process.exitCode).toBe(0);
   });
 
   it('formats discover init as structured json', async () => {
     const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
     vi.spyOn(CloudBurnClient.prototype, 'initializeDiscovery').mockResolvedValue({
+      aggregatorAction: 'created',
       status: 'CREATED',
       aggregatorRegion: 'eu-west-1',
-      regions: ['eu-west-1'],
+      coverage: 'partial',
+      createdIndexCount: 3,
+      indexType: 'aggregator',
+      observedStatus: observedAggregatorStatus,
+      regions: ['eu-west-1', 'us-east-1', 'eu-central-1'],
+      reusedIndexCount: 0,
       taskId: 'task-123',
+      verificationStatus: 'verified',
     });
 
     await createProgram().parseAsync(['discover', 'init', '--format', 'json'], { from: 'user' });
 
     expect(stdout).toHaveBeenCalledWith(`{
+  "aggregatorAction": "created",
   "aggregatorRegion": "eu-west-1",
-  "message": "Resource Explorer setup created in eu-west-1.",
+  "coverage": "partial",
+  "createdIndexCount": 3,
+  "indexType": "aggregator",
+  "message": "Configured eu-west-1 as the Resource Explorer aggregator. Created 3 indexes. Discovery coverage is limited. 14 of 17 regions could not be inspected, which may be intentional if SCPs restrict regional Resource Explorer access.",
+  "observedStatus": {
+    "aggregatorRegion": "eu-west-1",
+    "accessibleRegionCount": 3,
+    "coverage": "partial",
+    "indexedRegionCount": 3,
+    "regions": [
+      {
+        "region": "eu-west-1",
+        "indexType": "aggregator",
+        "isAggregator": true,
+        "status": "indexed",
+        "viewStatus": "present"
+      },
+      {
+        "region": "us-east-1",
+        "indexType": "local",
+        "status": "indexed",
+        "viewStatus": "present"
+      },
+      {
+        "region": "eu-central-1",
+        "indexType": "local",
+        "status": "indexed",
+        "viewStatus": "present"
+      },
+      {
+        "region": "ap-south-1",
+        "status": "access_denied",
+        "errorCode": "AccessDeniedException",
+        "notes": "Access denied. This may be intentional if SCPs restrict regional Resource Explorer access."
+      }
+    ],
+    "totalRegionCount": 17,
+    "warning": "Discovery coverage is limited. 14 of 17 regions could not be inspected, which may be intentional if SCPs restrict regional Resource Explorer access."
+  },
   "regions": [
-    "eu-west-1"
+    "eu-west-1",
+    "us-east-1",
+    "eu-central-1"
   ],
+  "reusedIndexCount": 0,
   "status": "CREATED",
-  "taskId": "task-123"
+  "taskId": "task-123",
+  "verificationStatus": "verified"
 }\n`);
     expect(process.exitCode).toBe(0);
   });
 
   it('passes an explicit valid init region through to the sdk', async () => {
     const initializeDiscovery = vi.spyOn(CloudBurnClient.prototype, 'initializeDiscovery').mockResolvedValue({
+      aggregatorAction: 'created',
       status: 'CREATED',
       aggregatorRegion: 'eu-west-1',
-      regions: ['eu-west-1'],
+      coverage: 'partial',
+      createdIndexCount: 3,
+      indexType: 'aggregator',
+      observedStatus: observedAggregatorStatus,
+      regions: ['eu-west-1', 'us-east-1', 'eu-central-1'],
+      reusedIndexCount: 0,
+      verificationStatus: 'verified',
     });
 
     await createProgram().parseAsync(['discover', 'init', '--region', 'eu-west-1'], { from: 'user' });
@@ -277,9 +460,16 @@ describe('discover command e2e', () => {
 
   it('does not forward parent --region all into discover init', async () => {
     const initializeDiscovery = vi.spyOn(CloudBurnClient.prototype, 'initializeDiscovery').mockResolvedValue({
+      aggregatorAction: 'created',
       status: 'CREATED',
       aggregatorRegion: 'eu-west-1',
-      regions: ['eu-west-1'],
+      coverage: 'partial',
+      createdIndexCount: 3,
+      indexType: 'aggregator',
+      observedStatus: observedAggregatorStatus,
+      regions: ['eu-west-1', 'us-east-1', 'eu-central-1'],
+      reusedIndexCount: 0,
+      verificationStatus: 'verified',
     });
 
     await createProgram().parseAsync(['discover', '--region', 'all', 'init'], { from: 'user' });
@@ -288,11 +478,31 @@ describe('discover command e2e', () => {
     expect(process.exitCode).toBe(0);
   });
 
+  it('reuses the parent discovery region for discover status unless it is all', async () => {
+    const getDiscoveryStatus = vi
+      .spyOn(CloudBurnClient.prototype, 'getDiscoveryStatus')
+      .mockResolvedValue(observedAggregatorStatus);
+
+    await createProgram().parseAsync(['discover', '--region', 'eu-central-1', 'status'], { from: 'user' });
+
+    expect(getDiscoveryStatus).toHaveBeenCalledWith({ region: 'eu-central-1' });
+    expect(process.exitCode).toBe(0);
+  });
+
   it('rejects invalid init regions before invoking the sdk', async () => {
     const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
-    const initializeDiscovery = vi
-      .spyOn(CloudBurnClient.prototype, 'initializeDiscovery')
-      .mockResolvedValue({ status: 'CREATED', aggregatorRegion: 'eu-west-1', regions: ['eu-west-1'] });
+    const initializeDiscovery = vi.spyOn(CloudBurnClient.prototype, 'initializeDiscovery').mockResolvedValue({
+      aggregatorAction: 'created',
+      status: 'CREATED',
+      aggregatorRegion: 'eu-west-1',
+      coverage: 'partial',
+      createdIndexCount: 3,
+      indexType: 'aggregator',
+      observedStatus: observedAggregatorStatus,
+      regions: ['eu-west-1', 'us-east-1', 'eu-central-1'],
+      reusedIndexCount: 0,
+      verificationStatus: 'verified',
+    });
 
     await expect(
       createProgram().parseAsync(['discover', 'init', '--region', 'eu-central-1 tag:Owner=alice'], { from: 'user' }),
@@ -300,6 +510,134 @@ describe('discover command e2e', () => {
 
     expect(initializeDiscovery).not.toHaveBeenCalled();
     expect(stderr).toHaveBeenCalledWith(expect.stringContaining("Invalid AWS region 'eu-central-1 tag:Owner=alice'."));
+  });
+
+  it('renders local-only discover init results clearly', async () => {
+    const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    vi.spyOn(CloudBurnClient.prototype, 'initializeDiscovery').mockResolvedValue({
+      aggregatorAction: 'none',
+      status: 'EXISTING',
+      aggregatorRegion: 'eu-central-1',
+      coverage: 'local_only',
+      createdIndexCount: 0,
+      indexType: 'local',
+      observedStatus: observedLocalStatus,
+      regions: ['eu-central-1'],
+      reusedIndexCount: 1,
+      warning:
+        'Cross-region Resource Explorer setup could not be created; using the existing local index in eu-central-1.',
+      verificationStatus: 'verified',
+    });
+
+    await createProgram().parseAsync(['discover', 'init'], { from: 'user' });
+
+    const output = stdout.mock.calls.map(([chunk]) => String(chunk)).join('');
+
+    expect(output).toContain('Local Resource Explorer setup already exists in eu-central-1.');
+    expect(output).toContain('Reused 1 existing index.');
+    expect(output).toContain('Cross-region Resource Explorer setup could not be created; using the existing local');
+    expect(output).toContain('index in eu-central-1.');
+    expect(output).toContain(
+      'Discovery coverage is limited. 16 of 17 regions could not be inspected, which may be intentional if SCPs restrict regional Resource Explorer access.',
+    );
+    expect(output).toContain('Run `cloudburn discover status` for per-region details.');
+    expect(output).not.toContain('observedStatus');
+    expect(process.exitCode).toBe(0);
+  });
+
+  it('shows discovery status across enabled regions', async () => {
+    const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    const getDiscoveryStatus = vi
+      .spyOn(CloudBurnClient.prototype, 'getDiscoveryStatus')
+      .mockResolvedValue(observedAggregatorStatus);
+
+    await createProgram().parseAsync(['discover', 'status'], { from: 'user' });
+
+    const output = stdout.mock.calls.map(([chunk]) => String(chunk)).join('');
+
+    expect(getDiscoveryStatus).toHaveBeenCalledWith({ region: undefined });
+    expect(output).toContain('aggregatorRegion');
+    expect(output).toContain('eu-west-1');
+    expect(output).toContain('coverage');
+    expect(output).toContain('partial');
+    expect(output).toContain('aggregator (active)');
+    expect(output).toContain('access_denied');
+    expect(process.exitCode).toBe(0);
+  });
+
+  it('formats discovery status as structured json', async () => {
+    const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    vi.spyOn(CloudBurnClient.prototype, 'getDiscoveryStatus').mockResolvedValue(observedAggregatorStatus);
+
+    await createProgram().parseAsync(['discover', 'status', '--format', 'json'], { from: 'user' });
+
+    expect(stdout).toHaveBeenCalledWith(`{
+  "summary": {
+    "accessibleRegionCount": 3,
+    "coverage": "partial",
+    "indexedRegionCount": 3,
+    "totalRegionCount": 17,
+    "aggregatorRegion": "eu-west-1",
+    "warning": "Discovery coverage is limited. 14 of 17 regions could not be inspected, which may be intentional if SCPs restrict regional Resource Explorer access."
+  },
+  "regions": [
+    {
+      "region": "eu-west-1",
+      "indexType": "aggregator",
+      "isAggregator": true,
+      "status": "indexed",
+      "viewStatus": "present",
+      "notes": ""
+    },
+    {
+      "region": "us-east-1",
+      "indexType": "local",
+      "status": "indexed",
+      "viewStatus": "present",
+      "notes": ""
+    },
+    {
+      "region": "eu-central-1",
+      "indexType": "local",
+      "status": "indexed",
+      "viewStatus": "present",
+      "notes": ""
+    },
+    {
+      "region": "ap-south-1",
+      "status": "access_denied",
+      "errorCode": "AccessDeniedException",
+      "notes": "Access denied. This may be intentional if SCPs restrict regional Resource Explorer access."
+    }
+  ]
+}\n`);
+    expect(process.exitCode).toBe(0);
+  });
+
+  it('omits aggregatorRegion from discovery status json when no aggregator is observed', async () => {
+    const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    vi.spyOn(CloudBurnClient.prototype, 'getDiscoveryStatus').mockResolvedValue({
+      accessibleRegionCount: 1,
+      coverage: 'local_only',
+      indexedRegionCount: 1,
+      regions: [
+        {
+          region: 'eu-central-1',
+          indexType: 'local',
+          status: 'indexed',
+          viewStatus: 'present',
+        },
+      ],
+      totalRegionCount: 1,
+    });
+
+    await createProgram().parseAsync(['discover', 'status', '--format', 'json'], { from: 'user' });
+
+    const payload = JSON.parse((stdout.mock.calls[0]?.[0] as string) ?? '{}') as {
+      summary: Record<string, unknown>;
+    };
+
+    expect(payload.summary).not.toHaveProperty('aggregatorRegion');
   });
 
   it('writes CREDENTIALS_ERROR json to stderr on AWS credential failures', async () => {

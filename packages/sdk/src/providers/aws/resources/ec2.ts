@@ -1,7 +1,7 @@
 import { DescribeInstancesCommand } from '@aws-sdk/client-ec2';
 import type { AwsDiscoveredResource, AwsEc2Instance } from '@cloudburn/rules';
 import { createEc2Client } from '../client.js';
-import { chunkItems } from './utils.js';
+import { chunkItems, withAwsServiceErrorContext } from './utils.js';
 
 const EC2_INSTANCE_ARN_PREFIX = 'instance/';
 const EC2_DESCRIBE_BATCH_SIZE = 100;
@@ -47,10 +47,12 @@ export const hydrateAwsEc2Instances = async (resources: AwsDiscoveredResource[])
       const instances: AwsEc2Instance[] = [];
 
       for (const batch of chunkItems(regionResources, EC2_DESCRIBE_BATCH_SIZE)) {
-        const response = await client.send(
-          new DescribeInstancesCommand({
-            InstanceIds: batch.map(({ instanceId }) => instanceId),
-          }),
+        const response = await withAwsServiceErrorContext('Amazon EC2', 'DescribeInstances', region, () =>
+          client.send(
+            new DescribeInstancesCommand({
+              InstanceIds: batch.map(({ instanceId }) => instanceId),
+            }),
+          ),
         );
 
         for (const reservation of response.Reservations ?? []) {

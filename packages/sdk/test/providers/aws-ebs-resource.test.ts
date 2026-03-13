@@ -65,4 +65,67 @@ describe('hydrateAwsEbsVolumes', () => {
       },
     ]);
   });
+
+  it('preserves EC2 API context when volume hydration is throttled', async () => {
+    mockedCreateEc2Client.mockReturnValue({
+      send: vi.fn().mockRejectedValue(
+        Object.assign(new Error('Rate exceeded'), {
+          name: 'RequestLimitExceeded',
+          $metadata: {
+            httpStatusCode: 503,
+            requestId: 'request-456',
+          },
+        }),
+      ),
+    } as never);
+
+    await expect(
+      hydrateAwsEbsVolumes([
+        {
+          accountId: '123456789012',
+          arn: 'arn:aws:ec2:eu-central-1:123456789012:volume/vol-123',
+          properties: [],
+          region: 'eu-central-1',
+          resourceType: 'ec2:volume',
+          service: 'ec2',
+        },
+      ]),
+    ).rejects.toThrow(
+      'Amazon EC2 DescribeVolumes failed in eu-central-1 with RequestLimitExceeded: Rate exceeded Request ID: request-456.',
+    );
+  });
+
+  it('preserves EC2 error identity when volume hydration is access denied', async () => {
+    mockedCreateEc2Client.mockReturnValue({
+      send: vi.fn().mockRejectedValue(
+        Object.assign(new Error('User is not authorized to perform: ec2:DescribeVolumes'), {
+          name: 'AccessDeniedException',
+          code: 'AccessDeniedException',
+          $metadata: {
+            httpStatusCode: 403,
+            requestId: 'request-789',
+          },
+        }),
+      ),
+    } as never);
+
+    const error = await hydrateAwsEbsVolumes([
+      {
+        accountId: '123456789012',
+        arn: 'arn:aws:ec2:eu-central-1:123456789012:volume/vol-123',
+        properties: [],
+        region: 'eu-central-1',
+        resourceType: 'ec2:volume',
+        service: 'ec2',
+      },
+    ]).catch((err) => err);
+
+    expect(error).toMatchObject({
+      code: 'AccessDeniedException',
+      name: 'AccessDeniedException',
+    });
+    expect((error as Error).message).toBe(
+      'Amazon EC2 DescribeVolumes failed in eu-central-1 with AccessDeniedException: User is not authorized to perform: ec2:DescribeVolumes Request ID: request-789.',
+    );
+  });
 });

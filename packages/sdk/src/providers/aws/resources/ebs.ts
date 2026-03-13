@@ -1,7 +1,7 @@
 import { DescribeVolumesCommand } from '@aws-sdk/client-ec2';
 import type { AwsDiscoveredResource, AwsEbsVolume } from '@cloudburn/rules';
 import { createEc2Client } from '../client.js';
-import { chunkItems } from './utils.js';
+import { chunkItems, withAwsServiceErrorContext } from './utils.js';
 
 const EBS_VOLUME_ARN_PREFIX = 'volume/';
 const EBS_DESCRIBE_BATCH_SIZE = 200;
@@ -47,10 +47,12 @@ export const hydrateAwsEbsVolumes = async (resources: AwsDiscoveredResource[]): 
       const volumes: AwsEbsVolume[] = [];
 
       for (const batch of chunkItems(regionResources, EBS_DESCRIBE_BATCH_SIZE)) {
-        const response = await client.send(
-          new DescribeVolumesCommand({
-            VolumeIds: batch.map(({ volumeId }) => volumeId),
-          }),
+        const response = await withAwsServiceErrorContext('Amazon EC2', 'DescribeVolumes', region, () =>
+          client.send(
+            new DescribeVolumesCommand({
+              VolumeIds: batch.map(({ volumeId }) => volumeId),
+            }),
+          ),
         );
 
         for (const volume of response.Volumes ?? []) {

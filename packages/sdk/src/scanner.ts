@@ -3,6 +3,7 @@ import { mergeConfig } from './config/merge.js';
 import { runLiveScan } from './engine/run-live.js';
 import { runStaticScan } from './engine/run-static.js';
 import {
+  getAwsDiscoveryStatus,
   initializeAwsDiscovery,
   listEnabledAwsDiscoveryRegions,
   listSupportedAwsResourceTypes,
@@ -10,6 +11,7 @@ import {
 import type {
   AwsDiscoveryInitialization,
   AwsDiscoveryRegion,
+  AwsDiscoveryStatus,
   AwsDiscoveryTarget,
   AwsSupportedResourceType,
   CloudBurnConfig,
@@ -77,6 +79,16 @@ export class CloudBurnClient {
    */
   public async listEnabledDiscoveryRegions(): Promise<AwsDiscoveryRegion[]> {
     return listEnabledAwsDiscoveryRegions();
+  }
+
+  /**
+   * Retrieves observed AWS Resource Explorer status across enabled regions.
+   *
+   * @param options - Optional explicit region to use as the preferred control region.
+   * @returns The observed discovery status.
+   */
+  public async getDiscoveryStatus(options?: { region?: string }): Promise<AwsDiscoveryStatus> {
+    return getAwsDiscoveryStatus(options?.region);
   }
 
   /**

@@ -9,6 +9,7 @@ import { hydrateAwsS3BucketAnalyses } from './resources/s3.js';
 export type AwsDiscoveryDatasetDefinition<K extends DiscoveryDatasetKey = DiscoveryDatasetKey> = {
   datasetKey: K;
   resourceTypes: string[];
+  service: 'ebs' | 'ec2' | 'lambda' | 'rds' | 's3';
   load: (resources: AwsDiscoveredResource[]) => Promise<DiscoveryDatasetMap[K]>;
 };
 
@@ -18,26 +19,31 @@ const awsDiscoveryDatasetRegistry: {
   'aws-ebs-volumes': {
     datasetKey: 'aws-ebs-volumes',
     resourceTypes: ['ec2:volume'],
+    service: 'ebs',
     load: hydrateAwsEbsVolumes,
   },
   'aws-ec2-instances': {
     datasetKey: 'aws-ec2-instances',
     resourceTypes: ['ec2:instance'],
+    service: 'ec2',
     load: hydrateAwsEc2Instances,
   },
   'aws-lambda-functions': {
     datasetKey: 'aws-lambda-functions',
     resourceTypes: ['lambda:function'],
+    service: 'lambda',
     load: hydrateAwsLambdaFunctions,
   },
   'aws-rds-instances': {
     datasetKey: 'aws-rds-instances',
     resourceTypes: ['rds:db'],
+    service: 'rds',
     load: hydrateAwsRdsInstances,
   },
   'aws-s3-bucket-analyses': {
     datasetKey: 'aws-s3-bucket-analyses',
     resourceTypes: ['s3:bucket'],
+    service: 's3',
     load: hydrateAwsS3BucketAnalyses,
   },
 };
