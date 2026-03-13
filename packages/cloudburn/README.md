@@ -1,33 +1,95 @@
 # cloudburn
 
-Command-line interface for Cloudburn cloud cost optimization.
+CloudBurn CLI for catching cost issues before you deploy with `scan`, then running the same policies against live AWS with `discover`.
+
+`scan` checks Terraform and CloudFormation. `discover` uses AWS Resource Explorer as a live service catalog so CloudBurn can find deployed resources and run rules against them.
 
 ## Installation
 
-```sh
-npm install -g cloudburn
+CloudBurn requires Node.js 24+.
+
+```bash
+npm install --global cloudburn
 ```
 
-## Shell completion
+If you want to keep it local to a project:
+
+```bash
+npm install cloudburn
+npx cloudburn scan ./main.tf
+```
+
+## Getting Started
+
+### Config
+
+Config is optional. By default, CloudBurn runs all checks for the mode you use.
+
+Create a starter config with:
+
+```bash
+cloudburn init config
+```
+
+If you want to inspect the generated YAML first:
+
+```bash
+cloudburn init config --print
+```
+
+`cloudburn init` still prints the starter YAML directly if you want a quick redirect-friendly version.
+
+### Scan
+
+Use `scan` to check Terraform and CloudFormation before you deploy.
+
+```bash
+cloudburn scan ./main.tf
+cloudburn scan ./template.yaml
+cloudburn scan ./iac --exit-code
+cloudburn --format json scan ./iac
+```
+
+### Discover
+
+Use `discover` to run the same rules against live AWS resources.
+
+Run `cloudburn discover init` first. It automatically configures AWS Resource Explorer indexes, which CloudBurn uses as its live service catalog before it evaluates rules.
+
+By default, `cloudburn discover` runs against your active AWS region. You can pass `--region <region>` to target another region, or use `--region all` to run against all indexed regions through the AWS Resource Explorer aggregator.
+
+```bash
+cloudburn discover init
+cloudburn discover
+cloudburn discover --region eu-central-1
+cloudburn discover --region all
+cloudburn discover --config .cloudburn.yml --enabled-rules CLDBRN-AWS-EBS-1
+cloudburn discover list-enabled-regions --format text
+cloudburn rules list
+```
+
+`cloudburn discover --region all` needs an AWS Resource Explorer aggregator and an unfiltered default view in the aggregator region.
+
+## Shell Completion
 
 Inspect the available completion subcommands:
 
-```sh
+```bash
 cloudburn completion
 cloudburn completion zsh --help
 ```
 
 Generate a completion script for your shell and source it directly:
 
-```sh
+```bash
 source <(cloudburn completion zsh)
 source <(cloudburn completion bash)
 cloudburn completion fish | source
 ```
 
-To enable completion persistently, add one of the following lines to your shell config:
+To enable completion persistently, add one of these lines to your shell config:
 
-```sh
+```bash
 # ~/.zshrc
 source <(cloudburn completion zsh)
 
@@ -38,55 +100,11 @@ source <(cloudburn completion bash)
 cloudburn completion fish | source
 ```
 
-## Usage
+## Docs
 
-```sh
-cloudburn
-```
-
-Static scans auto-detect Terraform and CloudFormation from the file or
-directory path you pass to `cloudburn scan`.
-
-```sh
-cloudburn scan ./main.tf
-cloudburn scan ./template.yaml
-cloudburn scan ./iac
-cloudburn discover
-cloudburn discover --region all
-cloudburn rules
-cloudburn completion
-cloudburn completion zsh
-```
-
-`cloudburn scan --format json` emits the lean canonical grouped result:
-
-```json
-{
-  "providers": [
-    {
-      "provider": "aws",
-      "rules": [
-        {
-          "ruleId": "CLDBRN-AWS-EBS-1",
-          "service": "ebs",
-          "source": "iac",
-          "message": "EBS volumes should use current-generation storage.",
-          "findings": [
-            {
-              "resourceId": "aws_ebs_volume.gp2_data",
-              "location": {
-                "path": "main.tf",
-                "line": 4,
-                "column": 3
-              }
-            }
-          ]
-        }
-      ]
-    }
-  ]
-}
-```
+- Full docs: [cloudburn.io/docs](https://cloudburn.io/docs)
+- Rule reference: [docs/reference/rule-ids.md](https://github.com/towardsthecloud/cloudburn/blob/main/docs/reference/rule-ids.md)
+- Config reference: [docs/reference/config-schema.md](https://github.com/towardsthecloud/cloudburn/blob/main/docs/reference/config-schema.md)
 
 ## License
 

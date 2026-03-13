@@ -2,6 +2,15 @@
   "name": "@cloudburn/sdk",
   "version": "0.13.2",
   "description": "Cloudburn SDK for cloud cost optimization",
+  "homepage": "https://cloudburn.io/docs",
+  "bugs": {
+    "url": "https://github.com/towardsthecloud/cloudburn/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/towardsthecloud/cloudburn.git",
+    "directory": "packages/sdk"
+  },
   "type": "module",
   "exports": {
     ".": {
@@ -18,6 +27,9 @@
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "publishConfig": {
+    "access": "public"
+  },
   "files": [
     "dist"
   ],
@@ -62,5 +74,8 @@
     "iac",
     "scanner"
   ],
-  "license": "Apache-2.0"
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=24.0.0"
+  }
 }

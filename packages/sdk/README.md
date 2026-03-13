@@ -1,41 +1,74 @@
 # @cloudburn/sdk
 
-Scan engine for Cloudburn cloud cost optimization. Handles config loading, IaC parsing, live AWS discovery, rule evaluation, and orchestration.
+The CloudBurn SDK lets you run the same cost policy engine inside your own codebase. It handles config loading, Terraform and CloudFormation parsing, live AWS discovery, and rule evaluation.
+
+Use it when you want CloudBurn in internal tooling, custom automations, or your own platform instead of calling the CLI.
 
 ## Installation
 
-```sh
+```bash
 npm install @cloudburn/sdk
 ```
 
-## Usage
+## Getting Started
+
+### Static scans
+
+Use `scanStatic()` to run the built-in rules against Terraform or CloudFormation.
 
 ```ts
-import { CloudBurnClient, parseIaC } from "@cloudburn/sdk";
+import { CloudBurnClient } from '@cloudburn/sdk';
 
 const client = new CloudBurnClient();
-const result = await client.scanStatic("./iac");
-
-const resources = await parseIaC("./template.yaml");
-console.log(resources.length);
+const result = await client.scanStatic('./iac');
 
 for (const providerGroup of result.providers) {
-  for (const ruleFindingGroup of providerGroup.rules) {
+  for (const ruleGroup of providerGroup.rules) {
     console.log(
       providerGroup.provider,
-      ruleFindingGroup.ruleId,
-      ruleFindingGroup.service,
-      ruleFindingGroup.source,
-      ruleFindingGroup.message,
-      ruleFindingGroup.findings.length,
+      ruleGroup.ruleId,
+      ruleGroup.source,
+      ruleGroup.findings.length,
     );
   }
 }
 ```
 
-`scanStatic(path)` is the main high-level entrypoint. `parseIaC(path)` is the
-lower-level helper when you want normalized Terraform and CloudFormation
-resources without running the rule engine.
+### Live discovery
+
+Use `initializeDiscovery()` first to set up AWS Resource Explorer. CloudBurn uses it as the live service catalog before it runs discovery rules.
+
+```ts
+import { CloudBurnClient } from '@cloudburn/sdk';
+
+const client = new CloudBurnClient();
+
+await client.initializeDiscovery();
+
+const currentRegion = await client.discover();
+const allRegions = await client.discover({ target: { mode: 'all' } });
+```
+
+`discover()` defaults to the current AWS region. You can also target a specific region with `{ target: { mode: 'region', region: 'eu-central-1' } }`.
+
+### Lower-level helpers
+
+If you need more control, the SDK also exposes a lower-level parser:
+
+- `parseIaC(path)` as a standalone export when you want normalized Terraform and CloudFormation resources without running rules
+
+The `CloudBurnClient` also exposes helper methods:
+
+- `client.loadConfig(path?)` to resolve CloudBurn config from disk
+- `client.getDiscoveryStatus()` to inspect AWS Resource Explorer readiness
+- `client.listEnabledDiscoveryRegions()` to see which regions have indexes
+- `client.listSupportedDiscoveryResourceTypes()` to inspect the AWS resource types discovery can search
+
+## Docs
+
+- Full docs: [cloudburn.io/docs](https://cloudburn.io/docs)
+- Architecture overview: [docs/ARCHITECTURE.md](https://github.com/towardsthecloud/cloudburn/blob/main/docs/ARCHITECTURE.md)
+- Rule reference: [docs/reference/rule-ids.md](https://github.com/towardsthecloud/cloudburn/blob/main/docs/reference/rule-ids.md)
 
 ## License
 

@@ -2,6 +2,15 @@
   "name": "cloudburn",
   "version": "0.8.4",
   "description": "Cloudburn CLI for cloud cost optimization",
+  "homepage": "https://cloudburn.io/docs",
+  "bugs": {
+    "url": "https://github.com/towardsthecloud/cloudburn/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/towardsthecloud/cloudburn.git",
+    "directory": "packages/cloudburn"
+  },
   "type": "module",
   "bin": {
     "cloudburn": "./dist/cli.js"
@@ -43,5 +52,8 @@
     "iac",
     "cli"
   ],
-  "license": "Apache-2.0"
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=24.0.0"
+  }
 }
