@@ -1,5 +1,11 @@
 # cloudburn
 
+## 0.8.4
+
+### Patch Changes
+
+- [#51](https://github.com/towardsthecloud/cloudburn/pull/51) [`8f71a4f`](https://github.com/towardsthecloud/cloudburn/commit/8f71a4fca6f079a025c10589189aeace7c206476) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Fix the published CLI entrypoint so globally installed `cloudburn` binaries still execute when npm invokes them through a symlink.
+
 ## 0.8.3
 
 ### Patch Changes
