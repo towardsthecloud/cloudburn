@@ -1,4 +1,6 @@
+import { CloudWatchClient } from '@aws-sdk/client-cloudwatch';
 import { DescribeRegionsCommand, EC2Client } from '@aws-sdk/client-ec2';
+import { ECRClient } from '@aws-sdk/client-ecr';
 import { LambdaClient } from '@aws-sdk/client-lambda';
 import { RDSClient } from '@aws-sdk/client-rds';
 import { ResourceExplorer2Client } from '@aws-sdk/client-resource-explorer-2';
@@ -32,6 +34,18 @@ export const assertValidAwsRegion = (region: string): string => {
 /** Creates an AWS EC2 client for a specific region. */
 export const createEc2Client = (config: AwsClientConfig): EC2Client =>
   new EC2Client({
+    region: config.region,
+  });
+
+/** Creates an AWS ECR client for a specific region. */
+export const createEcrClient = (config: AwsClientConfig): ECRClient =>
+  new ECRClient({
+    region: config.region,
+  });
+
+/** Creates an AWS CloudWatch client for a specific region. */
+export const createCloudWatchClient = (config: AwsClientConfig): CloudWatchClient =>
+  new CloudWatchClient({
     region: config.region,
   });
 

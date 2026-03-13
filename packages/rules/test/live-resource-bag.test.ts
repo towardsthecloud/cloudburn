@@ -38,6 +38,7 @@ describe('LiveResourceBag', () => {
     const bag = new LiveResourceBag();
 
     expect(bag.get('aws-ec2-instances')).toEqual([]);
+    expect(bag.get('aws-ecr-repositories')).toEqual([]);
     expect(bag.get('aws-lambda-functions')).toEqual([]);
     expect(bag.get('aws-s3-bucket-analyses')).toEqual([]);
   });
@@ -78,6 +79,7 @@ describe('StaticResourceBag', () => {
     const bag = new StaticResourceBag();
 
     expect(bag.get('aws-ec2-instances')).toEqual([]);
+    expect(bag.get('aws-ecr-repositories')).toEqual([]);
     expect(bag.get('aws-s3-bucket-analyses')).toEqual([]);
   });
 });

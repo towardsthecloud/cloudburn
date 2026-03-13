@@ -2,6 +2,7 @@ import type {
   AwsStaticEbsVolume,
   AwsStaticEc2Instance,
   AwsStaticEc2VpcEndpoint,
+  AwsStaticEcrRepository,
   AwsStaticLambdaFunction,
   AwsStaticRdsInstance,
   AwsStaticS3BucketAnalysis,
@@ -23,6 +24,9 @@ type AwsStaticDatasetDefinition<K extends StaticDatasetKey = StaticDatasetKey> =
 
 const TERRAFORM_EBS_VOLUME_TYPE = 'aws_ebs_volume';
 const CLOUDFORMATION_EBS_VOLUME_TYPE = 'AWS::EC2::Volume';
+const TERRAFORM_ECR_REPOSITORY_TYPE = 'aws_ecr_repository';
+const TERRAFORM_ECR_LIFECYCLE_POLICY_TYPE = 'aws_ecr_lifecycle_policy';
+const CLOUDFORMATION_ECR_REPOSITORY_TYPE = 'AWS::ECR::Repository';
 const TERRAFORM_INSTANCE_TYPE = 'aws_instance';
 const CLOUDFORMATION_INSTANCE_TYPE = 'AWS::EC2::Instance';
 const TERRAFORM_RDS_INSTANCE_TYPE = 'aws_db_instance';
@@ -36,6 +40,7 @@ const TERRAFORM_LIFECYCLE_TYPE = 'aws_s3_bucket_lifecycle_configuration';
 const TERRAFORM_INTELLIGENT_TIERING_TYPE = 'aws_s3_bucket_intelligent_tiering_configuration';
 const CLOUDFORMATION_BUCKET_TYPE = 'AWS::S3::Bucket';
 const DIRECT_BUCKET_REFERENCE_PATTERN = /^\$?\{?aws_s3_bucket\.([A-Za-z0-9_-]+)\.(?:id|bucket)\}?$/u;
+const DIRECT_ECR_REPOSITORY_REFERENCE_PATTERN = /^\$?\{?aws_ecr_repository\.([A-Za-z0-9_-]+)\.(?:id|name)\}?$/u;
 
 const isCloudFormationResource = (resource: IaCResource): boolean => resource.type.startsWith('AWS::');
 
@@ -80,6 +85,21 @@ const getTerraformBucketReferenceKey = (value: unknown): string | null => {
   const resourceName = match?.[1];
 
   return resourceName ? `${TERRAFORM_BUCKET_TYPE}.${resourceName}` : null;
+};
+
+const getTerraformEcrRepositoryReferenceKey = (value: unknown): string | null => {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const match = DIRECT_ECR_REPOSITORY_REFERENCE_PATTERN.exec(value);
+  const resourceName = match?.[1];
+
+  if (resourceName) {
+    return `${TERRAFORM_ECR_REPOSITORY_TYPE}.${resourceName}`;
+  }
+
+  return value.toLowerCase();
 };
 
 const getTerraformLifecycleRules = (
@@ -152,6 +172,37 @@ const createCloudFormationS3BucketAnalysis = (bucket: IaCResource): AwsStaticS3B
   };
 };
 
+const createTerraformEcrRepository = (
+  repository: IaCResource,
+  lifecyclePolicies: IaCResource[],
+): AwsStaticEcrRepository => {
+  const repositoryName = getTerraformEcrRepositoryReferenceKey(repository.attributes.name);
+  const identityKeys = new Set<string>([toStaticResourceId(repository)]);
+
+  if (repositoryName) {
+    identityKeys.add(repositoryName);
+  }
+
+  return {
+    hasLifecyclePolicy: lifecyclePolicies.some((lifecyclePolicy) => {
+      const targetKey = getTerraformEcrRepositoryReferenceKey(lifecyclePolicy.attributes.repository);
+      return targetKey !== null && identityKeys.has(targetKey);
+    }),
+    location: repository.location,
+    resourceId: toStaticResourceId(repository),
+  };
+};
+
+const createCloudFormationEcrRepository = (repository: IaCResource): AwsStaticEcrRepository => {
+  const properties = isRecord(repository.attributes.Properties) ? repository.attributes.Properties : undefined;
+
+  return {
+    hasLifecyclePolicy: isRecord(properties?.LifecyclePolicy),
+    location: repository.location,
+    resourceId: toStaticResourceId(repository),
+  };
+};
+
 const loadStaticEbsVolumes = (resources: IaCResource[]): AwsStaticEbsVolume[] =>
   resources.map((resource) => ({
     resourceId: toStaticResourceId(resource),
@@ -164,6 +215,22 @@ const loadStaticEbsVolumes = (resources: IaCResource[]): AwsStaticEbsVolume[] =>
     ),
     location: pickLocation(resource, ['type', 'Properties.VolumeType']),
   }));
+
+const loadStaticEcrRepositories = (resources: IaCResource[]): AwsStaticEcrRepository[] => {
+  const lifecyclePolicies = resources.filter((resource) => resource.type === TERRAFORM_ECR_LIFECYCLE_POLICY_TYPE);
+
+  return resources.flatMap((resource) => {
+    if (resource.type === TERRAFORM_ECR_REPOSITORY_TYPE) {
+      return [createTerraformEcrRepository(resource, lifecyclePolicies)];
+    }
+
+    if (resource.type === CLOUDFORMATION_ECR_REPOSITORY_TYPE) {
+      return [createCloudFormationEcrRepository(resource)];
+    }
+
+    return [];
+  });
+};
 
 const loadStaticEc2Instances = (resources: IaCResource[]): AwsStaticEc2Instance[] =>
   resources.map((resource) => ({
@@ -260,6 +327,16 @@ const awsStaticDatasetRegistry: Record<StaticDatasetKey, AwsStaticDatasetDefinit
     sourceKinds: ['terraform', 'cloudformation'],
     resourceTypes: [TERRAFORM_EBS_VOLUME_TYPE, CLOUDFORMATION_EBS_VOLUME_TYPE],
     load: loadStaticEbsVolumes,
+  },
+  'aws-ecr-repositories': {
+    datasetKey: 'aws-ecr-repositories',
+    sourceKinds: ['terraform', 'cloudformation'],
+    resourceTypes: [
+      TERRAFORM_ECR_REPOSITORY_TYPE,
+      TERRAFORM_ECR_LIFECYCLE_POLICY_TYPE,
+      CLOUDFORMATION_ECR_REPOSITORY_TYPE,
+    ],
+    load: loadStaticEcrRepositories,
   },
   'aws-ec2-instances': {
     datasetKey: 'aws-ec2-instances',

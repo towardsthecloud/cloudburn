@@ -21,8 +21,11 @@ import {
 } from '../../src/providers/aws/resource-explorer.js';
 import { hydrateAwsEbsVolumes } from '../../src/providers/aws/resources/ebs.js';
 import { hydrateAwsEc2Instances } from '../../src/providers/aws/resources/ec2.js';
+import { hydrateAwsEc2InstanceUtilization } from '../../src/providers/aws/resources/ec2-utilization.js';
+import { hydrateAwsEcrRepositories } from '../../src/providers/aws/resources/ecr.js';
 import { hydrateAwsLambdaFunctions } from '../../src/providers/aws/resources/lambda.js';
 import { hydrateAwsRdsInstances } from '../../src/providers/aws/resources/rds.js';
+import { hydrateAwsRdsInstanceActivity } from '../../src/providers/aws/resources/rds-activity.js';
 import { hydrateAwsS3BucketAnalyses } from '../../src/providers/aws/resources/s3.js';
 
 vi.mock('../../src/providers/aws/client.js', async (importOriginal) => {
@@ -50,8 +53,16 @@ vi.mock('../../src/providers/aws/resources/ebs.js', () => ({
   hydrateAwsEbsVolumes: vi.fn(),
 }));
 
+vi.mock('../../src/providers/aws/resources/ecr.js', () => ({
+  hydrateAwsEcrRepositories: vi.fn(),
+}));
+
 vi.mock('../../src/providers/aws/resources/ec2.js', () => ({
   hydrateAwsEc2Instances: vi.fn(),
+}));
+
+vi.mock('../../src/providers/aws/resources/ec2-utilization.js', () => ({
+  hydrateAwsEc2InstanceUtilization: vi.fn(),
 }));
 
 vi.mock('../../src/providers/aws/resources/lambda.js', () => ({
@@ -60,6 +71,10 @@ vi.mock('../../src/providers/aws/resources/lambda.js', () => ({
 
 vi.mock('../../src/providers/aws/resources/rds.js', () => ({
   hydrateAwsRdsInstances: vi.fn(),
+}));
+
+vi.mock('../../src/providers/aws/resources/rds-activity.js', () => ({
+  hydrateAwsRdsInstanceActivity: vi.fn(),
 }));
 
 vi.mock('../../src/providers/aws/resources/s3.js', () => ({
@@ -77,8 +92,11 @@ const mockedUpdateAwsResourceExplorerIndexType = vi.mocked(updateAwsResourceExpl
 const mockedWaitForAwsResourceExplorerIndex = vi.mocked(waitForAwsResourceExplorerIndex);
 const mockedWaitForAwsResourceExplorerSetup = vi.mocked(waitForAwsResourceExplorerSetup);
 const mockedHydrateAwsEbsVolumes = vi.mocked(hydrateAwsEbsVolumes);
+const mockedHydrateAwsEcrRepositories = vi.mocked(hydrateAwsEcrRepositories);
 const mockedHydrateAwsEc2Instances = vi.mocked(hydrateAwsEc2Instances);
+const mockedHydrateAwsEc2InstanceUtilization = vi.mocked(hydrateAwsEc2InstanceUtilization);
 const mockedHydrateAwsLambdaFunctions = vi.mocked(hydrateAwsLambdaFunctions);
+const mockedHydrateAwsRdsInstanceActivity = vi.mocked(hydrateAwsRdsInstanceActivity);
 const mockedHydrateAwsRdsInstances = vi.mocked(hydrateAwsRdsInstances);
 const mockedHydrateAwsS3BucketAnalyses = vi.mocked(hydrateAwsS3BucketAnalyses);
 
@@ -100,6 +118,14 @@ const catalog: AwsDiscoveryCatalog = {
       region: 'us-east-1',
       resourceType: 'ec2:instance',
       service: 'ec2',
+    },
+    {
+      accountId: '123456789012',
+      arn: 'arn:aws:ecr:us-east-1:123456789012:repository/app',
+      properties: [],
+      region: 'us-east-1',
+      resourceType: 'ecr:repository',
+      service: 'ecr',
     },
     {
       accountId: '123456789012',
@@ -164,6 +190,15 @@ describe('discoverAwsResources', () => {
     mockedHydrateAwsEbsVolumes.mockResolvedValue([
       { accountId: '123456789012', region: 'us-east-1', volumeId: 'vol-123', volumeType: 'gp2' },
     ]);
+    mockedHydrateAwsEcrRepositories.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        arn: 'arn:aws:ecr:us-east-1:123456789012:repository/app',
+        hasLifecyclePolicy: true,
+        region: 'us-east-1',
+        repositoryName: 'app',
+      },
+    ]);
     mockedHydrateAwsEc2Instances.mockResolvedValue([
       {
         accountId: '123456789012',
@@ -200,11 +235,16 @@ describe('discoverAwsResources', () => {
         }),
         createRule({
           id: 'CLDBRN-AWS-TEST-3',
+          discoveryDependencies: ['aws-ecr-repositories'],
+          service: 'ecr',
+        }),
+        createRule({
+          id: 'CLDBRN-AWS-TEST-4',
           discoveryDependencies: ['aws-lambda-functions', 'aws-ebs-volumes'],
           service: 'lambda',
         }),
         createRule({
-          id: 'CLDBRN-AWS-TEST-4',
+          id: 'CLDBRN-AWS-TEST-5',
           discoveryDependencies: ['aws-s3-bucket-analyses'],
           service: 's3',
         }),
@@ -215,13 +255,15 @@ describe('discoverAwsResources', () => {
     expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith({ mode: 'region', region: 'us-east-1' }, [
       'ec2:instance',
       'ec2:volume',
+      'ecr:repository',
       'lambda:function',
       's3:bucket',
     ]);
     expect(mockedHydrateAwsEbsVolumes).toHaveBeenCalledWith([catalog.resources[0]]);
     expect(mockedHydrateAwsEc2Instances).toHaveBeenCalledWith([catalog.resources[1]]);
-    expect(mockedHydrateAwsLambdaFunctions).toHaveBeenCalledWith([catalog.resources[2]]);
-    expect(mockedHydrateAwsS3BucketAnalyses).toHaveBeenCalledWith([catalog.resources[3]]);
+    expect(mockedHydrateAwsEcrRepositories).toHaveBeenCalledWith([catalog.resources[2]]);
+    expect(mockedHydrateAwsLambdaFunctions).toHaveBeenCalledWith([catalog.resources[3]]);
+    expect(mockedHydrateAwsS3BucketAnalyses).toHaveBeenCalledWith([catalog.resources[4]]);
     expect(result.catalog).toEqual(catalog);
     expect(result.resources).toBeInstanceOf(LiveResourceBag);
     expect(result.resources.get('aws-ebs-volumes')).toEqual([
@@ -233,6 +275,15 @@ describe('discoverAwsResources', () => {
         instanceId: 'i-123',
         instanceType: 'c6i.large',
         region: 'us-east-1',
+      },
+    ]);
+    expect(result.resources.get('aws-ecr-repositories')).toEqual([
+      {
+        accountId: '123456789012',
+        arn: 'arn:aws:ecr:us-east-1:123456789012:repository/app',
+        hasLifecyclePolicy: true,
+        region: 'us-east-1',
+        repositoryName: 'app',
       },
     ]);
     expect(result.resources.get('aws-lambda-functions')).toEqual([
@@ -280,7 +331,7 @@ describe('discoverAwsResources', () => {
     );
 
     expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith({ mode: 'region', region: 'us-east-1' }, ['s3:bucket']);
-    expect(mockedHydrateAwsS3BucketAnalyses).toHaveBeenCalledWith([catalog.resources[3]]);
+    expect(mockedHydrateAwsS3BucketAnalyses).toHaveBeenCalledWith([catalog.resources[4]]);
     expect(mockedHydrateAwsEbsVolumes).not.toHaveBeenCalled();
     expect(mockedHydrateAwsEc2Instances).not.toHaveBeenCalled();
     expect(mockedHydrateAwsLambdaFunctions).not.toHaveBeenCalled();
@@ -308,12 +359,96 @@ describe('discoverAwsResources', () => {
     );
 
     expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith({ mode: 'region', region: 'us-east-1' }, ['rds:db']);
-    expect(mockedHydrateAwsRdsInstances).toHaveBeenCalledWith([catalog.resources[4]]);
+    expect(mockedHydrateAwsRdsInstances).toHaveBeenCalledWith([catalog.resources[5]]);
     expect(result.resources.get('aws-rds-instances' as never)).toEqual([
       {
         accountId: '123456789012',
         dbInstanceIdentifier: 'legacy-db',
         instanceClass: 'db.m6i.large',
+        region: 'us-east-1',
+      },
+    ]);
+  });
+
+  it('hydrates EC2 low-utilization summaries when an active rule requires utilization data', async () => {
+    mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
+      indexType: 'LOCAL',
+      resources: [catalog.resources[1]],
+      searchRegion: 'us-east-1',
+    });
+    mockedHydrateAwsEc2InstanceUtilization.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        averageCpuUtilizationLast14Days: 4,
+        averageDailyNetworkBytesLast14Days: 1024,
+        instanceId: 'i-123',
+        instanceType: 'c6i.large',
+        lowUtilizationDays: 4,
+        region: 'us-east-1',
+      },
+    ]);
+
+    const result = await discoverAwsResources(
+      [
+        createRule({
+          discoveryDependencies: ['aws-ec2-instance-utilization'],
+          service: 'ec2',
+        }),
+      ],
+      { mode: 'region', region: 'us-east-1' },
+    );
+
+    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith({ mode: 'region', region: 'us-east-1' }, [
+      'ec2:instance',
+    ]);
+    expect(mockedHydrateAwsEc2InstanceUtilization).toHaveBeenCalledWith([catalog.resources[1]]);
+    expect(result.resources.get('aws-ec2-instance-utilization')).toEqual([
+      {
+        accountId: '123456789012',
+        averageCpuUtilizationLast14Days: 4,
+        averageDailyNetworkBytesLast14Days: 1024,
+        instanceId: 'i-123',
+        instanceType: 'c6i.large',
+        lowUtilizationDays: 4,
+        region: 'us-east-1',
+      },
+    ]);
+  });
+
+  it('hydrates RDS activity summaries when an active rule requires idle-instance data', async () => {
+    mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
+      indexType: 'LOCAL',
+      resources: [catalog.resources[5]],
+      searchRegion: 'us-east-1',
+    });
+    mockedHydrateAwsRdsInstanceActivity.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        dbInstanceIdentifier: 'legacy-db',
+        instanceClass: 'db.m6i.large',
+        maxDatabaseConnectionsLast7Days: 0,
+        region: 'us-east-1',
+      },
+    ]);
+
+    const result = await discoverAwsResources(
+      [
+        createRule({
+          discoveryDependencies: ['aws-rds-instance-activity'],
+          service: 'rds',
+        }),
+      ],
+      { mode: 'region', region: 'us-east-1' },
+    );
+
+    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith({ mode: 'region', region: 'us-east-1' }, ['rds:db']);
+    expect(mockedHydrateAwsRdsInstanceActivity).toHaveBeenCalledWith([catalog.resources[5]]);
+    expect(result.resources.get('aws-rds-instance-activity')).toEqual([
+      {
+        accountId: '123456789012',
+        dbInstanceIdentifier: 'legacy-db',
+        instanceClass: 'db.m6i.large',
+        maxDatabaseConnectionsLast7Days: 0,
         region: 'us-east-1',
       },
     ]);
@@ -368,6 +503,104 @@ describe('discoverAwsResources', () => {
         provider: 'aws',
         region: 'us-east-1',
         service: 'lambda',
+        source: 'discovery',
+        status: 'access_denied',
+      },
+    ]);
+  });
+
+  it('records a non-fatal diagnostic when ECR hydration is access denied', async () => {
+    mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
+      indexType: 'LOCAL',
+      resources: [catalog.resources[2]],
+      searchRegion: 'us-east-1',
+    });
+    const accessDeniedCause = Object.assign(new Error('User is not authorized to perform: ecr:GetLifecyclePolicy'), {
+      code: 'AccessDeniedException',
+      name: 'AccessDeniedException',
+      $metadata: {
+        httpStatusCode: 403,
+        requestId: 'req-ecr',
+      },
+    });
+    mockedHydrateAwsEcrRepositories.mockRejectedValue(
+      new Error(
+        'Amazon ECR GetLifecyclePolicy failed in us-east-1 with AccessDeniedException: User is not authorized to perform: ecr:GetLifecyclePolicy Request ID: req-ecr.',
+        {
+          cause: accessDeniedCause,
+        },
+      ),
+    );
+
+    const result = await discoverAwsResources(
+      [
+        createRule({
+          discoveryDependencies: ['aws-ecr-repositories'],
+          service: 'ecr',
+        }),
+      ],
+      { mode: 'region', region: 'us-east-1' },
+    );
+
+    expect(result.resources.get('aws-ecr-repositories')).toEqual([]);
+    expect(result.diagnostics).toEqual([
+      {
+        code: 'AccessDeniedException',
+        details:
+          'Amazon ECR GetLifecyclePolicy failed in us-east-1 with AccessDeniedException: User is not authorized to perform: ecr:GetLifecyclePolicy Request ID: req-ecr.',
+        message: 'Skipped ecr discovery in us-east-1 because access is denied by AWS permissions.',
+        provider: 'aws',
+        region: 'us-east-1',
+        service: 'ecr',
+        source: 'discovery',
+        status: 'access_denied',
+      },
+    ]);
+  });
+
+  it('records a non-fatal diagnostic when EC2 utilization hydration is access denied', async () => {
+    mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
+      indexType: 'LOCAL',
+      resources: [catalog.resources[1]],
+      searchRegion: 'us-east-1',
+    });
+    const accessDeniedCause = Object.assign(new Error('User is not authorized to perform: cloudwatch:GetMetricData'), {
+      code: 'AccessDeniedException',
+      name: 'AccessDeniedException',
+      $metadata: {
+        httpStatusCode: 403,
+        requestId: 'req-ec2-metrics',
+      },
+    });
+    mockedHydrateAwsEc2InstanceUtilization.mockRejectedValue(
+      new Error(
+        'Amazon CloudWatch GetMetricData failed in us-east-1 with AccessDeniedException: User is not authorized to perform: cloudwatch:GetMetricData Request ID: req-ec2-metrics.',
+        {
+          cause: accessDeniedCause,
+        },
+      ),
+    );
+
+    const result = await discoverAwsResources(
+      [
+        createRule({
+          discoveryDependencies: ['aws-ec2-instance-utilization'],
+          service: 'ec2',
+        }),
+      ],
+      { mode: 'region', region: 'us-east-1' },
+    );
+
+    expect(result.resources.get('aws-ec2-instance-utilization')).toEqual([]);
+    expect(result.diagnostics).toEqual([
+      {
+        code: 'AccessDeniedException',
+        details:
+          'Amazon CloudWatch GetMetricData failed in us-east-1 with AccessDeniedException: User is not authorized to perform: cloudwatch:GetMetricData Request ID: req-ec2-metrics.',
+        message: 'Skipped ec2 discovery in us-east-1 because access is denied by AWS permissions.',
+        provider: 'aws',
+        region: 'us-east-1',
+        service: 'ec2',
         source: 'discovery',
         status: 'access_denied',
       },

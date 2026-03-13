@@ -178,6 +178,181 @@ describe('loadAwsStaticResources', () => {
     ]);
   });
 
+  it('loads ECR repository datasets for Terraform lifecycle resources and CloudFormation inline policies', async () => {
+    mockedParseIaC.mockResolvedValue([
+      createIaCResource({
+        type: 'aws_ecr_repository',
+        name: 'app',
+        location: {
+          path: 'main.tf',
+          line: 1,
+          column: 1,
+        },
+        attributes: {
+          name: 'app',
+        },
+      }),
+      createIaCResource({
+        type: 'aws_ecr_lifecycle_policy',
+        name: 'app',
+        attributes: {
+          repository: 'aws_ecr_repository.app.name',
+        },
+      }),
+      createIaCResource({
+        type: 'AWS::ECR::Repository',
+        name: 'LogsRepository',
+        location: {
+          path: 'template.yaml',
+          line: 10,
+          column: 5,
+        },
+        attributes: {
+          Properties: {
+            LifecyclePolicy: {
+              LifecyclePolicyText: '{"rules":[]}',
+            },
+            RepositoryName: 'logs',
+          },
+        },
+      }),
+      createIaCResource({
+        type: 'AWS::ECR::Repository',
+        name: 'MissingLifecycleRepository',
+        location: {
+          path: 'template.yaml',
+          line: 18,
+          column: 5,
+        },
+        attributes: {
+          Properties: {
+            RepositoryName: 'missing',
+          },
+        },
+      }),
+    ]);
+
+    const result = await loadAwsStaticResources('/tmp/iac', [
+      createRule({
+        staticDependencies: ['aws-ecr-repositories'],
+      }),
+    ]);
+
+    expect(result.resources.get('aws-ecr-repositories')).toEqual([
+      {
+        hasLifecyclePolicy: true,
+        location: {
+          path: 'main.tf',
+          line: 1,
+          column: 1,
+        },
+        resourceId: 'aws_ecr_repository.app',
+      },
+      {
+        hasLifecyclePolicy: true,
+        location: {
+          path: 'template.yaml',
+          line: 10,
+          column: 5,
+        },
+        resourceId: 'LogsRepository',
+      },
+      {
+        hasLifecyclePolicy: false,
+        location: {
+          path: 'template.yaml',
+          line: 18,
+          column: 5,
+        },
+        resourceId: 'MissingLifecycleRepository',
+      },
+    ]);
+  });
+
+  it('matches Terraform ECR lifecycle policies that reference repository ids', async () => {
+    mockedParseIaC.mockResolvedValue([
+      createIaCResource({
+        type: 'aws_ecr_repository',
+        name: 'app',
+        location: {
+          path: 'main.tf',
+          line: 1,
+          column: 1,
+        },
+        attributes: {
+          name: 'app',
+        },
+      }),
+      createIaCResource({
+        type: 'aws_ecr_lifecycle_policy',
+        name: 'app',
+        attributes: {
+          repository: 'aws_ecr_repository.app.id',
+        },
+      }),
+    ]);
+
+    const result = await loadAwsStaticResources('/tmp/iac', [
+      createRule({
+        staticDependencies: ['aws-ecr-repositories'],
+      }),
+    ]);
+
+    expect(result.resources.get('aws-ecr-repositories')).toEqual([
+      {
+        hasLifecyclePolicy: true,
+        location: {
+          path: 'main.tf',
+          line: 1,
+          column: 1,
+        },
+        resourceId: 'aws_ecr_repository.app',
+      },
+    ]);
+  });
+
+  it('matches Terraform ECR lifecycle policies that share unresolved repository expressions', async () => {
+    mockedParseIaC.mockResolvedValue([
+      createIaCResource({
+        type: 'aws_ecr_repository',
+        name: 'app',
+        location: {
+          path: 'main.tf',
+          line: 1,
+          column: 1,
+        },
+        attributes: {
+          name: '$' + '{var.repo_name}',
+        },
+      }),
+      createIaCResource({
+        type: 'aws_ecr_lifecycle_policy',
+        name: 'app',
+        attributes: {
+          repository: '$' + '{var.repo_name}',
+        },
+      }),
+    ]);
+
+    const result = await loadAwsStaticResources('/tmp/iac', [
+      createRule({
+        staticDependencies: ['aws-ecr-repositories'],
+      }),
+    ]);
+
+    expect(result.resources.get('aws-ecr-repositories')).toEqual([
+      {
+        hasLifecyclePolicy: true,
+        location: {
+          path: 'main.tf',
+          line: 1,
+          column: 1,
+        },
+        resourceId: 'aws_ecr_repository.app',
+      },
+    ]);
+  });
+
   it('returns an empty bag without parsing when no static rules require datasets', async () => {
     const result = await loadAwsStaticResources('/tmp/iac', [
       createRule({
@@ -283,6 +458,70 @@ describe('aws static dataset registry', () => {
         },
         resourceId: 'DataVolume',
         volumeType: 'gp3',
+      },
+    ]);
+  });
+
+  it('normalizes ECR repositories for Terraform and CloudFormation', () => {
+    const definition = getAwsStaticDatasetDefinition('aws-ecr-repositories');
+
+    expect(
+      definition?.load([
+        createIaCResource({
+          type: 'aws_ecr_repository',
+          name: 'app',
+          location: {
+            path: 'main.tf',
+            line: 2,
+            column: 1,
+          },
+          attributes: {
+            name: 'app',
+          },
+        }),
+        createIaCResource({
+          type: 'aws_ecr_lifecycle_policy',
+          name: 'app',
+          attributes: {
+            repository: '$' + '{aws_ecr_repository.app.name}',
+          },
+        }),
+        createIaCResource({
+          type: 'AWS::ECR::Repository',
+          name: 'LogsRepository',
+          location: {
+            path: 'template.yaml',
+            line: 7,
+            column: 3,
+          },
+          attributes: {
+            Properties: {
+              LifecyclePolicy: {
+                LifecyclePolicyText: '{"rules":[]}',
+              },
+              RepositoryName: 'logs',
+            },
+          },
+        }),
+      ]),
+    ).toEqual([
+      {
+        hasLifecyclePolicy: true,
+        location: {
+          path: 'main.tf',
+          line: 2,
+          column: 1,
+        },
+        resourceId: 'aws_ecr_repository.app',
+      },
+      {
+        hasLifecyclePolicy: true,
+        location: {
+          path: 'template.yaml',
+          line: 7,
+          column: 3,
+        },
+        resourceId: 'LogsRepository',
       },
     ]);
   });

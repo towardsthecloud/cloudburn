@@ -23,10 +23,43 @@ export type AwsEbsVolume = {
   accountId: string;
 };
 
+/** Discovered AWS ECR repository with lifecycle-policy state. */
+export type AwsEcrRepository = {
+  repositoryName: string;
+  arn: string;
+  hasLifecyclePolicy: boolean;
+  region: string;
+  accountId: string;
+};
+
 /** Discovered AWS EC2 instance with its normalized instance type. */
 export type AwsEc2Instance = {
   instanceId: string;
   instanceType: string;
+  region: string;
+  accountId: string;
+};
+
+/** Discovered Elastic IP with its current association state. */
+export type AwsEc2ElasticIp = {
+  allocationId: string;
+  publicIp: string;
+  associationId?: string;
+  instanceId?: string;
+  networkInterfaceId?: string;
+  region: string;
+  accountId: string;
+};
+
+/** Discovered VPC endpoint with its 30-day data transfer total. */
+export type AwsEc2VpcEndpointActivity = {
+  vpcEndpointId: string;
+  vpcId: string;
+  subnetIds: string[];
+  serviceName: string;
+  vpcEndpointType: string;
+  /** `null` means CloudWatch returned incomplete datapoints for the 30-day lookback window. */
+  bytesProcessedLast30Days: number | null;
   region: string;
   accountId: string;
 };
@@ -44,6 +77,27 @@ export type AwsLambdaFunction = {
 export type AwsRdsInstance = {
   dbInstanceIdentifier: string;
   instanceClass: string;
+  region: string;
+  accountId: string;
+};
+
+/** Discovered RDS DB instance with a 7-day connection summary. */
+export type AwsRdsInstanceActivity = {
+  dbInstanceIdentifier: string;
+  instanceClass: string;
+  /** `null` means CloudWatch returned incomplete datapoints for the 7-day lookback window. */
+  maxDatabaseConnectionsLast7Days: number | null;
+  region: string;
+  accountId: string;
+};
+
+/** Discovered EC2 instance with its low-utilization summary. */
+export type AwsEc2InstanceUtilization = {
+  instanceId: string;
+  instanceType: string;
+  lowUtilizationDays: number;
+  averageCpuUtilizationLast14Days: number;
+  averageDailyNetworkBytesLast14Days: number;
   region: string;
   accountId: string;
 };
@@ -92,29 +146,55 @@ export type AwsDiscoveryCatalog = {
 };
 
 /** Rule-facing live discovery dataset key exposed through the evaluation context. */
-export type DiscoveryDatasetKey =
+export type SharedDatasetKey =
   | 'aws-ebs-volumes'
+  | 'aws-ecr-repositories'
   | 'aws-ec2-instances'
   | 'aws-lambda-functions'
+  | 'aws-rds-instances'
+  | 'aws-s3-bucket-analyses';
+
+/** Rule-facing live discovery dataset key exposed through the evaluation context. */
+export type DiscoveryDatasetKey =
+  | 'aws-ebs-volumes'
+  | 'aws-ecr-repositories'
+  | 'aws-ec2-elastic-ips'
+  | 'aws-ec2-instances'
+  | 'aws-ec2-instance-utilization'
+  | 'aws-ec2-vpc-endpoint-activity'
+  | 'aws-lambda-functions'
+  | 'aws-rds-instance-activity'
   | 'aws-rds-instances'
   | 'aws-s3-bucket-analyses';
 
 /** Normalized live discovery datasets available to rule evaluators. */
 export type DiscoveryDatasetMap = {
   'aws-ebs-volumes': AwsEbsVolume[];
+  'aws-ecr-repositories': AwsEcrRepository[];
+  'aws-ec2-elastic-ips': AwsEc2ElasticIp[];
   'aws-ec2-instances': AwsEc2Instance[];
+  'aws-ec2-instance-utilization': AwsEc2InstanceUtilization[];
+  'aws-ec2-vpc-endpoint-activity': AwsEc2VpcEndpointActivity[];
   'aws-lambda-functions': AwsLambdaFunction[];
+  'aws-rds-instance-activity': AwsRdsInstanceActivity[];
   'aws-rds-instances': AwsRdsInstance[];
   'aws-s3-bucket-analyses': AwsS3BucketAnalysis[];
 };
 
 /** Rule-facing static IaC dataset key exposed through the evaluation context. */
-export type StaticDatasetKey = DiscoveryDatasetKey | 'aws-ec2-vpc-endpoints' | 'aws-s3-bucket-analyses';
+export type StaticDatasetKey = SharedDatasetKey | 'aws-ec2-vpc-endpoints';
 
 /** Normalized static EBS volume dataset entry with a precomputed finding target. */
 export type AwsStaticEbsVolume = {
   resourceId: string;
   volumeType: string | null;
+  location?: SourceLocation;
+};
+
+/** Normalized static ECR repository dataset entry with lifecycle-policy state. */
+export type AwsStaticEcrRepository = {
+  resourceId: string;
+  hasLifecyclePolicy: boolean;
   location?: SourceLocation;
 };
 
@@ -156,6 +236,7 @@ export type AwsStaticS3BucketAnalysis = AwsS3BucketAnalysisFlags & {
 /** Normalized static datasets available to rule evaluators. */
 export type StaticDatasetMap = {
   'aws-ebs-volumes': AwsStaticEbsVolume[];
+  'aws-ecr-repositories': AwsStaticEcrRepository[];
   'aws-ec2-instances': AwsStaticEc2Instance[];
   'aws-lambda-functions': AwsStaticLambdaFunction[];
   'aws-ec2-vpc-endpoints': AwsStaticEc2VpcEndpoint[];

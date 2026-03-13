@@ -106,4 +106,86 @@ describe('rule metadata', () => {
       staticDependencies: ['aws-ec2-vpc-endpoints'],
     });
   });
+
+  it('defines the expected ECR lifecycle-policy rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-ECR-1');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-ECR-1',
+      name: 'ECR Repository Missing Lifecycle Policy',
+      description: 'Flag ECR repositories that do not define a lifecycle policy.',
+      message: 'ECR repositories should define lifecycle policies.',
+      provider: 'aws',
+      service: 'ecr',
+      supports: ['iac', 'discovery'],
+      discoveryDependencies: ['aws-ecr-repositories'],
+      staticDependencies: ['aws-ecr-repositories'],
+    });
+  });
+
+  it('defines the expected EC2 unassociated-elastic-ip rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-EC2-3');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-EC2-3',
+      name: 'Elastic IP Address Unassociated',
+      description: 'Flag Elastic IP allocations that are not associated with an EC2 resource.',
+      message: 'Elastic IP addresses should not remain unassociated.',
+      provider: 'aws',
+      service: 'ec2',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-ec2-elastic-ips'],
+    });
+  });
+
+  it('defines the expected EC2 inactive-vpc-interface-endpoint rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-EC2-4');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-EC2-4',
+      name: 'VPC Interface Endpoint Inactive',
+      description: 'Flag interface VPC endpoints that have processed no traffic in the last 30 days.',
+      message: 'Interface VPC endpoints should process traffic or be removed.',
+      provider: 'aws',
+      service: 'ec2',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-ec2-vpc-endpoint-activity'],
+    });
+  });
+
+  it('defines the expected EC2 low-utilization rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-EC2-5');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-EC2-5',
+      name: 'EC2 Instance Low Utilization',
+      description:
+        'Flag EC2 instances whose CPU and network usage stay below the low-utilization threshold for at least 4 of the previous 14 days.',
+      message: 'EC2 instances should not remain low utilization for 4 or more of the previous 14 days.',
+      provider: 'aws',
+      service: 'ec2',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-ec2-instance-utilization'],
+    });
+  });
+
+  it('defines the expected RDS idle-instance rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-RDS-2');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-RDS-2',
+      name: 'RDS DB Instance Idle',
+      description: 'Flag RDS DB instances that have no database connections in the last 7 days.',
+      message: 'RDS DB instances should not remain idle for 7 days.',
+      provider: 'aws',
+      service: 'rds',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-rds-instance-activity'],
+    });
+  });
 });

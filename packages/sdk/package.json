@@ -43,7 +43,9 @@
     "dev": "tsup --watch"
   },
   "dependencies": {
+    "@aws-sdk/client-cloudwatch": "^3.1003.0",
     "@aws-sdk/client-ec2": "^3.1003.0",
+    "@aws-sdk/client-ecr": "^3.1003.0",
     "@aws-sdk/client-lambda": "^3.1003.0",
     "@aws-sdk/client-rds": "^3.1003.0",
     "@aws-sdk/client-resource-explorer-2": "^3.1003.0",

@@ -50,6 +50,35 @@ describe('sdk exports', () => {
         supports: ['iac'],
       },
       {
+        description: 'Flag Elastic IP allocations that are not associated with an EC2 resource.',
+        id: 'CLDBRN-AWS-EC2-3',
+        provider: 'aws',
+        service: 'ec2',
+        supports: ['discovery'],
+      },
+      {
+        description: 'Flag interface VPC endpoints that have processed no traffic in the last 30 days.',
+        id: 'CLDBRN-AWS-EC2-4',
+        provider: 'aws',
+        service: 'ec2',
+        supports: ['discovery'],
+      },
+      {
+        description:
+          'Flag EC2 instances whose CPU and network usage stay below the low-utilization threshold for at least 4 of the previous 14 days.',
+        id: 'CLDBRN-AWS-EC2-5',
+        provider: 'aws',
+        service: 'ec2',
+        supports: ['discovery'],
+      },
+      {
+        description: 'Flag ECR repositories that do not define a lifecycle policy.',
+        id: 'CLDBRN-AWS-ECR-1',
+        provider: 'aws',
+        service: 'ecr',
+        supports: ['iac', 'discovery'],
+      },
+      {
         description: 'Recommend arm64 architecture when compatible.',
         id: 'CLDBRN-AWS-LAMBDA-1',
         provider: 'aws',
@@ -62,6 +91,13 @@ describe('sdk exports', () => {
         provider: 'aws',
         service: 'rds',
         supports: ['iac', 'discovery'],
+      },
+      {
+        description: 'Flag RDS DB instances that have no database connections in the last 7 days.',
+        id: 'CLDBRN-AWS-RDS-2',
+        provider: 'aws',
+        service: 'rds',
+        supports: ['discovery'],
       },
       {
         description: 'Ensure S3 buckets define lifecycle management policies.',

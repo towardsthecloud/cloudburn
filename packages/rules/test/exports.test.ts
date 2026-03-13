@@ -23,7 +23,16 @@ describe('rule exports', () => {
     expect(awsRules.length).toBeGreaterThan(0);
     expect(awsCorePreset.ruleIds.length).toBe(awsRules.length);
     expect(awsRules.map((rule) => rule.id)).toEqual(
-      expect.arrayContaining(['CLDBRN-AWS-EC2-2', 'CLDBRN-AWS-S3-1', 'CLDBRN-AWS-S3-2']),
+      expect.arrayContaining([
+        'CLDBRN-AWS-EC2-2',
+        'CLDBRN-AWS-EC2-3',
+        'CLDBRN-AWS-EC2-4',
+        'CLDBRN-AWS-EC2-5',
+        'CLDBRN-AWS-ECR-1',
+        'CLDBRN-AWS-RDS-2',
+        'CLDBRN-AWS-S3-1',
+        'CLDBRN-AWS-S3-2',
+      ]),
     );
   });
 

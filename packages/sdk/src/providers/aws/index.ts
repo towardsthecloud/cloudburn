@@ -1,5 +1,7 @@
 export {
+  createCloudWatchClient,
   createEc2Client,
+  createEcrClient,
   createLambdaClient,
   createResourceExplorerClient,
   listEnabledAwsRegions,
