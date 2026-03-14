@@ -33,5 +33,6 @@ export type {
   ScanDiagnostic,
   ScanResult,
   ScanSource,
+  Source,
   SourceLocation,
 } from './types.js';

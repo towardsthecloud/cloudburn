@@ -64,8 +64,10 @@ cloudburn discover
 cloudburn discover --region eu-central-1
 cloudburn discover --region all
 cloudburn discover --config .cloudburn.yml --enabled-rules CLDBRN-AWS-EBS-1
+cloudburn discover --service ec2,s3
 cloudburn discover list-enabled-regions --format text
 cloudburn rules list
+cloudburn rules list --service ec2 --source discovery
 ```
 
 `cloudburn discover --region all` needs an AWS Resource Explorer aggregator and an unfiltered default view in the aggregator region.

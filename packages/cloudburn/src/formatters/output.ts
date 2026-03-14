@@ -76,6 +76,15 @@ const scanColumns: ColumnSpec[] = [
   { key: 'message', header: 'Message' },
 ];
 
+const ruleListColumns: ColumnSpec[] = [
+  { key: 'ruleId', header: 'RuleId' },
+  { key: 'provider', header: 'Provider' },
+  { key: 'service', header: 'Service' },
+  { key: 'supports', header: 'Supports' },
+  { key: 'name', header: 'Name' },
+  { key: 'description', header: 'Description' },
+];
+
 const formatOptionDescription =
   'Options: table: human-readable terminal output.\ntext: tab-delimited output for grep, sed, and awk.\njson: machine-readable output for automation and downstream systems.';
 
@@ -188,7 +197,7 @@ const renderTable = (response: CliResponse): string => {
         ? response.emptyMessage
         : renderAsciiTable(response.rows, response.columns ?? inferColumns(response.rows));
     case 'rule-list':
-      return renderRuleList(response.rules, response.emptyMessage);
+      return renderRuleTable(response.rules, response.emptyMessage);
     case 'scan-result': {
       const rows = projectScanRows(response.result);
       return rows.length === 0 ? 'No findings.' : renderAsciiTable(rows, scanColumns);
@@ -282,6 +291,24 @@ const renderRuleList = (rules: BuiltInRuleMetadata[], emptyMessage: string): str
   }
 
   return lines.join('\n');
+};
+
+const renderRuleTable = (rules: BuiltInRuleMetadata[], emptyMessage: string): string => {
+  if (rules.length === 0) {
+    return emptyMessage;
+  }
+
+  return renderAsciiTable(
+    rules.map((rule) => ({
+      description: rule.description,
+      name: rule.name,
+      provider: rule.provider,
+      ruleId: rule.id,
+      service: rule.service,
+      supports: rule.supports,
+    })),
+    ruleListColumns,
+  );
 };
 
 const toTextCell = (value: CellValue): string => {

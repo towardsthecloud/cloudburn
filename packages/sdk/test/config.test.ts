@@ -47,10 +47,15 @@ describe('config loader', () => {
     - CLDBRN-AWS-EBS-1
   disabled-rules:
     - CLDBRN-AWS-EC2-2
+  services:
+    - "  ec2  "
+    - ebs
   format: text
 discovery:
   disabled-rules:
     - CLDBRN-AWS-S3-1
+  services:
+    - rds
   format: json
 `,
       'utf8',
@@ -60,11 +65,13 @@ discovery:
       discovery: {
         disabledRules: ['CLDBRN-AWS-S3-1'],
         format: 'json',
+        services: ['rds'],
       },
       iac: {
         disabledRules: ['CLDBRN-AWS-EC2-2'],
         enabledRules: ['CLDBRN-AWS-EBS-1'],
         format: 'text',
+        services: ['ec2', 'ebs'],
       },
     });
   });
@@ -80,6 +87,8 @@ discovery:
     - "  CLDBRN-AWS-EBS-1  "
   disabled-rules:
     - " CLDBRN-AWS-EC2-2 "
+  services:
+    - "  EC2  "
 `,
       'utf8',
     );
@@ -89,6 +98,7 @@ discovery:
       iac: {
         disabledRules: ['CLDBRN-AWS-EC2-2'],
         enabledRules: ['CLDBRN-AWS-EBS-1'],
+        services: ['ec2'],
       },
     });
   });
@@ -155,18 +165,22 @@ iac:
       {
         discovery: {
           disabledRules: ['CLDBRN-AWS-S3-1'],
+          services: ['rds'],
         },
         iac: {
           enabledRules: ['CLDBRN-AWS-EBS-1'],
+          services: ['ec2'],
         },
       },
       {
         discovery: {
           format: 'json',
+          services: ['s3'],
         },
         iac: {
           disabledRules: ['CLDBRN-AWS-EC2-2'],
           format: 'text',
+          services: ['ebs'],
         },
       },
     );
@@ -175,12 +189,33 @@ iac:
       discovery: {
         disabledRules: ['CLDBRN-AWS-S3-1'],
         format: 'json',
+        services: ['rds'],
       },
       iac: {
         disabledRules: ['CLDBRN-AWS-EC2-2'],
         enabledRules: ['CLDBRN-AWS-EBS-1'],
         format: 'text',
+        services: ['ec2'],
       },
     });
+  });
+
+  it('fails when config services contain unknown or unsupported mode values', async () => {
+    const directory = await createTempDirectory();
+    const configPath = join(directory, '.cloudburn.yml');
+
+    await writeFile(
+      configPath,
+      `discovery:
+  services:
+    - unknown
+iac:
+  services:
+    - lambda
+`,
+      'utf8',
+    );
+
+    await expect(loadConfig(configPath)).rejects.toThrow('unknown');
   });
 });

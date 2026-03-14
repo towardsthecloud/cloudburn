@@ -174,6 +174,24 @@ describe('discover command e2e', () => {
     expect(stderr).toHaveBeenCalledWith(expect.stringContaining("Invalid AWS region 'us-east-1 region:eu-west-1'."));
   });
 
+  it('rejects invalid service filters before invoking the sdk discover method', async () => {
+    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    const discover = vi.spyOn(CloudBurnClient.prototype, 'discover').mockResolvedValue({ providers: [] });
+    const program = createProgram();
+    const discoverCommand = program.commands.find((command) => command.name() === 'discover');
+
+    program.exitOverride();
+    discoverCommand?.exitOverride();
+
+    await expect(program.parseAsync(['discover', '--service', 'invalid'], { from: 'user' })).rejects.toMatchObject({
+      code: 'commander.invalidArgument',
+      exitCode: 1,
+      message: expect.stringContaining('Unknown service "invalid" for discovery'),
+    });
+    expect(discover).not.toHaveBeenCalled();
+    expect(stderr).toHaveBeenCalled();
+  });
+
   it('passes the all-regions target to the sdk discover method', async () => {
     const discover = vi.spyOn(CloudBurnClient.prototype, 'discover').mockResolvedValue({ providers: [] });
 
@@ -258,6 +276,26 @@ describe('discover command e2e', () => {
     expect(process.exitCode).toBe(0);
   });
 
+  it('passes comma-separated service overrides to the sdk discover method', async () => {
+    vi.spyOn(CloudBurnClient.prototype, 'loadConfig').mockResolvedValue({
+      discovery: {},
+      iac: {},
+    });
+    const discover = vi.spyOn(CloudBurnClient.prototype, 'discover').mockResolvedValue(liveScanResult);
+
+    await createProgram().parseAsync(['discover', '--service', 'ec2,s3'], { from: 'user' });
+
+    expect(discover).toHaveBeenCalledWith({
+      config: {
+        discovery: {
+          services: ['ec2', 's3'],
+        },
+      },
+      target: { mode: 'current' },
+    });
+    expect(process.exitCode).toBe(0);
+  });
+
   it('describes region targeting in discover help output', () => {
     const program = createProgram();
     const discoverCommand = program.commands.find((command) => command.name() === 'discover');
@@ -280,6 +318,8 @@ describe('discover command e2e', () => {
     expect(help).toContain('By default, all');
     expect(help).toContain('rules are enabled');
     expect(help).toContain('--disabled-rules <ruleIds>');
+    expect(help).toContain('--service <services>');
+    expect(help).toContain('Comma-separated services');
     expect(help).toContain('use this to exclude');
     expect(help).toContain('specific rules');
     expect(help).toContain('text: tab-delimited');

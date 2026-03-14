@@ -91,7 +91,7 @@ type ScanResult = {
     rules: Array<{
       ruleId: string;
       service: string;
-      source: ScanSource;
+      source: Source;
       message: string;
       findings: FindingMatch[];
     }>;

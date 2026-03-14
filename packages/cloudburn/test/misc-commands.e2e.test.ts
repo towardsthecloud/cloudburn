@@ -43,13 +43,14 @@ describe('misc command e2e', () => {
   it('formats rules list as a table from the global root flag', async () => {
     const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
 
-    await createProgram().parseAsync(['--format', 'table', 'rules', 'list'], { from: 'user' });
+    await createProgram().parseAsync(['--format', 'table', 'rules', 'list', '--service', 'lambda'], { from: 'user' });
 
     const output = stdout.mock.calls.map(([chunk]) => String(chunk)).join('');
 
-    expect(output).toContain('aws');
-    expect(output).toContain('  lambda');
-    expect(output).toContain('CLDBRN-AWS-LAMBDA-1: Recommend arm64 architecture when compatible.');
+    expect(output).toContain('| RuleId');
+    expect(output).toContain('CLDBRN-AWS-LAMBDA-1');
+    expect(output).toContain('lambda');
+    expect(output).not.toContain('CLDBRN-AWS-EBS-1');
   });
 
   it('formats estimate status in text, json, and table', async () => {

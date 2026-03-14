@@ -2,10 +2,10 @@
 
 Source of truth: `packages/rules/src/shared/metadata.ts` (rule contracts) and `packages/sdk/src/types.ts` (SDK scan result contracts).
 
-## `ScanSource`
+## `Source`
 
 ```ts
-type ScanSource = 'discovery' | 'iac';
+type Source = 'discovery' | 'iac';
 ```
 
 `source` stays on each rule-level finding group. There is no top-level `source` field on `ScanResult`.
@@ -48,7 +48,7 @@ type FindingMatch = {
 type Finding = {
   ruleId: string;
   service: string;
-  source: ScanSource;
+  source: Source;
   message: string;
   findings: FindingMatch[];
 };
@@ -60,7 +60,7 @@ This is the rule-level group returned by a rule evaluator. Empty groups are not 
 | ---------- | ---------------- | -------------------------------------------------------------------- |
 | `ruleId`   | `string`         | Stable CloudBurn rule identifier.                                    |
 | `service`  | `string`         | Service name such as `ebs` or `ec2`.                                 |
-| `source`   | `ScanSource`     | Whether the matches came from live discovery or static IaC analysis. |
+| `source`   | `Source`     | Whether the matches came from live discovery or static IaC analysis. |
 | `message`  | `string`         | Generic rule-level policy text shared by every nested match.         |
 | `findings` | `FindingMatch[]` | Nested resource-level matches for the rule.                          |
 

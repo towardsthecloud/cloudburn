@@ -45,26 +45,26 @@ All stdout-producing commands return a typed `CliResponse` and share the same fo
 | ------- | ---------------------------------------------------------------------------------------------------------------------------------- |
 | `json`  | Pretty JSON for the underlying response payload                                                                                    |
 | `text`  | Tab-delimited rows for list-like output, or raw human-readable text for status/document output                                     |
-| `table` | ASCII tables for scans, record lists, string lists, and key/value status output, except `rules list`, which uses a grouped outline |
+| `table` | ASCII tables for scans, record lists, string lists, key/value status output, and `rules list` |
 
 ## Command Behavior
 
 - `scan [path]` is static IaC only. It accepts a Terraform file, CloudFormation template, or directory and calls `CloudBurnClient.scanStatic(path, config?, { configPath? })`.
-- `scan` accepts `--config`, `--enabled-rules`, and `--disabled-rules` as one-off overrides on top of the config file defaults.
+- `scan` accepts `--config`, `--enabled-rules`, `--disabled-rules`, and `--service` as one-off overrides on top of the config file defaults.
 - `discover` runs live AWS discovery and rule evaluation through `CloudBurnClient.discover({ target, config?, configPath? })`.
-- `discover` accepts `--config`, `--enabled-rules`, and `--disabled-rules` for one-off overrides of discovery config.
+- `discover` accepts `--config`, `--enabled-rules`, `--disabled-rules`, and `--service` for one-off overrides of discovery config.
 - `discover --region <region>` overrides the current AWS region resolved from `AWS_REGION`, `AWS_DEFAULT_REGION`, `aws_region`, then the AWS SDK region provider chain.
 - `discover --region all` requires a Resource Explorer aggregator index.
 - `discover --region <region>` targets one enabled Resource Explorer index region.
 - `discover list-enabled-regions` and `discover supported-resource-types` use the shared `text|json|table` renderer.
 - `discover init` bootstraps Resource Explorer through the SDK, defaults to the current AWS region, accepts `--region <region>` as an override, and falls back to local-only setup when cross-region bootstrap is denied.
 - `discover init` status output includes the resolved setup `indexType` so users can distinguish local-only setup from aggregator setup.
-- `rules list` renders built-in rule metadata grouped by provider and service for human-readable output and emits flat rule metadata objects in JSON mode.
+- `rules list` defaults to a table of built-in rule metadata, accepts `--service` and `--source` filters, and emits flat rule metadata objects in JSON mode.
 - `init` preserves the legacy starter-YAML output for backward compatibility.
 - `init config` creates `.cloudburn.yml`, while `init config --print` renders the same template through the shared formatter system.
 - `rules list`, `init config`, and `estimate` all use the shared formatter system instead of ad hoc string output.
 - `completion` is a structural parent command. `completion bash|fish|zsh` prints shell completion scripts for the selected shell.
-- `--format` is documented as a global option and defaults to `table`, except `rules list`, which defaults to grouped text output, and `init` / `init config --print`, which preserve raw YAML text by default for redirection workflows.
+- `--format` is documented as a global option and defaults to `table`, except `init` / `init config --print`, which preserve raw YAML text by default for redirection workflows.
 - `scan` and `discover` can also source their default format from `.cloudburn.yml`; explicit `--format` still wins.
 - The hidden `__complete` command exists only as the runtime hook for generated shell scripts.
 - `--exit-code` counts nested matches across all provider and rule groups.
@@ -79,10 +79,12 @@ cloudburn scan ./template.yaml
 cloudburn scan ./iac
 cloudburn scan ./iac --config .cloudburn.yml
 cloudburn scan ./iac --enabled-rules CLDBRN-AWS-EBS-1,CLDBRN-AWS-EC2-1
+cloudburn scan ./iac --service ec2,s3
 cloudburn discover
 cloudburn discover --region eu-central-1
 cloudburn discover --region all
 cloudburn discover --config .cloudburn.yml --disabled-rules CLDBRN-AWS-S3-1
+cloudburn discover --service ec2,s3
 cloudburn discover list-enabled-regions
 cloudburn discover init
 cloudburn init
@@ -90,6 +92,7 @@ cloudburn init config
 cloudburn init config --print
 cloudburn rules
 cloudburn rules list
+cloudburn rules list --service ec2 --source discovery
 cloudburn completion
 cloudburn completion zsh
 cloudburn --format json scan ./iac

@@ -15,6 +15,7 @@ Each mode uses the same fields:
 | ---------------- | ---------------------------- | ------- | --------------------------------------------------------------------------- |
 | `enabled-rules`  | `string[]`                   | unset   | If present, only the listed rule IDs remain active for that mode.          |
 | `disabled-rules` | `string[]`                   | unset   | Rule IDs to remove from the active set after `enabled-rules` is applied.   |
+| `services`       | `string[]`                   | unset   | Service allowlist applied before `enabled-rules` and `disabled-rules`.     |
 | `format`         | `'text' \| 'json' \| 'table'` | unset   | Default CLI output format for that mode when `--format` is not passed.     |
 
 ## Merge Behavior
@@ -24,7 +25,8 @@ Each mode uses the same fields:
 1. Start with `defaultConfig`.
 2. Merge `iac` and `discovery` independently.
 3. Replace `enabledRules` and `disabledRules` arrays when an override is present.
-4. Preserve untouched fields in the other mode or on the same mode.
+4. Replace `services` arrays when an override is present.
+5. Preserve untouched fields in the other mode or on the same mode.
 
 The `CloudBurnClient` facade also merges runtime overrides through `mergeConfig()`.
 
@@ -43,6 +45,7 @@ Validation fails fast for:
 - unknown top-level or section keys
 - invalid field types
 - invalid `format`
+- unknown services
 - unknown rule IDs
 - rule IDs that do not support the targeted mode
 - the same rule ID appearing in both `enabled-rules` and `disabled-rules`
@@ -56,12 +59,16 @@ Printed by `cloudburn init config --print` (from `packages/cloudburn/src/command
 # Static IaC scan configuration.
 # enabled-rules restricts scans to only the listed rule IDs.
 # disabled-rules removes specific rule IDs from the active set.
+# services restricts scans to rules for the listed services.
 # format sets the default output format when --format is not passed.
 iac:
   enabled-rules:
     - CLDBRN-AWS-EBS-1
   disabled-rules:
     - CLDBRN-AWS-EC2-2
+  services:
+    - ebs
+    - ec2
   format: table
 
 # Live AWS discovery configuration.
@@ -71,6 +78,9 @@ discovery:
     - CLDBRN-AWS-EBS-1
   disabled-rules:
     - CLDBRN-AWS-S3-1
+  services:
+    - ebs
+    - s3
   format: json
 ```
 

@@ -6,7 +6,7 @@ import { mergeConfig } from './merge.js';
 
 const CLOUDBURN_YAML_FILENAMES = ['.cloudburn.yml', '.cloudburn.yaml'] as const;
 const TOP_LEVEL_KEYS = new Set(['discovery', 'iac']);
-const MODE_KEYS = new Set(['disabled-rules', 'enabled-rules', 'format']);
+const MODE_KEYS = new Set(['disabled-rules', 'enabled-rules', 'format', 'services']);
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -38,6 +38,24 @@ const normalizeRuleList = (value: unknown, fieldName: string): string[] | undefi
   });
 };
 
+const normalizeServiceList = (value: unknown, fieldName: string): string[] | undefined => {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (!Array.isArray(value)) {
+    throw new Error(`Config ${fieldName} must be an array of services.`);
+  }
+
+  return value.map((service) => {
+    if (typeof service !== 'string' || service.trim().length === 0) {
+      throw new Error(`Config ${fieldName} must contain non-empty services.`);
+    }
+
+    return service.trim().toLowerCase();
+  });
+};
+
 const normalizeModeConfig = (mode: 'discovery' | 'iac', value: unknown): Partial<CloudBurnConfig>[typeof mode] => {
   if (value === undefined) {
     return undefined;
@@ -57,6 +75,7 @@ const normalizeModeConfig = (mode: 'discovery' | 'iac', value: unknown): Partial
     disabledRules: normalizeRuleList(value['disabled-rules'], `${mode}.disabled-rules`),
     enabledRules: normalizeRuleList(value['enabled-rules'], `${mode}.enabled-rules`),
     format: value.format as CloudBurnConfig[typeof mode]['format'],
+    services: normalizeServiceList(value.services, `${mode}.services`),
   };
 };
 

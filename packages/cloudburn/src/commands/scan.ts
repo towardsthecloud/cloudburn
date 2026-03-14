@@ -5,17 +5,20 @@ import { formatError } from '../formatters/error.js';
 import { renderResponse, resolveOutputFormat } from '../formatters/output.js';
 import { countScanResultFindings } from '../formatters/shared.js';
 import { setCommandExamples } from '../help.js';
-import { parseRuleIdList } from './config-options.js';
+import { parseRuleIdList, parseServiceList, validateServiceList } from './config-options.js';
 
 type ScanOptions = {
   config?: string;
   disabledRules?: string[];
   enabledRules?: string[];
   exitCode?: boolean;
+  service?: string[];
 };
 
+const parseIaCServiceList = (value: string): string[] => validateServiceList('iac', parseServiceList(value)) ?? [];
+
 const toScanConfigOverride = (options: ScanOptions) => {
-  if (options.enabledRules === undefined && options.disabledRules === undefined) {
+  if (options.enabledRules === undefined && options.disabledRules === undefined && options.service === undefined) {
     return undefined;
   }
 
@@ -23,6 +26,7 @@ const toScanConfigOverride = (options: ScanOptions) => {
     iac: {
       disabledRules: options.disabledRules,
       enabledRules: options.enabledRules,
+      services: options.service,
     },
   };
 };
@@ -46,12 +50,13 @@ export const registerScanCommand = (program: Command): void => {
         'Comma-separated rule IDs to disable. By default, all rules are enabled; use this to exclude specific rules.',
         parseRuleIdList,
       )
+      .option('--service <services>', 'Comma-separated services to include in the scan rule set.', parseIaCServiceList)
       .option('--exit-code', 'Exit with code 1 when findings exist')
       .action(async (path: string | undefined, options: ScanOptions, command: Command) => {
         try {
           const scanner = new CloudBurnClient();
-          const loadedConfig = await scanner.loadConfig(options.config);
           const configOverride = toScanConfigOverride(options);
+          const loadedConfig = await scanner.loadConfig(options.config);
           const scanPath = path ?? process.cwd();
           const result =
             configOverride === undefined && options.config === undefined

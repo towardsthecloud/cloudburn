@@ -1,4 +1,4 @@
-import type { Finding, FindingMatch, Rule, ScanSource, SourceLocation } from './metadata.js';
+import type { Finding, FindingMatch, Rule, Source, SourceLocation } from './metadata.js';
 
 // Intent: provide lightweight helper utilities for authoring consistent rules.
 // TODO(cloudburn): add rule ID validation and metadata lint helpers.
@@ -72,7 +72,7 @@ export const createStaticFindingMatch = (
  */
 export const createFinding = (
   rule: Pick<Rule, 'id' | 'service' | 'message'>,
-  source: ScanSource,
+  source: Source,
   findings: FindingMatch[],
 ): Finding | null =>
   findings.length > 0

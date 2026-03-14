@@ -2,7 +2,10 @@
 // TODO(cloudburn): extend finding shape with remediation and confidence score.
 
 /** Indicates how a rule discovers resources: live AWS API calls or IaC file parsing. */
-export type ScanSource = 'discovery' | 'iac';
+export type Source = 'discovery' | 'iac';
+
+/** Deprecated compatibility alias for the scan source discriminator. */
+export type ScanSource = Source;
 
 /** Supported cloud providers for built-in and custom rules. */
 export type CloudProvider = 'aws' | 'azure' | 'gcp';
@@ -333,7 +336,7 @@ export type FindingMatch = {
 export type Finding = {
   ruleId: string;
   service: string;
-  source: ScanSource;
+  source: Source;
   message: string;
   findings: FindingMatch[];
 };
@@ -346,7 +349,7 @@ export type Rule = {
   message: string;
   provider: CloudProvider;
   service: string;
-  supports: ScanSource[];
+  supports: Source[];
   discoveryDependencies?: DiscoveryDatasetKey[];
   staticDependencies?: StaticDatasetKey[];
   evaluateLive?: (context: LiveEvaluationContext) => Finding | null;

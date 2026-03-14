@@ -10,12 +10,16 @@ const CONFIG_FILENAMES = ['.cloudburn.yml', '.cloudburn.yaml'] as const;
 const starterConfig = `# Static IaC scan configuration.
 # enabled-rules restricts scans to only the listed rule IDs.
 # disabled-rules removes specific rule IDs from the active set.
+# services restricts scans to rules for the listed services.
 # format sets the default output format when --format is not passed.
 iac:
   enabled-rules:
     - CLDBRN-AWS-EBS-1
   disabled-rules:
     - CLDBRN-AWS-EC2-2
+  services:
+    - ebs
+    - ec2
   format: table
 
 # Live AWS discovery configuration.
@@ -25,6 +29,9 @@ discovery:
     - CLDBRN-AWS-EBS-1
   disabled-rules:
     - CLDBRN-AWS-S3-1
+  services:
+    - ebs
+    - s3
   format: json
 `;
 

@@ -19,7 +19,7 @@ import type {
   FindingMatch,
   LiveResourceBag,
   Rule,
-  ScanSource,
+  Source,
   SourceLocation,
   StaticDatasetKey,
   StaticDatasetMap,
@@ -36,11 +36,15 @@ export type ConfigOutputFormat = 'text' | 'json' | 'table';
 export type CloudBurnModeConfig = {
   enabledRules?: string[];
   disabledRules?: string[];
+  services?: string[];
   format?: ConfigOutputFormat;
 };
 
 /** Deprecated compatibility alias for historical SDK consumers. */
 export type RuleConfig = CloudBurnModeConfig;
+
+/** Deprecated compatibility alias for the scan source discriminator. */
+export type ScanSource = Source;
 
 /** Serializable metadata surfaced for built-in rules in SDK and CLI inspection commands. */
 export type BuiltInRuleMetadata = Pick<Rule, 'id' | 'name' | 'description' | 'provider' | 'service' | 'supports'>;
@@ -121,7 +125,7 @@ export type ProviderFindingGroup = {
 export type ScanDiagnostic = {
   provider: CloudProvider;
   service: string;
-  source: ScanSource;
+  source: Source;
   status: 'access_denied';
   message: string;
   code?: string;
@@ -160,7 +164,7 @@ export type {
   FindingMatch,
   LiveResourceBag,
   Rule,
-  ScanSource,
+  Source,
   SourceLocation,
   StaticDatasetKey,
   StaticDatasetMap,

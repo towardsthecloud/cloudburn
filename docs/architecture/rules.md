@@ -11,7 +11,7 @@ classDiagram
     +string message
     +provider: 'aws' | 'azure' | 'gcp'
     +string service
-    +ScanSource[] supports
+    +Source[] supports
     +DiscoveryDatasetKey[] discoveryDependencies?
     +StaticDatasetKey[] staticDependencies?
     +evaluateLive(ctx: LiveEvaluationContext)? Finding
@@ -21,7 +21,7 @@ classDiagram
   class Finding {
     +string ruleId
     +string service
-    +ScanSource source
+    +Source source
     +string message
     +FindingMatch[] findings
   }

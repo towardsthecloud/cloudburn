@@ -5,7 +5,7 @@ import { formatError } from '../formatters/error.js';
 import { type CliResponse, type OutputFormat, renderResponse, resolveOutputFormat } from '../formatters/output.js';
 import { countScanResultFindings } from '../formatters/shared.js';
 import { setCommandExamples } from '../help.js';
-import { parseRuleIdList } from './config-options.js';
+import { parseRuleIdList, parseServiceList, validateServiceList } from './config-options.js';
 
 type DiscoverOptions = {
   config?: string;
@@ -13,7 +13,11 @@ type DiscoverOptions = {
   enabledRules?: string[];
   exitCode?: boolean;
   region?: string;
+  service?: string[];
 };
+
+const parseDiscoveryServiceList = (value: string): string[] =>
+  validateServiceList('discovery', parseServiceList(value)) ?? [];
 
 type DiscoverListOptions = Record<string, never>;
 
@@ -157,7 +161,7 @@ const resolveDiscoveryTarget = (region?: string): AwsDiscoveryTarget =>
   region === undefined ? { mode: 'current' } : region === 'all' ? { mode: 'all' } : { mode: 'region', region };
 
 const toDiscoveryConfigOverride = (options: DiscoverOptions) => {
-  if (options.enabledRules === undefined && options.disabledRules === undefined) {
+  if (options.enabledRules === undefined && options.disabledRules === undefined && options.service === undefined) {
     return undefined;
   }
 
@@ -165,6 +169,7 @@ const toDiscoveryConfigOverride = (options: DiscoverOptions) => {
     discovery: {
       disabledRules: options.disabledRules,
       enabledRules: options.enabledRules,
+      services: options.service,
     },
   };
 };
@@ -206,10 +211,16 @@ export const registerDiscoverCommand = (program: Command): void => {
         'Comma-separated rule IDs to disable. By default, all rules are enabled; use this to exclude specific rules.',
         parseRuleIdList,
       )
+      .option(
+        '--service <services>',
+        'Comma-separated services to include in the discovery rule set.',
+        parseDiscoveryServiceList,
+      )
       .option('--exit-code', 'Exit with code 1 when findings exist')
       .action(async (options: DiscoverOptions, command: Command) => {
         await runCommand(async () => {
           const scanner = new CloudBurnClient();
+          const configOverride = toDiscoveryConfigOverride(options);
           const loadedConfig = await scanner.loadConfig(options.config);
           const discoveryOptions: {
             target: AwsDiscoveryTarget;
@@ -218,7 +229,6 @@ export const registerDiscoverCommand = (program: Command): void => {
           } = {
             target: resolveDiscoveryTarget(options.region),
           };
-          const configOverride = toDiscoveryConfigOverride(options);
 
           if (configOverride !== undefined) {
             discoveryOptions.config = configOverride;

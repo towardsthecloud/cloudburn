@@ -190,6 +190,25 @@ describe('scan command e2e', () => {
     expect(process.exitCode).toBe(0);
   });
 
+  it('passes comma-separated service overrides to the sdk', async () => {
+    const fixturePath = fileURLToPath(new URL('../../sdk/test/fixtures/terraform/scan-dir', import.meta.url));
+
+    vi.spyOn(CloudBurnClient.prototype, 'loadConfig').mockResolvedValue({
+      discovery: {},
+      iac: {},
+    });
+    const scanStatic = vi.spyOn(CloudBurnClient.prototype, 'scanStatic').mockResolvedValue(staticScanResult);
+
+    await createProgram().parseAsync(['scan', fixturePath, '--service', 'ec2,s3'], { from: 'user' });
+
+    expect(scanStatic).toHaveBeenCalledWith(fixturePath, {
+      iac: {
+        services: ['ec2', 's3'],
+      },
+    });
+    expect(process.exitCode).toBe(0);
+  });
+
   it('rejects sarif output before running a static scan', async () => {
     const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     const scanStatic = vi.spyOn(CloudBurnClient.prototype, 'scanStatic').mockResolvedValue(staticScanResult);
@@ -203,6 +222,24 @@ describe('scan command e2e', () => {
       code: 'commander.invalidArgument',
       exitCode: 1,
       message: expect.stringContaining('sarif'),
+    });
+    expect(scanStatic).not.toHaveBeenCalled();
+    expect(stderr).toHaveBeenCalled();
+  });
+
+  it('rejects invalid service filters before running a static scan', async () => {
+    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    const scanStatic = vi.spyOn(CloudBurnClient.prototype, 'scanStatic').mockResolvedValue(staticScanResult);
+    const program = createProgram();
+    const scanCommand = program.commands.find((command) => command.name() === 'scan');
+
+    program.exitOverride();
+    scanCommand?.exitOverride();
+
+    await expect(program.parseAsync(['scan', '--service', 'invalid'], { from: 'user' })).rejects.toMatchObject({
+      code: 'commander.invalidArgument',
+      exitCode: 1,
+      message: expect.stringContaining('Unknown service "invalid" for iac'),
     });
     expect(scanStatic).not.toHaveBeenCalled();
     expect(stderr).toHaveBeenCalled();
@@ -261,6 +298,8 @@ describe('scan command e2e', () => {
     expect(help).toContain('By default, all');
     expect(help).toContain('rules are enabled');
     expect(help).toContain('--disabled-rules <ruleIds>');
+    expect(help).toContain('--service <services>');
+    expect(help).toContain('Comma-separated services');
     expect(help).toContain('use this to exclude');
     expect(help).toContain('specific rules');
     expect(help).not.toContain('--live');

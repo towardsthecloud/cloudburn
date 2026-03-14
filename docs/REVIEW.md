@@ -68,7 +68,7 @@ Supported stdout formats are `text`, `json`, and `table` only.
 
 - `--format` is a global CLI option, with command-local compatibility aliases allowed only to preserve post-command placement.
 - `text` output should remain tab-delimited for row-like data.
-- `table` output should remain stable ASCII tables, except `rules list`, which intentionally uses a grouped outline.
+- `table` output should remain stable ASCII tables, including `rules list`.
 - Runtime errors should continue to emit the JSON `stderr` envelope rather than following the selected stdout format.
 
 Exit codes:
@@ -84,6 +84,7 @@ Exit codes:
 - `.cloudburn.yml` and `.cloudburn.yaml` are both supported; treat both present in one directory as a real bug.
 - Config is mode-specific: only `iac` and `discovery` are valid top-level sections.
 - Rule references in config and CLI overrides must use stable public rule IDs such as `CLDBRN-AWS-EBS-1`.
-- `scan` and `discover` accept `--config`, `--enabled-rules`, and `--disabled-rules`; these runtime overrides should take precedence over file config for the same field.
+- `scan` and `discover` accept `--config`, `--enabled-rules`, `--disabled-rules`, and `--service`; these runtime overrides should take precedence over file config for the same field.
 - `buildRuleRegistry(config, mode)` must stay mode-aware. Reviewers should flag regressions that accidentally re-enable unsupported rules.
+- Service filtering belongs in the mode-local registry selection path, not in provider runners after datasets have already been loaded.
 - `customRules` is still not implemented. That gap is intentional and should not be flagged unless a change claims to add it.

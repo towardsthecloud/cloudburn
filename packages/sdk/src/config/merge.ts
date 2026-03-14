@@ -7,6 +7,7 @@ const mergeModeConfig = (baseConfig: CloudBurnModeConfig, overrides?: CloudBurnM
   ...overrides,
   disabledRules: overrides?.disabledRules ?? baseConfig.disabledRules,
   enabledRules: overrides?.enabledRules ?? baseConfig.enabledRules,
+  services: overrides?.services ?? baseConfig.services,
 });
 
 /**
