@@ -1,5 +1,17 @@
 # @cloudburn/rules
 
+## 0.15.0
+
+### Minor Changes
+
+- [#63](https://github.com/towardsthecloud/cloudburn/pull/63) [`dc32229`](https://github.com/towardsthecloud/cloudburn/commit/dc32229f8703c590e70da30970312548b7aa25a1) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Add discovery-only AWS CloudTrail and CloudWatch rules for redundant trails, missing log-group retention, and unused log streams.
+
+- [#59](https://github.com/towardsthecloud/cloudburn/pull/59) [`02a6583`](https://github.com/towardsthecloud/cloudburn/commit/02a6583e7b84250746e89a3378d97985b13f4c82) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Rename the exported scan-mode type from `ScanSource` to `Source` in the public rule metadata contracts.
+
+### Patch Changes
+
+- [#62](https://github.com/towardsthecloud/cloudburn/pull/62) [`f0dc39c`](https://github.com/towardsthecloud/cloudburn/commit/f0dc39cf1385832efb5c6a4aa51a997c946eb4cf) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Broaden the EBS current-generation rule to cover previous-generation `io1` and `standard` volumes, and add discovery rules for unattached EBS volumes and EBS volumes attached only to stopped EC2 instances.
+
 ## 0.14.0
 
 ### Minor Changes

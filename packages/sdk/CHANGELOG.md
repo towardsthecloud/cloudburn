@@ -1,5 +1,22 @@
 # @cloudburn/sdk
 
+## 0.15.0
+
+### Minor Changes
+
+- [#63](https://github.com/towardsthecloud/cloudburn/pull/63) [`dc32229`](https://github.com/towardsthecloud/cloudburn/commit/dc32229f8703c590e70da30970312548b7aa25a1) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Add AWS discovery datasets and hydrators for CloudTrail trails and CloudWatch Logs log groups and log streams.
+
+- [#59](https://github.com/towardsthecloud/cloudburn/pull/59) [`02a6583`](https://github.com/towardsthecloud/cloudburn/commit/02a6583e7b84250746e89a3378d97985b13f4c82) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Add mode-local `services` config filtering for `scan` and `discover`, and rename the exported scan-mode type from `ScanSource` to `Source`.
+
+- [#61](https://github.com/towardsthecloud/cloudburn/pull/61) [`86ef49e`](https://github.com/towardsthecloud/cloudburn/commit/86ef49e617c9ff1e1c5e7bbcb7463e67a02bb9c2) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Remove `text` from the config output-format contract. CloudBurn config now accepts only `table` or `json` for mode `format`, and existing `format: text` values fail validation.
+
+### Patch Changes
+
+- [#62](https://github.com/towardsthecloud/cloudburn/pull/62) [`f0dc39c`](https://github.com/towardsthecloud/cloudburn/commit/f0dc39cf1385832efb5c6a4aa51a997c946eb4cf) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Extend AWS EC2 and EBS discovery hydration so EBS volume datasets include attachment metadata and EC2 instance datasets include instance state for attachment-aware cost rules.
+
+- Updated dependencies [[`dc32229`](https://github.com/towardsthecloud/cloudburn/commit/dc32229f8703c590e70da30970312548b7aa25a1), [`f0dc39c`](https://github.com/towardsthecloud/cloudburn/commit/f0dc39cf1385832efb5c6a4aa51a997c946eb4cf), [`02a6583`](https://github.com/towardsthecloud/cloudburn/commit/02a6583e7b84250746e89a3378d97985b13f4c82)]:
+  - @cloudburn/rules@0.15.0
+
 ## 0.14.0
 
 ### Minor Changes
