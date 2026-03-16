@@ -16,7 +16,7 @@ Each mode uses the same fields:
 | `enabled-rules`  | `string[]`                   | unset   | If present, only the listed rule IDs remain active for that mode.          |
 | `disabled-rules` | `string[]`                   | unset   | Rule IDs to remove from the active set after `enabled-rules` is applied.   |
 | `services`       | `string[]`                   | unset   | Service allowlist applied before `enabled-rules` and `disabled-rules`.     |
-| `format`         | `'text' \| 'json' \| 'table'` | unset   | Default CLI output format for that mode when `--format` is not passed.     |
+| `format`         | `'json' \| 'table'` | unset   | Default CLI output format for that mode when `--format` is not passed.     |
 
 ## Merge Behavior
 

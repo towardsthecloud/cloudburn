@@ -63,13 +63,13 @@ Mock at the SDK boundary — do not run real scans.
 **Test focus areas:**
 
 - Each command produces correct output for a given `ScanResult`
-- Root and command-local `--format` resolve to the expected `text|json|table` output
+- Root and command-local `--format` resolve to the expected `json|table` output
 - Config-provided mode formats become the default when `--format` is absent
 - `--config`, `--enabled-rules`, and `--disabled-rules` pass the expected runtime overrides to the SDK
 - `--exit-code` sets `process.exitCode = 1` when findings exist
 - `--exit-code` without findings sets `process.exitCode = 0`
 - `discover list-enabled-regions`, `discover supported-resource-types`, `discover init`, `init config`, `rules list`, and `estimate` all go through the shared formatter system
-- `text` output stays tab-delimited and `table` output stays human-readable
+- `table` output stays human-readable and `json` output stays machine-readable
 - Runtime errors remain structured JSON on `stderr` regardless of stdout format
 
 ## Running Tests

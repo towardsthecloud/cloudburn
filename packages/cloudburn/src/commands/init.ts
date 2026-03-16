@@ -3,7 +3,7 @@ import { dirname, join, resolve } from 'node:path';
 import type { Command } from 'commander';
 import { EXIT_CODE_OK, EXIT_CODE_RUNTIME_ERROR } from '../exit-codes.js';
 import { formatError } from '../formatters/error.js';
-import { renderResponse, resolveOutputFormat } from '../formatters/output.js';
+import { type OutputFormat, renderResponse, resolveOutputFormat } from '../formatters/output.js';
 
 const CONFIG_FILENAMES = ['.cloudburn.yml', '.cloudburn.yaml'] as const;
 
@@ -39,15 +39,27 @@ type InitConfigOptions = {
   print?: boolean;
 };
 
-const renderStarterConfig = (command: Command): string =>
-  renderResponse(
+const resolveExplicitOutputFormat = (command: Command): OutputFormat | undefined => {
+  const options = typeof command.optsWithGlobals === 'function' ? command.optsWithGlobals() : command.opts();
+  return options.format as OutputFormat | undefined;
+};
+
+const renderStarterConfig = (command: Command): string => {
+  const explicitFormat = resolveExplicitOutputFormat(command);
+
+  if (explicitFormat === undefined) {
+    return starterConfig;
+  }
+
+  return renderResponse(
     {
       kind: 'document',
       content: starterConfig,
       contentType: 'application/yaml',
     },
-    resolveOutputFormat(command, undefined, 'text'),
+    explicitFormat,
   );
+};
 
 const fileExists = async (path: string): Promise<boolean> => {
   try {
@@ -127,7 +139,6 @@ export const registerInitCommand = (program: Command): void => {
               message: 'Created CloudBurn config.',
               path: configPath,
             },
-            text: `Created ${configPath}.`,
           },
           resolveOutputFormat(this),
         );

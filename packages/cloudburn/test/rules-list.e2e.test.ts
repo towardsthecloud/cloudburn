@@ -40,20 +40,25 @@ describe('rules list e2e', () => {
     expect(output).not.toContain('CLDBRN-AWS-S3-1');
   });
 
-  it('keeps grouped text output when explicitly requested', async () => {
+  it('rejects text output as an invalid format', async () => {
     const { createProgram } = await import('../src/cli.js');
-    const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    const program = createProgram();
+    const rulesCommand = program.commands.find((command) => command.name() === 'rules');
+    const listCommand = rulesCommand?.commands.find((command) => command.name() === 'list');
 
-    await createProgram().parseAsync(['rules', 'list', '--format', 'text', '--service', 'ebs'], { from: 'user' });
+    program.exitOverride();
+    rulesCommand?.exitOverride();
+    listCommand?.exitOverride();
 
-    const output = stdout.mock.calls.map(([chunk]) => String(chunk)).join('');
-
-    expect(output).toContain('aws');
-    expect(output).toContain('  ebs');
-    expect(output).toContain(
-      '    CLDBRN-AWS-EBS-1: Flag EBS volumes using previous-generation gp2 type instead of gp3.',
-    );
-    expect(output).not.toContain('  ec2');
+    await expect(
+      program.parseAsync(['rules', 'list', '--format', 'text', '--service', 'ebs'], { from: 'user' }),
+    ).rejects.toMatchObject({
+      code: 'commander.invalidArgument',
+      exitCode: 1,
+      message: expect.stringContaining('text'),
+    });
+    expect(stderr).toHaveBeenCalled();
   });
 
   it('renders the empty message when filters exclude all built-in rules', async () => {

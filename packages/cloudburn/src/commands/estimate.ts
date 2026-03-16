@@ -24,7 +24,6 @@ export const registerEstimateCommand = (program: Command): void => {
               server: '',
               status: 'NOT_CONFIGURED',
             },
-            text: 'No server configured. This command is optional and requires a dashboard URL.',
           },
           format,
         );
@@ -41,7 +40,6 @@ export const registerEstimateCommand = (program: Command): void => {
             server: options.server,
             status: 'READY',
           },
-          text: `Estimate request scaffold ready for server: ${options.server}`,
         },
         format,
       );

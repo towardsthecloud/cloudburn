@@ -30,7 +30,7 @@ import type {
 // TODO(cloudburn): extend config and result metadata as new providers/resources land.
 
 /** Supported output formats that can be configured for scan and discovery commands. */
-export type ConfigOutputFormat = 'text' | 'json' | 'table';
+export type ConfigOutputFormat = 'json' | 'table';
 
 /** Configurable rule and format settings for one scan mode. */
 export type CloudBurnModeConfig = {

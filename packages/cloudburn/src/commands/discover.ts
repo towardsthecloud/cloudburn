@@ -27,20 +27,6 @@ type DiscoverInitOptions = {
 
 type DiscoverInitializationResult = Awaited<ReturnType<CloudBurnClient['initializeDiscovery']>>;
 
-const describeDiscoverySummary = (status: {
-  accessibleRegionCount: number;
-  aggregatorRegion?: string;
-  coverage: string;
-  indexedRegionCount: number;
-  totalRegionCount: number;
-  warning?: string;
-}): string => {
-  const aggregatorSummary = status.aggregatorRegion ? ` Aggregator region: ${status.aggregatorRegion}.` : '';
-  const warningSummary = status.warning ? ` ${status.warning}` : '';
-
-  return `Coverage: ${status.coverage}. Indexed ${status.indexedRegionCount} of ${status.totalRegionCount} enabled regions.${aggregatorSummary}${warningSummary}`.trim();
-};
-
 const describeInitializationMessage = (result: {
   aggregatorAction: 'created' | 'none' | 'promoted' | 'unchanged';
   aggregatorRegion: string;
@@ -319,7 +305,6 @@ export const registerDiscoverCommand = (program: Command): void => {
             ],
             rows,
             summary,
-            summaryText: describeDiscoverySummary(status),
           },
           format,
         );
@@ -375,7 +360,6 @@ export const registerDiscoverCommand = (program: Command): void => {
           {
             kind: 'status',
             data: buildInitializationStatusData(result, message, format),
-            text: message,
           },
           format,
         );

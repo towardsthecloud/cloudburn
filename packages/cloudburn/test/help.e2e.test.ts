@@ -110,7 +110,6 @@ describe('cli help e2e', () => {
     expect(help).toContain('Global Flags:');
     expect(help).toContain('--format <format>');
     expect(help).toContain('Options: table: human-readable terminal output.');
-    expect(help).toContain('text: tab-delimited output for grep, sed, and awk.');
     expect(help).toContain('json: machine-readable output for automation and downstream systems.');
     expect(help).not.toContain('Use "cloudburn completion zsh [command] --help"');
   });

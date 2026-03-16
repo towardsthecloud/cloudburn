@@ -6,22 +6,8 @@ describe('misc command e2e', () => {
     vi.restoreAllMocks();
   });
 
-  it('formats rules list as text and json', async () => {
+  it('formats rules list as json', async () => {
     const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
-
-    await createProgram().parseAsync(['rules', 'list', '--format', 'text'], { from: 'user' });
-    const textOutput = stdout.mock.calls.map(([chunk]) => String(chunk)).join('');
-
-    expect(textOutput).toContain('aws');
-    expect(textOutput).toContain('  ebs');
-    expect(textOutput).toContain(
-      '    CLDBRN-AWS-EBS-1: Flag EBS volumes using previous-generation gp2 type instead of gp3.',
-    );
-    expect(textOutput).toContain(
-      '    CLDBRN-AWS-EC2-1: Flag direct EC2 instances that do not use curated preferred instance types.',
-    );
-
-    stdout.mockClear();
 
     await createProgram().parseAsync(['rules', 'list', '--format', 'json'], { from: 'user' });
     const jsonOutput = stdout.mock.calls.map(([chunk]) => String(chunk)).join('');
@@ -53,7 +39,7 @@ describe('misc command e2e', () => {
     expect(output).not.toContain('CLDBRN-AWS-EBS-1');
   });
 
-  it('formats estimate status in text, json, and table', async () => {
+  it('formats estimate status in default table, json, and explicit table', async () => {
     const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
 
     await createProgram().parseAsync(['estimate'], { from: 'user' });

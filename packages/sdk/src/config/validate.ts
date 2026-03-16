@@ -1,7 +1,7 @@
 import { builtInRuleMetadata } from '../built-in-rules.js';
 import type { CloudBurnConfig, CloudBurnModeConfig, ConfigOutputFormat, Source } from '../types.js';
 
-const supportedFormats = new Set<ConfigOutputFormat>(['json', 'table', 'text']);
+const supportedFormats = new Set<ConfigOutputFormat>(['json', 'table']);
 const rulesById = new Map(builtInRuleMetadata.map((rule) => [rule.id, rule]));
 const servicesByMode = {
   discovery: new Set(

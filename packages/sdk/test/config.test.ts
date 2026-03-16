@@ -50,7 +50,7 @@ describe('config loader', () => {
   services:
     - "  ec2  "
     - ebs
-  format: text
+  format: table
 discovery:
   disabled-rules:
     - CLDBRN-AWS-S3-1
@@ -70,7 +70,7 @@ discovery:
       iac: {
         disabledRules: ['CLDBRN-AWS-EC2-2'],
         enabledRules: ['CLDBRN-AWS-EBS-1'],
-        format: 'text',
+        format: 'table',
         services: ['ec2', 'ebs'],
       },
     });
@@ -179,7 +179,7 @@ iac:
         },
         iac: {
           disabledRules: ['CLDBRN-AWS-EC2-2'],
-          format: 'text',
+          format: 'table',
           services: ['ebs'],
         },
       },
@@ -194,10 +194,25 @@ iac:
       iac: {
         disabledRules: ['CLDBRN-AWS-EC2-2'],
         enabledRules: ['CLDBRN-AWS-EBS-1'],
-        format: 'text',
+        format: 'table',
         services: ['ec2'],
       },
     });
+  });
+
+  it('fails when config format uses the removed text output', async () => {
+    const directory = await createTempDirectory();
+    const configPath = join(directory, '.cloudburn.yml');
+
+    await writeFile(
+      configPath,
+      `discovery:
+  format: text
+`,
+      'utf8',
+    );
+
+    await expect(loadConfig(configPath)).rejects.toThrow('Invalid format "text" in discovery.format.');
   });
 
   it('fails when config services contain unknown or unsupported mode values', async () => {

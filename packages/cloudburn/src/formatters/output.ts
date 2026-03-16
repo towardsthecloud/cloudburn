@@ -3,7 +3,7 @@ import { type Command, InvalidArgumentError } from 'commander';
 import { flattenScanResult, getScanDiagnostics } from './shared.js';
 
 /** Supported stdout formats for CloudBurn CLI responses. */
-export type OutputFormat = 'text' | 'json' | 'table';
+export type OutputFormat = 'json' | 'table';
 
 type Primitive = boolean | number | string | null | undefined;
 type CellValue = Primitive | Primitive[] | Record<string, unknown>;
@@ -37,7 +37,6 @@ export type CliResponse =
       columns?: ColumnSpec[];
       rows: RecordRow[];
       summary: RecordRow;
-      summaryText: string;
     }
   | {
       kind: 'scan-result';
@@ -51,7 +50,6 @@ export type CliResponse =
   | {
       kind: 'status';
       data: RecordRow;
-      text: string;
     }
   | {
       kind: 'string-list';
@@ -60,7 +58,7 @@ export type CliResponse =
       values: string[];
     };
 
-const supportedOutputFormats: readonly OutputFormat[] = ['text', 'json', 'table'] as const;
+const supportedOutputFormats: readonly OutputFormat[] = ['json', 'table'] as const;
 
 const scanColumns: ColumnSpec[] = [
   { key: 'provider', header: 'Provider' },
@@ -86,7 +84,7 @@ const ruleListColumns: ColumnSpec[] = [
 ];
 
 const formatOptionDescription =
-  'Options: table: human-readable terminal output.\ntext: tab-delimited output for grep, sed, and awk.\njson: machine-readable output for automation and downstream systems.';
+  'Options: table: human-readable terminal output.\njson: machine-readable output for automation and downstream systems.';
 
 /** Shared `--format` help text used across root and compatibility aliases. */
 export const OUTPUT_FORMAT_OPTION_DESCRIPTION = formatOptionDescription;
@@ -119,8 +117,6 @@ export const renderResponse = (response: CliResponse, format: OutputFormat): str
   switch (format) {
     case 'json':
       return renderJson(response);
-    case 'text':
-      return renderText(response);
     case 'table':
       return renderTable(response);
   }
@@ -142,25 +138,6 @@ const renderJson = (response: CliResponse): string => {
       return JSON.stringify(response.data, null, 2);
     case 'string-list':
       return JSON.stringify(response.values, null, 2);
-  }
-};
-
-const renderText = (response: CliResponse): string => {
-  switch (response.kind) {
-    case 'document':
-      return response.content;
-    case 'discovery-status':
-      return `${response.summaryText}\n${renderTextRows(response.rows, response.columns, 'No discovery status available.')}`;
-    case 'record-list':
-      return renderTextRows(response.rows, response.columns, response.emptyMessage);
-    case 'rule-list':
-      return renderRuleList(response.rules, response.emptyMessage);
-    case 'scan-result':
-      return renderTextRows(projectScanRows(response.result), scanColumns, 'No findings.');
-    case 'status':
-      return response.text;
-    case 'string-list':
-      return response.values.length === 0 ? response.emptyMessage : response.values.join('\n');
   }
 };
 
@@ -249,48 +226,11 @@ const projectScanRows = (result: ScanResult): RecordRow[] => [
   })),
 ];
 
-const renderTextRows = (rows: RecordRow[], columns: ColumnSpec[] | undefined, emptyMessage: string): string => {
-  if (rows.length === 0) {
-    return emptyMessage;
-  }
-
-  const resolvedColumns = columns ?? inferColumns(rows);
-
-  return rows.map((row) => resolvedColumns.map((column) => toTextCell(row[column.key])).join('\t')).join('\n');
-};
-
 const inferColumns = (rows: RecordRow[]): ColumnSpec[] => {
   const keys = Array.from(new Set(rows.flatMap((row) => Object.keys(row)))).sort((left, right) =>
     left.localeCompare(right),
   );
   return keys.map((key) => ({ key, header: key }));
-};
-
-const renderRuleList = (rules: BuiltInRuleMetadata[], emptyMessage: string): string => {
-  if (rules.length === 0) {
-    return emptyMessage;
-  }
-
-  let currentProvider = '';
-  let currentService = '';
-  const lines: string[] = [];
-
-  for (const rule of rules) {
-    if (rule.provider !== currentProvider) {
-      currentProvider = rule.provider;
-      currentService = '';
-      lines.push(rule.provider);
-    }
-
-    if (rule.service !== currentService) {
-      currentService = rule.service;
-      lines.push(`  ${rule.service}`);
-    }
-
-    lines.push(`    ${rule.id}: ${rule.description}`);
-  }
-
-  return lines.join('\n');
 };
 
 const renderRuleTable = (rules: BuiltInRuleMetadata[], emptyMessage: string): string => {

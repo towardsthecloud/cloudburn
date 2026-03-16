@@ -71,12 +71,6 @@ const withStdoutColumns = (columns: number, run: () => void): void => {
 };
 
 describe('renderResponse', () => {
-  it('renders scan results as tab-delimited text rows', () => {
-    expect(renderResponse({ kind: 'scan-result', result: resultWithLocation }, 'text')).toBe(
-      'aws\tCLDBRN-AWS-EBS-1\tiac\tebs\taws_ebs_volume.gp2_logs\t\t\tmain.tf\t4\t3\tEBS volumes should use current-generation storage.',
-    );
-  });
-
   it('renders scan results as json', () => {
     expect(renderResponse({ kind: 'scan-result', result: resultWithoutLocation }, 'json')).toContain('123456789012');
   });
@@ -116,7 +110,6 @@ describe('renderResponse', () => {
             ],
             status: 'EXISTING',
           },
-          text: 'Resource Explorer setup already exists in eu-west-1.',
         },
         'table',
       );
@@ -136,53 +129,6 @@ describe('renderResponse', () => {
     expect(output).toContain('Column');
   });
 
-  it('renders known record lists with stable text column order', () => {
-    expect(
-      renderResponse(
-        {
-          kind: 'record-list',
-          columns: [
-            { key: 'region', header: 'Region' },
-            { key: 'type', header: 'Type' },
-          ],
-          emptyMessage: 'No regions.',
-          rows: [
-            { region: 'eu-west-1', type: 'local' },
-            { region: 'eu-central-1', type: 'aggregator' },
-          ],
-        },
-        'text',
-      ),
-    ).toBe('eu-west-1\tlocal\neu-central-1\taggregator');
-  });
-
-  it('renders generic record lists alphabetically in text mode', () => {
-    expect(
-      renderResponse(
-        {
-          kind: 'record-list',
-          emptyMessage: 'No rows.',
-          rows: [{ zeta: 'last', alpha: 'first' }],
-        },
-        'text',
-      ),
-    ).toBe('first\tlast');
-  });
-
-  it('renders string lists as one value per line in text mode', () => {
-    expect(
-      renderResponse(
-        {
-          kind: 'string-list',
-          columnHeader: 'RuleId',
-          emptyMessage: 'No rules.',
-          values: ['CLDBRN-AWS-EBS-1', 'CLDBRN-AWS-LAMBDA-1'],
-        },
-        'text',
-      ),
-    ).toBe('CLDBRN-AWS-EBS-1\nCLDBRN-AWS-LAMBDA-1');
-  });
-
   it('renders status responses as structured json', () => {
     expect(
       renderResponse(
@@ -193,7 +139,6 @@ describe('renderResponse', () => {
             regions: ['eu-west-1'],
             status: 'CREATED',
           },
-          text: 'Resource Explorer setup created in eu-west-1.',
         },
         'json',
       ),
@@ -206,7 +151,7 @@ describe('renderResponse', () => {
 }`);
   });
 
-  it('renders discovery status responses as text and structured json', () => {
+  it('renders discovery status responses as structured json', () => {
     const response = {
       kind: 'discovery-status' as const,
       columns: [
@@ -232,12 +177,7 @@ describe('renderResponse', () => {
         indexedRegionCount: 1,
         totalRegionCount: 17,
       },
-      summaryText: 'Coverage: partial. Indexed 1 of 17 enabled regions. Aggregator region: eu-west-1.',
     };
-
-    expect(renderResponse(response, 'text')).toBe(
-      'Coverage: partial. Indexed 1 of 17 enabled regions. Aggregator region: eu-west-1.\neu-west-1\taggregator (active)\tindexed\nap-south-1\t\taccess_denied',
-    );
 
     expect(renderResponse(response, 'json')).toBe(`{
   "summary": {
@@ -272,7 +212,6 @@ describe('renderResponse', () => {
             indexedRegionCount: 3,
             totalRegionCount: 17,
           },
-          summaryText: 'Coverage: partial. Indexed 3 of 17 enabled regions. Aggregator region: eu-central-1.',
           rows: [
             {
               region: 'eu-central-1',
@@ -304,53 +243,7 @@ describe('renderResponse', () => {
 }`);
   });
 
-  it('renders discovery status responses as text', () => {
-    expect(
-      renderResponse(
-        {
-          kind: 'discovery-status',
-          columns: [
-            { key: 'region', header: 'Region' },
-            { key: 'indexType', header: 'IndexType' },
-            { key: 'status', header: 'Status' },
-          ],
-          summary: {
-            aggregatorRegion: 'eu-central-1',
-            coverage: 'partial',
-          },
-          summaryText: 'Coverage: partial. Indexed 3 of 17 enabled regions. Aggregator region: eu-central-1.',
-          rows: [
-            {
-              region: 'eu-central-1',
-              indexType: 'aggregator (active)',
-              status: 'indexed',
-            },
-            {
-              region: 'ap-south-1',
-              indexType: '',
-              status: 'access_denied',
-            },
-          ],
-        },
-        'text',
-      ),
-    ).toBe(
-      'Coverage: partial. Indexed 3 of 17 enabled regions. Aggregator region: eu-central-1.\neu-central-1\taggregator (active)\tindexed\nap-south-1\t\taccess_denied',
-    );
-  });
-
-  it('renders documents as raw text and structured json', () => {
-    expect(
-      renderResponse(
-        {
-          kind: 'document',
-          content: 'version: 1\\nprofile: dev',
-          contentType: 'application/yaml',
-        },
-        'text',
-      ),
-    ).toBe('version: 1\\nprofile: dev');
-
+  it('renders documents as structured json', () => {
     expect(
       renderResponse(
         {
@@ -375,15 +268,16 @@ describe('renderResponse', () => {
           emptyMessage: 'No rows.',
           rows: [],
         },
-        'text',
+        'table',
       ),
     ).toBe('No rows.');
   });
 });
 
 describe('parseOutputFormat', () => {
-  it('rejects sarif and other unsupported values', () => {
-    expect(() => parseOutputFormat('sarif')).toThrow('Allowed formats: text, json, table.');
+  it('rejects text and other unsupported values', () => {
+    expect(() => parseOutputFormat('text')).toThrow('Allowed formats: json, table.');
+    expect(() => parseOutputFormat('sarif')).toThrow('Allowed formats: json, table.');
   });
 });
 

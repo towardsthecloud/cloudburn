@@ -105,11 +105,6 @@ describe('scan command e2e', () => {
 +----------+------------------+--------+---------+-------------------------+---------+------+--------+----------------------------------------------------+
 `,
     },
-    {
-      format: 'text',
-      expectedOutput:
-        'aws\tCLDBRN-AWS-EBS-1\tiac\tebs\taws_ebs_volume.gp2_logs\t\t\tmain.tf\t4\t3\tEBS volumes should use current-generation storage.\n',
-    },
   ])('accepts $format output for static scans', async ({ format, expectedOutput }) => {
     const fixturePath = fileURLToPath(new URL('../../sdk/test/fixtures/terraform/scan-dir', import.meta.url));
     const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
@@ -127,11 +122,11 @@ describe('scan command e2e', () => {
     const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
     vi.spyOn(CloudBurnClient.prototype, 'scanStatic').mockResolvedValue(staticScanResult);
 
-    await createProgram().parseAsync(['--format', 'json', 'scan', fixturePath, '--format', 'text'], { from: 'user' });
+    await createProgram().parseAsync(['--format', 'json', 'scan', fixturePath, '--format', 'table'], {
+      from: 'user',
+    });
 
-    expect(stdout).toHaveBeenCalledWith(
-      'aws\tCLDBRN-AWS-EBS-1\tiac\tebs\taws_ebs_volume.gp2_logs\t\t\tmain.tf\t4\t3\tEBS volumes should use current-generation storage.\n',
-    );
+    expect(stdout).toHaveBeenCalledWith(expect.stringContaining('| Provider |'));
     expect(process.exitCode).toBe(0);
   });
 
@@ -141,15 +136,13 @@ describe('scan command e2e', () => {
 
     vi.spyOn(CloudBurnClient.prototype, 'loadConfig').mockResolvedValue({
       discovery: {},
-      iac: { format: 'text' },
+      iac: { format: 'table' },
     });
     vi.spyOn(CloudBurnClient.prototype, 'scanStatic').mockResolvedValue(staticScanResult);
 
     await createProgram().parseAsync(['scan', fixturePath], { from: 'user' });
 
-    expect(stdout).toHaveBeenCalledWith(
-      'aws\tCLDBRN-AWS-EBS-1\tiac\tebs\taws_ebs_volume.gp2_logs\t\t\tmain.tf\t4\t3\tEBS volumes should use current-generation storage.\n',
-    );
+    expect(stdout).toHaveBeenCalledWith(expect.stringContaining('| Provider |'));
     expect(process.exitCode).toBe(0);
   });
 
@@ -227,6 +220,24 @@ describe('scan command e2e', () => {
     expect(stderr).toHaveBeenCalled();
   });
 
+  it('rejects text output before running a static scan', async () => {
+    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    const scanStatic = vi.spyOn(CloudBurnClient.prototype, 'scanStatic').mockResolvedValue(staticScanResult);
+    const program = createProgram();
+    const scanCommand = program.commands.find((command) => command.name() === 'scan');
+
+    program.exitOverride();
+    scanCommand?.exitOverride();
+
+    await expect(program.parseAsync(['scan', '--format', 'text'], { from: 'user' })).rejects.toMatchObject({
+      code: 'commander.invalidArgument',
+      exitCode: 1,
+      message: expect.stringContaining('text'),
+    });
+    expect(scanStatic).not.toHaveBeenCalled();
+    expect(stderr).toHaveBeenCalled();
+  });
+
   it('rejects invalid service filters before running a static scan', async () => {
     const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     const scanStatic = vi.spyOn(CloudBurnClient.prototype, 'scanStatic').mockResolvedValue(staticScanResult);
@@ -251,7 +262,7 @@ describe('scan command e2e', () => {
     const err = Object.assign(new Error('ENOENT: no such file'), { code: 'ENOENT', path: '/missing/path' });
     vi.spyOn(CloudBurnClient.prototype, 'scanStatic').mockRejectedValue(err);
 
-    await createProgram().parseAsync(['scan', fixturePath, '--format', 'text'], { from: 'user' });
+    await createProgram().parseAsync(['scan', fixturePath, '--format', 'table'], { from: 'user' });
 
     expect(process.exitCode).toBe(2);
     const output = (stderr.mock.calls[0]?.[0] as string) ?? '';
@@ -287,7 +298,6 @@ describe('scan command e2e', () => {
 
     expect(help).toContain('Terraform file, CloudFormation template, or');
     expect(help).toContain('directory to scan');
-    expect(help).toContain('tab-delimited output for grep, sed, and awk');
     expect(help).toContain('cloudburn scan ./main.tf');
     expect(help).toContain('cloudburn scan ./template.yaml');
     expect(help).toContain('cloudburn scan ./iac');

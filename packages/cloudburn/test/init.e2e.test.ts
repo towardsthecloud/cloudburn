@@ -38,6 +38,18 @@ describe('init command e2e', () => {
     expect(output).not.toContain('Usage: cloudburn init [command]');
   });
 
+  it('formats the starter config as a table when a format override is provided', async () => {
+    const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+
+    await createProgram().parseAsync(['init', '--format', 'table'], { from: 'user' });
+
+    const output = stdout.mock.calls.map(([chunk]) => String(chunk)).join('');
+
+    expect(output).toContain('| Field');
+    expect(output).toContain('ContentType');
+    expect(output).toContain('application/yaml');
+  });
+
   it('prints the starter config with comments when --print is used', async () => {
     const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
 
@@ -62,6 +74,18 @@ describe('init command e2e', () => {
 
     expect(output).toContain('"contentType": "application/yaml"');
     expect(output).toContain('"content": "# Static IaC scan configuration.');
+  });
+
+  it('formats the printed starter config as a table when requested', async () => {
+    const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+
+    await createProgram().parseAsync(['init', 'config', '--print', '--format', 'table'], { from: 'user' });
+
+    const output = stdout.mock.calls.map(([chunk]) => String(chunk)).join('');
+
+    expect(output).toContain('| Field');
+    expect(output).toContain('Content');
+    expect(output).toContain('# Static IaC scan configuration.');
   });
 
   it('writes .cloudburn.yml to the repository root by default', async () => {

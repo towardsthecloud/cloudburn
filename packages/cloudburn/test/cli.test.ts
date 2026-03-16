@@ -37,7 +37,6 @@ describe('cli', () => {
     expect(help).toContain('--format <format>');
     expect(help).toContain('completion');
     expect(help).toContain('table: human-readable terminal output');
-    expect(help).toContain('text: tab-delimited output for grep, sed, and awk');
     expect(help).toContain('json: machine-readable output for automation and');
     expect(help).toContain('downstream systems');
     expect(help).not.toContain('__complete');

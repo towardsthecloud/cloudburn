@@ -19,7 +19,7 @@ graph TD
   Completion --> CompletionFish["fish"]
   Completion --> CompletionZsh["zsh"]
 
-  Root -.- RootFlags["--format text|json|table"]
+  Root -.- RootFlags["--format json|table"]
   Scan -.- ScanFlags["--config path\n--enabled-rules ids\n--disabled-rules ids\n--exit-code"]
   Discover -.- DiscoverFlags["--region <region|all>\n--config path\n--enabled-rules ids\n--disabled-rules ids\n--exit-code"]
   Estimate -.- EstimateFlags["--server url"]
@@ -31,10 +31,8 @@ graph TD
 graph LR
   Command["Command action"] --> Response["CliResponse"]
   Response --> Dispatch{"resolved format"}
-  Dispatch -->|text| Text["renderResponse(..., 'text')"]
   Dispatch -->|json| JSON["renderResponse(..., 'json')"]
   Dispatch -->|table| Table["renderResponse(..., 'table')"]
-  Text --> Stdout["process.stdout"]
   JSON --> Stdout
   Table --> Stdout
 ```
@@ -43,8 +41,7 @@ All stdout-producing commands return a typed `CliResponse` and share the same fo
 
 | Format  | Output                                                                                                                             |
 | ------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `json`  | Pretty JSON for the underlying response payload                                                                                    |
-| `text`  | Tab-delimited rows for list-like output, or raw human-readable text for status/document output                                     |
+| `json`  | Pretty JSON for the underlying response payload |
 | `table` | ASCII tables for scans, record lists, string lists, key/value status output, and `rules list` |
 
 ## Command Behavior
@@ -56,15 +53,15 @@ All stdout-producing commands return a typed `CliResponse` and share the same fo
 - `discover --region <region>` overrides the current AWS region resolved from `AWS_REGION`, `AWS_DEFAULT_REGION`, `aws_region`, then the AWS SDK region provider chain.
 - `discover --region all` requires a Resource Explorer aggregator index.
 - `discover --region <region>` targets one enabled Resource Explorer index region.
-- `discover list-enabled-regions` and `discover supported-resource-types` use the shared `text|json|table` renderer.
+- `discover list-enabled-regions` and `discover supported-resource-types` use the shared `json|table` renderer.
 - `discover init` bootstraps Resource Explorer through the SDK, defaults to the current AWS region, accepts `--region <region>` as an override, and falls back to local-only setup when cross-region bootstrap is denied.
 - `discover init` status output includes the resolved setup `indexType` so users can distinguish local-only setup from aggregator setup.
 - `rules list` defaults to a table of built-in rule metadata, accepts `--service` and `--source` filters, and emits flat rule metadata objects in JSON mode.
-- `init` preserves the legacy starter-YAML output for backward compatibility.
-- `init config` creates `.cloudburn.yml`, while `init config --print` renders the same template through the shared formatter system.
+- `init` preserves the legacy starter-YAML output for backward compatibility when no format override is provided.
+- `init config` creates `.cloudburn.yml`, while `init config --print` preserves raw YAML by default and can render table or JSON when `--format` is provided.
 - `rules list`, `init config`, and `estimate` all use the shared formatter system instead of ad hoc string output.
 - `completion` is a structural parent command. `completion bash|fish|zsh` prints shell completion scripts for the selected shell.
-- `--format` is documented as a global option and defaults to `table`, except `init` / `init config --print`, which preserve raw YAML text by default for redirection workflows.
+- `--format` is documented as a global option and defaults to `table`, except `init` / `init config --print`, which preserve raw YAML by default for redirection workflows.
 - `scan` and `discover` can also source their default format from `.cloudburn.yml`; explicit `--format` still wins.
 - The hidden `__complete` command exists only as the runtime hook for generated shell scripts.
 - `--exit-code` counts nested matches across all provider and rule groups.

@@ -228,16 +228,14 @@ describe('discover command e2e', () => {
     const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
 
     vi.spyOn(CloudBurnClient.prototype, 'loadConfig').mockResolvedValue({
-      discovery: { format: 'text' },
+      discovery: { format: 'table' },
       iac: {},
     });
     vi.spyOn(CloudBurnClient.prototype, 'discover').mockResolvedValue(liveScanResult);
 
     await createProgram().parseAsync(['discover'], { from: 'user' });
 
-    expect(stdout).toHaveBeenCalledWith(
-      'aws\tCLDBRN-AWS-EBS-1\tdiscovery\tebs\tvol-123\t\tus-east-1\t\t\t\tEBS volumes should use current-generation storage.\n',
-    );
+    expect(stdout).toHaveBeenCalledWith(expect.stringContaining('| Provider |'));
     expect(process.exitCode).toBe(0);
   });
 
@@ -322,8 +320,6 @@ describe('discover command e2e', () => {
     expect(help).toContain('Comma-separated services');
     expect(help).toContain('use this to exclude');
     expect(help).toContain('specific rules');
-    expect(help).toContain('text: tab-delimited');
-    expect(help).toContain('grep, sed,');
     expect(help).toContain('cloudburn discover');
     expect(help).toContain('cloudburn discover --region all');
     expect(help).toContain('cloudburn discover list-enabled-regions');
@@ -352,17 +348,29 @@ describe('discover command e2e', () => {
     expect(process.exitCode).toBe(0);
   });
 
-  it('formats enabled regions as text and respects parent discover format compatibility', async () => {
-    const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
-    vi.spyOn(CloudBurnClient.prototype, 'listEnabledDiscoveryRegions').mockResolvedValue([
+  it('rejects text output for list-enabled-regions before invoking the sdk', async () => {
+    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    const listEnabledRegions = vi.spyOn(CloudBurnClient.prototype, 'listEnabledDiscoveryRegions').mockResolvedValue([
       { region: 'eu-west-1', type: 'local' },
       { region: 'eu-central-1', type: 'aggregator' },
     ]);
+    const program = createProgram();
+    const discoverCommand = program.commands.find((command) => command.name() === 'discover');
+    const listCommand = discoverCommand?.commands.find((command) => command.name() === 'list-enabled-regions');
 
-    await createProgram().parseAsync(['discover', '--format', 'text', 'list-enabled-regions'], { from: 'user' });
+    program.exitOverride();
+    discoverCommand?.exitOverride();
+    listCommand?.exitOverride();
 
-    expect(stdout).toHaveBeenCalledWith('eu-west-1\tlocal\neu-central-1\taggregator\n');
-    expect(process.exitCode).toBe(0);
+    await expect(
+      program.parseAsync(['discover', '--format', 'text', 'list-enabled-regions'], { from: 'user' }),
+    ).rejects.toMatchObject({
+      code: 'commander.invalidArgument',
+      exitCode: 1,
+      message: expect.stringContaining('text'),
+    });
+    expect(listEnabledRegions).not.toHaveBeenCalled();
+    expect(stderr).toHaveBeenCalled();
   });
 
   it('initializes resource explorer setup via the sdk', async () => {
@@ -694,17 +702,30 @@ describe('discover command e2e', () => {
     expect(parsed.error.code).toBe('CREDENTIALS_ERROR');
   });
 
-  it('formats supported resource types via the shared formatter system', async () => {
-    const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
-    vi.spyOn(CloudBurnClient.prototype, 'listSupportedDiscoveryResourceTypes').mockResolvedValue([
-      { resourceType: 'AWS::EC2::Instance', service: 'ec2' },
-      { resourceType: 'AWS::S3::Bucket' },
-    ]);
+  it('rejects text output for supported resource types before invoking the sdk', async () => {
+    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    const listSupportedResourceTypes = vi
+      .spyOn(CloudBurnClient.prototype, 'listSupportedDiscoveryResourceTypes')
+      .mockResolvedValue([{ resourceType: 'AWS::EC2::Instance', service: 'ec2' }, { resourceType: 'AWS::S3::Bucket' }]);
+    const program = createProgram();
+    const discoverCommand = program.commands.find((command) => command.name() === 'discover');
+    const supportedTypesCommand = discoverCommand?.commands.find(
+      (command) => command.name() === 'supported-resource-types',
+    );
 
-    await createProgram().parseAsync(['discover', 'supported-resource-types', '--format', 'text'], { from: 'user' });
+    program.exitOverride();
+    discoverCommand?.exitOverride();
+    supportedTypesCommand?.exitOverride();
 
-    expect(stdout).toHaveBeenCalledWith('AWS::EC2::Instance\tec2\nAWS::S3::Bucket\tunknown\n');
-    expect(process.exitCode).toBe(0);
+    await expect(
+      program.parseAsync(['discover', 'supported-resource-types', '--format', 'text'], { from: 'user' }),
+    ).rejects.toMatchObject({
+      code: 'commander.invalidArgument',
+      exitCode: 1,
+      message: expect.stringContaining('text'),
+    });
+    expect(listSupportedResourceTypes).not.toHaveBeenCalled();
+    expect(stderr).toHaveBeenCalled();
   });
 
   it('writes a setup-specific error payload for disabled resource explorer', async () => {
