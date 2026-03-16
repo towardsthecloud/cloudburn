@@ -78,7 +78,19 @@ export type AwsEcrRepository = {
 export type AwsEc2Instance = {
   instanceId: string;
   instanceType: string;
+  architecture?: string;
+  launchTime?: string;
   state?: string;
+  region: string;
+  accountId: string;
+};
+
+/** Discovered EC2 reserved instance normalized for renewal review checks. */
+export type AwsEc2ReservedInstance = {
+  reservedInstancesId: string;
+  instanceType: string;
+  state?: string;
+  endTime?: string;
   region: string;
   accountId: string;
 };
@@ -145,6 +157,26 @@ export type AwsEc2InstanceUtilization = {
   accountId: string;
 };
 
+/** Discovered Elastic Load Balancer normalized for cleanup checks. */
+export type AwsEc2LoadBalancer = {
+  loadBalancerArn: string;
+  loadBalancerName: string;
+  loadBalancerType: 'application' | 'classic' | 'gateway' | 'network';
+  attachedTargetGroupArns: string[];
+  instanceCount: number;
+  region: string;
+  accountId: string;
+};
+
+/** Discovered target group normalized for target registration checks. */
+export type AwsEc2TargetGroup = {
+  targetGroupArn: string;
+  loadBalancerArns: string[];
+  registeredTargetCount: number;
+  region: string;
+  accountId: string;
+};
+
 /** Shared S3 lifecycle and storage-optimization analysis flags across scan modes. */
 export type AwsS3BucketAnalysisFlags = {
   hasLifecycleSignal: boolean;
@@ -207,6 +239,9 @@ export type DiscoveryDatasetKey =
   | 'aws-ec2-elastic-ips'
   | 'aws-ec2-instances'
   | 'aws-ec2-instance-utilization'
+  | 'aws-ec2-load-balancers'
+  | 'aws-ec2-reserved-instances'
+  | 'aws-ec2-target-groups'
   | 'aws-ec2-vpc-endpoint-activity'
   | 'aws-lambda-functions'
   | 'aws-rds-instance-activity'
@@ -223,6 +258,9 @@ export type DiscoveryDatasetMap = {
   'aws-ec2-elastic-ips': AwsEc2ElasticIp[];
   'aws-ec2-instances': AwsEc2Instance[];
   'aws-ec2-instance-utilization': AwsEc2InstanceUtilization[];
+  'aws-ec2-load-balancers': AwsEc2LoadBalancer[];
+  'aws-ec2-reserved-instances': AwsEc2ReservedInstance[];
+  'aws-ec2-target-groups': AwsEc2TargetGroup[];
   'aws-ec2-vpc-endpoint-activity': AwsEc2VpcEndpointActivity[];
   'aws-lambda-functions': AwsLambdaFunction[];
   'aws-rds-instance-activity': AwsRdsInstanceActivity[];

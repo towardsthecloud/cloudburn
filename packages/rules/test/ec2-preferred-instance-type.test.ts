@@ -192,6 +192,42 @@ describe('ec2PreferredInstanceTypeRule', () => {
     expect(finding).toBeNull();
   });
 
+  it('flags newly curated non-preferred live families such as m7i-flex', () => {
+    const finding = ec2PreferredInstanceTypeRule.evaluateLive?.({
+      catalog: {
+        resources: [createDiscoveredResource()],
+        searchRegion: 'us-east-1',
+        indexType: 'LOCAL',
+      },
+      resources: new LiveResourceBag({
+        'aws-ec2-instances': [createEc2Instance({ instanceType: 'm7i-flex.large' })],
+      }),
+    });
+
+    expect(finding?.findings).toEqual([
+      {
+        resourceId: 'i-1234567890abcdef0',
+        region: 'us-east-1',
+        accountId: '123456789012',
+      },
+    ]);
+  });
+
+  it('skips unknown live families to preserve backward compatibility', () => {
+    const finding = ec2PreferredInstanceTypeRule.evaluateLive?.({
+      catalog: {
+        resources: [createDiscoveredResource()],
+        searchRegion: 'us-east-1',
+        indexType: 'LOCAL',
+      },
+      resources: new LiveResourceBag({
+        'aws-ec2-instances': [createEc2Instance({ instanceType: 'z9.large' })],
+      }),
+    });
+
+    expect(finding).toBeNull();
+  });
+
   it('flags non-preferred CloudFormation AWS::EC2::Instance resources', () => {
     const finding = ec2PreferredInstanceTypeRule.evaluateStatic?.({
       resources: new StaticResourceBag({

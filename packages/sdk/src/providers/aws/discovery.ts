@@ -120,7 +120,7 @@ const buildInitializationResult = (options: {
   };
 };
 
-const RESOURCE_EXPLORER_RESOURCE_TYPE_PATTERN = /^[a-z0-9-]+:[a-z0-9-]+$/;
+const RESOURCE_EXPLORER_RESOURCE_TYPE_PATTERN = /^[a-z0-9-]+:[a-z0-9-]+(?:\/[a-z0-9-]+)?$/;
 
 const assertValidResourceExplorerResourceType = (resourceType: string): string => {
   if (!RESOURCE_EXPLORER_RESOURCE_TYPE_PATTERN.test(resourceType)) {

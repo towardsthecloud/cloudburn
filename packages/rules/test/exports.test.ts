@@ -3,6 +3,9 @@ import type {
   AwsCloudTrailTrail,
   AwsCloudWatchLogGroup,
   AwsEc2Instance,
+  AwsEc2LoadBalancer,
+  AwsEc2ReservedInstance,
+  AwsEc2TargetGroup,
   AwsRdsInstance,
   AwsStaticRdsInstance,
   DiscoveryDatasetKey,
@@ -34,9 +37,16 @@ describe('rule exports', () => {
         'CLDBRN-AWS-EC2-3',
         'CLDBRN-AWS-EC2-4',
         'CLDBRN-AWS-EC2-5',
+        'CLDBRN-AWS-EC2-9',
+        'CLDBRN-AWS-EC2-10',
+        'CLDBRN-AWS-EC2-11',
+        'CLDBRN-AWS-EC2-12',
         'CLDBRN-AWS-EBS-2',
         'CLDBRN-AWS-EBS-3',
         'CLDBRN-AWS-ECR-1',
+        'CLDBRN-AWS-ELB-1',
+        'CLDBRN-AWS-ELB-2',
+        'CLDBRN-AWS-ELB-3',
         'CLDBRN-AWS-RDS-2',
         'CLDBRN-AWS-S3-1',
         'CLDBRN-AWS-S3-2',
@@ -53,14 +63,45 @@ describe('rule exports', () => {
 
     const instance: AwsEc2Instance = {
       accountId: '123456789012',
+      architecture: 'x86_64',
       instanceId: 'i-1234567890abcdef0',
       instanceType: 'm8azn.large',
+      launchTime: '2026-03-01T00:00:00.000Z',
       region: 'us-east-1',
       state: 'running',
     };
 
     expect(instance.instanceType).toBe('m8azn.large');
     expect(instance.state).toBe('running');
+    expect(instance.architecture).toBe('x86_64');
+    expect(instance.launchTime).toBe('2026-03-01T00:00:00.000Z');
+
+    const reservedInstance: AwsEc2ReservedInstance = {
+      accountId: '123456789012',
+      endTime: '2026-05-01T00:00:00.000Z',
+      instanceType: 'm6i.large',
+      region: 'us-east-1',
+      reservedInstancesId: 'abcd1234-ef56-7890-abcd-1234567890ab',
+      state: 'active',
+    };
+
+    const loadBalancer: AwsEc2LoadBalancer = {
+      accountId: '123456789012',
+      attachedTargetGroupArns: ['arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/app/123'],
+      instanceCount: 0,
+      loadBalancerArn: 'arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/app/alb/123',
+      loadBalancerName: 'alb',
+      loadBalancerType: 'application',
+      region: 'us-east-1',
+    };
+
+    const targetGroup: AwsEc2TargetGroup = {
+      accountId: '123456789012',
+      loadBalancerArns: [loadBalancer.loadBalancerArn],
+      region: 'us-east-1',
+      registeredTargetCount: 0,
+      targetGroupArn: 'arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/app/123',
+    };
 
     const rdsInstance: AwsStaticRdsInstance = {
       instanceClass: 'db.m8g.large',
@@ -93,14 +134,23 @@ describe('rule exports', () => {
     const datasetKey: DiscoveryDatasetKey = 'aws-rds-instances';
     const cloudWatchDatasetKey: DiscoveryDatasetKey = 'aws-cloudwatch-log-groups';
     const cloudWatchLogStreamDatasetKey: DiscoveryDatasetKey = 'aws-cloudwatch-log-streams';
+    const loadBalancerDatasetKey: DiscoveryDatasetKey = 'aws-ec2-load-balancers';
+    const reservedInstanceDatasetKey: DiscoveryDatasetKey = 'aws-ec2-reserved-instances';
+    const targetGroupDatasetKey: DiscoveryDatasetKey = 'aws-ec2-target-groups';
     const staticDatasetKey: StaticDatasetKey = 'aws-rds-instances';
 
     expect(datasetKey).toBe('aws-rds-instances');
     expect(cloudWatchDatasetKey).toBe('aws-cloudwatch-log-groups');
     expect(cloudWatchLogStreamDatasetKey).toBe('aws-cloudwatch-log-streams');
+    expect(loadBalancerDatasetKey).toBe('aws-ec2-load-balancers');
+    expect(reservedInstanceDatasetKey).toBe('aws-ec2-reserved-instances');
+    expect(targetGroupDatasetKey).toBe('aws-ec2-target-groups');
     expect(liveRdsInstance.dbInstanceIdentifier).toBe('legacy-db');
     expect(trail.isMultiRegionTrail).toBe(true);
     expect(logGroup.logGroupName).toBe('/aws/lambda/app');
+    expect(reservedInstance.state).toBe('active');
+    expect(loadBalancer.loadBalancerType).toBe('application');
+    expect(targetGroup.registeredTargetCount).toBe(0);
     expect(rdsInstance.instanceClass).toBe('db.m8g.large');
     expect(staticDatasetKey).toBe('aws-rds-instances');
   });

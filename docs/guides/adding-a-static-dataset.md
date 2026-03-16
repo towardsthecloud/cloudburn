@@ -23,7 +23,7 @@ Use dataset-oriented keys, not parser-specific buckets:
 
 - `aws-rds-instances`
 - `aws-s3-bucket-analyses`
-- `aws-elbv2-load-balancers`
+- `aws-ec2-load-balancers`
 
 ## 2. Add the Rule-Facing Type
 

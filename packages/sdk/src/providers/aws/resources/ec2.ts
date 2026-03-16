@@ -69,8 +69,10 @@ export const hydrateAwsEc2Instances = async (resources: AwsDiscoveredResource[])
 
             instances.push({
               accountId: discoveredResource.accountId,
+              architecture: instance.Architecture,
               instanceId: instance.InstanceId,
               instanceType: instance.InstanceType,
+              launchTime: instance.LaunchTime?.toISOString(),
               region,
               state: instance.State?.Name,
             });

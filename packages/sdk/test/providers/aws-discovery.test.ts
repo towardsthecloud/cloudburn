@@ -26,8 +26,10 @@ import {
 } from '../../src/providers/aws/resources/cloudwatch-logs.js';
 import { hydrateAwsEbsVolumes } from '../../src/providers/aws/resources/ebs.js';
 import { hydrateAwsEc2Instances } from '../../src/providers/aws/resources/ec2.js';
+import { hydrateAwsEc2ReservedInstances } from '../../src/providers/aws/resources/ec2-reserved-instances.js';
 import { hydrateAwsEc2InstanceUtilization } from '../../src/providers/aws/resources/ec2-utilization.js';
 import { hydrateAwsEcrRepositories } from '../../src/providers/aws/resources/ecr.js';
+import { hydrateAwsEc2LoadBalancers, hydrateAwsEc2TargetGroups } from '../../src/providers/aws/resources/elbv2.js';
 import { hydrateAwsLambdaFunctions } from '../../src/providers/aws/resources/lambda.js';
 import { hydrateAwsRdsInstances } from '../../src/providers/aws/resources/rds.js';
 import { hydrateAwsRdsInstanceActivity } from '../../src/providers/aws/resources/rds-activity.js';
@@ -79,8 +81,17 @@ vi.mock('../../src/providers/aws/resources/ec2-utilization.js', () => ({
   hydrateAwsEc2InstanceUtilization: vi.fn(),
 }));
 
+vi.mock('../../src/providers/aws/resources/ec2-reserved-instances.js', () => ({
+  hydrateAwsEc2ReservedInstances: vi.fn(),
+}));
+
 vi.mock('../../src/providers/aws/resources/lambda.js', () => ({
   hydrateAwsLambdaFunctions: vi.fn(),
+}));
+
+vi.mock('../../src/providers/aws/resources/elbv2.js', () => ({
+  hydrateAwsEc2LoadBalancers: vi.fn(),
+  hydrateAwsEc2TargetGroups: vi.fn(),
 }));
 
 vi.mock('../../src/providers/aws/resources/rds.js', () => ({
@@ -112,6 +123,9 @@ const mockedHydrateAwsEbsVolumes = vi.mocked(hydrateAwsEbsVolumes);
 const mockedHydrateAwsEcrRepositories = vi.mocked(hydrateAwsEcrRepositories);
 const mockedHydrateAwsEc2Instances = vi.mocked(hydrateAwsEc2Instances);
 const mockedHydrateAwsEc2InstanceUtilization = vi.mocked(hydrateAwsEc2InstanceUtilization);
+const mockedHydrateAwsEc2ReservedInstances = vi.mocked(hydrateAwsEc2ReservedInstances);
+const mockedHydrateAwsEc2LoadBalancers = vi.mocked(hydrateAwsEc2LoadBalancers);
+const mockedHydrateAwsEc2TargetGroups = vi.mocked(hydrateAwsEc2TargetGroups);
 const mockedHydrateAwsLambdaFunctions = vi.mocked(hydrateAwsLambdaFunctions);
 const mockedHydrateAwsRdsInstanceActivity = vi.mocked(hydrateAwsRdsInstanceActivity);
 const mockedHydrateAwsRdsInstances = vi.mocked(hydrateAwsRdsInstances);
@@ -183,6 +197,30 @@ const catalog: AwsDiscoveryCatalog = {
       region: 'us-east-1',
       resourceType: 'logs:log-group',
       service: 'logs',
+    },
+    {
+      accountId: '123456789012',
+      arn: 'arn:aws:ec2:us-east-1:123456789012:reserved-instances/abcd1234-ef56-7890-abcd-1234567890ab',
+      properties: [],
+      region: 'us-east-1',
+      resourceType: 'ec2:reserved-instances',
+      service: 'ec2',
+    },
+    {
+      accountId: '123456789012',
+      arn: 'arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/app/alb/123',
+      properties: [],
+      region: 'us-east-1',
+      resourceType: 'elasticloadbalancing:loadbalancer/app',
+      service: 'elasticloadbalancing',
+    },
+    {
+      accountId: '123456789012',
+      arn: 'arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/alb/123',
+      properties: [],
+      region: 'us-east-1',
+      resourceType: 'elasticloadbalancing:targetgroup',
+      service: 'elasticloadbalancing',
     },
   ],
   searchRegion: 'us-east-1',
@@ -518,6 +556,100 @@ describe('discoverAwsResources', () => {
     expect(mockedHydrateAwsEbsVolumes).not.toHaveBeenCalled();
     expect(mockedHydrateAwsEc2Instances).not.toHaveBeenCalled();
     expect(mockedHydrateAwsLambdaFunctions).not.toHaveBeenCalled();
+  });
+
+  it('hydrates reserved instances and ELB datasets when active rules require them', async () => {
+    mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
+      indexType: 'LOCAL',
+      resources: [catalog.resources[8], catalog.resources[9], catalog.resources[10]],
+      searchRegion: 'us-east-1',
+    });
+    mockedHydrateAwsEc2ReservedInstances.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        endTime: '2026-03-01T00:00:00.000Z',
+        instanceType: 'm6i.large',
+        region: 'us-east-1',
+        reservedInstancesId: 'abcd1234-ef56-7890-abcd-1234567890ab',
+        state: 'active',
+      },
+    ]);
+    mockedHydrateAwsEc2LoadBalancers.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        attachedTargetGroupArns: ['arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/alb/123'],
+        instanceCount: 0,
+        loadBalancerArn: 'arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/app/alb/123',
+        loadBalancerName: 'alb',
+        loadBalancerType: 'application',
+        region: 'us-east-1',
+      },
+    ]);
+    mockedHydrateAwsEc2TargetGroups.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        loadBalancerArns: ['arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/app/alb/123'],
+        region: 'us-east-1',
+        registeredTargetCount: 0,
+        targetGroupArn: 'arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/alb/123',
+      },
+    ]);
+
+    const result = await discoverAwsResources(
+      [
+        createRule({
+          discoveryDependencies: ['aws-ec2-reserved-instances'],
+        }),
+        createRule({
+          id: 'CLDBRN-AWS-TEST-2',
+          discoveryDependencies: ['aws-ec2-load-balancers', 'aws-ec2-target-groups'],
+          service: 'elb',
+        }),
+      ],
+      { mode: 'region', region: 'us-east-1' },
+    );
+
+    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith({ mode: 'region', region: 'us-east-1' }, [
+      'ec2:reserved-instances',
+      'elasticloadbalancing:loadbalancer',
+      'elasticloadbalancing:loadbalancer/app',
+      'elasticloadbalancing:loadbalancer/gwy',
+      'elasticloadbalancing:loadbalancer/net',
+      'elasticloadbalancing:targetgroup',
+    ]);
+    expect(mockedHydrateAwsEc2ReservedInstances).toHaveBeenCalledWith([catalog.resources[8]]);
+    expect(mockedHydrateAwsEc2LoadBalancers).toHaveBeenCalledWith([catalog.resources[9]]);
+    expect(mockedHydrateAwsEc2TargetGroups).toHaveBeenCalledWith([catalog.resources[10]]);
+    expect(result.resources.get('aws-ec2-reserved-instances')).toEqual([
+      {
+        accountId: '123456789012',
+        endTime: '2026-03-01T00:00:00.000Z',
+        instanceType: 'm6i.large',
+        region: 'us-east-1',
+        reservedInstancesId: 'abcd1234-ef56-7890-abcd-1234567890ab',
+        state: 'active',
+      },
+    ]);
+    expect(result.resources.get('aws-ec2-load-balancers')).toEqual([
+      {
+        accountId: '123456789012',
+        attachedTargetGroupArns: ['arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/alb/123'],
+        instanceCount: 0,
+        loadBalancerArn: 'arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/app/alb/123',
+        loadBalancerName: 'alb',
+        loadBalancerType: 'application',
+        region: 'us-east-1',
+      },
+    ]);
+    expect(result.resources.get('aws-ec2-target-groups')).toEqual([
+      {
+        accountId: '123456789012',
+        loadBalancerArns: ['arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/app/alb/123'],
+        region: 'us-east-1',
+        registeredTargetCount: 0,
+        targetGroupArn: 'arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/alb/123',
+      },
+    ]);
   });
 
   it('hydrates RDS DB instances when an active rule requires the shared RDS dataset', async () => {

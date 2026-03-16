@@ -3,6 +3,8 @@ import { CloudWatchClient } from '@aws-sdk/client-cloudwatch';
 import { CloudWatchLogsClient } from '@aws-sdk/client-cloudwatch-logs';
 import { DescribeRegionsCommand, EC2Client } from '@aws-sdk/client-ec2';
 import { ECRClient } from '@aws-sdk/client-ecr';
+import { ElasticLoadBalancingClient } from '@aws-sdk/client-elastic-load-balancing';
+import { ElasticLoadBalancingV2Client } from '@aws-sdk/client-elastic-load-balancing-v2';
 import { LambdaClient } from '@aws-sdk/client-lambda';
 import { RDSClient } from '@aws-sdk/client-rds';
 import { ResourceExplorer2Client } from '@aws-sdk/client-resource-explorer-2';
@@ -42,6 +44,18 @@ export const createEc2Client = (config: AwsClientConfig): EC2Client =>
 /** Creates an AWS ECR client for a specific region. */
 export const createEcrClient = (config: AwsClientConfig): ECRClient =>
   new ECRClient({
+    region: config.region,
+  });
+
+/** Creates an AWS Classic ELB client for a specific region. */
+export const createElasticLoadBalancingClient = (config: AwsClientConfig): ElasticLoadBalancingClient =>
+  new ElasticLoadBalancingClient({
+    region: config.region,
+  });
+
+/** Creates an AWS ELBv2 client for a specific region. */
+export const createElasticLoadBalancingV2Client = (config: AwsClientConfig): ElasticLoadBalancingV2Client =>
+  new ElasticLoadBalancingV2Client({
     region: config.region,
   });
 

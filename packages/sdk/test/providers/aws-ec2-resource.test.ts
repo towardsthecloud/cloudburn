@@ -27,7 +27,14 @@ describe('hydrateAwsEc2Instances', () => {
           Reservations: [
             {
               Instances: (input.InstanceIds ?? []).map((instanceId) => ({
+                Architecture: instanceId === 'i-current' ? 'arm64' : 'x86_64',
                 InstanceId: instanceId,
+                LaunchTime:
+                  instanceId === 'i-current'
+                    ? new Date('2026-03-15T00:00:00.000Z')
+                    : instanceId === 'i-west'
+                      ? new Date('2025-12-31T00:00:00.000Z')
+                      : new Date('2025-09-01T00:00:00.000Z'),
                 State: {
                   Name: instanceId === 'i-current' ? 'running' : 'stopped',
                 },
@@ -72,22 +79,28 @@ describe('hydrateAwsEc2Instances', () => {
     expect(instances).toEqual([
       {
         accountId: '123456789012',
+        architecture: 'arm64',
         instanceId: 'i-current',
         instanceType: 'm8i.large',
+        launchTime: '2026-03-15T00:00:00.000Z',
         region: 'us-east-1',
         state: 'running',
       },
       {
         accountId: '123456789012',
+        architecture: 'x86_64',
         instanceId: 'i-legacy',
         instanceType: 'c6i.large',
+        launchTime: '2025-09-01T00:00:00.000Z',
         region: 'us-east-1',
         state: 'stopped',
       },
       {
         accountId: '123456789012',
+        architecture: 'x86_64',
         instanceId: 'i-west',
         instanceType: 'c6i.large',
+        launchTime: '2025-12-31T00:00:00.000Z',
         region: 'us-west-2',
         state: 'stopped',
       },

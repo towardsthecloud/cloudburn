@@ -4,8 +4,10 @@ import { hydrateAwsCloudWatchLogGroups, hydrateAwsCloudWatchLogStreams } from '.
 import { hydrateAwsEbsVolumes } from './resources/ebs.js';
 import { hydrateAwsEc2Instances } from './resources/ec2.js';
 import { hydrateAwsEc2ElasticIps } from './resources/ec2-elastic-ips.js';
+import { hydrateAwsEc2ReservedInstances } from './resources/ec2-reserved-instances.js';
 import { hydrateAwsEc2InstanceUtilization } from './resources/ec2-utilization.js';
 import { hydrateAwsEcrRepositories } from './resources/ecr.js';
+import { hydrateAwsEc2LoadBalancers, hydrateAwsEc2TargetGroups } from './resources/elbv2.js';
 import { hydrateAwsLambdaFunctions } from './resources/lambda.js';
 import { hydrateAwsRdsInstances } from './resources/rds.js';
 import { hydrateAwsRdsInstanceActivity } from './resources/rds-activity.js';
@@ -16,7 +18,7 @@ import { hydrateAwsEc2VpcEndpointActivity } from './resources/vpc-endpoints.js';
 export type AwsDiscoveryDatasetDefinition<K extends DiscoveryDatasetKey = DiscoveryDatasetKey> = {
   datasetKey: K;
   resourceTypes: string[];
-  service: 'cloudtrail' | 'cloudwatch' | 'ebs' | 'ecr' | 'ec2' | 'lambda' | 'rds' | 's3';
+  service: 'cloudtrail' | 'cloudwatch' | 'ebs' | 'ec2' | 'ecr' | 'elb' | 'lambda' | 'rds' | 's3';
   load: (resources: AwsDiscoveredResource[]) => Promise<DiscoveryDatasetMap[K]>;
 };
 
@@ -70,6 +72,29 @@ const awsDiscoveryDatasetRegistry: {
     resourceTypes: ['ec2:instance'],
     service: 'ec2',
     load: hydrateAwsEc2InstanceUtilization,
+  },
+  'aws-ec2-load-balancers': {
+    datasetKey: 'aws-ec2-load-balancers',
+    resourceTypes: [
+      'elasticloadbalancing:loadbalancer',
+      'elasticloadbalancing:loadbalancer/app',
+      'elasticloadbalancing:loadbalancer/gwy',
+      'elasticloadbalancing:loadbalancer/net',
+    ],
+    service: 'elb',
+    load: hydrateAwsEc2LoadBalancers,
+  },
+  'aws-ec2-reserved-instances': {
+    datasetKey: 'aws-ec2-reserved-instances',
+    resourceTypes: ['ec2:reserved-instances'],
+    service: 'ec2',
+    load: hydrateAwsEc2ReservedInstances,
+  },
+  'aws-ec2-target-groups': {
+    datasetKey: 'aws-ec2-target-groups',
+    resourceTypes: ['elasticloadbalancing:targetgroup'],
+    service: 'elb',
+    load: hydrateAwsEc2TargetGroups,
   },
   'aws-ec2-vpc-endpoint-activity': {
     datasetKey: 'aws-ec2-vpc-endpoint-activity',

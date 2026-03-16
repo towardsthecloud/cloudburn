@@ -287,6 +287,119 @@ describe('rule metadata', () => {
     });
   });
 
+  it('defines the expected EC2 Graviton review rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-EC2-9');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-EC2-9',
+      name: 'EC2 Instance Without Graviton',
+      description:
+        'Flag EC2 instances that still run on non-Graviton families when a clear Arm-based equivalent exists.',
+      message: 'EC2 instances without a Graviton equivalent in use should be reviewed.',
+      provider: 'aws',
+      service: 'ec2',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-ec2-instances'],
+    });
+  });
+
+  it('defines the expected EC2 reserved-instance-expiring rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-EC2-10');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-EC2-10',
+      name: 'EC2 Reserved Instance Expiring',
+      description: 'Flag active EC2 reserved instances whose end date is within the next 60 days.',
+      message: 'EC2 reserved instances expiring within 60 days should be reviewed.',
+      provider: 'aws',
+      service: 'ec2',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-ec2-reserved-instances'],
+    });
+  });
+
+  it('defines the expected EC2 large-instance rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-EC2-11');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-EC2-11',
+      name: 'EC2 Instance Large Size',
+      description: 'Flag EC2 instances that are sized at 2xlarge or above so they can be right-sized intentionally.',
+      message: 'EC2 large instances of 2xlarge or greater should be reviewed.',
+      provider: 'aws',
+      service: 'ec2',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-ec2-instances'],
+    });
+  });
+
+  it('defines the expected EC2 long-running rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-EC2-12');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-EC2-12',
+      name: 'EC2 Instance Long Running',
+      description: 'Flag EC2 instances whose launch time is at least 180 days old.',
+      message: 'EC2 instances running for 180 days or longer should be reviewed.',
+      provider: 'aws',
+      service: 'ec2',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-ec2-instances'],
+    });
+  });
+
+  it('defines the expected ELB ALB-without-targets rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-ELB-1');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-ELB-1',
+      name: 'Application Load Balancer Without Targets',
+      description: 'Flag Application Load Balancers that have no attached target groups or no registered targets.',
+      message: 'Application Load Balancers with no registered targets should be deleted.',
+      provider: 'aws',
+      service: 'elb',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-ec2-load-balancers', 'aws-ec2-target-groups'],
+    });
+  });
+
+  it('defines the expected ELB classic-without-instances rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-ELB-2');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-ELB-2',
+      name: 'Classic Load Balancer Without Instances',
+      description: 'Flag Classic Load Balancers that have zero attached instances.',
+      message: 'Classic Load Balancers with no attached instances should be deleted.',
+      provider: 'aws',
+      service: 'elb',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-ec2-load-balancers'],
+    });
+  });
+
+  it('defines the expected ELB gateway-without-targets rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-ELB-3');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-ELB-3',
+      name: 'Gateway Load Balancer Without Targets',
+      description: 'Flag Gateway Load Balancers that have no attached target groups or no registered targets.',
+      message: 'Gateway Load Balancers with no registered targets should be deleted.',
+      provider: 'aws',
+      service: 'elb',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-ec2-load-balancers', 'aws-ec2-target-groups'],
+    });
+  });
+
   it('defines the expected RDS idle-instance rule metadata', () => {
     const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-RDS-2');
 

@@ -23,7 +23,7 @@ Use dataset-oriented keys, not service buckets:
 
 - `aws-rds-instances`
 - `aws-rds-clusters`
-- `aws-elbv2-load-balancers`
+- `aws-ec2-load-balancers`
 
 ## 2. Add the Rule-Facing Type
 

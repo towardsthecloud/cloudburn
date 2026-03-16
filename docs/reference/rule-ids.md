@@ -25,10 +25,17 @@ Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
 | `CLDBRN-AWS-EC2-3`    | Elastic IP Address Unassociated           | ec2     | discovery      | Implemented |
 | `CLDBRN-AWS-EC2-4`    | VPC Interface Endpoint Inactive           | ec2     | discovery      | Implemented |
 | `CLDBRN-AWS-EC2-5`    | EC2 Instance Low Utilization              | ec2     | discovery      | Implemented |
+| `CLDBRN-AWS-EC2-9`    | EC2 Instance Without Graviton             | ec2     | discovery      | Implemented |
+| `CLDBRN-AWS-EC2-10`   | EC2 Reserved Instance Expiring            | ec2     | discovery      | Implemented |
+| `CLDBRN-AWS-EC2-11`   | EC2 Instance Large Size                   | ec2     | discovery      | Implemented |
+| `CLDBRN-AWS-EC2-12`   | EC2 Instance Long Running                 | ec2     | discovery      | Implemented |
 | `CLDBRN-AWS-EBS-1`    | EBS Volume Type Not Current Generation    | ebs     | discovery, iac | Implemented |
 | `CLDBRN-AWS-EBS-2`    | EBS Volume Unattached                     | ebs     | discovery      | Implemented |
 | `CLDBRN-AWS-EBS-3`    | EBS Volume Attached To Stopped Instances  | ebs     | discovery      | Implemented |
 | `CLDBRN-AWS-ECR-1`    | ECR Repository Missing Lifecycle Policy   | ecr     | iac, discovery | Implemented |
+| `CLDBRN-AWS-ELB-1`    | Application Load Balancer Without Targets | elb     | discovery      | Implemented |
+| `CLDBRN-AWS-ELB-2`    | Classic Load Balancer Without Instances   | elb     | discovery      | Implemented |
+| `CLDBRN-AWS-ELB-3`    | Gateway Load Balancer Without Targets     | elb     | discovery      | Implemented |
 | `CLDBRN-AWS-RDS-1`    | RDS Instance Class Not Preferred          | rds     | iac, discovery | Implemented |
 | `CLDBRN-AWS-RDS-2`    | RDS DB Instance Idle                      | rds     | discovery      | Implemented |
 | `CLDBRN-AWS-S3-1`     | S3 Missing Lifecycle Configuration        | s3      | iac, discovery | Implemented |
@@ -38,6 +45,16 @@ Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
 `CLDBRN-AWS-EBS-1` flags previous-generation EBS volume types (`gp2`, `io1`, and `standard`) and does not flag current-generation HDD families such as `st1` or `sc1`.
 
 `CLDBRN-AWS-CLOUDWATCH-2` flags only log streams with no observed event history. Streams with older events are not treated as unused by this rule.
+
+`CLDBRN-AWS-EC2-9` flags only families with a curated Graviton-equivalent path. Instances without architecture metadata or outside the curated family set are skipped.
+
+`CLDBRN-AWS-EC2-10` reviews only active reserved instances with an `endTime` inside the next 60 days.
+
+`CLDBRN-AWS-EC2-11` treats `2xlarge` and above, plus `metal`, as the large-instance review threshold.
+
+`CLDBRN-AWS-EC2-12` flags only instances with a parsed launch timestamp at least 180 days old.
+
+`CLDBRN-AWS-ELB-1` and `CLDBRN-AWS-ELB-3` flag load balancers with no attached target groups or no registered targets across attached target groups.
 
 **Status key:**
 

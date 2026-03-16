@@ -120,8 +120,85 @@ const awsEc2NonPreferredInstanceFamilies = new Set([
   't3a',
 ]);
 
+const awsEc2EquivalentGravitonReviewFamilies = new Set([
+  'c5',
+  'c5a',
+  'c5ad',
+  'c5d',
+  'c5n',
+  'c6a',
+  'c6i',
+  'c6id',
+  'c6in',
+  'c7a',
+  'c7i',
+  'c7i-flex',
+  'c7in',
+  'c8a',
+  'c8i',
+  'c8id',
+  'c8i-flex',
+  'm5',
+  'm5a',
+  'm5ad',
+  'm5d',
+  'm5dn',
+  'm5n',
+  'm5zn',
+  'm6a',
+  'm6i',
+  'm6id',
+  'm6idn',
+  'm6in',
+  'm7a',
+  'm7d',
+  'm7i',
+  'm7i-flex',
+  'm7in',
+  'm8a',
+  'm8azn',
+  'm8i',
+  'm8id',
+  'm8i-flex',
+  'r5',
+  'r5a',
+  'r5ad',
+  'r5b',
+  'r5d',
+  'r5dn',
+  'r5n',
+  'r6a',
+  'r6i',
+  'r6id',
+  'r6idn',
+  'r6in',
+  'r7a',
+  'r7i',
+  'r7iz',
+  'r8a',
+  'r8i',
+  'r8id',
+  'r8i-flex',
+  't1',
+  't2',
+  't3',
+  't3a',
+]);
+
 /** Preferred-family policy states used by the EC2 preferred-instance rule. */
 export type AwsEc2PreferredInstanceFamilyState = 'preferred' | 'non-preferred' | 'unclassified';
+
+/**
+ * Returns the family portion of a literal EC2 instance type.
+ *
+ * @param instanceType - Literal EC2 instance type such as `m8i.large`.
+ * @returns The normalized family name, or `null` when the type is malformed.
+ */
+export const getAwsEc2InstanceFamily = (instanceType: string): string | null => {
+  const family = instanceType.split('.', 1)[0]?.toLowerCase();
+
+  return family ? family : null;
+};
 
 /**
  * Returns the curated preferred-family state for a literal EC2 instance type.
@@ -130,7 +207,7 @@ export type AwsEc2PreferredInstanceFamilyState = 'preferred' | 'non-preferred' |
  * @returns The preferred-family classification for the instance type.
  */
 export const getAwsEc2PreferredInstanceFamilyState = (instanceType: string): AwsEc2PreferredInstanceFamilyState => {
-  const family = instanceType.split('.', 1)[0]?.toLowerCase();
+  const family = getAwsEc2InstanceFamily(instanceType);
 
   if (!family) {
     return 'unclassified';
@@ -145,4 +222,22 @@ export const getAwsEc2PreferredInstanceFamilyState = (instanceType: string): Aws
   }
 
   return 'unclassified';
+};
+
+/**
+ * Returns whether a literal EC2 instance type should be reviewed for a
+ * Graviton migration when the running instance is not Arm-based already.
+ *
+ * @param instanceType - Literal EC2 instance type such as `m7i.large`.
+ * @param architecture - Normalized instance architecture reported by EC2.
+ * @returns Whether CloudBurn should recommend a Graviton review.
+ */
+export const shouldReviewAwsEc2InstanceForGraviton = (instanceType: string, architecture?: string): boolean => {
+  const family = getAwsEc2InstanceFamily(instanceType);
+
+  if (!family || !architecture || architecture.toLowerCase() === 'arm64') {
+    return false;
+  }
+
+  return awsEc2EquivalentGravitonReviewFamilies.has(family);
 };
