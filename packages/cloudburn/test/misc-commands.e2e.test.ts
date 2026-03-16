@@ -15,7 +15,8 @@ describe('misc command e2e', () => {
     expect(JSON.parse(jsonOutput)).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          description: 'Flag EBS volumes using previous-generation gp2 type instead of gp3.',
+          description:
+            'Flag EBS volumes using previous-generation storage types when a current-generation replacement exists.',
           id: 'CLDBRN-AWS-EBS-1',
           name: 'EBS Volume Type Not Current Generation',
           provider: 'aws',

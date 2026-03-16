@@ -28,6 +28,8 @@ describe('rule exports', () => {
         'CLDBRN-AWS-EC2-3',
         'CLDBRN-AWS-EC2-4',
         'CLDBRN-AWS-EC2-5',
+        'CLDBRN-AWS-EBS-2',
+        'CLDBRN-AWS-EBS-3',
         'CLDBRN-AWS-ECR-1',
         'CLDBRN-AWS-RDS-2',
         'CLDBRN-AWS-S3-1',
@@ -48,9 +50,11 @@ describe('rule exports', () => {
       instanceId: 'i-1234567890abcdef0',
       instanceType: 'm8azn.large',
       region: 'us-east-1',
+      state: 'running',
     };
 
     expect(instance.instanceType).toBe('m8azn.large');
+    expect(instance.state).toBe('running');
 
     const rdsInstance: AwsStaticRdsInstance = {
       instanceClass: 'db.m8g.large',

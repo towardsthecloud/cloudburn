@@ -68,7 +68,11 @@ export const hydrateAwsEbsVolumes = async (resources: AwsDiscoveredResource[]): 
 
           volumes.push({
             accountId: discoveredResource.accountId,
+            attachments: (volume.Attachments ?? []).map((attachment) => ({
+              instanceId: attachment.InstanceId,
+            })),
             region,
+            state: volume.State,
             volumeId: volume.VolumeId,
             volumeType: volume.VolumeType,
           });

@@ -28,6 +28,9 @@ describe('hydrateAwsEc2Instances', () => {
             {
               Instances: (input.InstanceIds ?? []).map((instanceId) => ({
                 InstanceId: instanceId,
+                State: {
+                  Name: instanceId === 'i-current' ? 'running' : 'stopped',
+                },
                 InstanceType: instanceId === 'i-current' ? 'm8i.large' : 'c6i.large',
               })),
             },
@@ -72,18 +75,21 @@ describe('hydrateAwsEc2Instances', () => {
         instanceId: 'i-current',
         instanceType: 'm8i.large',
         region: 'us-east-1',
+        state: 'running',
       },
       {
         accountId: '123456789012',
         instanceId: 'i-legacy',
         instanceType: 'c6i.large',
         region: 'us-east-1',
+        state: 'stopped',
       },
       {
         accountId: '123456789012',
         instanceId: 'i-west',
         instanceType: 'c6i.large',
         region: 'us-west-2',
+        state: 'stopped',
       },
     ]);
   });

@@ -21,6 +21,8 @@ describe('hydrateAwsEbsVolumes', () => {
 
         return {
           Volumes: (input.VolumeIds ?? []).map((volumeId) => ({
+            Attachments: volumeId === 'vol-123' ? [] : [{ InstanceId: 'i-1234567890abcdef0' }],
+            State: volumeId === 'vol-123' ? 'available' : 'in-use',
             VolumeId: volumeId,
             VolumeType: region === 'us-east-1' ? 'gp2' : 'gp3',
           })),
@@ -53,13 +55,17 @@ describe('hydrateAwsEbsVolumes', () => {
     expect(volumes).toEqual([
       {
         accountId: '123456789012',
+        attachments: [],
         region: 'us-east-1',
+        state: 'available',
         volumeId: 'vol-123',
         volumeType: 'gp2',
       },
       {
         accountId: '123456789012',
+        attachments: [{ instanceId: 'i-1234567890abcdef0' }],
         region: 'us-west-2',
+        state: 'in-use',
         volumeId: 'vol-456',
         volumeType: 'gp3',
       },

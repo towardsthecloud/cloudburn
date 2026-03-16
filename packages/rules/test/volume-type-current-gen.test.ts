@@ -3,6 +3,9 @@ import { ebsVolumeTypeCurrentGenRule } from '../src/aws/ebs/volume-type-current-
 import type { AwsDiscoveredResource, AwsEbsVolume, AwsStaticEbsVolume } from '../src/index.js';
 import { LiveResourceBag, StaticResourceBag } from '../src/index.js';
 
+const PREVIOUS_GENERATION_EBS_VOLUME_TYPES = ['gp2', 'io1', 'standard'] as const;
+const CURRENT_GENERATION_EBS_VOLUME_TYPES = ['gp3', 'io2', 'st1', 'sc1'] as const;
+
 const createVolume = (overrides: Partial<AwsEbsVolume> = {}): AwsEbsVolume => ({
   volumeId: 'vol-123',
   volumeType: 'gp2',
@@ -33,62 +36,67 @@ const createDiscoveredResource = (overrides: Partial<AwsDiscoveredResource> = {}
 });
 
 describe('ebsVolumeTypeCurrentGenRule', () => {
-  it('evaluates gp2 volumes in discovery mode only', () => {
-    const finding = ebsVolumeTypeCurrentGenRule.evaluateLive?.({
-      catalog: {
-        resources: [createDiscoveredResource()],
-        searchRegion: 'eu-west-1',
-        indexType: 'LOCAL',
-      },
-      resources: new LiveResourceBag({
-        'aws-ebs-volumes': [createVolume()],
-      }),
-    });
-
+  it('exposes the expected discovery and iac metadata', () => {
     expect(ebsVolumeTypeCurrentGenRule.supports).toEqual(['discovery', 'iac']);
     expect(ebsVolumeTypeCurrentGenRule.discoveryDependencies).toEqual(['aws-ebs-volumes']);
     expect(ebsVolumeTypeCurrentGenRule.staticDependencies).toEqual(['aws-ebs-volumes']);
-    expect(finding).toEqual({
-      ruleId: 'CLDBRN-AWS-EBS-1',
-      service: 'ebs',
-      source: 'discovery',
-      message: 'EBS volumes should use current-generation storage.',
-      findings: [
-        {
-          resourceId: 'vol-123',
-          region: 'eu-west-1',
-          accountId: '123456789012',
-        },
-      ],
-    });
   });
 
-  it('evaluates gp2 volumes in iac mode', () => {
-    const finding = ebsVolumeTypeCurrentGenRule.evaluateStatic?.({
-      resources: new StaticResourceBag({
-        'aws-ebs-volumes': [createStaticVolume()],
-      }),
-    });
+  for (const volumeType of PREVIOUS_GENERATION_EBS_VOLUME_TYPES) {
+    it(`flags ${volumeType} volumes in discovery mode`, () => {
+      const finding = ebsVolumeTypeCurrentGenRule.evaluateLive?.({
+        catalog: {
+          resources: [createDiscoveredResource()],
+          searchRegion: 'eu-west-1',
+          indexType: 'LOCAL',
+        },
+        resources: new LiveResourceBag({
+          'aws-ebs-volumes': [createVolume({ volumeType })],
+        }),
+      });
 
-    expect(finding).toEqual({
-      ruleId: 'CLDBRN-AWS-EBS-1',
-      service: 'ebs',
-      source: 'iac',
-      message: 'EBS volumes should use current-generation storage.',
-      findings: [
-        {
-          resourceId: 'aws_ebs_volume.gp2_data',
-          location: {
-            path: 'main.tf',
-            line: 4,
-            column: 3,
+      expect(finding).toEqual({
+        ruleId: 'CLDBRN-AWS-EBS-1',
+        service: 'ebs',
+        source: 'discovery',
+        message: 'EBS volumes should use current-generation storage.',
+        findings: [
+          {
+            resourceId: 'vol-123',
+            region: 'eu-west-1',
+            accountId: '123456789012',
           },
-        },
-      ],
+        ],
+      });
     });
-  });
 
-  it('evaluates cloudformation gp2 volumes in iac mode', () => {
+    it(`flags ${volumeType} volumes in terraform iac mode`, () => {
+      const finding = ebsVolumeTypeCurrentGenRule.evaluateStatic?.({
+        resources: new StaticResourceBag({
+          'aws-ebs-volumes': [createStaticVolume({ volumeType })],
+        }),
+      });
+
+      expect(finding).toEqual({
+        ruleId: 'CLDBRN-AWS-EBS-1',
+        service: 'ebs',
+        source: 'iac',
+        message: 'EBS volumes should use current-generation storage.',
+        findings: [
+          {
+            resourceId: 'aws_ebs_volume.gp2_data',
+            location: {
+              path: 'main.tf',
+              line: 4,
+              column: 3,
+            },
+          },
+        ],
+      });
+    });
+  }
+
+  it('flags cloudformation previous-generation volumes in iac mode', () => {
     const finding = ebsVolumeTypeCurrentGenRule.evaluateStatic?.({
       resources: new StaticResourceBag({
         'aws-ebs-volumes': [
@@ -99,6 +107,7 @@ describe('ebsVolumeTypeCurrentGenRule', () => {
               column: 7,
             },
             resourceId: 'MyVolume',
+            volumeType: 'standard',
           }),
         ],
       }),
@@ -122,15 +131,27 @@ describe('ebsVolumeTypeCurrentGenRule', () => {
     });
   });
 
-  it('ignores non-gp2 volumes', () => {
-    const finding = ebsVolumeTypeCurrentGenRule.evaluateLive?.({
-      catalog: {
-        resources: [createDiscoveredResource()],
-        searchRegion: 'eu-west-1',
-        indexType: 'LOCAL',
-      },
-      resources: new LiveResourceBag({
-        'aws-ebs-volumes': [createVolume({ volumeType: 'gp3' })],
+  for (const volumeType of CURRENT_GENERATION_EBS_VOLUME_TYPES) {
+    it(`ignores ${volumeType} volumes in discovery mode`, () => {
+      const finding = ebsVolumeTypeCurrentGenRule.evaluateLive?.({
+        catalog: {
+          resources: [createDiscoveredResource()],
+          searchRegion: 'eu-west-1',
+          indexType: 'LOCAL',
+        },
+        resources: new LiveResourceBag({
+          'aws-ebs-volumes': [createVolume({ volumeType })],
+        }),
+      });
+
+      expect(finding).toBeNull();
+    });
+  }
+
+  it('ignores null static volume types in iac mode', () => {
+    const finding = ebsVolumeTypeCurrentGenRule.evaluateStatic?.({
+      resources: new StaticResourceBag({
+        'aws-ebs-volumes': [createStaticVolume({ volumeType: null })],
       }),
     });
 

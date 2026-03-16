@@ -124,6 +124,56 @@ describe('rule metadata', () => {
     });
   });
 
+  it('defines the expected EBS current-generation rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-EBS-1');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-EBS-1',
+      name: 'EBS Volume Type Not Current Generation',
+      description:
+        'Flag EBS volumes using previous-generation storage types when a current-generation replacement exists.',
+      message: 'EBS volumes should use current-generation storage.',
+      provider: 'aws',
+      service: 'ebs',
+      supports: ['discovery', 'iac'],
+      discoveryDependencies: ['aws-ebs-volumes'],
+      staticDependencies: ['aws-ebs-volumes'],
+    });
+  });
+
+  it('defines the expected EBS unattached-volume rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-EBS-2');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-EBS-2',
+      name: 'EBS Volume Unattached',
+      description: 'Flag EBS volumes that are not attached to any EC2 instance.',
+      message: 'EBS volumes should not remain unattached.',
+      provider: 'aws',
+      service: 'ebs',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-ebs-volumes'],
+    });
+  });
+
+  it('defines the expected EBS stopped-instance-attachment rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-EBS-3');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-EBS-3',
+      name: 'EBS Volume Attached To Stopped Instances',
+      description: 'Flag EBS volumes whose attached EC2 instances are all in the stopped state.',
+      message: 'EBS volumes attached only to stopped EC2 instances should be reviewed.',
+      provider: 'aws',
+      service: 'ebs',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-ebs-volumes', 'aws-ec2-instances'],
+    });
+  });
+
   it('defines the expected EC2 unassociated-elastic-ip rule metadata', () => {
     const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-EC2-3');
 

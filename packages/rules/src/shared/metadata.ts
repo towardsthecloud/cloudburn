@@ -22,6 +22,10 @@ export type SourceLocation = {
 export type AwsEbsVolume = {
   volumeId: string;
   volumeType: string;
+  state?: string;
+  attachments?: Array<{
+    instanceId?: string;
+  }>;
   region: string;
   accountId: string;
 };
@@ -39,6 +43,7 @@ export type AwsEcrRepository = {
 export type AwsEc2Instance = {
   instanceId: string;
   instanceType: string;
+  state?: string;
   region: string;
   accountId: string;
 };

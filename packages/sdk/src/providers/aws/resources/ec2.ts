@@ -72,6 +72,7 @@ export const hydrateAwsEc2Instances = async (resources: AwsDiscoveredResource[])
               instanceId: instance.InstanceId,
               instanceType: instance.InstanceType,
               region,
+              state: instance.State?.Name,
             });
           }
         }

@@ -3,11 +3,15 @@ import { createFinding, createFindingMatch, createRule } from '../../shared/help
 const RULE_ID = 'CLDBRN-AWS-EBS-1';
 const RULE_SERVICE = 'ebs';
 const RULE_MESSAGE = 'EBS volumes should use current-generation storage.';
+const PREVIOUS_GENERATION_EBS_VOLUME_TYPES = new Set(['gp2', 'io1', 'standard']);
+
+const isPreviousGenerationEbsVolumeType = (volumeType: string | null | undefined): boolean =>
+  volumeType !== null && volumeType !== undefined && PREVIOUS_GENERATION_EBS_VOLUME_TYPES.has(volumeType);
 
 export const ebsVolumeTypeCurrentGenRule = createRule({
   id: RULE_ID,
   name: 'EBS Volume Type Not Current Generation',
-  description: 'Flag EBS volumes using previous-generation gp2 type instead of gp3.',
+  description: 'Flag EBS volumes using previous-generation storage types when a current-generation replacement exists.',
   message: RULE_MESSAGE,
   provider: 'aws',
   service: RULE_SERVICE,
@@ -17,7 +21,7 @@ export const ebsVolumeTypeCurrentGenRule = createRule({
   evaluateLive: ({ resources }) => {
     const findings = resources
       .get('aws-ebs-volumes')
-      .filter((volume) => volume.volumeType === 'gp2')
+      .filter((volume) => isPreviousGenerationEbsVolumeType(volume.volumeType))
       .map((volume) => createFindingMatch(volume.volumeId, volume.region, volume.accountId));
 
     return createFinding(
@@ -33,7 +37,7 @@ export const ebsVolumeTypeCurrentGenRule = createRule({
   evaluateStatic: ({ resources }) => {
     const findings = resources
       .get('aws-ebs-volumes')
-      .filter((volume) => volume.volumeType === 'gp2')
+      .filter((volume) => isPreviousGenerationEbsVolumeType(volume.volumeType))
       .map((volume) => createFindingMatch(volume.resourceId, undefined, undefined, volume.location));
 
     return createFinding(

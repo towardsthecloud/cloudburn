@@ -29,11 +29,26 @@ describe('sdk exports', () => {
       })),
     ).toEqual([
       {
-        description: 'Flag EBS volumes using previous-generation gp2 type instead of gp3.',
+        description:
+          'Flag EBS volumes using previous-generation storage types when a current-generation replacement exists.',
         id: 'CLDBRN-AWS-EBS-1',
         provider: 'aws',
         service: 'ebs',
         supports: ['discovery', 'iac'],
+      },
+      {
+        description: 'Flag EBS volumes that are not attached to any EC2 instance.',
+        id: 'CLDBRN-AWS-EBS-2',
+        provider: 'aws',
+        service: 'ebs',
+        supports: ['discovery'],
+      },
+      {
+        description: 'Flag EBS volumes whose attached EC2 instances are all in the stopped state.',
+        id: 'CLDBRN-AWS-EBS-3',
+        provider: 'aws',
+        service: 'ebs',
+        supports: ['discovery'],
       },
       {
         description: 'Flag direct EC2 instances that do not use curated preferred instance types.',
