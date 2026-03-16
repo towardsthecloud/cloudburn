@@ -39,6 +39,70 @@ describe('rule metadata', () => {
     });
   });
 
+  it('defines the expected CloudTrail redundant-global-trails rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-CLOUDTRAIL-1');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-CLOUDTRAIL-1',
+      name: 'CloudTrail Redundant Global Trails',
+      description: 'Flag redundant multi-region CloudTrail trails when more than one trail covers the same account.',
+      message: 'AWS accounts should keep only one multi-region CloudTrail trail unless redundancy is intentional.',
+      provider: 'aws',
+      service: 'cloudtrail',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-cloudtrail-trails'],
+    });
+  });
+
+  it('defines the expected CloudTrail redundant-regional-trails rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-CLOUDTRAIL-2');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-CLOUDTRAIL-2',
+      name: 'CloudTrail Redundant Regional Trails',
+      description: 'Flag redundant single-region CloudTrail trails when more than one trail covers the same region.',
+      message: 'AWS regions should keep only one single-region CloudTrail trail unless redundancy is intentional.',
+      provider: 'aws',
+      service: 'cloudtrail',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-cloudtrail-trails'],
+    });
+  });
+
+  it('defines the expected CloudWatch log-group-retention rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-CLOUDWATCH-1');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-CLOUDWATCH-1',
+      name: 'CloudWatch Log Group Missing Retention',
+      description: 'Flag CloudWatch log groups that do not define retention and are not delivery-managed.',
+      message: 'CloudWatch log groups should define a retention policy unless AWS manages lifecycle automatically.',
+      provider: 'aws',
+      service: 'cloudwatch',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-cloudwatch-log-groups'],
+    });
+  });
+
+  it('defines the expected CloudWatch unused-log-streams rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-CLOUDWATCH-2');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-CLOUDWATCH-2',
+      name: 'CloudWatch Unused Log Streams',
+      description: 'Flag CloudWatch log streams that have never received events outside delivery-managed log groups.',
+      message: 'CloudWatch log streams that have never received events should be removed.',
+      provider: 'aws',
+      service: 'cloudwatch',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-cloudwatch-log-groups', 'aws-cloudwatch-log-streams'],
+    });
+  });
+
   it('defines the expected S3 lifecycle rule metadata', () => {
     const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-S3-1');
 

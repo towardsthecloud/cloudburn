@@ -80,7 +80,7 @@ Current live-discovery behavior:
 - Resource Explorer inventory failures and dataset loader failures are fatal. The SDK does not degrade to partial live results.
 - Missing Lambda `Architectures` values from AWS are normalized to `['x86_64']`, matching the AWS default architecture.
 - Lambda hydrators limit in-flight `GetFunctionConfiguration` calls per region to avoid API throttling in large accounts.
-- Live scans require Resource Explorer access plus narrow hydrator permissions such as `ec2:DescribeVolumes`, `ec2:DescribeInstances`, `lambda:GetFunctionConfiguration`, `rds:DescribeDBInstances`, `s3:GetLifecycleConfiguration`, and `s3:GetIntelligentTieringConfiguration`.
+- Live scans require Resource Explorer access plus narrow hydrator permissions such as `cloudtrail:DescribeTrails`, `logs:DescribeLogGroups`, `logs:DescribeLogStreams`, `ec2:DescribeVolumes`, `ec2:DescribeInstances`, `lambda:GetFunctionConfiguration`, `rds:DescribeDBInstances`, `s3:GetLifecycleConfiguration`, and `s3:GetIntelligentTieringConfiguration`.
 
 ## Public Result Shape
 

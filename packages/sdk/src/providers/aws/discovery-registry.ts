@@ -1,4 +1,6 @@
 import type { AwsDiscoveredResource, DiscoveryDatasetKey, DiscoveryDatasetMap } from '@cloudburn/rules';
+import { hydrateAwsCloudTrailTrails } from './resources/cloudtrail.js';
+import { hydrateAwsCloudWatchLogGroups, hydrateAwsCloudWatchLogStreams } from './resources/cloudwatch-logs.js';
 import { hydrateAwsEbsVolumes } from './resources/ebs.js';
 import { hydrateAwsEc2Instances } from './resources/ec2.js';
 import { hydrateAwsEc2ElasticIps } from './resources/ec2-elastic-ips.js';
@@ -14,13 +16,31 @@ import { hydrateAwsEc2VpcEndpointActivity } from './resources/vpc-endpoints.js';
 export type AwsDiscoveryDatasetDefinition<K extends DiscoveryDatasetKey = DiscoveryDatasetKey> = {
   datasetKey: K;
   resourceTypes: string[];
-  service: 'ebs' | 'ecr' | 'ec2' | 'lambda' | 'rds' | 's3';
+  service: 'cloudtrail' | 'cloudwatch' | 'ebs' | 'ecr' | 'ec2' | 'lambda' | 'rds' | 's3';
   load: (resources: AwsDiscoveredResource[]) => Promise<DiscoveryDatasetMap[K]>;
 };
 
 const awsDiscoveryDatasetRegistry: {
   [K in DiscoveryDatasetKey]: AwsDiscoveryDatasetDefinition<K>;
 } = {
+  'aws-cloudtrail-trails': {
+    datasetKey: 'aws-cloudtrail-trails',
+    resourceTypes: ['cloudtrail:trail'],
+    service: 'cloudtrail',
+    load: hydrateAwsCloudTrailTrails,
+  },
+  'aws-cloudwatch-log-groups': {
+    datasetKey: 'aws-cloudwatch-log-groups',
+    resourceTypes: ['logs:log-group'],
+    service: 'cloudwatch',
+    load: hydrateAwsCloudWatchLogGroups,
+  },
+  'aws-cloudwatch-log-streams': {
+    datasetKey: 'aws-cloudwatch-log-streams',
+    resourceTypes: ['logs:log-group'],
+    service: 'cloudwatch',
+    load: hydrateAwsCloudWatchLogStreams,
+  },
   'aws-ebs-volumes': {
     datasetKey: 'aws-ebs-volumes',
     resourceTypes: ['ec2:volume'],

@@ -93,6 +93,10 @@ Rule evaluators consume static and live datasets through `context.resources.get(
 
 | ID                    | Name                                      | Service | Supports       | Status      |
 | --------------------- | ----------------------------------------- | ------- | -------------- | ----------- |
+| `CLDBRN-AWS-CLOUDTRAIL-1` | CloudTrail Redundant Global Trails     | cloudtrail | discovery   | Implemented |
+| `CLDBRN-AWS-CLOUDTRAIL-2` | CloudTrail Redundant Regional Trails   | cloudtrail | discovery   | Implemented |
+| `CLDBRN-AWS-CLOUDWATCH-1` | CloudWatch Log Group Missing Retention | cloudwatch | discovery   | Implemented |
+| `CLDBRN-AWS-CLOUDWATCH-2` | CloudWatch Unused Log Streams          | cloudwatch | discovery   | Implemented |
 | `CLDBRN-AWS-EC2-1`    | EC2 Instance Type Not Preferred           | ec2     | iac, discovery | Implemented |
 | `CLDBRN-AWS-EC2-2`    | S3 Interface VPC Endpoint Used            | ec2     | iac            | Implemented |
 | `CLDBRN-AWS-EC2-3`    | Elastic IP Address Unassociated           | ec2     | discovery      | Implemented |
@@ -107,3 +111,5 @@ Rule evaluators consume static and live datasets through `context.resources.get(
 | `CLDBRN-AWS-LAMBDA-1` | Lambda Cost Optimal Architecture          | lambda  | iac, discovery | Implemented |
 
 `CLDBRN-AWS-LAMBDA-1` is an advisory rule. It recommends `arm64` only when compatibility is known or explicitly declared, and the static evaluator skips computed or otherwise unknown architecture values instead of treating them as definite `x86_64`.
+
+CloudTrail and CloudWatch discovery rules now rely on dedicated live datasets. CloudBurn seeds both CloudWatch datasets from Resource Explorer `logs:log-group` catalog results, then uses narrow CloudWatch Logs APIs to hydrate group retention metadata and enumerate log streams.

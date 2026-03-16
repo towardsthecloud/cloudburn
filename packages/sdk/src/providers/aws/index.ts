@@ -1,5 +1,7 @@
 export {
+  createCloudTrailClient,
   createCloudWatchClient,
+  createCloudWatchLogsClient,
   createEc2Client,
   createEcrClient,
   createLambdaClient,

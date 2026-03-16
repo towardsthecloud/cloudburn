@@ -1,4 +1,7 @@
 import type {
+  AwsCloudTrailTrail,
+  AwsCloudWatchLogGroup,
+  AwsCloudWatchLogStream,
   AwsDiscoveredResource,
   AwsDiscoveryCatalog,
   AwsEbsVolume,
@@ -144,6 +147,9 @@ export type RegisteredRules = {
 };
 
 export type {
+  AwsCloudTrailTrail,
+  AwsCloudWatchLogGroup,
+  AwsCloudWatchLogStream,
   AwsDiscoveryCatalog,
   AwsDiscoveredResource,
   AwsEbsVolume,

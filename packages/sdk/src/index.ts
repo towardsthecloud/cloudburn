@@ -7,6 +7,9 @@ export { assertValidAwsRegion } from './providers/aws/client.js';
 export { isAwsDiscoveryErrorCode } from './providers/aws/errors.js';
 export { CloudBurnClient } from './scanner.js';
 export type {
+  AwsCloudTrailTrail,
+  AwsCloudWatchLogGroup,
+  AwsCloudWatchLogStream,
   AwsDiscoveredResource,
   AwsDiscoveryCatalog,
   AwsDiscoveryInitialization,

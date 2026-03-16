@@ -19,6 +19,11 @@ import {
   waitForAwsResourceExplorerIndex,
   waitForAwsResourceExplorerSetup,
 } from '../../src/providers/aws/resource-explorer.js';
+import { hydrateAwsCloudTrailTrails } from '../../src/providers/aws/resources/cloudtrail.js';
+import {
+  hydrateAwsCloudWatchLogGroups,
+  hydrateAwsCloudWatchLogStreams,
+} from '../../src/providers/aws/resources/cloudwatch-logs.js';
 import { hydrateAwsEbsVolumes } from '../../src/providers/aws/resources/ebs.js';
 import { hydrateAwsEc2Instances } from '../../src/providers/aws/resources/ec2.js';
 import { hydrateAwsEc2InstanceUtilization } from '../../src/providers/aws/resources/ec2-utilization.js';
@@ -51,6 +56,15 @@ vi.mock('../../src/providers/aws/resource-explorer.js', () => ({
 
 vi.mock('../../src/providers/aws/resources/ebs.js', () => ({
   hydrateAwsEbsVolumes: vi.fn(),
+}));
+
+vi.mock('../../src/providers/aws/resources/cloudtrail.js', () => ({
+  hydrateAwsCloudTrailTrails: vi.fn(),
+}));
+
+vi.mock('../../src/providers/aws/resources/cloudwatch-logs.js', () => ({
+  hydrateAwsCloudWatchLogGroups: vi.fn(),
+  hydrateAwsCloudWatchLogStreams: vi.fn(),
 }));
 
 vi.mock('../../src/providers/aws/resources/ecr.js', () => ({
@@ -91,6 +105,9 @@ const mockedListAwsDiscoverySupportedResourceTypes = vi.mocked(listAwsDiscoveryS
 const mockedUpdateAwsResourceExplorerIndexType = vi.mocked(updateAwsResourceExplorerIndexType);
 const mockedWaitForAwsResourceExplorerIndex = vi.mocked(waitForAwsResourceExplorerIndex);
 const mockedWaitForAwsResourceExplorerSetup = vi.mocked(waitForAwsResourceExplorerSetup);
+const mockedHydrateAwsCloudTrailTrails = vi.mocked(hydrateAwsCloudTrailTrails);
+const mockedHydrateAwsCloudWatchLogGroups = vi.mocked(hydrateAwsCloudWatchLogGroups);
+const mockedHydrateAwsCloudWatchLogStreams = vi.mocked(hydrateAwsCloudWatchLogStreams);
 const mockedHydrateAwsEbsVolumes = vi.mocked(hydrateAwsEbsVolumes);
 const mockedHydrateAwsEcrRepositories = vi.mocked(hydrateAwsEcrRepositories);
 const mockedHydrateAwsEc2Instances = vi.mocked(hydrateAwsEc2Instances);
@@ -150,6 +167,22 @@ const catalog: AwsDiscoveryCatalog = {
       region: 'us-east-1',
       resourceType: 'rds:db',
       service: 'rds',
+    },
+    {
+      accountId: '123456789012',
+      arn: 'arn:aws:cloudtrail:us-east-1:123456789012:trail/org-trail',
+      properties: [],
+      region: 'us-east-1',
+      resourceType: 'cloudtrail:trail',
+      service: 'cloudtrail',
+    },
+    {
+      accountId: '123456789012',
+      arn: 'arn:aws:logs:us-east-1:123456789012:log-group:/aws/lambda/app',
+      properties: [],
+      region: 'us-east-1',
+      resourceType: 'logs:log-group',
+      service: 'logs',
     },
   ],
   searchRegion: 'us-east-1',
@@ -299,6 +332,156 @@ describe('discoverAwsResources', () => {
         hasIntelligentTieringTransition: false,
         hasLifecycleSignal: false,
         hasUnclassifiedTransition: false,
+        region: 'us-east-1',
+      },
+    ]);
+  });
+
+  it('hydrates CloudTrail trails when an active rule requires the CloudTrail dataset', async () => {
+    mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
+      indexType: 'LOCAL',
+      resources: [catalog.resources[6]],
+      searchRegion: 'us-east-1',
+    });
+    mockedHydrateAwsCloudTrailTrails.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        homeRegion: 'us-east-1',
+        isMultiRegionTrail: true,
+        isOrganizationTrail: false,
+        region: 'us-east-1',
+        trailArn: 'arn:aws:cloudtrail:us-east-1:123456789012:trail/org-trail',
+        trailName: 'org-trail',
+      },
+    ]);
+
+    const result = await discoverAwsResources(
+      [
+        createRule({
+          discoveryDependencies: ['aws-cloudtrail-trails'],
+          service: 'cloudtrail',
+        }),
+      ],
+      { mode: 'region', region: 'us-east-1' },
+    );
+
+    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith({ mode: 'region', region: 'us-east-1' }, [
+      'cloudtrail:trail',
+    ]);
+    expect(mockedHydrateAwsCloudTrailTrails).toHaveBeenCalledWith([catalog.resources[6]]);
+    expect(result.resources.get('aws-cloudtrail-trails')).toEqual([
+      {
+        accountId: '123456789012',
+        homeRegion: 'us-east-1',
+        isMultiRegionTrail: true,
+        isOrganizationTrail: false,
+        region: 'us-east-1',
+        trailArn: 'arn:aws:cloudtrail:us-east-1:123456789012:trail/org-trail',
+        trailName: 'org-trail',
+      },
+    ]);
+  });
+
+  it('hydrates CloudWatch log groups when an active rule requires the log-group dataset', async () => {
+    mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
+      indexType: 'LOCAL',
+      resources: [catalog.resources[7]],
+      searchRegion: 'us-east-1',
+    });
+    mockedHydrateAwsCloudWatchLogGroups.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        logGroupArn: 'arn:aws:logs:us-east-1:123456789012:log-group:/aws/lambda/app',
+        logGroupClass: 'STANDARD',
+        logGroupName: '/aws/lambda/app',
+        region: 'us-east-1',
+        retentionInDays: 30,
+      },
+    ]);
+
+    const result = await discoverAwsResources(
+      [
+        createRule({
+          discoveryDependencies: ['aws-cloudwatch-log-groups'],
+          service: 'cloudwatch',
+        }),
+      ],
+      { mode: 'region', region: 'us-east-1' },
+    );
+
+    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith({ mode: 'region', region: 'us-east-1' }, [
+      'logs:log-group',
+    ]);
+    expect(mockedHydrateAwsCloudWatchLogGroups).toHaveBeenCalledWith([catalog.resources[7]]);
+    expect(result.resources.get('aws-cloudwatch-log-groups')).toEqual([
+      {
+        accountId: '123456789012',
+        logGroupArn: 'arn:aws:logs:us-east-1:123456789012:log-group:/aws/lambda/app',
+        logGroupClass: 'STANDARD',
+        logGroupName: '/aws/lambda/app',
+        region: 'us-east-1',
+        retentionInDays: 30,
+      },
+    ]);
+  });
+
+  it('hydrates CloudWatch log groups and log streams from the same log-group catalog resources', async () => {
+    mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
+      indexType: 'LOCAL',
+      resources: [catalog.resources[7]],
+      searchRegion: 'us-east-1',
+    });
+    mockedHydrateAwsCloudWatchLogGroups.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        logGroupArn: 'arn:aws:logs:us-east-1:123456789012:log-group:/aws/lambda/app',
+        logGroupClass: 'STANDARD',
+        logGroupName: '/aws/lambda/app',
+        region: 'us-east-1',
+        retentionInDays: 30,
+      },
+    ]);
+    mockedHydrateAwsCloudWatchLogStreams.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        arn: 'arn:aws:logs:us-east-1:123456789012:log-group:/aws/lambda/app:log-stream:2026/03/16/[$LATEST]abc',
+        logGroupName: '/aws/lambda/app',
+        logStreamName: '2026/03/16/[$LATEST]abc',
+        region: 'us-east-1',
+      },
+    ]);
+
+    const result = await discoverAwsResources(
+      [
+        createRule({
+          discoveryDependencies: ['aws-cloudwatch-log-groups', 'aws-cloudwatch-log-streams'],
+          service: 'cloudwatch',
+        }),
+      ],
+      { mode: 'region', region: 'us-east-1' },
+    );
+
+    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith({ mode: 'region', region: 'us-east-1' }, [
+      'logs:log-group',
+    ]);
+    expect(mockedHydrateAwsCloudWatchLogGroups).toHaveBeenCalledWith([catalog.resources[7]]);
+    expect(mockedHydrateAwsCloudWatchLogStreams).toHaveBeenCalledWith([catalog.resources[7]]);
+    expect(result.resources.get('aws-cloudwatch-log-groups')).toEqual([
+      {
+        accountId: '123456789012',
+        logGroupArn: 'arn:aws:logs:us-east-1:123456789012:log-group:/aws/lambda/app',
+        logGroupClass: 'STANDARD',
+        logGroupName: '/aws/lambda/app',
+        region: 'us-east-1',
+        retentionInDays: 30,
+      },
+    ]);
+    expect(result.resources.get('aws-cloudwatch-log-streams')).toEqual([
+      {
+        accountId: '123456789012',
+        arn: 'arn:aws:logs:us-east-1:123456789012:log-group:/aws/lambda/app:log-stream:2026/03/16/[$LATEST]abc',
+        logGroupName: '/aws/lambda/app',
+        logStreamName: '2026/03/16/[$LATEST]abc',
         region: 'us-east-1',
       },
     ]);

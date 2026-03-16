@@ -13,6 +13,9 @@ export {
   toRuleIds,
 } from './shared/helpers.js';
 export type {
+  AwsCloudTrailTrail,
+  AwsCloudWatchLogGroup,
+  AwsCloudWatchLogStream,
   AwsDiscoveredResource,
   AwsDiscoveryCatalog,
   AwsEbsVolume,

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type {
+  AwsCloudTrailTrail,
+  AwsCloudWatchLogGroup,
   AwsEc2Instance,
   AwsRdsInstance,
   AwsStaticRdsInstance,
@@ -24,6 +26,10 @@ describe('rule exports', () => {
     expect(awsCorePreset.ruleIds.length).toBe(awsRules.length);
     expect(awsRules.map((rule) => rule.id)).toEqual(
       expect.arrayContaining([
+        'CLDBRN-AWS-CLOUDTRAIL-1',
+        'CLDBRN-AWS-CLOUDTRAIL-2',
+        'CLDBRN-AWS-CLOUDWATCH-1',
+        'CLDBRN-AWS-CLOUDWATCH-2',
         'CLDBRN-AWS-EC2-2',
         'CLDBRN-AWS-EC2-3',
         'CLDBRN-AWS-EC2-4',
@@ -67,12 +73,34 @@ describe('rule exports', () => {
       instanceClass: 'db.m6i.large',
       region: 'us-east-1',
     };
+    const trail: AwsCloudTrailTrail = {
+      accountId: '123456789012',
+      homeRegion: 'us-east-1',
+      isMultiRegionTrail: true,
+      isOrganizationTrail: false,
+      region: 'us-east-1',
+      trailArn: 'arn:aws:cloudtrail:us-east-1:123456789012:trail/org-trail',
+      trailName: 'org-trail',
+    };
+    const logGroup: AwsCloudWatchLogGroup = {
+      accountId: '123456789012',
+      logGroupArn: 'arn:aws:logs:us-east-1:123456789012:log-group:/aws/lambda/app',
+      logGroupName: '/aws/lambda/app',
+      region: 'us-east-1',
+      retentionInDays: 30,
+    };
 
     const datasetKey: DiscoveryDatasetKey = 'aws-rds-instances';
+    const cloudWatchDatasetKey: DiscoveryDatasetKey = 'aws-cloudwatch-log-groups';
+    const cloudWatchLogStreamDatasetKey: DiscoveryDatasetKey = 'aws-cloudwatch-log-streams';
     const staticDatasetKey: StaticDatasetKey = 'aws-rds-instances';
 
     expect(datasetKey).toBe('aws-rds-instances');
+    expect(cloudWatchDatasetKey).toBe('aws-cloudwatch-log-groups');
+    expect(cloudWatchLogStreamDatasetKey).toBe('aws-cloudwatch-log-streams');
     expect(liveRdsInstance.dbInstanceIdentifier).toBe('legacy-db');
+    expect(trail.isMultiRegionTrail).toBe(true);
+    expect(logGroup.logGroupName).toBe('/aws/lambda/app');
     expect(rdsInstance.instanceClass).toBe('db.m8g.large');
     expect(staticDatasetKey).toBe('aws-rds-instances');
   });

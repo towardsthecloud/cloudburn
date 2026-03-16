@@ -1,4 +1,6 @@
+import { CloudTrailClient } from '@aws-sdk/client-cloudtrail';
 import { CloudWatchClient } from '@aws-sdk/client-cloudwatch';
+import { CloudWatchLogsClient } from '@aws-sdk/client-cloudwatch-logs';
 import { DescribeRegionsCommand, EC2Client } from '@aws-sdk/client-ec2';
 import { ECRClient } from '@aws-sdk/client-ecr';
 import { LambdaClient } from '@aws-sdk/client-lambda';
@@ -46,6 +48,18 @@ export const createEcrClient = (config: AwsClientConfig): ECRClient =>
 /** Creates an AWS CloudWatch client for a specific region. */
 export const createCloudWatchClient = (config: AwsClientConfig): CloudWatchClient =>
   new CloudWatchClient({
+    region: config.region,
+  });
+
+/** Creates an AWS CloudTrail client for a specific region. */
+export const createCloudTrailClient = (config: AwsClientConfig): CloudTrailClient =>
+  new CloudTrailClient({
+    region: config.region,
+  });
+
+/** Creates an AWS CloudWatch Logs client for a specific region. */
+export const createCloudWatchLogsClient = (config: AwsClientConfig): CloudWatchLogsClient =>
+  new CloudWatchLogsClient({
     region: config.region,
   });
 

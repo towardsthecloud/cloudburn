@@ -30,6 +30,41 @@ export type AwsEbsVolume = {
   accountId: string;
 };
 
+/** Discovered AWS CloudTrail trail with scope metadata for redundancy checks. */
+export type AwsCloudTrailTrail = {
+  trailArn: string;
+  trailName: string;
+  homeRegion: string;
+  isMultiRegionTrail: boolean;
+  isOrganizationTrail: boolean;
+  region: string;
+  accountId: string;
+};
+
+/** Discovered CloudWatch Logs log group normalized for retention checks. */
+export type AwsCloudWatchLogGroup = {
+  logGroupArn: string;
+  logGroupName: string;
+  retentionInDays?: number;
+  logGroupClass?: string;
+  storedBytes?: number;
+  region: string;
+  accountId: string;
+};
+
+/** Discovered CloudWatch Logs log stream normalized for cleanup checks. */
+export type AwsCloudWatchLogStream = {
+  arn: string;
+  logGroupName: string;
+  logStreamName: string;
+  creationTime?: number;
+  firstEventTimestamp?: number;
+  lastEventTimestamp?: number;
+  lastIngestionTime?: number;
+  region: string;
+  accountId: string;
+};
+
 /** Discovered AWS ECR repository with lifecycle-policy state. */
 export type AwsEcrRepository = {
   repositoryName: string;
@@ -164,6 +199,9 @@ export type SharedDatasetKey =
 
 /** Rule-facing live discovery dataset key exposed through the evaluation context. */
 export type DiscoveryDatasetKey =
+  | 'aws-cloudtrail-trails'
+  | 'aws-cloudwatch-log-groups'
+  | 'aws-cloudwatch-log-streams'
   | 'aws-ebs-volumes'
   | 'aws-ecr-repositories'
   | 'aws-ec2-elastic-ips'
@@ -177,6 +215,9 @@ export type DiscoveryDatasetKey =
 
 /** Normalized live discovery datasets available to rule evaluators. */
 export type DiscoveryDatasetMap = {
+  'aws-cloudtrail-trails': AwsCloudTrailTrail[];
+  'aws-cloudwatch-log-groups': AwsCloudWatchLogGroup[];
+  'aws-cloudwatch-log-streams': AwsCloudWatchLogStream[];
   'aws-ebs-volumes': AwsEbsVolume[];
   'aws-ecr-repositories': AwsEcrRepository[];
   'aws-ec2-elastic-ips': AwsEc2ElasticIp[];

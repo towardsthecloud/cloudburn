@@ -146,7 +146,7 @@ For full use of the CLI in AWS, CloudBurn needs:
 - Resource Explorer access with read/write permissions.
 - Read-only permissions for the AWS services behind the rules you enable.
 
-That usually means Resource Explorer plus read-only access for services like EC2, EBS, RDS, S3, and Lambda, depending on which rules you're running.
+That usually means Resource Explorer plus read-only access for services like CloudTrail, CloudWatch Logs, EC2, EBS, RDS, S3, and Lambda, depending on which rules you're running. The new CloudTrail and CloudWatch discovery rules specifically require `cloudtrail:DescribeTrails`, `logs:DescribeLogGroups`, and `logs:DescribeLogStreams`.
 
 ## Contributing
 

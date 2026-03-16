@@ -1,7 +1,15 @@
 import { awsRules } from '@cloudburn/rules';
 import { describe, expect, it } from 'vitest';
 import { listBuiltInRuleMetadata } from '../src/built-in-rules.js';
-import { type AwsRdsInstance, builtInRuleMetadata, parseIaC, type Rule } from '../src/index.js';
+import {
+  type AwsCloudTrailTrail,
+  type AwsCloudWatchLogGroup,
+  type AwsCloudWatchLogStream,
+  type AwsRdsInstance,
+  builtInRuleMetadata,
+  parseIaC,
+  type Rule,
+} from '../src/index.js';
 
 const createRuleFixture = (id: string): Rule => ({
   description: id,
@@ -28,6 +36,34 @@ describe('sdk exports', () => {
         supports: rule.supports,
       })),
     ).toEqual([
+      {
+        description: 'Flag redundant multi-region CloudTrail trails when more than one trail covers the same account.',
+        id: 'CLDBRN-AWS-CLOUDTRAIL-1',
+        provider: 'aws',
+        service: 'cloudtrail',
+        supports: ['discovery'],
+      },
+      {
+        description: 'Flag redundant single-region CloudTrail trails when more than one trail covers the same region.',
+        id: 'CLDBRN-AWS-CLOUDTRAIL-2',
+        provider: 'aws',
+        service: 'cloudtrail',
+        supports: ['discovery'],
+      },
+      {
+        description: 'Flag CloudWatch log groups that do not define retention and are not delivery-managed.',
+        id: 'CLDBRN-AWS-CLOUDWATCH-1',
+        provider: 'aws',
+        service: 'cloudwatch',
+        supports: ['discovery'],
+      },
+      {
+        description: 'Flag CloudWatch log streams that have never received events outside delivery-managed log groups.',
+        id: 'CLDBRN-AWS-CLOUDWATCH-2',
+        provider: 'aws',
+        service: 'cloudwatch',
+        supports: ['discovery'],
+      },
       {
         description:
           'Flag EBS volumes using previous-generation storage types when a current-generation replacement exists.',
@@ -142,7 +178,30 @@ describe('sdk exports', () => {
     ).toEqual(['CLDBRN-AWS-EC2-1', 'CLDBRN-AWS-EC2-2', 'CLDBRN-AWS-EC2-10']);
   });
 
-  it('exports live RDS dataset types from the package root', () => {
+  it('exports live dataset types from the package root', () => {
+    const trail: AwsCloudTrailTrail = {
+      accountId: '123456789012',
+      homeRegion: 'us-east-1',
+      isMultiRegionTrail: true,
+      isOrganizationTrail: false,
+      region: 'us-east-1',
+      trailArn: 'arn:aws:cloudtrail:us-east-1:123456789012:trail/org-trail',
+      trailName: 'org-trail',
+    };
+    const logGroup: AwsCloudWatchLogGroup = {
+      accountId: '123456789012',
+      logGroupArn: 'arn:aws:logs:us-east-1:123456789012:log-group:/aws/lambda/app',
+      logGroupName: '/aws/lambda/app',
+      region: 'us-east-1',
+      retentionInDays: 30,
+    };
+    const logStream: AwsCloudWatchLogStream = {
+      accountId: '123456789012',
+      arn: 'arn:aws:logs:us-east-1:123456789012:log-group:/aws/lambda/app:log-stream:2026/03/16/[$LATEST]abc',
+      logGroupName: '/aws/lambda/app',
+      logStreamName: '2026/03/16/[$LATEST]abc',
+      region: 'us-east-1',
+    };
     const instance: AwsRdsInstance = {
       accountId: '123456789012',
       dbInstanceIdentifier: 'legacy-db',
@@ -150,6 +209,9 @@ describe('sdk exports', () => {
       region: 'us-east-1',
     };
 
+    expect(trail.trailName).toBe('org-trail');
+    expect(logGroup.retentionInDays).toBe(30);
+    expect(logStream.logStreamName).toContain('[$LATEST]');
     expect(instance.dbInstanceIdentifier).toBe('legacy-db');
   });
 
