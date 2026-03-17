@@ -177,6 +177,71 @@ export type AwsEc2TargetGroup = {
   accountId: string;
 };
 
+/** Discovered ECS container instance enriched with backing EC2 instance metadata when available. */
+export type AwsEcsContainerInstance = {
+  containerInstanceArn: string;
+  clusterArn: string;
+  ec2InstanceId?: string;
+  instanceType?: string;
+  architecture?: string;
+  region: string;
+  accountId: string;
+};
+
+/** Discovered ECS cluster normalized for advisory utilization checks. */
+export type AwsEcsCluster = {
+  clusterArn: string;
+  clusterName: string;
+  region: string;
+  accountId: string;
+};
+
+/** Discovered ECS cluster with a 14-day CPU utilization summary. */
+export type AwsEcsClusterMetric = {
+  clusterArn: string;
+  clusterName: string;
+  /** `null` means CloudWatch returned incomplete datapoints for the 14-day lookback window. */
+  averageCpuUtilizationLast14Days: number | null;
+  region: string;
+  accountId: string;
+};
+
+/** Discovered ECS service normalized for autoscaling-policy evaluation. */
+export type AwsEcsService = {
+  serviceArn: string;
+  clusterArn: string;
+  clusterName: string;
+  serviceName: string;
+  desiredCount: number;
+  schedulingStrategy: string;
+  status?: string;
+  region: string;
+  accountId: string;
+};
+
+/** Discovered ECS autoscaling state for a specific service desired-count target. */
+export type AwsEcsServiceAutoscaling = {
+  serviceArn: string;
+  clusterName: string;
+  serviceName: string;
+  hasScalableTarget: boolean;
+  hasScalingPolicy: boolean;
+  region: string;
+  accountId: string;
+};
+
+/** Discovered EKS managed node group normalized for architecture review checks. */
+export type AwsEksNodegroup = {
+  nodegroupArn: string;
+  nodegroupName: string;
+  clusterArn: string;
+  clusterName: string;
+  instanceTypes: string[];
+  amiType?: string;
+  region: string;
+  accountId: string;
+};
+
 /** Shared S3 lifecycle and storage-optimization analysis flags across scan modes. */
 export type AwsS3BucketAnalysisFlags = {
   hasLifecycleSignal: boolean;
@@ -235,6 +300,11 @@ export type DiscoveryDatasetKey =
   | 'aws-cloudwatch-log-groups'
   | 'aws-cloudwatch-log-streams'
   | 'aws-ebs-volumes'
+  | 'aws-ecs-autoscaling'
+  | 'aws-ecs-cluster-metrics'
+  | 'aws-ecs-clusters'
+  | 'aws-ecs-container-instances'
+  | 'aws-ecs-services'
   | 'aws-ecr-repositories'
   | 'aws-ec2-elastic-ips'
   | 'aws-ec2-instances'
@@ -243,6 +313,7 @@ export type DiscoveryDatasetKey =
   | 'aws-ec2-reserved-instances'
   | 'aws-ec2-target-groups'
   | 'aws-ec2-vpc-endpoint-activity'
+  | 'aws-eks-nodegroups'
   | 'aws-lambda-functions'
   | 'aws-rds-instance-activity'
   | 'aws-rds-instances'
@@ -254,6 +325,11 @@ export type DiscoveryDatasetMap = {
   'aws-cloudwatch-log-groups': AwsCloudWatchLogGroup[];
   'aws-cloudwatch-log-streams': AwsCloudWatchLogStream[];
   'aws-ebs-volumes': AwsEbsVolume[];
+  'aws-ecs-autoscaling': AwsEcsServiceAutoscaling[];
+  'aws-ecs-cluster-metrics': AwsEcsClusterMetric[];
+  'aws-ecs-clusters': AwsEcsCluster[];
+  'aws-ecs-container-instances': AwsEcsContainerInstance[];
+  'aws-ecs-services': AwsEcsService[];
   'aws-ecr-repositories': AwsEcrRepository[];
   'aws-ec2-elastic-ips': AwsEc2ElasticIp[];
   'aws-ec2-instances': AwsEc2Instance[];
@@ -262,6 +338,7 @@ export type DiscoveryDatasetMap = {
   'aws-ec2-reserved-instances': AwsEc2ReservedInstance[];
   'aws-ec2-target-groups': AwsEc2TargetGroup[];
   'aws-ec2-vpc-endpoint-activity': AwsEc2VpcEndpointActivity[];
+  'aws-eks-nodegroups': AwsEksNodegroup[];
   'aws-lambda-functions': AwsLambdaFunction[];
   'aws-rds-instance-activity': AwsRdsInstanceActivity[];
   'aws-rds-instances': AwsRdsInstance[];

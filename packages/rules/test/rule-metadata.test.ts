@@ -304,6 +304,73 @@ describe('rule metadata', () => {
     });
   });
 
+  it('defines the expected ECS Graviton review rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-ECS-1');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-ECS-1',
+      name: 'ECS Container Instance Without Graviton',
+      description:
+        'Flag ECS container instances backed by EC2 instance types that still run on non-Graviton families when a clear Arm-based equivalent exists.',
+      message: 'ECS container instances without a Graviton equivalent in use should be reviewed.',
+      provider: 'aws',
+      service: 'ecs',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-ecs-container-instances'],
+    });
+  });
+
+  it('defines the expected ECS low-cpu-utilization rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-ECS-2');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-ECS-2',
+      name: 'ECS Cluster Low CPU Utilization',
+      description: 'Flag ECS clusters whose average CPU utilization stays below 10% over the previous 14 days.',
+      message: 'ECS clusters should be reviewed when average CPU utilization stays below 10% for the previous 14 days.',
+      provider: 'aws',
+      service: 'ecs',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-ecs-clusters', 'aws-ecs-cluster-metrics'],
+    });
+  });
+
+  it('defines the expected ECS autoscaling-policy rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-ECS-3');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-ECS-3',
+      name: 'ECS Service Missing Autoscaling Policy',
+      description:
+        'Flag active REPLICA ECS services that do not have an Application Auto Scaling target and scaling policy.',
+      message: 'Active REPLICA ECS services should use an autoscaling policy.',
+      provider: 'aws',
+      service: 'ecs',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-ecs-services', 'aws-ecs-autoscaling'],
+    });
+  });
+
+  it('defines the expected EKS Graviton review rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-EKS-1');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-EKS-1',
+      name: 'EKS Node Group Without Graviton',
+      description:
+        'Flag EKS node groups that still use non-Graviton instance families when a clear Arm-based equivalent exists.',
+      message: 'EKS node groups without a Graviton equivalent in use should be reviewed.',
+      provider: 'aws',
+      service: 'eks',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-eks-nodegroups'],
+    });
+  });
+
   it('defines the expected EC2 reserved-instance-expiring rule metadata', () => {
     const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-EC2-10');
 

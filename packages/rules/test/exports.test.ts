@@ -6,6 +6,9 @@ import type {
   AwsEc2LoadBalancer,
   AwsEc2ReservedInstance,
   AwsEc2TargetGroup,
+  AwsEcsClusterMetric,
+  AwsEcsService,
+  AwsEksNodegroup,
   AwsRdsInstance,
   AwsStaticRdsInstance,
   DiscoveryDatasetKey,
@@ -41,9 +44,13 @@ describe('rule exports', () => {
         'CLDBRN-AWS-EC2-10',
         'CLDBRN-AWS-EC2-11',
         'CLDBRN-AWS-EC2-12',
+        'CLDBRN-AWS-ECS-1',
+        'CLDBRN-AWS-ECS-2',
+        'CLDBRN-AWS-ECS-3',
         'CLDBRN-AWS-EBS-2',
         'CLDBRN-AWS-EBS-3',
         'CLDBRN-AWS-ECR-1',
+        'CLDBRN-AWS-EKS-1',
         'CLDBRN-AWS-ELB-1',
         'CLDBRN-AWS-ELB-2',
         'CLDBRN-AWS-ELB-3',
@@ -130,10 +137,39 @@ describe('rule exports', () => {
       region: 'us-east-1',
       retentionInDays: 30,
     };
+    const ecsClusterMetric: AwsEcsClusterMetric = {
+      accountId: '123456789012',
+      averageCpuUtilizationLast14Days: 4.2,
+      clusterArn: 'arn:aws:ecs:us-east-1:123456789012:cluster/production',
+      clusterName: 'production',
+      region: 'us-east-1',
+    };
+    const ecsService: AwsEcsService = {
+      accountId: '123456789012',
+      clusterArn: 'arn:aws:ecs:us-east-1:123456789012:cluster/production',
+      clusterName: 'production',
+      desiredCount: 2,
+      region: 'us-east-1',
+      schedulingStrategy: 'REPLICA',
+      serviceArn: 'arn:aws:ecs:us-east-1:123456789012:service/production/web',
+      serviceName: 'web',
+      status: 'ACTIVE',
+    };
+    const eksNodegroup: AwsEksNodegroup = {
+      accountId: '123456789012',
+      amiType: 'AL2023_x86_64_STANDARD',
+      clusterArn: 'arn:aws:eks:us-east-1:123456789012:cluster/production',
+      clusterName: 'production',
+      instanceTypes: ['m7i.large'],
+      nodegroupArn: 'arn:aws:eks:us-east-1:123456789012:nodegroup/production/workers/abc123',
+      nodegroupName: 'workers',
+      region: 'us-east-1',
+    };
 
     const datasetKey: DiscoveryDatasetKey = 'aws-rds-instances';
     const cloudWatchDatasetKey: DiscoveryDatasetKey = 'aws-cloudwatch-log-groups';
     const cloudWatchLogStreamDatasetKey: DiscoveryDatasetKey = 'aws-cloudwatch-log-streams';
+    const ecsAutoscalingDatasetKey: DiscoveryDatasetKey = 'aws-ecs-autoscaling';
     const loadBalancerDatasetKey: DiscoveryDatasetKey = 'aws-ec2-load-balancers';
     const reservedInstanceDatasetKey: DiscoveryDatasetKey = 'aws-ec2-reserved-instances';
     const targetGroupDatasetKey: DiscoveryDatasetKey = 'aws-ec2-target-groups';
@@ -142,9 +178,13 @@ describe('rule exports', () => {
     expect(datasetKey).toBe('aws-rds-instances');
     expect(cloudWatchDatasetKey).toBe('aws-cloudwatch-log-groups');
     expect(cloudWatchLogStreamDatasetKey).toBe('aws-cloudwatch-log-streams');
+    expect(ecsAutoscalingDatasetKey).toBe('aws-ecs-autoscaling');
     expect(loadBalancerDatasetKey).toBe('aws-ec2-load-balancers');
     expect(reservedInstanceDatasetKey).toBe('aws-ec2-reserved-instances');
     expect(targetGroupDatasetKey).toBe('aws-ec2-target-groups');
+    expect(ecsClusterMetric.averageCpuUtilizationLast14Days).toBe(4.2);
+    expect(ecsService.schedulingStrategy).toBe('REPLICA');
+    expect(eksNodegroup.nodegroupName).toBe('workers');
     expect(liveRdsInstance.dbInstanceIdentifier).toBe('legacy-db');
     expect(trail.isMultiRegionTrail).toBe(true);
     expect(logGroup.logGroupName).toBe('/aws/lambda/app');

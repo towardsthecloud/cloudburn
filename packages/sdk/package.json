@@ -43,11 +43,14 @@
     "dev": "tsup --watch"
   },
   "dependencies": {
+    "@aws-sdk/client-application-auto-scaling": "^3.1009.0",
     "@aws-sdk/client-cloudtrail": "^3.1003.0",
     "@aws-sdk/client-cloudwatch": "^3.1003.0",
     "@aws-sdk/client-cloudwatch-logs": "^3.1003.0",
     "@aws-sdk/client-ec2": "^3.1003.0",
     "@aws-sdk/client-ecr": "^3.1003.0",
+    "@aws-sdk/client-ecs": "^3.1009.0",
+    "@aws-sdk/client-eks": "^3.1009.0",
     "@aws-sdk/client-elastic-load-balancing": "^3.1003.0",
     "@aws-sdk/client-elastic-load-balancing-v2": "^3.1003.0",
     "@aws-sdk/client-lambda": "^3.1003.0",

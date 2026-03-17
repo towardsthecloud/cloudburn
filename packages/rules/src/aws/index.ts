@@ -3,6 +3,8 @@ import { cloudwatchRules } from './cloudwatch/index.js';
 import { ebsRules } from './ebs/index.js';
 import { ec2Rules } from './ec2/index.js';
 import { ecrRules } from './ecr/index.js';
+import { ecsRules } from './ecs/index.js';
+import { eksRules } from './eks/index.js';
 import { elbRules } from './elb/index.js';
 import { lambdaRules } from './lambda/index.js';
 import { rdsRules } from './rds/index.js';
@@ -14,6 +16,8 @@ export const awsRules = [
   ...cloudtrailRules,
   ...cloudwatchRules,
   ...ec2Rules,
+  ...ecsRules,
+  ...eksRules,
   ...elbRules,
   ...ebsRules,
   ...ecrRules,

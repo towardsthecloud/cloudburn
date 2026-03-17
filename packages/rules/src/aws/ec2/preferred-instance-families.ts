@@ -185,6 +185,36 @@ const awsEc2EquivalentGravitonReviewFamilies = new Set([
   't3a',
 ]);
 
+const awsEc2GravitonFamilies = new Set([
+  'c6g',
+  'c6gd',
+  'c6gn',
+  'c7g',
+  'c7gd',
+  'c7gn',
+  'c8g',
+  'c8gb',
+  'c8gd',
+  'c8gn',
+  'm6g',
+  'm6gd',
+  'm7g',
+  'm7gd',
+  'm8g',
+  'm8gb',
+  'm8gd',
+  'm8gn',
+  'r6g',
+  'r6gd',
+  'r7g',
+  'r7gd',
+  'r8g',
+  'r8gb',
+  'r8gd',
+  'r8gn',
+  't4g',
+]);
+
 /** Preferred-family policy states used by the EC2 preferred-instance rule. */
 export type AwsEc2PreferredInstanceFamilyState = 'preferred' | 'non-preferred' | 'unclassified';
 
@@ -225,6 +255,31 @@ export const getAwsEc2PreferredInstanceFamilyState = (instanceType: string): Aws
 };
 
 /**
+ * Returns whether a literal EC2 instance type belongs to a known Graviton family.
+ *
+ * @param instanceType - Literal EC2 instance type such as `m7g.large`.
+ * @returns Whether the instance type belongs to a curated Graviton family.
+ */
+export const isAwsEc2GravitonFamily = (instanceType: string): boolean => {
+  const family = getAwsEc2InstanceFamily(instanceType);
+
+  return family ? awsEc2GravitonFamilies.has(family) : false;
+};
+
+/**
+ * Returns whether a literal EC2 instance type belongs to a family that CloudBurn
+ * reviews for a Graviton migration.
+ *
+ * @param instanceType - Literal EC2 instance type such as `m7i.large`.
+ * @returns Whether the instance type belongs to a curated review family.
+ */
+export const shouldReviewAwsEc2InstanceTypeForGraviton = (instanceType: string): boolean => {
+  const family = getAwsEc2InstanceFamily(instanceType);
+
+  return family ? awsEc2EquivalentGravitonReviewFamilies.has(family) : false;
+};
+
+/**
  * Returns whether a literal EC2 instance type should be reviewed for a
  * Graviton migration when the running instance is not Arm-based already.
  *
@@ -233,11 +288,9 @@ export const getAwsEc2PreferredInstanceFamilyState = (instanceType: string): Aws
  * @returns Whether CloudBurn should recommend a Graviton review.
  */
 export const shouldReviewAwsEc2InstanceForGraviton = (instanceType: string, architecture?: string): boolean => {
-  const family = getAwsEc2InstanceFamily(instanceType);
-
-  if (!family || !architecture || architecture.toLowerCase() === 'arm64') {
+  if (!architecture || architecture.toLowerCase() === 'arm64') {
     return false;
   }
 
-  return awsEc2EquivalentGravitonReviewFamilies.has(family);
+  return shouldReviewAwsEc2InstanceTypeForGraviton(instanceType);
 };

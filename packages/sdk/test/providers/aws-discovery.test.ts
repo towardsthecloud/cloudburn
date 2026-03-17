@@ -29,6 +29,14 @@ import { hydrateAwsEc2Instances } from '../../src/providers/aws/resources/ec2.js
 import { hydrateAwsEc2ReservedInstances } from '../../src/providers/aws/resources/ec2-reserved-instances.js';
 import { hydrateAwsEc2InstanceUtilization } from '../../src/providers/aws/resources/ec2-utilization.js';
 import { hydrateAwsEcrRepositories } from '../../src/providers/aws/resources/ecr.js';
+import {
+  hydrateAwsEcsClusters,
+  hydrateAwsEcsContainerInstances,
+  hydrateAwsEcsServices,
+} from '../../src/providers/aws/resources/ecs.js';
+import { hydrateAwsEcsAutoscaling } from '../../src/providers/aws/resources/ecs-autoscaling.js';
+import { hydrateAwsEcsClusterMetrics } from '../../src/providers/aws/resources/ecs-cluster-metrics.js';
+import { hydrateAwsEksNodegroups } from '../../src/providers/aws/resources/eks.js';
 import { hydrateAwsEc2LoadBalancers, hydrateAwsEc2TargetGroups } from '../../src/providers/aws/resources/elbv2.js';
 import { hydrateAwsLambdaFunctions } from '../../src/providers/aws/resources/lambda.js';
 import { hydrateAwsRdsInstances } from '../../src/providers/aws/resources/rds.js';
@@ -60,6 +68,20 @@ vi.mock('../../src/providers/aws/resources/ebs.js', () => ({
   hydrateAwsEbsVolumes: vi.fn(),
 }));
 
+vi.mock('../../src/providers/aws/resources/ecs-autoscaling.js', () => ({
+  hydrateAwsEcsAutoscaling: vi.fn(),
+}));
+
+vi.mock('../../src/providers/aws/resources/ecs-cluster-metrics.js', () => ({
+  hydrateAwsEcsClusterMetrics: vi.fn(),
+}));
+
+vi.mock('../../src/providers/aws/resources/ecs.js', () => ({
+  hydrateAwsEcsClusters: vi.fn(),
+  hydrateAwsEcsContainerInstances: vi.fn(),
+  hydrateAwsEcsServices: vi.fn(),
+}));
+
 vi.mock('../../src/providers/aws/resources/cloudtrail.js', () => ({
   hydrateAwsCloudTrailTrails: vi.fn(),
 }));
@@ -71,6 +93,10 @@ vi.mock('../../src/providers/aws/resources/cloudwatch-logs.js', () => ({
 
 vi.mock('../../src/providers/aws/resources/ecr.js', () => ({
   hydrateAwsEcrRepositories: vi.fn(),
+}));
+
+vi.mock('../../src/providers/aws/resources/eks.js', () => ({
+  hydrateAwsEksNodegroups: vi.fn(),
 }));
 
 vi.mock('../../src/providers/aws/resources/ec2.js', () => ({
@@ -120,12 +146,18 @@ const mockedHydrateAwsCloudTrailTrails = vi.mocked(hydrateAwsCloudTrailTrails);
 const mockedHydrateAwsCloudWatchLogGroups = vi.mocked(hydrateAwsCloudWatchLogGroups);
 const mockedHydrateAwsCloudWatchLogStreams = vi.mocked(hydrateAwsCloudWatchLogStreams);
 const mockedHydrateAwsEbsVolumes = vi.mocked(hydrateAwsEbsVolumes);
+const mockedHydrateAwsEcsAutoscaling = vi.mocked(hydrateAwsEcsAutoscaling);
+const mockedHydrateAwsEcsClusterMetrics = vi.mocked(hydrateAwsEcsClusterMetrics);
+const mockedHydrateAwsEcsClusters = vi.mocked(hydrateAwsEcsClusters);
+const mockedHydrateAwsEcsContainerInstances = vi.mocked(hydrateAwsEcsContainerInstances);
+const mockedHydrateAwsEcsServices = vi.mocked(hydrateAwsEcsServices);
 const mockedHydrateAwsEcrRepositories = vi.mocked(hydrateAwsEcrRepositories);
 const mockedHydrateAwsEc2Instances = vi.mocked(hydrateAwsEc2Instances);
 const mockedHydrateAwsEc2InstanceUtilization = vi.mocked(hydrateAwsEc2InstanceUtilization);
 const mockedHydrateAwsEc2ReservedInstances = vi.mocked(hydrateAwsEc2ReservedInstances);
 const mockedHydrateAwsEc2LoadBalancers = vi.mocked(hydrateAwsEc2LoadBalancers);
 const mockedHydrateAwsEc2TargetGroups = vi.mocked(hydrateAwsEc2TargetGroups);
+const mockedHydrateAwsEksNodegroups = vi.mocked(hydrateAwsEksNodegroups);
 const mockedHydrateAwsLambdaFunctions = vi.mocked(hydrateAwsLambdaFunctions);
 const mockedHydrateAwsRdsInstanceActivity = vi.mocked(hydrateAwsRdsInstanceActivity);
 const mockedHydrateAwsRdsInstances = vi.mocked(hydrateAwsRdsInstances);
@@ -221,6 +253,38 @@ const catalog: AwsDiscoveryCatalog = {
       region: 'us-east-1',
       resourceType: 'elasticloadbalancing:targetgroup',
       service: 'elasticloadbalancing',
+    },
+    {
+      accountId: '123456789012',
+      arn: 'arn:aws:ecs:us-east-1:123456789012:container-instance/production/abc123',
+      properties: [],
+      region: 'us-east-1',
+      resourceType: 'ecs:container-instance',
+      service: 'ecs',
+    },
+    {
+      accountId: '123456789012',
+      arn: 'arn:aws:ecs:us-east-1:123456789012:cluster/production',
+      properties: [],
+      region: 'us-east-1',
+      resourceType: 'ecs:cluster',
+      service: 'ecs',
+    },
+    {
+      accountId: '123456789012',
+      arn: 'arn:aws:ecs:us-east-1:123456789012:service/production/web',
+      properties: [],
+      region: 'us-east-1',
+      resourceType: 'ecs:service',
+      service: 'ecs',
+    },
+    {
+      accountId: '123456789012',
+      arn: 'arn:aws:eks:us-east-1:123456789012:cluster/production',
+      properties: [],
+      region: 'us-east-1',
+      resourceType: 'eks:cluster',
+      service: 'eks',
     },
   ],
   searchRegion: 'us-east-1',
@@ -416,6 +480,180 @@ describe('discoverAwsResources', () => {
         region: 'us-east-1',
         trailArn: 'arn:aws:cloudtrail:us-east-1:123456789012:trail/org-trail',
         trailName: 'org-trail',
+      },
+    ]);
+  });
+
+  it('hydrates ECS and EKS datasets from their discovery resource types', async () => {
+    mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
+      indexType: 'LOCAL',
+      resources: [catalog.resources[11], catalog.resources[12], catalog.resources[13], catalog.resources[14]],
+      searchRegion: 'us-east-1',
+    });
+    mockedHydrateAwsEcsContainerInstances.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        architecture: 'x86_64',
+        clusterArn: 'arn:aws:ecs:us-east-1:123456789012:cluster/production',
+        containerInstanceArn: 'arn:aws:ecs:us-east-1:123456789012:container-instance/production/abc123',
+        ec2InstanceId: 'i-1234567890abcdef0',
+        instanceType: 'm7i.large',
+        region: 'us-east-1',
+      },
+    ]);
+    mockedHydrateAwsEcsClusters.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        clusterArn: 'arn:aws:ecs:us-east-1:123456789012:cluster/production',
+        clusterName: 'production',
+        region: 'us-east-1',
+      },
+    ]);
+    mockedHydrateAwsEcsClusterMetrics.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        averageCpuUtilizationLast14Days: 4.2,
+        clusterArn: 'arn:aws:ecs:us-east-1:123456789012:cluster/production',
+        clusterName: 'production',
+        region: 'us-east-1',
+      },
+    ]);
+    mockedHydrateAwsEcsServices.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        clusterArn: 'arn:aws:ecs:us-east-1:123456789012:cluster/production',
+        clusterName: 'production',
+        desiredCount: 2,
+        region: 'us-east-1',
+        schedulingStrategy: 'REPLICA',
+        serviceArn: 'arn:aws:ecs:us-east-1:123456789012:service/production/web',
+        serviceName: 'web',
+        status: 'ACTIVE',
+      },
+    ]);
+    mockedHydrateAwsEcsAutoscaling.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        clusterName: 'production',
+        hasScalableTarget: true,
+        hasScalingPolicy: true,
+        region: 'us-east-1',
+        serviceArn: 'arn:aws:ecs:us-east-1:123456789012:service/production/web',
+        serviceName: 'web',
+      },
+    ]);
+    mockedHydrateAwsEksNodegroups.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        amiType: 'AL2023_x86_64_STANDARD',
+        clusterArn: 'arn:aws:eks:us-east-1:123456789012:cluster/production',
+        clusterName: 'production',
+        instanceTypes: ['m7i.large'],
+        nodegroupArn: 'arn:aws:eks:us-east-1:123456789012:nodegroup/production/workers/abc123',
+        nodegroupName: 'workers',
+        region: 'us-east-1',
+      },
+    ]);
+
+    const result = await discoverAwsResources(
+      [
+        createRule({
+          discoveryDependencies: ['aws-ecs-container-instances'],
+          service: 'ecs',
+        }),
+        createRule({
+          id: 'CLDBRN-AWS-TEST-6',
+          discoveryDependencies: ['aws-ecs-clusters', 'aws-ecs-cluster-metrics'],
+          service: 'ecs',
+        }),
+        createRule({
+          id: 'CLDBRN-AWS-TEST-7',
+          discoveryDependencies: ['aws-ecs-services', 'aws-ecs-autoscaling'],
+          service: 'ecs',
+        }),
+        createRule({
+          id: 'CLDBRN-AWS-TEST-8',
+          discoveryDependencies: ['aws-eks-nodegroups'],
+          service: 'eks',
+        }),
+      ],
+      { mode: 'region', region: 'us-east-1' },
+    );
+
+    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith({ mode: 'region', region: 'us-east-1' }, [
+      'ecs:cluster',
+      'ecs:container-instance',
+      'ecs:service',
+      'eks:cluster',
+    ]);
+    expect(mockedHydrateAwsEcsContainerInstances).toHaveBeenCalledWith([catalog.resources[11]]);
+    expect(mockedHydrateAwsEcsClusters).toHaveBeenCalledWith([catalog.resources[12]]);
+    expect(mockedHydrateAwsEcsClusterMetrics).toHaveBeenCalledWith([catalog.resources[12]]);
+    expect(mockedHydrateAwsEcsServices).toHaveBeenCalledWith([catalog.resources[13]]);
+    expect(mockedHydrateAwsEcsAutoscaling).toHaveBeenCalledWith([catalog.resources[13]]);
+    expect(mockedHydrateAwsEksNodegroups).toHaveBeenCalledWith([catalog.resources[14]]);
+    expect(result.resources.get('aws-ecs-container-instances')).toEqual([
+      {
+        accountId: '123456789012',
+        architecture: 'x86_64',
+        clusterArn: 'arn:aws:ecs:us-east-1:123456789012:cluster/production',
+        containerInstanceArn: 'arn:aws:ecs:us-east-1:123456789012:container-instance/production/abc123',
+        ec2InstanceId: 'i-1234567890abcdef0',
+        instanceType: 'm7i.large',
+        region: 'us-east-1',
+      },
+    ]);
+    expect(result.resources.get('aws-ecs-clusters')).toEqual([
+      {
+        accountId: '123456789012',
+        clusterArn: 'arn:aws:ecs:us-east-1:123456789012:cluster/production',
+        clusterName: 'production',
+        region: 'us-east-1',
+      },
+    ]);
+    expect(result.resources.get('aws-ecs-cluster-metrics')).toEqual([
+      {
+        accountId: '123456789012',
+        averageCpuUtilizationLast14Days: 4.2,
+        clusterArn: 'arn:aws:ecs:us-east-1:123456789012:cluster/production',
+        clusterName: 'production',
+        region: 'us-east-1',
+      },
+    ]);
+    expect(result.resources.get('aws-ecs-services')).toEqual([
+      {
+        accountId: '123456789012',
+        clusterArn: 'arn:aws:ecs:us-east-1:123456789012:cluster/production',
+        clusterName: 'production',
+        desiredCount: 2,
+        region: 'us-east-1',
+        schedulingStrategy: 'REPLICA',
+        serviceArn: 'arn:aws:ecs:us-east-1:123456789012:service/production/web',
+        serviceName: 'web',
+        status: 'ACTIVE',
+      },
+    ]);
+    expect(result.resources.get('aws-ecs-autoscaling')).toEqual([
+      {
+        accountId: '123456789012',
+        clusterName: 'production',
+        hasScalableTarget: true,
+        hasScalingPolicy: true,
+        region: 'us-east-1',
+        serviceArn: 'arn:aws:ecs:us-east-1:123456789012:service/production/web',
+        serviceName: 'web',
+      },
+    ]);
+    expect(result.resources.get('aws-eks-nodegroups')).toEqual([
+      {
+        accountId: '123456789012',
+        amiType: 'AL2023_x86_64_STANDARD',
+        clusterArn: 'arn:aws:eks:us-east-1:123456789012:cluster/production',
+        clusterName: 'production',
+        instanceTypes: ['m7i.large'],
+        nodegroupArn: 'arn:aws:eks:us-east-1:123456789012:nodegroup/production/workers/abc123',
+        nodegroupName: 'workers',
+        region: 'us-east-1',
       },
     ]);
   });

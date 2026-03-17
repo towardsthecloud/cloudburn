@@ -1,8 +1,11 @@
+import { ApplicationAutoScalingClient } from '@aws-sdk/client-application-auto-scaling';
 import { CloudTrailClient } from '@aws-sdk/client-cloudtrail';
 import { CloudWatchClient } from '@aws-sdk/client-cloudwatch';
 import { CloudWatchLogsClient } from '@aws-sdk/client-cloudwatch-logs';
 import { DescribeRegionsCommand, EC2Client } from '@aws-sdk/client-ec2';
 import { ECRClient } from '@aws-sdk/client-ecr';
+import { ECSClient } from '@aws-sdk/client-ecs';
+import { EKSClient } from '@aws-sdk/client-eks';
 import { ElasticLoadBalancingClient } from '@aws-sdk/client-elastic-load-balancing';
 import { ElasticLoadBalancingV2Client } from '@aws-sdk/client-elastic-load-balancing-v2';
 import { LambdaClient } from '@aws-sdk/client-lambda';
@@ -41,9 +44,27 @@ export const createEc2Client = (config: AwsClientConfig): EC2Client =>
     region: config.region,
   });
 
+/** Creates an AWS ECS client for a specific region. */
+export const createEcsClient = (config: AwsClientConfig): ECSClient =>
+  new ECSClient({
+    region: config.region,
+  });
+
+/** Creates an AWS EKS client for a specific region. */
+export const createEksClient = (config: AwsClientConfig): EKSClient =>
+  new EKSClient({
+    region: config.region,
+  });
+
 /** Creates an AWS ECR client for a specific region. */
 export const createEcrClient = (config: AwsClientConfig): ECRClient =>
   new ECRClient({
+    region: config.region,
+  });
+
+/** Creates an AWS Application Auto Scaling client for a specific region. */
+export const createApplicationAutoScalingClient = (config: AwsClientConfig): ApplicationAutoScalingClient =>
+  new ApplicationAutoScalingClient({
     region: config.region,
   });
 

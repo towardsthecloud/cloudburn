@@ -29,10 +29,14 @@ Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
 | `CLDBRN-AWS-EC2-10`   | EC2 Reserved Instance Expiring            | ec2     | discovery      | Implemented |
 | `CLDBRN-AWS-EC2-11`   | EC2 Instance Large Size                   | ec2     | discovery      | Implemented |
 | `CLDBRN-AWS-EC2-12`   | EC2 Instance Long Running                 | ec2     | discovery      | Implemented |
+| `CLDBRN-AWS-ECS-1`    | ECS Container Instance Without Graviton   | ecs     | discovery      | Implemented |
+| `CLDBRN-AWS-ECS-2`    | ECS Cluster Low CPU Utilization           | ecs     | discovery      | Implemented |
+| `CLDBRN-AWS-ECS-3`    | ECS Service Missing Autoscaling Policy    | ecs     | discovery      | Implemented |
 | `CLDBRN-AWS-EBS-1`    | EBS Volume Type Not Current Generation    | ebs     | discovery, iac | Implemented |
 | `CLDBRN-AWS-EBS-2`    | EBS Volume Unattached                     | ebs     | discovery      | Implemented |
 | `CLDBRN-AWS-EBS-3`    | EBS Volume Attached To Stopped Instances  | ebs     | discovery      | Implemented |
 | `CLDBRN-AWS-ECR-1`    | ECR Repository Missing Lifecycle Policy   | ecr     | iac, discovery | Implemented |
+| `CLDBRN-AWS-EKS-1`    | EKS Node Group Without Graviton           | eks     | discovery      | Implemented |
 | `CLDBRN-AWS-ELB-1`    | Application Load Balancer Without Targets | elb     | discovery      | Implemented |
 | `CLDBRN-AWS-ELB-2`    | Classic Load Balancer Without Instances   | elb     | discovery      | Implemented |
 | `CLDBRN-AWS-ELB-3`    | Gateway Load Balancer Without Targets     | elb     | discovery      | Implemented |
@@ -53,6 +57,14 @@ Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
 `CLDBRN-AWS-EC2-11` treats `2xlarge` and above, plus `metal`, as the large-instance review threshold.
 
 `CLDBRN-AWS-EC2-12` flags only instances with a parsed launch timestamp at least 180 days old.
+
+`CLDBRN-AWS-ECS-1` flags only EC2-backed container instances whose instance families have a curated Graviton-equivalent path. Fargate and unclassified backing instances are skipped.
+
+`CLDBRN-AWS-ECS-2` flags only ECS clusters with a complete 14-day `AWS/ECS` CPU history and an average below `10%`.
+
+`CLDBRN-AWS-ECS-3` flags only active `REPLICA` ECS services and requires both a scalable target and at least one scaling policy.
+
+`CLDBRN-AWS-EKS-1` flags only managed node groups with classifiable non-Arm instance families. Arm AMIs and unclassified node groups are skipped.
 
 `CLDBRN-AWS-ELB-1` and `CLDBRN-AWS-ELB-3` flag load balancers with no attached target groups or no registered targets across attached target groups.
 

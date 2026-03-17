@@ -5,6 +5,8 @@ import {
   type AwsCloudTrailTrail,
   type AwsCloudWatchLogGroup,
   type AwsCloudWatchLogStream,
+  type AwsEcsClusterMetric,
+  type AwsEksNodegroup,
   type AwsRdsInstance,
   builtInRuleMetadata,
   parseIaC,
@@ -159,6 +161,37 @@ describe('sdk exports', () => {
         supports: ['iac', 'discovery'],
       },
       {
+        description:
+          'Flag ECS container instances backed by EC2 instance types that still run on non-Graviton families when a clear Arm-based equivalent exists.',
+        id: 'CLDBRN-AWS-ECS-1',
+        provider: 'aws',
+        service: 'ecs',
+        supports: ['discovery'],
+      },
+      {
+        description: 'Flag ECS clusters whose average CPU utilization stays below 10% over the previous 14 days.',
+        id: 'CLDBRN-AWS-ECS-2',
+        provider: 'aws',
+        service: 'ecs',
+        supports: ['discovery'],
+      },
+      {
+        description:
+          'Flag active REPLICA ECS services that do not have an Application Auto Scaling target and scaling policy.',
+        id: 'CLDBRN-AWS-ECS-3',
+        provider: 'aws',
+        service: 'ecs',
+        supports: ['discovery'],
+      },
+      {
+        description:
+          'Flag EKS node groups that still use non-Graviton instance families when a clear Arm-based equivalent exists.',
+        id: 'CLDBRN-AWS-EKS-1',
+        provider: 'aws',
+        service: 'eks',
+        supports: ['discovery'],
+      },
+      {
         description: 'Flag Application Load Balancers that have no attached target groups or no registered targets.',
         id: 'CLDBRN-AWS-ELB-1',
         provider: 'aws',
@@ -252,6 +285,23 @@ describe('sdk exports', () => {
       logStreamName: '2026/03/16/[$LATEST]abc',
       region: 'us-east-1',
     };
+    const ecsClusterMetric: AwsEcsClusterMetric = {
+      accountId: '123456789012',
+      averageCpuUtilizationLast14Days: 4.2,
+      clusterArn: 'arn:aws:ecs:us-east-1:123456789012:cluster/production',
+      clusterName: 'production',
+      region: 'us-east-1',
+    };
+    const eksNodegroup: AwsEksNodegroup = {
+      accountId: '123456789012',
+      amiType: 'AL2023_x86_64_STANDARD',
+      clusterArn: 'arn:aws:eks:us-east-1:123456789012:cluster/production',
+      clusterName: 'production',
+      instanceTypes: ['m7i.large'],
+      nodegroupArn: 'arn:aws:eks:us-east-1:123456789012:nodegroup/production/workers/abc123',
+      nodegroupName: 'workers',
+      region: 'us-east-1',
+    };
     const instance: AwsRdsInstance = {
       accountId: '123456789012',
       dbInstanceIdentifier: 'legacy-db',
@@ -262,6 +312,8 @@ describe('sdk exports', () => {
     expect(trail.trailName).toBe('org-trail');
     expect(logGroup.retentionInDays).toBe(30);
     expect(logStream.logStreamName).toContain('[$LATEST]');
+    expect(ecsClusterMetric.averageCpuUtilizationLast14Days).toBe(4.2);
+    expect(eksNodegroup.nodegroupName).toBe('workers');
     expect(instance.dbInstanceIdentifier).toBe('legacy-db');
   });
 

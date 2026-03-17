@@ -7,6 +7,10 @@ import { hydrateAwsEc2ElasticIps } from './resources/ec2-elastic-ips.js';
 import { hydrateAwsEc2ReservedInstances } from './resources/ec2-reserved-instances.js';
 import { hydrateAwsEc2InstanceUtilization } from './resources/ec2-utilization.js';
 import { hydrateAwsEcrRepositories } from './resources/ecr.js';
+import { hydrateAwsEcsClusters, hydrateAwsEcsContainerInstances, hydrateAwsEcsServices } from './resources/ecs.js';
+import { hydrateAwsEcsAutoscaling } from './resources/ecs-autoscaling.js';
+import { hydrateAwsEcsClusterMetrics } from './resources/ecs-cluster-metrics.js';
+import { hydrateAwsEksNodegroups } from './resources/eks.js';
 import { hydrateAwsEc2LoadBalancers, hydrateAwsEc2TargetGroups } from './resources/elbv2.js';
 import { hydrateAwsLambdaFunctions } from './resources/lambda.js';
 import { hydrateAwsRdsInstances } from './resources/rds.js';
@@ -18,7 +22,7 @@ import { hydrateAwsEc2VpcEndpointActivity } from './resources/vpc-endpoints.js';
 export type AwsDiscoveryDatasetDefinition<K extends DiscoveryDatasetKey = DiscoveryDatasetKey> = {
   datasetKey: K;
   resourceTypes: string[];
-  service: 'cloudtrail' | 'cloudwatch' | 'ebs' | 'ec2' | 'ecr' | 'elb' | 'lambda' | 'rds' | 's3';
+  service: 'cloudtrail' | 'cloudwatch' | 'ebs' | 'ec2' | 'ecs' | 'ecr' | 'eks' | 'elb' | 'lambda' | 'rds' | 's3';
   load: (resources: AwsDiscoveredResource[]) => Promise<DiscoveryDatasetMap[K]>;
 };
 
@@ -48,6 +52,36 @@ const awsDiscoveryDatasetRegistry: {
     resourceTypes: ['ec2:volume'],
     service: 'ebs',
     load: hydrateAwsEbsVolumes,
+  },
+  'aws-ecs-autoscaling': {
+    datasetKey: 'aws-ecs-autoscaling',
+    resourceTypes: ['ecs:service'],
+    service: 'ecs',
+    load: hydrateAwsEcsAutoscaling,
+  },
+  'aws-ecs-cluster-metrics': {
+    datasetKey: 'aws-ecs-cluster-metrics',
+    resourceTypes: ['ecs:cluster'],
+    service: 'ecs',
+    load: hydrateAwsEcsClusterMetrics,
+  },
+  'aws-ecs-clusters': {
+    datasetKey: 'aws-ecs-clusters',
+    resourceTypes: ['ecs:cluster'],
+    service: 'ecs',
+    load: hydrateAwsEcsClusters,
+  },
+  'aws-ecs-container-instances': {
+    datasetKey: 'aws-ecs-container-instances',
+    resourceTypes: ['ecs:container-instance'],
+    service: 'ecs',
+    load: hydrateAwsEcsContainerInstances,
+  },
+  'aws-ecs-services': {
+    datasetKey: 'aws-ecs-services',
+    resourceTypes: ['ecs:service'],
+    service: 'ecs',
+    load: hydrateAwsEcsServices,
   },
   'aws-ecr-repositories': {
     datasetKey: 'aws-ecr-repositories',
@@ -101,6 +135,12 @@ const awsDiscoveryDatasetRegistry: {
     resourceTypes: ['ec2:vpc-endpoint'],
     service: 'ec2',
     load: hydrateAwsEc2VpcEndpointActivity,
+  },
+  'aws-eks-nodegroups': {
+    datasetKey: 'aws-eks-nodegroups',
+    resourceTypes: ['eks:cluster'],
+    service: 'eks',
+    load: hydrateAwsEksNodegroups,
   },
   'aws-lambda-functions': {
     datasetKey: 'aws-lambda-functions',
