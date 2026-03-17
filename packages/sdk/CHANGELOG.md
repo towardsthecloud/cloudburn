@@ -1,5 +1,18 @@
 # @cloudburn/sdk
 
+## 0.16.0
+
+### Minor Changes
+
+- [#64](https://github.com/towardsthecloud/cloudburn/pull/64) [`6c5ede0`](https://github.com/towardsthecloud/cloudburn/commit/6c5ede0afdf5ee0f1eff46a7092731a86ecebea0) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Add AWS discovery dataset support for reserved instances, load balancers, and target groups, and enrich discovered EC2 instances with architecture and launch time metadata.
+
+- [#66](https://github.com/towardsthecloud/cloudburn/pull/66) [`2bd5361`](https://github.com/towardsthecloud/cloudburn/commit/2bd53619cb89f2dbb911e83319993e57632c9b44) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Add AWS ECS and EKS discovery datasets, hydrators, and AWS SDK clients required by the new ECS and EKS discovery rules.
+
+### Patch Changes
+
+- Updated dependencies [[`2bd5361`](https://github.com/towardsthecloud/cloudburn/commit/2bd53619cb89f2dbb911e83319993e57632c9b44), [`6c5ede0`](https://github.com/towardsthecloud/cloudburn/commit/6c5ede0afdf5ee0f1eff46a7092731a86ecebea0)]:
+  - @cloudburn/rules@0.16.0
+
 ## 0.15.0
 
 ### Minor Changes

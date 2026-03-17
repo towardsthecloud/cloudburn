@@ -1,5 +1,13 @@
 # @cloudburn/rules
 
+## 0.16.0
+
+### Minor Changes
+
+- [#66](https://github.com/towardsthecloud/cloudburn/pull/66) [`2bd5361`](https://github.com/towardsthecloud/cloudburn/commit/2bd53619cb89f2dbb911e83319993e57632c9b44) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Add AWS ECS and EKS discovery rules for Graviton review, low ECS cluster CPU utilization, and missing ECS autoscaling policies.
+
+- [#64](https://github.com/towardsthecloud/cloudburn/pull/64) [`6c5ede0`](https://github.com/towardsthecloud/cloudburn/commit/6c5ede0afdf5ee0f1eff46a7092731a86ecebea0) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Add discovery-only EC2 and ELB cleanup rules for Graviton review, reserved instance renewal review, large and long-running instances, and empty load balancers.
+
 ## 0.15.0
 
 ### Minor Changes
