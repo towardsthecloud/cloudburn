@@ -63,7 +63,8 @@ describe('sdk exports', () => {
         supports: ['discovery'],
       },
       {
-        description: 'Flag CloudWatch log streams that have never received events outside delivery-managed log groups.',
+        description:
+          'Flag CloudWatch log streams that have never received events or whose last ingestion was more than 90 days ago outside delivery-managed log groups.',
         id: 'CLDBRN-AWS-CLOUDWATCH-2',
         provider: 'aws',
         service: 'cloudwatch',

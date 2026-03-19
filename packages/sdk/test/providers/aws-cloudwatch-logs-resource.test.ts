@@ -213,6 +213,7 @@ describe('hydrateAwsCloudWatchLogStreams', () => {
           logStreams: [
             {
               arn: `arn:aws:logs:us-east-1:123456789012:log-group:${input.logGroupName}:log-stream:2026/03/16/[$LATEST]abc`,
+              lastIngestionTime: 1_710_000_000_000,
               logStreamName: '2026/03/16/[$LATEST]abc',
             },
           ],
@@ -238,7 +239,7 @@ describe('hydrateAwsCloudWatchLogStreams', () => {
         creationTime: undefined,
         firstEventTimestamp: undefined,
         lastEventTimestamp: undefined,
-        lastIngestionTime: undefined,
+        lastIngestionTime: 1_710_000_000_000,
         logGroupName: '/aws/lambda/app',
         logStreamName: '2026/03/16/[$LATEST]abc',
         region: 'us-east-1',
