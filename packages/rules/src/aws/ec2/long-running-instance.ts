@@ -1,6 +1,6 @@
 import { createFinding, createFindingMatch, createRule } from '../../shared/helpers.js';
 
-const RULE_ID = 'CLDBRN-AWS-EC2-12';
+const RULE_ID = 'CLDBRN-AWS-EC2-9';
 const RULE_SERVICE = 'ec2';
 const RULE_MESSAGE = 'EC2 instances running for 180 days or longer should be reviewed.';
 const DAY_MS = 24 * 60 * 60 * 1000;

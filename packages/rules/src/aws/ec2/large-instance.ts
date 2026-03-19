@@ -1,6 +1,6 @@
 import { createFinding, createFindingMatch, createRule } from '../../shared/helpers.js';
 
-const RULE_ID = 'CLDBRN-AWS-EC2-11';
+const RULE_ID = 'CLDBRN-AWS-EC2-8';
 const RULE_SERVICE = 'ec2';
 const RULE_MESSAGE = 'EC2 large instances of 2xlarge or greater should be reviewed.';
 // Treat 2xlarge and above as the right-sizing review threshold.

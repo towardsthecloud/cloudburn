@@ -1,7 +1,7 @@
 import { createFinding, createFindingMatch, createRule } from '../../shared/helpers.js';
 import { shouldReviewAwsEc2InstanceForGraviton } from './preferred-instance-families.js';
 
-const RULE_ID = 'CLDBRN-AWS-EC2-9';
+const RULE_ID = 'CLDBRN-AWS-EC2-6';
 const RULE_SERVICE = 'ec2';
 const RULE_MESSAGE = 'EC2 instances without a Graviton equivalent in use should be reviewed.';
 
