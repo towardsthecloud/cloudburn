@@ -9,7 +9,7 @@ Use this guide for both:
 
 ## 1. Choose an ID
 
-Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`. Check [rule-ids.md](../reference/rule-ids.md) for the next available number in your service. Never reuse or renumber existing IDs.
+Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`. Check [rule-ids.md](../reference/rule-ids.md) for the next contiguous number in your service. Keep each provider/service sequence gap-free, and if you remove or reorder a rule, renumber later IDs and update references in the same change.
 
 ## 2. Decide Whether You Need a Dataset Change
 

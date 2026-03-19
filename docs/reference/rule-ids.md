@@ -8,7 +8,7 @@ Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
 
 - All uppercase
 - No zero-padding on the sequence number
-- IDs are stable — no renumbering when rules are removed (gaps are allowed)
+- IDs stay contiguous within each provider/service sequence; when a change affects the sequence, renumber later entries and update references in the same change
 - Provider: `AWS`, `AZURE`, `GCP`
 - Service: short name matching the directory (e.g. `EBS`, `EC2`, `RDS`, `S3`, `LAMBDA`)
 
@@ -25,10 +25,10 @@ Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
 | `CLDBRN-AWS-EC2-3`    | Elastic IP Address Unassociated           | ec2     | discovery      | Implemented |
 | `CLDBRN-AWS-EC2-4`    | VPC Interface Endpoint Inactive           | ec2     | discovery      | Implemented |
 | `CLDBRN-AWS-EC2-5`    | EC2 Instance Low Utilization              | ec2     | discovery      | Implemented |
-| `CLDBRN-AWS-EC2-9`    | EC2 Instance Without Graviton             | ec2     | discovery      | Implemented |
-| `CLDBRN-AWS-EC2-10`   | EC2 Reserved Instance Expiring            | ec2     | discovery      | Implemented |
-| `CLDBRN-AWS-EC2-11`   | EC2 Instance Large Size                   | ec2     | discovery      | Implemented |
-| `CLDBRN-AWS-EC2-12`   | EC2 Instance Long Running                 | ec2     | discovery      | Implemented |
+| `CLDBRN-AWS-EC2-6`    | EC2 Instance Without Graviton             | ec2     | discovery      | Implemented |
+| `CLDBRN-AWS-EC2-7`    | EC2 Reserved Instance Expiring            | ec2     | discovery      | Implemented |
+| `CLDBRN-AWS-EC2-8`    | EC2 Instance Large Size                   | ec2     | discovery      | Implemented |
+| `CLDBRN-AWS-EC2-9`    | EC2 Instance Long Running                 | ec2     | discovery      | Implemented |
 | `CLDBRN-AWS-ECS-1`    | ECS Container Instance Without Graviton   | ecs     | discovery      | Implemented |
 | `CLDBRN-AWS-ECS-2`    | ECS Cluster Low CPU Utilization           | ecs     | discovery      | Implemented |
 | `CLDBRN-AWS-ECS-3`    | ECS Service Missing Autoscaling Policy    | ecs     | discovery      | Implemented |
@@ -68,13 +68,13 @@ Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
 
 `CLDBRN-AWS-CLOUDWATCH-2` flags log streams with no observed event history and log streams whose `lastIngestionTime` is more than 90 days old. Delivery-managed log groups remain exempt.
 
-`CLDBRN-AWS-EC2-9` flags only families with a curated Graviton-equivalent path. Instances without architecture metadata or outside the curated family set are skipped.
+`CLDBRN-AWS-EC2-6` flags only families with a curated Graviton-equivalent path. Instances without architecture metadata or outside the curated family set are skipped.
 
-`CLDBRN-AWS-EC2-10` reviews only active reserved instances with an `endTime` inside the next 60 days.
+`CLDBRN-AWS-EC2-7` reviews only active reserved instances with an `endTime` inside the next 60 days.
 
-`CLDBRN-AWS-EC2-11` treats `2xlarge` and above, plus `metal`, as the large-instance review threshold.
+`CLDBRN-AWS-EC2-8` treats `2xlarge` and above, plus `metal`, as the large-instance review threshold.
 
-`CLDBRN-AWS-EC2-12` flags only instances with a parsed launch timestamp at least 180 days old.
+`CLDBRN-AWS-EC2-9` flags only instances with a parsed launch timestamp at least 180 days old.
 
 `CLDBRN-AWS-ECS-1` flags only EC2-backed container instances whose instance families have a curated Graviton-equivalent path. Fargate and unclassified backing instances are skipped.
 

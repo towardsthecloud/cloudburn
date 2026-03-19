@@ -1,5 +1,17 @@
 # @cloudburn/rules
 
+## 0.17.2
+
+### Patch Changes
+
+- [#40](https://github.com/towardsthecloud/cloudburn/pull/40) [`a5d9bd4`](https://github.com/towardsthecloud/cloudburn/commit/a5d9bd44ed280d8226a6657f49af19dfba16f36a) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Renumber the AWS EC2 built-in rule IDs to keep the service sequence contiguous and add metadata coverage that fails when rule numbers are duplicated or skipped.
+
+## 0.17.1
+
+### Patch Changes
+
+- [#38](https://github.com/towardsthecloud/cloudburn/pull/38) [`b46ad3b`](https://github.com/towardsthecloud/cloudburn/commit/b46ad3b7d483b5a1176b42e115da0be97afc2c3c) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Flag CloudWatch unused log streams when they have never received events or when their last ingestion was more than 90 days ago.
+
 ## 0.17.0
 
 ### Minor Changes

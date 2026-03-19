@@ -1,6 +1,6 @@
 import { createFinding, createFindingMatch, createRule } from '../../shared/helpers.js';
 
-const RULE_ID = 'CLDBRN-AWS-EC2-10';
+const RULE_ID = 'CLDBRN-AWS-EC2-7';
 const RULE_SERVICE = 'ec2';
 const RULE_MESSAGE = 'EC2 reserved instances expiring within 60 days should be reviewed.';
 const DAY_MS = 24 * 60 * 60 * 1000;

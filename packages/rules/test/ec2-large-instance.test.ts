@@ -25,7 +25,7 @@ describe('ec2LargeInstanceRule', () => {
     });
 
     expect(finding).toEqual({
-      ruleId: 'CLDBRN-AWS-EC2-11',
+      ruleId: 'CLDBRN-AWS-EC2-8',
       service: 'ec2',
       source: 'discovery',
       message: 'EC2 large instances of 2xlarge or greater should be reviewed.',

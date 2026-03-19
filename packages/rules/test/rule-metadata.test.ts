@@ -51,7 +51,6 @@ describe('rule metadata', () => {
       expect(sortedRuleNumbers.every((ruleNumber) => ruleNumber > 0)).toBe(true);
     }
   });
-
   it('defines the expected EC2 preferred-instance rule metadata', () => {
     const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-EC2-1');
 
@@ -432,11 +431,11 @@ describe('rule metadata', () => {
   });
 
   it('defines the expected EC2 Graviton review rule metadata', () => {
-    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-EC2-9');
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-EC2-6');
 
     expect(rule).toBeDefined();
     expect(rule).toMatchObject({
-      id: 'CLDBRN-AWS-EC2-9',
+      id: 'CLDBRN-AWS-EC2-6',
       name: 'EC2 Instance Without Graviton',
       description:
         'Flag EC2 instances that still run on non-Graviton families when a clear Arm-based equivalent exists.',
@@ -516,11 +515,11 @@ describe('rule metadata', () => {
   });
 
   it('defines the expected EC2 reserved-instance-expiring rule metadata', () => {
-    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-EC2-10');
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-EC2-7');
 
     expect(rule).toBeDefined();
     expect(rule).toMatchObject({
-      id: 'CLDBRN-AWS-EC2-10',
+      id: 'CLDBRN-AWS-EC2-7',
       name: 'EC2 Reserved Instance Expiring',
       description: 'Flag active EC2 reserved instances whose end date is within the next 60 days.',
       message: 'EC2 reserved instances expiring within 60 days should be reviewed.',
@@ -532,11 +531,11 @@ describe('rule metadata', () => {
   });
 
   it('defines the expected EC2 large-instance rule metadata', () => {
-    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-EC2-11');
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-EC2-8');
 
     expect(rule).toBeDefined();
     expect(rule).toMatchObject({
-      id: 'CLDBRN-AWS-EC2-11',
+      id: 'CLDBRN-AWS-EC2-8',
       name: 'EC2 Instance Large Size',
       description: 'Flag EC2 instances that are sized at 2xlarge or above so they can be right-sized intentionally.',
       message: 'EC2 large instances of 2xlarge or greater should be reviewed.',
@@ -548,11 +547,11 @@ describe('rule metadata', () => {
   });
 
   it('defines the expected EC2 long-running rule metadata', () => {
-    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-EC2-12');
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-EC2-9');
 
     expect(rule).toBeDefined();
     expect(rule).toMatchObject({
-      id: 'CLDBRN-AWS-EC2-12',
+      id: 'CLDBRN-AWS-EC2-9',
       name: 'EC2 Instance Long Running',
       description: 'Flag EC2 instances whose launch time is at least 180 days old.',
       message: 'EC2 instances running for 180 days or longer should be reviewed.',
