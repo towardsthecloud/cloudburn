@@ -108,7 +108,7 @@ Rule evaluators consume static and live datasets through `context.resources.get(
 | `CLDBRN-AWS-EBS-4`    | EBS Volume Large Size                     | ebs     | discovery      | Implemented |
 | `CLDBRN-AWS-EBS-5`    | EBS Volume High Provisioned IOPS          | ebs     | discovery      | Implemented |
 | `CLDBRN-AWS-EBS-6`    | EBS Volume Low Provisioned IOPS On io1/io2 | ebs   | discovery      | Implemented |
-| `CLDBRN-AWS-EBS-8`    | EBS Snapshot Max Age Exceeded             | ebs     | discovery      | Implemented |
+| `CLDBRN-AWS-EBS-7`    | EBS Snapshot Max Age Exceeded             | ebs     | discovery      | Implemented |
 | `CLDBRN-AWS-ECR-1`    | ECR Repository Missing Lifecycle Policy   | ecr     | iac, discovery | Implemented |
 | `CLDBRN-AWS-RDS-1`    | RDS Instance Class Not Preferred          | rds     | iac, discovery | Implemented |
 | `CLDBRN-AWS-RDS-2`    | RDS DB Instance Idle                      | rds     | discovery      | Implemented |

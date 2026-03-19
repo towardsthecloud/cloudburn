@@ -117,7 +117,7 @@ describe('sdk exports', () => {
       },
       {
         description: 'Flag completed EBS snapshots older than 90 days.',
-        id: 'CLDBRN-AWS-EBS-8',
+        id: 'CLDBRN-AWS-EBS-7',
         provider: 'aws',
         service: 'ebs',
         supports: ['discovery'],

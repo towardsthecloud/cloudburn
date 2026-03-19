@@ -59,7 +59,7 @@ describe('rule exports', () => {
         'CLDBRN-AWS-EBS-4',
         'CLDBRN-AWS-EBS-5',
         'CLDBRN-AWS-EBS-6',
-        'CLDBRN-AWS-EBS-8',
+        'CLDBRN-AWS-EBS-7',
         'CLDBRN-AWS-EBS-2',
         'CLDBRN-AWS-EBS-3',
         'CLDBRN-AWS-ECR-1',

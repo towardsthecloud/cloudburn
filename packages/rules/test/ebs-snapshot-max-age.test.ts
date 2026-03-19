@@ -33,7 +33,7 @@ describe('ebsSnapshotMaxAgeRule', () => {
     expect(ebsSnapshotMaxAgeRule.supports).toEqual(['discovery']);
     expect(ebsSnapshotMaxAgeRule.discoveryDependencies).toEqual(['aws-ebs-snapshots']);
     expect(finding).toEqual({
-      ruleId: 'CLDBRN-AWS-EBS-8',
+      ruleId: 'CLDBRN-AWS-EBS-7',
       service: 'ebs',
       source: 'discovery',
       message: 'EBS snapshots older than 90 days should be reviewed.',

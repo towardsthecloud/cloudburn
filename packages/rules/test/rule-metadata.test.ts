@@ -24,7 +24,7 @@ describe('rule metadata', () => {
     }
   });
 
-  it('uses unique rule numbers per provider and service without requiring contiguous numbering', () => {
+  it('uses unique contiguous rule numbers per provider and service', () => {
     const seenRuleIds = new Set<string>();
     const numbersByScope = new Map<string, number[]>();
 
@@ -47,8 +47,7 @@ describe('rule metadata', () => {
     for (const ruleNumbers of numbersByScope.values()) {
       const sortedRuleNumbers = [...ruleNumbers].sort((left, right) => left - right);
 
-      expect(sortedRuleNumbers).toEqual([...new Set(sortedRuleNumbers)]);
-      expect(sortedRuleNumbers.every((ruleNumber) => ruleNumber > 0)).toBe(true);
+      expect(sortedRuleNumbers).toEqual(Array.from({ length: sortedRuleNumbers.length }, (_, index) => index + 1));
     }
   });
   it('defines the expected EC2 preferred-instance rule metadata', () => {
@@ -334,11 +333,11 @@ describe('rule metadata', () => {
   });
 
   it('defines the expected EBS snapshot-max-age rule metadata', () => {
-    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-EBS-8');
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-EBS-7');
 
     expect(rule).toBeDefined();
     expect(rule).toMatchObject({
-      id: 'CLDBRN-AWS-EBS-8',
+      id: 'CLDBRN-AWS-EBS-7',
       name: 'EBS Snapshot Max Age Exceeded',
       description: 'Flag completed EBS snapshots older than 90 days.',
       message: 'EBS snapshots older than 90 days should be reviewed.',

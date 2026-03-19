@@ -1,6 +1,6 @@
 import { createFinding, createFindingMatch, createRule } from '../../shared/helpers.js';
 
-const RULE_ID = 'CLDBRN-AWS-EBS-8';
+const RULE_ID = 'CLDBRN-AWS-EBS-7';
 const RULE_SERVICE = 'ebs';
 const RULE_MESSAGE = 'EBS snapshots older than 90 days should be reviewed.';
 const DAY_IN_MS = 24 * 60 * 60 * 1000;

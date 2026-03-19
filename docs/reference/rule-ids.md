@@ -38,7 +38,7 @@ Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
 | `CLDBRN-AWS-EBS-4`    | EBS Volume Large Size                     | ebs     | discovery      | Implemented |
 | `CLDBRN-AWS-EBS-5`    | EBS Volume High Provisioned IOPS          | ebs     | discovery      | Implemented |
 | `CLDBRN-AWS-EBS-6`    | EBS Volume Low Provisioned IOPS On io1/io2 | ebs   | discovery      | Implemented |
-| `CLDBRN-AWS-EBS-8`    | EBS Snapshot Max Age Exceeded             | ebs     | discovery      | Implemented |
+| `CLDBRN-AWS-EBS-7`    | EBS Snapshot Max Age Exceeded             | ebs     | discovery      | Implemented |
 | `CLDBRN-AWS-ECR-1`    | ECR Repository Missing Lifecycle Policy   | ecr     | iac, discovery | Implemented |
 | `CLDBRN-AWS-EKS-1`    | EKS Node Group Without Graviton           | eks     | discovery      | Implemented |
 | `CLDBRN-AWS-ELASTICACHE-1` | ElastiCache Cluster Missing Reserved Coverage | elasticache | discovery | Implemented |
@@ -64,7 +64,7 @@ Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
 
 `CLDBRN-AWS-EBS-6` flags only `io1` and `io2` volumes at `16000` IOPS or below, using an IOPS-only gp3 eligibility heuristic without throughput checks.
 
-`CLDBRN-AWS-EBS-8` flags only `completed` snapshots with a parsed `StartTime` older than `90` days.
+`CLDBRN-AWS-EBS-7` flags only `completed` snapshots with a parsed `StartTime` older than `90` days.
 
 `CLDBRN-AWS-CLOUDWATCH-2` flags log streams with no observed event history and log streams whose `lastIngestionTime` is more than 90 days old. Delivery-managed log groups remain exempt.
 
