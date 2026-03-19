@@ -1,4 +1,4 @@
-import { readdir, readFile, stat } from 'node:fs/promises';
+import { lstat, readdir, readFile, realpath, stat } from 'node:fs/promises';
 import { basename, extname, join, relative, sep } from 'node:path';
 import type { SourceLocation } from '@cloudburn/rules';
 import { isMap, isScalar, isSeq, LineCounter, parseDocument } from 'yaml';
@@ -6,6 +6,7 @@ import type { IaCResource } from './types.js';
 
 const SKIPPED_DIRECTORIES = new Set(['.git', '.terraform', 'node_modules']);
 const SUPPORTED_EXTENSIONS = new Set(['.json', '.yaml', '.yml']);
+const MAX_TEMPLATE_SIZE_BYTES = 5 * 1024 * 1024;
 
 const INTRINSIC_TAG_NAMES: Record<string, string> = {
   '!And': 'Fn::And',
@@ -159,13 +160,18 @@ const toAttributeLocations = (
   return Object.keys(attributeLocations).length > 0 ? attributeLocations : undefined;
 };
 
-const toIaCResources = async (path: string, scanRoot: string): Promise<IaCResource[]> => {
+const toIaCResources = async (path: string, relativePath: string): Promise<IaCResource[]> => {
   if (!hasSupportedExtension(path)) {
     return [];
   }
 
+  const pathStats = await stat(path);
+
+  if (pathStats.size > MAX_TEMPLATE_SIZE_BYTES) {
+    return [];
+  }
+
   const contents = await readFile(path, 'utf8');
-  const relativePath = toRelativePath(path, scanRoot);
   const lineCounter = new LineCounter();
   const document = parseDocument(contents, {
     keepSourceTokens: true,
@@ -232,18 +238,33 @@ const toIaCResources = async (path: string, scanRoot: string): Promise<IaCResour
   });
 };
 
-const parseCloudFormationPath = async (path: string, scanRoot: string): Promise<IaCResource[]> => {
-  const pathStats = await stat(path);
+const parseCloudFormationPath = async (
+  path: string,
+  scanRoot: string,
+  filesystemPath: string = path,
+  allowSymbolicLinkTarget = false,
+): Promise<IaCResource[]> => {
+  const linkStats = await lstat(filesystemPath);
+
+  if (linkStats.isSymbolicLink()) {
+    if (!allowSymbolicLinkTarget) {
+      return [];
+    }
+
+    filesystemPath = await realpath(filesystemPath);
+  }
+
+  const pathStats = await stat(filesystemPath);
 
   if (pathStats.isFile()) {
-    return toIaCResources(path, scanRoot);
+    return toIaCResources(filesystemPath, toRelativePath(path, scanRoot));
   }
 
   if (!pathStats.isDirectory()) {
     return [];
   }
 
-  const entries = (await readdir(path, { withFileTypes: true })).sort((left, right) =>
+  const entries = (await readdir(filesystemPath, { withFileTypes: true })).sort((left, right) =>
     left.name.localeCompare(right.name),
   );
   const resources = await Promise.all(
@@ -256,7 +277,7 @@ const parseCloudFormationPath = async (path: string, scanRoot: string): Promise<
         return [];
       }
 
-      return [parseCloudFormationPath(join(path, entry.name), scanRoot)];
+      return [parseCloudFormationPath(join(path, entry.name), scanRoot, join(filesystemPath, entry.name))];
     }),
   );
 
@@ -287,4 +308,5 @@ const parseCloudFormationPath = async (path: string, scanRoot: string): Promise<
 };
 
 // Intent: parse CloudFormation templates into normalized IaCResource entries.
-export const parseCloudFormation = async (path: string): Promise<IaCResource[]> => parseCloudFormationPath(path, path);
+export const parseCloudFormation = async (path: string): Promise<IaCResource[]> =>
+  parseCloudFormationPath(path, path, path, true);

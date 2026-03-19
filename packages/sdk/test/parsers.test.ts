@@ -1,3 +1,6 @@
+import { mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { parseCloudFormation, parseIaC, parseTerraform } from '../src/parsers/index.js';
@@ -687,6 +690,162 @@ describe('parsers', () => {
     const resources = await parseCloudFormation(resourcePath);
 
     expect(resources).toEqual([]);
+  });
+
+  it('parses explicit cloudformation symlink file roots', async () => {
+    const fixturePath = fileURLToPath(new URL('./fixtures/cloudformation/ebs-volume.yaml', import.meta.url));
+    const tempDirectory = await mkdtemp(join(tmpdir(), 'cloudburn-cfn-root-symlink-'));
+
+    try {
+      const symlinkPath = join(tempDirectory, 'linked-template.yaml');
+
+      await symlink(fixturePath, symlinkPath);
+
+      const resources = await parseCloudFormation(symlinkPath);
+
+      expect(resources).toEqual([
+        {
+          provider: 'aws',
+          type: 'AWS::EC2::Volume',
+          name: 'MyVolume',
+          location: {
+            path: 'linked-template.yaml',
+            line: 3,
+            column: 3,
+          },
+          attributeLocations: {
+            Type: {
+              path: 'linked-template.yaml',
+              line: 4,
+              column: 5,
+            },
+            Condition: {
+              path: 'linked-template.yaml',
+              line: 5,
+              column: 5,
+            },
+            Properties: {
+              path: 'linked-template.yaml',
+              line: 6,
+              column: 5,
+            },
+            'Properties.AvailabilityZone': {
+              path: 'linked-template.yaml',
+              line: 7,
+              column: 7,
+            },
+            'Properties.Size': {
+              path: 'linked-template.yaml',
+              line: 8,
+              column: 7,
+            },
+            'Properties.VolumeType': {
+              path: 'linked-template.yaml',
+              line: 9,
+              column: 7,
+            },
+          },
+          attributes: {
+            Condition: 'CreateVolume',
+            Properties: {
+              AvailabilityZone: {
+                Ref: 'AvailabilityZone',
+              },
+              Size: 100,
+              VolumeType: 'gp2',
+            },
+          },
+        },
+      ]);
+    } finally {
+      await rm(tempDirectory, { force: true, recursive: true });
+    }
+  });
+
+  it('parses explicit cloudformation symlink directory roots', async () => {
+    const targetDirectory = await mkdtemp(join(tmpdir(), 'cloudburn-cfn-root-target-'));
+    const tempDirectory = await mkdtemp(join(tmpdir(), 'cloudburn-cfn-root-dir-link-'));
+
+    try {
+      await writeFile(
+        join(targetDirectory, 'template.yaml'),
+        ['Resources:', '  Bucket:', '    Type: AWS::S3::Bucket', ''].join('\n'),
+      );
+
+      const symlinkPath = join(tempDirectory, 'linked-directory');
+
+      await symlink(targetDirectory, symlinkPath);
+
+      const resources = await parseCloudFormation(symlinkPath);
+
+      expect(resources).toEqual([
+        {
+          provider: 'aws',
+          type: 'AWS::S3::Bucket',
+          name: 'Bucket',
+          location: {
+            path: 'template.yaml',
+            line: 2,
+            column: 3,
+          },
+          attributeLocations: {
+            Type: {
+              path: 'template.yaml',
+              line: 3,
+              column: 5,
+            },
+          },
+          attributes: {},
+        },
+      ]);
+    } finally {
+      await rm(tempDirectory, { force: true, recursive: true });
+      await rm(targetDirectory, { force: true, recursive: true });
+    }
+  });
+
+  it('skips cloudformation symlink files', async () => {
+    const fixturePath = fileURLToPath(new URL('./fixtures/cloudformation/ebs-volume.yaml', import.meta.url));
+    const tempDirectory = await mkdtemp(join(tmpdir(), 'cloudburn-cfn-symlink-'));
+
+    try {
+      const symlinkPath = join(tempDirectory, 'template.yaml');
+
+      await symlink(fixturePath, symlinkPath);
+
+      const resources = await parseCloudFormation(tempDirectory);
+
+      expect(resources).toEqual([]);
+    } finally {
+      await rm(tempDirectory, { force: true, recursive: true });
+    }
+  });
+
+  it('skips oversized cloudformation templates', async () => {
+    const tempDirectory = await mkdtemp(join(tmpdir(), 'cloudburn-cfn-size-'));
+
+    try {
+      const templatePath = join(tempDirectory, 'large-template.yaml');
+      const filler = 'A'.repeat(6 * 1024 * 1024);
+
+      await writeFile(
+        templatePath,
+        [
+          'Resources:',
+          '  HugeTemplate:',
+          '    Type: AWS::S3::Bucket',
+          '    Metadata:',
+          `      Notes: ${filler}`,
+          '',
+        ].join('\n'),
+      );
+
+      const resources = await parseCloudFormation(templatePath);
+
+      expect(resources).toEqual([]);
+    } finally {
+      await rm(tempDirectory, { force: true, recursive: true });
+    }
   });
 
   it('auto-detects mixed terraform and cloudformation directories in stable order', async () => {
