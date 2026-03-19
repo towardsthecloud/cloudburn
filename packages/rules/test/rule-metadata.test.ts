@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { awsRules } from '../src/index.js';
 
+const RULE_ID_PATTERN = /^CLDBRN-([A-Z0-9]+)-([A-Z0-9]+)-(\d+)$/;
+
 describe('rule metadata', () => {
   it('ensures every aws rule has mandatory metadata fields', () => {
     for (const rule of awsRules) {
@@ -19,6 +21,34 @@ describe('rule metadata', () => {
         expect(rule.staticDependencies).toBeDefined();
         expect(rule.staticDependencies?.length).toBeGreaterThan(0);
       }
+    }
+  });
+
+  it('uses unique rule numbers per provider and service without requiring contiguous numbering', () => {
+    const seenRuleIds = new Set<string>();
+    const numbersByScope = new Map<string, number[]>();
+
+    for (const rule of awsRules) {
+      expect(seenRuleIds.has(rule.id)).toBe(false);
+      seenRuleIds.add(rule.id);
+
+      const match = RULE_ID_PATTERN.exec(rule.id);
+
+      expect(match).not.toBeNull();
+
+      const [, provider, service, suffix] = match ?? [];
+      const scopeKey = `${provider}-${service}`;
+      const ruleNumbers = numbersByScope.get(scopeKey) ?? [];
+
+      ruleNumbers.push(Number.parseInt(suffix, 10));
+      numbersByScope.set(scopeKey, ruleNumbers);
+    }
+
+    for (const ruleNumbers of numbersByScope.values()) {
+      const sortedRuleNumbers = [...ruleNumbers].sort((left, right) => left - right);
+
+      expect(sortedRuleNumbers).toEqual([...new Set(sortedRuleNumbers)]);
+      expect(sortedRuleNumbers.every((ruleNumber) => ruleNumber > 0)).toBe(true);
     }
   });
 
