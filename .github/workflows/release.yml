@@ -38,6 +38,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Create release pull request or publish
+        id: changesets
         uses: changesets/action@v1
         with:
           publish: pnpm release
@@ -46,3 +47,55 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HUSKY: 0
+
+      - name: Update Homebrew tap
+        if: >-
+          steps.changesets.outputs.published == 'true' &&
+          contains(steps.changesets.outputs.publishedPackages, '"cloudburn"')
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          VERSION=$(node -p "require('./packages/cloudburn/package.json').version")
+          TARBALL_URL="https://registry.npmjs.org/cloudburn/-/cloudburn-${VERSION}.tgz"
+          SHA256=$(curl -sL "$TARBALL_URL" | shasum -a 256 | cut -d ' ' -f 1)
+
+          cat > /tmp/cloudburn.rb <<FORMULA
+          class Cloudburn < Formula
+            desc "CLI for cloud cost optimization"
+            homepage "https://cloudburn.io/docs"
+            url "${TARBALL_URL}"
+            sha256 "${SHA256}"
+            license "Apache-2.0"
+
+            depends_on "node"
+
+            def install
+              system "npm", "install", *std_npm_args
+              bin.install_symlink libexec.glob("bin/*")
+            end
+
+            test do
+              assert_match version.to_s, shell_output("\#{bin}/cloudburn --version")
+            end
+          end
+          FORMULA
+          # Remove leading whitespace from heredoc
+          sed -i 's/^          //' /tmp/cloudburn.rb
+
+          # Push updated formula to the homebrew tap repo
+          CONTENT=$(base64 -w 0 < /tmp/cloudburn.rb)
+          EXISTING_SHA=$(curl -s -H "Authorization: token $HOMEBREW_TAP_TOKEN" \
+            "https://api.github.com/repos/towardsthecloud/homebrew-tap/contents/Formula/cloudburn.rb" \
+            | jq -r '.sha // empty')
+
+          JSON_PAYLOAD=$(jq -n \
+            --arg message "chore: update cloudburn to ${VERSION}" \
+            --arg content "$CONTENT" \
+            --arg sha "$EXISTING_SHA" \
+            'if $sha == "" then {message: $message, content: $content} else {message: $message, content: $content, sha: $sha} end')
+
+          curl -s -X PUT \
+            -H "Authorization: token $HOMEBREW_TAP_TOKEN" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/repos/towardsthecloud/homebrew-tap/contents/Formula/cloudburn.rb" \
+            -d "$JSON_PAYLOAD"
