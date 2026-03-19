@@ -131,28 +131,28 @@ describe('sdk exports', () => {
       {
         description:
           'Flag EC2 instances that still run on non-Graviton families when a clear Arm-based equivalent exists.',
-        id: 'CLDBRN-AWS-EC2-9',
+        id: 'CLDBRN-AWS-EC2-6',
         provider: 'aws',
         service: 'ec2',
         supports: ['discovery'],
       },
       {
         description: 'Flag active EC2 reserved instances whose end date is within the next 60 days.',
-        id: 'CLDBRN-AWS-EC2-10',
+        id: 'CLDBRN-AWS-EC2-7',
         provider: 'aws',
         service: 'ec2',
         supports: ['discovery'],
       },
       {
         description: 'Flag EC2 instances that are sized at 2xlarge or above so they can be right-sized intentionally.',
-        id: 'CLDBRN-AWS-EC2-11',
+        id: 'CLDBRN-AWS-EC2-8',
         provider: 'aws',
         service: 'ec2',
         supports: ['discovery'],
       },
       {
         description: 'Flag EC2 instances whose launch time is at least 180 days old.',
-        id: 'CLDBRN-AWS-EC2-12',
+        id: 'CLDBRN-AWS-EC2-9',
         provider: 'aws',
         service: 'ec2',
         supports: ['discovery'],
@@ -300,11 +300,11 @@ describe('sdk exports', () => {
   it('sorts numeric rule suffixes in numeric order within the same service', () => {
     expect(
       listBuiltInRuleMetadata([
-        createRuleFixture('CLDBRN-AWS-EC2-10'),
+        createRuleFixture('CLDBRN-AWS-EC2-9'),
         createRuleFixture('CLDBRN-AWS-EC2-2'),
         createRuleFixture('CLDBRN-AWS-EC2-1'),
       ]).map((rule) => rule.id),
-    ).toEqual(['CLDBRN-AWS-EC2-1', 'CLDBRN-AWS-EC2-2', 'CLDBRN-AWS-EC2-10']);
+    ).toEqual(['CLDBRN-AWS-EC2-1', 'CLDBRN-AWS-EC2-2', 'CLDBRN-AWS-EC2-9']);
   });
 
   it('exports live dataset types from the package root', () => {

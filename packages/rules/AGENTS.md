@@ -3,7 +3,7 @@
 ## Rule Authoring
 
 - `createRule` is mandatory for built-in rule declarations.
-- Rule IDs must use `CLDBRN-{PROVIDER}-{SERVICE}-{N}` in uppercase with no zero-padding. Never renumber existing IDs; gaps are allowed.
+- Rule IDs must use `CLDBRN-{PROVIDER}-{SERVICE}-{N}` in uppercase with no zero-padding. Keep numbering contiguous within each provider/service sequence; if a rule is removed or reordered, renumber later IDs and update references in the same change.
 - Rule evaluators return lean rule-level groups that include `ruleId`, `service`, `source`, `message`, and nested `FindingMatch[]`.
 - Rule names must describe the policy being enforced, not the migration or fix action.
 - Rule-level `message` is the canonical public policy text for scan output.
