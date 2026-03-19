@@ -106,6 +106,30 @@ export type AwsEc2ElasticIp = {
   accountId: string;
 };
 
+/** Discovered ElastiCache cluster normalized for reservation checks. */
+export type AwsElastiCacheCluster = {
+  cacheClusterId: string;
+  cacheNodeType: string;
+  engine: string;
+  numCacheNodes: number;
+  cacheClusterCreateTime?: string;
+  cacheClusterStatus?: string;
+  region: string;
+  accountId: string;
+};
+
+/** Discovered ElastiCache reserved node normalized for coverage checks. */
+export type AwsElastiCacheReservedNode = {
+  reservedCacheNodeId: string;
+  cacheNodeType: string;
+  cacheNodeCount: number;
+  productDescription?: string;
+  startTime?: string;
+  state?: string;
+  region: string;
+  accountId: string;
+};
+
 /** Discovered VPC endpoint with its 30-day data transfer total. */
 export type AwsEc2VpcEndpointActivity = {
   vpcEndpointId: string;
@@ -115,6 +139,27 @@ export type AwsEc2VpcEndpointActivity = {
   vpcEndpointType: string;
   /** `null` means CloudWatch returned incomplete datapoints for the 30-day lookback window. */
   bytesProcessedLast30Days: number | null;
+  region: string;
+  accountId: string;
+};
+
+/** Discovered EMR cluster normalized for instance-generation and idle checks. */
+export type AwsEmrCluster = {
+  clusterId: string;
+  clusterName: string;
+  instanceTypes: string[];
+  normalizedInstanceHours?: number;
+  readyDateTime?: string;
+  endDateTime?: string;
+  state?: string;
+  region: string;
+  accountId: string;
+};
+
+/** Discovered EMR cluster with its recent idle summary. */
+export type AwsEmrClusterMetric = {
+  clusterId: string;
+  idlePeriodsLast30Minutes: number | null;
   region: string;
   accountId: string;
 };
@@ -153,6 +198,44 @@ export type AwsEc2InstanceUtilization = {
   lowUtilizationDays: number;
   averageCpuUtilizationLast14Days: number;
   averageDailyNetworkBytesLast14Days: number;
+  region: string;
+  accountId: string;
+};
+
+/** Discovered Redshift cluster normalized for utilization and reservation checks. */
+export type AwsRedshiftCluster = {
+  clusterIdentifier: string;
+  nodeType: string;
+  numberOfNodes: number;
+  clusterCreateTime?: string;
+  clusterStatus?: string;
+  automatedSnapshotRetentionPeriod?: number;
+  hasPauseSchedule: boolean;
+  hasResumeSchedule: boolean;
+  /** `false` means schedule state could not be loaded, usually because `DescribeScheduledActions` was denied. */
+  pauseResumeStateAvailable?: boolean;
+  hsmEnabled: boolean;
+  multiAz?: string;
+  region: string;
+  accountId: string;
+  vpcId?: string;
+};
+
+/** Discovered Redshift cluster with its low-CPU summary. */
+export type AwsRedshiftClusterMetric = {
+  clusterIdentifier: string;
+  averageCpuUtilizationLast14Days: number | null;
+  region: string;
+  accountId: string;
+};
+
+/** Discovered Redshift reserved node normalized for coverage checks. */
+export type AwsRedshiftReservedNode = {
+  reservedNodeId: string;
+  nodeType: string;
+  nodeCount: number;
+  startTime?: string;
+  state?: string;
   region: string;
   accountId: string;
 };
@@ -300,6 +383,8 @@ export type DiscoveryDatasetKey =
   | 'aws-cloudwatch-log-groups'
   | 'aws-cloudwatch-log-streams'
   | 'aws-ebs-volumes'
+  | 'aws-elasticache-clusters'
+  | 'aws-elasticache-reserved-nodes'
   | 'aws-ecs-autoscaling'
   | 'aws-ecs-cluster-metrics'
   | 'aws-ecs-clusters'
@@ -314,9 +399,14 @@ export type DiscoveryDatasetKey =
   | 'aws-ec2-target-groups'
   | 'aws-ec2-vpc-endpoint-activity'
   | 'aws-eks-nodegroups'
+  | 'aws-emr-clusters'
+  | 'aws-emr-cluster-metrics'
   | 'aws-lambda-functions'
   | 'aws-rds-instance-activity'
   | 'aws-rds-instances'
+  | 'aws-redshift-clusters'
+  | 'aws-redshift-cluster-metrics'
+  | 'aws-redshift-reserved-nodes'
   | 'aws-s3-bucket-analyses';
 
 /** Normalized live discovery datasets available to rule evaluators. */
@@ -325,6 +415,8 @@ export type DiscoveryDatasetMap = {
   'aws-cloudwatch-log-groups': AwsCloudWatchLogGroup[];
   'aws-cloudwatch-log-streams': AwsCloudWatchLogStream[];
   'aws-ebs-volumes': AwsEbsVolume[];
+  'aws-elasticache-clusters': AwsElastiCacheCluster[];
+  'aws-elasticache-reserved-nodes': AwsElastiCacheReservedNode[];
   'aws-ecs-autoscaling': AwsEcsServiceAutoscaling[];
   'aws-ecs-cluster-metrics': AwsEcsClusterMetric[];
   'aws-ecs-clusters': AwsEcsCluster[];
@@ -339,9 +431,14 @@ export type DiscoveryDatasetMap = {
   'aws-ec2-target-groups': AwsEc2TargetGroup[];
   'aws-ec2-vpc-endpoint-activity': AwsEc2VpcEndpointActivity[];
   'aws-eks-nodegroups': AwsEksNodegroup[];
+  'aws-emr-clusters': AwsEmrCluster[];
+  'aws-emr-cluster-metrics': AwsEmrClusterMetric[];
   'aws-lambda-functions': AwsLambdaFunction[];
   'aws-rds-instance-activity': AwsRdsInstanceActivity[];
   'aws-rds-instances': AwsRdsInstance[];
+  'aws-redshift-clusters': AwsRedshiftCluster[];
+  'aws-redshift-cluster-metrics': AwsRedshiftClusterMetric[];
+  'aws-redshift-reserved-nodes': AwsRedshiftReservedNode[];
   'aws-s3-bucket-analyses': AwsS3BucketAnalysis[];
 };
 

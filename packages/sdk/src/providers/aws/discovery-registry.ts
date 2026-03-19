@@ -1,4 +1,5 @@
 import type { AwsDiscoveredResource, DiscoveryDatasetKey, DiscoveryDatasetMap } from '@cloudburn/rules';
+import type { ScanDiagnostic } from '../../types.js';
 import { hydrateAwsCloudTrailTrails } from './resources/cloudtrail.js';
 import { hydrateAwsCloudWatchLogGroups, hydrateAwsCloudWatchLogStreams } from './resources/cloudwatch-logs.js';
 import { hydrateAwsEbsVolumes } from './resources/ebs.js';
@@ -11,19 +12,49 @@ import { hydrateAwsEcsClusters, hydrateAwsEcsContainerInstances, hydrateAwsEcsSe
 import { hydrateAwsEcsAutoscaling } from './resources/ecs-autoscaling.js';
 import { hydrateAwsEcsClusterMetrics } from './resources/ecs-cluster-metrics.js';
 import { hydrateAwsEksNodegroups } from './resources/eks.js';
+import { hydrateAwsElastiCacheClusters, hydrateAwsElastiCacheReservedNodes } from './resources/elasticache.js';
 import { hydrateAwsEc2LoadBalancers, hydrateAwsEc2TargetGroups } from './resources/elbv2.js';
+import { hydrateAwsEmrClusterMetrics, hydrateAwsEmrClusters } from './resources/emr.js';
 import { hydrateAwsLambdaFunctions } from './resources/lambda.js';
 import { hydrateAwsRdsInstances } from './resources/rds.js';
 import { hydrateAwsRdsInstanceActivity } from './resources/rds-activity.js';
+import {
+  hydrateAwsRedshiftClusterMetrics,
+  hydrateAwsRedshiftClusters,
+  hydrateAwsRedshiftReservedNodes,
+} from './resources/redshift.js';
 import { hydrateAwsS3BucketAnalyses } from './resources/s3.js';
 import { hydrateAwsEc2VpcEndpointActivity } from './resources/vpc-endpoints.js';
+
+/**
+ * Non-fatal discovery dataset result that keeps loaded resources while also
+ * surfacing service-specific diagnostics for partially available data.
+ */
+export type AwsDiscoveryDatasetLoadResult<K extends DiscoveryDatasetKey = DiscoveryDatasetKey> = {
+  diagnostics?: ScanDiagnostic[];
+  resources: DiscoveryDatasetMap[K];
+};
 
 /** Declarative definition for one rule-facing AWS discovery dataset. */
 export type AwsDiscoveryDatasetDefinition<K extends DiscoveryDatasetKey = DiscoveryDatasetKey> = {
   datasetKey: K;
   resourceTypes: string[];
-  service: 'cloudtrail' | 'cloudwatch' | 'ebs' | 'ec2' | 'ecs' | 'ecr' | 'eks' | 'elb' | 'lambda' | 'rds' | 's3';
-  load: (resources: AwsDiscoveredResource[]) => Promise<DiscoveryDatasetMap[K]>;
+  service:
+    | 'cloudtrail'
+    | 'cloudwatch'
+    | 'ebs'
+    | 'ec2'
+    | 'ecs'
+    | 'ecr'
+    | 'eks'
+    | 'elasticache'
+    | 'elb'
+    | 'emr'
+    | 'lambda'
+    | 'rds'
+    | 'redshift'
+    | 's3';
+  load: (resources: AwsDiscoveredResource[]) => Promise<DiscoveryDatasetMap[K] | AwsDiscoveryDatasetLoadResult<K>>;
 };
 
 const awsDiscoveryDatasetRegistry: {
@@ -52,6 +83,18 @@ const awsDiscoveryDatasetRegistry: {
     resourceTypes: ['ec2:volume'],
     service: 'ebs',
     load: hydrateAwsEbsVolumes,
+  },
+  'aws-elasticache-clusters': {
+    datasetKey: 'aws-elasticache-clusters',
+    resourceTypes: ['elasticache:cluster'],
+    service: 'elasticache',
+    load: hydrateAwsElastiCacheClusters,
+  },
+  'aws-elasticache-reserved-nodes': {
+    datasetKey: 'aws-elasticache-reserved-nodes',
+    resourceTypes: ['elasticache:reserved-instance'],
+    service: 'elasticache',
+    load: hydrateAwsElastiCacheReservedNodes,
   },
   'aws-ecs-autoscaling': {
     datasetKey: 'aws-ecs-autoscaling',
@@ -142,6 +185,18 @@ const awsDiscoveryDatasetRegistry: {
     service: 'eks',
     load: hydrateAwsEksNodegroups,
   },
+  'aws-emr-clusters': {
+    datasetKey: 'aws-emr-clusters',
+    resourceTypes: ['elasticmapreduce:cluster'],
+    service: 'emr',
+    load: hydrateAwsEmrClusters,
+  },
+  'aws-emr-cluster-metrics': {
+    datasetKey: 'aws-emr-cluster-metrics',
+    resourceTypes: ['elasticmapreduce:cluster'],
+    service: 'emr',
+    load: hydrateAwsEmrClusterMetrics,
+  },
   'aws-lambda-functions': {
     datasetKey: 'aws-lambda-functions',
     resourceTypes: ['lambda:function'],
@@ -159,6 +214,26 @@ const awsDiscoveryDatasetRegistry: {
     resourceTypes: ['rds:db'],
     service: 'rds',
     load: hydrateAwsRdsInstances,
+  },
+  'aws-redshift-clusters': {
+    datasetKey: 'aws-redshift-clusters',
+    resourceTypes: ['redshift:cluster'],
+    service: 'redshift',
+    load: hydrateAwsRedshiftClusters,
+  },
+  'aws-redshift-cluster-metrics': {
+    datasetKey: 'aws-redshift-cluster-metrics',
+    resourceTypes: ['redshift:cluster'],
+    service: 'redshift',
+    load: hydrateAwsRedshiftClusterMetrics,
+  },
+  'aws-redshift-reserved-nodes': {
+    datasetKey: 'aws-redshift-reserved-nodes',
+    // Resource Explorer does not surface Redshift reserved nodes, so cluster
+    // resources seed the regions we need to query with DescribeReservedNodes.
+    resourceTypes: ['redshift:cluster'],
+    service: 'redshift',
+    load: hydrateAwsRedshiftReservedNodes,
   },
   'aws-s3-bucket-analyses': {
     datasetKey: 'aws-s3-bucket-analyses',

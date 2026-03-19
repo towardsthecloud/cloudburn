@@ -29,6 +29,40 @@ export const chunkItems = <T>(items: T[], size: number): T[][] => {
 };
 
 /**
+ * Extracts the terminal identifier directly from an AWS ARN.
+ *
+ * Some Resource Explorer `name` fields are human-readable labels instead of
+ * API identifiers, so loaders can use the ARN segment when the service
+ * requires the canonical identifier.
+ *
+ * @param arn - Full AWS ARN for the discovered resource.
+ * @returns The trailing ARN identifier, or `null` when the ARN is malformed.
+ */
+export const extractTerminalArnResourceIdentifier = (arn: string): string | null => {
+  const match = /[:/]([^:/]+)$/u.exec(arn);
+
+  return match?.[1] ?? null;
+};
+
+/**
+ * Extracts the terminal identifier from a Resource Explorer result.
+ *
+ * Resource Explorer resource names are not guaranteed for every service, so
+ * loaders can fall back to the last ARN segment when the name is absent.
+ *
+ * @param resourceName - Optional resource name reported by Resource Explorer.
+ * @param arn - Full AWS ARN for the discovered resource.
+ * @returns The terminal identifier, or `null` when neither source is usable.
+ */
+export const extractTerminalResourceIdentifier = (resourceName: string | undefined, arn: string): string | null => {
+  if (resourceName) {
+    return resourceName;
+  }
+
+  return extractTerminalArnResourceIdentifier(arn);
+};
+
+/**
  * Wraps an AWS API call so service/operation/region context is preserved on failures.
  *
  * @param service - AWS service label.

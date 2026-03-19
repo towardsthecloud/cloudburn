@@ -37,11 +37,17 @@ Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
 | `CLDBRN-AWS-EBS-3`    | EBS Volume Attached To Stopped Instances  | ebs     | discovery      | Implemented |
 | `CLDBRN-AWS-ECR-1`    | ECR Repository Missing Lifecycle Policy   | ecr     | iac, discovery | Implemented |
 | `CLDBRN-AWS-EKS-1`    | EKS Node Group Without Graviton           | eks     | discovery      | Implemented |
+| `CLDBRN-AWS-ELASTICACHE-1` | ElastiCache Cluster Missing Reserved Coverage | elasticache | discovery | Implemented |
 | `CLDBRN-AWS-ELB-1`    | Application Load Balancer Without Targets | elb     | discovery      | Implemented |
 | `CLDBRN-AWS-ELB-2`    | Classic Load Balancer Without Instances   | elb     | discovery      | Implemented |
 | `CLDBRN-AWS-ELB-3`    | Gateway Load Balancer Without Targets     | elb     | discovery      | Implemented |
+| `CLDBRN-AWS-EMR-1`    | EMR Cluster Previous Generation Instance Types | emr | discovery | Implemented |
+| `CLDBRN-AWS-EMR-2`    | EMR Cluster Idle                          | emr     | discovery      | Implemented |
 | `CLDBRN-AWS-RDS-1`    | RDS Instance Class Not Preferred          | rds     | iac, discovery | Implemented |
 | `CLDBRN-AWS-RDS-2`    | RDS DB Instance Idle                      | rds     | discovery      | Implemented |
+| `CLDBRN-AWS-REDSHIFT-1` | Redshift Cluster Low CPU Utilization    | redshift | discovery     | Implemented |
+| `CLDBRN-AWS-REDSHIFT-2` | Redshift Cluster Missing Reserved Coverage | redshift | discovery   | Implemented |
+| `CLDBRN-AWS-REDSHIFT-3` | Redshift Cluster Pause Resume Not Enabled | redshift | discovery    | Implemented |
 | `CLDBRN-AWS-S3-1`     | S3 Missing Lifecycle Configuration        | s3      | iac, discovery | Implemented |
 | `CLDBRN-AWS-S3-2`     | S3 Bucket Storage Class Not Optimized     | s3      | iac, discovery | Implemented |
 | `CLDBRN-AWS-LAMBDA-1` | Lambda Cost Optimal Architecture          | lambda  | iac, discovery | Implemented |
@@ -66,7 +72,19 @@ Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
 
 `CLDBRN-AWS-EKS-1` flags only managed node groups with classifiable non-Arm instance families. Arm AMIs and unclassified node groups are skipped.
 
+`CLDBRN-AWS-ELASTICACHE-1` reviews only `available` clusters with a parsed create time at least 180 days old and requires active reserved-node capacity on the same node type, preferring exact engine matches when ElastiCache reports them.
+
 `CLDBRN-AWS-ELB-1` and `CLDBRN-AWS-ELB-3` flag load balancers with no attached target groups or no registered targets across attached target groups.
+
+`CLDBRN-AWS-EMR-1` reuses the built-in EC2 family policy. EMR clusters are flagged when any discovered cluster instance type falls into the current non-preferred, previous-generation family set.
+
+`CLDBRN-AWS-EMR-2` flags only active clusters whose `IsIdle` metric stays true for six consecutive 5-minute periods, which is a 30-minute idle window.
+
+`CLDBRN-AWS-REDSHIFT-1` reviews only `available` clusters and treats a 14-day average `CPUUtilization` of 10% or lower as low utilization.
+
+`CLDBRN-AWS-REDSHIFT-2` reviews only `available` clusters with a parsed create time at least 180 days old and requires active reserved-node coverage for the same node type.
+
+`CLDBRN-AWS-REDSHIFT-3` flags only `available`, VPC-backed clusters with automated snapshots enabled, no HSM, and no Multi-AZ deployment when either the pause or resume schedule is missing.
 
 **Status key:**
 

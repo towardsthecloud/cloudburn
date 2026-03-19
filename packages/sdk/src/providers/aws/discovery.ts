@@ -183,6 +183,19 @@ const buildAccessDeniedDiagnosticMessage = (service: string, region: string, err
     ? `Skipped ${service} discovery in ${region} because access is denied by a service control policy (SCP).`
     : `Skipped ${service} discovery in ${region} because access is denied by AWS permissions.`;
 
+const normalizeDatasetLoadResult = (
+  loadResult: unknown[] | { diagnostics?: ScanDiagnostic[]; resources: unknown[] },
+): { diagnostics: ScanDiagnostic[]; resources: unknown[] } =>
+  Array.isArray(loadResult)
+    ? {
+        diagnostics: [],
+        resources: loadResult,
+      }
+    : {
+        diagnostics: loadResult.diagnostics ?? [],
+        resources: loadResult.resources,
+      };
+
 /**
  * Discovers AWS resources for live rule evaluation using Resource Explorer and
  * registry-driven discovery datasets.
@@ -233,7 +246,9 @@ export const discoverAwsResources = async (
 
       for (const [region, regionResources] of resourcesByRegion) {
         try {
-          loadedResources.push(...(await definition.load(regionResources)));
+          const loadResult = normalizeDatasetLoadResult(await definition.load(regionResources));
+          loadedResources.push(...loadResult.resources);
+          diagnostics.push(...loadResult.diagnostics);
         } catch (err) {
           if (!isAwsAccessDeniedError(err)) {
             throw err;

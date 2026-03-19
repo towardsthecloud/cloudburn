@@ -188,6 +188,22 @@ describe('rule metadata', () => {
     });
   });
 
+  it('defines the expected ElastiCache reserved-coverage rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-ELASTICACHE-1');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-ELASTICACHE-1',
+      name: 'ElastiCache Cluster Missing Reserved Coverage',
+      description: 'Flag long-running ElastiCache clusters that do not have matching active reserved-node coverage.',
+      message: 'Long-running ElastiCache clusters should have reserved node coverage.',
+      provider: 'aws',
+      service: 'elasticache',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-elasticache-clusters', 'aws-elasticache-reserved-nodes'],
+    });
+  });
+
   it('defines the expected EBS current-generation rule metadata', () => {
     const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-EBS-1');
 
@@ -251,6 +267,38 @@ describe('rule metadata', () => {
       service: 'ec2',
       supports: ['discovery'],
       discoveryDependencies: ['aws-ec2-elastic-ips'],
+    });
+  });
+
+  it('defines the expected EMR previous-generation-instance-types rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-EMR-1');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-EMR-1',
+      name: 'EMR Cluster Previous Generation Instance Types',
+      description: 'Flag EMR clusters that still use previous-generation EC2 instance types.',
+      message: 'EMR clusters using previous-generation instance types should be reviewed.',
+      provider: 'aws',
+      service: 'emr',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-emr-clusters'],
+    });
+  });
+
+  it('defines the expected EMR idle-cluster rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-EMR-2');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-EMR-2',
+      name: 'EMR Cluster Idle',
+      description: 'Flag active EMR clusters whose `IsIdle` metric stays true for at least 30 minutes.',
+      message: 'EMR clusters idle for more than 30 minutes should be reviewed.',
+      provider: 'aws',
+      service: 'emr',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-emr-clusters', 'aws-emr-cluster-metrics'],
     });
   });
 
@@ -480,6 +528,54 @@ describe('rule metadata', () => {
       service: 'rds',
       supports: ['discovery'],
       discoveryDependencies: ['aws-rds-instance-activity'],
+    });
+  });
+
+  it('defines the expected Redshift low-cpu rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-REDSHIFT-1');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-REDSHIFT-1',
+      name: 'Redshift Cluster Low CPU Utilization',
+      description: 'Flag available Redshift clusters whose 14-day average CPU stays at or below 10%.',
+      message: 'Redshift clusters with low CPU utilization should be reviewed.',
+      provider: 'aws',
+      service: 'redshift',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-redshift-clusters', 'aws-redshift-cluster-metrics'],
+    });
+  });
+
+  it('defines the expected Redshift reserved-coverage rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-REDSHIFT-2');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-REDSHIFT-2',
+      name: 'Redshift Cluster Missing Reserved Coverage',
+      description: 'Flag long-running Redshift clusters that do not have matching active reserved-node coverage.',
+      message: 'Long-running Redshift clusters should have reserved node coverage.',
+      provider: 'aws',
+      service: 'redshift',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-redshift-clusters', 'aws-redshift-reserved-nodes'],
+    });
+  });
+
+  it('defines the expected Redshift pause-resume rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-REDSHIFT-3');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-REDSHIFT-3',
+      name: 'Redshift Cluster Pause Resume Not Enabled',
+      description: 'Flag eligible Redshift clusters that do not have both pause and resume schedules configured.',
+      message: 'Redshift clusters should enable both pause and resume schedules when eligible.',
+      provider: 'aws',
+      service: 'redshift',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-redshift-clusters'],
     });
   });
 });

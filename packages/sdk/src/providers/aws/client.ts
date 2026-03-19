@@ -8,8 +8,11 @@ import { ECSClient } from '@aws-sdk/client-ecs';
 import { EKSClient } from '@aws-sdk/client-eks';
 import { ElasticLoadBalancingClient } from '@aws-sdk/client-elastic-load-balancing';
 import { ElasticLoadBalancingV2Client } from '@aws-sdk/client-elastic-load-balancing-v2';
+import { ElastiCacheClient } from '@aws-sdk/client-elasticache';
+import { EMRClient } from '@aws-sdk/client-emr';
 import { LambdaClient } from '@aws-sdk/client-lambda';
 import { RDSClient } from '@aws-sdk/client-rds';
+import { RedshiftClient } from '@aws-sdk/client-redshift';
 import { ResourceExplorer2Client } from '@aws-sdk/client-resource-explorer-2';
 import { S3Client } from '@aws-sdk/client-s3';
 import { GetCallerIdentityCommand, STSClient } from '@aws-sdk/client-sts';
@@ -68,6 +71,12 @@ export const createApplicationAutoScalingClient = (config: AwsClientConfig): App
     region: config.region,
   });
 
+/** Creates an AWS ElastiCache client for a specific region. */
+export const createElastiCacheClient = (config: AwsClientConfig): ElastiCacheClient =>
+  new ElastiCacheClient({
+    region: config.region,
+  });
+
 /** Creates an AWS Classic ELB client for a specific region. */
 export const createElasticLoadBalancingClient = (config: AwsClientConfig): ElasticLoadBalancingClient =>
   new ElasticLoadBalancingClient({
@@ -104,9 +113,21 @@ export const createLambdaClient = (config: AwsClientConfig): LambdaClient =>
     region: config.region,
   });
 
+/** Creates an AWS EMR client for a specific region. */
+export const createEmrClient = (config: AwsClientConfig): EMRClient =>
+  new EMRClient({
+    region: config.region,
+  });
+
 /** Creates an AWS RDS client for a specific region. */
 export const createRdsClient = (config: AwsClientConfig): RDSClient =>
   new RDSClient({
+    region: config.region,
+  });
+
+/** Creates an AWS Redshift client for a specific region. */
+export const createRedshiftClient = (config: AwsClientConfig): RedshiftClient =>
+  new RedshiftClient({
     region: config.region,
   });
 

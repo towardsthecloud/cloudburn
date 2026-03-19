@@ -7,7 +7,10 @@ import {
   type AwsCloudWatchLogStream,
   type AwsEcsClusterMetric,
   type AwsEksNodegroup,
+  type AwsElastiCacheCluster,
+  type AwsEmrCluster,
   type AwsRdsInstance,
+  type AwsRedshiftCluster,
   builtInRuleMetadata,
   parseIaC,
   type Rule,
@@ -192,6 +195,13 @@ describe('sdk exports', () => {
         supports: ['discovery'],
       },
       {
+        description: 'Flag long-running ElastiCache clusters that do not have matching active reserved-node coverage.',
+        id: 'CLDBRN-AWS-ELASTICACHE-1',
+        provider: 'aws',
+        service: 'elasticache',
+        supports: ['discovery'],
+      },
+      {
         description: 'Flag Application Load Balancers that have no attached target groups or no registered targets.',
         id: 'CLDBRN-AWS-ELB-1',
         provider: 'aws',
@@ -213,6 +223,20 @@ describe('sdk exports', () => {
         supports: ['discovery'],
       },
       {
+        description: 'Flag EMR clusters that still use previous-generation EC2 instance types.',
+        id: 'CLDBRN-AWS-EMR-1',
+        provider: 'aws',
+        service: 'emr',
+        supports: ['discovery'],
+      },
+      {
+        description: 'Flag active EMR clusters whose `IsIdle` metric stays true for at least 30 minutes.',
+        id: 'CLDBRN-AWS-EMR-2',
+        provider: 'aws',
+        service: 'emr',
+        supports: ['discovery'],
+      },
+      {
         description: 'Recommend arm64 architecture when compatible.',
         id: 'CLDBRN-AWS-LAMBDA-1',
         provider: 'aws',
@@ -231,6 +255,27 @@ describe('sdk exports', () => {
         id: 'CLDBRN-AWS-RDS-2',
         provider: 'aws',
         service: 'rds',
+        supports: ['discovery'],
+      },
+      {
+        description: 'Flag available Redshift clusters whose 14-day average CPU stays at or below 10%.',
+        id: 'CLDBRN-AWS-REDSHIFT-1',
+        provider: 'aws',
+        service: 'redshift',
+        supports: ['discovery'],
+      },
+      {
+        description: 'Flag long-running Redshift clusters that do not have matching active reserved-node coverage.',
+        id: 'CLDBRN-AWS-REDSHIFT-2',
+        provider: 'aws',
+        service: 'redshift',
+        supports: ['discovery'],
+      },
+      {
+        description: 'Flag eligible Redshift clusters that do not have both pause and resume schedules configured.',
+        id: 'CLDBRN-AWS-REDSHIFT-3',
+        provider: 'aws',
+        service: 'redshift',
         supports: ['discovery'],
       },
       {
@@ -302,6 +347,35 @@ describe('sdk exports', () => {
       nodegroupName: 'workers',
       region: 'us-east-1',
     };
+    const elastiCacheCluster: AwsElastiCacheCluster = {
+      accountId: '123456789012',
+      cacheClusterCreateTime: '2025-01-01T00:00:00.000Z',
+      cacheClusterId: 'cache-prod',
+      cacheClusterStatus: 'available',
+      cacheNodeType: 'cache.r6g.large',
+      engine: 'redis',
+      numCacheNodes: 2,
+      region: 'us-east-1',
+    };
+    const emrCluster: AwsEmrCluster = {
+      accountId: '123456789012',
+      clusterId: 'j-CLUSTER1',
+      clusterName: 'analytics',
+      instanceTypes: ['m8g.xlarge'],
+      region: 'us-east-1',
+    };
+    const redshiftCluster: AwsRedshiftCluster = {
+      accountId: '123456789012',
+      automatedSnapshotRetentionPeriod: 1,
+      clusterIdentifier: 'warehouse-prod',
+      hasPauseSchedule: false,
+      hasResumeSchedule: true,
+      hsmEnabled: false,
+      nodeType: 'ra3.xlplus',
+      numberOfNodes: 2,
+      region: 'us-east-1',
+      vpcId: 'vpc-123',
+    };
     const instance: AwsRdsInstance = {
       accountId: '123456789012',
       dbInstanceIdentifier: 'legacy-db',
@@ -314,7 +388,10 @@ describe('sdk exports', () => {
     expect(logStream.logStreamName).toContain('[$LATEST]');
     expect(ecsClusterMetric.averageCpuUtilizationLast14Days).toBe(4.2);
     expect(eksNodegroup.nodegroupName).toBe('workers');
+    expect(elastiCacheCluster.cacheClusterId).toBe('cache-prod');
+    expect(emrCluster.clusterId).toBe('j-CLUSTER1');
     expect(instance.dbInstanceIdentifier).toBe('legacy-db');
+    expect(redshiftCluster.clusterIdentifier).toBe('warehouse-prod');
   });
 
   it('clones supports arrays so metadata consumers cannot mutate source rule definitions', () => {

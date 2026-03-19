@@ -5,9 +5,12 @@ import { ec2Rules } from './ec2/index.js';
 import { ecrRules } from './ecr/index.js';
 import { ecsRules } from './ecs/index.js';
 import { eksRules } from './eks/index.js';
+import { elastiCacheRules } from './elasticache/index.js';
 import { elbRules } from './elb/index.js';
+import { emrRules } from './emr/index.js';
 import { lambdaRules } from './lambda/index.js';
 import { rdsRules } from './rds/index.js';
+import { redshiftRules } from './redshift/index.js';
 import { s3Rules } from './s3/index.js';
 
 // Intent: aggregate all AWS rules into a single provider collection.
@@ -18,10 +21,13 @@ export const awsRules = [
   ...ec2Rules,
   ...ecsRules,
   ...eksRules,
+  ...elastiCacheRules,
   ...elbRules,
   ...ebsRules,
   ...ecrRules,
+  ...emrRules,
   ...rdsRules,
+  ...redshiftRules,
   ...s3Rules,
   ...lambdaRules,
 ];

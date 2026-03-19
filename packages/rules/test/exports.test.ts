@@ -9,7 +9,14 @@ import type {
   AwsEcsClusterMetric,
   AwsEcsService,
   AwsEksNodegroup,
+  AwsElastiCacheCluster,
+  AwsElastiCacheReservedNode,
+  AwsEmrCluster,
+  AwsEmrClusterMetric,
   AwsRdsInstance,
+  AwsRedshiftCluster,
+  AwsRedshiftClusterMetric,
+  AwsRedshiftReservedNode,
   AwsStaticRdsInstance,
   DiscoveryDatasetKey,
   StaticDatasetKey,
@@ -51,10 +58,16 @@ describe('rule exports', () => {
         'CLDBRN-AWS-EBS-3',
         'CLDBRN-AWS-ECR-1',
         'CLDBRN-AWS-EKS-1',
+        'CLDBRN-AWS-ELASTICACHE-1',
         'CLDBRN-AWS-ELB-1',
         'CLDBRN-AWS-ELB-2',
         'CLDBRN-AWS-ELB-3',
+        'CLDBRN-AWS-EMR-1',
+        'CLDBRN-AWS-EMR-2',
         'CLDBRN-AWS-RDS-2',
+        'CLDBRN-AWS-REDSHIFT-1',
+        'CLDBRN-AWS-REDSHIFT-2',
+        'CLDBRN-AWS-REDSHIFT-3',
         'CLDBRN-AWS-S3-1',
         'CLDBRN-AWS-S3-2',
       ]),
@@ -108,6 +121,38 @@ describe('rule exports', () => {
       region: 'us-east-1',
       registeredTargetCount: 0,
       targetGroupArn: 'arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/app/123',
+    };
+    const cacheCluster: AwsElastiCacheCluster = {
+      accountId: '123456789012',
+      cacheClusterCreateTime: '2025-01-01T00:00:00.000Z',
+      cacheClusterId: 'cache-prod',
+      cacheClusterStatus: 'available',
+      cacheNodeType: 'cache.r6g.large',
+      engine: 'redis',
+      numCacheNodes: 2,
+      region: 'us-east-1',
+    };
+    const reservedCacheNode: AwsElastiCacheReservedNode = {
+      accountId: '123456789012',
+      cacheNodeCount: 2,
+      cacheNodeType: 'cache.r6g.large',
+      productDescription: 'redis',
+      region: 'us-east-1',
+      reservedCacheNodeId: 'reserved-cache-prod',
+      state: 'active',
+    };
+    const emrCluster: AwsEmrCluster = {
+      accountId: '123456789012',
+      clusterId: 'j-CLUSTER1',
+      clusterName: 'analytics',
+      instanceTypes: ['m8g.xlarge'],
+      region: 'us-east-1',
+    };
+    const emrMetric: AwsEmrClusterMetric = {
+      accountId: '123456789012',
+      clusterId: emrCluster.clusterId,
+      idlePeriodsLast30Minutes: 6,
+      region: 'us-east-1',
     };
 
     const rdsInstance: AwsStaticRdsInstance = {
@@ -165,13 +210,46 @@ describe('rule exports', () => {
       nodegroupName: 'workers',
       region: 'us-east-1',
     };
+    const redshiftCluster: AwsRedshiftCluster = {
+      accountId: '123456789012',
+      automatedSnapshotRetentionPeriod: 1,
+      clusterIdentifier: 'warehouse-prod',
+      hasPauseSchedule: false,
+      hasResumeSchedule: true,
+      hsmEnabled: false,
+      nodeType: 'ra3.xlplus',
+      numberOfNodes: 2,
+      region: 'us-east-1',
+      vpcId: 'vpc-123',
+    };
+    const redshiftMetric: AwsRedshiftClusterMetric = {
+      accountId: '123456789012',
+      averageCpuUtilizationLast14Days: 4,
+      clusterIdentifier: redshiftCluster.clusterIdentifier,
+      region: 'us-east-1',
+    };
+    const redshiftReservedNode: AwsRedshiftReservedNode = {
+      accountId: '123456789012',
+      nodeCount: 2,
+      nodeType: redshiftCluster.nodeType,
+      region: 'us-east-1',
+      reservedNodeId: 'reserved-node-1',
+      state: 'active',
+    };
 
     const datasetKey: DiscoveryDatasetKey = 'aws-rds-instances';
     const cloudWatchDatasetKey: DiscoveryDatasetKey = 'aws-cloudwatch-log-groups';
     const cloudWatchLogStreamDatasetKey: DiscoveryDatasetKey = 'aws-cloudwatch-log-streams';
     const ecsAutoscalingDatasetKey: DiscoveryDatasetKey = 'aws-ecs-autoscaling';
+    const elastiCacheDatasetKey: DiscoveryDatasetKey = 'aws-elasticache-clusters';
+    const elastiCacheReservedDatasetKey: DiscoveryDatasetKey = 'aws-elasticache-reserved-nodes';
     const loadBalancerDatasetKey: DiscoveryDatasetKey = 'aws-ec2-load-balancers';
+    const emrDatasetKey: DiscoveryDatasetKey = 'aws-emr-clusters';
+    const emrMetricDatasetKey: DiscoveryDatasetKey = 'aws-emr-cluster-metrics';
     const reservedInstanceDatasetKey: DiscoveryDatasetKey = 'aws-ec2-reserved-instances';
+    const redshiftDatasetKey: DiscoveryDatasetKey = 'aws-redshift-clusters';
+    const redshiftMetricDatasetKey: DiscoveryDatasetKey = 'aws-redshift-cluster-metrics';
+    const redshiftReservedDatasetKey: DiscoveryDatasetKey = 'aws-redshift-reserved-nodes';
     const targetGroupDatasetKey: DiscoveryDatasetKey = 'aws-ec2-target-groups';
     const staticDatasetKey: StaticDatasetKey = 'aws-rds-instances';
 
@@ -179,13 +257,27 @@ describe('rule exports', () => {
     expect(cloudWatchDatasetKey).toBe('aws-cloudwatch-log-groups');
     expect(cloudWatchLogStreamDatasetKey).toBe('aws-cloudwatch-log-streams');
     expect(ecsAutoscalingDatasetKey).toBe('aws-ecs-autoscaling');
+    expect(elastiCacheDatasetKey).toBe('aws-elasticache-clusters');
+    expect(elastiCacheReservedDatasetKey).toBe('aws-elasticache-reserved-nodes');
     expect(loadBalancerDatasetKey).toBe('aws-ec2-load-balancers');
+    expect(emrDatasetKey).toBe('aws-emr-clusters');
+    expect(emrMetricDatasetKey).toBe('aws-emr-cluster-metrics');
     expect(reservedInstanceDatasetKey).toBe('aws-ec2-reserved-instances');
+    expect(redshiftDatasetKey).toBe('aws-redshift-clusters');
+    expect(redshiftMetricDatasetKey).toBe('aws-redshift-cluster-metrics');
+    expect(redshiftReservedDatasetKey).toBe('aws-redshift-reserved-nodes');
     expect(targetGroupDatasetKey).toBe('aws-ec2-target-groups');
+    expect(cacheCluster.cacheClusterStatus).toBe('available');
+    expect(reservedCacheNode.state).toBe('active');
     expect(ecsClusterMetric.averageCpuUtilizationLast14Days).toBe(4.2);
     expect(ecsService.schedulingStrategy).toBe('REPLICA');
     expect(eksNodegroup.nodegroupName).toBe('workers');
+    expect(emrCluster.clusterName).toBe('analytics');
+    expect(emrMetric.idlePeriodsLast30Minutes).toBe(6);
     expect(liveRdsInstance.dbInstanceIdentifier).toBe('legacy-db');
+    expect(redshiftCluster.nodeType).toBe('ra3.xlplus');
+    expect(redshiftMetric.averageCpuUtilizationLast14Days).toBe(4);
+    expect(redshiftReservedNode.state).toBe('active');
     expect(trail.isMultiRegionTrail).toBe(true);
     expect(logGroup.logGroupName).toBe('/aws/lambda/app');
     expect(reservedInstance.state).toBe('active');

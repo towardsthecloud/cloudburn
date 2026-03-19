@@ -37,10 +37,20 @@ import {
 import { hydrateAwsEcsAutoscaling } from '../../src/providers/aws/resources/ecs-autoscaling.js';
 import { hydrateAwsEcsClusterMetrics } from '../../src/providers/aws/resources/ecs-cluster-metrics.js';
 import { hydrateAwsEksNodegroups } from '../../src/providers/aws/resources/eks.js';
+import {
+  hydrateAwsElastiCacheClusters,
+  hydrateAwsElastiCacheReservedNodes,
+} from '../../src/providers/aws/resources/elasticache.js';
 import { hydrateAwsEc2LoadBalancers, hydrateAwsEc2TargetGroups } from '../../src/providers/aws/resources/elbv2.js';
+import { hydrateAwsEmrClusterMetrics, hydrateAwsEmrClusters } from '../../src/providers/aws/resources/emr.js';
 import { hydrateAwsLambdaFunctions } from '../../src/providers/aws/resources/lambda.js';
 import { hydrateAwsRdsInstances } from '../../src/providers/aws/resources/rds.js';
 import { hydrateAwsRdsInstanceActivity } from '../../src/providers/aws/resources/rds-activity.js';
+import {
+  hydrateAwsRedshiftClusterMetrics,
+  hydrateAwsRedshiftClusters,
+  hydrateAwsRedshiftReservedNodes,
+} from '../../src/providers/aws/resources/redshift.js';
 import { hydrateAwsS3BucketAnalyses } from '../../src/providers/aws/resources/s3.js';
 
 vi.mock('../../src/providers/aws/client.js', async (importOriginal) => {
@@ -66,6 +76,11 @@ vi.mock('../../src/providers/aws/resource-explorer.js', () => ({
 
 vi.mock('../../src/providers/aws/resources/ebs.js', () => ({
   hydrateAwsEbsVolumes: vi.fn(),
+}));
+
+vi.mock('../../src/providers/aws/resources/elasticache.js', () => ({
+  hydrateAwsElastiCacheClusters: vi.fn(),
+  hydrateAwsElastiCacheReservedNodes: vi.fn(),
 }));
 
 vi.mock('../../src/providers/aws/resources/ecs-autoscaling.js', () => ({
@@ -99,6 +114,11 @@ vi.mock('../../src/providers/aws/resources/eks.js', () => ({
   hydrateAwsEksNodegroups: vi.fn(),
 }));
 
+vi.mock('../../src/providers/aws/resources/emr.js', () => ({
+  hydrateAwsEmrClusterMetrics: vi.fn(),
+  hydrateAwsEmrClusters: vi.fn(),
+}));
+
 vi.mock('../../src/providers/aws/resources/ec2.js', () => ({
   hydrateAwsEc2Instances: vi.fn(),
 }));
@@ -128,6 +148,12 @@ vi.mock('../../src/providers/aws/resources/rds-activity.js', () => ({
   hydrateAwsRdsInstanceActivity: vi.fn(),
 }));
 
+vi.mock('../../src/providers/aws/resources/redshift.js', () => ({
+  hydrateAwsRedshiftClusterMetrics: vi.fn(),
+  hydrateAwsRedshiftClusters: vi.fn(),
+  hydrateAwsRedshiftReservedNodes: vi.fn(),
+}));
+
 vi.mock('../../src/providers/aws/resources/s3.js', () => ({
   hydrateAwsS3BucketAnalyses: vi.fn(),
 }));
@@ -146,12 +172,16 @@ const mockedHydrateAwsCloudTrailTrails = vi.mocked(hydrateAwsCloudTrailTrails);
 const mockedHydrateAwsCloudWatchLogGroups = vi.mocked(hydrateAwsCloudWatchLogGroups);
 const mockedHydrateAwsCloudWatchLogStreams = vi.mocked(hydrateAwsCloudWatchLogStreams);
 const mockedHydrateAwsEbsVolumes = vi.mocked(hydrateAwsEbsVolumes);
+const mockedHydrateAwsElastiCacheClusters = vi.mocked(hydrateAwsElastiCacheClusters);
+const mockedHydrateAwsElastiCacheReservedNodes = vi.mocked(hydrateAwsElastiCacheReservedNodes);
 const mockedHydrateAwsEcsAutoscaling = vi.mocked(hydrateAwsEcsAutoscaling);
 const mockedHydrateAwsEcsClusterMetrics = vi.mocked(hydrateAwsEcsClusterMetrics);
 const mockedHydrateAwsEcsClusters = vi.mocked(hydrateAwsEcsClusters);
 const mockedHydrateAwsEcsContainerInstances = vi.mocked(hydrateAwsEcsContainerInstances);
 const mockedHydrateAwsEcsServices = vi.mocked(hydrateAwsEcsServices);
 const mockedHydrateAwsEcrRepositories = vi.mocked(hydrateAwsEcrRepositories);
+const mockedHydrateAwsEmrClusterMetrics = vi.mocked(hydrateAwsEmrClusterMetrics);
+const mockedHydrateAwsEmrClusters = vi.mocked(hydrateAwsEmrClusters);
 const mockedHydrateAwsEc2Instances = vi.mocked(hydrateAwsEc2Instances);
 const mockedHydrateAwsEc2InstanceUtilization = vi.mocked(hydrateAwsEc2InstanceUtilization);
 const mockedHydrateAwsEc2ReservedInstances = vi.mocked(hydrateAwsEc2ReservedInstances);
@@ -161,6 +191,9 @@ const mockedHydrateAwsEksNodegroups = vi.mocked(hydrateAwsEksNodegroups);
 const mockedHydrateAwsLambdaFunctions = vi.mocked(hydrateAwsLambdaFunctions);
 const mockedHydrateAwsRdsInstanceActivity = vi.mocked(hydrateAwsRdsInstanceActivity);
 const mockedHydrateAwsRdsInstances = vi.mocked(hydrateAwsRdsInstances);
+const mockedHydrateAwsRedshiftClusterMetrics = vi.mocked(hydrateAwsRedshiftClusterMetrics);
+const mockedHydrateAwsRedshiftClusters = vi.mocked(hydrateAwsRedshiftClusters);
+const mockedHydrateAwsRedshiftReservedNodes = vi.mocked(hydrateAwsRedshiftReservedNodes);
 const mockedHydrateAwsS3BucketAnalyses = vi.mocked(hydrateAwsS3BucketAnalyses);
 
 const catalog: AwsDiscoveryCatalog = {
@@ -285,6 +318,38 @@ const catalog: AwsDiscoveryCatalog = {
       region: 'us-east-1',
       resourceType: 'eks:cluster',
       service: 'eks',
+    },
+    {
+      accountId: '123456789012',
+      arn: 'arn:aws:elasticache:us-east-1:123456789012:cluster:cache-prod',
+      properties: [],
+      region: 'us-east-1',
+      resourceType: 'elasticache:cluster',
+      service: 'elasticache',
+    },
+    {
+      accountId: '123456789012',
+      arn: 'arn:aws:elasticache:us-east-1:123456789012:reserved-instance:reserved-cache-prod',
+      properties: [],
+      region: 'us-east-1',
+      resourceType: 'elasticache:reserved-instance',
+      service: 'elasticache',
+    },
+    {
+      accountId: '123456789012',
+      arn: 'arn:aws:emr:us-east-1:123456789012:cluster/j-CLUSTER1',
+      properties: [],
+      region: 'us-east-1',
+      resourceType: 'elasticmapreduce:cluster',
+      service: 'emr',
+    },
+    {
+      accountId: '123456789012',
+      arn: 'arn:aws:redshift:us-east-1:123456789012:cluster:warehouse-prod',
+      properties: [],
+      region: 'us-east-1',
+      resourceType: 'redshift:cluster',
+      service: 'redshift',
     },
   ],
   searchRegion: 'us-east-1',
@@ -656,6 +721,130 @@ describe('discoverAwsResources', () => {
         region: 'us-east-1',
       },
     ]);
+  });
+
+  it('hydrates ElastiCache, EMR, and Redshift datasets when active rules require them', async () => {
+    mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
+      indexType: 'LOCAL',
+      resources: [catalog.resources[15], catalog.resources[16], catalog.resources[17], catalog.resources[18]],
+      searchRegion: 'us-east-1',
+    });
+    mockedHydrateAwsElastiCacheClusters.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        cacheClusterCreateTime: '2025-01-01T00:00:00.000Z',
+        cacheClusterId: 'cache-prod',
+        cacheClusterStatus: 'available',
+        cacheNodeType: 'cache.r6g.large',
+        engine: 'redis',
+        numCacheNodes: 2,
+        region: 'us-east-1',
+      },
+    ]);
+    mockedHydrateAwsElastiCacheReservedNodes.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        cacheNodeCount: 2,
+        cacheNodeType: 'cache.r6g.large',
+        productDescription: 'redis',
+        region: 'us-east-1',
+        reservedCacheNodeId: 'reserved-cache-prod',
+        state: 'active',
+      },
+    ]);
+    mockedHydrateAwsEmrClusters.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        clusterId: 'j-CLUSTER1',
+        clusterName: 'analytics',
+        instanceTypes: ['m8g.xlarge'],
+        region: 'us-east-1',
+        state: 'RUNNING',
+      },
+    ]);
+    mockedHydrateAwsEmrClusterMetrics.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        clusterId: 'j-CLUSTER1',
+        idlePeriodsLast30Minutes: 6,
+        region: 'us-east-1',
+      },
+    ]);
+    mockedHydrateAwsRedshiftClusters.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        automatedSnapshotRetentionPeriod: 1,
+        clusterIdentifier: 'warehouse-prod',
+        clusterStatus: 'available',
+        hasPauseSchedule: false,
+        hasResumeSchedule: true,
+        hsmEnabled: false,
+        nodeType: 'ra3.xlplus',
+        numberOfNodes: 2,
+        region: 'us-east-1',
+        vpcId: 'vpc-123',
+      },
+    ]);
+    mockedHydrateAwsRedshiftClusterMetrics.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        averageCpuUtilizationLast14Days: 4,
+        clusterIdentifier: 'warehouse-prod',
+        region: 'us-east-1',
+      },
+    ]);
+    mockedHydrateAwsRedshiftReservedNodes.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        nodeCount: 2,
+        nodeType: 'ra3.xlplus',
+        region: 'us-east-1',
+        reservedNodeId: 'reserved-node-1',
+        state: 'active',
+      },
+    ]);
+
+    const result = await discoverAwsResources(
+      [
+        createRule({
+          discoveryDependencies: ['aws-elasticache-clusters', 'aws-elasticache-reserved-nodes'],
+          id: 'CLDBRN-AWS-TEST-ELASTICACHE-1',
+          service: 'elasticache',
+        }),
+        createRule({
+          discoveryDependencies: ['aws-emr-clusters', 'aws-emr-cluster-metrics'],
+          id: 'CLDBRN-AWS-TEST-EMR-1',
+          service: 'emr',
+        }),
+        createRule({
+          discoveryDependencies: [
+            'aws-redshift-clusters',
+            'aws-redshift-cluster-metrics',
+            'aws-redshift-reserved-nodes',
+          ],
+          id: 'CLDBRN-AWS-TEST-REDSHIFT-1',
+          service: 'redshift',
+        }),
+      ],
+      { mode: 'region', region: 'us-east-1' },
+    );
+
+    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith({ mode: 'region', region: 'us-east-1' }, [
+      'elasticache:cluster',
+      'elasticache:reserved-instance',
+      'elasticmapreduce:cluster',
+      'redshift:cluster',
+    ]);
+    expect(mockedHydrateAwsElastiCacheClusters).toHaveBeenCalledWith([catalog.resources[15]]);
+    expect(mockedHydrateAwsElastiCacheReservedNodes).toHaveBeenCalledWith([catalog.resources[16]]);
+    expect(mockedHydrateAwsEmrClusters).toHaveBeenCalledWith([catalog.resources[17]]);
+    expect(mockedHydrateAwsEmrClusterMetrics).toHaveBeenCalledWith([catalog.resources[17]]);
+    expect(mockedHydrateAwsRedshiftClusters).toHaveBeenCalledWith([catalog.resources[18]]);
+    expect(mockedHydrateAwsRedshiftClusterMetrics).toHaveBeenCalledWith([catalog.resources[18]]);
+    expect(mockedHydrateAwsRedshiftReservedNodes).toHaveBeenCalledWith([catalog.resources[18]]);
+    expect(result.resources.get('aws-elasticache-clusters')).toHaveLength(1);
+    expect(result.resources.get('aws-emr-cluster-metrics')).toHaveLength(1);
+    expect(result.resources.get('aws-redshift-reserved-nodes')).toHaveLength(1);
   });
 
   it('hydrates CloudWatch log groups when an active rule requires the log-group dataset', async () => {
@@ -1154,6 +1343,87 @@ describe('discoverAwsResources', () => {
         provider: 'aws',
         region: 'us-east-1',
         service: 'ec2',
+        source: 'discovery',
+        status: 'access_denied',
+      },
+    ]);
+  });
+
+  it('records loader-supplied diagnostics without dropping the loaded dataset', async () => {
+    mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
+      indexType: 'LOCAL',
+      resources: [catalog.resources[18]],
+      searchRegion: 'us-east-1',
+    });
+    mockedHydrateAwsRedshiftClusters.mockResolvedValue({
+      diagnostics: [
+        {
+          code: 'AccessDeniedException',
+          details: 'Access denied',
+          message:
+            'Skipped redshift schedule discovery in us-east-1 because access is denied by AWS permissions. Pause/resume findings may be incomplete.',
+          provider: 'aws',
+          region: 'us-east-1',
+          service: 'redshift',
+          source: 'discovery',
+          status: 'access_denied',
+        },
+      ],
+      resources: [
+        {
+          accountId: '123456789012',
+          automatedSnapshotRetentionPeriod: 1,
+          clusterCreateTime: '2025-01-01T00:00:00.000Z',
+          clusterIdentifier: 'warehouse-prod',
+          clusterStatus: 'available',
+          hasPauseSchedule: false,
+          hasResumeSchedule: false,
+          hsmEnabled: false,
+          nodeType: 'ra3.xlplus',
+          numberOfNodes: 2,
+          pauseResumeStateAvailable: false,
+          region: 'us-east-1',
+          vpcId: 'vpc-123',
+        },
+      ],
+    });
+
+    const result = await discoverAwsResources(
+      [
+        createRule({
+          discoveryDependencies: ['aws-redshift-clusters'],
+          service: 'redshift',
+        }),
+      ],
+      { mode: 'region', region: 'us-east-1' },
+    );
+
+    expect(result.resources.get('aws-redshift-clusters')).toEqual([
+      {
+        accountId: '123456789012',
+        automatedSnapshotRetentionPeriod: 1,
+        clusterCreateTime: '2025-01-01T00:00:00.000Z',
+        clusterIdentifier: 'warehouse-prod',
+        clusterStatus: 'available',
+        hasPauseSchedule: false,
+        hasResumeSchedule: false,
+        hsmEnabled: false,
+        nodeType: 'ra3.xlplus',
+        numberOfNodes: 2,
+        pauseResumeStateAvailable: false,
+        region: 'us-east-1',
+        vpcId: 'vpc-123',
+      },
+    ]);
+    expect(result.diagnostics).toEqual([
+      {
+        code: 'AccessDeniedException',
+        details: 'Access denied',
+        message:
+          'Skipped redshift schedule discovery in us-east-1 because access is denied by AWS permissions. Pause/resume findings may be incomplete.',
+        provider: 'aws',
+        region: 'us-east-1',
+        service: 'redshift',
         source: 'discovery',
         status: 'access_denied',
       },
