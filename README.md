@@ -1,7 +1,7 @@
 [![CloudBurn GitHub Header](./images/cloudburn-gh-banner.png)](https://cloudburn.io)
 <div align="center">
 <p align="center">
-  Cost optimization by policy, before you deploy with <code>scan</code> and after the fact with <code>discover</code>
+  Open-source policy engine that blocks bad AWS spending patterns before they ship and remediates what's already burning.
   <br /><br />
 </p>
 
@@ -9,50 +9,39 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/towardsthecloud/cloudburn/blob/main/LICENSE)
 [![npm version](https://badge.fury.io/js/cloudburn.svg)](https://badge.fury.io/js/cloudburn)
 
-[Documentation](https://cloudburn.io/docs) | [Discord](https://discord.gg/CKKK5FRW3n)
+[Changelog](https://cloudburn.io/changelog) | [Documentation](https://cloudburn.io/docs) | [Discord](https://discord.gg/CKKK5FRW3n)
 
 </div>
 
-CloudBurn is an open-source cloud cost policy engine for AWS. It helps you catch cost and optimization issues before you deploy with `scan`, then run the same policies against your live environment with `discover`.
-
-You can point it at Terraform and CloudFormation in CI, or use it after the fact to see what is still burning money in a real account.
+CloudBurn runs deterministic cost rules against your Terraform and CloudFormation with `scan`, then runs those same rules against your live AWS account with `discover`. Wire it into CI to catch waste before deploy. Point it at a running account to find what's still burning money.
 
 ## Features
 
-- One rules engine for IaC and live AWS checks. Start with the [current rule list](docs/reference/rule-ids.md).
-- Stable rule IDs and a documented rule model, so you can inspect how CloudBurn rules are written today. Start with the [current rule list](docs/reference/rule-ids.md) and [rule authoring guide](docs/guides/adding-a-rule.md).
-- CLI support for Terraform and CloudFormation, which makes `scan` easy to wire into pull requests, CI jobs, and release pipelines.
-- Live AWS discovery with `discover`, which reuses the same rules to inspect deployed resources and show what still needs fixing.
-- A reusable [SDK](packages/sdk/README.md) if you want to run CloudBurn inside your own platform, internal tooling, or automation.
-- Output built for both humans and machines with `table`, `text`, and `json` formats.
+- **One rules engine, two modes.** Same rules for IaC and live AWS. See the [rule list](docs/reference/rule-ids.md).
+- **Scan in CI.** Checks Terraform and CloudFormation in pull requests, CI jobs, and release pipelines.
+- **Discover in production.** Inspects deployed resources and shows what needs fixing.
+- **Programmable.** The [SDK](packages/sdk/README.md) lets you run CloudBurn inside your own tooling.
+- **Machine and human friendly output.** `json` and `table` formats.
 
 ## See It Run
 
-### IaC scan demo
+### IaC scan
 
-![CloudBurn IaC scan demo](https://raw.githubusercontent.com/towardsthecloud/cloudburn/main/images/cloudburn-scan-demo.gif)
+![CloudBurn IaC scan demo](./images/cloudburn-scan-demo.gif)
 
-### Live discovery demo
+### Live discovery
 
-![CloudBurn live discover demo](https://raw.githubusercontent.com/towardsthecloud/cloudburn/main/images/cloudburn-discover-demo.gif)
+![CloudBurn live discover demo](./images/cloudburn-discover-demo.gif)
 
 ## Installation
 
-CloudBurn requires Node.js 24+.
-
-Install the CLI globally:
+Requires Node.js 24+.
 
 ```bash
 npm install --global cloudburn
 ```
 
-If you'd rather keep it local to a project, that works too:
-
-```bash
-npm install cloudburn
-```
-
-Or run it standalone without installing it and running commands right away:
+Or run it without installing:
 
 ```bash
 npx cloudburn scan ./main.tf
@@ -104,7 +93,7 @@ discovery:
 
 ### Scan
 
-Use `scan` to check Terraform and CloudFormation before you deploy.
+Point `scan` at your IaC files. It checks Terraform (`.tf`) and CloudFormation (`.yaml`, `.json`).
 
 ```bash
 cloudburn scan ./main.tf
@@ -115,42 +104,46 @@ cloudburn --format json scan ./iac
 
 ### Discover
 
-Use `discover` to run the same rules against live AWS resources.
-
-Run `cloudburn discover init` first. It automatically configures AWS Resource Explorer indexes, which CloudBurn uses as its live service catalog to see which resources exist before it runs rules against them.
-
-By default, `cloudburn discover` runs against your active AWS region. You can pass `--region <region>` to target another region, or use `--region all` to run against all indexed regions through the AWS Resource Explorer aggregator index.
+`discover` runs the same rules against live AWS resources. Initialize AWS Resource Explorer first, then run against one region or all of them.
 
 ```bash
 cloudburn discover init
 cloudburn discover
 cloudburn discover --region eu-central-1
 cloudburn discover --region all
-cloudburn discover --config .cloudburn.yml --enabled-rules CLDBRN-AWS-EBS-1
 cloudburn discover --service ec2,s3
-cloudburn discover list-enabled-regions --format text
-cloudburn rules list
-cloudburn rules list --service ec2 --source discovery
 ```
 
-`cloudburn discover --region all` needs an AWS Resource Explorer aggregator and an unfiltered default view in the aggregator region.
+`--region all` requires an AWS Resource Explorer aggregator index.
 
-`scan` is static IaC only. `discover` is for live AWS environments. Rule support is per rule, so check the [rule reference](docs/reference/rule-ids.md) if you want to see which rules support `iac`, `discovery`, or both.
+### Config
 
-If you want the full config details, see the [config schema reference](docs/reference/config-schema.md). If you want the guts, the [architecture overview](docs/ARCHITECTURE.md) maps out how the CLI, SDK, and rules packages fit together.
+Config is optional. By default CloudBurn runs all rules. Drop a `.cloudburn.yml` to tune each mode separately.
+
+```yaml
+iac:
+  enabled-rules:
+    - CLDBRN-AWS-EBS-1
+    - CLDBRN-AWS-RDS-1
+  disabled-rules:
+    - CLDBRN-AWS-EC2-2
+
+discovery:
+  enabled-rules:
+    - CLDBRN-AWS-EBS-1
+  disabled-rules:
+    - CLDBRN-AWS-S3-1
+```
+
+Generate a starter config with `cloudburn init config`. Full details in the [config reference](docs/reference/config-schema.md).
 
 ## AWS Permissions
 
-For full use of the CLI in AWS, CloudBurn needs:
-
-- Resource Explorer access with read/write permissions.
-- Read-only permissions for the AWS services behind the rules you enable.
-
-That usually means Resource Explorer plus read-only access for services like CloudTrail, CloudWatch Logs, EC2, EBS, RDS, S3, and Lambda, depending on which rules you're running. The new CloudTrail and CloudWatch discovery rules specifically require `cloudtrail:DescribeTrails`, `logs:DescribeLogGroups`, and `logs:DescribeLogStreams`.
+CloudBurn needs Resource Explorer read/write access plus read-only permissions for the services behind the rules you enable (EC2, EBS, RDS, S3, Lambda, CloudTrail, CloudWatch, etc.). Which permissions you need depends on which rules you're running.
 
 ## Contributing
 
-If you want to help shape CloudBurn, start with [CONTRIBUTING.md](CONTRIBUTING.md).
+Want to help? Start with [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
