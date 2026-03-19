@@ -1,5 +1,12 @@
 # cloudburn
 
+## 0.9.3
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @cloudburn/sdk@0.17.1
+
 ## 0.9.2
 
 ### Patch Changes

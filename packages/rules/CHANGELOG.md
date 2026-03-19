@@ -1,5 +1,11 @@
 # @cloudburn/rules
 
+## 0.17.1
+
+### Patch Changes
+
+- [#38](https://github.com/towardsthecloud/cloudburn/pull/38) [`b46ad3b`](https://github.com/towardsthecloud/cloudburn/commit/b46ad3b7d483b5a1176b42e115da0be97afc2c3c) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Flag CloudWatch unused log streams when they have never received events or when their last ingestion was more than 90 days ago.
+
 ## 0.17.0
 
 ### Minor Changes
