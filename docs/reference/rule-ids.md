@@ -54,7 +54,7 @@ Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
 
 `CLDBRN-AWS-EBS-1` flags previous-generation EBS volume types (`gp2`, `io1`, and `standard`) and does not flag current-generation HDD families such as `st1` or `sc1`.
 
-`CLDBRN-AWS-CLOUDWATCH-2` flags only log streams with no observed event history. Streams with older events are not treated as unused by this rule.
+`CLDBRN-AWS-CLOUDWATCH-2` flags log streams with no observed event history and log streams whose `lastIngestionTime` is more than 90 days old. Delivery-managed log groups remain exempt.
 
 `CLDBRN-AWS-EC2-9` flags only families with a curated Graviton-equivalent path. Instances without architecture metadata or outside the curated family set are skipped.
 

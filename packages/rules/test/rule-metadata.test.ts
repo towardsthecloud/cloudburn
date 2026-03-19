@@ -94,8 +94,10 @@ describe('rule metadata', () => {
     expect(rule).toMatchObject({
       id: 'CLDBRN-AWS-CLOUDWATCH-2',
       name: 'CloudWatch Unused Log Streams',
-      description: 'Flag CloudWatch log streams that have never received events outside delivery-managed log groups.',
-      message: 'CloudWatch log streams that have never received events should be removed.',
+      description:
+        'Flag CloudWatch log streams that have never received events or whose last ingestion was more than 90 days ago outside delivery-managed log groups.',
+      message:
+        'CloudWatch log streams that have never received events or have been inactive for more than 90 days should be removed.',
       provider: 'aws',
       service: 'cloudwatch',
       supports: ['discovery'],

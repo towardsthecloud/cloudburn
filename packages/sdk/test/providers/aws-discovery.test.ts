@@ -910,6 +910,7 @@ describe('discoverAwsResources', () => {
       {
         accountId: '123456789012',
         arn: 'arn:aws:logs:us-east-1:123456789012:log-group:/aws/lambda/app:log-stream:2026/03/16/[$LATEST]abc',
+        lastIngestionTime: 1_710_000_000_000,
         logGroupName: '/aws/lambda/app',
         logStreamName: '2026/03/16/[$LATEST]abc',
         region: 'us-east-1',
@@ -945,6 +946,7 @@ describe('discoverAwsResources', () => {
       {
         accountId: '123456789012',
         arn: 'arn:aws:logs:us-east-1:123456789012:log-group:/aws/lambda/app:log-stream:2026/03/16/[$LATEST]abc',
+        lastIngestionTime: 1_710_000_000_000,
         logGroupName: '/aws/lambda/app',
         logStreamName: '2026/03/16/[$LATEST]abc',
         region: 'us-east-1',
