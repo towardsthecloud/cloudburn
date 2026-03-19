@@ -50,6 +50,7 @@ jobs:
 
       - name: Update Homebrew tap
         if: >-
+          github.ref == 'refs/heads/main' &&
           steps.changesets.outputs.published == 'true' &&
           contains(steps.changesets.outputs.publishedPackages, '"cloudburn"')
         env:
@@ -57,7 +58,18 @@ jobs:
         run: |
           VERSION=$(node -p "require('./packages/cloudburn/package.json').version")
           TARBALL_URL="https://registry.npmjs.org/cloudburn/-/cloudburn-${VERSION}.tgz"
-          SHA256=$(curl -sL "$TARBALL_URL" | shasum -a 256 | cut -d ' ' -f 1)
+
+          # Retry up to 5 times to handle npm CDN propagation delay
+          for i in 1 2 3 4 5; do
+            SHA256=$(curl -sfSL "$TARBALL_URL" | shasum -a 256 | cut -d ' ' -f 1) && break
+            echo "Tarball not yet available, retrying in 15s (attempt $i/5)..."
+            sleep 15
+          done
+
+          if [ -z "$SHA256" ]; then
+            echo "::error::Failed to download tarball after 5 attempts"
+            exit 1
+          fi
 
           cat > /tmp/cloudburn.rb <<FORMULA
           class Cloudburn < Formula
@@ -84,7 +96,7 @@ jobs:
 
           # Push updated formula to the homebrew tap repo
           CONTENT=$(base64 -w 0 < /tmp/cloudburn.rb)
-          EXISTING_SHA=$(curl -s -H "Authorization: token $HOMEBREW_TAP_TOKEN" \
+          EXISTING_SHA=$(curl -sf -H "Authorization: token $HOMEBREW_TAP_TOKEN" \
             "https://api.github.com/repos/towardsthecloud/homebrew-tap/contents/Formula/cloudburn.rb" \
             | jq -r '.sha // empty')
 
@@ -94,7 +106,7 @@ jobs:
             --arg sha "$EXISTING_SHA" \
             'if $sha == "" then {message: $message, content: $content} else {message: $message, content: $content, sha: $sha} end')
 
-          curl -s -X PUT \
+          curl -sfS -X PUT \
             -H "Authorization: token $HOMEBREW_TAP_TOKEN" \
             -H "Accept: application/vnd.github.v3+json" \
             "https://api.github.com/repos/towardsthecloud/homebrew-tap/contents/Formula/cloudburn.rb" \
