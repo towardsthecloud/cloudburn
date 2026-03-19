@@ -35,7 +35,8 @@ The `CloudBurnClient` facade also merges runtime overrides through `mergeConfig(
 `loadConfig(path?)` in `config/loader.ts` behaves as follows:
 
 - explicit `path`: load that exact file
-- no `path`: search upward from `process.cwd()` for `.cloudburn.yml` or `.cloudburn.yaml`
+- no `path` outside CI: search upward from `process.cwd()` for `.cloudburn.yml` or `.cloudburn.yaml`
+- no `path` in CI (`CI` is set to a truthy value other than `false`, `0`, or an empty string): skip implicit discovery entirely and return defaults
 - stop the upward search at the git root if one exists, otherwise at the filesystem root
 - if no config file is found, return defaults
 

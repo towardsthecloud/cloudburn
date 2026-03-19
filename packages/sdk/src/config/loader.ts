@@ -145,9 +145,20 @@ const parseConfigFile = async (path: string): Promise<Partial<CloudBurnConfig>> 
   return normalizeConfig(document.toJS());
 };
 
-// Intent: load CloudBurn config from disk and normalize the structure.
+const isCiEnvironment = (): boolean => {
+  const ci = process.env.CI;
+
+  return ci !== undefined && ci !== '' && ci.toLowerCase() !== 'false' && ci !== '0';
+};
+
+/**
+ * Loads and normalizes CloudBurn configuration.
+ *
+ * @param path - Optional explicit path to a `.cloudburn.yml`/`.cloudburn.yaml` file.
+ * @returns Effective CloudBurn config merged with defaults.
+ */
 export const loadConfig = async (path?: string): Promise<CloudBurnConfig> => {
-  const resolvedPath = path ? resolve(path) : await findConfigPath(process.cwd());
+  const resolvedPath = path ? resolve(path) : isCiEnvironment() ? undefined : await findConfigPath(process.cwd());
 
   if (resolvedPath === undefined) {
     return mergeConfig();

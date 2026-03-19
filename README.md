@@ -78,7 +78,7 @@ cloudburn init config --print
 
 `cloudburn init` still prints starter YAML directly if you want a quick redirect-friendly version.
 
-CloudBurn reads `.cloudburn.yml` or `.cloudburn.yaml`. Config is mode-specific, so you can tune IaC scans and live discovery separately.
+CloudBurn reads `.cloudburn.yml` or `.cloudburn.yaml`. By default it searches upward from the current directory until it finds a config file or reaches the git root. In CI, implicit config discovery is skipped entirely; use `--config <path>` on `scan` or `discover` to opt into an exact file instead.
 
 ```yaml
 iac:

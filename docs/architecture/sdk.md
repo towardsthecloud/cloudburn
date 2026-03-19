@@ -125,7 +125,7 @@ graph LR
 
 Config behavior:
 
-- `loadConfig(path?)` loads an explicit path when provided, otherwise searches upward for `.cloudburn.yml` or `.cloudburn.yaml`
+- `loadConfig(path?)` loads an explicit path when provided, otherwise searches upward for `.cloudburn.yml` or `.cloudburn.yaml`; when `CI` is truthy it skips implicit discovery and returns defaults unless the path was explicit
 - `CloudBurnConfig` now owns per-mode `iac` and `discovery` sections
 - each mode can set `enabledRules`, `disabledRules`, and `format`
 - registry filtering is mode-aware and only activates rules that support the requested source
