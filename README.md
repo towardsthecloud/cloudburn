@@ -35,6 +35,16 @@ CloudBurn runs deterministic cost rules against your Terraform and CloudFormatio
 
 ## Installation
 
+### Homebrew (macOS/Linux)
+
+```bash
+brew install towardsthecloud/tap/cloudburn
+```
+
+This installs Node.js automatically if you don't have it.
+
+### npm
+
 Requires Node.js 24+.
 
 ```bash
