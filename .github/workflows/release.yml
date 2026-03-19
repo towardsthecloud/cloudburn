@@ -99,7 +99,7 @@ jobs:
           CONTENT=$(base64 -w 0 < /tmp/cloudburn.rb)
           EXISTING_SHA=$(curl -sf -H "Authorization: token $HOMEBREW_TAP_TOKEN" \
             "https://api.github.com/repos/towardsthecloud/homebrew-tap/contents/Formula/cloudburn.rb" \
-            | jq -r '.sha // empty')
+            | jq -r '.sha // empty') || EXISTING_SHA=""
 
           JSON_PAYLOAD=$(jq -n \
             --arg message "chore: update cloudburn to ${VERSION}" \
