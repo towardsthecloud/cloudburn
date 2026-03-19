@@ -4,11 +4,13 @@ import type { AwsDiscoveredResource, AwsEbsVolume, AwsEc2Instance } from '../src
 import { LiveResourceBag } from '../src/index.js';
 
 const createVolume = (overrides: Partial<AwsEbsVolume> = {}): AwsEbsVolume => ({
-  volumeId: 'vol-123',
-  volumeType: 'gp3',
-  attachments: [{ instanceId: 'i-123' }],
   region: 'eu-west-1',
   accountId: '123456789012',
+  attachments: [{ instanceId: 'i-123' }],
+  iops: 3000,
+  sizeGiB: 128,
+  volumeId: 'vol-123',
+  volumeType: 'gp3',
   ...overrides,
 });
 

@@ -18,6 +18,7 @@ export type {
   AwsCloudWatchLogStream,
   AwsDiscoveredResource,
   AwsDiscoveryCatalog,
+  AwsEbsSnapshot,
   AwsEbsVolume,
   AwsEc2ElasticIp,
   AwsEc2Instance,

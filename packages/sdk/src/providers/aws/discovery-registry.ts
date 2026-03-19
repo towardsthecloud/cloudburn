@@ -2,7 +2,7 @@ import type { AwsDiscoveredResource, DiscoveryDatasetKey, DiscoveryDatasetMap } 
 import type { ScanDiagnostic } from '../../types.js';
 import { hydrateAwsCloudTrailTrails } from './resources/cloudtrail.js';
 import { hydrateAwsCloudWatchLogGroups, hydrateAwsCloudWatchLogStreams } from './resources/cloudwatch-logs.js';
-import { hydrateAwsEbsVolumes } from './resources/ebs.js';
+import { hydrateAwsEbsSnapshots, hydrateAwsEbsVolumes } from './resources/ebs.js';
 import { hydrateAwsEc2Instances } from './resources/ec2.js';
 import { hydrateAwsEc2ElasticIps } from './resources/ec2-elastic-ips.js';
 import { hydrateAwsEc2ReservedInstances } from './resources/ec2-reserved-instances.js';
@@ -77,6 +77,12 @@ const awsDiscoveryDatasetRegistry: {
     resourceTypes: ['logs:log-group'],
     service: 'cloudwatch',
     load: hydrateAwsCloudWatchLogStreams,
+  },
+  'aws-ebs-snapshots': {
+    datasetKey: 'aws-ebs-snapshots',
+    resourceTypes: ['ec2:snapshot'],
+    service: 'ebs',
+    load: hydrateAwsEbsSnapshots,
   },
   'aws-ebs-volumes': {
     datasetKey: 'aws-ebs-volumes',

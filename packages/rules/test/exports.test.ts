@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type {
   AwsCloudTrailTrail,
   AwsCloudWatchLogGroup,
+  AwsEbsSnapshot,
+  AwsEbsVolume,
   AwsEc2Instance,
   AwsEc2LoadBalancer,
   AwsEc2ReservedInstance,
@@ -54,6 +56,10 @@ describe('rule exports', () => {
         'CLDBRN-AWS-ECS-1',
         'CLDBRN-AWS-ECS-2',
         'CLDBRN-AWS-ECS-3',
+        'CLDBRN-AWS-EBS-4',
+        'CLDBRN-AWS-EBS-5',
+        'CLDBRN-AWS-EBS-6',
+        'CLDBRN-AWS-EBS-8',
         'CLDBRN-AWS-EBS-2',
         'CLDBRN-AWS-EBS-3',
         'CLDBRN-AWS-ECR-1',
@@ -95,6 +101,29 @@ describe('rule exports', () => {
     expect(instance.state).toBe('running');
     expect(instance.architecture).toBe('x86_64');
     expect(instance.launchTime).toBe('2026-03-01T00:00:00.000Z');
+
+    const volume: AwsEbsVolume = {
+      accountId: '123456789012',
+      iops: 12000,
+      region: 'us-east-1',
+      sizeGiB: 256,
+      volumeId: 'vol-123',
+      volumeType: 'gp3',
+    };
+    const snapshot: AwsEbsSnapshot = {
+      accountId: '123456789012',
+      region: 'us-east-1',
+      snapshotId: 'snap-123',
+      startTime: '2025-01-01T00:00:00.000Z',
+      state: 'completed',
+      volumeId: 'vol-123',
+      volumeSizeGiB: 256,
+    };
+
+    expect(volume.sizeGiB).toBe(256);
+    expect(volume.iops).toBe(12000);
+    expect(snapshot.snapshotId).toBe('snap-123');
+    expect(snapshot.state).toBe('completed');
 
     const reservedInstance: AwsEc2ReservedInstance = {
       accountId: '123456789012',

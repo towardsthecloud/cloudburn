@@ -5,6 +5,8 @@ import {
   type AwsCloudTrailTrail,
   type AwsCloudWatchLogGroup,
   type AwsCloudWatchLogStream,
+  type AwsEbsSnapshot,
+  type AwsEbsVolume,
   type AwsEcsClusterMetric,
   type AwsEksNodegroup,
   type AwsElastiCacheCluster,
@@ -88,6 +90,34 @@ describe('sdk exports', () => {
       {
         description: 'Flag EBS volumes whose attached EC2 instances are all in the stopped state.',
         id: 'CLDBRN-AWS-EBS-3',
+        provider: 'aws',
+        service: 'ebs',
+        supports: ['discovery'],
+      },
+      {
+        description: 'Flag EBS volumes larger than 100 GiB so their provisioned size can be reviewed intentionally.',
+        id: 'CLDBRN-AWS-EBS-4',
+        provider: 'aws',
+        service: 'ebs',
+        supports: ['discovery'],
+      },
+      {
+        description: 'Flag io1 and io2 EBS volumes with provisioned IOPS above 32000.',
+        id: 'CLDBRN-AWS-EBS-5',
+        provider: 'aws',
+        service: 'ebs',
+        supports: ['discovery'],
+      },
+      {
+        description: 'Flag io1 and io2 EBS volumes at 16000 IOPS or below as gp3 review candidates.',
+        id: 'CLDBRN-AWS-EBS-6',
+        provider: 'aws',
+        service: 'ebs',
+        supports: ['discovery'],
+      },
+      {
+        description: 'Flag completed EBS snapshots older than 90 days.',
+        id: 'CLDBRN-AWS-EBS-8',
         provider: 'aws',
         service: 'ebs',
         supports: ['discovery'],
@@ -331,6 +361,23 @@ describe('sdk exports', () => {
       logStreamName: '2026/03/16/[$LATEST]abc',
       region: 'us-east-1',
     };
+    const volume: AwsEbsVolume = {
+      accountId: '123456789012',
+      iops: 3000,
+      region: 'us-east-1',
+      sizeGiB: 128,
+      volumeId: 'vol-123',
+      volumeType: 'gp3',
+    };
+    const snapshot: AwsEbsSnapshot = {
+      accountId: '123456789012',
+      region: 'us-east-1',
+      snapshotId: 'snap-123',
+      startTime: '2025-01-01T00:00:00.000Z',
+      state: 'completed',
+      volumeId: 'vol-123',
+      volumeSizeGiB: 128,
+    };
     const ecsClusterMetric: AwsEcsClusterMetric = {
       accountId: '123456789012',
       averageCpuUtilizationLast14Days: 4.2,
@@ -387,6 +434,8 @@ describe('sdk exports', () => {
     expect(trail.trailName).toBe('org-trail');
     expect(logGroup.retentionInDays).toBe(30);
     expect(logStream.logStreamName).toContain('[$LATEST]');
+    expect(volume.sizeGiB).toBe(128);
+    expect(snapshot.snapshotId).toBe('snap-123');
     expect(ecsClusterMetric.averageCpuUtilizationLast14Days).toBe(4.2);
     expect(eksNodegroup.nodegroupName).toBe('workers');
     expect(elastiCacheCluster.cacheClusterId).toBe('cache-prod');
