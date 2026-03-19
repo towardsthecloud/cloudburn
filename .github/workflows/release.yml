@@ -62,6 +62,7 @@ jobs:
           # Retry up to 5 times to handle npm CDN propagation delay
           for i in 1 2 3 4 5; do
             SHA256=$(curl -sfSL "$TARBALL_URL" | shasum -a 256 | cut -d ' ' -f 1) && break
+            SHA256=""
             echo "Tarball not yet available, retrying in 15s (attempt $i/5)..."
             sleep 15
           done
