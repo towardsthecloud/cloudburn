@@ -1,5 +1,20 @@
 # @cloudburn/sdk
 
+## 0.17.0
+
+### Minor Changes
+
+- [#70](https://github.com/towardsthecloud/cloudburn/pull/70) [`86973af`](https://github.com/towardsthecloud/cloudburn/commit/86973af86fa232b34de2c84db1b044d7e08d4872) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Add AWS discovery datasets and loaders for ElastiCache, EMR, and Redshift cost checks.
+
+### Patch Changes
+
+- [#69](https://github.com/towardsthecloud/cloudburn/pull/69) [`5b2b05d`](https://github.com/towardsthecloud/cloudburn/commit/5b2b05da55a407a9355e00ff705675ca63902ffc) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Avoid auto-loading repository `.cloudburn.yml`/`.cloudburn.yaml` while running in CI unless an explicit config path is provided.
+
+- [#68](https://github.com/towardsthecloud/cloudburn/pull/68) [`174948b`](https://github.com/towardsthecloud/cloudburn/commit/174948bc5cf9ad39a0a202df45bd258ec856f017) Thanks [@dannysteenman](https://github.com/dannysteenman)! - fix cloudformation parsing to skip symlinks and oversized templates during static scans
+
+- Updated dependencies [[`86973af`](https://github.com/towardsthecloud/cloudburn/commit/86973af86fa232b34de2c84db1b044d7e08d4872)]:
+  - @cloudburn/rules@0.17.0
+
 ## 0.16.0
 
 ### Minor Changes

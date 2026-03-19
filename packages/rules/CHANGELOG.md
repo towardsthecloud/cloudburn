@@ -1,5 +1,11 @@
 # @cloudburn/rules
 
+## 0.17.0
+
+### Minor Changes
+
+- [#70](https://github.com/towardsthecloud/cloudburn/pull/70) [`86973af`](https://github.com/towardsthecloud/cloudburn/commit/86973af86fa232b34de2c84db1b044d7e08d4872) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Add AWS discovery rules for ElastiCache reserved coverage, EMR instance and idle review, and Redshift utilization, reserved coverage, and pause/resume review.
+
 ## 0.16.0
 
 ### Minor Changes
