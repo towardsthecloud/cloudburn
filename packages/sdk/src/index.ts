@@ -17,6 +17,7 @@ export type {
   AwsDiscoveryRegionStatus,
   AwsDiscoveryStatus,
   AwsDiscoveryTarget,
+  AwsEbsSnapshot,
   AwsEbsVolume,
   AwsEc2Instance,
   AwsEc2LoadBalancer,
