@@ -163,6 +163,20 @@ describe('config command e2e', () => {
     expect(output).toContain('discovery:');
   });
 
+  it('fails for --init --path when a companion config file already exists', async () => {
+    const directory = await createTempDirectory();
+    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    const configPath = join(directory, '.cloudburn.yaml');
+
+    await writeFile(join(directory, '.cloudburn.yml'), 'iac: {}\n', 'utf8');
+    process.chdir(directory);
+
+    await createProgram().parseAsync(['config', '--init', '--path', configPath], { from: 'user' });
+
+    expect(process.exitCode).toBe(2);
+    expect(stderr.mock.calls.map(([chunk]) => String(chunk)).join('')).toContain('.cloudburn.yml');
+  });
+
   it('fails when multiple config actions are requested at once', async () => {
     const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
 

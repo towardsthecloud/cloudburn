@@ -215,10 +215,20 @@ export const registerConfigCommand = (program: Command): void => {
                 `CloudBurn config already exists at ${existingConfigPath}. Use --print to inspect the current config.`,
               );
             }
-          } else if (await fileExists(configPath)) {
-            throw new Error(
-              `CloudBurn config already exists at ${configPath}. Use --print to inspect the current config.`,
-            );
+          } else {
+            const existingConfigPath = await ensureSingleConfigFile(dirname(configPath));
+
+            if (existingConfigPath) {
+              throw new Error(
+                `CloudBurn config already exists at ${existingConfigPath}. Use --print to inspect the current config.`,
+              );
+            }
+
+            if (await fileExists(configPath)) {
+              throw new Error(
+                `CloudBurn config already exists at ${configPath}. Use --print to inspect the current config.`,
+              );
+            }
           }
 
           await writeFile(configPath, starterConfig, { encoding: 'utf8', flag: 'wx' });
