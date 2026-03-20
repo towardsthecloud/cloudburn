@@ -3,9 +3,9 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Command } from 'commander';
 import { registerCompletionCommand } from './commands/completion.js';
+import { registerConfigCommand } from './commands/config.js';
 import { registerDiscoverCommand } from './commands/discover.js';
 import { registerEstimateCommand } from './commands/estimate.js';
-import { registerInitCommand } from './commands/init.js';
 import { registerRulesListCommand } from './commands/rules-list.js';
 import { registerScanCommand } from './commands/scan.js';
 import { OUTPUT_FORMAT_OPTION_DESCRIPTION, parseOutputFormat } from './formatters/output.js';
@@ -49,9 +49,9 @@ export const createProgram = (): Command => {
   configureCliHelp(program);
 
   registerCompletionCommand(program);
+  registerConfigCommand(program);
   registerDiscoverCommand(program);
   registerScanCommand(program);
-  registerInitCommand(program);
   registerRulesListCommand(program);
   registerEstimateCommand(program);
 

@@ -63,19 +63,23 @@ npx cloudburn scan ./main.tf
 
 Config is optional. By default, CloudBurn runs all checks for the mode you use.
 
-If you want a starter config:
+Create a starter config:
 
 ```bash
-cloudburn init config
+cloudburn config --init
 ```
 
-If you want to inspect the generated YAML first:
+Inspect the current discovered config file:
 
 ```bash
-cloudburn init config --print
+cloudburn config --print
 ```
 
-`cloudburn init` still prints starter YAML directly if you want a quick redirect-friendly version.
+Inspect the starter template without writing a file:
+
+```bash
+cloudburn config --print-template
+```
 
 CloudBurn reads `.cloudburn.yml` or `.cloudburn.yaml`. By default it searches upward from the current directory until it finds a config file or reaches the git root. In CI, implicit config discovery is skipped entirely; use `--config <path>` on `scan` or `discover` to opt into an exact file instead.
 
@@ -126,26 +130,7 @@ cloudburn discover --service ec2,s3
 
 `--region all` requires an AWS Resource Explorer aggregator index.
 
-### Config
-
-Config is optional. By default CloudBurn runs all rules. Drop a `.cloudburn.yml` to tune each mode separately.
-
-```yaml
-iac:
-  enabled-rules:
-    - CLDBRN-AWS-EBS-1
-    - CLDBRN-AWS-RDS-1
-  disabled-rules:
-    - CLDBRN-AWS-EC2-2
-
-discovery:
-  enabled-rules:
-    - CLDBRN-AWS-EBS-1
-  disabled-rules:
-    - CLDBRN-AWS-S3-1
-```
-
-Generate a starter config with `cloudburn init config`. Full details in the [config reference](docs/reference/config-schema.md).
+Generate a starter config with `cloudburn config --init`. Full details in the [config reference](docs/reference/config-schema.md).
 
 ## AWS Permissions
 

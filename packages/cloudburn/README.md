@@ -28,16 +28,20 @@ Config is optional. By default, CloudBurn runs all checks for the mode you use.
 Create a starter config with:
 
 ```bash
-cloudburn init config
+cloudburn config --init
 ```
 
-If you want to inspect the generated YAML first:
+If you want to print the current discovered config file:
 
 ```bash
-cloudburn init config --print
+cloudburn config --print
 ```
 
-`cloudburn init` still prints the starter YAML directly if you want a quick redirect-friendly version.
+If you want to inspect the starter template without writing a file:
+
+```bash
+cloudburn config --print-template
+```
 
 ### Scan
 

@@ -5,7 +5,7 @@
 - CLI owns the end-user command surface, output formatting, and exit-code behavior.
 - `scan` is static IaC only. `discover` owns the live AWS command surface plus Resource Explorer setup and introspection commands.
 - `scan` and `discover` own the user-facing config override flags: `--config`, `--enabled-rules`, and `--disabled-rules`.
-- `init` must remain backward-compatible as a starter-config printer. File-writing scaffolding lives under `init config`.
+- `config` owns CloudBurn config inspection and scaffolding. `--init` writes a starter file, `--print` reads the current config, and `--print-template` prints the starter YAML.
 - Keep scan logic, config loading, live discovery, and rule evaluation out of this package.
 - Treat option names, help output, formatter shape, and exit-code behavior as user-facing compatibility points.
 

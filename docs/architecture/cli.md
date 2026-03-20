@@ -6,12 +6,11 @@
 graph TD
   Root["cloudburn"] --> Scan["scan [path]"]
   Root --> Discover["discover"]
-  Root --> Init["init"]
+  Root --> Config["config"]
   Root --> Rules["rules"]
   Root --> Estimate["estimate"]
   Root --> Completion["completion"]
   Rules --> RulesList["list"]
-  Init --> InitConfig["config"]
   Discover --> DiscoverRegions["list-enabled-regions"]
   Discover --> DiscoverInit["init"]
   Discover --> DiscoverTypes["supported-resource-types"]
@@ -56,12 +55,12 @@ All stdout-producing commands return a typed `CliResponse` and share the same fo
 - `discover list-enabled-regions` and `discover supported-resource-types` use the shared `json|table` renderer.
 - `discover init` bootstraps Resource Explorer through the SDK, defaults to the current AWS region, accepts `--region <region>` as an override, and falls back to local-only setup when cross-region bootstrap is denied.
 - `discover init` status output includes the resolved setup `indexType` so users can distinguish local-only setup from aggregator setup.
-- `rules list` defaults to a table of built-in rule metadata, accepts `--service` and `--source` filters, and emits flat rule metadata objects in JSON mode.
-- `init` preserves the legacy starter-YAML output for backward compatibility when no format override is provided.
-- `init config` creates `.cloudburn.yml`, while `init config --print` preserves raw YAML by default and can render table or JSON when `--format` is provided.
-- `rules list`, `init config`, and `estimate` all use the shared formatter system instead of ad hoc string output.
+- `config --init` creates `.cloudburn.yml` in the git root (or current directory when no git root exists), unless a config file already exists there.
+- `config --print` prints the current discovered config file as raw YAML by default and can render table or JSON when `--format` is provided.
+- `config --print-template` prints the starter template without writing a file.
+- `rules list`, `config`, and `estimate` all use the shared formatter system instead of ad hoc string output.
 - `completion` is a structural parent command. `completion bash|fish|zsh` prints shell completion scripts for the selected shell.
-- `--format` is documented as a global option and defaults to `table`, except `init` / `init config --print`, which preserve raw YAML by default for redirection workflows.
+- `--format` is documented as a global option and defaults to `table`, except `config --print` and `config --print-template`, which preserve raw YAML by default for redirection workflows.
 - `scan` and `discover` can also source their default format from `.cloudburn.yml`; explicit `--format` still wins.
 - The hidden `__complete` command exists only as the runtime hook for generated shell scripts.
 - `--exit-code` counts nested matches across all provider and rule groups.
@@ -84,9 +83,9 @@ cloudburn discover --config .cloudburn.yml --disabled-rules CLDBRN-AWS-S3-1
 cloudburn discover --service ec2,s3
 cloudburn discover list-enabled-regions
 cloudburn discover init
-cloudburn init
-cloudburn init config
-cloudburn init config --print
+cloudburn config --init
+cloudburn config --print
+cloudburn config --print-template
 cloudburn rules
 cloudburn rules list
 cloudburn rules list --service ec2 --source discovery
