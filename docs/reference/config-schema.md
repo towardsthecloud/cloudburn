@@ -54,7 +54,7 @@ Validation fails fast for:
 
 ## Starter YAML
 
-Printed by `cloudburn init config --print` (from `packages/cloudburn/src/commands/init.ts`):
+Printed by `cloudburn config --print-template` (from `packages/cloudburn/src/commands/config.ts`):
 
 ```yaml
 # Static IaC scan configuration.

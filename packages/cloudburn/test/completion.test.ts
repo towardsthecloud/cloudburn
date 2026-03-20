@@ -41,7 +41,7 @@ describe('completion command', () => {
       expect.arrayContaining([
         'scan',
         'discover',
-        'init',
+        'config',
         'rules',
         'estimate',
         'completion',
@@ -88,10 +88,12 @@ describe('completion command', () => {
     expect(toLines(await runCompletion('ru'))).toEqual(['rules']);
   });
 
-  it('suggests init subcommands', async () => {
-    const suggestions = toLines(await runCompletion('init', ''));
+  it('suggests config flags', async () => {
+    const suggestions = toLines(await runCompletion('config', ''));
 
-    expect(suggestions).toEqual(expect.arrayContaining(['config', '--format', '-h', '--help']));
+    expect(suggestions).toEqual(
+      expect.arrayContaining(['--init', '--print', '--print-template', '--path', '--format', '-h', '--help']),
+    );
   });
 
   it('prints a zsh completion script', async () => {

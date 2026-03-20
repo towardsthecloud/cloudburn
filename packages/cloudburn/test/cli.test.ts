@@ -15,6 +15,7 @@ describe('cli', () => {
 
     expect(program.name()).toBe('cloudburn');
     expect(visibleCommands).toContain('scan');
+    expect(visibleCommands).toContain('config');
     expect(visibleCommands).toContain('completion');
     expect(visibleCommands).not.toContain('__complete');
   });
