@@ -1,5 +1,11 @@
 # @cloudburn/rules
 
+## 0.18.0
+
+### Minor Changes
+
+- [#42](https://github.com/towardsthecloud/cloudburn/pull/42) [`58b7ff0`](https://github.com/towardsthecloud/cloudburn/commit/58b7ff07e307ebdcd67b9689c04904789dd765a1) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Add discovery-only AWS EBS rules for large volumes, high-IOPS io1/io2 volumes, low-IOPS gp3 review candidates, and old snapshots.
+
 ## 0.17.2
 
 ### Patch Changes
