@@ -1,5 +1,16 @@
 # cloudburn
 
+## 0.9.5
+
+### Patch Changes
+
+- [#44](https://github.com/towardsthecloud/cloudburn/pull/44) [`5c1a9cb`](https://github.com/towardsthecloud/cloudburn/commit/5c1a9cb3349ab3394e164b929b0e76e992f5a908) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Replace the legacy `init` config workflow with a dedicated `config` command.
+
+  `cloudburn config --init` now creates the starter config, `cloudburn config --print` prints the discovered config file, and `cloudburn config --print-template` prints the starter template without writing a file.
+
+- Updated dependencies [[`58b7ff0`](https://github.com/towardsthecloud/cloudburn/commit/58b7ff07e307ebdcd67b9689c04904789dd765a1)]:
+  - @cloudburn/sdk@0.18.0
+
 ## 0.9.4
 
 ### Patch Changes

@@ -1,5 +1,16 @@
 # @cloudburn/sdk
 
+## 0.18.0
+
+### Minor Changes
+
+- [#42](https://github.com/towardsthecloud/cloudburn/pull/42) [`58b7ff0`](https://github.com/towardsthecloud/cloudburn/commit/58b7ff07e307ebdcd67b9689c04904789dd765a1) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Add AWS discovery dataset support for richer EBS volume metadata and EBS snapshot hydration used by the new EBS discovery rules.
+
+### Patch Changes
+
+- Updated dependencies [[`58b7ff0`](https://github.com/towardsthecloud/cloudburn/commit/58b7ff07e307ebdcd67b9689c04904789dd765a1)]:
+  - @cloudburn/rules@0.18.0
+
 ## 0.17.2
 
 ### Patch Changes
