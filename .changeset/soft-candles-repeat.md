@@ -1,5 +1,5 @@
 ---
-"cloudburn": minor
+"cloudburn": patch
 ---
 
 Replace the legacy `init` config workflow with a dedicated `config` command.

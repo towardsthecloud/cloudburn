@@ -133,6 +133,36 @@ describe('config command e2e', () => {
     expect(stderr.mock.calls.map(([chunk]) => String(chunk)).join('')).toContain('cloudburn config --init');
   });
 
+  it('fails when config is invoked without an action flag', async () => {
+    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+
+    await createProgram().parseAsync(['config'], { from: 'user' });
+
+    expect(process.exitCode).toBe(2);
+    expect(stderr.mock.calls.map(([chunk]) => String(chunk)).join('')).toContain('Choose exactly one action');
+  });
+
+  it('supports explicit config paths for --init and --print', async () => {
+    const directory = await createTempDirectory();
+    const configPath = join(directory, 'custom-config.yml');
+    const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+
+    process.chdir(directory);
+
+    await createProgram().parseAsync(['config', '--init', '--path', configPath], { from: 'user' });
+
+    expect(await readFile(configPath, 'utf8')).toContain('iac:');
+
+    stdout.mockClear();
+
+    await createProgram().parseAsync(['config', '--print', '--path', configPath], { from: 'user' });
+
+    const output = stdout.mock.calls.map(([chunk]) => String(chunk)).join('');
+
+    expect(output).toContain('# Static IaC scan configuration.');
+    expect(output).toContain('discovery:');
+  });
+
   it('fails when multiple config actions are requested at once', async () => {
     const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
 
