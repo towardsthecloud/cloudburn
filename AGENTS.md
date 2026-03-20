@@ -49,6 +49,7 @@
 
 - Do not guess rule IDs, config shapes, types, or provider behavior — look them up first.
 - CloudBurn config is mode-specific under `iac` and `discovery`; rule references use stable public IDs such as `CLDBRN-AWS-EBS-1`.
+- After merging `main`, rebasing, or fixing CI, re-check the current `AGENTS.md`, docs, and tests for policy changes before adjusting implementation or tests. Do not weaken invariant tests to match older branch assumptions unless the same change explicitly updates the governing policy sources.
 - If a search returns empty or narrow results, try at least one fallback (alternate query, broader pattern) before concluding.
 - Label assumptions explicitly when proceeding without full context.
 

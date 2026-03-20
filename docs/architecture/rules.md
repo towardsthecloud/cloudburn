@@ -103,6 +103,12 @@ Rule evaluators consume static and live datasets through `context.resources.get(
 | `CLDBRN-AWS-EC2-4`    | VPC Interface Endpoint Inactive           | ec2     | discovery      | Implemented |
 | `CLDBRN-AWS-EC2-5`    | EC2 Instance Low Utilization              | ec2     | discovery      | Implemented |
 | `CLDBRN-AWS-EBS-1`    | EBS Volume Type Not Current Generation    | ebs     | discovery, iac | Implemented |
+| `CLDBRN-AWS-EBS-2`    | EBS Volume Unattached                     | ebs     | discovery      | Implemented |
+| `CLDBRN-AWS-EBS-3`    | EBS Volume Attached To Stopped Instances  | ebs     | discovery      | Implemented |
+| `CLDBRN-AWS-EBS-4`    | EBS Volume Large Size                     | ebs     | discovery      | Implemented |
+| `CLDBRN-AWS-EBS-5`    | EBS Volume High Provisioned IOPS          | ebs     | discovery      | Implemented |
+| `CLDBRN-AWS-EBS-6`    | EBS Volume Low Provisioned IOPS On io1/io2 | ebs   | discovery      | Implemented |
+| `CLDBRN-AWS-EBS-7`    | EBS Snapshot Max Age Exceeded             | ebs     | discovery      | Implemented |
 | `CLDBRN-AWS-ECR-1`    | ECR Repository Missing Lifecycle Policy   | ecr     | iac, discovery | Implemented |
 | `CLDBRN-AWS-RDS-1`    | RDS Instance Class Not Preferred          | rds     | iac, discovery | Implemented |
 | `CLDBRN-AWS-RDS-2`    | RDS DB Instance Idle                      | rds     | discovery      | Implemented |
@@ -113,3 +119,5 @@ Rule evaluators consume static and live datasets through `context.resources.get(
 `CLDBRN-AWS-LAMBDA-1` is an advisory rule. It recommends `arm64` only when compatibility is known or explicitly declared, and the static evaluator skips computed or otherwise unknown architecture values instead of treating them as definite `x86_64`.
 
 CloudTrail and CloudWatch discovery rules now rely on dedicated live datasets. CloudBurn seeds both CloudWatch datasets from Resource Explorer `logs:log-group` catalog results, then uses narrow CloudWatch Logs APIs to hydrate group retention metadata and enumerate log streams.
+
+EBS discovery rules now reuse the shared `aws-ebs-volumes` dataset for storage type, attachment, size, and IOPS checks, and use a dedicated `aws-ebs-snapshots` dataset seeded from Resource Explorer `ec2:snapshot` resources for snapshot-age review.

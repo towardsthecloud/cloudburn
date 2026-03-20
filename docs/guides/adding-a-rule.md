@@ -124,6 +124,7 @@ const createVolume = (overrides: Partial<AwsEbsVolume> = {}): AwsEbsVolume => ({
   accountId: '123456789012',
   volumeId: 'vol-test',
   volumeType: 'gp2',
+  sizeGiB: 100,
   region: 'us-east-1',
   ...overrides,
 });

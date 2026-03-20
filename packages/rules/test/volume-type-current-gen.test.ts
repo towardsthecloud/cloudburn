@@ -7,6 +7,8 @@ const PREVIOUS_GENERATION_EBS_VOLUME_TYPES = ['gp2', 'io1', 'standard'] as const
 const CURRENT_GENERATION_EBS_VOLUME_TYPES = ['gp3', 'io2', 'st1', 'sc1'] as const;
 
 const createVolume = (overrides: Partial<AwsEbsVolume> = {}): AwsEbsVolume => ({
+  iops: 3000,
+  sizeGiB: 128,
   volumeId: 'vol-123',
   volumeType: 'gp2',
   region: 'eu-west-1',

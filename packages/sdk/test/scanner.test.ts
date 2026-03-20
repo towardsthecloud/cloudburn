@@ -26,8 +26,22 @@ describe('CloudBurnClient', () => {
       catalog: discoveryCatalog,
       resources: new LiveResourceBag({
         'aws-ebs-volumes': [
-          { volumeId: 'vol-123', volumeType: 'gp2', region: 'us-east-1', accountId: '123456789012' },
-          { volumeId: 'vol-456', volumeType: 'gp3', region: 'us-east-1', accountId: '123456789012' },
+          {
+            accountId: '123456789012',
+            iops: 3000,
+            region: 'us-east-1',
+            sizeGiB: 64,
+            volumeId: 'vol-123',
+            volumeType: 'gp2',
+          },
+          {
+            accountId: '123456789012',
+            iops: 3000,
+            region: 'us-east-1',
+            sizeGiB: 64,
+            volumeId: 'vol-456',
+            volumeType: 'gp3',
+          },
         ],
       }),
     });

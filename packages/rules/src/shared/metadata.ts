@@ -22,10 +22,23 @@ export type SourceLocation = {
 export type AwsEbsVolume = {
   volumeId: string;
   volumeType: string;
+  sizeGiB: number;
+  iops?: number;
   state?: string;
   attachments?: Array<{
     instanceId?: string;
   }>;
+  region: string;
+  accountId: string;
+};
+
+/** Discovered EBS snapshot normalized for age-based cleanup checks. */
+export type AwsEbsSnapshot = {
+  snapshotId: string;
+  startTime?: string;
+  state?: string;
+  volumeId?: string;
+  volumeSizeGiB?: number;
   region: string;
   accountId: string;
 };
@@ -382,6 +395,7 @@ export type DiscoveryDatasetKey =
   | 'aws-cloudtrail-trails'
   | 'aws-cloudwatch-log-groups'
   | 'aws-cloudwatch-log-streams'
+  | 'aws-ebs-snapshots'
   | 'aws-ebs-volumes'
   | 'aws-elasticache-clusters'
   | 'aws-elasticache-reserved-nodes'
@@ -414,6 +428,7 @@ export type DiscoveryDatasetMap = {
   'aws-cloudtrail-trails': AwsCloudTrailTrail[];
   'aws-cloudwatch-log-groups': AwsCloudWatchLogGroup[];
   'aws-cloudwatch-log-streams': AwsCloudWatchLogStream[];
+  'aws-ebs-snapshots': AwsEbsSnapshot[];
   'aws-ebs-volumes': AwsEbsVolume[];
   'aws-elasticache-clusters': AwsElastiCacheCluster[];
   'aws-elasticache-reserved-nodes': AwsElastiCacheReservedNode[];

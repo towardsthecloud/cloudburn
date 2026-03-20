@@ -50,7 +50,6 @@ describe('rule metadata', () => {
       expect(sortedRuleNumbers).toEqual(Array.from({ length: sortedRuleNumbers.length }, (_, index) => index + 1));
     }
   });
-
   it('defines the expected EC2 preferred-instance rule metadata', () => {
     const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-EC2-1');
 
@@ -282,6 +281,70 @@ describe('rule metadata', () => {
       service: 'ebs',
       supports: ['discovery'],
       discoveryDependencies: ['aws-ebs-volumes', 'aws-ec2-instances'],
+    });
+  });
+
+  it('defines the expected EBS large-volume rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-EBS-4');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-EBS-4',
+      name: 'EBS Volume Large Size',
+      description: 'Flag EBS volumes larger than 100 GiB so their provisioned size can be reviewed intentionally.',
+      message: 'EBS volumes larger than 100 GiB should be reviewed.',
+      provider: 'aws',
+      service: 'ebs',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-ebs-volumes'],
+    });
+  });
+
+  it('defines the expected EBS high-iops rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-EBS-5');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-EBS-5',
+      name: 'EBS Volume High Provisioned IOPS',
+      description: 'Flag io1 and io2 EBS volumes with provisioned IOPS above 32000.',
+      message: 'EBS io1 and io2 volumes above 32000 IOPS should be reviewed.',
+      provider: 'aws',
+      service: 'ebs',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-ebs-volumes'],
+    });
+  });
+
+  it('defines the expected EBS low-iops rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-EBS-6');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-EBS-6',
+      name: 'EBS Volume Low Provisioned IOPS On io1/io2',
+      description: 'Flag io1 and io2 EBS volumes at 16000 IOPS or below as gp3 review candidates.',
+      message: 'EBS io1 and io2 volumes at 16000 IOPS or below should be reviewed for gp3.',
+      provider: 'aws',
+      service: 'ebs',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-ebs-volumes'],
+    });
+  });
+
+  it('defines the expected EBS snapshot-max-age rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-EBS-7');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-EBS-7',
+      name: 'EBS Snapshot Max Age Exceeded',
+      description: 'Flag completed EBS snapshots older than 90 days.',
+      message: 'EBS snapshots older than 90 days should be reviewed.',
+      provider: 'aws',
+      service: 'ebs',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-ebs-snapshots'],
     });
   });
 

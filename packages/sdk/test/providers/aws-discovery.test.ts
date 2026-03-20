@@ -24,7 +24,7 @@ import {
   hydrateAwsCloudWatchLogGroups,
   hydrateAwsCloudWatchLogStreams,
 } from '../../src/providers/aws/resources/cloudwatch-logs.js';
-import { hydrateAwsEbsVolumes } from '../../src/providers/aws/resources/ebs.js';
+import { hydrateAwsEbsSnapshots, hydrateAwsEbsVolumes } from '../../src/providers/aws/resources/ebs.js';
 import { hydrateAwsEc2Instances } from '../../src/providers/aws/resources/ec2.js';
 import { hydrateAwsEc2ReservedInstances } from '../../src/providers/aws/resources/ec2-reserved-instances.js';
 import { hydrateAwsEc2InstanceUtilization } from '../../src/providers/aws/resources/ec2-utilization.js';
@@ -75,6 +75,7 @@ vi.mock('../../src/providers/aws/resource-explorer.js', () => ({
 }));
 
 vi.mock('../../src/providers/aws/resources/ebs.js', () => ({
+  hydrateAwsEbsSnapshots: vi.fn(),
   hydrateAwsEbsVolumes: vi.fn(),
 }));
 
@@ -171,6 +172,7 @@ const mockedWaitForAwsResourceExplorerSetup = vi.mocked(waitForAwsResourceExplor
 const mockedHydrateAwsCloudTrailTrails = vi.mocked(hydrateAwsCloudTrailTrails);
 const mockedHydrateAwsCloudWatchLogGroups = vi.mocked(hydrateAwsCloudWatchLogGroups);
 const mockedHydrateAwsCloudWatchLogStreams = vi.mocked(hydrateAwsCloudWatchLogStreams);
+const mockedHydrateAwsEbsSnapshots = vi.mocked(hydrateAwsEbsSnapshots);
 const mockedHydrateAwsEbsVolumes = vi.mocked(hydrateAwsEbsVolumes);
 const mockedHydrateAwsElastiCacheClusters = vi.mocked(hydrateAwsElastiCacheClusters);
 const mockedHydrateAwsElastiCacheReservedNodes = vi.mocked(hydrateAwsElastiCacheReservedNodes);
@@ -351,6 +353,14 @@ const catalog: AwsDiscoveryCatalog = {
       resourceType: 'redshift:cluster',
       service: 'redshift',
     },
+    {
+      accountId: '123456789012',
+      arn: 'arn:aws:ec2:us-east-1:123456789012:snapshot/snap-123',
+      properties: [],
+      region: 'us-east-1',
+      resourceType: 'ec2:snapshot',
+      service: 'ec2',
+    },
   ],
   searchRegion: 'us-east-1',
 };
@@ -388,7 +398,14 @@ describe('discoverAwsResources', () => {
   it('builds a catalog from unique rule resource types and hydrates only requested resource kinds', async () => {
     mockedBuildAwsDiscoveryCatalog.mockResolvedValue(catalog);
     mockedHydrateAwsEbsVolumes.mockResolvedValue([
-      { accountId: '123456789012', region: 'us-east-1', volumeId: 'vol-123', volumeType: 'gp2' },
+      {
+        accountId: '123456789012',
+        iops: 3000,
+        region: 'us-east-1',
+        sizeGiB: 128,
+        volumeId: 'vol-123',
+        volumeType: 'gp2',
+      },
     ]);
     mockedHydrateAwsEcrRepositories.mockResolvedValue([
       {
@@ -467,7 +484,14 @@ describe('discoverAwsResources', () => {
     expect(result.catalog).toEqual(catalog);
     expect(result.resources).toBeInstanceOf(LiveResourceBag);
     expect(result.resources.get('aws-ebs-volumes')).toEqual([
-      { accountId: '123456789012', region: 'us-east-1', volumeId: 'vol-123', volumeType: 'gp2' },
+      {
+        accountId: '123456789012',
+        iops: 3000,
+        region: 'us-east-1',
+        sizeGiB: 128,
+        volumeId: 'vol-123',
+        volumeType: 'gp2',
+      },
     ]);
     expect(result.resources.get('aws-ec2-instances')).toEqual([
       {
@@ -1198,10 +1222,62 @@ describe('discoverAwsResources', () => {
     ]);
   });
 
+  it('hydrates EBS snapshots from snapshot catalog resources', async () => {
+    mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
+      indexType: 'LOCAL',
+      resources: [catalog.resources[19]],
+      searchRegion: 'us-east-1',
+    });
+    mockedHydrateAwsEbsSnapshots.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        region: 'us-east-1',
+        snapshotId: 'snap-123',
+        startTime: '2025-01-01T00:00:00.000Z',
+        state: 'completed',
+        volumeId: 'vol-123',
+        volumeSizeGiB: 128,
+      },
+    ]);
+
+    const result = await discoverAwsResources(
+      [
+        createRule({
+          discoveryDependencies: ['aws-ebs-snapshots'],
+          service: 'ebs',
+        }),
+      ],
+      { mode: 'region', region: 'us-east-1' },
+    );
+
+    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith({ mode: 'region', region: 'us-east-1' }, [
+      'ec2:snapshot',
+    ]);
+    expect(mockedHydrateAwsEbsSnapshots).toHaveBeenCalledWith([catalog.resources[19]]);
+    expect(result.resources.get('aws-ebs-snapshots')).toEqual([
+      {
+        accountId: '123456789012',
+        region: 'us-east-1',
+        snapshotId: 'snap-123',
+        startTime: '2025-01-01T00:00:00.000Z',
+        state: 'completed',
+        volumeId: 'vol-123',
+        volumeSizeGiB: 128,
+      },
+    ]);
+  });
+
   it('records a non-fatal diagnostic when one hydrator is access denied and continues loading other datasets', async () => {
     mockedBuildAwsDiscoveryCatalog.mockResolvedValue(catalog);
     mockedHydrateAwsEbsVolumes.mockResolvedValue([
-      { accountId: '123456789012', region: 'us-east-1', volumeId: 'vol-123', volumeType: 'gp3' },
+      {
+        accountId: '123456789012',
+        iops: 3000,
+        region: 'us-east-1',
+        sizeGiB: 128,
+        volumeId: 'vol-123',
+        volumeType: 'gp3',
+      },
     ]);
     const accessDeniedCause = Object.assign(new Error('Access denied by SCP.'), {
       name: 'AccessDeniedException',
@@ -1235,7 +1311,14 @@ describe('discoverAwsResources', () => {
     );
 
     expect(result.resources.get('aws-ebs-volumes')).toEqual([
-      { accountId: '123456789012', region: 'us-east-1', volumeId: 'vol-123', volumeType: 'gp3' },
+      {
+        accountId: '123456789012',
+        iops: 3000,
+        region: 'us-east-1',
+        sizeGiB: 128,
+        volumeId: 'vol-123',
+        volumeType: 'gp3',
+      },
     ]);
     expect(result.resources.get('aws-lambda-functions')).toEqual([]);
     expect(result.diagnostics).toEqual([
