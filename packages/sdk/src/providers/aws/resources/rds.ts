@@ -37,14 +37,12 @@ const extractDbSnapshotIdentifier = (arn: string): string | null => {
   return resourceSegment.slice(RDS_SNAPSHOT_ARN_PREFIX.length);
 };
 
-const listAccountRegionSeeds = (resources: AwsDiscoveredResource[]): Array<{ region: string; accountId: string }> => {
+const listRegionSeeds = (resources: AwsDiscoveredResource[]): Array<{ region: string; accountId: string }> => {
   const regionSeeds = new Map<string, { region: string; accountId: string }>();
 
   for (const resource of resources) {
-    const seedKey = `${resource.accountId}:${resource.region}`;
-
-    if (!regionSeeds.has(seedKey)) {
-      regionSeeds.set(seedKey, {
+    if (!regionSeeds.has(resource.region)) {
+      regionSeeds.set(resource.region, {
         accountId: resource.accountId,
         region: resource.region,
       });
@@ -135,7 +133,7 @@ export const hydrateAwsRdsReservedInstances = async (
   resources: AwsDiscoveredResource[],
 ): Promise<AwsRdsReservedInstance[]> => {
   const hydratedPages = await Promise.all(
-    listAccountRegionSeeds(resources).map(async ({ region, accountId }) => {
+    listRegionSeeds(resources).map(async ({ region, accountId }) => {
       const client = createRdsClient({ region });
       const reservedInstances: AwsRdsReservedInstance[] = [];
       let marker: string | undefined;
