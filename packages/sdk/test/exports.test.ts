@@ -2,9 +2,14 @@ import { awsRules } from '@cloudburn/rules';
 import { describe, expect, it } from 'vitest';
 import { listBuiltInRuleMetadata } from '../src/built-in-rules.js';
 import {
+  type AwsApiGatewayStage,
+  type AwsCloudFrontDistribution,
   type AwsCloudTrailTrail,
   type AwsCloudWatchLogGroup,
   type AwsCloudWatchLogStream,
+  type AwsCostUsage,
+  type AwsDynamoDbAutoscaling,
+  type AwsDynamoDbTable,
   type AwsEbsSnapshot,
   type AwsEbsVolume,
   type AwsEcsClusterMetric,
@@ -13,6 +18,10 @@ import {
   type AwsEmrCluster,
   type AwsRdsInstance,
   type AwsRedshiftCluster,
+  type AwsRoute53HealthCheck,
+  type AwsRoute53Record,
+  type AwsRoute53Zone,
+  type AwsSecretsManagerSecret,
   builtInRuleMetadata,
   parseIaC,
   type Rule,
@@ -44,6 +53,20 @@ describe('sdk exports', () => {
       })),
     ).toEqual([
       {
+        description: 'Flag API Gateway REST API stages with caching disabled.',
+        id: 'CLDBRN-AWS-APIGATEWAY-1',
+        provider: 'aws',
+        service: 'apigateway',
+        supports: ['discovery'],
+      },
+      {
+        description: 'Flag CloudFront distributions using PriceClass_All when a cheaper price class may suffice.',
+        id: 'CLDBRN-AWS-CLOUDFRONT-1',
+        provider: 'aws',
+        service: 'cloudfront',
+        supports: ['discovery'],
+      },
+      {
         description: 'Flag redundant multi-region CloudTrail trails when more than one trail covers the same account.',
         id: 'CLDBRN-AWS-CLOUDTRAIL-1',
         provider: 'aws',
@@ -70,6 +93,27 @@ describe('sdk exports', () => {
         id: 'CLDBRN-AWS-CLOUDWATCH-2',
         provider: 'aws',
         service: 'cloudwatch',
+        supports: ['discovery'],
+      },
+      {
+        description: 'Flag services with significant cost increases between the last two full months.',
+        id: 'CLDBRN-AWS-COSTEXPLORER-1',
+        provider: 'aws',
+        service: 'costexplorer',
+        supports: ['discovery'],
+      },
+      {
+        description: 'Flag DynamoDB tables with no data changes exceeding a threshold (default 90 days).',
+        id: 'CLDBRN-AWS-DYNAMODB-1',
+        provider: 'aws',
+        service: 'dynamodb',
+        supports: ['discovery'],
+      },
+      {
+        description: 'Flag provisioned-capacity DynamoDB tables without auto-scaling configured.',
+        id: 'CLDBRN-AWS-DYNAMODB-2',
+        provider: 'aws',
+        service: 'dynamodb',
         supports: ['discovery'],
       },
       {
@@ -369,6 +413,20 @@ describe('sdk exports', () => {
         supports: ['discovery'],
       },
       {
+        description: 'Flag Route 53 records with TTL below 3600 seconds.',
+        id: 'CLDBRN-AWS-ROUTE53-1',
+        provider: 'aws',
+        service: 'route53',
+        supports: ['discovery'],
+      },
+      {
+        description: 'Flag Route 53 health checks not associated with any DNS record.',
+        id: 'CLDBRN-AWS-ROUTE53-2',
+        provider: 'aws',
+        service: 'route53',
+        supports: ['discovery'],
+      },
+      {
         description: 'Ensure S3 buckets define lifecycle management policies.',
         id: 'CLDBRN-AWS-S3-1',
         provider: 'aws',
@@ -382,6 +440,13 @@ describe('sdk exports', () => {
         provider: 'aws',
         service: 's3',
         supports: ['iac', 'discovery'],
+      },
+      {
+        description: 'Flag Secrets Manager secrets not accessed within a threshold (default 90 days).',
+        id: 'CLDBRN-AWS-SECRETSMANAGER-1',
+        provider: 'aws',
+        service: 'secretsmanager',
+        supports: ['discovery'],
       },
     ]);
   });
@@ -397,6 +462,14 @@ describe('sdk exports', () => {
   });
 
   it('exports live dataset types from the package root', () => {
+    const apiGatewayStage: AwsApiGatewayStage = {
+      accountId: '123456789012',
+      cacheClusterEnabled: false,
+      region: 'us-east-1',
+      restApiId: 'a1b2c3d4',
+      stageArn: 'arn:aws:apigateway:us-east-1::/restapis/a1b2c3d4/stages/prod',
+      stageName: 'prod',
+    };
     const trail: AwsCloudTrailTrail = {
       accountId: '123456789012',
       homeRegion: 'us-east-1',
@@ -419,6 +492,38 @@ describe('sdk exports', () => {
       logGroupName: '/aws/lambda/app',
       logStreamName: '2026/03/16/[$LATEST]abc',
       region: 'us-east-1',
+    };
+    const cloudFrontDistribution: AwsCloudFrontDistribution = {
+      accountId: '123456789012',
+      distributionArn: 'arn:aws:cloudfront::123456789012:distribution/E1234567890ABC',
+      distributionId: 'E1234567890ABC',
+      priceClass: 'PriceClass_All',
+      region: 'global',
+    };
+    const costUsage: AwsCostUsage = {
+      accountId: '123456789012',
+      costIncrease: 15,
+      costUnit: 'USD',
+      currentMonthCost: 25,
+      previousMonthCost: 10,
+      serviceName: 'Amazon DynamoDB',
+      serviceSlug: 'amazon-dynamodb',
+    };
+    const dynamoDbTable: AwsDynamoDbTable = {
+      accountId: '123456789012',
+      billingMode: 'PROVISIONED',
+      latestStreamLabel: '2026-01-01T00:00:00.000Z',
+      region: 'us-east-1',
+      tableArn: 'arn:aws:dynamodb:us-east-1:123456789012:table/orders',
+      tableName: 'orders',
+    };
+    const dynamoDbAutoscaling: AwsDynamoDbAutoscaling = {
+      accountId: '123456789012',
+      hasReadTarget: true,
+      hasWriteTarget: false,
+      region: 'us-east-1',
+      tableArn: dynamoDbTable.tableArn,
+      tableName: dynamoDbTable.tableName,
     };
     const volume: AwsEbsVolume = {
       accountId: '123456789012',
@@ -489,10 +594,46 @@ describe('sdk exports', () => {
       instanceClass: 'db.m6i.large',
       region: 'us-east-1',
     };
+    const route53Zone: AwsRoute53Zone = {
+      accountId: '123456789012',
+      hostedZoneArn: 'arn:aws:route53:::hostedzone/Z1234567890',
+      hostedZoneId: 'Z1234567890',
+      region: 'global',
+      zoneName: 'example.com.',
+    };
+    const route53Record: AwsRoute53Record = {
+      accountId: '123456789012',
+      healthCheckId: 'abcd1234',
+      hostedZoneId: route53Zone.hostedZoneId,
+      isAlias: false,
+      recordId: 'arn:aws:route53:::hostedzone/Z1234567890/recordset/www.example.com./A',
+      recordName: 'www.example.com.',
+      recordType: 'A',
+      region: 'global',
+      ttl: 300,
+    };
+    const route53HealthCheck: AwsRoute53HealthCheck = {
+      accountId: '123456789012',
+      healthCheckArn: 'arn:aws:route53:::healthcheck/abcd1234',
+      healthCheckId: 'abcd1234',
+      region: 'global',
+    };
+    const secret: AwsSecretsManagerSecret = {
+      accountId: '123456789012',
+      lastAccessedDate: '2026-03-01T00:00:00.000Z',
+      region: 'us-east-1',
+      secretArn: 'arn:aws:secretsmanager:us-east-1:123456789012:secret:db-password-AbCdEf',
+      secretName: 'db-password',
+    };
 
+    expect(apiGatewayStage.stageName).toBe('prod');
     expect(trail.trailName).toBe('org-trail');
     expect(logGroup.retentionInDays).toBe(30);
     expect(logStream.logStreamName).toContain('[$LATEST]');
+    expect(cloudFrontDistribution.priceClass).toBe('PriceClass_All');
+    expect(costUsage.costIncrease).toBe(15);
+    expect(dynamoDbTable.tableName).toBe('orders');
+    expect(dynamoDbAutoscaling.hasReadTarget).toBe(true);
     expect(volume.sizeGiB).toBe(128);
     expect(snapshot.snapshotId).toBe('snap-123');
     expect(ecsClusterMetric.averageCpuUtilizationLast14Days).toBe(4.2);
@@ -501,6 +642,10 @@ describe('sdk exports', () => {
     expect(emrCluster.clusterId).toBe('j-CLUSTER1');
     expect(instance.dbInstanceIdentifier).toBe('legacy-db');
     expect(redshiftCluster.clusterIdentifier).toBe('warehouse-prod');
+    expect(route53Zone.zoneName).toBe('example.com.');
+    expect(route53Record.ttl).toBe(300);
+    expect(route53HealthCheck.healthCheckId).toBe('abcd1234');
+    expect(secret.secretName).toBe('db-password');
   });
 
   it('clones supports arrays so metadata consumers cannot mutate source rule definitions', () => {

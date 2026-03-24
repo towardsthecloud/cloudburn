@@ -144,9 +144,12 @@ const mapResource = (resource: Resource): AwsDiscoveredResource | null => {
     return null;
   }
 
+  const namedResource = resource as Resource & { Name?: string };
+
   return {
     arn: resource.Arn,
     accountId: resource.OwningAccountId,
+    name: namedResource.Name,
     region: resource.Region,
     service: resource.Service,
     resourceType: resource.ResourceType,

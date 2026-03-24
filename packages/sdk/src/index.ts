@@ -7,9 +7,12 @@ export { assertValidAwsRegion } from './providers/aws/client.js';
 export { isAwsDiscoveryErrorCode } from './providers/aws/errors.js';
 export { CloudBurnClient } from './scanner.js';
 export type {
+  AwsApiGatewayStage,
+  AwsCloudFrontDistribution,
   AwsCloudTrailTrail,
   AwsCloudWatchLogGroup,
   AwsCloudWatchLogStream,
+  AwsCostUsage,
   AwsDiscoveredResource,
   AwsDiscoveryCatalog,
   AwsDiscoveryInitialization,
@@ -17,6 +20,8 @@ export type {
   AwsDiscoveryRegionStatus,
   AwsDiscoveryStatus,
   AwsDiscoveryTarget,
+  AwsDynamoDbAutoscaling,
+  AwsDynamoDbTable,
   AwsEbsSnapshot,
   AwsEbsVolume,
   AwsEc2Instance,
@@ -43,6 +48,10 @@ export type {
   AwsRedshiftCluster,
   AwsRedshiftClusterMetric,
   AwsRedshiftReservedNode,
+  AwsRoute53HealthCheck,
+  AwsRoute53Record,
+  AwsRoute53Zone,
+  AwsSecretsManagerSecret,
   AwsSupportedResourceType,
   BuiltInRuleMetadata,
   CloudBurnConfig,

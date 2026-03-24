@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type {
+  AwsApiGatewayStage,
+  AwsCloudFrontDistribution,
   AwsCloudTrailTrail,
   AwsCloudWatchLogGroup,
+  AwsCostUsage,
+  AwsDynamoDbAutoscaling,
+  AwsDynamoDbTable,
   AwsEbsSnapshot,
   AwsEbsVolume,
   AwsEc2Instance,
@@ -19,6 +24,10 @@ import type {
   AwsRedshiftCluster,
   AwsRedshiftClusterMetric,
   AwsRedshiftReservedNode,
+  AwsRoute53HealthCheck,
+  AwsRoute53Record,
+  AwsRoute53Zone,
+  AwsSecretsManagerSecret,
   AwsStaticRdsInstance,
   DiscoveryDatasetKey,
   StaticDatasetKey,
@@ -41,10 +50,15 @@ describe('rule exports', () => {
     expect(awsCorePreset.ruleIds.length).toBe(awsRules.length);
     expect(awsRules.map((rule) => rule.id)).toEqual(
       expect.arrayContaining([
+        'CLDBRN-AWS-APIGATEWAY-1',
+        'CLDBRN-AWS-CLOUDFRONT-1',
         'CLDBRN-AWS-CLOUDTRAIL-1',
         'CLDBRN-AWS-CLOUDTRAIL-2',
         'CLDBRN-AWS-CLOUDWATCH-1',
         'CLDBRN-AWS-CLOUDWATCH-2',
+        'CLDBRN-AWS-COSTEXPLORER-1',
+        'CLDBRN-AWS-DYNAMODB-1',
+        'CLDBRN-AWS-DYNAMODB-2',
         'CLDBRN-AWS-EC2-2',
         'CLDBRN-AWS-EC2-3',
         'CLDBRN-AWS-EC2-4',
@@ -82,8 +96,11 @@ describe('rule exports', () => {
         'CLDBRN-AWS-REDSHIFT-1',
         'CLDBRN-AWS-REDSHIFT-2',
         'CLDBRN-AWS-REDSHIFT-3',
+        'CLDBRN-AWS-ROUTE53-1',
+        'CLDBRN-AWS-ROUTE53-2',
         'CLDBRN-AWS-S3-1',
         'CLDBRN-AWS-S3-2',
+        'CLDBRN-AWS-SECRETSMANAGER-1',
       ]),
     );
   });
@@ -95,6 +112,14 @@ describe('rule exports', () => {
     expect(LiveResourceBag).toBeTypeOf('function');
     expect(StaticResourceBag).toBeTypeOf('function');
 
+    const apiGatewayStage: AwsApiGatewayStage = {
+      accountId: '123456789012',
+      cacheClusterEnabled: false,
+      region: 'us-east-1',
+      restApiId: 'a1b2c3d4',
+      stageArn: 'arn:aws:apigateway:us-east-1::/restapis/a1b2c3d4/stages/prod',
+      stageName: 'prod',
+    };
     const instance: AwsEc2Instance = {
       accountId: '123456789012',
       architecture: 'x86_64',
@@ -109,6 +134,8 @@ describe('rule exports', () => {
     expect(instance.state).toBe('running');
     expect(instance.architecture).toBe('x86_64');
     expect(instance.launchTime).toBe('2026-03-01T00:00:00.000Z');
+    expect(apiGatewayStage.stageName).toBe('prod');
+    expect(apiGatewayStage.cacheClusterEnabled).toBe(false);
 
     const volume: AwsEbsVolume = {
       accountId: '123456789012',
@@ -132,6 +159,39 @@ describe('rule exports', () => {
     expect(volume.iops).toBe(12000);
     expect(snapshot.snapshotId).toBe('snap-123');
     expect(snapshot.state).toBe('completed');
+
+    const cloudFrontDistribution: AwsCloudFrontDistribution = {
+      accountId: '123456789012',
+      distributionArn: 'arn:aws:cloudfront::123456789012:distribution/E1234567890ABC',
+      distributionId: 'E1234567890ABC',
+      priceClass: 'PriceClass_All',
+      region: 'global',
+    };
+    const costUsage: AwsCostUsage = {
+      accountId: '123456789012',
+      costIncrease: 15,
+      costUnit: 'USD',
+      currentMonthCost: 25,
+      previousMonthCost: 10,
+      serviceName: 'Amazon DynamoDB',
+      serviceSlug: 'amazon-dynamodb',
+    };
+    const dynamoDbTable: AwsDynamoDbTable = {
+      accountId: '123456789012',
+      billingMode: 'PROVISIONED',
+      latestStreamLabel: '2026-01-01T00:00:00.000',
+      region: 'us-east-1',
+      tableArn: 'arn:aws:dynamodb:us-east-1:123456789012:table/orders',
+      tableName: 'orders',
+    };
+    const dynamoDbAutoscaling: AwsDynamoDbAutoscaling = {
+      accountId: '123456789012',
+      hasReadTarget: true,
+      hasWriteTarget: false,
+      region: 'us-east-1',
+      tableArn: dynamoDbTable.tableArn,
+      tableName: dynamoDbTable.tableName,
+    };
 
     const reservedInstance: AwsEc2ReservedInstance = {
       accountId: '123456789012',
@@ -278,10 +338,46 @@ describe('rule exports', () => {
       reservedNodeId: 'reserved-node-1',
       state: 'active',
     };
+    const route53Zone: AwsRoute53Zone = {
+      accountId: '123456789012',
+      hostedZoneArn: 'arn:aws:route53:::hostedzone/Z1234567890',
+      hostedZoneId: 'Z1234567890',
+      region: 'global',
+      zoneName: 'example.com.',
+    };
+    const route53Record: AwsRoute53Record = {
+      accountId: '123456789012',
+      healthCheckId: 'abcd1234',
+      hostedZoneId: route53Zone.hostedZoneId,
+      isAlias: false,
+      recordId: 'arn:aws:route53:::hostedzone/Z1234567890/recordset/www.example.com./A',
+      recordName: 'www.example.com.',
+      recordType: 'A',
+      region: 'global',
+      ttl: 300,
+    };
+    const route53HealthCheck: AwsRoute53HealthCheck = {
+      accountId: '123456789012',
+      healthCheckArn: 'arn:aws:route53:::healthcheck/abcd1234',
+      healthCheckId: 'abcd1234',
+      region: 'global',
+    };
+    const secret: AwsSecretsManagerSecret = {
+      accountId: '123456789012',
+      lastAccessedDate: '2026-03-01T00:00:00.000Z',
+      region: 'us-east-1',
+      secretArn: 'arn:aws:secretsmanager:us-east-1:123456789012:secret:db-password-AbCdEf',
+      secretName: 'db-password',
+    };
 
+    const apiGatewayDatasetKey: DiscoveryDatasetKey = 'aws-apigateway-stages';
+    const cloudFrontDatasetKey: DiscoveryDatasetKey = 'aws-cloudfront-distributions';
     const datasetKey: DiscoveryDatasetKey = 'aws-rds-instances';
     const cloudWatchDatasetKey: DiscoveryDatasetKey = 'aws-cloudwatch-log-groups';
     const cloudWatchLogStreamDatasetKey: DiscoveryDatasetKey = 'aws-cloudwatch-log-streams';
+    const costUsageDatasetKey: DiscoveryDatasetKey = 'aws-cost-usage';
+    const dynamoDbAutoscalingDatasetKey: DiscoveryDatasetKey = 'aws-dynamodb-autoscaling';
+    const dynamoDbTableDatasetKey: DiscoveryDatasetKey = 'aws-dynamodb-tables';
     const ecsAutoscalingDatasetKey: DiscoveryDatasetKey = 'aws-ecs-autoscaling';
     const elastiCacheDatasetKey: DiscoveryDatasetKey = 'aws-elasticache-clusters';
     const elastiCacheReservedDatasetKey: DiscoveryDatasetKey = 'aws-elasticache-reserved-nodes';
@@ -292,12 +388,21 @@ describe('rule exports', () => {
     const redshiftDatasetKey: DiscoveryDatasetKey = 'aws-redshift-clusters';
     const redshiftMetricDatasetKey: DiscoveryDatasetKey = 'aws-redshift-cluster-metrics';
     const redshiftReservedDatasetKey: DiscoveryDatasetKey = 'aws-redshift-reserved-nodes';
+    const route53HealthCheckDatasetKey: DiscoveryDatasetKey = 'aws-route53-health-checks';
+    const route53RecordDatasetKey: DiscoveryDatasetKey = 'aws-route53-records';
+    const route53ZoneDatasetKey: DiscoveryDatasetKey = 'aws-route53-zones';
+    const secretsManagerDatasetKey: DiscoveryDatasetKey = 'aws-secretsmanager-secrets';
     const targetGroupDatasetKey: DiscoveryDatasetKey = 'aws-ec2-target-groups';
     const staticDatasetKey: StaticDatasetKey = 'aws-rds-instances';
 
+    expect(apiGatewayDatasetKey).toBe('aws-apigateway-stages');
+    expect(cloudFrontDatasetKey).toBe('aws-cloudfront-distributions');
     expect(datasetKey).toBe('aws-rds-instances');
     expect(cloudWatchDatasetKey).toBe('aws-cloudwatch-log-groups');
     expect(cloudWatchLogStreamDatasetKey).toBe('aws-cloudwatch-log-streams');
+    expect(costUsageDatasetKey).toBe('aws-cost-usage');
+    expect(dynamoDbAutoscalingDatasetKey).toBe('aws-dynamodb-autoscaling');
+    expect(dynamoDbTableDatasetKey).toBe('aws-dynamodb-tables');
     expect(ecsAutoscalingDatasetKey).toBe('aws-ecs-autoscaling');
     expect(elastiCacheDatasetKey).toBe('aws-elasticache-clusters');
     expect(elastiCacheReservedDatasetKey).toBe('aws-elasticache-reserved-nodes');
@@ -308,7 +413,19 @@ describe('rule exports', () => {
     expect(redshiftDatasetKey).toBe('aws-redshift-clusters');
     expect(redshiftMetricDatasetKey).toBe('aws-redshift-cluster-metrics');
     expect(redshiftReservedDatasetKey).toBe('aws-redshift-reserved-nodes');
+    expect(route53HealthCheckDatasetKey).toBe('aws-route53-health-checks');
+    expect(route53RecordDatasetKey).toBe('aws-route53-records');
+    expect(route53ZoneDatasetKey).toBe('aws-route53-zones');
+    expect(secretsManagerDatasetKey).toBe('aws-secretsmanager-secrets');
+    expect(cloudFrontDistribution.priceClass).toBe('PriceClass_All');
+    expect(costUsage.costIncrease).toBe(15);
+    expect(dynamoDbTable.tableName).toBe('orders');
+    expect(dynamoDbAutoscaling.hasReadTarget).toBe(true);
     expect(targetGroupDatasetKey).toBe('aws-ec2-target-groups');
+    expect(route53Zone.zoneName).toBe('example.com.');
+    expect(route53Record.ttl).toBe(300);
+    expect(route53HealthCheck.healthCheckId).toBe('abcd1234');
+    expect(secret.secretName).toBe('db-password');
     expect(cacheCluster.cacheClusterStatus).toBe('available');
     expect(reservedCacheNode.state).toBe('active');
     expect(ecsClusterMetric.averageCpuUtilizationLast14Days).toBe(4.2);

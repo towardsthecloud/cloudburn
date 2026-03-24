@@ -1,7 +1,11 @@
 import type { AwsDiscoveredResource, DiscoveryDatasetKey, DiscoveryDatasetMap } from '@cloudburn/rules';
 import type { ScanDiagnostic } from '../../types.js';
+import { hydrateAwsApiGatewayStages } from './resources/apigateway.js';
+import { hydrateAwsCloudFrontDistributions } from './resources/cloudfront.js';
 import { hydrateAwsCloudTrailTrails } from './resources/cloudtrail.js';
 import { hydrateAwsCloudWatchLogGroups, hydrateAwsCloudWatchLogStreams } from './resources/cloudwatch-logs.js';
+import { hydrateAwsCostUsage } from './resources/cost-explorer.js';
+import { hydrateAwsDynamoDbAutoscaling, hydrateAwsDynamoDbTables } from './resources/dynamodb.js';
 import { hydrateAwsEbsSnapshots, hydrateAwsEbsVolumes } from './resources/ebs.js';
 import { hydrateAwsEc2Instances } from './resources/ec2.js';
 import { hydrateAwsEc2ElasticIps } from './resources/ec2-elastic-ips.js';
@@ -23,7 +27,13 @@ import {
   hydrateAwsRedshiftClusters,
   hydrateAwsRedshiftReservedNodes,
 } from './resources/redshift.js';
+import {
+  hydrateAwsRoute53HealthChecks,
+  hydrateAwsRoute53Records,
+  hydrateAwsRoute53Zones,
+} from './resources/route53.js';
 import { hydrateAwsS3BucketAnalyses } from './resources/s3.js';
+import { hydrateAwsSecretsManagerSecrets } from './resources/secretsmanager.js';
 import { hydrateAwsEc2VpcEndpointActivity } from './resources/vpc-endpoints.js';
 
 /**
@@ -40,8 +50,12 @@ export type AwsDiscoveryDatasetDefinition<K extends DiscoveryDatasetKey = Discov
   datasetKey: K;
   resourceTypes: string[];
   service:
+    | 'apigateway'
+    | 'cloudfront'
     | 'cloudtrail'
     | 'cloudwatch'
+    | 'costexplorer'
+    | 'dynamodb'
     | 'ebs'
     | 'ec2'
     | 'ecs'
@@ -53,18 +67,32 @@ export type AwsDiscoveryDatasetDefinition<K extends DiscoveryDatasetKey = Discov
     | 'lambda'
     | 'rds'
     | 'redshift'
-    | 's3';
+    | 'route53'
+    | 's3'
+    | 'secretsmanager';
   load: (resources: AwsDiscoveredResource[]) => Promise<DiscoveryDatasetMap[K] | AwsDiscoveryDatasetLoadResult<K>>;
 };
 
 const awsDiscoveryDatasetRegistry: {
   [K in DiscoveryDatasetKey]: AwsDiscoveryDatasetDefinition<K>;
 } = {
+  'aws-apigateway-stages': {
+    datasetKey: 'aws-apigateway-stages',
+    resourceTypes: ['apigateway:restapis/stages'],
+    service: 'apigateway',
+    load: hydrateAwsApiGatewayStages,
+  },
   'aws-cloudtrail-trails': {
     datasetKey: 'aws-cloudtrail-trails',
     resourceTypes: ['cloudtrail:trail'],
     service: 'cloudtrail',
     load: hydrateAwsCloudTrailTrails,
+  },
+  'aws-cloudfront-distributions': {
+    datasetKey: 'aws-cloudfront-distributions',
+    resourceTypes: ['cloudfront:distribution'],
+    service: 'cloudfront',
+    load: hydrateAwsCloudFrontDistributions,
   },
   'aws-cloudwatch-log-groups': {
     datasetKey: 'aws-cloudwatch-log-groups',
@@ -77,6 +105,24 @@ const awsDiscoveryDatasetRegistry: {
     resourceTypes: ['logs:log-group'],
     service: 'cloudwatch',
     load: hydrateAwsCloudWatchLogStreams,
+  },
+  'aws-cost-usage': {
+    datasetKey: 'aws-cost-usage',
+    resourceTypes: [],
+    service: 'costexplorer',
+    load: hydrateAwsCostUsage,
+  },
+  'aws-dynamodb-autoscaling': {
+    datasetKey: 'aws-dynamodb-autoscaling',
+    resourceTypes: ['dynamodb:table'],
+    service: 'dynamodb',
+    load: hydrateAwsDynamoDbAutoscaling,
+  },
+  'aws-dynamodb-tables': {
+    datasetKey: 'aws-dynamodb-tables',
+    resourceTypes: ['dynamodb:table'],
+    service: 'dynamodb',
+    load: hydrateAwsDynamoDbTables,
   },
   'aws-ebs-snapshots': {
     datasetKey: 'aws-ebs-snapshots',
@@ -267,11 +313,36 @@ const awsDiscoveryDatasetRegistry: {
     service: 'redshift',
     load: hydrateAwsRedshiftReservedNodes,
   },
+  'aws-route53-health-checks': {
+    datasetKey: 'aws-route53-health-checks',
+    resourceTypes: ['route53:healthcheck'],
+    service: 'route53',
+    load: hydrateAwsRoute53HealthChecks,
+  },
+  'aws-route53-records': {
+    datasetKey: 'aws-route53-records',
+    // Hosted zones seed record-set enumeration because Route 53 record sets are scoped to a zone.
+    resourceTypes: ['route53:hostedzone'],
+    service: 'route53',
+    load: hydrateAwsRoute53Records,
+  },
+  'aws-route53-zones': {
+    datasetKey: 'aws-route53-zones',
+    resourceTypes: ['route53:hostedzone'],
+    service: 'route53',
+    load: hydrateAwsRoute53Zones,
+  },
   'aws-s3-bucket-analyses': {
     datasetKey: 'aws-s3-bucket-analyses',
     resourceTypes: ['s3:bucket'],
     service: 's3',
     load: hydrateAwsS3BucketAnalyses,
+  },
+  'aws-secretsmanager-secrets': {
+    datasetKey: 'aws-secretsmanager-secrets',
+    resourceTypes: ['secretsmanager:secret'],
+    service: 'secretsmanager',
+    load: hydrateAwsSecretsManagerSecrets,
   },
 };
 

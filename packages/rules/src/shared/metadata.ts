@@ -54,6 +54,17 @@ export type AwsCloudTrailTrail = {
   accountId: string;
 };
 
+/** Discovered API Gateway REST API stage normalized for cache review checks. */
+export type AwsApiGatewayStage = {
+  stageArn: string;
+  restApiId: string;
+  stageName: string;
+  /** REST API stage caching is explicitly configured through the cache cluster flag. */
+  cacheClusterEnabled?: boolean;
+  region: string;
+  accountId: string;
+};
+
 /** Discovered CloudWatch Logs log group normalized for retention checks. */
 export type AwsCloudWatchLogGroup = {
   logGroupArn: string;
@@ -75,6 +86,28 @@ export type AwsCloudWatchLogStream = {
   lastEventTimestamp?: number;
   lastIngestionTime?: number;
   region: string;
+  accountId: string;
+};
+
+/** Discovered CloudFront distribution normalized for price-class review checks. */
+export type AwsCloudFrontDistribution = {
+  distributionArn: string;
+  distributionId: string;
+  priceClass?: string;
+  region: string;
+  accountId: string;
+};
+
+/** Cost Explorer service spend comparison across the last two full months. */
+export type AwsCostUsage = {
+  serviceName: string;
+  /** Stable kebab-case identifier used for account-scoped Cost Explorer findings. */
+  serviceSlug: string;
+  previousMonthCost: number;
+  currentMonthCost: number;
+  costIncrease: number;
+  /** The AWS cost metric unit, which is usually `USD`. */
+  costUnit: string;
   accountId: string;
 };
 
@@ -390,6 +423,29 @@ export type AwsEksNodegroup = {
   accountId: string;
 };
 
+/** Discovered DynamoDB table with billing mode and stream-label metadata. */
+export type AwsDynamoDbTable = {
+  tableArn: string;
+  tableName: string;
+  billingMode?: 'PAY_PER_REQUEST' | 'PROVISIONED';
+  tableStatus?: string;
+  creationDateTime?: string;
+  /** Present only when DynamoDB Streams is enabled and AWS reports a latest stream label. */
+  latestStreamLabel?: string;
+  region: string;
+  accountId: string;
+};
+
+/** Discovered DynamoDB Application Auto Scaling state for table read/write capacity. */
+export type AwsDynamoDbAutoscaling = {
+  tableArn: string;
+  tableName: string;
+  hasReadTarget: boolean;
+  hasWriteTarget: boolean;
+  region: string;
+  accountId: string;
+};
+
 /** Shared S3 lifecycle and storage-optimization analysis flags across scan modes. */
 export type AwsS3BucketAnalysisFlags = {
   hasLifecycleSignal: boolean;
@@ -403,6 +459,47 @@ export type AwsS3BucketAnalysisFlags = {
 /** Discovered AWS S3 bucket normalized for live cost-optimization evaluation. */
 export type AwsS3BucketAnalysis = AwsS3BucketAnalysisFlags & {
   bucketName: string;
+  region: string;
+  accountId: string;
+};
+
+/** Discovered Route 53 hosted zone normalized for record-set analysis. */
+export type AwsRoute53Zone = {
+  hostedZoneArn: string;
+  hostedZoneId: string;
+  zoneName: string;
+  region: string;
+  accountId: string;
+};
+
+/** Discovered Route 53 record set normalized for TTL and health-check analysis. */
+export type AwsRoute53Record = {
+  recordId: string;
+  hostedZoneId: string;
+  recordName: string;
+  recordType: string;
+  /** Alias records inherit TTL behavior from their targets and are evaluated separately. */
+  isAlias: boolean;
+  recordSetIdentifier?: string;
+  ttl?: number;
+  healthCheckId?: string;
+  region: string;
+  accountId: string;
+};
+
+/** Discovered Route 53 health check normalized for orphaned-check analysis. */
+export type AwsRoute53HealthCheck = {
+  healthCheckArn: string;
+  healthCheckId: string;
+  region: string;
+  accountId: string;
+};
+
+/** Discovered Secrets Manager secret normalized for unused-secret review checks. */
+export type AwsSecretsManagerSecret = {
+  secretArn: string;
+  secretName: string;
+  lastAccessedDate?: string;
   region: string;
   accountId: string;
 };
@@ -444,9 +541,14 @@ export type SharedDatasetKey =
 
 /** Rule-facing live discovery dataset key exposed through the evaluation context. */
 export type DiscoveryDatasetKey =
+  | 'aws-apigateway-stages'
   | 'aws-cloudtrail-trails'
+  | 'aws-cloudfront-distributions'
   | 'aws-cloudwatch-log-groups'
   | 'aws-cloudwatch-log-streams'
+  | 'aws-cost-usage'
+  | 'aws-dynamodb-autoscaling'
+  | 'aws-dynamodb-tables'
   | 'aws-ebs-snapshots'
   | 'aws-ebs-volumes'
   | 'aws-elasticache-clusters'
@@ -477,13 +579,22 @@ export type DiscoveryDatasetKey =
   | 'aws-redshift-clusters'
   | 'aws-redshift-cluster-metrics'
   | 'aws-redshift-reserved-nodes'
-  | 'aws-s3-bucket-analyses';
+  | 'aws-route53-health-checks'
+  | 'aws-route53-records'
+  | 'aws-route53-zones'
+  | 'aws-s3-bucket-analyses'
+  | 'aws-secretsmanager-secrets';
 
 /** Normalized live discovery datasets available to rule evaluators. */
 export type DiscoveryDatasetMap = {
+  'aws-apigateway-stages': AwsApiGatewayStage[];
   'aws-cloudtrail-trails': AwsCloudTrailTrail[];
+  'aws-cloudfront-distributions': AwsCloudFrontDistribution[];
   'aws-cloudwatch-log-groups': AwsCloudWatchLogGroup[];
   'aws-cloudwatch-log-streams': AwsCloudWatchLogStream[];
+  'aws-cost-usage': AwsCostUsage[];
+  'aws-dynamodb-autoscaling': AwsDynamoDbAutoscaling[];
+  'aws-dynamodb-tables': AwsDynamoDbTable[];
   'aws-ebs-snapshots': AwsEbsSnapshot[];
   'aws-ebs-volumes': AwsEbsVolume[];
   'aws-elasticache-clusters': AwsElastiCacheCluster[];
@@ -514,7 +625,11 @@ export type DiscoveryDatasetMap = {
   'aws-redshift-clusters': AwsRedshiftCluster[];
   'aws-redshift-cluster-metrics': AwsRedshiftClusterMetric[];
   'aws-redshift-reserved-nodes': AwsRedshiftReservedNode[];
+  'aws-route53-health-checks': AwsRoute53HealthCheck[];
+  'aws-route53-records': AwsRoute53Record[];
+  'aws-route53-zones': AwsRoute53Zone[];
   'aws-s3-bucket-analyses': AwsS3BucketAnalysis[];
+  'aws-secretsmanager-secrets': AwsSecretsManagerSecret[];
 };
 
 /** Rule-facing static IaC dataset key exposed through the evaluation context. */

@@ -234,9 +234,25 @@ export const discoverAwsResources = async (
   const resourceTypes = sortUnique(
     datasetDefinitions.flatMap((definition) => definition.resourceTypes.map(assertValidResourceExplorerResourceType)),
   );
-  const catalog = await buildAwsDiscoveryCatalog(target, resourceTypes);
+  const catalog =
+    resourceTypes.length > 0
+      ? await buildAwsDiscoveryCatalog(target, resourceTypes)
+      : {
+          indexType: 'LOCAL' as const,
+          resources: [],
+          searchRegion: await resolveCurrentAwsRegion(),
+        };
   const datasetLoads = await Promise.all(
     datasetDefinitions.map(async (definition) => {
+      if (definition.resourceTypes.length === 0) {
+        const loadResult = normalizeDatasetLoadResult(await definition.load([]));
+
+        return {
+          dataset: [definition.datasetKey, loadResult.resources] as const,
+          diagnostics: loadResult.diagnostics,
+        };
+      }
+
       const matchingResources = catalog.resources.filter((resource) =>
         definition.resourceTypes.includes(resource.resourceType),
       );
