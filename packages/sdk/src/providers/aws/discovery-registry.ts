@@ -15,9 +15,9 @@ import { hydrateAwsEksNodegroups } from './resources/eks.js';
 import { hydrateAwsElastiCacheClusters, hydrateAwsElastiCacheReservedNodes } from './resources/elasticache.js';
 import { hydrateAwsEc2LoadBalancers, hydrateAwsEc2TargetGroups } from './resources/elbv2.js';
 import { hydrateAwsEmrClusterMetrics, hydrateAwsEmrClusters } from './resources/emr.js';
-import { hydrateAwsLambdaFunctions } from './resources/lambda.js';
-import { hydrateAwsRdsInstances } from './resources/rds.js';
-import { hydrateAwsRdsInstanceActivity } from './resources/rds-activity.js';
+import { hydrateAwsLambdaFunctionMetrics, hydrateAwsLambdaFunctions } from './resources/lambda.js';
+import { hydrateAwsRdsInstances, hydrateAwsRdsReservedInstances, hydrateAwsRdsSnapshots } from './resources/rds.js';
+import { hydrateAwsRdsInstanceActivity, hydrateAwsRdsInstanceCpuMetrics } from './resources/rds-activity.js';
 import {
   hydrateAwsRedshiftClusterMetrics,
   hydrateAwsRedshiftClusters,
@@ -209,17 +209,43 @@ const awsDiscoveryDatasetRegistry: {
     service: 'lambda',
     load: hydrateAwsLambdaFunctions,
   },
+  'aws-lambda-function-metrics': {
+    datasetKey: 'aws-lambda-function-metrics',
+    resourceTypes: ['lambda:function'],
+    service: 'lambda',
+    load: hydrateAwsLambdaFunctionMetrics,
+  },
   'aws-rds-instance-activity': {
     datasetKey: 'aws-rds-instance-activity',
     resourceTypes: ['rds:db'],
     service: 'rds',
     load: hydrateAwsRdsInstanceActivity,
   },
+  'aws-rds-instance-cpu-metrics': {
+    datasetKey: 'aws-rds-instance-cpu-metrics',
+    resourceTypes: ['rds:db'],
+    service: 'rds',
+    load: hydrateAwsRdsInstanceCpuMetrics,
+  },
   'aws-rds-instances': {
     datasetKey: 'aws-rds-instances',
     resourceTypes: ['rds:db'],
     service: 'rds',
     load: hydrateAwsRdsInstances,
+  },
+  'aws-rds-reserved-instances': {
+    datasetKey: 'aws-rds-reserved-instances',
+    // Resource Explorer does not surface RDS reserved instances, so DB
+    // resources seed the regions we need to query with DescribeReservedDBInstances.
+    resourceTypes: ['rds:db'],
+    service: 'rds',
+    load: hydrateAwsRdsReservedInstances,
+  },
+  'aws-rds-snapshots': {
+    datasetKey: 'aws-rds-snapshots',
+    resourceTypes: ['rds:snapshot'],
+    service: 'rds',
+    load: hydrateAwsRdsSnapshots,
   },
   'aws-redshift-clusters': {
     datasetKey: 'aws-redshift-clusters',

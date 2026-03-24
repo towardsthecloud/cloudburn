@@ -182,6 +182,21 @@ export type AwsLambdaFunction = {
   functionName: string;
   /** Normalized function architectures. Missing AWS API values default to `['x86_64']`. */
   architectures: string[];
+  /** Configured function timeout in seconds. */
+  timeoutSeconds: number;
+  region: string;
+  accountId: string;
+};
+
+/** Discovered AWS Lambda function with recent error and duration summaries. */
+export type AwsLambdaFunctionMetric = {
+  functionName: string;
+  /** `null` means CloudWatch did not return a usable 7-day invocation total. */
+  totalInvocationsLast7Days: number | null;
+  /** `null` means CloudWatch did not return a usable 7-day error total. */
+  totalErrorsLast7Days: number | null;
+  /** `null` means CloudWatch did not return a usable 7-day average duration. */
+  averageDurationMsLast7Days: number | null;
   region: string;
   accountId: string;
 };
@@ -189,7 +204,12 @@ export type AwsLambdaFunction = {
 /** Discovered AWS RDS DB instance with its normalized instance class. */
 export type AwsRdsInstance = {
   dbInstanceIdentifier: string;
+  dbInstanceStatus?: string;
+  engine?: string;
+  engineVersion?: string;
   instanceClass: string;
+  instanceCreateTime?: string;
+  multiAz?: boolean;
   region: string;
   accountId: string;
 };
@@ -200,6 +220,38 @@ export type AwsRdsInstanceActivity = {
   instanceClass: string;
   /** `null` means CloudWatch returned incomplete datapoints for the 7-day lookback window. */
   maxDatabaseConnectionsLast7Days: number | null;
+  region: string;
+  accountId: string;
+};
+
+/** Discovered RDS reserved DB instance normalized for coverage checks. */
+export type AwsRdsReservedInstance = {
+  reservedDbInstanceId: string;
+  instanceClass: string;
+  instanceCount: number;
+  multiAz?: boolean;
+  productDescription?: string;
+  state?: string;
+  startTime?: string;
+  region: string;
+  accountId: string;
+};
+
+/** Discovered RDS DB instance with its 30-day CPU summary. */
+export type AwsRdsInstanceCpuMetric = {
+  dbInstanceIdentifier: string;
+  /** `null` means CloudWatch returned incomplete datapoints for the 30-day lookback window. */
+  averageCpuUtilizationLast30Days: number | null;
+  region: string;
+  accountId: string;
+};
+
+/** Discovered RDS DB snapshot normalized for orphaned snapshot review. */
+export type AwsRdsSnapshot = {
+  dbSnapshotIdentifier: string;
+  dbInstanceIdentifier?: string;
+  snapshotCreateTime?: string;
+  snapshotType?: string;
   region: string;
   accountId: string;
 };
@@ -416,8 +468,12 @@ export type DiscoveryDatasetKey =
   | 'aws-emr-clusters'
   | 'aws-emr-cluster-metrics'
   | 'aws-lambda-functions'
+  | 'aws-lambda-function-metrics'
   | 'aws-rds-instance-activity'
+  | 'aws-rds-instance-cpu-metrics'
   | 'aws-rds-instances'
+  | 'aws-rds-reserved-instances'
+  | 'aws-rds-snapshots'
   | 'aws-redshift-clusters'
   | 'aws-redshift-cluster-metrics'
   | 'aws-redshift-reserved-nodes'
@@ -449,8 +505,12 @@ export type DiscoveryDatasetMap = {
   'aws-emr-clusters': AwsEmrCluster[];
   'aws-emr-cluster-metrics': AwsEmrClusterMetric[];
   'aws-lambda-functions': AwsLambdaFunction[];
+  'aws-lambda-function-metrics': AwsLambdaFunctionMetric[];
   'aws-rds-instance-activity': AwsRdsInstanceActivity[];
+  'aws-rds-instance-cpu-metrics': AwsRdsInstanceCpuMetric[];
   'aws-rds-instances': AwsRdsInstance[];
+  'aws-rds-reserved-instances': AwsRdsReservedInstance[];
+  'aws-rds-snapshots': AwsRdsSnapshot[];
   'aws-redshift-clusters': AwsRedshiftCluster[];
   'aws-redshift-cluster-metrics': AwsRedshiftClusterMetric[];
   'aws-redshift-reserved-nodes': AwsRedshiftReservedNode[];

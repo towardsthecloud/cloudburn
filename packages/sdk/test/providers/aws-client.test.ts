@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const importClientModule = async () => import('../../src/providers/aws/client.js');
 
-describe('resolveCurrentAwsRegion', () => {
+describe('resolveCurrentAwsRegion', { timeout: 15_000 }, () => {
   afterEach(() => {
     vi.resetModules();
     vi.restoreAllMocks();

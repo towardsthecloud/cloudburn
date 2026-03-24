@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fetchCloudWatchSignals } from '../../src/providers/aws/resources/cloudwatch.js';
 import { hydrateAwsRdsInstances } from '../../src/providers/aws/resources/rds.js';
-import { hydrateAwsRdsInstanceActivity } from '../../src/providers/aws/resources/rds-activity.js';
+import {
+  hydrateAwsRdsInstanceActivity,
+  hydrateAwsRdsInstanceCpuMetrics,
+} from '../../src/providers/aws/resources/rds-activity.js';
 
 vi.mock('../../src/providers/aws/resources/cloudwatch.js', () => ({
   fetchCloudWatchSignals: vi.fn(),
@@ -85,6 +88,54 @@ describe('hydrateAwsRdsInstanceActivity', () => {
         dbInstanceIdentifier: 'new-db',
         instanceClass: 'db.t4g.micro',
         maxDatabaseConnectionsLast7Days: null,
+        region: 'us-east-1',
+      },
+    ]);
+  });
+});
+
+describe('hydrateAwsRdsInstanceCpuMetrics', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
+  it('hydrates RDS CPU metrics with 30-day average utilization', async () => {
+    mockedHydrateAwsRdsInstances.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        dbInstanceIdentifier: 'legacy-db',
+        instanceClass: 'db.m6i.large',
+        region: 'us-east-1',
+      },
+    ]);
+    mockedFetchCloudWatchSignals.mockResolvedValue(new Map([['cpu0', createDailyPoints(30, 8)]]));
+
+    await expect(hydrateAwsRdsInstanceCpuMetrics([])).resolves.toEqual([
+      {
+        accountId: '123456789012',
+        averageCpuUtilizationLast30Days: 8,
+        dbInstanceIdentifier: 'legacy-db',
+        region: 'us-east-1',
+      },
+    ]);
+  });
+
+  it('preserves unknown CPU coverage when CloudWatch returns partial 30-day data', async () => {
+    mockedHydrateAwsRdsInstances.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        dbInstanceIdentifier: 'new-db',
+        instanceClass: 'db.t4g.micro',
+        region: 'us-east-1',
+      },
+    ]);
+    mockedFetchCloudWatchSignals.mockResolvedValue(new Map([['cpu0', createDailyPoints(29, 4)]]));
+
+    await expect(hydrateAwsRdsInstanceCpuMetrics([])).resolves.toEqual([
+      {
+        accountId: '123456789012',
+        averageCpuUtilizationLast30Days: null,
+        dbInstanceIdentifier: 'new-db',
         region: 'us-east-1',
       },
     ]);

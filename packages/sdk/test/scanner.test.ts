@@ -230,6 +230,19 @@ describe('CloudBurnClient', () => {
                 },
               ],
             },
+            {
+              ruleId: 'CLDBRN-AWS-RDS-4',
+              service: 'rds',
+              source: 'discovery',
+              message: 'RDS DB instances without a Graviton equivalent in use should be reviewed.',
+              findings: [
+                {
+                  resourceId: 'legacy-db',
+                  region: 'us-east-1',
+                  accountId: '123456789012',
+                },
+              ],
+            },
           ],
         },
       ],

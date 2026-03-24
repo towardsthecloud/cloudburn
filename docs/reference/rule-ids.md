@@ -45,16 +45,24 @@ Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
 | `CLDBRN-AWS-ELB-1`    | Application Load Balancer Without Targets | elb     | discovery      | Implemented |
 | `CLDBRN-AWS-ELB-2`    | Classic Load Balancer Without Instances   | elb     | discovery      | Implemented |
 | `CLDBRN-AWS-ELB-3`    | Gateway Load Balancer Without Targets     | elb     | discovery      | Implemented |
+| `CLDBRN-AWS-ELB-4`    | Network Load Balancer Without Targets     | elb     | discovery      | Implemented |
 | `CLDBRN-AWS-EMR-1`    | EMR Cluster Previous Generation Instance Types | emr | discovery | Implemented |
 | `CLDBRN-AWS-EMR-2`    | EMR Cluster Idle                          | emr     | discovery      | Implemented |
 | `CLDBRN-AWS-RDS-1`    | RDS Instance Class Not Preferred          | rds     | iac, discovery | Implemented |
 | `CLDBRN-AWS-RDS-2`    | RDS DB Instance Idle                      | rds     | discovery      | Implemented |
+| `CLDBRN-AWS-RDS-3`    | RDS DB Instance Missing Reserved Coverage | rds     | discovery      | Implemented |
+| `CLDBRN-AWS-RDS-4`    | RDS DB Instance Without Graviton          | rds     | discovery      | Implemented |
+| `CLDBRN-AWS-RDS-5`    | RDS DB Instance Low CPU Utilization       | rds     | discovery      | Implemented |
+| `CLDBRN-AWS-RDS-6`    | RDS DB Instance Unsupported Engine Version | rds    | discovery      | Implemented |
+| `CLDBRN-AWS-RDS-7`    | RDS Snapshot Without Source DB Instance   | rds     | discovery      | Implemented |
 | `CLDBRN-AWS-REDSHIFT-1` | Redshift Cluster Low CPU Utilization    | redshift | discovery     | Implemented |
 | `CLDBRN-AWS-REDSHIFT-2` | Redshift Cluster Missing Reserved Coverage | redshift | discovery   | Implemented |
 | `CLDBRN-AWS-REDSHIFT-3` | Redshift Cluster Pause Resume Not Enabled | redshift | discovery    | Implemented |
 | `CLDBRN-AWS-S3-1`     | S3 Missing Lifecycle Configuration        | s3      | iac, discovery | Implemented |
 | `CLDBRN-AWS-S3-2`     | S3 Bucket Storage Class Not Optimized     | s3      | iac, discovery | Implemented |
 | `CLDBRN-AWS-LAMBDA-1` | Lambda Cost Optimal Architecture          | lambda  | iac, discovery | Implemented |
+| `CLDBRN-AWS-LAMBDA-2` | Lambda Function High Error Rate           | lambda  | discovery      | Implemented |
+| `CLDBRN-AWS-LAMBDA-3` | Lambda Function Excessive Timeout         | lambda  | discovery      | Implemented |
 
 `CLDBRN-AWS-EBS-1` flags previous-generation EBS volume types (`gp2`, `io1`, and `standard`) and does not flag current-generation HDD families such as `st1` or `sc1`.
 
@@ -86,11 +94,25 @@ Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
 
 `CLDBRN-AWS-ELASTICACHE-1` reviews only `available` clusters with a parsed create time at least 180 days old and requires active reserved-node capacity on the same node type, preferring exact engine matches when ElastiCache reports them.
 
-`CLDBRN-AWS-ELB-1` and `CLDBRN-AWS-ELB-3` flag load balancers with no attached target groups or no registered targets across attached target groups.
+`CLDBRN-AWS-ELB-1`, `CLDBRN-AWS-ELB-3`, and `CLDBRN-AWS-ELB-4` flag load balancers with no attached target groups or no registered targets across attached target groups.
 
 `CLDBRN-AWS-EMR-1` reuses the built-in EC2 family policy. EMR clusters are flagged when any discovered cluster instance type falls into the current non-preferred, previous-generation family set.
 
 `CLDBRN-AWS-EMR-2` flags only active clusters whose `IsIdle` metric stays true for six consecutive 5-minute periods, which is a 30-minute idle window.
+
+`CLDBRN-AWS-LAMBDA-2` uses 7-day CloudWatch totals and flags only functions whose observed `Errors / Invocations` ratio is greater than `10%`.
+
+`CLDBRN-AWS-LAMBDA-3` reviews only functions with configured timeouts of at least `30` seconds and flags when the timeout is at least `5x` the observed 7-day average duration.
+
+`CLDBRN-AWS-RDS-3` reviews only `available` DB instances with a parsed create time at least 180 days old and requires active reserved-instance coverage on the same instance class, deployment mode, and normalized engine when AWS reports it.
+
+`CLDBRN-AWS-RDS-4` flags only curated non-Graviton RDS families with a clear Graviton migration path. Existing Graviton classes and unclassified families are skipped.
+
+`CLDBRN-AWS-RDS-5` reviews only `available` DB instances and treats a complete 30-day average `CPUUtilization` of `10%` or lower as low utilization.
+
+`CLDBRN-AWS-RDS-6` flags only RDS MySQL `5.7.x` and PostgreSQL `11.x` DB instances for extended-support review.
+
+`CLDBRN-AWS-RDS-7` flags only snapshots whose source DB instance no longer exists and whose parsed create time is at least `30` days old.
 
 `CLDBRN-AWS-REDSHIFT-1` reviews only `available` clusters and treats a 14-day average `CPUUtilization` of 10% or lower as low utilization.
 

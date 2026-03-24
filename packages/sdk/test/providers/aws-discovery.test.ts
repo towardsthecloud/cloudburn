@@ -43,9 +43,19 @@ import {
 } from '../../src/providers/aws/resources/elasticache.js';
 import { hydrateAwsEc2LoadBalancers, hydrateAwsEc2TargetGroups } from '../../src/providers/aws/resources/elbv2.js';
 import { hydrateAwsEmrClusterMetrics, hydrateAwsEmrClusters } from '../../src/providers/aws/resources/emr.js';
-import { hydrateAwsLambdaFunctions } from '../../src/providers/aws/resources/lambda.js';
-import { hydrateAwsRdsInstances } from '../../src/providers/aws/resources/rds.js';
-import { hydrateAwsRdsInstanceActivity } from '../../src/providers/aws/resources/rds-activity.js';
+import {
+  hydrateAwsLambdaFunctionMetrics,
+  hydrateAwsLambdaFunctions,
+} from '../../src/providers/aws/resources/lambda.js';
+import {
+  hydrateAwsRdsInstances,
+  hydrateAwsRdsReservedInstances,
+  hydrateAwsRdsSnapshots,
+} from '../../src/providers/aws/resources/rds.js';
+import {
+  hydrateAwsRdsInstanceActivity,
+  hydrateAwsRdsInstanceCpuMetrics,
+} from '../../src/providers/aws/resources/rds-activity.js';
 import {
   hydrateAwsRedshiftClusterMetrics,
   hydrateAwsRedshiftClusters,
@@ -133,6 +143,7 @@ vi.mock('../../src/providers/aws/resources/ec2-reserved-instances.js', () => ({
 }));
 
 vi.mock('../../src/providers/aws/resources/lambda.js', () => ({
+  hydrateAwsLambdaFunctionMetrics: vi.fn(),
   hydrateAwsLambdaFunctions: vi.fn(),
 }));
 
@@ -143,10 +154,13 @@ vi.mock('../../src/providers/aws/resources/elbv2.js', () => ({
 
 vi.mock('../../src/providers/aws/resources/rds.js', () => ({
   hydrateAwsRdsInstances: vi.fn(),
+  hydrateAwsRdsReservedInstances: vi.fn(),
+  hydrateAwsRdsSnapshots: vi.fn(),
 }));
 
 vi.mock('../../src/providers/aws/resources/rds-activity.js', () => ({
   hydrateAwsRdsInstanceActivity: vi.fn(),
+  hydrateAwsRdsInstanceCpuMetrics: vi.fn(),
 }));
 
 vi.mock('../../src/providers/aws/resources/redshift.js', () => ({
@@ -190,9 +204,13 @@ const mockedHydrateAwsEc2ReservedInstances = vi.mocked(hydrateAwsEc2ReservedInst
 const mockedHydrateAwsEc2LoadBalancers = vi.mocked(hydrateAwsEc2LoadBalancers);
 const mockedHydrateAwsEc2TargetGroups = vi.mocked(hydrateAwsEc2TargetGroups);
 const mockedHydrateAwsEksNodegroups = vi.mocked(hydrateAwsEksNodegroups);
+const mockedHydrateAwsLambdaFunctionMetrics = vi.mocked(hydrateAwsLambdaFunctionMetrics);
 const mockedHydrateAwsLambdaFunctions = vi.mocked(hydrateAwsLambdaFunctions);
 const mockedHydrateAwsRdsInstanceActivity = vi.mocked(hydrateAwsRdsInstanceActivity);
+const mockedHydrateAwsRdsInstanceCpuMetrics = vi.mocked(hydrateAwsRdsInstanceCpuMetrics);
 const mockedHydrateAwsRdsInstances = vi.mocked(hydrateAwsRdsInstances);
+const mockedHydrateAwsRdsReservedInstances = vi.mocked(hydrateAwsRdsReservedInstances);
+const mockedHydrateAwsRdsSnapshots = vi.mocked(hydrateAwsRdsSnapshots);
 const mockedHydrateAwsRedshiftClusterMetrics = vi.mocked(hydrateAwsRedshiftClusterMetrics);
 const mockedHydrateAwsRedshiftClusters = vi.mocked(hydrateAwsRedshiftClusters);
 const mockedHydrateAwsRedshiftReservedNodes = vi.mocked(hydrateAwsRedshiftReservedNodes);
@@ -361,6 +379,14 @@ const catalog: AwsDiscoveryCatalog = {
       resourceType: 'ec2:snapshot',
       service: 'ec2',
     },
+    {
+      accountId: '123456789012',
+      arn: 'arn:aws:rds:us-east-1:123456789012:snapshot:snapshot-123',
+      properties: [],
+      region: 'us-east-1',
+      resourceType: 'rds:snapshot',
+      service: 'rds',
+    },
   ],
   searchRegion: 'us-east-1',
 };
@@ -425,7 +451,13 @@ describe('discoverAwsResources', () => {
       },
     ]);
     mockedHydrateAwsLambdaFunctions.mockResolvedValue([
-      { accountId: '123456789012', architectures: ['x86_64'], functionName: 'my-func', region: 'us-east-1' },
+      {
+        accountId: '123456789012',
+        architectures: ['x86_64'],
+        functionName: 'my-func',
+        region: 'us-east-1',
+        timeoutSeconds: 60,
+      },
     ]);
     mockedHydrateAwsS3BucketAnalyses.mockResolvedValue([
       {
@@ -511,7 +543,13 @@ describe('discoverAwsResources', () => {
       },
     ]);
     expect(result.resources.get('aws-lambda-functions')).toEqual([
-      { accountId: '123456789012', architectures: ['x86_64'], functionName: 'my-func', region: 'us-east-1' },
+      {
+        accountId: '123456789012',
+        architectures: ['x86_64'],
+        functionName: 'my-func',
+        region: 'us-east-1',
+        timeoutSeconds: 60,
+      },
     ]);
     expect(result.resources.get('aws-s3-bucket-analyses')).toEqual([
       {
@@ -569,6 +607,49 @@ describe('discoverAwsResources', () => {
         region: 'us-east-1',
         trailArn: 'arn:aws:cloudtrail:us-east-1:123456789012:trail/org-trail',
         trailName: 'org-trail',
+      },
+    ]);
+  });
+
+  it('hydrates Lambda function metrics when an active rule requires the metrics dataset', async () => {
+    mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
+      indexType: 'LOCAL',
+      resources: [catalog.resources[3]],
+      searchRegion: 'us-east-1',
+    });
+    mockedHydrateAwsLambdaFunctionMetrics.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        averageDurationMsLast7Days: 2_500,
+        functionName: 'my-func',
+        region: 'us-east-1',
+        totalErrorsLast7Days: 12,
+        totalInvocationsLast7Days: 100,
+      },
+    ]);
+
+    const result = await discoverAwsResources(
+      [
+        createRule({
+          discoveryDependencies: ['aws-lambda-function-metrics'],
+          service: 'lambda',
+        }),
+      ],
+      { mode: 'region', region: 'us-east-1' },
+    );
+
+    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith({ mode: 'region', region: 'us-east-1' }, [
+      'lambda:function',
+    ]);
+    expect(mockedHydrateAwsLambdaFunctionMetrics).toHaveBeenCalledWith([catalog.resources[3]]);
+    expect(result.resources.get('aws-lambda-function-metrics')).toEqual([
+      {
+        accountId: '123456789012',
+        averageDurationMsLast7Days: 2_500,
+        functionName: 'my-func',
+        region: 'us-east-1',
+        totalErrorsLast7Days: 12,
+        totalInvocationsLast7Days: 100,
       },
     ]);
   });
@@ -1111,7 +1192,12 @@ describe('discoverAwsResources', () => {
       {
         accountId: '123456789012',
         dbInstanceIdentifier: 'legacy-db',
+        dbInstanceStatus: 'available',
+        engine: 'mysql',
+        engineVersion: '8.0.39',
         instanceClass: 'db.m6i.large',
+        instanceCreateTime: '2025-01-01T00:00:00.000Z',
+        multiAz: false,
         region: 'us-east-1',
       },
     ]);
@@ -1132,8 +1218,95 @@ describe('discoverAwsResources', () => {
       {
         accountId: '123456789012',
         dbInstanceIdentifier: 'legacy-db',
+        dbInstanceStatus: 'available',
+        engine: 'mysql',
+        engineVersion: '8.0.39',
         instanceClass: 'db.m6i.large',
+        instanceCreateTime: '2025-01-01T00:00:00.000Z',
+        multiAz: false,
         region: 'us-east-1',
+      },
+    ]);
+  });
+
+  it('hydrates RDS CPU summaries when an active rule requires low-utilization data', async () => {
+    mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
+      indexType: 'LOCAL',
+      resources: [catalog.resources[5]],
+      searchRegion: 'us-east-1',
+    });
+    mockedHydrateAwsRdsInstanceCpuMetrics.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        averageCpuUtilizationLast30Days: 8,
+        dbInstanceIdentifier: 'legacy-db',
+        region: 'us-east-1',
+      },
+    ]);
+
+    const result = await discoverAwsResources(
+      [
+        createRule({
+          discoveryDependencies: ['aws-rds-instance-cpu-metrics'],
+          service: 'rds',
+        }),
+      ],
+      { mode: 'region', region: 'us-east-1' },
+    );
+
+    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith({ mode: 'region', region: 'us-east-1' }, ['rds:db']);
+    expect(mockedHydrateAwsRdsInstanceCpuMetrics).toHaveBeenCalledWith([catalog.resources[5]]);
+    expect(result.resources.get('aws-rds-instance-cpu-metrics')).toEqual([
+      {
+        accountId: '123456789012',
+        averageCpuUtilizationLast30Days: 8,
+        dbInstanceIdentifier: 'legacy-db',
+        region: 'us-east-1',
+      },
+    ]);
+  });
+
+  it('hydrates RDS reserved instances when an active rule requires reserved coverage data', async () => {
+    mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
+      indexType: 'LOCAL',
+      resources: [catalog.resources[5]],
+      searchRegion: 'us-east-1',
+    });
+    mockedHydrateAwsRdsReservedInstances.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        instanceClass: 'db.m6i.large',
+        instanceCount: 1,
+        multiAz: false,
+        productDescription: 'mysql',
+        region: 'us-east-1',
+        reservedDbInstanceId: 'ri-123',
+        state: 'active',
+      },
+    ]);
+
+    const result = await discoverAwsResources(
+      [
+        createRule({
+          discoveryDependencies: ['aws-rds-reserved-instances'],
+          service: 'rds',
+        }),
+      ],
+      { mode: 'region', region: 'us-east-1' },
+    );
+
+    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith({ mode: 'region', region: 'us-east-1' }, ['rds:db']);
+    expect(mockedHydrateAwsRdsReservedInstances).toHaveBeenCalledWith([catalog.resources[5]]);
+    expect(result.resources.get('aws-rds-reserved-instances')).toEqual([
+      {
+        accountId: '123456789012',
+        instanceClass: 'db.m6i.large',
+        instanceCount: 1,
+        multiAz: false,
+        productDescription: 'mysql',
+        region: 'us-east-1',
+        reservedDbInstanceId: 'ri-123',
+        state: 'active',
       },
     ]);
   });
@@ -1263,6 +1436,49 @@ describe('discoverAwsResources', () => {
         state: 'completed',
         volumeId: 'vol-123',
         volumeSizeGiB: 128,
+      },
+    ]);
+  });
+
+  it('hydrates RDS snapshots from snapshot catalog resources', async () => {
+    mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
+      indexType: 'LOCAL',
+      resources: [catalog.resources[20]],
+      searchRegion: 'us-east-1',
+    });
+    mockedHydrateAwsRdsSnapshots.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        dbInstanceIdentifier: 'deleted-db',
+        dbSnapshotIdentifier: 'snapshot-123',
+        region: 'us-east-1',
+        snapshotCreateTime: '2026-01-01T00:00:00.000Z',
+        snapshotType: 'manual',
+      },
+    ]);
+
+    const result = await discoverAwsResources(
+      [
+        createRule({
+          discoveryDependencies: ['aws-rds-snapshots'],
+          service: 'rds',
+        }),
+      ],
+      { mode: 'region', region: 'us-east-1' },
+    );
+
+    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith({ mode: 'region', region: 'us-east-1' }, [
+      'rds:snapshot',
+    ]);
+    expect(mockedHydrateAwsRdsSnapshots).toHaveBeenCalledWith([catalog.resources[20]]);
+    expect(result.resources.get('aws-rds-snapshots')).toEqual([
+      {
+        accountId: '123456789012',
+        dbInstanceIdentifier: 'deleted-db',
+        dbSnapshotIdentifier: 'snapshot-123',
+        region: 'us-east-1',
+        snapshotCreateTime: '2026-01-01T00:00:00.000Z',
+        snapshotType: 'manual',
       },
     ]);
   });

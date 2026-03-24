@@ -254,6 +254,13 @@ describe('sdk exports', () => {
         supports: ['discovery'],
       },
       {
+        description: 'Flag Network Load Balancers that have no attached target groups or no registered targets.',
+        id: 'CLDBRN-AWS-ELB-4',
+        provider: 'aws',
+        service: 'elb',
+        supports: ['discovery'],
+      },
+      {
         description: 'Flag EMR clusters that still use previous-generation EC2 instance types.',
         id: 'CLDBRN-AWS-EMR-1',
         provider: 'aws',
@@ -275,6 +282,21 @@ describe('sdk exports', () => {
         supports: ['iac', 'discovery'],
       },
       {
+        description: 'Flag Lambda functions whose 7-day error rate is greater than 10%.',
+        id: 'CLDBRN-AWS-LAMBDA-2',
+        provider: 'aws',
+        service: 'lambda',
+        supports: ['discovery'],
+      },
+      {
+        description:
+          'Flag Lambda functions whose configured timeout is at least 30 seconds and 5x their 7-day average duration.',
+        id: 'CLDBRN-AWS-LAMBDA-3',
+        provider: 'aws',
+        service: 'lambda',
+        supports: ['discovery'],
+      },
+      {
         description: 'Flag RDS DB instances that do not use curated preferred instance classes.',
         id: 'CLDBRN-AWS-RDS-1',
         provider: 'aws',
@@ -284,6 +306,43 @@ describe('sdk exports', () => {
       {
         description: 'Flag RDS DB instances that have no database connections in the last 7 days.',
         id: 'CLDBRN-AWS-RDS-2',
+        provider: 'aws',
+        service: 'rds',
+        supports: ['discovery'],
+      },
+      {
+        description: 'Flag long-running RDS DB instances that do not have matching active reserved-instance coverage.',
+        id: 'CLDBRN-AWS-RDS-3',
+        provider: 'aws',
+        service: 'rds',
+        supports: ['discovery'],
+      },
+      {
+        description:
+          'Flag RDS DB instances that still use non-Graviton instance families when a clear Graviton-based equivalent exists.',
+        id: 'CLDBRN-AWS-RDS-4',
+        provider: 'aws',
+        service: 'rds',
+        supports: ['discovery'],
+      },
+      {
+        description: 'Flag available RDS DB instances whose 30-day average CPU stays at or below 10%.',
+        id: 'CLDBRN-AWS-RDS-5',
+        provider: 'aws',
+        service: 'rds',
+        supports: ['discovery'],
+      },
+      {
+        description:
+          'Flag RDS MySQL 5.7 and PostgreSQL 11 DB instances that can incur extended support charges until they are upgraded.',
+        id: 'CLDBRN-AWS-RDS-6',
+        provider: 'aws',
+        service: 'rds',
+        supports: ['discovery'],
+      },
+      {
+        description: 'Flag RDS snapshots older than 30 days whose source DB instance no longer exists.',
+        id: 'CLDBRN-AWS-RDS-7',
         provider: 'aws',
         service: 'rds',
         supports: ['discovery'],

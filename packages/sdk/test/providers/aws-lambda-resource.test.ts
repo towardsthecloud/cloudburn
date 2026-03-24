@@ -1,13 +1,22 @@
 import type { GetFunctionConfigurationCommand } from '@aws-sdk/client-lambda';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createLambdaClient } from '../../src/providers/aws/client.js';
-import { hydrateAwsLambdaFunctions } from '../../src/providers/aws/resources/lambda.js';
+import { fetchCloudWatchSignals } from '../../src/providers/aws/resources/cloudwatch.js';
+import {
+  hydrateAwsLambdaFunctionMetrics,
+  hydrateAwsLambdaFunctions,
+} from '../../src/providers/aws/resources/lambda.js';
 
 vi.mock('../../src/providers/aws/client.js', () => ({
   createLambdaClient: vi.fn(),
 }));
 
+vi.mock('../../src/providers/aws/resources/cloudwatch.js', () => ({
+  fetchCloudWatchSignals: vi.fn(),
+}));
+
 const mockedCreateLambdaClient = vi.mocked(createLambdaClient);
+const mockedFetchCloudWatchSignals = vi.mocked(fetchCloudWatchSignals);
 
 describe('hydrateAwsLambdaFunctions', () => {
   beforeEach(() => {
@@ -59,12 +68,14 @@ describe('hydrateAwsLambdaFunctions', () => {
         architectures: ['x86_64'],
         functionName: 'first-function',
         region: 'us-east-1',
+        timeoutSeconds: 3,
       },
       {
         accountId: '123456789012',
         architectures: ['arm64'],
         functionName: 'second-function',
         region: 'us-east-1',
+        timeoutSeconds: 3,
       },
     ]);
   });
@@ -117,12 +128,14 @@ describe('hydrateAwsLambdaFunctions', () => {
         architectures: ['arm64'],
         functionName: 'first-function',
         region: 'us-east-1',
+        timeoutSeconds: 3,
       },
       {
         accountId: '123456789012',
         architectures: ['x86_64'],
         functionName: 'second-function',
         region: 'us-east-1',
+        timeoutSeconds: 3,
       },
     ]);
   });
@@ -189,6 +202,7 @@ describe('hydrateAwsLambdaFunctions', () => {
       .mockResolvedValueOnce({
         Architectures: ['arm64'],
         FunctionName: 'retry-function',
+        Timeout: 15,
       });
 
     mockedCreateLambdaClient.mockReturnValue({ send } as never);
@@ -210,9 +224,154 @@ describe('hydrateAwsLambdaFunctions', () => {
         architectures: ['arm64'],
         functionName: 'retry-function',
         region: 'eu-central-1',
+        timeoutSeconds: 15,
       },
     ]);
 
     expect(send).toHaveBeenCalledTimes(3);
+  });
+});
+
+describe('hydrateAwsLambdaFunctionMetrics', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
+  it('hydrates Lambda function metrics from a shared 7-day CloudWatch query set', async () => {
+    const send = vi
+      .fn()
+      .mockResolvedValueOnce({
+        Architectures: ['x86_64'],
+        FunctionName: 'first-function',
+        Timeout: 60,
+      })
+      .mockResolvedValueOnce({
+        Architectures: ['arm64'],
+        FunctionName: 'second-function',
+        Timeout: 120,
+      });
+
+    mockedCreateLambdaClient.mockReturnValue({ send } as never);
+    mockedFetchCloudWatchSignals.mockResolvedValue(
+      new Map([
+        [
+          'invocations0',
+          [
+            {
+              timestamp: '2026-03-24T00:00:00.000Z',
+              value: 100,
+            },
+          ],
+        ],
+        [
+          'errors0',
+          [
+            {
+              timestamp: '2026-03-24T00:00:00.000Z',
+              value: 12,
+            },
+          ],
+        ],
+        [
+          'duration0',
+          [
+            {
+              timestamp: '2026-03-24T00:00:00.000Z',
+              value: 2_500,
+            },
+          ],
+        ],
+        [
+          'invocations1',
+          [
+            {
+              timestamp: '2026-03-24T00:00:00.000Z',
+              value: 80,
+            },
+          ],
+        ],
+        [
+          'duration1',
+          [
+            {
+              timestamp: '2026-03-24T00:00:00.000Z',
+              value: 8_000,
+            },
+          ],
+        ],
+      ]),
+    );
+
+    const metrics = await hydrateAwsLambdaFunctionMetrics([
+      {
+        accountId: '123456789012',
+        arn: 'arn:aws:lambda:us-east-1:123456789012:function:first-function',
+        properties: [],
+        region: 'us-east-1',
+        resourceType: 'lambda:function',
+        service: 'lambda',
+      },
+      {
+        accountId: '123456789012',
+        arn: 'arn:aws:lambda:us-east-1:123456789012:function:second-function',
+        properties: [],
+        region: 'us-east-1',
+        resourceType: 'lambda:function',
+        service: 'lambda',
+      },
+    ]);
+
+    expect(mockedFetchCloudWatchSignals).toHaveBeenCalledTimes(1);
+    expect(metrics).toEqual([
+      {
+        accountId: '123456789012',
+        averageDurationMsLast7Days: 2_500,
+        functionName: 'first-function',
+        region: 'us-east-1',
+        totalErrorsLast7Days: 12,
+        totalInvocationsLast7Days: 100,
+      },
+      {
+        accountId: '123456789012',
+        averageDurationMsLast7Days: 8_000,
+        functionName: 'second-function',
+        region: 'us-east-1',
+        totalErrorsLast7Days: 0,
+        totalInvocationsLast7Days: 80,
+      },
+    ]);
+  });
+
+  it('preserves unknown metric coverage when Lambda emitted no invocation datapoints', async () => {
+    const send = vi.fn().mockResolvedValue({
+      Architectures: ['x86_64'],
+      FunctionName: 'quiet-function',
+      Timeout: 60,
+    });
+
+    mockedCreateLambdaClient.mockReturnValue({ send } as never);
+    mockedFetchCloudWatchSignals.mockResolvedValue(new Map());
+
+    await expect(
+      hydrateAwsLambdaFunctionMetrics([
+        {
+          accountId: '123456789012',
+          arn: 'arn:aws:lambda:us-east-1:123456789012:function:quiet-function',
+          properties: [],
+          region: 'us-east-1',
+          resourceType: 'lambda:function',
+          service: 'lambda',
+        },
+      ]),
+    ).resolves.toEqual([
+      {
+        accountId: '123456789012',
+        averageDurationMsLast7Days: null,
+        functionName: 'quiet-function',
+        region: 'us-east-1',
+        totalErrorsLast7Days: null,
+        totalInvocationsLast7Days: null,
+      },
+    ]);
   });
 });
