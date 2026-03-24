@@ -16,10 +16,15 @@ Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
 
 | ID                    | Name                                      | Service | Supports       | Status      |
 | --------------------- | ----------------------------------------- | ------- | -------------- | ----------- |
+| `CLDBRN-AWS-APIGATEWAY-1` | API Gateway Stage Caching Disabled    | apigateway | discovery   | Implemented |
+| `CLDBRN-AWS-CLOUDFRONT-1` | CloudFront Distribution Price Class All | cloudfront | discovery | Implemented |
 | `CLDBRN-AWS-CLOUDTRAIL-1` | CloudTrail Redundant Global Trails     | cloudtrail | discovery   | Implemented |
 | `CLDBRN-AWS-CLOUDTRAIL-2` | CloudTrail Redundant Regional Trails   | cloudtrail | discovery   | Implemented |
 | `CLDBRN-AWS-CLOUDWATCH-1` | CloudWatch Log Group Missing Retention | cloudwatch | discovery   | Implemented |
 | `CLDBRN-AWS-CLOUDWATCH-2` | CloudWatch Unused Log Streams          | cloudwatch | discovery   | Implemented |
+| `CLDBRN-AWS-COSTEXPLORER-1` | Cost Explorer Full Month Cost Changes | costexplorer | discovery | Implemented |
+| `CLDBRN-AWS-DYNAMODB-1` | DynamoDB Table Stale Data              | dynamodb | discovery     | Implemented |
+| `CLDBRN-AWS-DYNAMODB-2` | DynamoDB Table Without Autoscaling     | dynamodb | discovery     | Implemented |
 | `CLDBRN-AWS-EC2-1`    | EC2 Instance Type Not Preferred           | ec2     | iac, discovery | Implemented |
 | `CLDBRN-AWS-EC2-2`    | S3 Interface VPC Endpoint Used            | ec2     | iac            | Implemented |
 | `CLDBRN-AWS-EC2-3`    | Elastic IP Address Unassociated           | ec2     | discovery      | Implemented |
@@ -58,11 +63,18 @@ Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
 | `CLDBRN-AWS-REDSHIFT-1` | Redshift Cluster Low CPU Utilization    | redshift | discovery     | Implemented |
 | `CLDBRN-AWS-REDSHIFT-2` | Redshift Cluster Missing Reserved Coverage | redshift | discovery   | Implemented |
 | `CLDBRN-AWS-REDSHIFT-3` | Redshift Cluster Pause Resume Not Enabled | redshift | discovery    | Implemented |
+| `CLDBRN-AWS-ROUTE53-1` | Route 53 Record Higher TTL              | route53 | discovery      | Implemented |
+| `CLDBRN-AWS-ROUTE53-2` | Route 53 Health Check Unused            | route53 | discovery      | Implemented |
 | `CLDBRN-AWS-S3-1`     | S3 Missing Lifecycle Configuration        | s3      | iac, discovery | Implemented |
 | `CLDBRN-AWS-S3-2`     | S3 Bucket Storage Class Not Optimized     | s3      | iac, discovery | Implemented |
+| `CLDBRN-AWS-SECRETSMANAGER-1` | Secrets Manager Secret Unused    | secretsmanager | discovery | Implemented |
 | `CLDBRN-AWS-LAMBDA-1` | Lambda Cost Optimal Architecture          | lambda  | iac, discovery | Implemented |
 | `CLDBRN-AWS-LAMBDA-2` | Lambda Function High Error Rate           | lambda  | discovery      | Implemented |
 | `CLDBRN-AWS-LAMBDA-3` | Lambda Function Excessive Timeout         | lambda  | discovery      | Implemented |
+
+`CLDBRN-AWS-APIGATEWAY-1` flags REST API stages when `cacheClusterEnabled` is not explicitly `true`.
+
+`CLDBRN-AWS-CLOUDFRONT-1` reviews only distributions using `PriceClass_All`.
 
 `CLDBRN-AWS-EBS-1` flags previous-generation EBS volume types (`gp2`, `io1`, and `standard`) and does not flag current-generation HDD families such as `st1` or `sc1`.
 
@@ -75,6 +87,12 @@ Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
 `CLDBRN-AWS-EBS-7` flags only `completed` snapshots with a parsed `StartTime` older than `90` days.
 
 `CLDBRN-AWS-CLOUDWATCH-2` flags log streams with no observed event history and log streams whose `lastIngestionTime` is more than 90 days old. Delivery-managed log groups remain exempt.
+
+`CLDBRN-AWS-COSTEXPLORER-1` compares the last two full months and flags only services with an existing prior-month baseline and a cost increase greater than `10` cost units.
+
+`CLDBRN-AWS-DYNAMODB-1` flags only tables whose parsed `latestStreamLabel` is older than `90` days. Tables without a stream label are skipped.
+
+`CLDBRN-AWS-DYNAMODB-2` reviews only provisioned-capacity tables and flags them when no table-level read or write autoscaling targets are configured.
 
 `CLDBRN-AWS-EC2-6` flags only families with a curated Graviton-equivalent path. Instances without architecture metadata or outside the curated family set are skipped.
 
@@ -119,6 +137,12 @@ Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
 `CLDBRN-AWS-REDSHIFT-2` reviews only `available` clusters with a parsed create time at least 180 days old and requires active reserved-node coverage for the same node type.
 
 `CLDBRN-AWS-REDSHIFT-3` flags only `available`, VPC-backed clusters with automated snapshots enabled, no HSM, and no Multi-AZ deployment when either the pause or resume schedule is missing.
+
+`CLDBRN-AWS-ROUTE53-1` reviews only non-alias records and treats `3600` seconds as the low-TTL floor.
+
+`CLDBRN-AWS-ROUTE53-2` flags only Route 53 health checks that are not referenced by any discovered record set.
+
+`CLDBRN-AWS-SECRETSMANAGER-1` flags secrets with no `lastAccessedDate` and secrets whose parsed last access is at least `90` days old.
 
 **Status key:**
 

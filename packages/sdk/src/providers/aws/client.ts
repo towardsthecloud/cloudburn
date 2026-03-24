@@ -1,7 +1,11 @@
+import { APIGatewayClient } from '@aws-sdk/client-api-gateway';
 import { ApplicationAutoScalingClient } from '@aws-sdk/client-application-auto-scaling';
+import { CloudFrontClient } from '@aws-sdk/client-cloudfront';
 import { CloudTrailClient } from '@aws-sdk/client-cloudtrail';
 import { CloudWatchClient } from '@aws-sdk/client-cloudwatch';
 import { CloudWatchLogsClient } from '@aws-sdk/client-cloudwatch-logs';
+import { CostExplorerClient } from '@aws-sdk/client-cost-explorer';
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DescribeRegionsCommand, EC2Client } from '@aws-sdk/client-ec2';
 import { ECRClient } from '@aws-sdk/client-ecr';
 import { ECSClient } from '@aws-sdk/client-ecs';
@@ -14,7 +18,9 @@ import { LambdaClient } from '@aws-sdk/client-lambda';
 import { RDSClient } from '@aws-sdk/client-rds';
 import { RedshiftClient } from '@aws-sdk/client-redshift';
 import { ResourceExplorer2Client } from '@aws-sdk/client-resource-explorer-2';
+import { Route53Client } from '@aws-sdk/client-route-53';
 import { S3Client } from '@aws-sdk/client-s3';
+import { SecretsManagerClient } from '@aws-sdk/client-secrets-manager';
 import { GetCallerIdentityCommand, STSClient } from '@aws-sdk/client-sts';
 import { AwsDiscoveryError } from './errors.js';
 
@@ -23,6 +29,7 @@ export type AwsClientConfig = {
 };
 
 const AWS_REGION_PATTERN = /^[a-z]{2}(?:-[a-z0-9]+)+-\d+$/;
+const AWS_GLOBAL_CONTROL_REGION = 'us-east-1';
 
 /**
  * Validates an AWS region string before it is used in clients or filters.
@@ -71,6 +78,12 @@ export const createApplicationAutoScalingClient = (config: AwsClientConfig): App
     region: config.region,
   });
 
+/** Creates an AWS API Gateway REST API client for a specific region. */
+export const createApiGatewayClient = (config: AwsClientConfig): APIGatewayClient =>
+  new APIGatewayClient({
+    region: config.region,
+  });
+
 /** Creates an AWS ElastiCache client for a specific region. */
 export const createElastiCacheClient = (config: AwsClientConfig): ElastiCacheClient =>
   new ElastiCacheClient({
@@ -101,9 +114,27 @@ export const createCloudTrailClient = (config: AwsClientConfig): CloudTrailClien
     region: config.region,
   });
 
+/** Creates an AWS CloudFront client against the global control plane. */
+export const createCloudFrontClient = (): CloudFrontClient =>
+  new CloudFrontClient({
+    region: AWS_GLOBAL_CONTROL_REGION,
+  });
+
 /** Creates an AWS CloudWatch Logs client for a specific region. */
 export const createCloudWatchLogsClient = (config: AwsClientConfig): CloudWatchLogsClient =>
   new CloudWatchLogsClient({
+    region: config.region,
+  });
+
+/** Creates an AWS Cost Explorer client against the global billing control plane. */
+export const createCostExplorerClient = (): CostExplorerClient =>
+  new CostExplorerClient({
+    region: AWS_GLOBAL_CONTROL_REGION,
+  });
+
+/** Creates an AWS DynamoDB client for a specific region. */
+export const createDynamoDbClient = (config: AwsClientConfig): DynamoDBClient =>
+  new DynamoDBClient({
     region: config.region,
   });
 
@@ -131,9 +162,21 @@ export const createRedshiftClient = (config: AwsClientConfig): RedshiftClient =>
     region: config.region,
   });
 
+/** Creates an AWS Route 53 client against the global control plane. */
+export const createRoute53Client = (): Route53Client =>
+  new Route53Client({
+    region: AWS_GLOBAL_CONTROL_REGION,
+  });
+
 /** Creates an AWS S3 client for a specific region. */
 export const createS3Client = (config: AwsClientConfig): S3Client =>
   new S3Client({
+    region: config.region,
+  });
+
+/** Creates an AWS Secrets Manager client for a specific region. */
+export const createSecretsManagerClient = (config: AwsClientConfig): SecretsManagerClient =>
+  new SecretsManagerClient({
     region: config.region,
   });
 

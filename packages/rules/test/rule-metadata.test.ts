@@ -803,4 +803,134 @@ describe('rule metadata', () => {
       discoveryDependencies: ['aws-redshift-clusters'],
     });
   });
+
+  it('defines the expected API Gateway caching-disabled rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-APIGATEWAY-1');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-APIGATEWAY-1',
+      name: 'API Gateway Stage Caching Disabled',
+      description: 'Flag API Gateway REST API stages with caching disabled.',
+      message: 'API Gateway REST API stages should enable caching when stage caching is available.',
+      provider: 'aws',
+      service: 'apigateway',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-apigateway-stages'],
+    });
+  });
+
+  it('defines the expected CloudFront price-class rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-CLOUDFRONT-1');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-CLOUDFRONT-1',
+      name: 'CloudFront Distribution Price Class All',
+      description: 'Flag CloudFront distributions using PriceClass_All when a cheaper price class may suffice.',
+      message: 'CloudFront distributions using PriceClass_All should be reviewed for cheaper edge coverage.',
+      provider: 'aws',
+      service: 'cloudfront',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-cloudfront-distributions'],
+    });
+  });
+
+  it('defines the expected Cost Explorer full-month-cost-changes rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-COSTEXPLORER-1');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-COSTEXPLORER-1',
+      name: 'Cost Explorer Full Month Cost Changes',
+      description: 'Flag services with significant cost increases between the last two full months.',
+      message:
+        'AWS services with cost increases greater than 10 USD between the last two full months should be reviewed.',
+      provider: 'aws',
+      service: 'costexplorer',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-cost-usage'],
+    });
+  });
+
+  it('defines the expected DynamoDB stale-data rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-DYNAMODB-1');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-DYNAMODB-1',
+      name: 'DynamoDB Table Stale Data',
+      description: 'Flag DynamoDB tables with no data changes exceeding a threshold (default 90 days).',
+      message: 'DynamoDB tables whose data has not changed for more than 90 days should be reviewed.',
+      provider: 'aws',
+      service: 'dynamodb',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-dynamodb-tables'],
+    });
+  });
+
+  it('defines the expected DynamoDB autoscaling rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-DYNAMODB-2');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-DYNAMODB-2',
+      name: 'DynamoDB Table Without Autoscaling',
+      description: 'Flag provisioned-capacity DynamoDB tables without auto-scaling configured.',
+      message: 'Provisioned-capacity DynamoDB tables should use auto-scaling.',
+      provider: 'aws',
+      service: 'dynamodb',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-dynamodb-tables', 'aws-dynamodb-autoscaling'],
+    });
+  });
+
+  it('defines the expected Route 53 higher-ttl rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-ROUTE53-1');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-ROUTE53-1',
+      name: 'Route 53 Record Higher TTL',
+      description: 'Flag Route 53 records with TTL below 3600 seconds.',
+      message: 'Route 53 record sets should generally use TTL values of at least 3600 seconds.',
+      provider: 'aws',
+      service: 'route53',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-route53-zones', 'aws-route53-records'],
+    });
+  });
+
+  it('defines the expected Route 53 unused-health-check rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-ROUTE53-2');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-ROUTE53-2',
+      name: 'Route 53 Health Check Unused',
+      description: 'Flag Route 53 health checks not associated with any DNS record.',
+      message: 'Route 53 health checks not associated with any DNS record should be deleted.',
+      provider: 'aws',
+      service: 'route53',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-route53-health-checks', 'aws-route53-records'],
+    });
+  });
+
+  it('defines the expected Secrets Manager unused-secret rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-SECRETSMANAGER-1');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-SECRETSMANAGER-1',
+      name: 'Secrets Manager Secret Unused',
+      description: 'Flag Secrets Manager secrets not accessed within a threshold (default 90 days).',
+      message:
+        'Secrets Manager secrets that have not been accessed for more than 90 days should be deleted or reviewed.',
+      provider: 'aws',
+      service: 'secretsmanager',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-secretsmanager-secrets'],
+    });
+  });
 });

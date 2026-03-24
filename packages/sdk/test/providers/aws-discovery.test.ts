@@ -19,11 +19,15 @@ import {
   waitForAwsResourceExplorerIndex,
   waitForAwsResourceExplorerSetup,
 } from '../../src/providers/aws/resource-explorer.js';
+import { hydrateAwsApiGatewayStages } from '../../src/providers/aws/resources/apigateway.js';
+import { hydrateAwsCloudFrontDistributions } from '../../src/providers/aws/resources/cloudfront.js';
 import { hydrateAwsCloudTrailTrails } from '../../src/providers/aws/resources/cloudtrail.js';
 import {
   hydrateAwsCloudWatchLogGroups,
   hydrateAwsCloudWatchLogStreams,
 } from '../../src/providers/aws/resources/cloudwatch-logs.js';
+import { hydrateAwsCostUsage } from '../../src/providers/aws/resources/cost-explorer.js';
+import { hydrateAwsDynamoDbAutoscaling, hydrateAwsDynamoDbTables } from '../../src/providers/aws/resources/dynamodb.js';
 import { hydrateAwsEbsSnapshots, hydrateAwsEbsVolumes } from '../../src/providers/aws/resources/ebs.js';
 import { hydrateAwsEc2Instances } from '../../src/providers/aws/resources/ec2.js';
 import { hydrateAwsEc2ReservedInstances } from '../../src/providers/aws/resources/ec2-reserved-instances.js';
@@ -61,7 +65,13 @@ import {
   hydrateAwsRedshiftClusters,
   hydrateAwsRedshiftReservedNodes,
 } from '../../src/providers/aws/resources/redshift.js';
+import {
+  hydrateAwsRoute53HealthChecks,
+  hydrateAwsRoute53Records,
+  hydrateAwsRoute53Zones,
+} from '../../src/providers/aws/resources/route53.js';
 import { hydrateAwsS3BucketAnalyses } from '../../src/providers/aws/resources/s3.js';
+import { hydrateAwsSecretsManagerSecrets } from '../../src/providers/aws/resources/secretsmanager.js';
 
 vi.mock('../../src/providers/aws/client.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../src/providers/aws/client.js')>();
@@ -112,9 +122,26 @@ vi.mock('../../src/providers/aws/resources/cloudtrail.js', () => ({
   hydrateAwsCloudTrailTrails: vi.fn(),
 }));
 
+vi.mock('../../src/providers/aws/resources/apigateway.js', () => ({
+  hydrateAwsApiGatewayStages: vi.fn(),
+}));
+
+vi.mock('../../src/providers/aws/resources/cloudfront.js', () => ({
+  hydrateAwsCloudFrontDistributions: vi.fn(),
+}));
+
 vi.mock('../../src/providers/aws/resources/cloudwatch-logs.js', () => ({
   hydrateAwsCloudWatchLogGroups: vi.fn(),
   hydrateAwsCloudWatchLogStreams: vi.fn(),
+}));
+
+vi.mock('../../src/providers/aws/resources/cost-explorer.js', () => ({
+  hydrateAwsCostUsage: vi.fn(),
+}));
+
+vi.mock('../../src/providers/aws/resources/dynamodb.js', () => ({
+  hydrateAwsDynamoDbAutoscaling: vi.fn(),
+  hydrateAwsDynamoDbTables: vi.fn(),
 }));
 
 vi.mock('../../src/providers/aws/resources/ecr.js', () => ({
@@ -169,8 +196,18 @@ vi.mock('../../src/providers/aws/resources/redshift.js', () => ({
   hydrateAwsRedshiftReservedNodes: vi.fn(),
 }));
 
+vi.mock('../../src/providers/aws/resources/route53.js', () => ({
+  hydrateAwsRoute53HealthChecks: vi.fn(),
+  hydrateAwsRoute53Records: vi.fn(),
+  hydrateAwsRoute53Zones: vi.fn(),
+}));
+
 vi.mock('../../src/providers/aws/resources/s3.js', () => ({
   hydrateAwsS3BucketAnalyses: vi.fn(),
+}));
+
+vi.mock('../../src/providers/aws/resources/secretsmanager.js', () => ({
+  hydrateAwsSecretsManagerSecrets: vi.fn(),
 }));
 
 const mockedResolveCurrentAwsRegion = vi.mocked(resolveCurrentAwsRegion);
@@ -183,9 +220,14 @@ const mockedListAwsDiscoverySupportedResourceTypes = vi.mocked(listAwsDiscoveryS
 const mockedUpdateAwsResourceExplorerIndexType = vi.mocked(updateAwsResourceExplorerIndexType);
 const mockedWaitForAwsResourceExplorerIndex = vi.mocked(waitForAwsResourceExplorerIndex);
 const mockedWaitForAwsResourceExplorerSetup = vi.mocked(waitForAwsResourceExplorerSetup);
+const mockedHydrateAwsApiGatewayStages = vi.mocked(hydrateAwsApiGatewayStages);
+const mockedHydrateAwsCloudFrontDistributions = vi.mocked(hydrateAwsCloudFrontDistributions);
 const mockedHydrateAwsCloudTrailTrails = vi.mocked(hydrateAwsCloudTrailTrails);
 const mockedHydrateAwsCloudWatchLogGroups = vi.mocked(hydrateAwsCloudWatchLogGroups);
 const mockedHydrateAwsCloudWatchLogStreams = vi.mocked(hydrateAwsCloudWatchLogStreams);
+const mockedHydrateAwsCostUsage = vi.mocked(hydrateAwsCostUsage);
+const mockedHydrateAwsDynamoDbAutoscaling = vi.mocked(hydrateAwsDynamoDbAutoscaling);
+const mockedHydrateAwsDynamoDbTables = vi.mocked(hydrateAwsDynamoDbTables);
 const mockedHydrateAwsEbsSnapshots = vi.mocked(hydrateAwsEbsSnapshots);
 const mockedHydrateAwsEbsVolumes = vi.mocked(hydrateAwsEbsVolumes);
 const mockedHydrateAwsElastiCacheClusters = vi.mocked(hydrateAwsElastiCacheClusters);
@@ -214,7 +256,11 @@ const mockedHydrateAwsRdsSnapshots = vi.mocked(hydrateAwsRdsSnapshots);
 const mockedHydrateAwsRedshiftClusterMetrics = vi.mocked(hydrateAwsRedshiftClusterMetrics);
 const mockedHydrateAwsRedshiftClusters = vi.mocked(hydrateAwsRedshiftClusters);
 const mockedHydrateAwsRedshiftReservedNodes = vi.mocked(hydrateAwsRedshiftReservedNodes);
+const mockedHydrateAwsRoute53HealthChecks = vi.mocked(hydrateAwsRoute53HealthChecks);
+const mockedHydrateAwsRoute53Records = vi.mocked(hydrateAwsRoute53Records);
+const mockedHydrateAwsRoute53Zones = vi.mocked(hydrateAwsRoute53Zones);
 const mockedHydrateAwsS3BucketAnalyses = vi.mocked(hydrateAwsS3BucketAnalyses);
+const mockedHydrateAwsSecretsManagerSecrets = vi.mocked(hydrateAwsSecretsManagerSecrets);
 
 const catalog: AwsDiscoveryCatalog = {
   indexType: 'LOCAL',
@@ -562,6 +608,253 @@ describe('discoverAwsResources', () => {
         hasLifecycleSignal: false,
         hasUnclassifiedTransition: false,
         region: 'us-east-1',
+      },
+    ]);
+  });
+
+  it('hydrates the new AWS discovery datasets from the expected global and regional resource types', async () => {
+    const extendedCatalog: AwsDiscoveryCatalog = {
+      indexType: 'AGGREGATOR',
+      resources: [
+        {
+          accountId: '123456789012',
+          arn: 'arn:aws:apigateway:us-east-1::/restapis/a1b2c3/stages/prod',
+          properties: [],
+          region: 'us-east-1',
+          resourceType: 'apigateway:restapis/stages',
+          service: 'apigateway',
+        },
+        {
+          accountId: '123456789012',
+          arn: 'arn:aws:cloudfront::123456789012:distribution/E1234567890ABC',
+          properties: [],
+          region: 'global',
+          resourceType: 'cloudfront:distribution',
+          service: 'cloudfront',
+        },
+        {
+          accountId: '123456789012',
+          arn: 'arn:aws:dynamodb:us-east-1:123456789012:table/orders',
+          properties: [],
+          region: 'us-east-1',
+          resourceType: 'dynamodb:table',
+          service: 'dynamodb',
+        },
+        {
+          accountId: '123456789012',
+          arn: 'arn:aws:route53:::hostedzone/Z1234567890',
+          name: 'example.com.',
+          properties: [],
+          region: 'global',
+          resourceType: 'route53:hostedzone',
+          service: 'route53',
+        },
+        {
+          accountId: '123456789012',
+          arn: 'arn:aws:route53:::healthcheck/abcd1234',
+          properties: [],
+          region: 'global',
+          resourceType: 'route53:healthcheck',
+          service: 'route53',
+        },
+        {
+          accountId: '123456789012',
+          arn: 'arn:aws:secretsmanager:us-east-1:123456789012:secret:db-password-AbCdEf',
+          properties: [],
+          region: 'us-east-1',
+          resourceType: 'secretsmanager:secret',
+          service: 'secretsmanager',
+        },
+      ],
+      searchRegion: 'us-east-1',
+    };
+
+    mockedBuildAwsDiscoveryCatalog.mockResolvedValue(extendedCatalog);
+    mockedHydrateAwsApiGatewayStages.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        cacheClusterEnabled: false,
+        region: 'us-east-1',
+        restApiId: 'a1b2c3',
+        stageArn: 'arn:aws:apigateway:us-east-1::/restapis/a1b2c3/stages/prod',
+        stageName: 'prod',
+      },
+    ]);
+    mockedHydrateAwsCloudFrontDistributions.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        distributionArn: 'arn:aws:cloudfront::123456789012:distribution/E1234567890ABC',
+        distributionId: 'E1234567890ABC',
+        priceClass: 'PriceClass_All',
+        region: 'global',
+      },
+    ]);
+    mockedHydrateAwsCostUsage.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        costIncrease: 15,
+        costUnit: 'USD',
+        currentMonthCost: 25,
+        previousMonthCost: 10,
+        serviceName: 'Amazon DynamoDB',
+        serviceSlug: 'amazon-dynamodb',
+      },
+    ]);
+    mockedHydrateAwsDynamoDbTables.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        billingMode: 'PROVISIONED',
+        latestStreamLabel: '2025-12-01T00:00:00.000',
+        region: 'us-east-1',
+        tableArn: 'arn:aws:dynamodb:us-east-1:123456789012:table/orders',
+        tableName: 'orders',
+      },
+    ]);
+    mockedHydrateAwsDynamoDbAutoscaling.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        hasReadTarget: false,
+        hasWriteTarget: false,
+        region: 'us-east-1',
+        tableArn: 'arn:aws:dynamodb:us-east-1:123456789012:table/orders',
+        tableName: 'orders',
+      },
+    ]);
+    mockedHydrateAwsRoute53Zones.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        hostedZoneArn: 'arn:aws:route53:::hostedzone/Z1234567890',
+        hostedZoneId: 'Z1234567890',
+        region: 'global',
+        zoneName: 'example.com.',
+      },
+    ]);
+    mockedHydrateAwsRoute53Records.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        hostedZoneId: 'Z1234567890',
+        isAlias: false,
+        recordId: 'arn:aws:route53:::hostedzone/Z1234567890/recordset/www.example.com./A',
+        recordName: 'www.example.com.',
+        recordType: 'A',
+        region: 'global',
+        ttl: 300,
+      },
+    ]);
+    mockedHydrateAwsRoute53HealthChecks.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        healthCheckArn: 'arn:aws:route53:::healthcheck/abcd1234',
+        healthCheckId: 'abcd1234',
+        region: 'global',
+      },
+    ]);
+    mockedHydrateAwsSecretsManagerSecrets.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        lastAccessedDate: '2025-12-01T00:00:00.000Z',
+        region: 'us-east-1',
+        secretArn: 'arn:aws:secretsmanager:us-east-1:123456789012:secret:db-password-AbCdEf',
+        secretName: 'db-password',
+      },
+    ]);
+
+    const result = await discoverAwsResources(
+      [
+        createRule({
+          service: 'apigateway',
+          discoveryDependencies: ['aws-apigateway-stages'],
+        }),
+        createRule({
+          id: 'CLDBRN-AWS-TEST-2',
+          service: 'cloudfront',
+          discoveryDependencies: ['aws-cloudfront-distributions'],
+        }),
+        createRule({
+          id: 'CLDBRN-AWS-TEST-3',
+          service: 'costexplorer',
+          discoveryDependencies: ['aws-cost-usage'],
+        }),
+        createRule({
+          id: 'CLDBRN-AWS-TEST-4',
+          service: 'dynamodb',
+          discoveryDependencies: ['aws-dynamodb-tables', 'aws-dynamodb-autoscaling'],
+        }),
+        createRule({
+          id: 'CLDBRN-AWS-TEST-5',
+          service: 'route53',
+          discoveryDependencies: ['aws-route53-zones', 'aws-route53-records', 'aws-route53-health-checks'],
+        }),
+        createRule({
+          id: 'CLDBRN-AWS-TEST-6',
+          service: 'secretsmanager',
+          discoveryDependencies: ['aws-secretsmanager-secrets'],
+        }),
+      ],
+      { mode: 'region', region: 'us-east-1' },
+    );
+
+    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith({ mode: 'region', region: 'us-east-1' }, [
+      'apigateway:restapis/stages',
+      'cloudfront:distribution',
+      'dynamodb:table',
+      'route53:healthcheck',
+      'route53:hostedzone',
+      'secretsmanager:secret',
+    ]);
+    expect(mockedHydrateAwsApiGatewayStages).toHaveBeenCalledWith([extendedCatalog.resources[0]]);
+    expect(mockedHydrateAwsCloudFrontDistributions).toHaveBeenCalledWith([extendedCatalog.resources[1]]);
+    expect(mockedHydrateAwsCostUsage).toHaveBeenCalledWith([]);
+    expect(mockedHydrateAwsDynamoDbTables).toHaveBeenCalledWith([extendedCatalog.resources[2]]);
+    expect(mockedHydrateAwsDynamoDbAutoscaling).toHaveBeenCalledWith([extendedCatalog.resources[2]]);
+    expect(mockedHydrateAwsRoute53Zones).toHaveBeenCalledWith([extendedCatalog.resources[3]]);
+    expect(mockedHydrateAwsRoute53Records).toHaveBeenCalledWith([extendedCatalog.resources[3]]);
+    expect(mockedHydrateAwsRoute53HealthChecks).toHaveBeenCalledWith([extendedCatalog.resources[4]]);
+    expect(mockedHydrateAwsSecretsManagerSecrets).toHaveBeenCalledWith([extendedCatalog.resources[5]]);
+    expect(result.resources.get('aws-cost-usage')).toHaveLength(1);
+    expect(result.resources.get('aws-route53-records')).toHaveLength(1);
+  });
+
+  it('loads account-scoped discovery datasets without building a Resource Explorer catalog', async () => {
+    mockedResolveCurrentAwsRegion.mockResolvedValue('eu-west-1');
+    mockedHydrateAwsCostUsage.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        costIncrease: 20,
+        costUnit: 'USD',
+        currentMonthCost: 40,
+        previousMonthCost: 20,
+        serviceName: 'Amazon Route 53',
+        serviceSlug: 'amazon-route-53',
+      },
+    ]);
+
+    const result = await discoverAwsResources(
+      [
+        createRule({
+          service: 'costexplorer',
+          discoveryDependencies: ['aws-cost-usage'],
+        }),
+      ],
+      { mode: 'region', region: 'eu-west-1' },
+    );
+
+    expect(mockedBuildAwsDiscoveryCatalog).not.toHaveBeenCalled();
+    expect(mockedHydrateAwsCostUsage).toHaveBeenCalledWith([]);
+    expect(result.catalog).toEqual({
+      indexType: 'LOCAL',
+      resources: [],
+      searchRegion: 'eu-west-1',
+    });
+    expect(result.resources.get('aws-cost-usage')).toEqual([
+      {
+        accountId: '123456789012',
+        costIncrease: 20,
+        costUnit: 'USD',
+        currentMonthCost: 40,
+        previousMonthCost: 20,
+        serviceName: 'Amazon Route 53',
+        serviceSlug: 'amazon-route-53',
       },
     ]);
   });
