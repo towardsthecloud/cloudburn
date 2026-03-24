@@ -363,8 +363,9 @@ describe('rule metadata', () => {
       message: 'Elastic IP addresses should not remain unassociated.',
       provider: 'aws',
       service: 'ec2',
-      supports: ['discovery'],
+      supports: ['discovery', 'iac'],
       discoveryDependencies: ['aws-ec2-elastic-ips'],
+      staticDependencies: ['aws-ec2-elastic-ips'],
     });
   });
 
@@ -890,8 +891,9 @@ describe('rule metadata', () => {
       message: 'Provisioned-capacity DynamoDB tables should use auto-scaling.',
       provider: 'aws',
       service: 'dynamodb',
-      supports: ['discovery'],
+      supports: ['discovery', 'iac'],
       discoveryDependencies: ['aws-dynamodb-tables', 'aws-dynamodb-autoscaling'],
+      staticDependencies: ['aws-dynamodb-tables', 'aws-dynamodb-autoscaling'],
     });
   });
 

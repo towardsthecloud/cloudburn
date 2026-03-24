@@ -114,7 +114,7 @@ describe('sdk exports', () => {
         id: 'CLDBRN-AWS-DYNAMODB-2',
         provider: 'aws',
         service: 'dynamodb',
-        supports: ['discovery'],
+        supports: ['discovery', 'iac'],
       },
       {
         description:
@@ -185,7 +185,7 @@ describe('sdk exports', () => {
         id: 'CLDBRN-AWS-EC2-3',
         provider: 'aws',
         service: 'ec2',
-        supports: ['discovery'],
+        supports: ['discovery', 'iac'],
       },
       {
         description: 'Flag interface VPC endpoints that have processed no traffic in the last 30 days.',

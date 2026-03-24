@@ -535,8 +535,11 @@ export type SharedDatasetKey =
   | 'aws-apigateway-stages'
   | 'aws-cloudfront-distributions'
   | 'aws-cloudwatch-log-groups'
+  | 'aws-dynamodb-autoscaling'
+  | 'aws-dynamodb-tables'
   | 'aws-ebs-volumes'
   | 'aws-ecr-repositories'
+  | 'aws-ec2-elastic-ips'
   | 'aws-ec2-instances'
   | 'aws-lambda-functions'
   | 'aws-rds-instances'
@@ -660,6 +663,21 @@ export type AwsStaticCloudWatchLogGroup = {
   location?: SourceLocation;
 };
 
+/** Normalized static DynamoDB table dataset entry. */
+export type AwsStaticDynamoDbTable = {
+  resourceId: string;
+  tableName: string | null;
+  billingMode: 'PAY_PER_REQUEST' | 'PROVISIONED' | null;
+  location?: SourceLocation;
+};
+
+/** Normalized static DynamoDB table autoscaling dataset entry. */
+export type AwsStaticDynamoDbAutoscaling = {
+  tableName: string | null;
+  hasReadTarget: boolean;
+  hasWriteTarget: boolean;
+};
+
 /** Normalized static EBS volume dataset entry with a precomputed finding target. */
 export type AwsStaticEbsVolume = {
   resourceId: string;
@@ -680,6 +698,13 @@ export type AwsStaticEcrRepository = {
 export type AwsStaticEc2Instance = {
   resourceId: string;
   instanceType: string | null;
+  location?: SourceLocation;
+};
+
+/** Normalized static Elastic IP dataset entry with derived association state. */
+export type AwsStaticEc2ElasticIp = {
+  resourceId: string;
+  isAssociated: boolean;
   location?: SourceLocation;
 };
 
@@ -718,8 +743,11 @@ export type StaticDatasetMap = {
   'aws-apigateway-stages': AwsStaticApiGatewayStage[];
   'aws-cloudfront-distributions': AwsStaticCloudFrontDistribution[];
   'aws-cloudwatch-log-groups': AwsStaticCloudWatchLogGroup[];
+  'aws-dynamodb-autoscaling': AwsStaticDynamoDbAutoscaling[];
+  'aws-dynamodb-tables': AwsStaticDynamoDbTable[];
   'aws-ebs-volumes': AwsStaticEbsVolume[];
   'aws-ecr-repositories': AwsStaticEcrRepository[];
+  'aws-ec2-elastic-ips': AwsStaticEc2ElasticIp[];
   'aws-ec2-instances': AwsStaticEc2Instance[];
   'aws-lambda-functions': AwsStaticLambdaFunction[];
   'aws-ec2-vpc-endpoints': AwsStaticEc2VpcEndpoint[];

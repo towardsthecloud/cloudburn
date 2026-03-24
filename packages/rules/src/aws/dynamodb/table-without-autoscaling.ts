@@ -15,8 +15,9 @@ export const dynamoDbTableWithoutAutoscalingRule = createRule({
   message: RULE_MESSAGE,
   provider: 'aws',
   service: RULE_SERVICE,
-  supports: ['discovery'],
+  supports: ['discovery', 'iac'],
   discoveryDependencies: ['aws-dynamodb-tables', 'aws-dynamodb-autoscaling'],
+  staticDependencies: ['aws-dynamodb-tables', 'aws-dynamodb-autoscaling'],
   evaluateLive: ({ resources }) => {
     const autoscalingByTable = new Map(
       resources
@@ -35,5 +36,23 @@ export const dynamoDbTableWithoutAutoscalingRule = createRule({
       .map((table) => createFindingMatch(table.tableArn, table.region, table.accountId));
 
     return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+  },
+  evaluateStatic: ({ resources }) => {
+    const autoscalingByTable = new Map(
+      resources
+        .get('aws-dynamodb-autoscaling')
+        .filter((table) => table.tableName !== null)
+        .map((table) => [table.tableName, table] as const),
+    );
+    const findings = resources
+      .get('aws-dynamodb-tables')
+      .filter((table) => table.billingMode === 'PROVISIONED' && table.tableName !== null)
+      .filter((table) => {
+        const autoscaling = autoscalingByTable.get(table.tableName);
+        return autoscaling ? !autoscaling.hasReadTarget && !autoscaling.hasWriteTarget : true;
+      })
+      .map((table) => createFindingMatch(table.resourceId, undefined, undefined, table.location));
+
+    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'iac', findings);
   },
 });

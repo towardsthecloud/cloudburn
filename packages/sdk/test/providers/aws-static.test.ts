@@ -587,6 +587,174 @@ describe('loadAwsStaticResources', () => {
     ]);
   });
 
+  it('loads DynamoDB tables and table-level autoscaling state', async () => {
+    mockedParseIaC.mockResolvedValue([
+      createIaCResource({
+        type: 'aws_dynamodb_table',
+        name: 'orders',
+        attributeLocations: {
+          name: {
+            path: 'main.tf',
+            line: 2,
+            column: 3,
+          },
+        },
+        attributes: {
+          name: 'orders',
+        },
+      }),
+      createIaCResource({
+        type: 'aws_appautoscaling_target',
+        name: 'orders_read',
+        attributes: {
+          resource_id: 'table/orders',
+          scalable_dimension: 'dynamodb:table:ReadCapacityUnits',
+        },
+      }),
+      createIaCResource({
+        type: 'aws_appautoscaling_target',
+        name: 'orders_write',
+        attributes: {
+          resource_id: 'table/orders',
+          scalable_dimension: 'dynamodb:table:WriteCapacityUnits',
+        },
+      }),
+      createIaCResource({
+        type: 'AWS::DynamoDB::Table',
+        name: 'ProvisionedTable',
+        location: {
+          path: 'template.yaml',
+          line: 3,
+          column: 3,
+        },
+        attributes: {
+          Properties: {},
+        },
+      }),
+    ]);
+
+    const result = await loadAwsStaticResources('/tmp/iac', [
+      createRule({
+        staticDependencies: ['aws-dynamodb-tables', 'aws-dynamodb-autoscaling'],
+      }),
+    ]);
+
+    expect(result.resources.get('aws-dynamodb-tables')).toEqual([
+      {
+        billingMode: 'PROVISIONED',
+        location: {
+          path: 'main.tf',
+          line: 2,
+          column: 3,
+        },
+        resourceId: 'aws_dynamodb_table.orders',
+        tableName: 'orders',
+      },
+      {
+        billingMode: 'PROVISIONED',
+        location: {
+          path: 'template.yaml',
+          line: 3,
+          column: 3,
+        },
+        resourceId: 'ProvisionedTable',
+        tableName: 'ProvisionedTable',
+      },
+    ]);
+    expect(result.resources.get('aws-dynamodb-autoscaling')).toEqual([
+      {
+        hasReadTarget: true,
+        hasWriteTarget: true,
+        tableName: 'orders',
+      },
+    ]);
+  });
+
+  it('loads Elastic IP association state from inline and separate resources', async () => {
+    mockedParseIaC.mockResolvedValue([
+      createIaCResource({
+        type: 'aws_eip',
+        name: 'inline',
+        attributeLocations: {
+          instance: {
+            path: 'main.tf',
+            line: 4,
+            column: 3,
+          },
+        },
+        attributes: {
+          instance: 'i-1234567890',
+        },
+      }),
+      createIaCResource({
+        type: 'aws_eip',
+        name: 'detached',
+        location: {
+          path: 'main.tf',
+          line: 7,
+          column: 1,
+        },
+        attributes: {},
+      }),
+      createIaCResource({
+        type: 'aws_eip_association',
+        name: 'detached_assoc',
+        attributes: {
+          allocation_id: 'aws_eip.detached.id',
+          instance_id: 'i-abcdef1234',
+        },
+      }),
+      createIaCResource({
+        type: 'AWS::EC2::EIP',
+        name: 'PublicAddress',
+        location: {
+          path: 'template.yaml',
+          line: 3,
+          column: 3,
+        },
+        attributes: {
+          Properties: {},
+        },
+      }),
+    ]);
+
+    const result = await loadAwsStaticResources('/tmp/iac', [
+      createRule({
+        staticDependencies: ['aws-ec2-elastic-ips'],
+      }),
+    ]);
+
+    expect(result.resources.get('aws-ec2-elastic-ips')).toEqual([
+      {
+        isAssociated: true,
+        location: {
+          path: 'main.tf',
+          line: 4,
+          column: 3,
+        },
+        resourceId: 'aws_eip.inline',
+      },
+      {
+        isAssociated: true,
+        location: {
+          path: 'main.tf',
+          line: 7,
+          column: 1,
+        },
+        resourceId: 'aws_eip.detached',
+      },
+      {
+        isAssociated: false,
+        location: {
+          path: 'template.yaml',
+          line: 3,
+          column: 3,
+        },
+        resourceId: 'PublicAddress',
+      },
+    ]);
+  });
+
   it('loads ECR repository datasets for Terraform lifecycle resources and CloudFormation inline policies', async () => {
     mockedParseIaC.mockResolvedValue([
       createIaCResource({

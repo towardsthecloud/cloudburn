@@ -2,7 +2,10 @@ import type {
   AwsStaticApiGatewayStage,
   AwsStaticCloudFrontDistribution,
   AwsStaticCloudWatchLogGroup,
+  AwsStaticDynamoDbAutoscaling,
+  AwsStaticDynamoDbTable,
   AwsStaticEbsVolume,
+  AwsStaticEc2ElasticIp,
   AwsStaticEc2Instance,
   AwsStaticEc2VpcEndpoint,
   AwsStaticEcrRepository,
@@ -33,9 +36,17 @@ const TERRAFORM_CLOUDFRONT_DISTRIBUTION_TYPE = 'aws_cloudfront_distribution';
 const CLOUDFORMATION_CLOUDFRONT_DISTRIBUTION_TYPE = 'AWS::CloudFront::Distribution';
 const TERRAFORM_CLOUDWATCH_LOG_GROUP_TYPE = 'aws_cloudwatch_log_group';
 const CLOUDFORMATION_CLOUDWATCH_LOG_GROUP_TYPE = 'AWS::Logs::LogGroup';
+const TERRAFORM_DYNAMODB_TABLE_TYPE = 'aws_dynamodb_table';
+const CLOUDFORMATION_DYNAMODB_TABLE_TYPE = 'AWS::DynamoDB::Table';
+const TERRAFORM_APPAUTOSCALING_TARGET_TYPE = 'aws_appautoscaling_target';
+const CLOUDFORMATION_SCALABLE_TARGET_TYPE = 'AWS::ApplicationAutoScaling::ScalableTarget';
 const TERRAFORM_ECR_REPOSITORY_TYPE = 'aws_ecr_repository';
 const TERRAFORM_ECR_LIFECYCLE_POLICY_TYPE = 'aws_ecr_lifecycle_policy';
 const CLOUDFORMATION_ECR_REPOSITORY_TYPE = 'AWS::ECR::Repository';
+const TERRAFORM_EIP_TYPE = 'aws_eip';
+const TERRAFORM_EIP_ASSOCIATION_TYPE = 'aws_eip_association';
+const CLOUDFORMATION_EIP_TYPE = 'AWS::EC2::EIP';
+const CLOUDFORMATION_EIP_ASSOCIATION_TYPE = 'AWS::EC2::EIPAssociation';
 const TERRAFORM_INSTANCE_TYPE = 'aws_instance';
 const CLOUDFORMATION_INSTANCE_TYPE = 'AWS::EC2::Instance';
 const TERRAFORM_RDS_INSTANCE_TYPE = 'aws_db_instance';
@@ -50,6 +61,8 @@ const TERRAFORM_INTELLIGENT_TIERING_TYPE = 'aws_s3_bucket_intelligent_tiering_co
 const CLOUDFORMATION_BUCKET_TYPE = 'AWS::S3::Bucket';
 const DIRECT_BUCKET_REFERENCE_PATTERN = /^\$?\{?aws_s3_bucket\.([A-Za-z0-9_-]+)\.(?:id|bucket)\}?$/u;
 const DIRECT_ECR_REPOSITORY_REFERENCE_PATTERN = /^\$?\{?aws_ecr_repository\.([A-Za-z0-9_-]+)\.(?:id|name)\}?$/u;
+const DIRECT_EIP_REFERENCE_PATTERN = /^\$?\{?aws_eip\.([A-Za-z0-9_-]+)\.(?:id|allocation_id)\}?$/u;
+const DYNAMODB_TABLE_RESOURCE_ID_PATTERN = /^table\/([^/]+)$/u;
 
 const isCloudFormationResource = (resource: IaCResource): boolean => resource.type.startsWith('AWS::');
 
@@ -91,6 +104,33 @@ const getLiteralStringArray = (value: unknown): string[] | null => {
 
 const toRecordArray = (value: unknown): Record<string, unknown>[] =>
   Array.isArray(value) ? value.filter((entry): entry is Record<string, unknown> => isRecord(entry)) : [];
+
+const getCloudFormationLogicalIdReference = (value: unknown): string | null => {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  if (typeof value.Ref === 'string') {
+    return value.Ref;
+  }
+
+  const getAtt = value['Fn::GetAtt'];
+
+  if (typeof getAtt === 'string') {
+    const [logicalId] = getAtt.split('.', 1);
+    return logicalId ?? null;
+  }
+
+  if (
+    Array.isArray(getAtt) &&
+    getAtt.length > 0 &&
+    typeof getAtt[0] === 'string'
+  ) {
+    return getAtt[0];
+  }
+
+  return null;
+};
 
 const getTerraformBucketReferenceKey = (value: unknown): string | null => {
   const literal = getLiteralString(value);
@@ -225,6 +265,35 @@ const createCloudFormationEcrRepository = (repository: IaCResource): AwsStaticEc
   };
 };
 
+const getTerraformDynamoDbTableName = (resource: IaCResource): string | null =>
+  getLiteralExactString(resource.attributes.name);
+
+const getCloudFormationDynamoDbTableName = (resource: IaCResource): string | null => {
+  const properties = isRecord(resource.attributes.Properties) ? resource.attributes.Properties : undefined;
+  return getLiteralExactString(properties?.TableName) ?? resource.name;
+};
+
+const getLiteralDynamoDbTableNameFromResourceId = (value: unknown): string | null => {
+  const resourceId = getLiteralExactString(value);
+  const tableName = resourceId ? DYNAMODB_TABLE_RESOURCE_ID_PATTERN.exec(resourceId)?.[1] : undefined;
+
+  return tableName ?? null;
+};
+
+const getTerraformElasticIpReferenceKey = (value: unknown): string | null => {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const match = DIRECT_EIP_REFERENCE_PATTERN.exec(value);
+  const resourceName = match?.[1];
+
+  return resourceName ? `${TERRAFORM_EIP_TYPE}.${resourceName}` : null;
+};
+
+const getCloudFormationElasticIpReferenceKey = (value: unknown): string | null =>
+  getCloudFormationLogicalIdReference(value);
+
 const loadStaticApiGatewayStages = (resources: IaCResource[]): AwsStaticApiGatewayStage[] =>
   resources.map((resource) => {
     const rawValue =
@@ -285,6 +354,77 @@ const loadStaticCloudWatchLogGroups = (resources: IaCResource[]): AwsStaticCloud
     };
   });
 
+const loadStaticDynamoDbTables = (resources: IaCResource[]): AwsStaticDynamoDbTable[] =>
+  resources.flatMap((resource) => {
+    if (resource.type === TERRAFORM_DYNAMODB_TABLE_TYPE) {
+      return [
+        {
+          billingMode: getLiteralUpperString(resource.attributes.billing_mode) ?? 'PROVISIONED',
+          location: pickLocation(resource, ['name', 'billing_mode']),
+          resourceId: toStaticResourceId(resource),
+          tableName: getTerraformDynamoDbTableName(resource),
+        },
+      ];
+    }
+
+    if (resource.type === CLOUDFORMATION_DYNAMODB_TABLE_TYPE) {
+      const properties = isRecord(resource.attributes.Properties) ? resource.attributes.Properties : undefined;
+
+      return [
+        {
+          billingMode: getLiteralUpperString(properties?.BillingMode) ?? 'PROVISIONED',
+          location: pickLocation(resource, ['Properties.TableName', 'Properties.BillingMode']),
+          resourceId: toStaticResourceId(resource),
+          tableName: getCloudFormationDynamoDbTableName(resource),
+        },
+      ];
+    }
+
+    return [];
+  });
+
+const loadStaticDynamoDbAutoscaling = (resources: IaCResource[]): AwsStaticDynamoDbAutoscaling[] => {
+  const autoscalingByTable = new Map<string, AwsStaticDynamoDbAutoscaling>();
+
+  for (const resource of resources) {
+    const properties = isRecord(resource.attributes.Properties) ? resource.attributes.Properties : undefined;
+    const tableName =
+      resource.type === TERRAFORM_APPAUTOSCALING_TARGET_TYPE
+        ? getLiteralDynamoDbTableNameFromResourceId(resource.attributes.resource_id)
+        : resource.type === CLOUDFORMATION_SCALABLE_TARGET_TYPE
+          ? getLiteralDynamoDbTableNameFromResourceId(properties?.ResourceId)
+          : null;
+    const scalableDimension =
+      resource.type === TERRAFORM_APPAUTOSCALING_TARGET_TYPE
+        ? getLiteralExactString(resource.attributes.scalable_dimension)
+        : resource.type === CLOUDFORMATION_SCALABLE_TARGET_TYPE
+          ? getLiteralExactString(properties?.ScalableDimension)
+          : null;
+
+    if (tableName === null || scalableDimension === null) {
+      continue;
+    }
+
+    const entry = autoscalingByTable.get(tableName) ?? {
+      tableName,
+      hasReadTarget: false,
+      hasWriteTarget: false,
+    };
+
+    if (scalableDimension === 'dynamodb:table:ReadCapacityUnits') {
+      entry.hasReadTarget = true;
+    }
+
+    if (scalableDimension === 'dynamodb:table:WriteCapacityUnits') {
+      entry.hasWriteTarget = true;
+    }
+
+    autoscalingByTable.set(tableName, entry);
+  }
+
+  return [...autoscalingByTable.values()];
+};
+
 const loadStaticEbsVolumes = (resources: IaCResource[]): AwsStaticEbsVolume[] =>
   resources.map((resource) => ({
     iops: getLiteralNumber(
@@ -326,6 +466,61 @@ const loadStaticEcrRepositories = (resources: IaCResource[]): AwsStaticEcrReposi
 
     return [];
   });
+};
+
+const loadStaticEc2ElasticIps = (resources: IaCResource[]): AwsStaticEc2ElasticIp[] => {
+  const elasticIps = resources.filter(
+    (resource) => resource.type === TERRAFORM_EIP_TYPE || resource.type === CLOUDFORMATION_EIP_TYPE,
+  );
+  const associatedResourceIds = new Set<string>();
+
+  for (const resource of resources) {
+    if (resource.type === TERRAFORM_EIP_TYPE) {
+      if (resource.attributes.instance !== undefined || resource.attributes.network_interface !== undefined) {
+        associatedResourceIds.add(toStaticResourceId(resource));
+      }
+
+      continue;
+    }
+
+    if (resource.type === CLOUDFORMATION_EIP_TYPE) {
+      const properties = isRecord(resource.attributes.Properties) ? resource.attributes.Properties : undefined;
+
+      if (properties?.InstanceId !== undefined) {
+        associatedResourceIds.add(toStaticResourceId(resource));
+      }
+
+      continue;
+    }
+
+    if (resource.type === TERRAFORM_EIP_ASSOCIATION_TYPE) {
+      const referenceKey = getTerraformElasticIpReferenceKey(resource.attributes.allocation_id);
+
+      if (referenceKey !== null) {
+        associatedResourceIds.add(referenceKey);
+      }
+
+      continue;
+    }
+
+    if (resource.type === CLOUDFORMATION_EIP_ASSOCIATION_TYPE) {
+      const properties = isRecord(resource.attributes.Properties) ? resource.attributes.Properties : undefined;
+      const referenceKey = getCloudFormationElasticIpReferenceKey(properties?.AllocationId);
+
+      if (referenceKey !== null) {
+        associatedResourceIds.add(referenceKey);
+      }
+    }
+  }
+
+  return elasticIps.map((resource) => ({
+    isAssociated: associatedResourceIds.has(toStaticResourceId(resource)),
+    location: pickLocation(
+      resource,
+      resource.type === TERRAFORM_EIP_TYPE ? ['instance', 'network_interface'] : ['Properties.InstanceId'],
+    ),
+    resourceId: toStaticResourceId(resource),
+  }));
 };
 
 const loadStaticEc2Instances = (resources: IaCResource[]): AwsStaticEc2Instance[] =>
@@ -450,6 +645,18 @@ const awsStaticDatasetRegistry: Record<StaticDatasetKey, AwsStaticDatasetDefinit
     resourceTypes: [TERRAFORM_CLOUDWATCH_LOG_GROUP_TYPE, CLOUDFORMATION_CLOUDWATCH_LOG_GROUP_TYPE],
     load: loadStaticCloudWatchLogGroups,
   },
+  'aws-dynamodb-autoscaling': {
+    datasetKey: 'aws-dynamodb-autoscaling',
+    sourceKinds: ['terraform', 'cloudformation'],
+    resourceTypes: [TERRAFORM_APPAUTOSCALING_TARGET_TYPE, CLOUDFORMATION_SCALABLE_TARGET_TYPE],
+    load: loadStaticDynamoDbAutoscaling,
+  },
+  'aws-dynamodb-tables': {
+    datasetKey: 'aws-dynamodb-tables',
+    sourceKinds: ['terraform', 'cloudformation'],
+    resourceTypes: [TERRAFORM_DYNAMODB_TABLE_TYPE, CLOUDFORMATION_DYNAMODB_TABLE_TYPE],
+    load: loadStaticDynamoDbTables,
+  },
   'aws-ebs-volumes': {
     datasetKey: 'aws-ebs-volumes',
     sourceKinds: ['terraform', 'cloudformation'],
@@ -465,6 +672,17 @@ const awsStaticDatasetRegistry: Record<StaticDatasetKey, AwsStaticDatasetDefinit
       CLOUDFORMATION_ECR_REPOSITORY_TYPE,
     ],
     load: loadStaticEcrRepositories,
+  },
+  'aws-ec2-elastic-ips': {
+    datasetKey: 'aws-ec2-elastic-ips',
+    sourceKinds: ['terraform', 'cloudformation'],
+    resourceTypes: [
+      TERRAFORM_EIP_TYPE,
+      TERRAFORM_EIP_ASSOCIATION_TYPE,
+      CLOUDFORMATION_EIP_TYPE,
+      CLOUDFORMATION_EIP_ASSOCIATION_TYPE,
+    ],
+    load: loadStaticEc2ElasticIps,
   },
   'aws-ec2-instances': {
     datasetKey: 'aws-ec2-instances',

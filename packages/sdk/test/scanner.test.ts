@@ -690,6 +690,55 @@ describe('CloudBurnClient', () => {
     });
   });
 
+  it('returns static DynamoDB and Elastic IP findings from mixed IaC resources', async () => {
+    const scanner = new CloudBurnClient();
+    const fixturePath = fileURLToPath(new URL('./fixtures/iac-capacity-mixed', import.meta.url));
+
+    const result = await scanner.scanStatic(fixturePath);
+
+    expect(result).toEqual({
+      providers: [
+        {
+          provider: 'aws',
+          rules: [
+            {
+              ruleId: 'CLDBRN-AWS-DYNAMODB-2',
+              service: 'dynamodb',
+              source: 'iac',
+              message: 'Provisioned-capacity DynamoDB tables should use auto-scaling.',
+              findings: [
+                {
+                  resourceId: 'aws_dynamodb_table.logs',
+                  location: {
+                    path: 'main.tf',
+                    line: 11,
+                    column: 3,
+                  },
+                },
+              ],
+            },
+            {
+              ruleId: 'CLDBRN-AWS-EC2-3',
+              service: 'ec2',
+              source: 'iac',
+              message: 'Elastic IP addresses should not remain unassociated.',
+              findings: [
+                {
+                  resourceId: 'PublicAddress',
+                  location: {
+                    path: 'template.yaml',
+                    line: 2,
+                    column: 3,
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+  });
+
   it('returns static S3 findings from terraform and cloudformation resources in the same directory', async () => {
     const scanner = new CloudBurnClient();
     const fixturePath = fileURLToPath(new URL('./fixtures/iac-s3-mixed', import.meta.url));
