@@ -1,5 +1,13 @@
 # @cloudburn/rules
 
+## 0.19.0
+
+### Minor Changes
+
+- [#47](https://github.com/towardsthecloud/cloudburn/pull/47) [`f44751b`](https://github.com/towardsthecloud/cloudburn/commit/f44751b57e30beec44eea85fd28d911544f38ce6) Thanks [@axonstone](https://github.com/axonstone)! - Add AWS discovery rules for API Gateway stage caching, CloudFront price class review, Cost Explorer month-over-month increases, DynamoDB stale tables and autoscaling coverage, Route 53 TTL and unused health checks, and unused Secrets Manager secrets.
+
+- [#45](https://github.com/towardsthecloud/cloudburn/pull/45) [`9413ce1`](https://github.com/towardsthecloud/cloudburn/commit/9413ce138cf0bdf5ed95e7231a796e884692831e) Thanks [@axonstone](https://github.com/axonstone)! - Add new AWS discovery rules for unused Network Load Balancers, Lambda error-rate and timeout review, and RDS reserved coverage, Graviton review, low CPU utilization, unsupported engine versions, and orphaned snapshots.
+
 ## 0.18.0
 
 ### Minor Changes
