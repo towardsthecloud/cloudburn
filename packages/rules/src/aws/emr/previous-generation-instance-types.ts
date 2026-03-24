@@ -25,8 +25,7 @@ export const emrPreviousGenerationInstanceTypeRule = createRule({
       .filter(
         (cluster) =>
           // Ended clusters are historical and no longer actionable for instance-family review.
-          cluster.endDateTime === undefined &&
-          hasPreviousGenerationInstanceType(cluster.instanceTypes),
+          cluster.endDateTime === undefined && hasPreviousGenerationInstanceType(cluster.instanceTypes),
       )
       .map((cluster) => createFindingMatch(cluster.clusterId, cluster.region, cluster.accountId));
 

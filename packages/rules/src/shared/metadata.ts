@@ -545,6 +545,8 @@ export type SharedDatasetKey =
   | 'aws-emr-clusters'
   | 'aws-lambda-functions'
   | 'aws-rds-instances'
+  | 'aws-route53-health-checks'
+  | 'aws-route53-records'
   | 'aws-s3-bucket-analyses';
 
 /** Rule-facing live discovery dataset key exposed through the evaluation context. */
@@ -725,6 +727,21 @@ export type AwsStaticEmrCluster = {
   location?: SourceLocation;
 };
 
+/** Normalized static Route 53 record dataset entry. */
+export type AwsStaticRoute53Record = {
+  resourceId: string;
+  isAlias: boolean;
+  ttl: number | null | undefined;
+  referencedHealthCheckResourceId: string | null;
+  location?: SourceLocation;
+};
+
+/** Normalized static Route 53 health check dataset entry. */
+export type AwsStaticRoute53HealthCheck = {
+  resourceId: string;
+  location?: SourceLocation;
+};
+
 /** Normalized static RDS instance dataset entry with a precomputed finding target. */
 export type AwsStaticRdsInstance = {
   resourceId: string;
@@ -771,6 +788,8 @@ export type StaticDatasetMap = {
   'aws-lambda-functions': AwsStaticLambdaFunction[];
   'aws-ec2-vpc-endpoints': AwsStaticEc2VpcEndpoint[];
   'aws-rds-instances': AwsStaticRdsInstance[];
+  'aws-route53-health-checks': AwsStaticRoute53HealthCheck[];
+  'aws-route53-records': AwsStaticRoute53Record[];
   'aws-s3-bucket-analyses': AwsStaticS3BucketAnalysis[];
 };
 

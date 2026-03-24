@@ -1,0 +1,16 @@
+Resources:
+  UnusedCheck:
+    Type: AWS::Route53::HealthCheck
+    Properties:
+      HealthCheckConfig:
+        Type: HTTPS
+        FullyQualifiedDomainName: www.example.com.
+  AliasRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: Z1234567890ABC
+      Name: www.example.com.
+      Type: A
+      AliasTarget:
+        DNSName: dualstack.alb.amazonaws.com.
+        HostedZoneId: ZALIAS

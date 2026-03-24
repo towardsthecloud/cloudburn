@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { route53HealthCheckUnusedRule } from '../src/aws/route53/health-check-unused.js';
-import type { AwsRoute53HealthCheck, AwsRoute53Record } from '../src/index.js';
-import { LiveResourceBag } from '../src/index.js';
+import type {
+  AwsRoute53HealthCheck,
+  AwsRoute53Record,
+  AwsStaticRoute53HealthCheck,
+  AwsStaticRoute53Record,
+} from '../src/index.js';
+import { LiveResourceBag, StaticResourceBag } from '../src/index.js';
 
 const createHealthCheck = (overrides: Partial<AwsRoute53HealthCheck> = {}): AwsRoute53HealthCheck => ({
   accountId: '123456789012',
@@ -20,6 +25,21 @@ const createRecord = (overrides: Partial<AwsRoute53Record> = {}): AwsRoute53Reco
   recordName: 'api.example.com.',
   recordType: 'A',
   region: 'global',
+  ttl: 300,
+  ...overrides,
+});
+
+const createStaticHealthCheck = (
+  overrides: Partial<AwsStaticRoute53HealthCheck> = {},
+): AwsStaticRoute53HealthCheck => ({
+  resourceId: 'aws_route53_health_check.api',
+  ...overrides,
+});
+
+const createStaticRecord = (overrides: Partial<AwsStaticRoute53Record> = {}): AwsStaticRoute53Record => ({
+  isAlias: false,
+  referencedHealthCheckResourceId: 'aws_route53_health_check.api',
+  resourceId: 'aws_route53_record.api',
   ttl: 300,
   ...overrides,
 });
@@ -56,6 +76,32 @@ describe('route53HealthCheckUnusedRule', () => {
       resources: new LiveResourceBag({
         'aws-route53-health-checks': [createHealthCheck()],
         'aws-route53-records': [createRecord()],
+      }),
+    });
+
+    expect(finding).toBeNull();
+  });
+
+  it('flags static health checks that are not associated with any record set', () => {
+    const finding = route53HealthCheckUnusedRule.evaluateStatic?.({
+      resources: new StaticResourceBag({
+        'aws-route53-health-checks': [createStaticHealthCheck()],
+        'aws-route53-records': [],
+      }),
+    });
+
+    expect(finding?.findings).toEqual([
+      {
+        resourceId: 'aws_route53_health_check.api',
+      },
+    ]);
+  });
+
+  it('skips static health checks already referenced by a local record set', () => {
+    const finding = route53HealthCheckUnusedRule.evaluateStatic?.({
+      resources: new StaticResourceBag({
+        'aws-route53-health-checks': [createStaticHealthCheck()],
+        'aws-route53-records': [createStaticRecord()],
       }),
     });
 

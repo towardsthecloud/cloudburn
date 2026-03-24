@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { route53RecordHigherTtlRule } from '../src/aws/route53/record-higher-ttl.js';
-import type { AwsRoute53Record, AwsRoute53Zone } from '../src/index.js';
-import { LiveResourceBag } from '../src/index.js';
+import type { AwsRoute53Record, AwsRoute53Zone, AwsStaticRoute53Record } from '../src/index.js';
+import { LiveResourceBag, StaticResourceBag } from '../src/index.js';
 
 const createZone = (overrides: Partial<AwsRoute53Zone> = {}): AwsRoute53Zone => ({
   accountId: '123456789012',
@@ -21,6 +21,14 @@ const createRecord = (overrides: Partial<AwsRoute53Record> = {}): AwsRoute53Reco
   recordName: 'api.example.com.',
   recordType: 'A',
   region: 'global',
+  ttl: 300,
+  ...overrides,
+});
+
+const createStaticRecord = (overrides: Partial<AwsStaticRoute53Record> = {}): AwsStaticRoute53Record => ({
+  isAlias: false,
+  referencedHealthCheckResourceId: null,
+  resourceId: 'aws_route53_record.api',
   ttl: 300,
   ...overrides,
 });
@@ -57,6 +65,34 @@ describe('route53RecordHigherTtlRule', () => {
       resources: new LiveResourceBag({
         'aws-route53-records': [createRecord({ isAlias: true, ttl: undefined }), createRecord({ ttl: 3600 })],
         'aws-route53-zones': [createZone()],
+      }),
+    });
+
+    expect(finding).toBeNull();
+  });
+
+  it('flags static non-alias records with a TTL below 3600 seconds', () => {
+    const finding = route53RecordHigherTtlRule.evaluateStatic?.({
+      resources: new StaticResourceBag({
+        'aws-route53-records': [createStaticRecord()],
+      }),
+    });
+
+    expect(finding?.findings).toEqual([
+      {
+        resourceId: 'aws_route53_record.api',
+      },
+    ]);
+  });
+
+  it('skips static alias records and records whose TTL is unknown or already at 3600 seconds', () => {
+    const finding = route53RecordHigherTtlRule.evaluateStatic?.({
+      resources: new StaticResourceBag({
+        'aws-route53-records': [
+          createStaticRecord({ isAlias: true, ttl: undefined }),
+          createStaticRecord({ resourceId: 'aws_route53_record.steady', ttl: 3600 }),
+          createStaticRecord({ resourceId: 'aws_route53_record.unknown', ttl: null }),
+        ],
       }),
     });
 

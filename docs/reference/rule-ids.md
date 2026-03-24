@@ -16,23 +16,23 @@ Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
 
 | ID                    | Name                                      | Service | Supports       | Status      |
 | --------------------- | ----------------------------------------- | ------- | -------------- | ----------- |
-| `CLDBRN-AWS-APIGATEWAY-1` | API Gateway Stage Caching Disabled    | apigateway | discovery   | Implemented |
-| `CLDBRN-AWS-CLOUDFRONT-1` | CloudFront Distribution Price Class All | cloudfront | discovery | Implemented |
+| `CLDBRN-AWS-APIGATEWAY-1` | API Gateway Stage Caching Disabled    | apigateway | discovery, iac   | Implemented |
+| `CLDBRN-AWS-CLOUDFRONT-1` | CloudFront Distribution Price Class All | cloudfront | discovery, iac | Implemented |
 | `CLDBRN-AWS-CLOUDTRAIL-1` | CloudTrail Redundant Global Trails     | cloudtrail | discovery   | Implemented |
 | `CLDBRN-AWS-CLOUDTRAIL-2` | CloudTrail Redundant Regional Trails   | cloudtrail | discovery   | Implemented |
-| `CLDBRN-AWS-CLOUDWATCH-1` | CloudWatch Log Group Missing Retention | cloudwatch | discovery   | Implemented |
+| `CLDBRN-AWS-CLOUDWATCH-1` | CloudWatch Log Group Missing Retention | cloudwatch | discovery, iac   | Implemented |
 | `CLDBRN-AWS-CLOUDWATCH-2` | CloudWatch Unused Log Streams          | cloudwatch | discovery   | Implemented |
 | `CLDBRN-AWS-COSTEXPLORER-1` | Cost Explorer Full Month Cost Changes | costexplorer | discovery | Implemented |
 | `CLDBRN-AWS-DYNAMODB-1` | DynamoDB Table Stale Data              | dynamodb | discovery     | Implemented |
-| `CLDBRN-AWS-DYNAMODB-2` | DynamoDB Table Without Autoscaling     | dynamodb | discovery     | Implemented |
+| `CLDBRN-AWS-DYNAMODB-2` | DynamoDB Table Without Autoscaling     | dynamodb | discovery, iac     | Implemented |
 | `CLDBRN-AWS-EC2-1`    | EC2 Instance Type Not Preferred           | ec2     | iac, discovery | Implemented |
 | `CLDBRN-AWS-EC2-2`    | S3 Interface VPC Endpoint Used            | ec2     | iac            | Implemented |
-| `CLDBRN-AWS-EC2-3`    | Elastic IP Address Unassociated           | ec2     | discovery      | Implemented |
+| `CLDBRN-AWS-EC2-3`    | Elastic IP Address Unassociated           | ec2     | discovery, iac      | Implemented |
 | `CLDBRN-AWS-EC2-4`    | VPC Interface Endpoint Inactive           | ec2     | discovery      | Implemented |
 | `CLDBRN-AWS-EC2-5`    | EC2 Instance Low Utilization              | ec2     | discovery      | Implemented |
-| `CLDBRN-AWS-EC2-6`    | EC2 Instance Without Graviton             | ec2     | discovery      | Implemented |
+| `CLDBRN-AWS-EC2-6`    | EC2 Instance Without Graviton             | ec2     | discovery, iac      | Implemented |
 | `CLDBRN-AWS-EC2-7`    | EC2 Reserved Instance Expiring            | ec2     | discovery      | Implemented |
-| `CLDBRN-AWS-EC2-8`    | EC2 Instance Large Size                   | ec2     | discovery      | Implemented |
+| `CLDBRN-AWS-EC2-8`    | EC2 Instance Large Size                   | ec2     | discovery, iac      | Implemented |
 | `CLDBRN-AWS-EC2-9`    | EC2 Instance Long Running                 | ec2     | discovery      | Implemented |
 | `CLDBRN-AWS-ECS-1`    | ECS Container Instance Without Graviton   | ecs     | discovery      | Implemented |
 | `CLDBRN-AWS-ECS-2`    | ECS Cluster Low CPU Utilization           | ecs     | discovery      | Implemented |
@@ -40,31 +40,31 @@ Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
 | `CLDBRN-AWS-EBS-1`    | EBS Volume Type Not Current Generation    | ebs     | discovery, iac | Implemented |
 | `CLDBRN-AWS-EBS-2`    | EBS Volume Unattached                     | ebs     | discovery      | Implemented |
 | `CLDBRN-AWS-EBS-3`    | EBS Volume Attached To Stopped Instances  | ebs     | discovery      | Implemented |
-| `CLDBRN-AWS-EBS-4`    | EBS Volume Large Size                     | ebs     | discovery      | Implemented |
-| `CLDBRN-AWS-EBS-5`    | EBS Volume High Provisioned IOPS          | ebs     | discovery      | Implemented |
-| `CLDBRN-AWS-EBS-6`    | EBS Volume Low Provisioned IOPS On io1/io2 | ebs   | discovery      | Implemented |
+| `CLDBRN-AWS-EBS-4`    | EBS Volume Large Size                     | ebs     | discovery, iac      | Implemented |
+| `CLDBRN-AWS-EBS-5`    | EBS Volume High Provisioned IOPS          | ebs     | discovery, iac      | Implemented |
+| `CLDBRN-AWS-EBS-6`    | EBS Volume Low Provisioned IOPS On io1/io2 | ebs   | discovery, iac      | Implemented |
 | `CLDBRN-AWS-EBS-7`    | EBS Snapshot Max Age Exceeded             | ebs     | discovery      | Implemented |
 | `CLDBRN-AWS-ECR-1`    | ECR Repository Missing Lifecycle Policy   | ecr     | iac, discovery | Implemented |
-| `CLDBRN-AWS-EKS-1`    | EKS Node Group Without Graviton           | eks     | discovery      | Implemented |
+| `CLDBRN-AWS-EKS-1`    | EKS Node Group Without Graviton           | eks     | discovery, iac      | Implemented |
 | `CLDBRN-AWS-ELASTICACHE-1` | ElastiCache Cluster Missing Reserved Coverage | elasticache | discovery | Implemented |
 | `CLDBRN-AWS-ELB-1`    | Application Load Balancer Without Targets | elb     | discovery      | Implemented |
 | `CLDBRN-AWS-ELB-2`    | Classic Load Balancer Without Instances   | elb     | discovery      | Implemented |
 | `CLDBRN-AWS-ELB-3`    | Gateway Load Balancer Without Targets     | elb     | discovery      | Implemented |
 | `CLDBRN-AWS-ELB-4`    | Network Load Balancer Without Targets     | elb     | discovery      | Implemented |
-| `CLDBRN-AWS-EMR-1`    | EMR Cluster Previous Generation Instance Types | emr | discovery | Implemented |
+| `CLDBRN-AWS-EMR-1`    | EMR Cluster Previous Generation Instance Types | emr | discovery, iac | Implemented |
 | `CLDBRN-AWS-EMR-2`    | EMR Cluster Idle                          | emr     | discovery      | Implemented |
 | `CLDBRN-AWS-RDS-1`    | RDS Instance Class Not Preferred          | rds     | iac, discovery | Implemented |
 | `CLDBRN-AWS-RDS-2`    | RDS DB Instance Idle                      | rds     | discovery      | Implemented |
 | `CLDBRN-AWS-RDS-3`    | RDS DB Instance Missing Reserved Coverage | rds     | discovery      | Implemented |
-| `CLDBRN-AWS-RDS-4`    | RDS DB Instance Without Graviton          | rds     | discovery      | Implemented |
+| `CLDBRN-AWS-RDS-4`    | RDS DB Instance Without Graviton          | rds     | discovery, iac      | Implemented |
 | `CLDBRN-AWS-RDS-5`    | RDS DB Instance Low CPU Utilization       | rds     | discovery      | Implemented |
-| `CLDBRN-AWS-RDS-6`    | RDS DB Instance Unsupported Engine Version | rds    | discovery      | Implemented |
+| `CLDBRN-AWS-RDS-6`    | RDS DB Instance Unsupported Engine Version | rds    | discovery, iac      | Implemented |
 | `CLDBRN-AWS-RDS-7`    | RDS Snapshot Without Source DB Instance   | rds     | discovery      | Implemented |
 | `CLDBRN-AWS-REDSHIFT-1` | Redshift Cluster Low CPU Utilization    | redshift | discovery     | Implemented |
 | `CLDBRN-AWS-REDSHIFT-2` | Redshift Cluster Missing Reserved Coverage | redshift | discovery   | Implemented |
 | `CLDBRN-AWS-REDSHIFT-3` | Redshift Cluster Pause Resume Not Enabled | redshift | discovery    | Implemented |
-| `CLDBRN-AWS-ROUTE53-1` | Route 53 Record Higher TTL              | route53 | discovery      | Implemented |
-| `CLDBRN-AWS-ROUTE53-2` | Route 53 Health Check Unused            | route53 | discovery      | Implemented |
+| `CLDBRN-AWS-ROUTE53-1` | Route 53 Record Higher TTL              | route53 | discovery, iac      | Implemented |
+| `CLDBRN-AWS-ROUTE53-2` | Route 53 Health Check Unused            | route53 | discovery, iac      | Implemented |
 | `CLDBRN-AWS-S3-1`     | S3 Missing Lifecycle Configuration        | s3      | iac, discovery | Implemented |
 | `CLDBRN-AWS-S3-2`     | S3 Bucket Storage Class Not Optimized     | s3      | iac, discovery | Implemented |
 | `CLDBRN-AWS-SECRETSMANAGER-1` | Secrets Manager Secret Unused    | secretsmanager | discovery | Implemented |
@@ -140,7 +140,7 @@ Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
 
 `CLDBRN-AWS-ROUTE53-1` reviews only non-alias records and treats `3600` seconds as the low-TTL floor.
 
-`CLDBRN-AWS-ROUTE53-2` flags only Route 53 health checks that are not referenced by any discovered record set.
+`CLDBRN-AWS-ROUTE53-2` flags only Route 53 health checks that are not referenced by any in-scope record set.
 
 `CLDBRN-AWS-SECRETSMANAGER-1` flags secrets with no `lastAccessedDate` and secrets whose parsed last access is at least `90` days old.
 

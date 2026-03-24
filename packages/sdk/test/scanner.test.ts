@@ -788,6 +788,55 @@ describe('CloudBurnClient', () => {
     });
   });
 
+  it('returns static Route 53 findings from mixed IaC resources', async () => {
+    const scanner = new CloudBurnClient();
+    const fixturePath = fileURLToPath(new URL('./fixtures/iac-route53-mixed', import.meta.url));
+
+    const result = await scanner.scanStatic(fixturePath);
+
+    expect(result).toEqual({
+      providers: [
+        {
+          provider: 'aws',
+          rules: [
+            {
+              ruleId: 'CLDBRN-AWS-ROUTE53-1',
+              service: 'route53',
+              source: 'iac',
+              message: 'Route 53 record sets should generally use TTL values of at least 3600 seconds.',
+              findings: [
+                {
+                  resourceId: 'aws_route53_record.api',
+                  location: {
+                    path: 'main.tf',
+                    line: 11,
+                    column: 3,
+                  },
+                },
+              ],
+            },
+            {
+              ruleId: 'CLDBRN-AWS-ROUTE53-2',
+              service: 'route53',
+              source: 'iac',
+              message: 'Route 53 health checks not associated with any DNS record should be deleted.',
+              findings: [
+                {
+                  resourceId: 'UnusedCheck',
+                  location: {
+                    path: 'template.yaml',
+                    line: 2,
+                    column: 3,
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+  });
+
   it('returns static S3 findings from terraform and cloudformation resources in the same directory', async () => {
     const scanner = new CloudBurnClient();
     const fixturePath = fileURLToPath(new URL('./fixtures/iac-s3-mixed', import.meta.url));

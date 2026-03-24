@@ -910,8 +910,9 @@ describe('rule metadata', () => {
       message: 'Route 53 record sets should generally use TTL values of at least 3600 seconds.',
       provider: 'aws',
       service: 'route53',
-      supports: ['discovery'],
+      supports: ['discovery', 'iac'],
       discoveryDependencies: ['aws-route53-zones', 'aws-route53-records'],
+      staticDependencies: ['aws-route53-records'],
     });
   });
 
@@ -926,8 +927,9 @@ describe('rule metadata', () => {
       message: 'Route 53 health checks not associated with any DNS record should be deleted.',
       provider: 'aws',
       service: 'route53',
-      supports: ['discovery'],
+      supports: ['discovery', 'iac'],
       discoveryDependencies: ['aws-route53-health-checks', 'aws-route53-records'],
+      staticDependencies: ['aws-route53-health-checks', 'aws-route53-records'],
     });
   });
 

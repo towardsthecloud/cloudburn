@@ -851,7 +851,7 @@ describe('loadAwsStaticResources', () => {
         attributes: {
           master_instance_group: [{ instance_type: 'm6i.xlarge' }],
           core_instance_group: [{ instance_type: 'm8g.xlarge' }],
-          master_instance_fleet: [{ instance_type_configs: [{ instance_type: '${var.master_type}' }] }],
+          master_instance_fleet: [{ instance_type_configs: [{ instance_type: '$' + '{var.master_type}' }] }],
         },
       }),
       createIaCResource({
@@ -917,6 +917,153 @@ describe('loadAwsStaticResources', () => {
           column: 11,
         },
         resourceId: 'LegacyAnalytics',
+      },
+    ]);
+  });
+
+  it('loads Route 53 records and health checks from Terraform and CloudFormation resources', async () => {
+    mockedParseIaC.mockResolvedValue([
+      createIaCResource({
+        type: 'aws_route53_health_check',
+        name: 'api',
+        location: {
+          path: 'main.tf',
+          line: 1,
+          column: 1,
+        },
+        attributes: {
+          fqdn: 'api.example.com.',
+          type: 'HTTPS',
+        },
+      }),
+      createIaCResource({
+        type: 'aws_route53_record',
+        name: 'api',
+        attributeLocations: {
+          ttl: {
+            path: 'main.tf',
+            line: 11,
+            column: 3,
+          },
+          health_check_id: {
+            path: 'main.tf',
+            line: 12,
+            column: 3,
+          },
+        },
+        attributes: {
+          name: 'api.example.com.',
+          type: 'A',
+          ttl: 300,
+          health_check_id: 'aws_route53_health_check.api.id',
+        },
+      }),
+      createIaCResource({
+        type: 'AWS::Route53::HealthCheck',
+        name: 'CheckedHealthCheck',
+        location: {
+          path: 'template.yaml',
+          line: 3,
+          column: 3,
+        },
+        attributes: {
+          Properties: {
+            HealthCheckConfig: {
+              Type: 'HTTPS',
+            },
+          },
+        },
+      }),
+      createIaCResource({
+        type: 'AWS::Route53::RecordSetGroup',
+        name: 'RecordsGroup',
+        attributeLocations: {
+          'Properties.RecordSets': {
+            path: 'template.yaml',
+            line: 8,
+            column: 7,
+          },
+        },
+        attributes: {
+          Properties: {
+            RecordSets: [
+              {
+                Name: 'checked.example.com.',
+                Type: 'A',
+                TTL: '60',
+                HealthCheckId: { Ref: 'CheckedHealthCheck' },
+              },
+              {
+                Name: 'alias.example.com.',
+                Type: 'A',
+                AliasTarget: {
+                  DNSName: 'dualstack.alb.amazonaws.com',
+                  HostedZoneId: 'ZALIAS',
+                },
+              },
+            ],
+          },
+        },
+      }),
+    ]);
+
+    const result = await loadAwsStaticResources('/tmp/iac', [
+      createRule({
+        staticDependencies: ['aws-route53-records', 'aws-route53-health-checks'],
+      }),
+    ]);
+
+    expect(result.resources.get('aws-route53-records')).toEqual([
+      {
+        isAlias: false,
+        location: {
+          path: 'main.tf',
+          line: 11,
+          column: 3,
+        },
+        referencedHealthCheckResourceId: 'aws_route53_health_check.api',
+        resourceId: 'aws_route53_record.api',
+        ttl: 300,
+      },
+      {
+        isAlias: false,
+        location: {
+          path: 'template.yaml',
+          line: 8,
+          column: 7,
+        },
+        referencedHealthCheckResourceId: 'CheckedHealthCheck',
+        resourceId: 'RecordsGroup#1',
+        ttl: 60,
+      },
+      {
+        isAlias: true,
+        location: {
+          path: 'template.yaml',
+          line: 8,
+          column: 7,
+        },
+        referencedHealthCheckResourceId: null,
+        resourceId: 'RecordsGroup#2',
+        ttl: undefined,
+      },
+    ]);
+    expect(result.resources.get('aws-route53-health-checks')).toEqual([
+      {
+        location: {
+          path: 'main.tf',
+          line: 1,
+          column: 1,
+        },
+        resourceId: 'aws_route53_health_check.api',
+      },
+      {
+        location: {
+          path: 'template.yaml',
+          line: 3,
+          column: 3,
+        },
+        resourceId: 'CheckedHealthCheck',
       },
     ]);
   });

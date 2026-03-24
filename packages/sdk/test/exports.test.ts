@@ -417,14 +417,14 @@ describe('sdk exports', () => {
         id: 'CLDBRN-AWS-ROUTE53-1',
         provider: 'aws',
         service: 'route53',
-        supports: ['discovery'],
+        supports: ['discovery', 'iac'],
       },
       {
         description: 'Flag Route 53 health checks not associated with any DNS record.',
         id: 'CLDBRN-AWS-ROUTE53-2',
         provider: 'aws',
         service: 'route53',
-        supports: ['discovery'],
+        supports: ['discovery', 'iac'],
       },
       {
         description: 'Ensure S3 buckets define lifecycle management policies.',

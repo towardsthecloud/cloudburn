@@ -12,8 +12,9 @@ export const route53HealthCheckUnusedRule = createRule({
   message: RULE_MESSAGE,
   provider: 'aws',
   service: RULE_SERVICE,
-  supports: ['discovery'],
+  supports: ['discovery', 'iac'],
   discoveryDependencies: ['aws-route53-health-checks', 'aws-route53-records'],
+  staticDependencies: ['aws-route53-health-checks', 'aws-route53-records'],
   evaluateLive: ({ resources }) => {
     const referencedHealthChecks = new Set(
       resources.get('aws-route53-records').flatMap((record) => (record.healthCheckId ? [record.healthCheckId] : [])),
@@ -30,5 +31,18 @@ export const route53HealthCheckUnusedRule = createRule({
       );
 
     return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+  },
+  evaluateStatic: ({ resources }) => {
+    const referencedHealthChecks = new Set(
+      resources
+        .get('aws-route53-records')
+        .flatMap((record) => (record.referencedHealthCheckResourceId ? [record.referencedHealthCheckResourceId] : [])),
+    );
+    const findings = resources
+      .get('aws-route53-health-checks')
+      .filter((healthCheck) => !referencedHealthChecks.has(healthCheck.resourceId))
+      .map((healthCheck) => createFindingMatch(healthCheck.resourceId, undefined, undefined, healthCheck.location));
+
+    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'iac', findings);
   },
 });

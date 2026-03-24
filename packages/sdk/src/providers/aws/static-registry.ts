@@ -13,6 +13,8 @@ import type {
   AwsStaticEmrCluster,
   AwsStaticLambdaFunction,
   AwsStaticRdsInstance,
+  AwsStaticRoute53HealthCheck,
+  AwsStaticRoute53Record,
   AwsStaticS3BucketAnalysis,
   IaCResource,
   SourceLocation,
@@ -57,6 +59,11 @@ const TERRAFORM_EMR_CLUSTER_TYPE = 'aws_emr_cluster';
 const CLOUDFORMATION_EMR_CLUSTER_TYPE = 'AWS::EMR::Cluster';
 const TERRAFORM_RDS_INSTANCE_TYPE = 'aws_db_instance';
 const CLOUDFORMATION_RDS_INSTANCE_TYPE = 'AWS::RDS::DBInstance';
+const TERRAFORM_ROUTE53_RECORD_TYPE = 'aws_route53_record';
+const TERRAFORM_ROUTE53_HEALTH_CHECK_TYPE = 'aws_route53_health_check';
+const CLOUDFORMATION_ROUTE53_RECORD_SET_TYPE = 'AWS::Route53::RecordSet';
+const CLOUDFORMATION_ROUTE53_RECORD_SET_GROUP_TYPE = 'AWS::Route53::RecordSetGroup';
+const CLOUDFORMATION_ROUTE53_HEALTH_CHECK_TYPE = 'AWS::Route53::HealthCheck';
 const TERRAFORM_LAMBDA_TYPE = 'aws_lambda_function';
 const CLOUDFORMATION_LAMBDA_TYPE = 'AWS::Lambda::Function';
 const TERRAFORM_VPC_ENDPOINT_TYPE = 'aws_vpc_endpoint';
@@ -68,6 +75,8 @@ const CLOUDFORMATION_BUCKET_TYPE = 'AWS::S3::Bucket';
 const DIRECT_BUCKET_REFERENCE_PATTERN = /^\$?\{?aws_s3_bucket\.([A-Za-z0-9_-]+)\.(?:id|bucket)\}?$/u;
 const DIRECT_ECR_REPOSITORY_REFERENCE_PATTERN = /^\$?\{?aws_ecr_repository\.([A-Za-z0-9_-]+)\.(?:id|name)\}?$/u;
 const DIRECT_EIP_REFERENCE_PATTERN = /^\$?\{?aws_eip\.([A-Za-z0-9_-]+)\.(?:id|allocation_id)\}?$/u;
+const DIRECT_ROUTE53_HEALTH_CHECK_REFERENCE_PATTERN =
+  /^\$?\{?aws_route53_health_check\.([A-Za-z0-9_-]+)\.(?:id|health_check_id)\}?$/u;
 const DYNAMODB_TABLE_RESOURCE_ID_PATTERN = /^table\/([^/]+)$/u;
 
 const isCloudFormationResource = (resource: IaCResource): boolean => resource.type.startsWith('AWS::');
@@ -84,6 +93,20 @@ const getLiteralString = (value: unknown): string | null =>
   typeof value === 'string' && !value.includes('${') ? value.toLowerCase() : null;
 
 const getLiteralNumber = (value: unknown): number | null => (typeof value === 'number' ? value : null);
+
+const getLiteralNumberish = (value: unknown): number | null => {
+  if (typeof value === 'number') {
+    return value;
+  }
+
+  if (typeof value !== 'string' || value.includes('${')) {
+    return null;
+  }
+
+  const parsedValue = Number(value);
+
+  return Number.isFinite(parsedValue) ? parsedValue : null;
+};
 
 const getLiteralExactString = (value: unknown): string | null =>
   typeof value === 'string' && !value.includes('${') ? value : null;
@@ -135,11 +158,7 @@ const getCloudFormationLogicalIdReference = (value: unknown): string | null => {
     return logicalId ?? null;
   }
 
-  if (
-    Array.isArray(getAtt) &&
-    getAtt.length > 0 &&
-    typeof getAtt[0] === 'string'
-  ) {
+  if (Array.isArray(getAtt) && getAtt.length > 0 && typeof getAtt[0] === 'string') {
     return getAtt[0];
   }
 
@@ -308,6 +327,39 @@ const getTerraformElasticIpReferenceKey = (value: unknown): string | null => {
 const getCloudFormationElasticIpReferenceKey = (value: unknown): string | null =>
   getCloudFormationLogicalIdReference(value);
 
+const getStaticDynamoDbBillingMode = (value: unknown): 'PAY_PER_REQUEST' | 'PROVISIONED' | null => {
+  const billingMode = getLiteralUpperString(value);
+
+  return billingMode === 'PAY_PER_REQUEST' || billingMode === 'PROVISIONED' ? billingMode : null;
+};
+
+const getTerraformRoute53HealthCheckReferenceKey = (value: unknown): string | null => {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const match = DIRECT_ROUTE53_HEALTH_CHECK_REFERENCE_PATTERN.exec(value);
+  const resourceName = match?.[1];
+
+  return resourceName ? `${TERRAFORM_ROUTE53_HEALTH_CHECK_TYPE}.${resourceName}` : null;
+};
+
+const createStaticRoute53Record = (
+  resourceId: string,
+  location: SourceLocation | undefined,
+  ttlValue: unknown,
+  isAlias: boolean,
+  healthCheckReference: unknown,
+): AwsStaticRoute53Record => ({
+  isAlias,
+  location,
+  referencedHealthCheckResourceId:
+    getTerraformRoute53HealthCheckReferenceKey(healthCheckReference) ??
+    getCloudFormationLogicalIdReference(healthCheckReference),
+  resourceId,
+  ttl: ttlValue === undefined ? undefined : getLiteralNumberish(ttlValue),
+});
+
 const getTerraformEmrInstanceTypes = (resource: IaCResource): string[] => {
   const instanceTypes: string[] = [];
 
@@ -406,7 +458,7 @@ const loadStaticDynamoDbTables = (resources: IaCResource[]): AwsStaticDynamoDbTa
     if (resource.type === TERRAFORM_DYNAMODB_TABLE_TYPE) {
       return [
         {
-          billingMode: getLiteralUpperString(resource.attributes.billing_mode) ?? 'PROVISIONED',
+          billingMode: getStaticDynamoDbBillingMode(resource.attributes.billing_mode) ?? 'PROVISIONED',
           location: pickLocation(resource, ['name', 'billing_mode']),
           resourceId: toStaticResourceId(resource),
           tableName: getTerraformDynamoDbTableName(resource),
@@ -419,7 +471,7 @@ const loadStaticDynamoDbTables = (resources: IaCResource[]): AwsStaticDynamoDbTa
 
       return [
         {
-          billingMode: getLiteralUpperString(properties?.BillingMode) ?? 'PROVISIONED',
+          billingMode: getStaticDynamoDbBillingMode(properties?.BillingMode) ?? 'PROVISIONED',
           location: pickLocation(resource, ['Properties.TableName', 'Properties.BillingMode']),
           resourceId: toStaticResourceId(resource),
           tableName: getCloudFormationDynamoDbTableName(resource),
@@ -605,6 +657,59 @@ const loadStaticEmrClusters = (resources: IaCResource[]): AwsStaticEmrCluster[] 
       'Properties.JobFlowInstancesConfig.CoreInstanceGroup.InstanceType',
       'Properties.JobFlowInstancesConfig.TaskInstanceGroup.InstanceType',
     ]),
+    resourceId: toStaticResourceId(resource),
+  }));
+
+const loadStaticRoute53Records = (resources: IaCResource[]): AwsStaticRoute53Record[] =>
+  resources.flatMap((resource) => {
+    if (resource.type === TERRAFORM_ROUTE53_RECORD_TYPE) {
+      const aliasRecords = toRecordArray(resource.attributes.alias);
+
+      return [
+        createStaticRoute53Record(
+          toStaticResourceId(resource),
+          pickLocation(resource, ['ttl', 'alias', 'health_check_id']),
+          resource.attributes.ttl,
+          aliasRecords.length > 0,
+          resource.attributes.health_check_id,
+        ),
+      ];
+    }
+
+    if (resource.type === CLOUDFORMATION_ROUTE53_RECORD_SET_TYPE) {
+      const properties = isRecord(resource.attributes.Properties) ? resource.attributes.Properties : undefined;
+
+      return [
+        createStaticRoute53Record(
+          toStaticResourceId(resource),
+          pickLocation(resource, ['Properties.TTL', 'Properties.AliasTarget', 'Properties.HealthCheckId']),
+          properties?.TTL,
+          isRecord(properties?.AliasTarget),
+          properties?.HealthCheckId,
+        ),
+      ];
+    }
+
+    if (resource.type === CLOUDFORMATION_ROUTE53_RECORD_SET_GROUP_TYPE) {
+      const properties = isRecord(resource.attributes.Properties) ? resource.attributes.Properties : undefined;
+
+      return toRecordArray(properties?.RecordSets).map((recordSet, index) =>
+        createStaticRoute53Record(
+          `${toStaticResourceId(resource)}#${index + 1}`,
+          pickLocation(resource, ['Properties.RecordSets']),
+          recordSet.TTL,
+          isRecord(recordSet.AliasTarget),
+          recordSet.HealthCheckId,
+        ),
+      );
+    }
+
+    return [];
+  });
+
+const loadStaticRoute53HealthChecks = (resources: IaCResource[]): AwsStaticRoute53HealthCheck[] =>
+  resources.map((resource) => ({
+    location: resource.location,
     resourceId: toStaticResourceId(resource),
   }));
 
@@ -798,6 +903,22 @@ const awsStaticDatasetRegistry: Record<StaticDatasetKey, AwsStaticDatasetDefinit
     sourceKinds: ['terraform', 'cloudformation'],
     resourceTypes: [TERRAFORM_RDS_INSTANCE_TYPE, CLOUDFORMATION_RDS_INSTANCE_TYPE],
     load: loadStaticRdsInstances,
+  },
+  'aws-route53-health-checks': {
+    datasetKey: 'aws-route53-health-checks',
+    sourceKinds: ['terraform', 'cloudformation'],
+    resourceTypes: [TERRAFORM_ROUTE53_HEALTH_CHECK_TYPE, CLOUDFORMATION_ROUTE53_HEALTH_CHECK_TYPE],
+    load: loadStaticRoute53HealthChecks,
+  },
+  'aws-route53-records': {
+    datasetKey: 'aws-route53-records',
+    sourceKinds: ['terraform', 'cloudformation'],
+    resourceTypes: [
+      TERRAFORM_ROUTE53_RECORD_TYPE,
+      CLOUDFORMATION_ROUTE53_RECORD_SET_TYPE,
+      CLOUDFORMATION_ROUTE53_RECORD_SET_GROUP_TYPE,
+    ],
+    load: loadStaticRoute53Records,
   },
   'aws-ec2-vpc-endpoints': {
     datasetKey: 'aws-ec2-vpc-endpoints',
