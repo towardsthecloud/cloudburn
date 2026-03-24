@@ -1,5 +1,18 @@
 # @cloudburn/sdk
 
+## 0.19.0
+
+### Minor Changes
+
+- [#47](https://github.com/towardsthecloud/cloudburn/pull/47) [`f44751b`](https://github.com/towardsthecloud/cloudburn/commit/f44751b57e30beec44eea85fd28d911544f38ce6) Thanks [@axonstone](https://github.com/axonstone)! - Add AWS discovery loaders and registry wiring for API Gateway stages, CloudFront distributions, Cost Explorer service spend deltas, DynamoDB tables and autoscaling, Route 53 zones, records, and health checks, and Secrets Manager secrets.
+
+- [#45](https://github.com/towardsthecloud/cloudburn/pull/45) [`9413ce1`](https://github.com/towardsthecloud/cloudburn/commit/9413ce138cf0bdf5ed95e7231a796e884692831e) Thanks [@axonstone](https://github.com/axonstone)! - Add AWS discovery datasets and hydrators for Lambda function metrics plus enriched RDS instance, reservation, CPU, and snapshot metadata needed by the new ELB, Lambda, and RDS built-in rules.
+
+### Patch Changes
+
+- Updated dependencies [[`f44751b`](https://github.com/towardsthecloud/cloudburn/commit/f44751b57e30beec44eea85fd28d911544f38ce6), [`9413ce1`](https://github.com/towardsthecloud/cloudburn/commit/9413ce138cf0bdf5ed95e7231a796e884692831e)]:
+  - @cloudburn/rules@0.19.0
+
 ## 0.18.0
 
 ### Minor Changes
