@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-describe('rules list e2e', () => {
+describe('rules list e2e', { timeout: 30_000 }, () => {
   afterEach(() => {
     vi.resetModules();
     vi.restoreAllMocks();

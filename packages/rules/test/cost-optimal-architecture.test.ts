@@ -8,6 +8,7 @@ const createLambdaFunction = (overrides: Partial<AwsLambdaFunction> = {}): AwsLa
   architectures: ['x86_64'],
   region: 'us-east-1',
   accountId: '123456789012',
+  timeoutSeconds: 60,
   ...overrides,
 });
 

@@ -609,6 +609,55 @@ describe('rule metadata', () => {
     });
   });
 
+  it('defines the expected ELB network-without-targets rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-ELB-4');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-ELB-4',
+      name: 'Network Load Balancer Without Targets',
+      description: 'Flag Network Load Balancers that have no attached target groups or no registered targets.',
+      message: 'Network Load Balancers with no registered targets should be deleted.',
+      provider: 'aws',
+      service: 'elb',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-ec2-load-balancers', 'aws-ec2-target-groups'],
+    });
+  });
+
+  it('defines the expected Lambda high-error-rate rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-LAMBDA-2');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-LAMBDA-2',
+      name: 'Lambda Function High Error Rate',
+      description: 'Flag Lambda functions whose 7-day error rate is greater than 10%.',
+      message: 'Lambda functions should not sustain an error rate above 10% over the last 7 days.',
+      provider: 'aws',
+      service: 'lambda',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-lambda-functions', 'aws-lambda-function-metrics'],
+    });
+  });
+
+  it('defines the expected Lambda excessive-timeout rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-LAMBDA-3');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-LAMBDA-3',
+      name: 'Lambda Function Excessive Timeout',
+      description:
+        'Flag Lambda functions whose configured timeout is at least 30 seconds and 5x their 7-day average duration.',
+      message: 'Lambda functions should not keep timeouts far above their observed average duration.',
+      provider: 'aws',
+      service: 'lambda',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-lambda-functions', 'aws-lambda-function-metrics'],
+    });
+  });
+
   it('defines the expected RDS idle-instance rule metadata', () => {
     const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-RDS-2');
 
@@ -622,6 +671,88 @@ describe('rule metadata', () => {
       service: 'rds',
       supports: ['discovery'],
       discoveryDependencies: ['aws-rds-instance-activity'],
+    });
+  });
+
+  it('defines the expected RDS reserved-coverage rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-RDS-3');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-RDS-3',
+      name: 'RDS DB Instance Missing Reserved Coverage',
+      description: 'Flag long-running RDS DB instances that do not have matching active reserved-instance coverage.',
+      message: 'Long-running RDS DB instances should have reserved instance coverage.',
+      provider: 'aws',
+      service: 'rds',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-rds-instances', 'aws-rds-reserved-instances'],
+    });
+  });
+
+  it('defines the expected RDS Graviton review rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-RDS-4');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-RDS-4',
+      name: 'RDS DB Instance Without Graviton',
+      description:
+        'Flag RDS DB instances that still use non-Graviton instance families when a clear Graviton-based equivalent exists.',
+      message: 'RDS DB instances without a Graviton equivalent in use should be reviewed.',
+      provider: 'aws',
+      service: 'rds',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-rds-instances'],
+    });
+  });
+
+  it('defines the expected RDS low-cpu rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-RDS-5');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-RDS-5',
+      name: 'RDS DB Instance Low CPU Utilization',
+      description: 'Flag available RDS DB instances whose 30-day average CPU stays at or below 10%.',
+      message: 'RDS DB instances with low CPU utilization should be reviewed.',
+      provider: 'aws',
+      service: 'rds',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-rds-instances', 'aws-rds-instance-cpu-metrics'],
+    });
+  });
+
+  it('defines the expected RDS unsupported-engine-version rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-RDS-6');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-RDS-6',
+      name: 'RDS DB Instance Unsupported Engine Version',
+      description:
+        'Flag RDS MySQL 5.7 and PostgreSQL 11 DB instances that can incur extended support charges until they are upgraded.',
+      message: 'RDS MySQL 5.7 and PostgreSQL 11 DB instances should be upgraded to avoid extended support charges.',
+      provider: 'aws',
+      service: 'rds',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-rds-instances'],
+    });
+  });
+
+  it('defines the expected RDS unused-snapshots rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-RDS-7');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-RDS-7',
+      name: 'RDS Snapshot Without Source DB Instance',
+      description: 'Flag RDS snapshots older than 30 days whose source DB instance no longer exists.',
+      message: 'RDS snapshots without a source DB instance should be reviewed for cleanup.',
+      provider: 'aws',
+      service: 'rds',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-rds-snapshots', 'aws-rds-instances'],
     });
   });
 

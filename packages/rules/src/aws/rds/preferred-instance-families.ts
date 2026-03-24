@@ -36,8 +36,54 @@ const awsRdsNonPreferredInstanceFamilies = new Set([
   't3',
 ]);
 
+const awsRdsEquivalentGravitonReviewFamilies = new Set([
+  'm5',
+  'm5d',
+  'm6i',
+  'm6id',
+  'm6in',
+  'm7i',
+  'm8i',
+  'r5',
+  'r5b',
+  'r5d',
+  'r6i',
+  'r6id',
+  'r6in',
+  'r7i',
+  'r8i',
+  't2',
+  't3',
+]);
+
+const awsRdsGravitonFamilies = new Set([
+  'm6g',
+  'm6gd',
+  'm7g',
+  'm8g',
+  'm8gd',
+  'r6g',
+  'r6gd',
+  'r7g',
+  'r8g',
+  'r8gd',
+  't4g',
+]);
+
 /** Preferred-family policy states used by the RDS preferred-class rule. */
 export type AwsRdsPreferredInstanceFamilyState = 'preferred' | 'non-preferred' | 'unclassified';
+
+/**
+ * Returns the family portion of a literal RDS DB instance class.
+ *
+ * @param instanceClass - Literal RDS DB instance class such as `db.m8g.large`.
+ * @returns The normalized family name, or `null` when the class is malformed.
+ */
+export const getAwsRdsInstanceFamily = (instanceClass: string): string | null => {
+  const family = /^db\.([a-z0-9-]+)/iu.exec(instanceClass)?.[1]?.toLowerCase();
+
+  return family ?? null;
+};
 
 /**
  * Returns the curated preferred-family state for a literal RDS DB instance class.
@@ -46,7 +92,7 @@ export type AwsRdsPreferredInstanceFamilyState = 'preferred' | 'non-preferred' |
  * @returns The preferred-family classification for the DB instance class.
  */
 export const getAwsRdsPreferredInstanceFamilyState = (instanceClass: string): AwsRdsPreferredInstanceFamilyState => {
-  const family = /^db\.([a-z0-9-]+)/iu.exec(instanceClass)?.[1]?.toLowerCase();
+  const family = getAwsRdsInstanceFamily(instanceClass);
 
   if (!family) {
     return 'unclassified';
@@ -61,4 +107,29 @@ export const getAwsRdsPreferredInstanceFamilyState = (instanceClass: string): Aw
   }
 
   return 'unclassified';
+};
+
+/**
+ * Returns whether a literal RDS DB instance class belongs to a curated Graviton family.
+ *
+ * @param instanceClass - Literal RDS DB instance class such as `db.m7g.large`.
+ * @returns Whether the class belongs to a curated Graviton family.
+ */
+export const isAwsRdsGravitonFamily = (instanceClass: string): boolean => {
+  const family = getAwsRdsInstanceFamily(instanceClass);
+
+  return family ? awsRdsGravitonFamilies.has(family) : false;
+};
+
+/**
+ * Returns whether a literal RDS DB instance class belongs to a family that CloudBurn
+ * reviews for a Graviton migration.
+ *
+ * @param instanceClass - Literal RDS DB instance class such as `db.m7i.large`.
+ * @returns Whether the class belongs to a curated Graviton review family.
+ */
+export const shouldReviewAwsRdsInstanceClassForGraviton = (instanceClass: string): boolean => {
+  const family = getAwsRdsInstanceFamily(instanceClass);
+
+  return family ? awsRdsEquivalentGravitonReviewFamilies.has(family) : false;
 };
