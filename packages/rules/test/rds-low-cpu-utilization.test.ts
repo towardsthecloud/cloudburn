@@ -78,4 +78,39 @@ describe('rdsLowCpuUtilizationRule', () => {
 
     expect(finding).toBeNull();
   });
+
+  it('matches CPU metrics by account and region when duplicate instance identifiers exist', () => {
+    const finding = rdsLowCpuUtilizationRule.evaluateLive?.({
+      catalog: {
+        indexType: 'LOCAL',
+        resources: [],
+        searchRegion: 'us-east-1',
+      },
+      resources: new LiveResourceBag({
+        'aws-rds-instances': [
+          createInstance(),
+          createInstance({
+            accountId: '210987654321',
+            region: 'us-west-2',
+          }),
+        ],
+        'aws-rds-instance-cpu-metrics': [
+          createMetric(),
+          createMetric({
+            accountId: '210987654321',
+            averageCpuUtilizationLast30Days: 15,
+            region: 'us-west-2',
+          }),
+        ],
+      }),
+    });
+
+    expect(finding?.findings).toEqual([
+      {
+        accountId: '123456789012',
+        region: 'us-east-1',
+        resourceId: 'prod-db',
+      },
+    ]);
+  });
 });

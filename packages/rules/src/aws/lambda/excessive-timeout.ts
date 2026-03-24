@@ -6,6 +6,8 @@ const RULE_MESSAGE = 'Lambda functions should not keep timeouts far above their 
 // Review only generously configured functions whose timeout is at least 30s and 5x the observed average duration.
 const MIN_TIMEOUT_REVIEW_SECONDS = 30;
 const EXCESSIVE_TIMEOUT_RATIO = 5;
+const getFunctionKey = (accountId: string, region: string, functionName: string): string =>
+  `${accountId}:${region}:${functionName}`;
 
 /** Flag Lambda functions whose configured timeout far exceeds observed average execution time. */
 export const lambdaExcessiveTimeoutRule = createRule({
@@ -19,14 +21,16 @@ export const lambdaExcessiveTimeoutRule = createRule({
   supports: ['discovery'],
   discoveryDependencies: ['aws-lambda-functions', 'aws-lambda-function-metrics'],
   evaluateLive: ({ resources }) => {
-    const metricsByFunctionName = new Map(
-      resources.get('aws-lambda-function-metrics').map((metric) => [metric.functionName, metric] as const),
+    const metricsByFunctionKey = new Map(
+      resources
+        .get('aws-lambda-function-metrics')
+        .map((metric) => [getFunctionKey(metric.accountId, metric.region, metric.functionName), metric] as const),
     );
 
     const findings = resources
       .get('aws-lambda-functions')
       .filter((fn) => {
-        const metric = metricsByFunctionName.get(fn.functionName);
+        const metric = metricsByFunctionKey.get(getFunctionKey(fn.accountId, fn.region, fn.functionName));
 
         return (
           fn.timeoutSeconds >= MIN_TIMEOUT_REVIEW_SECONDS &&

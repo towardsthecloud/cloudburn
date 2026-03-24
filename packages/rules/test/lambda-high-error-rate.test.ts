@@ -82,4 +82,39 @@ describe('lambdaHighErrorRateRule', () => {
 
     expect(finding).toBeNull();
   });
+
+  it('matches metrics by account and region when duplicate function names exist', () => {
+    const finding = lambdaHighErrorRateRule.evaluateLive?.({
+      catalog: {
+        indexType: 'LOCAL',
+        resources: [],
+        searchRegion: 'us-east-1',
+      },
+      resources: new LiveResourceBag({
+        'aws-lambda-functions': [
+          createLambdaFunction(),
+          createLambdaFunction({
+            accountId: '210987654321',
+            region: 'us-west-2',
+          }),
+        ],
+        'aws-lambda-function-metrics': [
+          createLambdaFunctionMetric(),
+          createLambdaFunctionMetric({
+            accountId: '210987654321',
+            region: 'us-west-2',
+            totalErrorsLast7Days: 0,
+          }),
+        ],
+      }),
+    });
+
+    expect(finding?.findings).toEqual([
+      {
+        accountId: '123456789012',
+        region: 'us-east-1',
+        resourceId: 'my-function',
+      },
+    ]);
+  });
 });

@@ -25,20 +25,26 @@ const normalizeRdsEngine = (value: string | undefined): string | null => {
   return normalized;
 };
 
-const createCoverageKey = (region: string, instanceClass: string, multiAz: boolean, engine: string): string =>
-  `${region}:${instanceClass}:${multiAz ? 'multi-az' : 'single-az'}:${engine}`;
+const createCoverageKey = (
+  accountId: string,
+  region: string,
+  instanceClass: string,
+  multiAz: boolean,
+  engine: string,
+): string => `${accountId}:${region}:${instanceClass}:${multiAz ? 'multi-az' : 'single-az'}:${engine}`;
 
 const getCoverageCandidateEngines = (engine: string): string[] => [engine, '*'];
 
 const consumeCoverage = (
   remainingCoverage: Map<string, number>,
+  accountId: string,
   region: string,
   instanceClass: string,
   multiAz: boolean,
   engine: string,
 ): boolean => {
   for (const candidateEngine of getCoverageCandidateEngines(engine)) {
-    const coverageKey = createCoverageKey(region, instanceClass, multiAz, candidateEngine);
+    const coverageKey = createCoverageKey(accountId, region, instanceClass, multiAz, candidateEngine);
     const availableCount = remainingCoverage.get(coverageKey) ?? 0;
 
     if (availableCount <= 0) {
@@ -74,6 +80,7 @@ export const rdsReservedCoverageRule = createRule({
 
       const normalizedEngine = normalizeRdsEngine(reservedInstance.productDescription) ?? '*';
       const coverageKey = createCoverageKey(
+        reservedInstance.accountId,
         reservedInstance.region,
         reservedInstance.instanceClass,
         reservedInstance.multiAz ?? false,
@@ -96,6 +103,7 @@ export const rdsReservedCoverageRule = createRule({
 
         return !consumeCoverage(
           remainingCoverage,
+          instance.accountId,
           instance.region,
           instance.instanceClass,
           instance.multiAz ?? false,

@@ -6,6 +6,8 @@ const RULE_MESSAGE = 'RDS snapshots without a source DB instance should be revie
 const DAY_MS = 24 * 60 * 60 * 1000;
 // Give orphaned snapshots a 30-day grace period before review to avoid flagging recent intentional retention.
 const ORPHANED_SNAPSHOT_GRACE_DAYS = 30;
+const getInstanceKey = (accountId: string, region: string, dbInstanceIdentifier: string): string =>
+  `${accountId}:${region}:${dbInstanceIdentifier}`;
 
 /** Flag aged RDS snapshots whose source DB instance no longer exists. */
 export const rdsUnusedSnapshotsRule = createRule({
@@ -21,13 +23,18 @@ export const rdsUnusedSnapshotsRule = createRule({
     const now = Date.now();
     const cutoff = now - ORPHANED_SNAPSHOT_GRACE_DAYS * DAY_MS;
     const activeInstanceIds = new Set(
-      resources.get('aws-rds-instances').map((instance) => instance.dbInstanceIdentifier),
+      resources
+        .get('aws-rds-instances')
+        .map((instance) => getInstanceKey(instance.accountId, instance.region, instance.dbInstanceIdentifier)),
     );
 
     const findings = resources
       .get('aws-rds-snapshots')
       .filter((snapshot) => {
-        if (!snapshot.dbInstanceIdentifier || activeInstanceIds.has(snapshot.dbInstanceIdentifier)) {
+        if (
+          !snapshot.dbInstanceIdentifier ||
+          activeInstanceIds.has(getInstanceKey(snapshot.accountId, snapshot.region, snapshot.dbInstanceIdentifier))
+        ) {
           return false;
         }
 

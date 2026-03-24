@@ -37,12 +37,14 @@ const extractDbSnapshotIdentifier = (arn: string): string | null => {
   return resourceSegment.slice(RDS_SNAPSHOT_ARN_PREFIX.length);
 };
 
-const listRegionSeeds = (resources: AwsDiscoveredResource[]): Array<{ region: string; accountId: string }> => {
+const listAccountRegionSeeds = (resources: AwsDiscoveredResource[]): Array<{ region: string; accountId: string }> => {
   const regionSeeds = new Map<string, { region: string; accountId: string }>();
 
   for (const resource of resources) {
-    if (!regionSeeds.has(resource.region)) {
-      regionSeeds.set(resource.region, {
+    const seedKey = `${resource.accountId}:${resource.region}`;
+
+    if (!regionSeeds.has(seedKey)) {
+      regionSeeds.set(seedKey, {
         accountId: resource.accountId,
         region: resource.region,
       });
@@ -133,7 +135,7 @@ export const hydrateAwsRdsReservedInstances = async (
   resources: AwsDiscoveredResource[],
 ): Promise<AwsRdsReservedInstance[]> => {
   const hydratedPages = await Promise.all(
-    listRegionSeeds(resources).map(async ({ region, accountId }) => {
+    listAccountRegionSeeds(resources).map(async ({ region, accountId }) => {
       const client = createRdsClient({ region });
       const reservedInstances: AwsRdsReservedInstance[] = [];
       let marker: string | undefined;
@@ -174,7 +176,12 @@ export const hydrateAwsRdsReservedInstances = async (
 
   return hydratedPages
     .flat()
-    .sort((left, right) => left.reservedDbInstanceId.localeCompare(right.reservedDbInstanceId));
+    .sort(
+      (left, right) =>
+        left.accountId.localeCompare(right.accountId) ||
+        left.region.localeCompare(right.region) ||
+        left.reservedDbInstanceId.localeCompare(right.reservedDbInstanceId),
+    );
 };
 
 /**

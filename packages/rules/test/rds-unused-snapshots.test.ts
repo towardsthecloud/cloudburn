@@ -80,4 +80,32 @@ describe('rdsUnusedSnapshotsRule', () => {
 
     expect(finding).toBeNull();
   });
+
+  it('does not treat instances from other accounts or regions as the snapshot source', () => {
+    const finding = rdsUnusedSnapshotsRule.evaluateLive?.({
+      catalog: {
+        indexType: 'LOCAL',
+        resources: [],
+        searchRegion: 'us-east-1',
+      },
+      resources: new LiveResourceBag({
+        'aws-rds-instances': [
+          createInstance({
+            accountId: '210987654321',
+            dbInstanceIdentifier: 'deleted-db',
+            region: 'us-west-2',
+          }),
+        ],
+        'aws-rds-snapshots': [createSnapshot()],
+      }),
+    });
+
+    expect(finding?.findings).toEqual([
+      {
+        accountId: '123456789012',
+        region: 'us-east-1',
+        resourceId: 'snapshot-123',
+      },
+    ]);
+  });
 });

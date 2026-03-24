@@ -5,6 +5,8 @@ const RULE_SERVICE = 'lambda';
 const RULE_MESSAGE = 'Lambda functions should not sustain an error rate above 10% over the last 7 days.';
 // Error-rate review requires complete 7-day totals and only flags functions above 10%.
 const HIGH_ERROR_RATE_THRESHOLD = 0.1;
+const getFunctionKey = (accountId: string, region: string, functionName: string): string =>
+  `${accountId}:${region}:${functionName}`;
 
 /** Flag Lambda functions whose recent error rate exceeds the review threshold. */
 export const lambdaHighErrorRateRule = createRule({
@@ -17,14 +19,16 @@ export const lambdaHighErrorRateRule = createRule({
   supports: ['discovery'],
   discoveryDependencies: ['aws-lambda-functions', 'aws-lambda-function-metrics'],
   evaluateLive: ({ resources }) => {
-    const metricsByFunctionName = new Map(
-      resources.get('aws-lambda-function-metrics').map((metric) => [metric.functionName, metric] as const),
+    const metricsByFunctionKey = new Map(
+      resources
+        .get('aws-lambda-function-metrics')
+        .map((metric) => [getFunctionKey(metric.accountId, metric.region, metric.functionName), metric] as const),
     );
 
     const findings = resources
       .get('aws-lambda-functions')
       .filter((fn) => {
-        const metric = metricsByFunctionName.get(fn.functionName);
+        const metric = metricsByFunctionKey.get(getFunctionKey(fn.accountId, fn.region, fn.functionName));
 
         return (
           metric?.totalInvocationsLast7Days !== null &&

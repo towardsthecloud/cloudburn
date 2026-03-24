@@ -82,4 +82,40 @@ describe('lambdaExcessiveTimeoutRule', () => {
 
     expect(finding).toBeNull();
   });
+
+  it('matches duration metrics by account and region when duplicate function names exist', () => {
+    const finding = lambdaExcessiveTimeoutRule.evaluateLive?.({
+      catalog: {
+        indexType: 'LOCAL',
+        resources: [],
+        searchRegion: 'us-east-1',
+      },
+      resources: new LiveResourceBag({
+        'aws-lambda-functions': [
+          createLambdaFunction({ timeoutSeconds: 60 }),
+          createLambdaFunction({
+            accountId: '210987654321',
+            region: 'us-west-2',
+            timeoutSeconds: 60,
+          }),
+        ],
+        'aws-lambda-function-metrics': [
+          createLambdaFunctionMetric({ averageDurationMsLast7Days: 10_000 }),
+          createLambdaFunctionMetric({
+            accountId: '210987654321',
+            averageDurationMsLast7Days: 20_000,
+            region: 'us-west-2',
+          }),
+        ],
+      }),
+    });
+
+    expect(finding?.findings).toEqual([
+      {
+        accountId: '123456789012',
+        region: 'us-east-1',
+        resourceId: 'my-function',
+      },
+    ]);
+  });
 });

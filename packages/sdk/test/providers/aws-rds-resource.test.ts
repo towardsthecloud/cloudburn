@@ -197,6 +197,7 @@ describe('hydrateAwsRdsReservedInstances', () => {
       },
     ]);
 
+    expect(mockedCreateRdsClient).toHaveBeenCalledTimes(2);
     expect(reservedInstances).toEqual([
       {
         accountId: '123456789012',
@@ -217,6 +218,70 @@ describe('hydrateAwsRdsReservedInstances', () => {
         productDescription: 'mysql',
         region: 'us-west-2',
         reservedDbInstanceId: 'ri-us-west-2',
+        startTime: '2025-01-01T00:00:00.000Z',
+        state: 'active',
+      },
+    ]);
+  });
+
+  it('hydrates reserved RDS instances per discovered account and region seed', async () => {
+    mockedCreateRdsClient.mockImplementation(({ region }) => {
+      const send = vi.fn(async (_command: DescribeReservedDBInstancesCommand) => ({
+        ReservedDBInstances: [
+          {
+            DBInstanceClass: 'db.m6i.large',
+            DBInstanceCount: 1,
+            MultiAZ: false,
+            ProductDescription: 'mysql',
+            ReservedDBInstanceId: `ri-${region}`,
+            StartTime: new Date('2025-01-01T00:00:00.000Z'),
+            State: 'active',
+          },
+        ],
+      }));
+
+      return { send, region } as never;
+    });
+
+    const reservedInstances = await hydrateAwsRdsReservedInstances([
+      {
+        accountId: '123456789012',
+        arn: 'arn:aws:rds:us-east-1:123456789012:db:legacy-db',
+        properties: [],
+        region: 'us-east-1',
+        resourceType: 'rds:db',
+        service: 'rds',
+      },
+      {
+        accountId: '210987654321',
+        arn: 'arn:aws:rds:us-east-1:210987654321:db:other-db',
+        properties: [],
+        region: 'us-east-1',
+        resourceType: 'rds:db',
+        service: 'rds',
+      },
+    ]);
+
+    expect(reservedInstances).toEqual([
+      {
+        accountId: '123456789012',
+        instanceClass: 'db.m6i.large',
+        instanceCount: 1,
+        multiAz: false,
+        productDescription: 'mysql',
+        region: 'us-east-1',
+        reservedDbInstanceId: 'ri-us-east-1',
+        startTime: '2025-01-01T00:00:00.000Z',
+        state: 'active',
+      },
+      {
+        accountId: '210987654321',
+        instanceClass: 'db.m6i.large',
+        instanceCount: 1,
+        multiAz: false,
+        productDescription: 'mysql',
+        region: 'us-east-1',
+        reservedDbInstanceId: 'ri-us-east-1',
         startTime: '2025-01-01T00:00:00.000Z',
         state: 'active',
       },

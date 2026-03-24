@@ -88,4 +88,26 @@ describe('rdsReservedCoverageRule', () => {
 
     expect(finding).toBeNull();
   });
+
+  it('does not consume reserved coverage from a different account', () => {
+    const finding = rdsReservedCoverageRule.evaluateLive?.({
+      catalog: {
+        indexType: 'LOCAL',
+        resources: [],
+        searchRegion: 'us-east-1',
+      },
+      resources: new LiveResourceBag({
+        'aws-rds-instances': [createInstance()],
+        'aws-rds-reserved-instances': [createReservedInstance({ accountId: '210987654321' })],
+      }),
+    });
+
+    expect(finding?.findings).toEqual([
+      {
+        accountId: '123456789012',
+        region: 'us-east-1',
+        resourceId: 'prod-db',
+      },
+    ]);
+  });
 });

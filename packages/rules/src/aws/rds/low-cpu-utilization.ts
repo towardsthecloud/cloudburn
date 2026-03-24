@@ -5,6 +5,8 @@ const RULE_SERVICE = 'rds';
 const RULE_MESSAGE = 'RDS DB instances with low CPU utilization should be reviewed.';
 // Review provisioned databases whose 30-day average CPU stays at or below 10%.
 const LOW_CPU_THRESHOLD = 10;
+const getInstanceKey = (accountId: string, region: string, dbInstanceIdentifier: string): string =>
+  `${accountId}:${region}:${dbInstanceIdentifier}`;
 
 /** Flag available RDS DB instances with sustained low CPU utilization. */
 export const rdsLowCpuUtilizationRule = createRule({
@@ -18,13 +20,20 @@ export const rdsLowCpuUtilizationRule = createRule({
   discoveryDependencies: ['aws-rds-instances', 'aws-rds-instance-cpu-metrics'],
   evaluateLive: ({ resources }) => {
     const instancesById = new Map(
-      resources.get('aws-rds-instances').map((instance) => [instance.dbInstanceIdentifier, instance] as const),
+      resources
+        .get('aws-rds-instances')
+        .map(
+          (instance) =>
+            [getInstanceKey(instance.accountId, instance.region, instance.dbInstanceIdentifier), instance] as const,
+        ),
     );
 
     const findings = resources
       .get('aws-rds-instance-cpu-metrics')
       .filter((metric) => {
-        const instance = instancesById.get(metric.dbInstanceIdentifier);
+        const instance = instancesById.get(
+          getInstanceKey(metric.accountId, metric.region, metric.dbInstanceIdentifier),
+        );
 
         return (
           instance?.dbInstanceStatus === 'available' &&
@@ -33,7 +42,9 @@ export const rdsLowCpuUtilizationRule = createRule({
         );
       })
       .flatMap((metric) => {
-        const instance = instancesById.get(metric.dbInstanceIdentifier);
+        const instance = instancesById.get(
+          getInstanceKey(metric.accountId, metric.region, metric.dbInstanceIdentifier),
+        );
 
         return instance ? [createFindingMatch(instance.dbInstanceIdentifier, instance.region, instance.accountId)] : [];
       });
