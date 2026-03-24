@@ -638,6 +638,8 @@ export type StaticDatasetKey = SharedDatasetKey | 'aws-ec2-vpc-endpoints';
 /** Normalized static EBS volume dataset entry with a precomputed finding target. */
 export type AwsStaticEbsVolume = {
   resourceId: string;
+  sizeGiB: number | null;
+  iops: number | null;
   volumeType: string | null;
   location?: SourceLocation;
 };
@@ -660,6 +662,8 @@ export type AwsStaticEc2Instance = {
 export type AwsStaticRdsInstance = {
   resourceId: string;
   instanceClass: string | null;
+  engine: string | null;
+  engineVersion: string | null;
   location?: SourceLocation;
 };
 

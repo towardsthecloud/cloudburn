@@ -143,21 +143,21 @@ describe('sdk exports', () => {
         id: 'CLDBRN-AWS-EBS-4',
         provider: 'aws',
         service: 'ebs',
-        supports: ['discovery'],
+        supports: ['discovery', 'iac'],
       },
       {
         description: 'Flag io1 and io2 EBS volumes with provisioned IOPS above 32000.',
         id: 'CLDBRN-AWS-EBS-5',
         provider: 'aws',
         service: 'ebs',
-        supports: ['discovery'],
+        supports: ['discovery', 'iac'],
       },
       {
         description: 'Flag io1 and io2 EBS volumes at 16000 IOPS or below as gp3 review candidates.',
         id: 'CLDBRN-AWS-EBS-6',
         provider: 'aws',
         service: 'ebs',
-        supports: ['discovery'],
+        supports: ['discovery', 'iac'],
       },
       {
         description: 'Flag completed EBS snapshots older than 90 days.',
@@ -208,7 +208,7 @@ describe('sdk exports', () => {
         id: 'CLDBRN-AWS-EC2-6',
         provider: 'aws',
         service: 'ec2',
-        supports: ['discovery'],
+        supports: ['discovery', 'iac'],
       },
       {
         description: 'Flag active EC2 reserved instances whose end date is within the next 60 days.',
@@ -222,7 +222,7 @@ describe('sdk exports', () => {
         id: 'CLDBRN-AWS-EC2-8',
         provider: 'aws',
         service: 'ec2',
-        supports: ['discovery'],
+        supports: ['discovery', 'iac'],
       },
       {
         description: 'Flag EC2 instances whose launch time is at least 180 days old.',
@@ -367,7 +367,7 @@ describe('sdk exports', () => {
         id: 'CLDBRN-AWS-RDS-4',
         provider: 'aws',
         service: 'rds',
-        supports: ['discovery'],
+        supports: ['discovery', 'iac'],
       },
       {
         description: 'Flag available RDS DB instances whose 30-day average CPU stays at or below 10%.',
@@ -382,7 +382,7 @@ describe('sdk exports', () => {
         id: 'CLDBRN-AWS-RDS-6',
         provider: 'aws',
         service: 'rds',
-        supports: ['discovery'],
+        supports: ['discovery', 'iac'],
       },
       {
         description: 'Flag RDS snapshots older than 30 days whose source DB instance no longer exists.',

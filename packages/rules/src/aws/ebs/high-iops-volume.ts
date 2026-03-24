@@ -7,6 +7,14 @@ const HIGH_IOPS_VOLUME_TYPES = new Set(['io1', 'io2']);
 // Treat 32k IOPS as the threshold where provisioned io1/io2 volumes merit explicit review.
 const HIGH_IOPS_THRESHOLD = 32000;
 
+const hasHighProvisionedIops = (volumeType: string | null | undefined, iops: number | null | undefined): boolean =>
+  volumeType !== null &&
+  volumeType !== undefined &&
+  HIGH_IOPS_VOLUME_TYPES.has(volumeType) &&
+  iops !== null &&
+  iops !== undefined &&
+  iops > HIGH_IOPS_THRESHOLD;
+
 /** Flag io1 and io2 EBS volumes provisioned above the high-IOPS threshold. */
 export const ebsHighIopsVolumeRule = createRule({
   id: RULE_ID,
@@ -15,19 +23,23 @@ export const ebsHighIopsVolumeRule = createRule({
   message: RULE_MESSAGE,
   provider: 'aws',
   service: RULE_SERVICE,
-  supports: ['discovery'],
+  supports: ['discovery', 'iac'],
   discoveryDependencies: ['aws-ebs-volumes'],
+  staticDependencies: ['aws-ebs-volumes'],
   evaluateLive: ({ resources }) => {
     const findings = resources
       .get('aws-ebs-volumes')
-      .filter(
-        (volume) =>
-          HIGH_IOPS_VOLUME_TYPES.has(volume.volumeType) &&
-          volume.iops !== undefined &&
-          volume.iops > HIGH_IOPS_THRESHOLD,
-      )
+      .filter((volume) => hasHighProvisionedIops(volume.volumeType, volume.iops))
       .map((volume) => createFindingMatch(volume.volumeId, volume.region, volume.accountId));
 
     return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+  },
+  evaluateStatic: ({ resources }) => {
+    const findings = resources
+      .get('aws-ebs-volumes')
+      .filter((volume) => hasHighProvisionedIops(volume.volumeType, volume.iops))
+      .map((volume) => createFindingMatch(volume.resourceId, undefined, undefined, volume.location));
+
+    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'iac', findings);
   },
 });

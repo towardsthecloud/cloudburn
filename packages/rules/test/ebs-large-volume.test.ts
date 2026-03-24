@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ebsLargeVolumeRule } from '../src/aws/ebs/large-volume.js';
-import type { AwsEbsVolume } from '../src/index.js';
-import { LiveResourceBag } from '../src/index.js';
+import type { AwsEbsVolume, AwsStaticEbsVolume } from '../src/index.js';
+import { LiveResourceBag, StaticResourceBag } from '../src/index.js';
 
 const createVolume = (overrides: Partial<AwsEbsVolume> = {}): AwsEbsVolume => ({
   accountId: '123456789012',
@@ -11,6 +11,14 @@ const createVolume = (overrides: Partial<AwsEbsVolume> = {}): AwsEbsVolume => ({
   sizeGiB: 200,
   volumeId: 'vol-123',
   volumeType: 'gp3',
+  ...overrides,
+});
+
+const createStaticVolume = (overrides: Partial<AwsStaticEbsVolume> = {}): AwsStaticEbsVolume => ({
+  resourceId: 'aws_ebs_volume.logs',
+  volumeType: 'gp3',
+  sizeGiB: 200,
+  iops: 3000,
   ...overrides,
 });
 
@@ -27,8 +35,9 @@ describe('ebsLargeVolumeRule', () => {
       }),
     });
 
-    expect(ebsLargeVolumeRule.supports).toEqual(['discovery']);
+    expect(ebsLargeVolumeRule.supports).toEqual(['discovery', 'iac']);
     expect(ebsLargeVolumeRule.discoveryDependencies).toEqual(['aws-ebs-volumes']);
+    expect(ebsLargeVolumeRule.staticDependencies).toEqual(['aws-ebs-volumes']);
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-EBS-4',
       service: 'ebs',
@@ -53,6 +62,36 @@ describe('ebsLargeVolumeRule', () => {
       },
       resources: new LiveResourceBag({
         'aws-ebs-volumes': [createVolume({ sizeGiB: 100 })],
+      }),
+    });
+
+    expect(finding).toBeNull();
+  });
+
+  it('flags static volumes larger than the oversized-volume threshold', () => {
+    const finding = ebsLargeVolumeRule.evaluateStatic?.({
+      resources: new StaticResourceBag({
+        'aws-ebs-volumes': [createStaticVolume()],
+      }),
+    });
+
+    expect(finding).toEqual({
+      ruleId: 'CLDBRN-AWS-EBS-4',
+      service: 'ebs',
+      source: 'iac',
+      message: 'EBS volumes larger than 100 GiB should be reviewed.',
+      findings: [
+        {
+          resourceId: 'aws_ebs_volume.logs',
+        },
+      ],
+    });
+  });
+
+  it('skips static volumes at or below the oversized-volume threshold', () => {
+    const finding = ebsLargeVolumeRule.evaluateStatic?.({
+      resources: new StaticResourceBag({
+        'aws-ebs-volumes': [createStaticVolume({ sizeGiB: 100 })],
       }),
     });
 

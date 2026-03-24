@@ -309,6 +309,22 @@ describe('CloudBurnClient', () => {
               ],
             },
             {
+              ruleId: 'CLDBRN-AWS-EC2-6',
+              service: 'ec2',
+              source: 'iac',
+              message: 'EC2 instances without a Graviton equivalent in use should be reviewed.',
+              findings: [
+                {
+                  resourceId: 'aws_instance.web',
+                  location: {
+                    path: 'variables.tf',
+                    line: 14,
+                    column: 3,
+                  },
+                },
+              ],
+            },
+            {
               ruleId: 'CLDBRN-AWS-EBS-1',
               service: 'ebs',
               source: 'iac',
@@ -319,6 +335,22 @@ describe('CloudBurnClient', () => {
                   location: {
                     path: 'main.tf',
                     line: 4,
+                    column: 3,
+                  },
+                },
+              ],
+            },
+            {
+              ruleId: 'CLDBRN-AWS-EBS-4',
+              service: 'ebs',
+              source: 'iac',
+              message: 'EBS volumes larger than 100 GiB should be reviewed.',
+              findings: [
+                {
+                  resourceId: 'aws_ebs_volume.gp3_data',
+                  location: {
+                    path: 'main.tf',
+                    line: 10,
                     column: 3,
                   },
                 },
@@ -431,6 +463,22 @@ describe('CloudBurnClient', () => {
                 },
               ],
             },
+            {
+              ruleId: 'CLDBRN-AWS-RDS-4',
+              service: 'rds',
+              source: 'iac',
+              message: 'RDS DB instances without a Graviton equivalent in use should be reviewed.',
+              findings: [
+                {
+                  resourceId: 'aws_db_instance.legacy',
+                  location: {
+                    path: 'main.tf',
+                    line: 4,
+                    column: 3,
+                  },
+                },
+              ],
+            },
           ],
         },
       ],
@@ -468,6 +516,22 @@ describe('CloudBurnClient', () => {
                     path: 'template.yaml',
                     line: 7,
                     column: 7,
+                  },
+                },
+              ],
+            },
+            {
+              ruleId: 'CLDBRN-AWS-RDS-4',
+              service: 'rds',
+              source: 'iac',
+              message: 'RDS DB instances without a Graviton equivalent in use should be reviewed.',
+              findings: [
+                {
+                  resourceId: 'aws_db_instance.legacy',
+                  location: {
+                    path: 'main.tf',
+                    line: 4,
+                    column: 3,
                   },
                 },
               ],

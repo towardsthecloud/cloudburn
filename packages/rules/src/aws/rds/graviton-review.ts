@@ -14,8 +14,9 @@ export const rdsGravitonReviewRule = createRule({
   message: RULE_MESSAGE,
   provider: 'aws',
   service: RULE_SERVICE,
-  supports: ['discovery'],
+  supports: ['discovery', 'iac'],
   discoveryDependencies: ['aws-rds-instances'],
+  staticDependencies: ['aws-rds-instances'],
   evaluateLive: ({ resources }) => {
     const findings = resources
       .get('aws-rds-instances')
@@ -27,5 +28,18 @@ export const rdsGravitonReviewRule = createRule({
       .map((instance) => createFindingMatch(instance.dbInstanceIdentifier, instance.region, instance.accountId));
 
     return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+  },
+  evaluateStatic: ({ resources }) => {
+    const findings = resources
+      .get('aws-rds-instances')
+      .filter(
+        (instance) =>
+          instance.instanceClass !== null &&
+          !isAwsRdsGravitonFamily(instance.instanceClass) &&
+          shouldReviewAwsRdsInstanceClassForGraviton(instance.instanceClass),
+      )
+      .map((instance) => createFindingMatch(instance.resourceId, undefined, undefined, instance.location));
+
+    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'iac', findings);
   },
 });

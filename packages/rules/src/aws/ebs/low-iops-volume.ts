@@ -9,6 +9,14 @@ const GP3_CANDIDATE_VOLUME_TYPES = new Set(['io1', 'io2']);
 // Use IOPS-only eligibility for gp3 review. Throughput is intentionally out of scope for this heuristic.
 const GP3_MIGRATION_IOPS_THRESHOLD = 16000;
 
+const isGp3MigrationCandidate = (volumeType: string | null | undefined, iops: number | null | undefined): boolean =>
+  volumeType !== null &&
+  volumeType !== undefined &&
+  GP3_CANDIDATE_VOLUME_TYPES.has(volumeType) &&
+  iops !== null &&
+  iops !== undefined &&
+  iops <= GP3_MIGRATION_IOPS_THRESHOLD;
+
 /** Flag io1 and io2 EBS volumes that fall within the gp3 migration IOPS heuristic. */
 export const ebsLowIopsVolumeRule = createRule({
   id: RULE_ID,
@@ -17,19 +25,23 @@ export const ebsLowIopsVolumeRule = createRule({
   message: RULE_MESSAGE,
   provider: 'aws',
   service: RULE_SERVICE,
-  supports: ['discovery'],
+  supports: ['discovery', 'iac'],
   discoveryDependencies: ['aws-ebs-volumes'],
+  staticDependencies: ['aws-ebs-volumes'],
   evaluateLive: ({ resources }) => {
     const findings = resources
       .get('aws-ebs-volumes')
-      .filter(
-        (volume) =>
-          GP3_CANDIDATE_VOLUME_TYPES.has(volume.volumeType) &&
-          volume.iops !== undefined &&
-          volume.iops <= GP3_MIGRATION_IOPS_THRESHOLD,
-      )
+      .filter((volume) => isGp3MigrationCandidate(volume.volumeType, volume.iops))
       .map((volume) => createFindingMatch(volume.volumeId, volume.region, volume.accountId));
 
     return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+  },
+  evaluateStatic: ({ resources }) => {
+    const findings = resources
+      .get('aws-ebs-volumes')
+      .filter((volume) => isGp3MigrationCandidate(volume.volumeType, volume.iops))
+      .map((volume) => createFindingMatch(volume.resourceId, undefined, undefined, volume.location));
+
+    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'iac', findings);
   },
 });

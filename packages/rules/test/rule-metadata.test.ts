@@ -295,8 +295,9 @@ describe('rule metadata', () => {
       message: 'EBS volumes larger than 100 GiB should be reviewed.',
       provider: 'aws',
       service: 'ebs',
-      supports: ['discovery'],
+      supports: ['discovery', 'iac'],
       discoveryDependencies: ['aws-ebs-volumes'],
+      staticDependencies: ['aws-ebs-volumes'],
     });
   });
 
@@ -311,8 +312,9 @@ describe('rule metadata', () => {
       message: 'EBS io1 and io2 volumes above 32000 IOPS should be reviewed.',
       provider: 'aws',
       service: 'ebs',
-      supports: ['discovery'],
+      supports: ['discovery', 'iac'],
       discoveryDependencies: ['aws-ebs-volumes'],
+      staticDependencies: ['aws-ebs-volumes'],
     });
   });
 
@@ -327,8 +329,9 @@ describe('rule metadata', () => {
       message: 'EBS io1 and io2 volumes at 16000 IOPS or below should be reviewed for gp3.',
       provider: 'aws',
       service: 'ebs',
-      supports: ['discovery'],
+      supports: ['discovery', 'iac'],
       discoveryDependencies: ['aws-ebs-volumes'],
+      staticDependencies: ['aws-ebs-volumes'],
     });
   });
 
@@ -441,8 +444,9 @@ describe('rule metadata', () => {
       message: 'EC2 instances without a Graviton equivalent in use should be reviewed.',
       provider: 'aws',
       service: 'ec2',
-      supports: ['discovery'],
+      supports: ['discovery', 'iac'],
       discoveryDependencies: ['aws-ec2-instances'],
+      staticDependencies: ['aws-ec2-instances'],
     });
   });
 
@@ -540,8 +544,9 @@ describe('rule metadata', () => {
       message: 'EC2 large instances of 2xlarge or greater should be reviewed.',
       provider: 'aws',
       service: 'ec2',
-      supports: ['discovery'],
+      supports: ['discovery', 'iac'],
       discoveryDependencies: ['aws-ec2-instances'],
+      staticDependencies: ['aws-ec2-instances'],
     });
   });
 
@@ -702,8 +707,9 @@ describe('rule metadata', () => {
       message: 'RDS DB instances without a Graviton equivalent in use should be reviewed.',
       provider: 'aws',
       service: 'rds',
-      supports: ['discovery'],
+      supports: ['discovery', 'iac'],
       discoveryDependencies: ['aws-rds-instances'],
+      staticDependencies: ['aws-rds-instances'],
     });
   });
 
@@ -735,8 +741,9 @@ describe('rule metadata', () => {
       message: 'RDS MySQL 5.7 and PostgreSQL 11 DB instances should be upgraded to avoid extended support charges.',
       provider: 'aws',
       service: 'rds',
-      supports: ['discovery'],
+      supports: ['discovery', 'iac'],
       discoveryDependencies: ['aws-rds-instances'],
+      staticDependencies: ['aws-rds-instances'],
     });
   });
 

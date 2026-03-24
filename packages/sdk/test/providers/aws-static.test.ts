@@ -91,12 +91,14 @@ describe('loadAwsStaticResources', () => {
     expect(result.resources).toBeInstanceOf(StaticResourceBag);
     expect(result.resources.get('aws-ebs-volumes')).toEqual([
       {
+        iops: null,
         location: {
           path: 'main.tf',
           line: 4,
           column: 3,
         },
         resourceId: 'aws_ebs_volume.logs',
+        sizeGiB: null,
         volumeType: 'gp2',
       },
     ]);
@@ -158,6 +160,8 @@ describe('loadAwsStaticResources', () => {
     });
     expect(result.resources.get('aws-rds-instances')).toEqual([
       {
+        engine: null,
+        engineVersion: null,
         instanceClass: 'db.m6i.large',
         location: {
           path: 'main.tf',
@@ -167,6 +171,188 @@ describe('loadAwsStaticResources', () => {
         resourceId: 'aws_db_instance.legacy',
       },
       {
+        engine: null,
+        engineVersion: null,
+        instanceClass: 'db.r7g.large',
+        location: {
+          path: 'template.yaml',
+          line: 9,
+          column: 7,
+        },
+        resourceId: 'Database',
+      },
+    ]);
+  });
+
+  it('loads EBS volume size and IOPS for Terraform and CloudFormation resources', async () => {
+    mockedParseIaC.mockResolvedValue([
+      createIaCResource({
+        type: 'aws_ebs_volume',
+        name: 'logs',
+        attributeLocations: {
+          size: {
+            path: 'main.tf',
+            line: 5,
+            column: 3,
+          },
+          iops: {
+            path: 'main.tf',
+            line: 6,
+            column: 3,
+          },
+          type: {
+            path: 'main.tf',
+            line: 4,
+            column: 3,
+          },
+        },
+        attributes: {
+          type: 'io2',
+          size: 200,
+          iops: 40000,
+        },
+      }),
+      createIaCResource({
+        type: 'AWS::EC2::Volume',
+        name: 'DataVolume',
+        attributeLocations: {
+          'Properties.VolumeType': {
+            path: 'template.yaml',
+            line: 10,
+            column: 7,
+          },
+          'Properties.Size': {
+            path: 'template.yaml',
+            line: 11,
+            column: 7,
+          },
+          'Properties.Iops': {
+            path: 'template.yaml',
+            line: 12,
+            column: 7,
+          },
+        },
+        attributes: {
+          Properties: {
+            VolumeType: 'io1',
+            Size: 500,
+            Iops: 16000,
+          },
+        },
+      }),
+    ]);
+
+    const result = await loadAwsStaticResources('/tmp/iac', [
+      createRule({
+        staticDependencies: ['aws-ebs-volumes'],
+      }),
+    ]);
+
+    expect(result.resources.get('aws-ebs-volumes')).toEqual([
+      {
+        iops: 40000,
+        location: {
+          path: 'main.tf',
+          line: 4,
+          column: 3,
+        },
+        resourceId: 'aws_ebs_volume.logs',
+        sizeGiB: 200,
+        volumeType: 'io2',
+      },
+      {
+        iops: 16000,
+        location: {
+          path: 'template.yaml',
+          line: 10,
+          column: 7,
+        },
+        resourceId: 'DataVolume',
+        sizeGiB: 500,
+        volumeType: 'io1',
+      },
+    ]);
+  });
+
+  it('loads RDS engine metadata for Terraform and CloudFormation resources', async () => {
+    mockedParseIaC.mockResolvedValue([
+      createIaCResource({
+        type: 'aws_db_instance',
+        name: 'legacy',
+        attributeLocations: {
+          instance_class: {
+            path: 'main.tf',
+            line: 5,
+            column: 3,
+          },
+          engine: {
+            path: 'main.tf',
+            line: 6,
+            column: 3,
+          },
+          engine_version: {
+            path: 'main.tf',
+            line: 7,
+            column: 3,
+          },
+        },
+        attributes: {
+          instance_class: 'db.m6i.large',
+          engine: 'mysql',
+          engine_version: '5.7.44',
+        },
+      }),
+      createIaCResource({
+        type: 'AWS::RDS::DBInstance',
+        name: 'Database',
+        attributeLocations: {
+          'Properties.DBInstanceClass': {
+            path: 'template.yaml',
+            line: 9,
+            column: 7,
+          },
+          'Properties.Engine': {
+            path: 'template.yaml',
+            line: 10,
+            column: 7,
+          },
+          'Properties.EngineVersion': {
+            path: 'template.yaml',
+            line: 11,
+            column: 7,
+          },
+        },
+        attributes: {
+          Properties: {
+            DBInstanceClass: 'db.r7g.large',
+            Engine: 'postgres',
+            EngineVersion: '11.22',
+          },
+        },
+      }),
+    ]);
+
+    const result = await loadAwsStaticResources('/tmp/iac', [
+      createRule({
+        staticDependencies: ['aws-rds-instances'],
+      }),
+    ]);
+
+    expect(result.resources.get('aws-rds-instances')).toEqual([
+      {
+        engine: 'mysql',
+        engineVersion: '5.7.44',
+        instanceClass: 'db.m6i.large',
+        location: {
+          path: 'main.tf',
+          line: 5,
+          column: 3,
+        },
+        resourceId: 'aws_db_instance.legacy',
+      },
+      {
+        engine: 'postgres',
+        engineVersion: '11.22',
         instanceClass: 'db.r7g.large',
         location: {
           path: 'template.yaml',
@@ -442,21 +628,25 @@ describe('aws static dataset registry', () => {
       ]),
     ).toEqual([
       {
+        iops: null,
         location: {
           path: 'main.tf',
           line: 4,
           column: 3,
         },
         resourceId: 'aws_ebs_volume.logs',
+        sizeGiB: null,
         volumeType: 'gp2',
       },
       {
+        iops: null,
         location: {
           path: 'template.yaml',
           line: 10,
           column: 7,
         },
         resourceId: 'DataVolume',
+        sizeGiB: null,
         volumeType: 'gp3',
       },
     ]);
@@ -655,6 +845,8 @@ describe('aws static dataset registry', () => {
       ]),
     ).toEqual([
       {
+        engine: null,
+        engineVersion: null,
         instanceClass: 'db.m6i.large',
         location: {
           path: 'main.tf',
@@ -664,6 +856,8 @@ describe('aws static dataset registry', () => {
         resourceId: 'aws_db_instance.legacy',
       },
       {
+        engine: null,
+        engineVersion: null,
         instanceClass: null,
         location: {
           path: 'template.yaml',

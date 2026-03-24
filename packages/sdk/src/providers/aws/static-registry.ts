@@ -55,6 +55,8 @@ const pickLocation = (resource: IaCResource, attributePaths: string[]): SourceLo
 const getLiteralString = (value: unknown): string | null =>
   typeof value === 'string' && !value.includes('${') ? value.toLowerCase() : null;
 
+const getLiteralNumber = (value: unknown): number | null => (typeof value === 'number' ? value : null);
+
 const getLiteralStringArray = (value: unknown): string[] | null => {
   if (value === undefined) {
     return ['x86_64'];
@@ -205,6 +207,20 @@ const createCloudFormationEcrRepository = (repository: IaCResource): AwsStaticEc
 
 const loadStaticEbsVolumes = (resources: IaCResource[]): AwsStaticEbsVolume[] =>
   resources.map((resource) => ({
+    iops: getLiteralNumber(
+      resource.type === TERRAFORM_EBS_VOLUME_TYPE
+        ? resource.attributes.iops
+        : isRecord(resource.attributes.Properties)
+          ? resource.attributes.Properties.Iops
+          : undefined,
+    ),
+    sizeGiB: getLiteralNumber(
+      resource.type === TERRAFORM_EBS_VOLUME_TYPE
+        ? resource.attributes.size
+        : isRecord(resource.attributes.Properties)
+          ? resource.attributes.Properties.Size
+          : undefined,
+    ),
     resourceId: toStaticResourceId(resource),
     volumeType: getLiteralString(
       resource.type === TERRAFORM_EBS_VOLUME_TYPE
@@ -247,6 +263,20 @@ const loadStaticEc2Instances = (resources: IaCResource[]): AwsStaticEc2Instance[
 
 const loadStaticRdsInstances = (resources: IaCResource[]): AwsStaticRdsInstance[] =>
   resources.map((resource) => ({
+    engine: getLiteralString(
+      resource.type === TERRAFORM_RDS_INSTANCE_TYPE
+        ? resource.attributes.engine
+        : isRecord(resource.attributes.Properties)
+          ? resource.attributes.Properties.Engine
+          : undefined,
+    ),
+    engineVersion: getLiteralString(
+      resource.type === TERRAFORM_RDS_INSTANCE_TYPE
+        ? resource.attributes.engine_version
+        : isRecord(resource.attributes.Properties)
+          ? resource.attributes.Properties.EngineVersion
+          : undefined,
+    ),
     resourceId: toStaticResourceId(resource),
     instanceClass: getLiteralString(
       resource.type === TERRAFORM_RDS_INSTANCE_TYPE
