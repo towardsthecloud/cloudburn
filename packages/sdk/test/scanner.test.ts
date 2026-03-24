@@ -624,6 +624,72 @@ describe('CloudBurnClient', () => {
     });
   });
 
+  it('returns static API Gateway, CloudFront, and CloudWatch findings from mixed IaC resources', async () => {
+    const scanner = new CloudBurnClient();
+    const fixturePath = fileURLToPath(new URL('./fixtures/iac-config-mixed', import.meta.url));
+
+    const result = await scanner.scanStatic(fixturePath);
+
+    expect(result).toEqual({
+      providers: [
+        {
+          provider: 'aws',
+          rules: [
+            {
+              ruleId: 'CLDBRN-AWS-APIGATEWAY-1',
+              service: 'apigateway',
+              source: 'iac',
+              message: 'API Gateway REST API stages should enable caching when stage caching is available.',
+              findings: [
+                {
+                  resourceId: 'aws_api_gateway_stage.prod',
+                  location: {
+                    path: 'main.tf',
+                    line: 4,
+                    column: 3,
+                  },
+                },
+              ],
+            },
+            {
+              ruleId: 'CLDBRN-AWS-CLOUDFRONT-1',
+              service: 'cloudfront',
+              source: 'iac',
+              message: 'CloudFront distributions using PriceClass_All should be reviewed for cheaper edge coverage.',
+              findings: [
+                {
+                  resourceId: 'aws_cloudfront_distribution.cdn',
+                  location: {
+                    path: 'main.tf',
+                    line: 7,
+                    column: 1,
+                  },
+                },
+              ],
+            },
+            {
+              ruleId: 'CLDBRN-AWS-CLOUDWATCH-1',
+              service: 'cloudwatch',
+              source: 'iac',
+              message:
+                'CloudWatch log groups should define a retention policy unless AWS manages lifecycle automatically.',
+              findings: [
+                {
+                  resourceId: 'MissingRetentionGroup',
+                  location: {
+                    path: 'template.yaml',
+                    line: 2,
+                    column: 3,
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+  });
+
   it('returns static S3 findings from terraform and cloudformation resources in the same directory', async () => {
     const scanner = new CloudBurnClient();
     const fixturePath = fileURLToPath(new URL('./fixtures/iac-s3-mixed', import.meta.url));

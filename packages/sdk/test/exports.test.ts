@@ -57,14 +57,14 @@ describe('sdk exports', () => {
         id: 'CLDBRN-AWS-APIGATEWAY-1',
         provider: 'aws',
         service: 'apigateway',
-        supports: ['discovery'],
+        supports: ['discovery', 'iac'],
       },
       {
         description: 'Flag CloudFront distributions using PriceClass_All when a cheaper price class may suffice.',
         id: 'CLDBRN-AWS-CLOUDFRONT-1',
         provider: 'aws',
         service: 'cloudfront',
-        supports: ['discovery'],
+        supports: ['discovery', 'iac'],
       },
       {
         description: 'Flag redundant multi-region CloudTrail trails when more than one trail covers the same account.',
@@ -85,7 +85,7 @@ describe('sdk exports', () => {
         id: 'CLDBRN-AWS-CLOUDWATCH-1',
         provider: 'aws',
         service: 'cloudwatch',
-        supports: ['discovery'],
+        supports: ['discovery', 'iac'],
       },
       {
         description:

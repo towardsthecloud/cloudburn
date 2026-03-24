@@ -364,6 +364,229 @@ describe('loadAwsStaticResources', () => {
     ]);
   });
 
+  it('loads API Gateway stages for Terraform and CloudFormation resources', async () => {
+    mockedParseIaC.mockResolvedValue([
+      createIaCResource({
+        type: 'aws_api_gateway_stage',
+        name: 'prod',
+        attributeLocations: {
+          cache_cluster_enabled: {
+            path: 'main.tf',
+            line: 6,
+            column: 3,
+          },
+        },
+        attributes: {
+          rest_api_id: 'a1b2c3d4',
+          stage_name: 'prod',
+          cache_cluster_enabled: false,
+        },
+      }),
+      createIaCResource({
+        type: 'AWS::ApiGateway::Stage',
+        name: 'ProdStage',
+        attributeLocations: {
+          'Properties.CacheClusterEnabled': {
+            path: 'template.yaml',
+            line: 9,
+            column: 7,
+          },
+        },
+        attributes: {
+          Properties: {
+            StageName: 'prod',
+            RestApiId: 'a1b2c3d4',
+            CacheClusterEnabled: true,
+          },
+        },
+      }),
+    ]);
+
+    const result = await loadAwsStaticResources('/tmp/iac', [
+      createRule({
+        staticDependencies: ['aws-apigateway-stages'],
+      }),
+    ]);
+
+    expect(result.resources.get('aws-apigateway-stages')).toEqual([
+      {
+        cacheClusterEnabled: false,
+        location: {
+          path: 'main.tf',
+          line: 6,
+          column: 3,
+        },
+        resourceId: 'aws_api_gateway_stage.prod',
+      },
+      {
+        cacheClusterEnabled: true,
+        location: {
+          path: 'template.yaml',
+          line: 9,
+          column: 7,
+        },
+        resourceId: 'ProdStage',
+      },
+    ]);
+  });
+
+  it('loads CloudFront distributions and applies the default price class when omitted', async () => {
+    mockedParseIaC.mockResolvedValue([
+      createIaCResource({
+        type: 'aws_cloudfront_distribution',
+        name: 'cdn',
+        location: {
+          path: 'main.tf',
+          line: 1,
+          column: 1,
+        },
+        attributes: {
+          enabled: true,
+        },
+      }),
+      createIaCResource({
+        type: 'AWS::CloudFront::Distribution',
+        name: 'NarrowDistribution',
+        attributeLocations: {
+          'Properties.DistributionConfig.PriceClass': {
+            path: 'template.yaml',
+            line: 8,
+            column: 9,
+          },
+        },
+        attributes: {
+          Properties: {
+            DistributionConfig: {
+              PriceClass: 'PriceClass_100',
+            },
+          },
+        },
+      }),
+    ]);
+
+    const result = await loadAwsStaticResources('/tmp/iac', [
+      createRule({
+        staticDependencies: ['aws-cloudfront-distributions'],
+      }),
+    ]);
+
+    expect(result.resources.get('aws-cloudfront-distributions')).toEqual([
+      {
+        location: {
+          path: 'main.tf',
+          line: 1,
+          column: 1,
+        },
+        priceClass: 'PriceClass_All',
+        resourceId: 'aws_cloudfront_distribution.cdn',
+      },
+      {
+        location: {
+          path: 'template.yaml',
+          line: 8,
+          column: 9,
+        },
+        priceClass: 'PriceClass_100',
+        resourceId: 'NarrowDistribution',
+      },
+    ]);
+  });
+
+  it('loads CloudWatch log groups and preserves unresolved retention values as null', async () => {
+    mockedParseIaC.mockResolvedValue([
+      createIaCResource({
+        type: 'aws_cloudwatch_log_group',
+        name: 'app',
+        attributeLocations: {
+          retention_in_days: {
+            path: 'main.tf',
+            line: 4,
+            column: 3,
+          },
+          log_group_class: {
+            path: 'main.tf',
+            line: 5,
+            column: 3,
+          },
+        },
+        attributes: {
+          name: '/aws/lambda/app',
+          retention_in_days: 30,
+          log_group_class: 'DELIVERY',
+        },
+      }),
+      createIaCResource({
+        type: 'AWS::Logs::LogGroup',
+        name: 'MissingRetentionGroup',
+        location: {
+          path: 'template.yaml',
+          line: 3,
+          column: 3,
+        },
+        attributes: {
+          Properties: {},
+        },
+      }),
+      createIaCResource({
+        type: 'AWS::Logs::LogGroup',
+        name: 'RefRetentionGroup',
+        attributeLocations: {
+          'Properties.RetentionInDays': {
+            path: 'template.yaml',
+            line: 10,
+            column: 7,
+          },
+        },
+        attributes: {
+          Properties: {
+            RetentionInDays: {
+              Ref: 'RetentionDays',
+            },
+          },
+        },
+      }),
+    ]);
+
+    const result = await loadAwsStaticResources('/tmp/iac', [
+      createRule({
+        staticDependencies: ['aws-cloudwatch-log-groups'],
+      }),
+    ]);
+
+    expect(result.resources.get('aws-cloudwatch-log-groups')).toEqual([
+      {
+        location: {
+          path: 'main.tf',
+          line: 4,
+          column: 3,
+        },
+        logGroupClass: 'DELIVERY',
+        resourceId: 'aws_cloudwatch_log_group.app',
+        retentionInDays: 30,
+      },
+      {
+        location: {
+          path: 'template.yaml',
+          line: 3,
+          column: 3,
+        },
+        logGroupClass: undefined,
+        resourceId: 'MissingRetentionGroup',
+        retentionInDays: undefined,
+      },
+      {
+        location: {
+          path: 'template.yaml',
+          line: 10,
+          column: 7,
+        },
+        logGroupClass: undefined,
+        resourceId: 'RefRetentionGroup',
+        retentionInDays: null,
+      },
+    ]);
+  });
+
   it('loads ECR repository datasets for Terraform lifecycle resources and CloudFormation inline policies', async () => {
     mockedParseIaC.mockResolvedValue([
       createIaCResource({

@@ -12,8 +12,9 @@ export const apiGatewayCachingDisabledRule = createRule({
   message: RULE_MESSAGE,
   provider: 'aws',
   service: RULE_SERVICE,
-  supports: ['discovery'],
+  supports: ['discovery', 'iac'],
   discoveryDependencies: ['aws-apigateway-stages'],
+  staticDependencies: ['aws-apigateway-stages'],
   evaluateLive: ({ resources }) => {
     const findings = resources
       .get('aws-apigateway-stages')
@@ -21,5 +22,13 @@ export const apiGatewayCachingDisabledRule = createRule({
       .map((stage) => createFindingMatch(stage.stageArn, stage.region, stage.accountId));
 
     return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+  },
+  evaluateStatic: ({ resources }) => {
+    const findings = resources
+      .get('aws-apigateway-stages')
+      .filter((stage) => stage.cacheClusterEnabled === false)
+      .map((stage) => createFindingMatch(stage.resourceId, undefined, undefined, stage.location));
+
+    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'iac', findings);
   },
 });

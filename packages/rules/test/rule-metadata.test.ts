@@ -110,8 +110,9 @@ describe('rule metadata', () => {
       message: 'CloudWatch log groups should define a retention policy unless AWS manages lifecycle automatically.',
       provider: 'aws',
       service: 'cloudwatch',
-      supports: ['discovery'],
+      supports: ['discovery', 'iac'],
       discoveryDependencies: ['aws-cloudwatch-log-groups'],
+      staticDependencies: ['aws-cloudwatch-log-groups'],
     });
   });
 
@@ -822,8 +823,9 @@ describe('rule metadata', () => {
       message: 'API Gateway REST API stages should enable caching when stage caching is available.',
       provider: 'aws',
       service: 'apigateway',
-      supports: ['discovery'],
+      supports: ['discovery', 'iac'],
       discoveryDependencies: ['aws-apigateway-stages'],
+      staticDependencies: ['aws-apigateway-stages'],
     });
   });
 
@@ -838,8 +840,9 @@ describe('rule metadata', () => {
       message: 'CloudFront distributions using PriceClass_All should be reviewed for cheaper edge coverage.',
       provider: 'aws',
       service: 'cloudfront',
-      supports: ['discovery'],
+      supports: ['discovery', 'iac'],
       discoveryDependencies: ['aws-cloudfront-distributions'],
+      staticDependencies: ['aws-cloudfront-distributions'],
     });
   });
 

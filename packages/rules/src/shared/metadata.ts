@@ -532,6 +532,9 @@ export type AwsDiscoveryCatalog = {
 
 /** Rule-facing live discovery dataset key exposed through the evaluation context. */
 export type SharedDatasetKey =
+  | 'aws-apigateway-stages'
+  | 'aws-cloudfront-distributions'
+  | 'aws-cloudwatch-log-groups'
   | 'aws-ebs-volumes'
   | 'aws-ecr-repositories'
   | 'aws-ec2-instances'
@@ -635,6 +638,28 @@ export type DiscoveryDatasetMap = {
 /** Rule-facing static IaC dataset key exposed through the evaluation context. */
 export type StaticDatasetKey = SharedDatasetKey | 'aws-ec2-vpc-endpoints';
 
+/** Normalized static API Gateway stage dataset entry. */
+export type AwsStaticApiGatewayStage = {
+  resourceId: string;
+  cacheClusterEnabled: boolean | null;
+  location?: SourceLocation;
+};
+
+/** Normalized static CloudFront distribution dataset entry. */
+export type AwsStaticCloudFrontDistribution = {
+  resourceId: string;
+  priceClass: string | null;
+  location?: SourceLocation;
+};
+
+/** Normalized static CloudWatch log group dataset entry. */
+export type AwsStaticCloudWatchLogGroup = {
+  resourceId: string;
+  retentionInDays: number | null | undefined;
+  logGroupClass: string | null | undefined;
+  location?: SourceLocation;
+};
+
 /** Normalized static EBS volume dataset entry with a precomputed finding target. */
 export type AwsStaticEbsVolume = {
   resourceId: string;
@@ -690,6 +715,9 @@ export type AwsStaticS3BucketAnalysis = AwsS3BucketAnalysisFlags & {
 
 /** Normalized static datasets available to rule evaluators. */
 export type StaticDatasetMap = {
+  'aws-apigateway-stages': AwsStaticApiGatewayStage[];
+  'aws-cloudfront-distributions': AwsStaticCloudFrontDistribution[];
+  'aws-cloudwatch-log-groups': AwsStaticCloudWatchLogGroup[];
   'aws-ebs-volumes': AwsStaticEbsVolume[];
   'aws-ecr-repositories': AwsStaticEcrRepository[];
   'aws-ec2-instances': AwsStaticEc2Instance[];

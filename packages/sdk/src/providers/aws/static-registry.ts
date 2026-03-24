@@ -1,4 +1,7 @@
 import type {
+  AwsStaticApiGatewayStage,
+  AwsStaticCloudFrontDistribution,
+  AwsStaticCloudWatchLogGroup,
   AwsStaticEbsVolume,
   AwsStaticEc2Instance,
   AwsStaticEc2VpcEndpoint,
@@ -24,6 +27,12 @@ type AwsStaticDatasetDefinition<K extends StaticDatasetKey = StaticDatasetKey> =
 
 const TERRAFORM_EBS_VOLUME_TYPE = 'aws_ebs_volume';
 const CLOUDFORMATION_EBS_VOLUME_TYPE = 'AWS::EC2::Volume';
+const TERRAFORM_API_GATEWAY_STAGE_TYPE = 'aws_api_gateway_stage';
+const CLOUDFORMATION_API_GATEWAY_STAGE_TYPE = 'AWS::ApiGateway::Stage';
+const TERRAFORM_CLOUDFRONT_DISTRIBUTION_TYPE = 'aws_cloudfront_distribution';
+const CLOUDFORMATION_CLOUDFRONT_DISTRIBUTION_TYPE = 'AWS::CloudFront::Distribution';
+const TERRAFORM_CLOUDWATCH_LOG_GROUP_TYPE = 'aws_cloudwatch_log_group';
+const CLOUDFORMATION_CLOUDWATCH_LOG_GROUP_TYPE = 'AWS::Logs::LogGroup';
 const TERRAFORM_ECR_REPOSITORY_TYPE = 'aws_ecr_repository';
 const TERRAFORM_ECR_LIFECYCLE_POLICY_TYPE = 'aws_ecr_lifecycle_policy';
 const CLOUDFORMATION_ECR_REPOSITORY_TYPE = 'AWS::ECR::Repository';
@@ -56,6 +65,17 @@ const getLiteralString = (value: unknown): string | null =>
   typeof value === 'string' && !value.includes('${') ? value.toLowerCase() : null;
 
 const getLiteralNumber = (value: unknown): number | null => (typeof value === 'number' ? value : null);
+
+const getLiteralExactString = (value: unknown): string | null =>
+  typeof value === 'string' && !value.includes('${') ? value : null;
+
+const getLiteralUpperString = (value: unknown): string | null => {
+  const literal = getLiteralExactString(value);
+
+  return literal ? literal.toUpperCase() : null;
+};
+
+const getLiteralBoolean = (value: unknown): boolean | null => (typeof value === 'boolean' ? value : null);
 
 const getLiteralStringArray = (value: unknown): string[] | null => {
   if (value === undefined) {
@@ -205,6 +225,66 @@ const createCloudFormationEcrRepository = (repository: IaCResource): AwsStaticEc
   };
 };
 
+const loadStaticApiGatewayStages = (resources: IaCResource[]): AwsStaticApiGatewayStage[] =>
+  resources.map((resource) => {
+    const rawValue =
+      resource.type === TERRAFORM_API_GATEWAY_STAGE_TYPE
+        ? resource.attributes.cache_cluster_enabled
+        : isRecord(resource.attributes.Properties)
+          ? resource.attributes.Properties.CacheClusterEnabled
+          : undefined;
+
+    return {
+      cacheClusterEnabled: rawValue === undefined ? false : getLiteralBoolean(rawValue),
+      location: pickLocation(resource, ['cache_cluster_enabled', 'Properties.CacheClusterEnabled']),
+      resourceId: toStaticResourceId(resource),
+    };
+  });
+
+const loadStaticCloudFrontDistributions = (resources: IaCResource[]): AwsStaticCloudFrontDistribution[] =>
+  resources.map((resource) => {
+    const rawValue =
+      resource.type === TERRAFORM_CLOUDFRONT_DISTRIBUTION_TYPE
+        ? resource.attributes.price_class
+        : isRecord(resource.attributes.Properties) && isRecord(resource.attributes.Properties.DistributionConfig)
+          ? resource.attributes.Properties.DistributionConfig.PriceClass
+          : undefined;
+
+    return {
+      location: pickLocation(resource, ['price_class', 'Properties.DistributionConfig.PriceClass']),
+      priceClass: rawValue === undefined ? 'PriceClass_All' : getLiteralExactString(rawValue),
+      resourceId: toStaticResourceId(resource),
+    };
+  });
+
+const loadStaticCloudWatchLogGroups = (resources: IaCResource[]): AwsStaticCloudWatchLogGroup[] =>
+  resources.map((resource) => {
+    const retentionValue =
+      resource.type === TERRAFORM_CLOUDWATCH_LOG_GROUP_TYPE
+        ? resource.attributes.retention_in_days
+        : isRecord(resource.attributes.Properties)
+          ? resource.attributes.Properties.RetentionInDays
+          : undefined;
+    const classValue =
+      resource.type === TERRAFORM_CLOUDWATCH_LOG_GROUP_TYPE
+        ? resource.attributes.log_group_class
+        : isRecord(resource.attributes.Properties)
+          ? resource.attributes.Properties.LogGroupClass
+          : undefined;
+
+    return {
+      location: pickLocation(resource, [
+        'retention_in_days',
+        'log_group_class',
+        'Properties.RetentionInDays',
+        'Properties.LogGroupClass',
+      ]),
+      logGroupClass: classValue === undefined ? undefined : getLiteralUpperString(classValue),
+      resourceId: toStaticResourceId(resource),
+      retentionInDays: retentionValue === undefined ? undefined : getLiteralNumber(retentionValue),
+    };
+  });
+
 const loadStaticEbsVolumes = (resources: IaCResource[]): AwsStaticEbsVolume[] =>
   resources.map((resource) => ({
     iops: getLiteralNumber(
@@ -352,6 +432,24 @@ const loadStaticS3BucketAnalyses = (resources: IaCResource[]): AwsStaticS3Bucket
 };
 
 const awsStaticDatasetRegistry: Record<StaticDatasetKey, AwsStaticDatasetDefinition> = {
+  'aws-apigateway-stages': {
+    datasetKey: 'aws-apigateway-stages',
+    sourceKinds: ['terraform', 'cloudformation'],
+    resourceTypes: [TERRAFORM_API_GATEWAY_STAGE_TYPE, CLOUDFORMATION_API_GATEWAY_STAGE_TYPE],
+    load: loadStaticApiGatewayStages,
+  },
+  'aws-cloudfront-distributions': {
+    datasetKey: 'aws-cloudfront-distributions',
+    sourceKinds: ['terraform', 'cloudformation'],
+    resourceTypes: [TERRAFORM_CLOUDFRONT_DISTRIBUTION_TYPE, CLOUDFORMATION_CLOUDFRONT_DISTRIBUTION_TYPE],
+    load: loadStaticCloudFrontDistributions,
+  },
+  'aws-cloudwatch-log-groups': {
+    datasetKey: 'aws-cloudwatch-log-groups',
+    sourceKinds: ['terraform', 'cloudformation'],
+    resourceTypes: [TERRAFORM_CLOUDWATCH_LOG_GROUP_TYPE, CLOUDFORMATION_CLOUDWATCH_LOG_GROUP_TYPE],
+    load: loadStaticCloudWatchLogGroups,
+  },
   'aws-ebs-volumes': {
     datasetKey: 'aws-ebs-volumes',
     sourceKinds: ['terraform', 'cloudformation'],
