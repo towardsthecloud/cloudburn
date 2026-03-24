@@ -14,15 +14,21 @@ const normalizeRdsEngine = (value: string | undefined): string | null => {
     return null;
   }
 
-  if (normalized.includes('aurora-mysql') || normalized.includes('mysql')) {
+  // Reserved product descriptions can append license-model suffixes such as `(li)` or `(byol)`.
+  const normalizedWithoutLicenseSuffix = normalized.replace(/\s*\([^)]*\)$/u, '');
+
+  if (normalizedWithoutLicenseSuffix.includes('aurora-mysql') || normalizedWithoutLicenseSuffix.includes('mysql')) {
     return 'mysql';
   }
 
-  if (normalized.includes('aurora-postgresql') || normalized.includes('postgres')) {
+  if (
+    normalizedWithoutLicenseSuffix.includes('aurora-postgresql') ||
+    normalizedWithoutLicenseSuffix.includes('postgres')
+  ) {
     return 'postgres';
   }
 
-  return normalized;
+  return normalizedWithoutLicenseSuffix;
 };
 
 const createCoverageKey = (

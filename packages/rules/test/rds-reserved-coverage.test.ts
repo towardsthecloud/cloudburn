@@ -110,4 +110,32 @@ describe('rdsReservedCoverageRule', () => {
       },
     ]);
   });
+
+  it('matches Oracle reserved coverage when product descriptions include a license suffix', () => {
+    const finding = rdsReservedCoverageRule.evaluateLive?.({
+      catalog: {
+        indexType: 'LOCAL',
+        resources: [],
+        searchRegion: 'us-east-1',
+      },
+      resources: new LiveResourceBag({
+        'aws-rds-instances': [
+          createInstance({
+            dbInstanceIdentifier: 'oracle-db',
+            engine: 'oracle-se2',
+            instanceClass: 'db.r6i.large',
+          }),
+        ],
+        'aws-rds-reserved-instances': [
+          createReservedInstance({
+            instanceClass: 'db.r6i.large',
+            productDescription: 'oracle-se2(li)',
+            reservedDbInstanceId: 'ri-oracle',
+          }),
+        ],
+      }),
+    });
+
+    expect(finding).toBeNull();
+  });
 });
