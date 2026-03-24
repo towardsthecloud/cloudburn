@@ -267,7 +267,7 @@ describe('sdk exports', () => {
         id: 'CLDBRN-AWS-EKS-1',
         provider: 'aws',
         service: 'eks',
-        supports: ['discovery'],
+        supports: ['discovery', 'iac'],
       },
       {
         description: 'Flag long-running ElastiCache clusters that do not have matching active reserved-node coverage.',
@@ -309,7 +309,7 @@ describe('sdk exports', () => {
         id: 'CLDBRN-AWS-EMR-1',
         provider: 'aws',
         service: 'emr',
-        supports: ['discovery'],
+        supports: ['discovery', 'iac'],
       },
       {
         description: 'Flag active EMR clusters whose `IsIdle` metric stays true for at least 30 minutes.',

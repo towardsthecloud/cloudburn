@@ -739,6 +739,55 @@ describe('CloudBurnClient', () => {
     });
   });
 
+  it('returns static EKS and EMR findings from mixed IaC resources', async () => {
+    const scanner = new CloudBurnClient();
+    const fixturePath = fileURLToPath(new URL('./fixtures/iac-compute-mixed', import.meta.url));
+
+    const result = await scanner.scanStatic(fixturePath);
+
+    expect(result).toEqual({
+      providers: [
+        {
+          provider: 'aws',
+          rules: [
+            {
+              ruleId: 'CLDBRN-AWS-EKS-1',
+              service: 'eks',
+              source: 'iac',
+              message: 'EKS node groups without a Graviton equivalent in use should be reviewed.',
+              findings: [
+                {
+                  resourceId: 'aws_eks_node_group.workers',
+                  location: {
+                    path: 'main.tf',
+                    line: 4,
+                    column: 3,
+                  },
+                },
+              ],
+            },
+            {
+              ruleId: 'CLDBRN-AWS-EMR-1',
+              service: 'emr',
+              source: 'iac',
+              message: 'EMR clusters using previous-generation instance types should be reviewed.',
+              findings: [
+                {
+                  resourceId: 'LegacyAnalytics',
+                  location: {
+                    path: 'template.yaml',
+                    line: 2,
+                    column: 3,
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+  });
+
   it('returns static S3 findings from terraform and cloudformation resources in the same directory', async () => {
     const scanner = new CloudBurnClient();
     const fixturePath = fileURLToPath(new URL('./fixtures/iac-s3-mixed', import.meta.url));

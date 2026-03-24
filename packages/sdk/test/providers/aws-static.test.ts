@@ -755,6 +755,172 @@ describe('loadAwsStaticResources', () => {
     ]);
   });
 
+  it('loads EKS node groups and preserves unresolved instance types as empty', async () => {
+    mockedParseIaC.mockResolvedValue([
+      createIaCResource({
+        type: 'aws_eks_node_group',
+        name: 'workers',
+        attributeLocations: {
+          ami_type: {
+            path: 'main.tf',
+            line: 5,
+            column: 3,
+          },
+          instance_types: {
+            path: 'main.tf',
+            line: 6,
+            column: 3,
+          },
+        },
+        attributes: {
+          ami_type: 'AL2023_x86_64_STANDARD',
+          instance_types: ['m7i.large'],
+        },
+      }),
+      createIaCResource({
+        type: 'AWS::EKS::Nodegroup',
+        name: 'ArmWorkers',
+        attributeLocations: {
+          'Properties.AmiType': {
+            path: 'template.yaml',
+            line: 6,
+            column: 7,
+          },
+          'Properties.InstanceTypes': {
+            path: 'template.yaml',
+            line: 7,
+            column: 7,
+          },
+        },
+        attributes: {
+          Properties: {
+            AmiType: 'AL2023_ARM_64_STANDARD',
+            InstanceTypes: { Ref: 'NodegroupInstanceTypes' },
+          },
+        },
+      }),
+    ]);
+
+    const result = await loadAwsStaticResources('/tmp/iac', [
+      createRule({
+        staticDependencies: ['aws-eks-nodegroups'],
+      }),
+    ]);
+
+    expect(result.resources.get('aws-eks-nodegroups')).toEqual([
+      {
+        amiType: 'AL2023_x86_64_STANDARD',
+        instanceTypes: ['m7i.large'],
+        location: {
+          path: 'main.tf',
+          line: 5,
+          column: 3,
+        },
+        resourceId: 'aws_eks_node_group.workers',
+      },
+      {
+        amiType: 'AL2023_ARM_64_STANDARD',
+        instanceTypes: [],
+        location: {
+          path: 'template.yaml',
+          line: 6,
+          column: 7,
+        },
+        resourceId: 'ArmWorkers',
+      },
+    ]);
+  });
+
+  it('loads EMR clusters from inline instance-group definitions only', async () => {
+    mockedParseIaC.mockResolvedValue([
+      createIaCResource({
+        type: 'aws_emr_cluster',
+        name: 'analytics',
+        attributeLocations: {
+          master_instance_group: {
+            path: 'main.tf',
+            line: 5,
+            column: 3,
+          },
+          core_instance_group: {
+            path: 'main.tf',
+            line: 9,
+            column: 3,
+          },
+        },
+        attributes: {
+          master_instance_group: [{ instance_type: 'm6i.xlarge' }],
+          core_instance_group: [{ instance_type: 'm8g.xlarge' }],
+          master_instance_fleet: [{ instance_type_configs: [{ instance_type: '${var.master_type}' }] }],
+        },
+      }),
+      createIaCResource({
+        type: 'AWS::EMR::Cluster',
+        name: 'LegacyAnalytics',
+        attributeLocations: {
+          'Properties.JobFlowInstancesConfig.MasterInstanceGroup.InstanceType': {
+            path: 'template.yaml',
+            line: 6,
+            column: 11,
+          },
+          'Properties.JobFlowInstancesConfig.CoreInstanceGroup.InstanceType': {
+            path: 'template.yaml',
+            line: 8,
+            column: 11,
+          },
+        },
+        attributes: {
+          Properties: {
+            JobFlowInstancesConfig: {
+              MasterInstanceGroup: {
+                InstanceType: 'm6i.xlarge',
+              },
+              CoreInstanceGroup: {
+                InstanceType: 'm8g.xlarge',
+              },
+              TaskInstanceFleets: [
+                {
+                  InstanceTypeConfigs: [
+                    {
+                      InstanceType: { Ref: 'TaskType' },
+                    },
+                  ],
+                },
+              ],
+            },
+          },
+        },
+      }),
+    ]);
+
+    const result = await loadAwsStaticResources('/tmp/iac', [
+      createRule({
+        staticDependencies: ['aws-emr-clusters'],
+      }),
+    ]);
+
+    expect(result.resources.get('aws-emr-clusters')).toEqual([
+      {
+        instanceTypes: ['m6i.xlarge', 'm8g.xlarge'],
+        location: {
+          path: 'main.tf',
+          line: 5,
+          column: 3,
+        },
+        resourceId: 'aws_emr_cluster.analytics',
+      },
+      {
+        instanceTypes: ['m6i.xlarge', 'm8g.xlarge'],
+        location: {
+          path: 'template.yaml',
+          line: 6,
+          column: 11,
+        },
+        resourceId: 'LegacyAnalytics',
+      },
+    ]);
+  });
+
   it('loads ECR repository datasets for Terraform lifecycle resources and CloudFormation inline policies', async () => {
     mockedParseIaC.mockResolvedValue([
       createIaCResource({

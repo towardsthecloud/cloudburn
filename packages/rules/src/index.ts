@@ -67,6 +67,8 @@ export type {
   AwsStaticEc2Instance,
   AwsStaticEc2VpcEndpoint,
   AwsStaticEcrRepository,
+  AwsStaticEksNodegroup,
+  AwsStaticEmrCluster,
   AwsStaticLambdaFunction,
   AwsStaticRdsInstance,
   AwsStaticS3BucketAnalysis,

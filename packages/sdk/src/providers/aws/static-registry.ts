@@ -9,6 +9,8 @@ import type {
   AwsStaticEc2Instance,
   AwsStaticEc2VpcEndpoint,
   AwsStaticEcrRepository,
+  AwsStaticEksNodegroup,
+  AwsStaticEmrCluster,
   AwsStaticLambdaFunction,
   AwsStaticRdsInstance,
   AwsStaticS3BucketAnalysis,
@@ -49,6 +51,10 @@ const CLOUDFORMATION_EIP_TYPE = 'AWS::EC2::EIP';
 const CLOUDFORMATION_EIP_ASSOCIATION_TYPE = 'AWS::EC2::EIPAssociation';
 const TERRAFORM_INSTANCE_TYPE = 'aws_instance';
 const CLOUDFORMATION_INSTANCE_TYPE = 'AWS::EC2::Instance';
+const TERRAFORM_EKS_NODE_GROUP_TYPE = 'aws_eks_node_group';
+const CLOUDFORMATION_EKS_NODEGROUP_TYPE = 'AWS::EKS::Nodegroup';
+const TERRAFORM_EMR_CLUSTER_TYPE = 'aws_emr_cluster';
+const CLOUDFORMATION_EMR_CLUSTER_TYPE = 'AWS::EMR::Cluster';
 const TERRAFORM_RDS_INSTANCE_TYPE = 'aws_db_instance';
 const CLOUDFORMATION_RDS_INSTANCE_TYPE = 'AWS::RDS::DBInstance';
 const TERRAFORM_LAMBDA_TYPE = 'aws_lambda_function';
@@ -81,6 +87,14 @@ const getLiteralNumber = (value: unknown): number | null => (typeof value === 'n
 
 const getLiteralExactString = (value: unknown): string | null =>
   typeof value === 'string' && !value.includes('${') ? value : null;
+
+const getLiteralExactStringArray = (value: unknown): string[] | null => {
+  if (!Array.isArray(value) || !value.every((entry) => typeof entry === 'string' && !entry.includes('${'))) {
+    return null;
+  }
+
+  return [...value];
+};
 
 const getLiteralUpperString = (value: unknown): string | null => {
   const literal = getLiteralExactString(value);
@@ -293,6 +307,39 @@ const getTerraformElasticIpReferenceKey = (value: unknown): string | null => {
 
 const getCloudFormationElasticIpReferenceKey = (value: unknown): string | null =>
   getCloudFormationLogicalIdReference(value);
+
+const getTerraformEmrInstanceTypes = (resource: IaCResource): string[] => {
+  const instanceTypes: string[] = [];
+
+  for (const attributeName of ['master_instance_group', 'core_instance_group', 'task_instance_group']) {
+    for (const group of toRecordArray(resource.attributes[attributeName])) {
+      const instanceType = getLiteralExactString(group.instance_type);
+
+      if (instanceType) {
+        instanceTypes.push(instanceType);
+      }
+    }
+  }
+
+  return instanceTypes;
+};
+
+const getCloudFormationEmrInstanceTypes = (resource: IaCResource): string[] => {
+  const properties = isRecord(resource.attributes.Properties) ? resource.attributes.Properties : undefined;
+  const instancesConfig = isRecord(properties?.JobFlowInstancesConfig) ? properties.JobFlowInstancesConfig : undefined;
+  const instanceTypes: string[] = [];
+
+  for (const attributeName of ['MasterInstanceGroup', 'CoreInstanceGroup', 'TaskInstanceGroup']) {
+    const instanceGroup = isRecord(instancesConfig?.[attributeName]) ? instancesConfig[attributeName] : undefined;
+    const instanceType = getLiteralExactString(instanceGroup?.InstanceType);
+
+    if (instanceType) {
+      instanceTypes.push(instanceType);
+    }
+  }
+
+  return instanceTypes;
+};
 
 const loadStaticApiGatewayStages = (resources: IaCResource[]): AwsStaticApiGatewayStage[] =>
   resources.map((resource) => {
@@ -523,6 +570,44 @@ const loadStaticEc2ElasticIps = (resources: IaCResource[]): AwsStaticEc2ElasticI
   }));
 };
 
+const loadStaticEksNodegroups = (resources: IaCResource[]): AwsStaticEksNodegroup[] =>
+  resources.map((resource) => ({
+    amiType: getLiteralExactString(
+      resource.type === TERRAFORM_EKS_NODE_GROUP_TYPE
+        ? resource.attributes.ami_type
+        : isRecord(resource.attributes.Properties)
+          ? resource.attributes.Properties.AmiType
+          : undefined,
+    ),
+    instanceTypes:
+      getLiteralExactStringArray(
+        resource.type === TERRAFORM_EKS_NODE_GROUP_TYPE
+          ? resource.attributes.instance_types
+          : isRecord(resource.attributes.Properties)
+            ? resource.attributes.Properties.InstanceTypes
+            : undefined,
+      ) ?? [],
+    location: pickLocation(resource, ['ami_type', 'instance_types', 'Properties.AmiType', 'Properties.InstanceTypes']),
+    resourceId: toStaticResourceId(resource),
+  }));
+
+const loadStaticEmrClusters = (resources: IaCResource[]): AwsStaticEmrCluster[] =>
+  resources.map((resource) => ({
+    instanceTypes:
+      resource.type === TERRAFORM_EMR_CLUSTER_TYPE
+        ? getTerraformEmrInstanceTypes(resource)
+        : getCloudFormationEmrInstanceTypes(resource),
+    location: pickLocation(resource, [
+      'master_instance_group',
+      'core_instance_group',
+      'task_instance_group',
+      'Properties.JobFlowInstancesConfig.MasterInstanceGroup.InstanceType',
+      'Properties.JobFlowInstancesConfig.CoreInstanceGroup.InstanceType',
+      'Properties.JobFlowInstancesConfig.TaskInstanceGroup.InstanceType',
+    ]),
+    resourceId: toStaticResourceId(resource),
+  }));
+
 const loadStaticEc2Instances = (resources: IaCResource[]): AwsStaticEc2Instance[] =>
   resources.map((resource) => ({
     resourceId: toStaticResourceId(resource),
@@ -689,6 +774,18 @@ const awsStaticDatasetRegistry: Record<StaticDatasetKey, AwsStaticDatasetDefinit
     sourceKinds: ['terraform', 'cloudformation'],
     resourceTypes: [TERRAFORM_INSTANCE_TYPE, CLOUDFORMATION_INSTANCE_TYPE],
     load: loadStaticEc2Instances,
+  },
+  'aws-eks-nodegroups': {
+    datasetKey: 'aws-eks-nodegroups',
+    sourceKinds: ['terraform', 'cloudformation'],
+    resourceTypes: [TERRAFORM_EKS_NODE_GROUP_TYPE, CLOUDFORMATION_EKS_NODEGROUP_TYPE],
+    load: loadStaticEksNodegroups,
+  },
+  'aws-emr-clusters': {
+    datasetKey: 'aws-emr-clusters',
+    sourceKinds: ['terraform', 'cloudformation'],
+    resourceTypes: [TERRAFORM_EMR_CLUSTER_TYPE, CLOUDFORMATION_EMR_CLUSTER_TYPE],
+    load: loadStaticEmrClusters,
   },
   'aws-lambda-functions': {
     datasetKey: 'aws-lambda-functions',

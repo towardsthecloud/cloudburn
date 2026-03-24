@@ -541,6 +541,8 @@ export type SharedDatasetKey =
   | 'aws-ecr-repositories'
   | 'aws-ec2-elastic-ips'
   | 'aws-ec2-instances'
+  | 'aws-eks-nodegroups'
+  | 'aws-emr-clusters'
   | 'aws-lambda-functions'
   | 'aws-rds-instances'
   | 'aws-s3-bucket-analyses';
@@ -708,6 +710,21 @@ export type AwsStaticEc2ElasticIp = {
   location?: SourceLocation;
 };
 
+/** Normalized static EKS node group dataset entry. */
+export type AwsStaticEksNodegroup = {
+  resourceId: string;
+  instanceTypes: string[];
+  amiType: string | null;
+  location?: SourceLocation;
+};
+
+/** Normalized static EMR cluster dataset entry. */
+export type AwsStaticEmrCluster = {
+  resourceId: string;
+  instanceTypes: string[];
+  location?: SourceLocation;
+};
+
 /** Normalized static RDS instance dataset entry with a precomputed finding target. */
 export type AwsStaticRdsInstance = {
   resourceId: string;
@@ -749,6 +766,8 @@ export type StaticDatasetMap = {
   'aws-ecr-repositories': AwsStaticEcrRepository[];
   'aws-ec2-elastic-ips': AwsStaticEc2ElasticIp[];
   'aws-ec2-instances': AwsStaticEc2Instance[];
+  'aws-eks-nodegroups': AwsStaticEksNodegroup[];
+  'aws-emr-clusters': AwsStaticEmrCluster[];
   'aws-lambda-functions': AwsStaticLambdaFunction[];
   'aws-ec2-vpc-endpoints': AwsStaticEc2VpcEndpoint[];
   'aws-rds-instances': AwsStaticRdsInstance[];

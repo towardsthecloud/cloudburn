@@ -380,8 +380,9 @@ describe('rule metadata', () => {
       message: 'EMR clusters using previous-generation instance types should be reviewed.',
       provider: 'aws',
       service: 'emr',
-      supports: ['discovery'],
+      supports: ['discovery', 'iac'],
       discoveryDependencies: ['aws-emr-clusters'],
+      staticDependencies: ['aws-emr-clusters'],
     });
   });
 
@@ -514,8 +515,9 @@ describe('rule metadata', () => {
       message: 'EKS node groups without a Graviton equivalent in use should be reviewed.',
       provider: 'aws',
       service: 'eks',
-      supports: ['discovery'],
+      supports: ['discovery', 'iac'],
       discoveryDependencies: ['aws-eks-nodegroups'],
+      staticDependencies: ['aws-eks-nodegroups'],
     });
   });
 
