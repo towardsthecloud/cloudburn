@@ -139,8 +139,16 @@ describe('rdsPreferredInstanceClassRule', () => {
       resources: new StaticResourceBag({
         'aws-rds-instances': [
           createStaticRdsInstance({
+            instanceClass: 'db.m8i.large',
+            resourceId: 'aws_db_instance.current_intel_general',
+          }),
+          createStaticRdsInstance({
             instanceClass: 'db.m8g.large',
             resourceId: 'aws_db_instance.current_general',
+          }),
+          createStaticRdsInstance({
+            instanceClass: 'db.r8i.2xlarge',
+            resourceId: 'aws_db_instance.current_intel_memory',
           }),
           createStaticRdsInstance({
             instanceClass: 'db.r8gd.2xlarge',

@@ -7,7 +7,19 @@
  * specialized families are treated as `unclassified` so the rule stays
  * conservative until the policy is updated.
  */
-const awsRdsPreferredInstanceFamilies = new Set(['m8g', 'm8gd', 'm7i', 'm7g', 'r8g', 'r8gd', 'r7i', 'r7g', 't4g']);
+const awsRdsPreferredInstanceFamilies = new Set([
+  'm8g',
+  'm8gd',
+  'm8i',
+  'm7i',
+  'm7g',
+  'r8g',
+  'r8gd',
+  'r8i',
+  'r7i',
+  'r7g',
+  't4g',
+]);
 
 const awsRdsNonPreferredInstanceFamilies = new Set([
   'm1',
