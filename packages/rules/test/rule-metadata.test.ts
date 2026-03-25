@@ -642,6 +642,26 @@ describe('rule metadata', () => {
     });
   });
 
+  it('defines the expected ELB idle rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-ELB-5');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-ELB-5',
+      name: 'Load Balancer Idle',
+      description: 'Flag load balancers whose 14-day average request count stays below 10 requests per day.',
+      message: 'Load balancers with consistently low request volume should be reviewed for cleanup.',
+      provider: 'aws',
+      service: 'elb',
+      supports: ['discovery'],
+      discoveryDependencies: [
+        'aws-ec2-load-balancer-request-activity',
+        'aws-ec2-load-balancers',
+        'aws-ec2-target-groups',
+      ],
+    });
+  });
+
   it('defines the expected Lambda high-error-rate rule metadata', () => {
     const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-LAMBDA-2');
 
@@ -867,6 +887,22 @@ describe('rule metadata', () => {
       service: 'cloudfront',
       supports: ['discovery'],
       discoveryDependencies: ['aws-cloudfront-distributions'],
+    });
+  });
+
+  it('defines the expected CloudFront unused-distribution rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-CLOUDFRONT-2');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-CLOUDFRONT-2',
+      name: 'CloudFront Distribution Unused',
+      description: 'Flag CloudFront distributions with fewer than 100 requests over the last 30 days.',
+      message: 'CloudFront distributions with almost no request traffic should be reviewed for cleanup.',
+      provider: 'aws',
+      service: 'cloudfront',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-cloudfront-distribution-request-activity'],
     });
   });
 

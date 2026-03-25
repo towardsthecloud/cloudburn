@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type {
   AwsApiGatewayStage,
   AwsCloudFrontDistribution,
+  AwsCloudFrontDistributionRequestActivity,
   AwsCloudTrailTrail,
   AwsCloudWatchLogGroup,
   AwsCostUsage,
@@ -11,6 +12,7 @@ import type {
   AwsEbsVolume,
   AwsEc2Instance,
   AwsEc2LoadBalancer,
+  AwsEc2LoadBalancerRequestActivity,
   AwsEc2ReservedInstance,
   AwsEc2TargetGroup,
   AwsEcsClusterMetric,
@@ -52,6 +54,7 @@ describe('rule exports', () => {
       expect.arrayContaining([
         'CLDBRN-AWS-APIGATEWAY-1',
         'CLDBRN-AWS-CLOUDFRONT-1',
+        'CLDBRN-AWS-CLOUDFRONT-2',
         'CLDBRN-AWS-CLOUDTRAIL-1',
         'CLDBRN-AWS-CLOUDTRAIL-2',
         'CLDBRN-AWS-CLOUDWATCH-1',
@@ -87,6 +90,7 @@ describe('rule exports', () => {
         'CLDBRN-AWS-ELB-2',
         'CLDBRN-AWS-ELB-3',
         'CLDBRN-AWS-ELB-4',
+        'CLDBRN-AWS-ELB-5',
         'CLDBRN-AWS-EMR-1',
         'CLDBRN-AWS-EMR-2',
         'CLDBRN-AWS-LAMBDA-2',
@@ -223,6 +227,19 @@ describe('rule exports', () => {
       region: 'us-east-1',
       registeredTargetCount: 0,
       targetGroupArn: 'arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/app/123',
+    };
+    const cloudFrontRequestActivity: AwsCloudFrontDistributionRequestActivity = {
+      accountId: '123456789012',
+      distributionArn: cloudFrontDistribution.distributionArn,
+      distributionId: cloudFrontDistribution.distributionId,
+      region: 'global',
+      totalRequestsLast30Days: 42,
+    };
+    const loadBalancerRequestActivity: AwsEc2LoadBalancerRequestActivity = {
+      accountId: '123456789012',
+      averageRequestsPerDayLast14Days: 7,
+      loadBalancerArn: loadBalancer.loadBalancerArn,
+      region: 'us-east-1',
     };
     const cacheCluster: AwsElastiCacheCluster = {
       accountId: '123456789012',
@@ -377,6 +394,7 @@ describe('rule exports', () => {
 
     const apiGatewayDatasetKey: DiscoveryDatasetKey = 'aws-apigateway-stages';
     const cloudFrontDatasetKey: DiscoveryDatasetKey = 'aws-cloudfront-distributions';
+    const cloudFrontRequestActivityDatasetKey: DiscoveryDatasetKey = 'aws-cloudfront-distribution-request-activity';
     const datasetKey: DiscoveryDatasetKey = 'aws-rds-instances';
     const cloudWatchDatasetKey: DiscoveryDatasetKey = 'aws-cloudwatch-log-groups';
     const cloudWatchLogStreamDatasetKey: DiscoveryDatasetKey = 'aws-cloudwatch-log-streams';
@@ -387,6 +405,7 @@ describe('rule exports', () => {
     const elastiCacheDatasetKey: DiscoveryDatasetKey = 'aws-elasticache-clusters';
     const elastiCacheReservedDatasetKey: DiscoveryDatasetKey = 'aws-elasticache-reserved-nodes';
     const loadBalancerDatasetKey: DiscoveryDatasetKey = 'aws-ec2-load-balancers';
+    const loadBalancerRequestActivityDatasetKey: DiscoveryDatasetKey = 'aws-ec2-load-balancer-request-activity';
     const emrDatasetKey: DiscoveryDatasetKey = 'aws-emr-clusters';
     const emrMetricDatasetKey: DiscoveryDatasetKey = 'aws-emr-cluster-metrics';
     const reservedInstanceDatasetKey: DiscoveryDatasetKey = 'aws-ec2-reserved-instances';
@@ -402,6 +421,7 @@ describe('rule exports', () => {
 
     expect(apiGatewayDatasetKey).toBe('aws-apigateway-stages');
     expect(cloudFrontDatasetKey).toBe('aws-cloudfront-distributions');
+    expect(cloudFrontRequestActivityDatasetKey).toBe('aws-cloudfront-distribution-request-activity');
     expect(datasetKey).toBe('aws-rds-instances');
     expect(cloudWatchDatasetKey).toBe('aws-cloudwatch-log-groups');
     expect(cloudWatchLogStreamDatasetKey).toBe('aws-cloudwatch-log-streams');
@@ -412,6 +432,7 @@ describe('rule exports', () => {
     expect(elastiCacheDatasetKey).toBe('aws-elasticache-clusters');
     expect(elastiCacheReservedDatasetKey).toBe('aws-elasticache-reserved-nodes');
     expect(loadBalancerDatasetKey).toBe('aws-ec2-load-balancers');
+    expect(loadBalancerRequestActivityDatasetKey).toBe('aws-ec2-load-balancer-request-activity');
     expect(emrDatasetKey).toBe('aws-emr-clusters');
     expect(emrMetricDatasetKey).toBe('aws-emr-cluster-metrics');
     expect(reservedInstanceDatasetKey).toBe('aws-ec2-reserved-instances');
@@ -427,6 +448,8 @@ describe('rule exports', () => {
     expect(dynamoDbTable.tableName).toBe('orders');
     expect(dynamoDbAutoscaling.hasReadTarget).toBe(true);
     expect(targetGroupDatasetKey).toBe('aws-ec2-target-groups');
+    expect(cloudFrontRequestActivity.totalRequestsLast30Days).toBe(42);
+    expect(loadBalancerRequestActivity.averageRequestsPerDayLast14Days).toBe(7);
     expect(route53Zone.zoneName).toBe('example.com.');
     expect(route53Record.ttl).toBe(300);
     expect(route53HealthCheck.healthCheckId).toBe('abcd1234');

@@ -1,7 +1,10 @@
 import type { AwsDiscoveredResource, DiscoveryDatasetKey, DiscoveryDatasetMap } from '@cloudburn/rules';
 import type { ScanDiagnostic } from '../../types.js';
 import { hydrateAwsApiGatewayStages } from './resources/apigateway.js';
-import { hydrateAwsCloudFrontDistributions } from './resources/cloudfront.js';
+import {
+  hydrateAwsCloudFrontDistributionRequestActivity,
+  hydrateAwsCloudFrontDistributions,
+} from './resources/cloudfront.js';
 import { hydrateAwsCloudTrailTrails } from './resources/cloudtrail.js';
 import {
   hydrateAwsCloudWatchLogGroups,
@@ -26,7 +29,11 @@ import { hydrateAwsEcsAutoscaling } from './resources/ecs-autoscaling.js';
 import { hydrateAwsEcsClusterMetrics } from './resources/ecs-cluster-metrics.js';
 import { hydrateAwsEksNodegroups } from './resources/eks.js';
 import { hydrateAwsElastiCacheClusters, hydrateAwsElastiCacheReservedNodes } from './resources/elasticache.js';
-import { hydrateAwsEc2LoadBalancers, hydrateAwsEc2TargetGroups } from './resources/elbv2.js';
+import {
+  hydrateAwsEc2LoadBalancerRequestActivity,
+  hydrateAwsEc2LoadBalancers,
+  hydrateAwsEc2TargetGroups,
+} from './resources/elbv2.js';
 import { hydrateAwsEmrClusterMetrics, hydrateAwsEmrClusters } from './resources/emr.js';
 import { hydrateAwsLambdaFunctionMetrics, hydrateAwsLambdaFunctions } from './resources/lambda.js';
 import { hydrateAwsRdsInstances, hydrateAwsRdsReservedInstances, hydrateAwsRdsSnapshots } from './resources/rds.js';
@@ -103,6 +110,12 @@ const awsDiscoveryDatasetRegistry: {
     resourceTypes: ['cloudfront:distribution'],
     service: 'cloudfront',
     load: hydrateAwsCloudFrontDistributions,
+  },
+  'aws-cloudfront-distribution-request-activity': {
+    datasetKey: 'aws-cloudfront-distribution-request-activity',
+    resourceTypes: ['cloudfront:distribution'],
+    service: 'cloudfront',
+    load: hydrateAwsCloudFrontDistributionRequestActivity,
   },
   'aws-cloudwatch-log-groups': {
     datasetKey: 'aws-cloudwatch-log-groups',
@@ -246,6 +259,17 @@ const awsDiscoveryDatasetRegistry: {
     ],
     service: 'elb',
     load: hydrateAwsEc2LoadBalancers,
+  },
+  'aws-ec2-load-balancer-request-activity': {
+    datasetKey: 'aws-ec2-load-balancer-request-activity',
+    resourceTypes: [
+      'elasticloadbalancing:loadbalancer',
+      'elasticloadbalancing:loadbalancer/app',
+      'elasticloadbalancing:loadbalancer/gwy',
+      'elasticloadbalancing:loadbalancer/net',
+    ],
+    service: 'elb',
+    load: hydrateAwsEc2LoadBalancerRequestActivity,
   },
   'aws-ec2-reserved-instances': {
     datasetKey: 'aws-ec2-reserved-instances',

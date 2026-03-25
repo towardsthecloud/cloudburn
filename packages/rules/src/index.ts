@@ -15,6 +15,7 @@ export {
 export type {
   AwsApiGatewayStage,
   AwsCloudFrontDistribution,
+  AwsCloudFrontDistributionRequestActivity,
   AwsCloudTrailTrail,
   AwsCloudWatchLogGroup,
   AwsCloudWatchLogStream,
@@ -29,6 +30,7 @@ export type {
   AwsEc2Instance,
   AwsEc2InstanceUtilization,
   AwsEc2LoadBalancer,
+  AwsEc2LoadBalancerRequestActivity,
   AwsEc2ReservedInstance,
   AwsEc2TargetGroup,
   AwsEc2VpcEndpointActivity,

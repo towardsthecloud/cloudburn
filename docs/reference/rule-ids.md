@@ -18,6 +18,7 @@ Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
 | --------------------- | ----------------------------------------- | ------- | -------------- | ----------- |
 | `CLDBRN-AWS-APIGATEWAY-1` | API Gateway Stage Caching Disabled    | apigateway | discovery   | Implemented |
 | `CLDBRN-AWS-CLOUDFRONT-1` | CloudFront Distribution Price Class All | cloudfront | discovery | Implemented |
+| `CLDBRN-AWS-CLOUDFRONT-2` | CloudFront Distribution Unused         | cloudfront | discovery | Implemented |
 | `CLDBRN-AWS-CLOUDTRAIL-1` | CloudTrail Redundant Global Trails     | cloudtrail | discovery   | Implemented |
 | `CLDBRN-AWS-CLOUDTRAIL-2` | CloudTrail Redundant Regional Trails   | cloudtrail | discovery   | Implemented |
 | `CLDBRN-AWS-CLOUDWATCH-1` | CloudWatch Log Group Missing Retention | cloudwatch | discovery   | Implemented |
@@ -55,6 +56,7 @@ Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
 | `CLDBRN-AWS-ELB-2`    | Classic Load Balancer Without Instances   | elb     | discovery      | Implemented |
 | `CLDBRN-AWS-ELB-3`    | Gateway Load Balancer Without Targets     | elb     | discovery      | Implemented |
 | `CLDBRN-AWS-ELB-4`    | Network Load Balancer Without Targets     | elb     | discovery      | Implemented |
+| `CLDBRN-AWS-ELB-5`    | Load Balancer Idle                        | elb     | discovery      | Implemented |
 | `CLDBRN-AWS-EMR-1`    | EMR Cluster Previous Generation Instance Types | emr | discovery | Implemented |
 | `CLDBRN-AWS-EMR-2`    | EMR Cluster Idle                          | emr     | discovery      | Implemented |
 | `CLDBRN-AWS-RDS-1`    | RDS Instance Class Not Preferred          | rds     | iac, discovery | Implemented |
@@ -80,6 +82,8 @@ Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
 `CLDBRN-AWS-APIGATEWAY-1` flags REST API stages when `cacheClusterEnabled` is not explicitly `true`.
 
 `CLDBRN-AWS-CLOUDFRONT-1` reviews only distributions using `PriceClass_All`.
+
+`CLDBRN-AWS-CLOUDFRONT-2` requires a complete 30-day `Requests` history and flags only distributions whose total request count stays below `100`.
 
 `CLDBRN-AWS-EBS-1` flags previous-generation EBS volume types (`gp2`, `io1`, and `standard`) and does not flag current-generation HDD families such as `st1` or `sc1`.
 
@@ -126,6 +130,8 @@ Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
 `CLDBRN-AWS-ELASTICACHE-1` reviews only `available` clusters with a parsed create time at least 180 days old and requires active reserved-node capacity on the same node type, preferring exact engine matches when ElastiCache reports them.
 
 `CLDBRN-AWS-ELB-1`, `CLDBRN-AWS-ELB-3`, and `CLDBRN-AWS-ELB-4` flag load balancers with no attached target groups or no registered targets across attached target groups.
+
+`CLDBRN-AWS-ELB-5` requires a complete 14-day `RequestCount` history, treats fewer than `10` requests per day as idle, and skips load balancers already covered by the stricter empty-target cleanup rules.
 
 `CLDBRN-AWS-EMR-1` reuses the built-in EC2 family policy. EMR clusters are flagged when any discovered cluster instance type falls into the current non-preferred, previous-generation family set.
 

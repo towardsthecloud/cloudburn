@@ -106,6 +106,16 @@ export type AwsCloudFrontDistribution = {
   accountId: string;
 };
 
+/** Discovered CloudFront distribution with 30-day request activity coverage. */
+export type AwsCloudFrontDistributionRequestActivity = {
+  distributionArn: string;
+  distributionId: string;
+  /** `null` means CloudWatch returned incomplete datapoints for the 30-day lookback window. */
+  totalRequestsLast30Days: number | null;
+  region: string;
+  accountId: string;
+};
+
 /** Cost Explorer service spend comparison across the last two full months. */
 export type AwsCostUsage = {
   serviceName: string;
@@ -371,6 +381,15 @@ export type AwsEc2LoadBalancer = {
   accountId: string;
 };
 
+/** Discovered Elastic Load Balancer with 14-day request activity coverage. */
+export type AwsEc2LoadBalancerRequestActivity = {
+  loadBalancerArn: string;
+  /** `null` means CloudWatch returned incomplete datapoints for the 14-day lookback window. */
+  averageRequestsPerDayLast14Days: number | null;
+  region: string;
+  accountId: string;
+};
+
 /** Discovered target group normalized for target registration checks. */
 export type AwsEc2TargetGroup = {
   targetGroupArn: string;
@@ -578,6 +597,7 @@ export type DiscoveryDatasetKey =
   | 'aws-apigateway-stages'
   | 'aws-cloudtrail-trails'
   | 'aws-cloudfront-distributions'
+  | 'aws-cloudfront-distribution-request-activity'
   | 'aws-cloudwatch-log-groups'
   | 'aws-cloudwatch-log-metric-filter-coverage'
   | 'aws-cloudwatch-log-streams'
@@ -600,6 +620,7 @@ export type DiscoveryDatasetKey =
   | 'aws-ec2-elastic-ips'
   | 'aws-ec2-instances'
   | 'aws-ec2-instance-utilization'
+  | 'aws-ec2-load-balancer-request-activity'
   | 'aws-ec2-load-balancers'
   | 'aws-ec2-reserved-instances'
   | 'aws-ec2-target-groups'
@@ -628,6 +649,7 @@ export type DiscoveryDatasetMap = {
   'aws-apigateway-stages': AwsApiGatewayStage[];
   'aws-cloudtrail-trails': AwsCloudTrailTrail[];
   'aws-cloudfront-distributions': AwsCloudFrontDistribution[];
+  'aws-cloudfront-distribution-request-activity': AwsCloudFrontDistributionRequestActivity[];
   'aws-cloudwatch-log-groups': AwsCloudWatchLogGroup[];
   'aws-cloudwatch-log-metric-filter-coverage': AwsCloudWatchLogMetricFilterCoverage[];
   'aws-cloudwatch-log-streams': AwsCloudWatchLogStream[];
@@ -650,6 +672,7 @@ export type DiscoveryDatasetMap = {
   'aws-ec2-elastic-ips': AwsEc2ElasticIp[];
   'aws-ec2-instances': AwsEc2Instance[];
   'aws-ec2-instance-utilization': AwsEc2InstanceUtilization[];
+  'aws-ec2-load-balancer-request-activity': AwsEc2LoadBalancerRequestActivity[];
   'aws-ec2-load-balancers': AwsEc2LoadBalancer[];
   'aws-ec2-reserved-instances': AwsEc2ReservedInstance[];
   'aws-ec2-target-groups': AwsEc2TargetGroup[];

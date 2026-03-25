@@ -67,6 +67,13 @@ describe('sdk exports', () => {
         supports: ['discovery'],
       },
       {
+        description: 'Flag CloudFront distributions with fewer than 100 requests over the last 30 days.',
+        id: 'CLDBRN-AWS-CLOUDFRONT-2',
+        provider: 'aws',
+        service: 'cloudfront',
+        supports: ['discovery'],
+      },
+      {
         description: 'Flag redundant multi-region CloudTrail trails when more than one trail covers the same account.',
         id: 'CLDBRN-AWS-CLOUDTRAIL-1',
         provider: 'aws',
@@ -328,6 +335,13 @@ describe('sdk exports', () => {
       {
         description: 'Flag Network Load Balancers that have no attached target groups or no registered targets.',
         id: 'CLDBRN-AWS-ELB-4',
+        provider: 'aws',
+        service: 'elb',
+        supports: ['discovery'],
+      },
+      {
+        description: 'Flag load balancers whose 14-day average request count stays below 10 requests per day.',
+        id: 'CLDBRN-AWS-ELB-5',
         provider: 'aws',
         service: 'elb',
         supports: ['discovery'],

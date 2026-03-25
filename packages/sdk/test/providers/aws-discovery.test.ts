@@ -20,7 +20,10 @@ import {
   waitForAwsResourceExplorerSetup,
 } from '../../src/providers/aws/resource-explorer.js';
 import { hydrateAwsApiGatewayStages } from '../../src/providers/aws/resources/apigateway.js';
-import { hydrateAwsCloudFrontDistributions } from '../../src/providers/aws/resources/cloudfront.js';
+import {
+  hydrateAwsCloudFrontDistributionRequestActivity,
+  hydrateAwsCloudFrontDistributions,
+} from '../../src/providers/aws/resources/cloudfront.js';
 import { hydrateAwsCloudTrailTrails } from '../../src/providers/aws/resources/cloudtrail.js';
 import {
   hydrateAwsCloudWatchLogGroups,
@@ -51,7 +54,11 @@ import {
   hydrateAwsElastiCacheClusters,
   hydrateAwsElastiCacheReservedNodes,
 } from '../../src/providers/aws/resources/elasticache.js';
-import { hydrateAwsEc2LoadBalancers, hydrateAwsEc2TargetGroups } from '../../src/providers/aws/resources/elbv2.js';
+import {
+  hydrateAwsEc2LoadBalancerRequestActivity,
+  hydrateAwsEc2LoadBalancers,
+  hydrateAwsEc2TargetGroups,
+} from '../../src/providers/aws/resources/elbv2.js';
 import { hydrateAwsEmrClusterMetrics, hydrateAwsEmrClusters } from '../../src/providers/aws/resources/emr.js';
 import {
   hydrateAwsLambdaFunctionMetrics,
@@ -133,6 +140,7 @@ vi.mock('../../src/providers/aws/resources/apigateway.js', () => ({
 }));
 
 vi.mock('../../src/providers/aws/resources/cloudfront.js', () => ({
+  hydrateAwsCloudFrontDistributionRequestActivity: vi.fn(),
   hydrateAwsCloudFrontDistributions: vi.fn(),
 }));
 
@@ -188,6 +196,7 @@ vi.mock('../../src/providers/aws/resources/lambda.js', () => ({
 }));
 
 vi.mock('../../src/providers/aws/resources/elbv2.js', () => ({
+  hydrateAwsEc2LoadBalancerRequestActivity: vi.fn(),
   hydrateAwsEc2LoadBalancers: vi.fn(),
   hydrateAwsEc2TargetGroups: vi.fn(),
 }));
@@ -235,6 +244,9 @@ const mockedWaitForAwsResourceExplorerIndex = vi.mocked(waitForAwsResourceExplor
 const mockedWaitForAwsResourceExplorerSetup = vi.mocked(waitForAwsResourceExplorerSetup);
 const mockedHydrateAwsApiGatewayStages = vi.mocked(hydrateAwsApiGatewayStages);
 const mockedHydrateAwsCloudFrontDistributions = vi.mocked(hydrateAwsCloudFrontDistributions);
+const mockedHydrateAwsCloudFrontDistributionRequestActivity = vi.mocked(
+  hydrateAwsCloudFrontDistributionRequestActivity,
+);
 const mockedHydrateAwsCloudTrailTrails = vi.mocked(hydrateAwsCloudTrailTrails);
 const mockedHydrateAwsCloudWatchLogGroups = vi.mocked(hydrateAwsCloudWatchLogGroups);
 const mockedHydrateAwsCloudWatchLogMetricFilterCoverage = vi.mocked(hydrateAwsCloudWatchLogMetricFilterCoverage);
@@ -261,6 +273,7 @@ const mockedHydrateAwsEc2Instances = vi.mocked(hydrateAwsEc2Instances);
 const mockedHydrateAwsEc2InstanceUtilization = vi.mocked(hydrateAwsEc2InstanceUtilization);
 const mockedHydrateAwsEc2ReservedInstances = vi.mocked(hydrateAwsEc2ReservedInstances);
 const mockedHydrateAwsEc2LoadBalancers = vi.mocked(hydrateAwsEc2LoadBalancers);
+const mockedHydrateAwsEc2LoadBalancerRequestActivity = vi.mocked(hydrateAwsEc2LoadBalancerRequestActivity);
 const mockedHydrateAwsEc2TargetGroups = vi.mocked(hydrateAwsEc2TargetGroups);
 const mockedHydrateAwsEksNodegroups = vi.mocked(hydrateAwsEksNodegroups);
 const mockedHydrateAwsLambdaFunctionMetrics = vi.mocked(hydrateAwsLambdaFunctionMetrics);
