@@ -22,10 +22,9 @@ export const cloudWatchLogGroupNoMetricFiltersRule = createRule({
     const coverageByLogGroupKey = new Map(
       resources
         .get('aws-cloudwatch-log-metric-filter-coverage')
-        .map((coverage) => [
-          getCoverageKey(coverage.accountId, coverage.region, coverage.logGroupName),
-          coverage,
-        ] as const),
+        .map(
+          (coverage) => [getCoverageKey(coverage.accountId, coverage.region, coverage.logGroupName), coverage] as const,
+        ),
     );
 
     const findings = resources

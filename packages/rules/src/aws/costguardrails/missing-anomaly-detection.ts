@@ -21,10 +21,8 @@ export const costGuardrailMissingAnomalyDetectionRule = createRule({
       return null;
     }
 
-    return createFinding(
-      { id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE },
-      'discovery',
-      [createFindingMatch(monitorSummary.accountId, undefined, monitorSummary.accountId)],
-    );
+    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', [
+      createFindingMatch(monitorSummary.accountId, undefined, monitorSummary.accountId),
+    ]);
   },
 });

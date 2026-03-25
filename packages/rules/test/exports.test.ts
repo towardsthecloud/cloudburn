@@ -19,6 +19,7 @@ import type {
   AwsEcsService,
   AwsEksNodegroup,
   AwsElastiCacheCluster,
+  AwsElastiCacheClusterActivity,
   AwsElastiCacheReservedNode,
   AwsEmrCluster,
   AwsEmrClusterMetric,
@@ -86,6 +87,7 @@ describe('rule exports', () => {
         'CLDBRN-AWS-ECR-1',
         'CLDBRN-AWS-EKS-1',
         'CLDBRN-AWS-ELASTICACHE-1',
+        'CLDBRN-AWS-ELASTICACHE-2',
         'CLDBRN-AWS-ELB-1',
         'CLDBRN-AWS-ELB-2',
         'CLDBRN-AWS-ELB-3',
@@ -251,6 +253,13 @@ describe('rule exports', () => {
       numCacheNodes: 2,
       region: 'us-east-1',
     };
+    const cacheClusterActivity: AwsElastiCacheClusterActivity = {
+      accountId: '123456789012',
+      averageCacheHitRateLast14Days: 4.5,
+      averageCurrentConnectionsLast14Days: 1.5,
+      cacheClusterId: cacheCluster.cacheClusterId,
+      region: 'us-east-1',
+    };
     const reservedCacheNode: AwsElastiCacheReservedNode = {
       accountId: '123456789012',
       cacheNodeCount: 2,
@@ -402,6 +411,7 @@ describe('rule exports', () => {
     const dynamoDbAutoscalingDatasetKey: DiscoveryDatasetKey = 'aws-dynamodb-autoscaling';
     const dynamoDbTableDatasetKey: DiscoveryDatasetKey = 'aws-dynamodb-tables';
     const ecsAutoscalingDatasetKey: DiscoveryDatasetKey = 'aws-ecs-autoscaling';
+    const elastiCacheActivityDatasetKey: DiscoveryDatasetKey = 'aws-elasticache-cluster-activity';
     const elastiCacheDatasetKey: DiscoveryDatasetKey = 'aws-elasticache-clusters';
     const elastiCacheReservedDatasetKey: DiscoveryDatasetKey = 'aws-elasticache-reserved-nodes';
     const loadBalancerDatasetKey: DiscoveryDatasetKey = 'aws-ec2-load-balancers';
@@ -429,6 +439,7 @@ describe('rule exports', () => {
     expect(dynamoDbAutoscalingDatasetKey).toBe('aws-dynamodb-autoscaling');
     expect(dynamoDbTableDatasetKey).toBe('aws-dynamodb-tables');
     expect(ecsAutoscalingDatasetKey).toBe('aws-ecs-autoscaling');
+    expect(elastiCacheActivityDatasetKey).toBe('aws-elasticache-cluster-activity');
     expect(elastiCacheDatasetKey).toBe('aws-elasticache-clusters');
     expect(elastiCacheReservedDatasetKey).toBe('aws-elasticache-reserved-nodes');
     expect(loadBalancerDatasetKey).toBe('aws-ec2-load-balancers');
@@ -455,6 +466,7 @@ describe('rule exports', () => {
     expect(route53HealthCheck.healthCheckId).toBe('abcd1234');
     expect(secret.secretName).toBe('db-password');
     expect(cacheCluster.cacheClusterStatus).toBe('available');
+    expect(cacheClusterActivity.averageCacheHitRateLast14Days).toBe(4.5);
     expect(reservedCacheNode.state).toBe('active');
     expect(ecsClusterMetric.averageCpuUtilizationLast14Days).toBe(4.2);
     expect(ecsService.schedulingStrategy).toBe('REPLICA');

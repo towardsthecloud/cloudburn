@@ -1,11 +1,7 @@
 import type { DescribeBudgetsCommand } from '@aws-sdk/client-budgets';
 import type { GetAnomalyMonitorsCommand } from '@aws-sdk/client-cost-explorer';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  createBudgetsClient,
-  createCostExplorerClient,
-  resolveAwsAccountId,
-} from '../../src/providers/aws/client.js';
+import { createBudgetsClient, createCostExplorerClient, resolveAwsAccountId } from '../../src/providers/aws/client.js';
 import {
   hydrateAwsCostAnomalyMonitors,
   hydrateAwsCostGuardrailBudgets,

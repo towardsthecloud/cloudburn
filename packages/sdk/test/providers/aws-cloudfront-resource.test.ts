@@ -1,11 +1,11 @@
 import type { GetDistributionCommand, ListDistributionsCommand } from '@aws-sdk/client-cloudfront';
-import { fetchCloudWatchSignals } from '../../src/providers/aws/resources/cloudwatch.js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createCloudFrontClient, resolveAwsAccountId } from '../../src/providers/aws/client.js';
 import {
   hydrateAwsCloudFrontDistributionRequestActivity,
   hydrateAwsCloudFrontDistributions,
 } from '../../src/providers/aws/resources/cloudfront.js';
+import { fetchCloudWatchSignals } from '../../src/providers/aws/resources/cloudwatch.js';
 
 vi.mock('../../src/providers/aws/client.js', () => ({
   createCloudFrontClient: vi.fn(),

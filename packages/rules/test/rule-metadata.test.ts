@@ -251,6 +251,23 @@ describe('rule metadata', () => {
     });
   });
 
+  it('defines the expected ElastiCache idle-cluster rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-ELASTICACHE-2');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-ELASTICACHE-2',
+      name: 'ElastiCache Cluster Idle',
+      description:
+        'Flag available ElastiCache clusters whose 14-day average cache hit rate stays below 5% and average current connections stay below 2.',
+      message: 'ElastiCache clusters with almost no cache hits and active connections should be reviewed for cleanup.',
+      provider: 'aws',
+      service: 'elasticache',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-elasticache-clusters', 'aws-elasticache-cluster-activity'],
+    });
+  });
+
   it('defines the expected EBS current-generation rule metadata', () => {
     const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-EBS-1');
 

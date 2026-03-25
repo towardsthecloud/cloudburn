@@ -1,12 +1,12 @@
 import type { DescribeScalableTargetsCommand } from '@aws-sdk/client-application-auto-scaling';
 import type { DescribeTableCommand } from '@aws-sdk/client-dynamodb';
-import { fetchCloudWatchSignals } from '../../src/providers/aws/resources/cloudwatch.js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createApplicationAutoScalingClient, createDynamoDbClient } from '../../src/providers/aws/client.js';
+import { fetchCloudWatchSignals } from '../../src/providers/aws/resources/cloudwatch.js';
 import {
   hydrateAwsDynamoDbAutoscaling,
-  hydrateAwsDynamoDbTableUtilization,
   hydrateAwsDynamoDbTables,
+  hydrateAwsDynamoDbTableUtilization,
 } from '../../src/providers/aws/resources/dynamodb.js';
 
 vi.mock('../../src/providers/aws/client.js', () => ({

@@ -17,7 +17,9 @@ export const cloudFrontUnusedDistributionRule = createRule({
   evaluateLive: ({ resources }) => {
     const findings = resources
       .get('aws-cloudfront-distribution-request-activity')
-      .filter((distribution) => distribution.totalRequestsLast30Days !== null && distribution.totalRequestsLast30Days < 100)
+      .filter(
+        (distribution) => distribution.totalRequestsLast30Days !== null && distribution.totalRequestsLast30Days < 100,
+      )
       .map((distribution) =>
         createFindingMatch(distribution.distributionArn, distribution.region, distribution.accountId),
       );

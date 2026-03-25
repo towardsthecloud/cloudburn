@@ -31,11 +31,14 @@ import {
   hydrateAwsCloudWatchLogStreams,
 } from '../../src/providers/aws/resources/cloudwatch-logs.js';
 import { hydrateAwsCostUsage } from '../../src/providers/aws/resources/cost-explorer.js';
-import { hydrateAwsCostAnomalyMonitors, hydrateAwsCostGuardrailBudgets } from '../../src/providers/aws/resources/cost-guardrails.js';
+import {
+  hydrateAwsCostAnomalyMonitors,
+  hydrateAwsCostGuardrailBudgets,
+} from '../../src/providers/aws/resources/cost-guardrails.js';
 import {
   hydrateAwsDynamoDbAutoscaling,
-  hydrateAwsDynamoDbTableUtilization,
   hydrateAwsDynamoDbTables,
+  hydrateAwsDynamoDbTableUtilization,
 } from '../../src/providers/aws/resources/dynamodb.js';
 import { hydrateAwsEbsSnapshots, hydrateAwsEbsVolumes } from '../../src/providers/aws/resources/ebs.js';
 import { hydrateAwsEc2Instances } from '../../src/providers/aws/resources/ec2.js';
@@ -51,6 +54,7 @@ import { hydrateAwsEcsAutoscaling } from '../../src/providers/aws/resources/ecs-
 import { hydrateAwsEcsClusterMetrics } from '../../src/providers/aws/resources/ecs-cluster-metrics.js';
 import { hydrateAwsEksNodegroups } from '../../src/providers/aws/resources/eks.js';
 import {
+  hydrateAwsElastiCacheClusterActivity,
   hydrateAwsElastiCacheClusters,
   hydrateAwsElastiCacheReservedNodes,
 } from '../../src/providers/aws/resources/elasticache.js';
@@ -113,6 +117,7 @@ vi.mock('../../src/providers/aws/resources/ebs.js', () => ({
 }));
 
 vi.mock('../../src/providers/aws/resources/elasticache.js', () => ({
+  hydrateAwsElastiCacheClusterActivity: vi.fn(),
   hydrateAwsElastiCacheClusters: vi.fn(),
   hydrateAwsElastiCacheReservedNodes: vi.fn(),
 }));
@@ -244,7 +249,7 @@ const mockedWaitForAwsResourceExplorerIndex = vi.mocked(waitForAwsResourceExplor
 const mockedWaitForAwsResourceExplorerSetup = vi.mocked(waitForAwsResourceExplorerSetup);
 const mockedHydrateAwsApiGatewayStages = vi.mocked(hydrateAwsApiGatewayStages);
 const mockedHydrateAwsCloudFrontDistributions = vi.mocked(hydrateAwsCloudFrontDistributions);
-const mockedHydrateAwsCloudFrontDistributionRequestActivity = vi.mocked(
+const _mockedHydrateAwsCloudFrontDistributionRequestActivity = vi.mocked(
   hydrateAwsCloudFrontDistributionRequestActivity,
 );
 const mockedHydrateAwsCloudTrailTrails = vi.mocked(hydrateAwsCloudTrailTrails);
@@ -259,6 +264,7 @@ const mockedHydrateAwsDynamoDbTableUtilization = vi.mocked(hydrateAwsDynamoDbTab
 const mockedHydrateAwsDynamoDbTables = vi.mocked(hydrateAwsDynamoDbTables);
 const mockedHydrateAwsEbsSnapshots = vi.mocked(hydrateAwsEbsSnapshots);
 const mockedHydrateAwsEbsVolumes = vi.mocked(hydrateAwsEbsVolumes);
+const _mockedHydrateAwsElastiCacheClusterActivity = vi.mocked(hydrateAwsElastiCacheClusterActivity);
 const mockedHydrateAwsElastiCacheClusters = vi.mocked(hydrateAwsElastiCacheClusters);
 const mockedHydrateAwsElastiCacheReservedNodes = vi.mocked(hydrateAwsElastiCacheReservedNodes);
 const mockedHydrateAwsEcsAutoscaling = vi.mocked(hydrateAwsEcsAutoscaling);
@@ -273,7 +279,7 @@ const mockedHydrateAwsEc2Instances = vi.mocked(hydrateAwsEc2Instances);
 const mockedHydrateAwsEc2InstanceUtilization = vi.mocked(hydrateAwsEc2InstanceUtilization);
 const mockedHydrateAwsEc2ReservedInstances = vi.mocked(hydrateAwsEc2ReservedInstances);
 const mockedHydrateAwsEc2LoadBalancers = vi.mocked(hydrateAwsEc2LoadBalancers);
-const mockedHydrateAwsEc2LoadBalancerRequestActivity = vi.mocked(hydrateAwsEc2LoadBalancerRequestActivity);
+const _mockedHydrateAwsEc2LoadBalancerRequestActivity = vi.mocked(hydrateAwsEc2LoadBalancerRequestActivity);
 const mockedHydrateAwsEc2TargetGroups = vi.mocked(hydrateAwsEc2TargetGroups);
 const mockedHydrateAwsEksNodegroups = vi.mocked(hydrateAwsEksNodegroups);
 const mockedHydrateAwsLambdaFunctionMetrics = vi.mocked(hydrateAwsLambdaFunctionMetrics);

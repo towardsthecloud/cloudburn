@@ -194,6 +194,17 @@ export type AwsElastiCacheCluster = {
   accountId: string;
 };
 
+/** Discovered ElastiCache cluster with 14-day cache-hit and connection activity coverage. */
+export type AwsElastiCacheClusterActivity = {
+  cacheClusterId: string;
+  /** `null` means CloudWatch returned incomplete datapoints or the cluster engine is unsupported in v1. */
+  averageCacheHitRateLast14Days: number | null;
+  /** `null` means CloudWatch returned incomplete datapoints or the cluster engine is unsupported in v1. */
+  averageCurrentConnectionsLast14Days: number | null;
+  region: string;
+  accountId: string;
+};
+
 /** Discovered ElastiCache reserved node normalized for coverage checks. */
 export type AwsElastiCacheReservedNode = {
   reservedCacheNodeId: string;
@@ -609,6 +620,7 @@ export type DiscoveryDatasetKey =
   | 'aws-dynamodb-tables'
   | 'aws-ebs-snapshots'
   | 'aws-ebs-volumes'
+  | 'aws-elasticache-cluster-activity'
   | 'aws-elasticache-clusters'
   | 'aws-elasticache-reserved-nodes'
   | 'aws-ecs-autoscaling'
@@ -661,6 +673,7 @@ export type DiscoveryDatasetMap = {
   'aws-dynamodb-tables': AwsDynamoDbTable[];
   'aws-ebs-snapshots': AwsEbsSnapshot[];
   'aws-ebs-volumes': AwsEbsVolume[];
+  'aws-elasticache-cluster-activity': AwsElastiCacheClusterActivity[];
   'aws-elasticache-clusters': AwsElastiCacheCluster[];
   'aws-elasticache-reserved-nodes': AwsElastiCacheReservedNode[];
   'aws-ecs-autoscaling': AwsEcsServiceAutoscaling[];

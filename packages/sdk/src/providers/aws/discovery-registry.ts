@@ -15,8 +15,8 @@ import { hydrateAwsCostUsage } from './resources/cost-explorer.js';
 import { hydrateAwsCostAnomalyMonitors, hydrateAwsCostGuardrailBudgets } from './resources/cost-guardrails.js';
 import {
   hydrateAwsDynamoDbAutoscaling,
-  hydrateAwsDynamoDbTableUtilization,
   hydrateAwsDynamoDbTables,
+  hydrateAwsDynamoDbTableUtilization,
 } from './resources/dynamodb.js';
 import { hydrateAwsEbsSnapshots, hydrateAwsEbsVolumes } from './resources/ebs.js';
 import { hydrateAwsEc2Instances } from './resources/ec2.js';
@@ -28,7 +28,11 @@ import { hydrateAwsEcsClusters, hydrateAwsEcsContainerInstances, hydrateAwsEcsSe
 import { hydrateAwsEcsAutoscaling } from './resources/ecs-autoscaling.js';
 import { hydrateAwsEcsClusterMetrics } from './resources/ecs-cluster-metrics.js';
 import { hydrateAwsEksNodegroups } from './resources/eks.js';
-import { hydrateAwsElastiCacheClusters, hydrateAwsElastiCacheReservedNodes } from './resources/elasticache.js';
+import {
+  hydrateAwsElastiCacheClusterActivity,
+  hydrateAwsElastiCacheClusters,
+  hydrateAwsElastiCacheReservedNodes,
+} from './resources/elasticache.js';
 import {
   hydrateAwsEc2LoadBalancerRequestActivity,
   hydrateAwsEc2LoadBalancers,
@@ -188,6 +192,12 @@ const awsDiscoveryDatasetRegistry: {
     resourceTypes: ['elasticache:cluster'],
     service: 'elasticache',
     load: hydrateAwsElastiCacheClusters,
+  },
+  'aws-elasticache-cluster-activity': {
+    datasetKey: 'aws-elasticache-cluster-activity',
+    resourceTypes: ['elasticache:cluster'],
+    service: 'elasticache',
+    load: hydrateAwsElastiCacheClusterActivity,
   },
   'aws-elasticache-reserved-nodes': {
     datasetKey: 'aws-elasticache-reserved-nodes',

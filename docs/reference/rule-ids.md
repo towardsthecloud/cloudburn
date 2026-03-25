@@ -52,6 +52,7 @@ Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
 | `CLDBRN-AWS-ECR-1`    | ECR Repository Missing Lifecycle Policy   | ecr     | iac, discovery | Implemented |
 | `CLDBRN-AWS-EKS-1`    | EKS Node Group Without Graviton           | eks     | discovery      | Implemented |
 | `CLDBRN-AWS-ELASTICACHE-1` | ElastiCache Cluster Missing Reserved Coverage | elasticache | discovery | Implemented |
+| `CLDBRN-AWS-ELASTICACHE-2` | ElastiCache Cluster Idle              | elasticache | discovery | Implemented |
 | `CLDBRN-AWS-ELB-1`    | Application Load Balancer Without Targets | elb     | discovery      | Implemented |
 | `CLDBRN-AWS-ELB-2`    | Classic Load Balancer Without Instances   | elb     | discovery      | Implemented |
 | `CLDBRN-AWS-ELB-3`    | Gateway Load Balancer Without Targets     | elb     | discovery      | Implemented |
@@ -128,6 +129,8 @@ Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
 `CLDBRN-AWS-EKS-1` flags only managed node groups with classifiable non-Arm instance families. Arm AMIs and unclassified node groups are skipped.
 
 `CLDBRN-AWS-ELASTICACHE-1` reviews only `available` clusters with a parsed create time at least 180 days old and requires active reserved-node capacity on the same node type, preferring exact engine matches when ElastiCache reports them.
+
+`CLDBRN-AWS-ELASTICACHE-2` currently supports Redis and Valkey clusters, requires a complete 14-day metric history, and flags only `available` clusters whose computed hit rate stays below `5%` while average current connections stay below `2`.
 
 `CLDBRN-AWS-ELB-1`, `CLDBRN-AWS-ELB-3`, and `CLDBRN-AWS-ELB-4` flag load balancers with no attached target groups or no registered targets across attached target groups.
 

@@ -3,7 +3,8 @@ import { createFinding, createFindingMatch, createRule } from '../../shared/help
 const RULE_ID = 'CLDBRN-AWS-DYNAMODB-3';
 const RULE_SERVICE = 'dynamodb';
 const RULE_MESSAGE = 'Provisioned DynamoDB tables should not remain unused for 30 days.';
-const getTableKey = (accountId: string, region: string, tableArn: string): string => `${accountId}:${region}:${tableArn}`;
+const getTableKey = (accountId: string, region: string, tableArn: string): string =>
+  `${accountId}:${region}:${tableArn}`;
 
 /** Flag provisioned DynamoDB tables that show no consumed capacity over the last 30 days. */
 export const dynamoDbUnusedTableRule = createRule({

@@ -4,12 +4,12 @@ import type {
   DescribeTargetGroupsCommand,
   DescribeTargetHealthCommand,
 } from '@aws-sdk/client-elastic-load-balancing-v2';
-import { fetchCloudWatchSignals } from '../../src/providers/aws/resources/cloudwatch.js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   createElasticLoadBalancingClient,
   createElasticLoadBalancingV2Client,
 } from '../../src/providers/aws/client.js';
+import { fetchCloudWatchSignals } from '../../src/providers/aws/resources/cloudwatch.js';
 import {
   hydrateAwsEc2LoadBalancerRequestActivity,
   hydrateAwsEc2LoadBalancers,

@@ -40,7 +40,8 @@ describe('cloudWatchLogGroupNoMetricFiltersRule', () => {
       ruleId: 'CLDBRN-AWS-CLOUDWATCH-3',
       service: 'cloudwatch',
       source: 'discovery',
-      message: 'CloudWatch log groups storing at least 1 GB should define metric filters or reduce retention aggressively.',
+      message:
+        'CloudWatch log groups storing at least 1 GB should define metric filters or reduce retention aggressively.',
       findings: [
         {
           accountId: '123456789012',

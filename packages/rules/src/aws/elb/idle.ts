@@ -14,18 +14,19 @@ export const elbIdleRule = createRule({
   provider: 'aws',
   service: RULE_SERVICE,
   supports: ['discovery'],
-  discoveryDependencies: [
-    'aws-ec2-load-balancer-request-activity',
-    'aws-ec2-load-balancers',
-    'aws-ec2-target-groups',
-  ],
+  discoveryDependencies: ['aws-ec2-load-balancer-request-activity', 'aws-ec2-load-balancers', 'aws-ec2-target-groups'],
   evaluateLive: ({ resources }) => {
     const loadBalancers = resources.get('aws-ec2-load-balancers');
     const targetGroups = resources.get('aws-ec2-target-groups');
-    const loadBalancerByArn = new Map(loadBalancers.map((loadBalancer) => [loadBalancer.loadBalancerArn, loadBalancer] as const));
+    const loadBalancerByArn = new Map(
+      loadBalancers.map((loadBalancer) => [loadBalancer.loadBalancerArn, loadBalancer] as const),
+    );
     const findings = resources
       .get('aws-ec2-load-balancer-request-activity')
-      .filter((activity) => activity.averageRequestsPerDayLast14Days !== null && activity.averageRequestsPerDayLast14Days < 10)
+      .filter(
+        (activity) =>
+          activity.averageRequestsPerDayLast14Days !== null && activity.averageRequestsPerDayLast14Days < 10,
+      )
       .flatMap((activity) => {
         const loadBalancer = loadBalancerByArn.get(activity.loadBalancerArn);
 

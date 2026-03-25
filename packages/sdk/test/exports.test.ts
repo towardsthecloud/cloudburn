@@ -312,6 +312,14 @@ describe('sdk exports', () => {
         supports: ['discovery'],
       },
       {
+        description:
+          'Flag available ElastiCache clusters whose 14-day average cache hit rate stays below 5% and average current connections stay below 2.',
+        id: 'CLDBRN-AWS-ELASTICACHE-2',
+        provider: 'aws',
+        service: 'elasticache',
+        supports: ['discovery'],
+      },
+      {
         description: 'Flag Application Load Balancers that have no attached target groups or no registered targets.',
         id: 'CLDBRN-AWS-ELB-1',
         provider: 'aws',

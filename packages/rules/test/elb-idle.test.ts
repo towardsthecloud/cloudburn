@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { elbIdleRule } from '../src/aws/elb/idle.js';
-import type {
-  AwsEc2LoadBalancer,
-  AwsEc2LoadBalancerRequestActivity,
-  AwsEc2TargetGroup,
-} from '../src/index.js';
+import type { AwsEc2LoadBalancer, AwsEc2LoadBalancerRequestActivity, AwsEc2TargetGroup } from '../src/index.js';
 import { LiveResourceBag } from '../src/index.js';
 
 const createLoadBalancer = (overrides: Partial<AwsEc2LoadBalancer> = {}): AwsEc2LoadBalancer => ({
