@@ -887,6 +887,38 @@ describe('rule metadata', () => {
     });
   });
 
+  it('defines the expected cost guardrail missing-budgets rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-COSTGUARDRAILS-1');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-COSTGUARDRAILS-1',
+      name: 'AWS Budgets Missing',
+      description: 'Flag AWS accounts that do not have any AWS Budgets configured.',
+      message: 'AWS accounts should define at least one AWS Budget for spend guardrails.',
+      provider: 'aws',
+      service: 'costguardrails',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-cost-guardrail-budgets'],
+    });
+  });
+
+  it('defines the expected cost guardrail missing-anomaly-detection rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-COSTGUARDRAILS-2');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-COSTGUARDRAILS-2',
+      name: 'Cost Anomaly Detection Missing',
+      description: 'Flag AWS accounts that do not have any Cost Anomaly Detection monitors configured.',
+      message: 'AWS accounts should enable Cost Anomaly Detection monitors for spend spikes.',
+      provider: 'aws',
+      service: 'costguardrails',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-cost-anomaly-monitors'],
+    });
+  });
+
   it('defines the expected DynamoDB stale-data rule metadata', () => {
     const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-DYNAMODB-1');
 
@@ -916,6 +948,22 @@ describe('rule metadata', () => {
       service: 'dynamodb',
       supports: ['discovery'],
       discoveryDependencies: ['aws-dynamodb-tables', 'aws-dynamodb-autoscaling'],
+    });
+  });
+
+  it('defines the expected DynamoDB unused-table rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-DYNAMODB-3');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-DYNAMODB-3',
+      name: 'DynamoDB Table Unused',
+      description: 'Flag provisioned DynamoDB tables with no consumed read or write capacity over the last 30 days.',
+      message: 'Provisioned DynamoDB tables should not remain unused for 30 days.',
+      provider: 'aws',
+      service: 'dynamodb',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-dynamodb-tables', 'aws-dynamodb-table-utilization'],
     });
   });
 

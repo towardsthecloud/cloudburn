@@ -119,6 +119,18 @@ export type AwsCostUsage = {
   accountId: string;
 };
 
+/** Account-scoped AWS Budget summary used by cost guardrail rules. */
+export type AwsCostGuardrailBudget = {
+  budgetCount: number;
+  accountId: string;
+};
+
+/** Account-scoped Cost Anomaly Detection monitor summary used by guardrail rules. */
+export type AwsCostAnomalyMonitor = {
+  monitorCount: number;
+  accountId: string;
+};
+
 /** Discovered AWS ECR repository with lifecycle-policy state. */
 export type AwsEcrRepository = {
   repositoryName: string;
@@ -456,6 +468,18 @@ export type AwsDynamoDbAutoscaling = {
   accountId: string;
 };
 
+/** Discovered DynamoDB table with 30-day consumed-capacity summaries. */
+export type AwsDynamoDbTableUtilization = {
+  tableArn: string;
+  tableName: string;
+  /** `null` means CloudWatch returned incomplete datapoints for the 30-day read lookback window. */
+  totalConsumedReadCapacityUnitsLast30Days: number | null;
+  /** `null` means CloudWatch returned incomplete datapoints for the 30-day write lookback window. */
+  totalConsumedWriteCapacityUnitsLast30Days: number | null;
+  region: string;
+  accountId: string;
+};
+
 /** Shared S3 lifecycle and storage-optimization analysis flags across scan modes. */
 export type AwsS3BucketAnalysisFlags = {
   hasLifecycleSignal: boolean;
@@ -558,7 +582,10 @@ export type DiscoveryDatasetKey =
   | 'aws-cloudwatch-log-metric-filter-coverage'
   | 'aws-cloudwatch-log-streams'
   | 'aws-cost-usage'
+  | 'aws-cost-anomaly-monitors'
+  | 'aws-cost-guardrail-budgets'
   | 'aws-dynamodb-autoscaling'
+  | 'aws-dynamodb-table-utilization'
   | 'aws-dynamodb-tables'
   | 'aws-ebs-snapshots'
   | 'aws-ebs-volumes'
@@ -605,7 +632,10 @@ export type DiscoveryDatasetMap = {
   'aws-cloudwatch-log-metric-filter-coverage': AwsCloudWatchLogMetricFilterCoverage[];
   'aws-cloudwatch-log-streams': AwsCloudWatchLogStream[];
   'aws-cost-usage': AwsCostUsage[];
+  'aws-cost-anomaly-monitors': AwsCostAnomalyMonitor[];
+  'aws-cost-guardrail-budgets': AwsCostGuardrailBudget[];
   'aws-dynamodb-autoscaling': AwsDynamoDbAutoscaling[];
+  'aws-dynamodb-table-utilization': AwsDynamoDbTableUtilization[];
   'aws-dynamodb-tables': AwsDynamoDbTable[];
   'aws-ebs-snapshots': AwsEbsSnapshot[];
   'aws-ebs-volumes': AwsEbsVolume[];

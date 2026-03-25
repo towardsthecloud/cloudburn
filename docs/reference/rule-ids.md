@@ -23,9 +23,12 @@ Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
 | `CLDBRN-AWS-CLOUDWATCH-1` | CloudWatch Log Group Missing Retention | cloudwatch | discovery   | Implemented |
 | `CLDBRN-AWS-CLOUDWATCH-2` | CloudWatch Unused Log Streams          | cloudwatch | discovery   | Implemented |
 | `CLDBRN-AWS-CLOUDWATCH-3` | CloudWatch Log Group No Metric Filters | cloudwatch | discovery   | Implemented |
+| `CLDBRN-AWS-COSTGUARDRAILS-1` | AWS Budgets Missing               | costguardrails | discovery | Implemented |
+| `CLDBRN-AWS-COSTGUARDRAILS-2` | Cost Anomaly Detection Missing    | costguardrails | discovery | Implemented |
 | `CLDBRN-AWS-COSTEXPLORER-1` | Cost Explorer Full Month Cost Changes | costexplorer | discovery | Implemented |
 | `CLDBRN-AWS-DYNAMODB-1` | DynamoDB Table Stale Data              | dynamodb | discovery     | Implemented |
 | `CLDBRN-AWS-DYNAMODB-2` | DynamoDB Table Without Autoscaling     | dynamodb | discovery     | Implemented |
+| `CLDBRN-AWS-DYNAMODB-3` | DynamoDB Table Unused                  | dynamodb | discovery     | Implemented |
 | `CLDBRN-AWS-EC2-1`    | EC2 Instance Type Not Preferred           | ec2     | iac, discovery | Implemented |
 | `CLDBRN-AWS-EC2-2`    | S3 Interface VPC Endpoint Used            | ec2     | iac            | Implemented |
 | `CLDBRN-AWS-EC2-3`    | Elastic IP Address Unassociated           | ec2     | discovery      | Implemented |
@@ -92,11 +95,17 @@ Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
 
 `CLDBRN-AWS-CLOUDWATCH-3` reviews only log groups storing at least `1 GiB` and flags them when no metric filters are configured.
 
+`CLDBRN-AWS-COSTGUARDRAILS-1` flags accounts whose AWS Budgets summary reports zero configured budgets.
+
+`CLDBRN-AWS-COSTGUARDRAILS-2` flags accounts whose Cost Anomaly Detection summary reports zero anomaly monitors.
+
 `CLDBRN-AWS-COSTEXPLORER-1` compares the last two full months and flags only services with an existing prior-month baseline and a cost increase greater than `10` cost units.
 
 `CLDBRN-AWS-DYNAMODB-1` flags only tables whose parsed `latestStreamLabel` is older than `90` days. Tables without a stream label are skipped.
 
 `CLDBRN-AWS-DYNAMODB-2` reviews only provisioned-capacity tables and flags them when no table-level read or write autoscaling targets are configured.
+
+`CLDBRN-AWS-DYNAMODB-3` reviews only provisioned-capacity tables and flags them when 30 days of consumed read and write capacity both sum to zero.
 
 `CLDBRN-AWS-EC2-6` flags only families with a curated Graviton-equivalent path. Instances without architecture metadata or outside the curated family set are skipped.
 

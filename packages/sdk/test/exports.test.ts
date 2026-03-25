@@ -110,6 +110,20 @@ describe('sdk exports', () => {
         supports: ['discovery'],
       },
       {
+        description: 'Flag AWS accounts that do not have any AWS Budgets configured.',
+        id: 'CLDBRN-AWS-COSTGUARDRAILS-1',
+        provider: 'aws',
+        service: 'costguardrails',
+        supports: ['discovery'],
+      },
+      {
+        description: 'Flag AWS accounts that do not have any Cost Anomaly Detection monitors configured.',
+        id: 'CLDBRN-AWS-COSTGUARDRAILS-2',
+        provider: 'aws',
+        service: 'costguardrails',
+        supports: ['discovery'],
+      },
+      {
         description: 'Flag DynamoDB tables with no data changes exceeding a threshold (default 90 days).',
         id: 'CLDBRN-AWS-DYNAMODB-1',
         provider: 'aws',
@@ -119,6 +133,13 @@ describe('sdk exports', () => {
       {
         description: 'Flag provisioned-capacity DynamoDB tables without auto-scaling configured.',
         id: 'CLDBRN-AWS-DYNAMODB-2',
+        provider: 'aws',
+        service: 'dynamodb',
+        supports: ['discovery'],
+      },
+      {
+        description: 'Flag provisioned DynamoDB tables with no consumed read or write capacity over the last 30 days.',
+        id: 'CLDBRN-AWS-DYNAMODB-3',
         provider: 'aws',
         service: 'dynamodb',
         supports: ['discovery'],

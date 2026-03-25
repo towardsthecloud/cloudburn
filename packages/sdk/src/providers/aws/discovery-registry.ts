@@ -9,7 +9,12 @@ import {
   hydrateAwsCloudWatchLogStreams,
 } from './resources/cloudwatch-logs.js';
 import { hydrateAwsCostUsage } from './resources/cost-explorer.js';
-import { hydrateAwsDynamoDbAutoscaling, hydrateAwsDynamoDbTables } from './resources/dynamodb.js';
+import { hydrateAwsCostAnomalyMonitors, hydrateAwsCostGuardrailBudgets } from './resources/cost-guardrails.js';
+import {
+  hydrateAwsDynamoDbAutoscaling,
+  hydrateAwsDynamoDbTableUtilization,
+  hydrateAwsDynamoDbTables,
+} from './resources/dynamodb.js';
 import { hydrateAwsEbsSnapshots, hydrateAwsEbsVolumes } from './resources/ebs.js';
 import { hydrateAwsEc2Instances } from './resources/ec2.js';
 import { hydrateAwsEc2ElasticIps } from './resources/ec2-elastic-ips.js';
@@ -58,6 +63,7 @@ export type AwsDiscoveryDatasetDefinition<K extends DiscoveryDatasetKey = Discov
     | 'cloudfront'
     | 'cloudtrail'
     | 'cloudwatch'
+    | 'costguardrails'
     | 'costexplorer'
     | 'dynamodb'
     | 'ebs'
@@ -122,11 +128,29 @@ const awsDiscoveryDatasetRegistry: {
     service: 'costexplorer',
     load: hydrateAwsCostUsage,
   },
+  'aws-cost-anomaly-monitors': {
+    datasetKey: 'aws-cost-anomaly-monitors',
+    resourceTypes: [],
+    service: 'costguardrails',
+    load: hydrateAwsCostAnomalyMonitors,
+  },
+  'aws-cost-guardrail-budgets': {
+    datasetKey: 'aws-cost-guardrail-budgets',
+    resourceTypes: [],
+    service: 'costguardrails',
+    load: hydrateAwsCostGuardrailBudgets,
+  },
   'aws-dynamodb-autoscaling': {
     datasetKey: 'aws-dynamodb-autoscaling',
     resourceTypes: ['dynamodb:table'],
     service: 'dynamodb',
     load: hydrateAwsDynamoDbAutoscaling,
+  },
+  'aws-dynamodb-table-utilization': {
+    datasetKey: 'aws-dynamodb-table-utilization',
+    resourceTypes: ['dynamodb:table'],
+    service: 'dynamodb',
+    load: hydrateAwsDynamoDbTableUtilization,
   },
   'aws-dynamodb-tables': {
     datasetKey: 'aws-dynamodb-tables',

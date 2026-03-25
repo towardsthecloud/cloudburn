@@ -2,6 +2,7 @@ import { apigatewayRules } from './apigateway/index.js';
 import { cloudfrontRules } from './cloudfront/index.js';
 import { cloudtrailRules } from './cloudtrail/index.js';
 import { cloudwatchRules } from './cloudwatch/index.js';
+import { costguardrailsRules } from './costguardrails/index.js';
 import { costexplorerRules } from './costexplorer/index.js';
 import { dynamodbRules } from './dynamodb/index.js';
 import { ebsRules } from './ebs/index.js';
@@ -26,6 +27,7 @@ export const awsRules = [
   ...cloudfrontRules,
   ...cloudtrailRules,
   ...cloudwatchRules,
+  ...costguardrailsRules,
   ...costexplorerRules,
   ...dynamodbRules,
   ...ec2Rules,

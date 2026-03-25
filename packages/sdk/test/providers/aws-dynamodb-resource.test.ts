@@ -1,16 +1,26 @@
 import type { DescribeScalableTargetsCommand } from '@aws-sdk/client-application-auto-scaling';
 import type { DescribeTableCommand } from '@aws-sdk/client-dynamodb';
+import { fetchCloudWatchSignals } from '../../src/providers/aws/resources/cloudwatch.js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createApplicationAutoScalingClient, createDynamoDbClient } from '../../src/providers/aws/client.js';
-import { hydrateAwsDynamoDbAutoscaling, hydrateAwsDynamoDbTables } from '../../src/providers/aws/resources/dynamodb.js';
+import {
+  hydrateAwsDynamoDbAutoscaling,
+  hydrateAwsDynamoDbTableUtilization,
+  hydrateAwsDynamoDbTables,
+} from '../../src/providers/aws/resources/dynamodb.js';
 
 vi.mock('../../src/providers/aws/client.js', () => ({
   createApplicationAutoScalingClient: vi.fn(),
   createDynamoDbClient: vi.fn(),
 }));
 
+vi.mock('../../src/providers/aws/resources/cloudwatch.js', () => ({
+  fetchCloudWatchSignals: vi.fn(),
+}));
+
 const mockedCreateApplicationAutoScalingClient = vi.mocked(createApplicationAutoScalingClient);
 const mockedCreateDynamoDbClient = vi.mocked(createDynamoDbClient);
+const mockedFetchCloudWatchSignals = vi.mocked(fetchCloudWatchSignals);
 
 describe('DynamoDB discovery resources', () => {
   beforeEach(() => {
@@ -100,6 +110,120 @@ describe('DynamoDB discovery resources', () => {
         region: 'us-east-1',
         tableArn: 'arn:aws:dynamodb:us-east-1:123456789012:table/orders',
         tableName: 'orders',
+      },
+    ]);
+  });
+
+  it('hydrates 30-day DynamoDB table utilization from CloudWatch consumed capacity metrics', async () => {
+    mockedCreateDynamoDbClient.mockReturnValue({
+      send: vi.fn(async (_command: DescribeTableCommand) => ({
+        Table: {
+          BillingModeSummary: {
+            BillingMode: 'PROVISIONED',
+          },
+          TableArn: 'arn:aws:dynamodb:us-east-1:123456789012:table/orders',
+          TableName: 'orders',
+          TableStatus: 'ACTIVE',
+        },
+      })),
+    } as never);
+    mockedFetchCloudWatchSignals.mockResolvedValue(
+      new Map([
+        [
+          'read0',
+          Array.from({ length: 30 }, (_, index) => ({
+            timestamp: `2026-02-${String(index + 1).padStart(2, '0')}T00:00:00.000Z`,
+            value: 0,
+          })),
+        ],
+        [
+          'write0',
+          Array.from({ length: 30 }, (_, index) => ({
+            timestamp: `2026-02-${String(index + 1).padStart(2, '0')}T00:00:00.000Z`,
+            value: 0,
+          })),
+        ],
+      ]),
+    );
+
+    await expect(
+      hydrateAwsDynamoDbTableUtilization([
+        {
+          accountId: '123456789012',
+          arn: 'arn:aws:dynamodb:us-east-1:123456789012:table/orders',
+          properties: [],
+          region: 'us-east-1',
+          resourceType: 'dynamodb:table',
+          service: 'dynamodb',
+        },
+      ]),
+    ).resolves.toEqual([
+      {
+        accountId: '123456789012',
+        region: 'us-east-1',
+        tableArn: 'arn:aws:dynamodb:us-east-1:123456789012:table/orders',
+        tableName: 'orders',
+        totalConsumedReadCapacityUnitsLast30Days: 0,
+        totalConsumedWriteCapacityUnitsLast30Days: 0,
+      },
+    ]);
+  });
+
+  it('preserves incomplete DynamoDB utilization coverage as null totals', async () => {
+    mockedCreateDynamoDbClient.mockReturnValue({
+      send: vi.fn(async (_command: DescribeTableCommand) => ({
+        Table: {
+          BillingModeSummary: {
+            BillingMode: 'PROVISIONED',
+          },
+          TableArn: 'arn:aws:dynamodb:us-east-1:123456789012:table/orders',
+          TableName: 'orders',
+          TableStatus: 'ACTIVE',
+        },
+      })),
+    } as never);
+    mockedFetchCloudWatchSignals.mockResolvedValue(
+      new Map([
+        [
+          'read0',
+          [
+            {
+              timestamp: '2026-02-01T00:00:00.000Z',
+              value: 0,
+            },
+          ],
+        ],
+        [
+          'write0',
+          [
+            {
+              timestamp: '2026-02-01T00:00:00.000Z',
+              value: 0,
+            },
+          ],
+        ],
+      ]),
+    );
+
+    await expect(
+      hydrateAwsDynamoDbTableUtilization([
+        {
+          accountId: '123456789012',
+          arn: 'arn:aws:dynamodb:us-east-1:123456789012:table/orders',
+          properties: [],
+          region: 'us-east-1',
+          resourceType: 'dynamodb:table',
+          service: 'dynamodb',
+        },
+      ]),
+    ).resolves.toEqual([
+      {
+        accountId: '123456789012',
+        region: 'us-east-1',
+        tableArn: 'arn:aws:dynamodb:us-east-1:123456789012:table/orders',
+        tableName: 'orders',
+        totalConsumedReadCapacityUnitsLast30Days: null,
+        totalConsumedWriteCapacityUnitsLast30Days: null,
       },
     ]);
   });
