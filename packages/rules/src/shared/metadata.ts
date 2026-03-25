@@ -89,6 +89,14 @@ export type AwsCloudWatchLogStream = {
   accountId: string;
 };
 
+/** Discovered CloudWatch Logs metric-filter coverage keyed by log group. */
+export type AwsCloudWatchLogMetricFilterCoverage = {
+  logGroupName: string;
+  metricFilterCount: number;
+  region: string;
+  accountId: string;
+};
+
 /** Discovered CloudFront distribution normalized for price-class review checks. */
 export type AwsCloudFrontDistribution = {
   distributionArn: string;
@@ -215,6 +223,8 @@ export type AwsLambdaFunction = {
   functionName: string;
   /** Normalized function architectures. Missing AWS API values default to `['x86_64']`. */
   architectures: string[];
+  /** Configured function memory size in MB. */
+  memorySizeMb: number;
   /** Configured function timeout in seconds. */
   timeoutSeconds: number;
   region: string;
@@ -545,6 +555,7 @@ export type DiscoveryDatasetKey =
   | 'aws-cloudtrail-trails'
   | 'aws-cloudfront-distributions'
   | 'aws-cloudwatch-log-groups'
+  | 'aws-cloudwatch-log-metric-filter-coverage'
   | 'aws-cloudwatch-log-streams'
   | 'aws-cost-usage'
   | 'aws-dynamodb-autoscaling'
@@ -591,6 +602,7 @@ export type DiscoveryDatasetMap = {
   'aws-cloudtrail-trails': AwsCloudTrailTrail[];
   'aws-cloudfront-distributions': AwsCloudFrontDistribution[];
   'aws-cloudwatch-log-groups': AwsCloudWatchLogGroup[];
+  'aws-cloudwatch-log-metric-filter-coverage': AwsCloudWatchLogMetricFilterCoverage[];
   'aws-cloudwatch-log-streams': AwsCloudWatchLogStream[];
   'aws-cost-usage': AwsCostUsage[];
   'aws-dynamodb-autoscaling': AwsDynamoDbAutoscaling[];

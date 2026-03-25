@@ -5,6 +5,7 @@ import { fetchCloudWatchSignals } from './cloudwatch.js';
 import { chunkItems, withAwsServiceErrorContext } from './utils.js';
 
 const DEFAULT_LAMBDA_ARCHITECTURES = ['x86_64'];
+const DEFAULT_LAMBDA_MEMORY_MB = 128;
 const DEFAULT_LAMBDA_TIMEOUT_SECONDS = 3;
 const LAMBDA_CONFIGURATION_CONCURRENCY = 5;
 const SEVEN_DAYS_IN_SECONDS = 7 * 24 * 60 * 60;
@@ -70,6 +71,7 @@ export const hydrateAwsLambdaFunctions = async (resources: AwsDiscoveredResource
               accountId: resource.accountId,
               architectures: response.Architectures?.map(String) ?? [...DEFAULT_LAMBDA_ARCHITECTURES],
               functionName,
+              memorySizeMb: response.MemorySize ?? DEFAULT_LAMBDA_MEMORY_MB,
               region,
               timeoutSeconds: response.Timeout ?? DEFAULT_LAMBDA_TIMEOUT_SECONDS,
             } satisfies AwsLambdaFunction;

@@ -3,7 +3,11 @@ import type { ScanDiagnostic } from '../../types.js';
 import { hydrateAwsApiGatewayStages } from './resources/apigateway.js';
 import { hydrateAwsCloudFrontDistributions } from './resources/cloudfront.js';
 import { hydrateAwsCloudTrailTrails } from './resources/cloudtrail.js';
-import { hydrateAwsCloudWatchLogGroups, hydrateAwsCloudWatchLogStreams } from './resources/cloudwatch-logs.js';
+import {
+  hydrateAwsCloudWatchLogGroups,
+  hydrateAwsCloudWatchLogMetricFilterCoverage,
+  hydrateAwsCloudWatchLogStreams,
+} from './resources/cloudwatch-logs.js';
 import { hydrateAwsCostUsage } from './resources/cost-explorer.js';
 import { hydrateAwsDynamoDbAutoscaling, hydrateAwsDynamoDbTables } from './resources/dynamodb.js';
 import { hydrateAwsEbsSnapshots, hydrateAwsEbsVolumes } from './resources/ebs.js';
@@ -99,6 +103,12 @@ const awsDiscoveryDatasetRegistry: {
     resourceTypes: ['logs:log-group'],
     service: 'cloudwatch',
     load: hydrateAwsCloudWatchLogGroups,
+  },
+  'aws-cloudwatch-log-metric-filter-coverage': {
+    datasetKey: 'aws-cloudwatch-log-metric-filter-coverage',
+    resourceTypes: ['logs:log-group'],
+    service: 'cloudwatch',
+    load: hydrateAwsCloudWatchLogMetricFilterCoverage,
   },
   'aws-cloudwatch-log-streams': {
     datasetKey: 'aws-cloudwatch-log-streams',

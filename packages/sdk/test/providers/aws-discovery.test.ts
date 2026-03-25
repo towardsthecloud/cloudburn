@@ -24,6 +24,7 @@ import { hydrateAwsCloudFrontDistributions } from '../../src/providers/aws/resou
 import { hydrateAwsCloudTrailTrails } from '../../src/providers/aws/resources/cloudtrail.js';
 import {
   hydrateAwsCloudWatchLogGroups,
+  hydrateAwsCloudWatchLogMetricFilterCoverage,
   hydrateAwsCloudWatchLogStreams,
 } from '../../src/providers/aws/resources/cloudwatch-logs.js';
 import { hydrateAwsCostUsage } from '../../src/providers/aws/resources/cost-explorer.js';
@@ -132,6 +133,7 @@ vi.mock('../../src/providers/aws/resources/cloudfront.js', () => ({
 
 vi.mock('../../src/providers/aws/resources/cloudwatch-logs.js', () => ({
   hydrateAwsCloudWatchLogGroups: vi.fn(),
+  hydrateAwsCloudWatchLogMetricFilterCoverage: vi.fn(),
   hydrateAwsCloudWatchLogStreams: vi.fn(),
 }));
 
@@ -224,6 +226,7 @@ const mockedHydrateAwsApiGatewayStages = vi.mocked(hydrateAwsApiGatewayStages);
 const mockedHydrateAwsCloudFrontDistributions = vi.mocked(hydrateAwsCloudFrontDistributions);
 const mockedHydrateAwsCloudTrailTrails = vi.mocked(hydrateAwsCloudTrailTrails);
 const mockedHydrateAwsCloudWatchLogGroups = vi.mocked(hydrateAwsCloudWatchLogGroups);
+const mockedHydrateAwsCloudWatchLogMetricFilterCoverage = vi.mocked(hydrateAwsCloudWatchLogMetricFilterCoverage);
 const mockedHydrateAwsCloudWatchLogStreams = vi.mocked(hydrateAwsCloudWatchLogStreams);
 const mockedHydrateAwsCostUsage = vi.mocked(hydrateAwsCostUsage);
 const mockedHydrateAwsDynamoDbAutoscaling = vi.mocked(hydrateAwsDynamoDbAutoscaling);
@@ -501,6 +504,7 @@ describe('discoverAwsResources', () => {
         accountId: '123456789012',
         architectures: ['x86_64'],
         functionName: 'my-func',
+        memorySizeMb: 512,
         region: 'us-east-1',
         timeoutSeconds: 60,
       },
@@ -593,6 +597,7 @@ describe('discoverAwsResources', () => {
         accountId: '123456789012',
         architectures: ['x86_64'],
         functionName: 'my-func',
+        memorySizeMb: 512,
         region: 'us-east-1',
         timeoutSeconds: 60,
       },
@@ -1347,6 +1352,45 @@ describe('discoverAwsResources', () => {
         lastIngestionTime: 1_710_000_000_000,
         logGroupName: '/aws/lambda/app',
         logStreamName: '2026/03/16/[$LATEST]abc',
+        region: 'us-east-1',
+      },
+    ]);
+  });
+
+  it('hydrates CloudWatch log metric-filter coverage from log-group catalog resources', async () => {
+    mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
+      indexType: 'LOCAL',
+      resources: [catalog.resources[7]],
+      searchRegion: 'us-east-1',
+    });
+    mockedHydrateAwsCloudWatchLogMetricFilterCoverage.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        logGroupName: '/aws/lambda/app',
+        metricFilterCount: 0,
+        region: 'us-east-1',
+      },
+    ]);
+
+    const result = await discoverAwsResources(
+      [
+        createRule({
+          discoveryDependencies: ['aws-cloudwatch-log-metric-filter-coverage'],
+          service: 'cloudwatch',
+        }),
+      ],
+      { mode: 'region', region: 'us-east-1' },
+    );
+
+    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith({ mode: 'region', region: 'us-east-1' }, [
+      'logs:log-group',
+    ]);
+    expect(mockedHydrateAwsCloudWatchLogMetricFilterCoverage).toHaveBeenCalledWith([catalog.resources[7]]);
+    expect(result.resources.get('aws-cloudwatch-log-metric-filter-coverage')).toEqual([
+      {
+        accountId: '123456789012',
+        logGroupName: '/aws/lambda/app',
+        metricFilterCount: 0,
         region: 'us-east-1',
       },
     ]);

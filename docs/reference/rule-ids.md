@@ -22,6 +22,7 @@ Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
 | `CLDBRN-AWS-CLOUDTRAIL-2` | CloudTrail Redundant Regional Trails   | cloudtrail | discovery   | Implemented |
 | `CLDBRN-AWS-CLOUDWATCH-1` | CloudWatch Log Group Missing Retention | cloudwatch | discovery   | Implemented |
 | `CLDBRN-AWS-CLOUDWATCH-2` | CloudWatch Unused Log Streams          | cloudwatch | discovery   | Implemented |
+| `CLDBRN-AWS-CLOUDWATCH-3` | CloudWatch Log Group No Metric Filters | cloudwatch | discovery   | Implemented |
 | `CLDBRN-AWS-COSTEXPLORER-1` | Cost Explorer Full Month Cost Changes | costexplorer | discovery | Implemented |
 | `CLDBRN-AWS-DYNAMODB-1` | DynamoDB Table Stale Data              | dynamodb | discovery     | Implemented |
 | `CLDBRN-AWS-DYNAMODB-2` | DynamoDB Table Without Autoscaling     | dynamodb | discovery     | Implemented |
@@ -71,6 +72,7 @@ Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
 | `CLDBRN-AWS-LAMBDA-1` | Lambda Cost Optimal Architecture          | lambda  | iac, discovery | Implemented |
 | `CLDBRN-AWS-LAMBDA-2` | Lambda Function High Error Rate           | lambda  | discovery      | Implemented |
 | `CLDBRN-AWS-LAMBDA-3` | Lambda Function Excessive Timeout         | lambda  | discovery      | Implemented |
+| `CLDBRN-AWS-LAMBDA-4` | Lambda Function Memory Overprovisioned    | lambda  | discovery      | Implemented |
 
 `CLDBRN-AWS-APIGATEWAY-1` flags REST API stages when `cacheClusterEnabled` is not explicitly `true`.
 
@@ -87,6 +89,8 @@ Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
 `CLDBRN-AWS-EBS-7` flags only `completed` snapshots with a parsed `StartTime` older than `90` days.
 
 `CLDBRN-AWS-CLOUDWATCH-2` flags log streams with no observed event history and log streams whose `lastIngestionTime` is more than 90 days old. Delivery-managed log groups remain exempt.
+
+`CLDBRN-AWS-CLOUDWATCH-3` reviews only log groups storing at least `1 GiB` and flags them when no metric filters are configured.
 
 `CLDBRN-AWS-COSTEXPLORER-1` compares the last two full months and flags only services with an existing prior-month baseline and a cost increase greater than `10` cost units.
 
@@ -121,6 +125,8 @@ Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
 `CLDBRN-AWS-LAMBDA-2` uses 7-day CloudWatch totals and flags only functions whose observed `Errors / Invocations` ratio is greater than `10%`.
 
 `CLDBRN-AWS-LAMBDA-3` reviews only functions with configured timeouts of at least `30` seconds and flags when the timeout is at least `5x` the observed 7-day average duration.
+
+`CLDBRN-AWS-LAMBDA-4` reviews only functions configured above `256 MB`, requires invocation history, and flags them when the observed 7-day average duration uses less than `30%` of the configured timeout.
 
 `CLDBRN-AWS-RDS-3` reviews only `available` DB instances with a parsed create time at least 180 days old and requires active reserved-instance coverage on the same instance class, deployment mode, and normalized engine when AWS reports it.
 

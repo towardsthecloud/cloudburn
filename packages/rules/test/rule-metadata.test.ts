@@ -133,6 +133,23 @@ describe('rule metadata', () => {
     });
   });
 
+  it('defines the expected CloudWatch no-metric-filters rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-CLOUDWATCH-3');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-CLOUDWATCH-3',
+      name: 'CloudWatch Log Group No Metric Filters',
+      description: 'Flag CloudWatch log groups storing at least 1 GB when they define no metric filters.',
+      message:
+        'CloudWatch log groups storing at least 1 GB should define metric filters or reduce retention aggressively.',
+      provider: 'aws',
+      service: 'cloudwatch',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-cloudwatch-log-groups', 'aws-cloudwatch-log-metric-filter-coverage'],
+    });
+  });
+
   it('defines the expected S3 lifecycle rule metadata', () => {
     const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-S3-1');
 
@@ -651,6 +668,23 @@ describe('rule metadata', () => {
       description:
         'Flag Lambda functions whose configured timeout is at least 30 seconds and 5x their 7-day average duration.',
       message: 'Lambda functions should not keep timeouts far above their observed average duration.',
+      provider: 'aws',
+      service: 'lambda',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-lambda-functions', 'aws-lambda-function-metrics'],
+    });
+  });
+
+  it('defines the expected Lambda memory-overprovisioning rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-LAMBDA-4');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-LAMBDA-4',
+      name: 'Lambda Function Memory Overprovisioned',
+      description:
+        'Flag Lambda functions above 256 MB whose observed 7-day average duration uses less than 30% of the configured timeout.',
+      message: 'Lambda functions should not keep memory far above their observed execution needs.',
       provider: 'aws',
       service: 'lambda',
       supports: ['discovery'],

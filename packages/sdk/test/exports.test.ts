@@ -96,6 +96,13 @@ describe('sdk exports', () => {
         supports: ['discovery'],
       },
       {
+        description: 'Flag CloudWatch log groups storing at least 1 GB when they define no metric filters.',
+        id: 'CLDBRN-AWS-CLOUDWATCH-3',
+        provider: 'aws',
+        service: 'cloudwatch',
+        supports: ['discovery'],
+      },
+      {
         description: 'Flag services with significant cost increases between the last two full months.',
         id: 'CLDBRN-AWS-COSTEXPLORER-1',
         provider: 'aws',
@@ -336,6 +343,14 @@ describe('sdk exports', () => {
         description:
           'Flag Lambda functions whose configured timeout is at least 30 seconds and 5x their 7-day average duration.',
         id: 'CLDBRN-AWS-LAMBDA-3',
+        provider: 'aws',
+        service: 'lambda',
+        supports: ['discovery'],
+      },
+      {
+        description:
+          'Flag Lambda functions above 256 MB whose observed 7-day average duration uses less than 30% of the configured timeout.',
+        id: 'CLDBRN-AWS-LAMBDA-4',
         provider: 'aws',
         service: 'lambda',
         supports: ['discovery'],
