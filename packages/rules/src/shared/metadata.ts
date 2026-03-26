@@ -450,6 +450,7 @@ export type AwsDynamoDbAutoscaling = {
 export type AwsS3BucketAnalysisFlags = {
   hasLifecycleSignal: boolean;
   hasCostFocusedLifecycle: boolean;
+  hasAbortIncompleteMultipartUploadAfter7Days: boolean;
   hasIntelligentTieringConfiguration: boolean;
   hasIntelligentTieringTransition: boolean;
   hasAlternativeStorageClassTransition: boolean;

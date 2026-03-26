@@ -442,6 +442,14 @@ describe('sdk exports', () => {
         supports: ['iac', 'discovery'],
       },
       {
+        description:
+          'Ensure S3 buckets define an enabled lifecycle rule that aborts incomplete multipart uploads within 7 days.',
+        id: 'CLDBRN-AWS-S3-3',
+        provider: 'aws',
+        service: 's3',
+        supports: ['iac', 'discovery'],
+      },
+      {
         description: 'Flag Secrets Manager secrets not accessed within a threshold (default 90 days).',
         id: 'CLDBRN-AWS-SECRETSMANAGER-1',
         provider: 'aws',

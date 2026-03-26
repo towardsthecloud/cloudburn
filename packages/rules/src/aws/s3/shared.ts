@@ -9,6 +9,10 @@ import type {
 export const hasMissingLifecycleConfiguration = (bucket: AwsS3BucketAnalysisFlags): boolean =>
   !bucket.hasCostFocusedLifecycle;
 
+/** Returns whether an S3 bucket should be flagged for missing multipart-abort cleanup. */
+export const hasMissingIncompleteMultipartUploadAbort = (bucket: AwsS3BucketAnalysisFlags): boolean =>
+  !bucket.hasAbortIncompleteMultipartUploadAfter7Days;
+
 /** Returns whether an S3 bucket should be flagged for missing storage-class optimization. */
 export const hasMissingStorageClassOptimization = (bucket: AwsS3BucketAnalysisFlags): boolean =>
   bucket.hasLifecycleSignal &&

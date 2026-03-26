@@ -185,6 +185,24 @@ describe('rule metadata', () => {
     });
   });
 
+  it('defines the expected S3 multipart-abort rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-S3-3');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-S3-3',
+      name: 'S3 Incomplete Multipart Upload Abort Configuration',
+      description:
+        'Ensure S3 buckets define an enabled lifecycle rule that aborts incomplete multipart uploads within 7 days.',
+      message: 'S3 buckets should abort incomplete multipart uploads within 7 days.',
+      provider: 'aws',
+      service: 's3',
+      supports: ['iac', 'discovery'],
+      discoveryDependencies: ['aws-s3-bucket-analyses'],
+      staticDependencies: ['aws-s3-bucket-analyses'],
+    });
+  });
+
   it('defines the expected EC2 S3 endpoint rule metadata', () => {
     const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-EC2-2');
 
