@@ -1,11 +1,23 @@
 import type { AwsDiscoveredResource, DiscoveryDatasetKey, DiscoveryDatasetMap } from '@cloudburn/rules';
 import type { ScanDiagnostic } from '../../types.js';
 import { hydrateAwsApiGatewayStages } from './resources/apigateway.js';
-import { hydrateAwsCloudFrontDistributions } from './resources/cloudfront.js';
+import {
+  hydrateAwsCloudFrontDistributionRequestActivity,
+  hydrateAwsCloudFrontDistributions,
+} from './resources/cloudfront.js';
 import { hydrateAwsCloudTrailTrails } from './resources/cloudtrail.js';
-import { hydrateAwsCloudWatchLogGroups, hydrateAwsCloudWatchLogStreams } from './resources/cloudwatch-logs.js';
+import {
+  hydrateAwsCloudWatchLogGroups,
+  hydrateAwsCloudWatchLogMetricFilterCoverage,
+  hydrateAwsCloudWatchLogStreams,
+} from './resources/cloudwatch-logs.js';
 import { hydrateAwsCostUsage } from './resources/cost-explorer.js';
-import { hydrateAwsDynamoDbAutoscaling, hydrateAwsDynamoDbTables } from './resources/dynamodb.js';
+import { hydrateAwsCostAnomalyMonitors, hydrateAwsCostGuardrailBudgets } from './resources/cost-guardrails.js';
+import {
+  hydrateAwsDynamoDbAutoscaling,
+  hydrateAwsDynamoDbTables,
+  hydrateAwsDynamoDbTableUtilization,
+} from './resources/dynamodb.js';
 import { hydrateAwsEbsSnapshots, hydrateAwsEbsVolumes } from './resources/ebs.js';
 import { hydrateAwsEc2Instances } from './resources/ec2.js';
 import { hydrateAwsEc2ElasticIps } from './resources/ec2-elastic-ips.js';
@@ -16,8 +28,16 @@ import { hydrateAwsEcsClusters, hydrateAwsEcsContainerInstances, hydrateAwsEcsSe
 import { hydrateAwsEcsAutoscaling } from './resources/ecs-autoscaling.js';
 import { hydrateAwsEcsClusterMetrics } from './resources/ecs-cluster-metrics.js';
 import { hydrateAwsEksNodegroups } from './resources/eks.js';
-import { hydrateAwsElastiCacheClusters, hydrateAwsElastiCacheReservedNodes } from './resources/elasticache.js';
-import { hydrateAwsEc2LoadBalancers, hydrateAwsEc2TargetGroups } from './resources/elbv2.js';
+import {
+  hydrateAwsElastiCacheClusterActivity,
+  hydrateAwsElastiCacheClusters,
+  hydrateAwsElastiCacheReservedNodes,
+} from './resources/elasticache.js';
+import {
+  hydrateAwsEc2LoadBalancerRequestActivity,
+  hydrateAwsEc2LoadBalancers,
+  hydrateAwsEc2TargetGroups,
+} from './resources/elbv2.js';
 import { hydrateAwsEmrClusterMetrics, hydrateAwsEmrClusters } from './resources/emr.js';
 import { hydrateAwsLambdaFunctionMetrics, hydrateAwsLambdaFunctions } from './resources/lambda.js';
 import { hydrateAwsRdsInstances, hydrateAwsRdsReservedInstances, hydrateAwsRdsSnapshots } from './resources/rds.js';
@@ -54,6 +74,7 @@ export type AwsDiscoveryDatasetDefinition<K extends DiscoveryDatasetKey = Discov
     | 'cloudfront'
     | 'cloudtrail'
     | 'cloudwatch'
+    | 'costguardrails'
     | 'costexplorer'
     | 'dynamodb'
     | 'ebs'
@@ -94,11 +115,23 @@ const awsDiscoveryDatasetRegistry: {
     service: 'cloudfront',
     load: hydrateAwsCloudFrontDistributions,
   },
+  'aws-cloudfront-distribution-request-activity': {
+    datasetKey: 'aws-cloudfront-distribution-request-activity',
+    resourceTypes: ['cloudfront:distribution'],
+    service: 'cloudfront',
+    load: hydrateAwsCloudFrontDistributionRequestActivity,
+  },
   'aws-cloudwatch-log-groups': {
     datasetKey: 'aws-cloudwatch-log-groups',
     resourceTypes: ['logs:log-group'],
     service: 'cloudwatch',
     load: hydrateAwsCloudWatchLogGroups,
+  },
+  'aws-cloudwatch-log-metric-filter-coverage': {
+    datasetKey: 'aws-cloudwatch-log-metric-filter-coverage',
+    resourceTypes: ['logs:log-group'],
+    service: 'cloudwatch',
+    load: hydrateAwsCloudWatchLogMetricFilterCoverage,
   },
   'aws-cloudwatch-log-streams': {
     datasetKey: 'aws-cloudwatch-log-streams',
@@ -112,11 +145,29 @@ const awsDiscoveryDatasetRegistry: {
     service: 'costexplorer',
     load: hydrateAwsCostUsage,
   },
+  'aws-cost-anomaly-monitors': {
+    datasetKey: 'aws-cost-anomaly-monitors',
+    resourceTypes: [],
+    service: 'costguardrails',
+    load: hydrateAwsCostAnomalyMonitors,
+  },
+  'aws-cost-guardrail-budgets': {
+    datasetKey: 'aws-cost-guardrail-budgets',
+    resourceTypes: [],
+    service: 'costguardrails',
+    load: hydrateAwsCostGuardrailBudgets,
+  },
   'aws-dynamodb-autoscaling': {
     datasetKey: 'aws-dynamodb-autoscaling',
     resourceTypes: ['dynamodb:table'],
     service: 'dynamodb',
     load: hydrateAwsDynamoDbAutoscaling,
+  },
+  'aws-dynamodb-table-utilization': {
+    datasetKey: 'aws-dynamodb-table-utilization',
+    resourceTypes: ['dynamodb:table'],
+    service: 'dynamodb',
+    load: hydrateAwsDynamoDbTableUtilization,
   },
   'aws-dynamodb-tables': {
     datasetKey: 'aws-dynamodb-tables',
@@ -141,6 +192,12 @@ const awsDiscoveryDatasetRegistry: {
     resourceTypes: ['elasticache:cluster'],
     service: 'elasticache',
     load: hydrateAwsElastiCacheClusters,
+  },
+  'aws-elasticache-cluster-activity': {
+    datasetKey: 'aws-elasticache-cluster-activity',
+    resourceTypes: ['elasticache:cluster'],
+    service: 'elasticache',
+    load: hydrateAwsElastiCacheClusterActivity,
   },
   'aws-elasticache-reserved-nodes': {
     datasetKey: 'aws-elasticache-reserved-nodes',
@@ -212,6 +269,17 @@ const awsDiscoveryDatasetRegistry: {
     ],
     service: 'elb',
     load: hydrateAwsEc2LoadBalancers,
+  },
+  'aws-ec2-load-balancer-request-activity': {
+    datasetKey: 'aws-ec2-load-balancer-request-activity',
+    resourceTypes: [
+      'elasticloadbalancing:loadbalancer',
+      'elasticloadbalancing:loadbalancer/app',
+      'elasticloadbalancing:loadbalancer/gwy',
+      'elasticloadbalancing:loadbalancer/net',
+    ],
+    service: 'elb',
+    load: hydrateAwsEc2LoadBalancerRequestActivity,
   },
   'aws-ec2-reserved-instances': {
     datasetKey: 'aws-ec2-reserved-instances',

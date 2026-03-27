@@ -1,8 +1,13 @@
-import type { DescribeLogGroupsCommand, DescribeLogStreamsCommand } from '@aws-sdk/client-cloudwatch-logs';
+import type {
+  DescribeLogGroupsCommand,
+  DescribeLogStreamsCommand,
+  DescribeMetricFiltersCommand,
+} from '@aws-sdk/client-cloudwatch-logs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createCloudWatchLogsClient } from '../../src/providers/aws/client.js';
 import {
   hydrateAwsCloudWatchLogGroups,
+  hydrateAwsCloudWatchLogMetricFilterCoverage,
   hydrateAwsCloudWatchLogStreams,
 } from '../../src/providers/aws/resources/cloudwatch-logs.js';
 
@@ -328,6 +333,87 @@ describe('hydrateAwsCloudWatchLogStreams', () => {
     });
     expect((error as Error).message).toBe(
       'Amazon CloudWatch Logs DescribeLogStreams failed in eu-central-1 with AccessDeniedException: User is not authorized to perform: logs:DescribeLogStreams Request ID: request-streams.',
+    );
+  });
+});
+
+describe('hydrateAwsCloudWatchLogMetricFilterCoverage', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
+  it('hydrates discovered log groups with metric filter counts', async () => {
+    mockedCreateCloudWatchLogsClient.mockReturnValue({
+      send: vi.fn(async (command: DescribeMetricFiltersCommand) => {
+        const input = command.input as { filterNamePrefix?: string; logGroupName?: string; nextToken?: string };
+
+        expect(input.filterNamePrefix).toBeUndefined();
+
+        if (input.nextToken === undefined) {
+          return {
+            metricFilters: [{ filterName: 'errors' }],
+            nextToken: 'page-2',
+          };
+        }
+
+        return {
+          metricFilters: [{ filterName: 'warnings' }],
+        };
+      }),
+    } as never);
+
+    await expect(
+      hydrateAwsCloudWatchLogMetricFilterCoverage([
+        {
+          accountId: '123456789012',
+          arn: 'arn:aws:logs:us-east-1:123456789012:log-group:/aws/lambda/app',
+          properties: [],
+          region: 'us-east-1',
+          resourceType: 'logs:log-group',
+          service: 'logs',
+        },
+      ]),
+    ).resolves.toEqual([
+      {
+        accountId: '123456789012',
+        logGroupName: '/aws/lambda/app',
+        metricFilterCount: 2,
+        region: 'us-east-1',
+      },
+    ]);
+  });
+
+  it('preserves CloudWatch Logs error identity when metric-filter hydration is access denied', async () => {
+    mockedCreateCloudWatchLogsClient.mockReturnValue({
+      send: vi.fn().mockRejectedValue(
+        Object.assign(new Error('User is not authorized to perform: logs:DescribeMetricFilters'), {
+          name: 'AccessDeniedException',
+          code: 'AccessDeniedException',
+          $metadata: {
+            httpStatusCode: 403,
+            requestId: 'request-metric-filters',
+          },
+        }),
+      ),
+    } as never);
+
+    const error = await hydrateAwsCloudWatchLogMetricFilterCoverage([
+      {
+        accountId: '123456789012',
+        arn: 'arn:aws:logs:eu-central-1:123456789012:log-group:/aws/lambda/app',
+        properties: [],
+        region: 'eu-central-1',
+        resourceType: 'logs:log-group',
+        service: 'logs',
+      },
+    ]).catch((err) => err);
+
+    expect(error).toMatchObject({
+      code: 'AccessDeniedException',
+      name: 'AccessDeniedException',
+    });
+    expect((error as Error).message).toBe(
+      'Amazon CloudWatch Logs DescribeMetricFilters failed in eu-central-1 with AccessDeniedException: User is not authorized to perform: logs:DescribeMetricFilters Request ID: request-metric-filters.',
     );
   });
 });

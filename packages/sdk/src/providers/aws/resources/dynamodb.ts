@@ -1,11 +1,20 @@
 import { DescribeScalableTargetsCommand } from '@aws-sdk/client-application-auto-scaling';
 import { DescribeTableCommand } from '@aws-sdk/client-dynamodb';
-import type { AwsDiscoveredResource, AwsDynamoDbAutoscaling, AwsDynamoDbTable } from '@cloudburn/rules';
+import type {
+  AwsDiscoveredResource,
+  AwsDynamoDbAutoscaling,
+  AwsDynamoDbTable,
+  AwsDynamoDbTableUtilization,
+} from '@cloudburn/rules';
 import { createApplicationAutoScalingClient, createDynamoDbClient } from '../client.js';
+import { fetchCloudWatchSignals } from './cloudwatch.js';
 import { chunkItems, extractTerminalArnResourceIdentifier, withAwsServiceErrorContext } from './utils.js';
 
 const DYNAMODB_TABLE_CONCURRENCY = 10;
 const APPLICATION_AUTO_SCALING_BATCH_SIZE = 50;
+const THIRTY_DAYS_IN_SECONDS = 30 * 24 * 60 * 60;
+const DAILY_PERIOD_IN_SECONDS = 24 * 60 * 60;
+const REQUIRED_DYNAMODB_DAILY_POINTS = THIRTY_DAYS_IN_SECONDS / DAILY_PERIOD_IN_SECONDS;
 
 type ParsedDynamoDbTable = {
   tableArn: string;
@@ -168,6 +177,75 @@ export const hydrateAwsDynamoDbAutoscaling = async (
           tableArn: table.tableArn,
           tableName: table.tableName,
         } satisfies AwsDynamoDbAutoscaling;
+      });
+    }),
+  );
+
+  return hydratedPages.flat().sort((left, right) => left.tableArn.localeCompare(right.tableArn));
+};
+
+/**
+ * Hydrates discovered DynamoDB tables with 30-day consumed read/write capacity summaries.
+ *
+ * @param resources - Catalog resources filtered to DynamoDB tables.
+ * @returns Table utilization summaries for rule evaluation.
+ */
+export const hydrateAwsDynamoDbTableUtilization = async (
+  resources: AwsDiscoveredResource[],
+): Promise<AwsDynamoDbTableUtilization[]> => {
+  const tables = await hydrateAwsDynamoDbTables(resources);
+  const tablesByRegion = new Map<string, typeof tables>();
+
+  for (const table of tables) {
+    const regionTables = tablesByRegion.get(table.region) ?? [];
+    regionTables.push(table);
+    tablesByRegion.set(table.region, regionTables);
+  }
+
+  const hydratedPages = await Promise.all(
+    [...tablesByRegion.entries()].map(async ([region, regionTables]) => {
+      const metricData = await fetchCloudWatchSignals({
+        endTime: new Date(),
+        queries: regionTables.flatMap((table, index) => [
+          {
+            dimensions: [{ Name: 'TableName', Value: table.tableName }],
+            id: `read${index}`,
+            metricName: 'ConsumedReadCapacityUnits',
+            namespace: 'AWS/DynamoDB',
+            period: DAILY_PERIOD_IN_SECONDS,
+            stat: 'Sum' as const,
+          },
+          {
+            dimensions: [{ Name: 'TableName', Value: table.tableName }],
+            id: `write${index}`,
+            metricName: 'ConsumedWriteCapacityUnits',
+            namespace: 'AWS/DynamoDB',
+            period: DAILY_PERIOD_IN_SECONDS,
+            stat: 'Sum' as const,
+          },
+        ]),
+        region,
+        startTime: new Date(Date.now() - THIRTY_DAYS_IN_SECONDS * 1000),
+      });
+
+      return regionTables.map((table, index) => {
+        const readPoints = metricData.get(`read${index}`) ?? [];
+        const writePoints = metricData.get(`write${index}`) ?? [];
+
+        return {
+          accountId: table.accountId,
+          region,
+          tableArn: table.tableArn,
+          tableName: table.tableName,
+          totalConsumedReadCapacityUnitsLast30Days:
+            readPoints.length >= REQUIRED_DYNAMODB_DAILY_POINTS
+              ? readPoints.reduce((sum, point) => sum + point.value, 0)
+              : null,
+          totalConsumedWriteCapacityUnitsLast30Days:
+            writePoints.length >= REQUIRED_DYNAMODB_DAILY_POINTS
+              ? writePoints.reduce((sum, point) => sum + point.value, 0)
+              : null,
+        } satisfies AwsDynamoDbTableUtilization;
       });
     }),
   );

@@ -1,5 +1,6 @@
 import { APIGatewayClient } from '@aws-sdk/client-api-gateway';
 import { ApplicationAutoScalingClient } from '@aws-sdk/client-application-auto-scaling';
+import { BudgetsClient } from '@aws-sdk/client-budgets';
 import { CloudFrontClient } from '@aws-sdk/client-cloudfront';
 import { CloudTrailClient } from '@aws-sdk/client-cloudtrail';
 import { CloudWatchClient } from '@aws-sdk/client-cloudwatch';
@@ -82,6 +83,12 @@ export const createApplicationAutoScalingClient = (config: AwsClientConfig): App
 export const createApiGatewayClient = (config: AwsClientConfig): APIGatewayClient =>
   new APIGatewayClient({
     region: config.region,
+  });
+
+/** Creates an AWS Budgets client against the global billing control plane. */
+export const createBudgetsClient = (): BudgetsClient =>
+  new BudgetsClient({
+    region: AWS_GLOBAL_CONTROL_REGION,
   });
 
 /** Creates an AWS ElastiCache client for a specific region. */

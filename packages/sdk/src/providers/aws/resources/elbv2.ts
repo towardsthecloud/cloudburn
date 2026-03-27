@@ -4,8 +4,14 @@ import {
   DescribeTargetGroupsCommand,
   DescribeTargetHealthCommand,
 } from '@aws-sdk/client-elastic-load-balancing-v2';
-import type { AwsDiscoveredResource, AwsEc2LoadBalancer, AwsEc2TargetGroup } from '@cloudburn/rules';
+import type {
+  AwsDiscoveredResource,
+  AwsEc2LoadBalancer,
+  AwsEc2LoadBalancerRequestActivity,
+  AwsEc2TargetGroup,
+} from '@cloudburn/rules';
 import { createElasticLoadBalancingClient, createElasticLoadBalancingV2Client } from '../client.js';
+import { fetchCloudWatchSignals } from './cloudwatch.js';
 import { chunkItems, withAwsServiceErrorContext } from './utils.js';
 
 const CLASSIC_LOAD_BALANCER_ARN_PREFIX = 'loadbalancer/';
@@ -13,6 +19,9 @@ const TARGET_GROUP_ARN_PREFIX = 'targetgroup/';
 const CLASSIC_LOAD_BALANCER_BATCH_SIZE = 20;
 const V2_LOAD_BALANCER_BATCH_SIZE = 20;
 const TARGET_GROUP_BATCH_SIZE = 20;
+const FOURTEEN_DAYS_IN_SECONDS = 14 * 24 * 60 * 60;
+const DAILY_PERIOD_IN_SECONDS = 24 * 60 * 60;
+const REQUIRED_ELB_DAILY_POINTS = FOURTEEN_DAYS_IN_SECONDS / DAILY_PERIOD_IN_SECONDS;
 
 const inferClassicLoadBalancerName = (resource: AwsDiscoveredResource): string | null => {
   if (resource.name) {
@@ -65,6 +74,16 @@ const isTargetGroupMissingError = (error: unknown): boolean =>
   (error.name === 'TargetGroupNotFound' ||
     error.name === 'TargetGroupNotFoundException' ||
     error.message.includes('TargetGroupNotFound'));
+
+const extractLoadBalancerMetricDimensionValue = (loadBalancerArn: string): string | null => {
+  const resourceSegment = loadBalancerArn.split(':')[5];
+
+  if (!resourceSegment?.startsWith(CLASSIC_LOAD_BALANCER_ARN_PREFIX)) {
+    return null;
+  }
+
+  return resourceSegment.slice(CLASSIC_LOAD_BALANCER_ARN_PREFIX.length) || null;
+};
 
 const describeClassicLoadBalancersSafely = async (options: {
   client: ReturnType<typeof createElasticLoadBalancingClient>;
@@ -380,6 +399,79 @@ export const hydrateAwsEc2LoadBalancers = async (resources: AwsDiscoveredResourc
       }
 
       return loadBalancers;
+    }),
+  );
+
+  return hydratedPages.flat().sort((left, right) => left.loadBalancerArn.localeCompare(right.loadBalancerArn));
+};
+
+/**
+ * Hydrates discovered load balancers with 14-day request-activity coverage.
+ *
+ * @param resources - Catalog resources filtered to ELB resource types.
+ * @returns Request activity summaries for load balancers.
+ */
+export const hydrateAwsEc2LoadBalancerRequestActivity = async (
+  resources: AwsDiscoveredResource[],
+): Promise<AwsEc2LoadBalancerRequestActivity[]> => {
+  const loadBalancers = await hydrateAwsEc2LoadBalancers(resources);
+  const loadBalancersByRegion = new Map<string, AwsEc2LoadBalancer[]>();
+
+  for (const loadBalancer of loadBalancers) {
+    const regionLoadBalancers = loadBalancersByRegion.get(loadBalancer.region) ?? [];
+    regionLoadBalancers.push(loadBalancer);
+    loadBalancersByRegion.set(loadBalancer.region, regionLoadBalancers);
+  }
+
+  const hydratedPages = await Promise.all(
+    [...loadBalancersByRegion.entries()].map(async ([region, regionLoadBalancers]) => {
+      const metricData = await fetchCloudWatchSignals({
+        endTime: new Date(),
+        queries: regionLoadBalancers.flatMap((loadBalancer, index) => {
+          const dimensionValue = extractLoadBalancerMetricDimensionValue(loadBalancer.loadBalancerArn);
+
+          if (!dimensionValue) {
+            return [];
+          }
+
+          return [
+            {
+              dimensions: [
+                {
+                  Name: loadBalancer.loadBalancerType === 'classic' ? 'LoadBalancerName' : 'LoadBalancer',
+                  Value: dimensionValue,
+                },
+              ],
+              id: `lb${index}`,
+              metricName: 'RequestCount',
+              namespace:
+                loadBalancer.loadBalancerType === 'classic'
+                  ? 'AWS/ELB'
+                  : loadBalancer.loadBalancerType === 'application'
+                    ? 'AWS/ApplicationELB'
+                    : 'AWS/NetworkELB',
+              period: DAILY_PERIOD_IN_SECONDS,
+              stat: 'Sum' as const,
+            },
+          ];
+        }),
+        region,
+        startTime: new Date(Date.now() - FOURTEEN_DAYS_IN_SECONDS * 1000),
+      });
+
+      return regionLoadBalancers.map((loadBalancer, index) => {
+        const requestPoints = metricData.get(`lb${index}`) ?? [];
+
+        return {
+          accountId: loadBalancer.accountId,
+          averageRequestsPerDayLast14Days:
+            requestPoints.length >= REQUIRED_ELB_DAILY_POINTS
+              ? requestPoints.reduce((sum, point) => sum + point.value, 0) / requestPoints.length
+              : null,
+          loadBalancerArn: loadBalancer.loadBalancerArn,
+          region: loadBalancer.region,
+        } satisfies AwsEc2LoadBalancerRequestActivity;
+      });
     }),
   );
 
