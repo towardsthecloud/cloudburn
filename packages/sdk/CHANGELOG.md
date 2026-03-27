@@ -1,5 +1,20 @@
 # @cloudburn/sdk
 
+## 0.20.0
+
+### Minor Changes
+
+- [#50](https://github.com/towardsthecloud/cloudburn/pull/50) [`e9b3176`](https://github.com/towardsthecloud/cloudburn/commit/e9b317658e97cc11670b0fc962eed3d08f0368d5) Thanks [@axonstone](https://github.com/axonstone)! - Add shared S3 analysis support for detecting lifecycle rules that abort incomplete multipart uploads within 7 days.
+
+- [#48](https://github.com/towardsthecloud/cloudburn/pull/48) [`c5da62e`](https://github.com/towardsthecloud/cloudburn/commit/c5da62e474f04daedaea58cc26a46082dc18cbd6) Thanks [@axonstone](https://github.com/axonstone)! - Add static AWS dataset loaders for the new dual-mode IaC rules, including DynamoDB autoscaling state, Elastic IP association state, EKS node groups, EMR cluster instance types, and Route 53 records and health checks across Terraform and CloudFormation inputs.
+
+- [#49](https://github.com/towardsthecloud/cloudburn/pull/49) [`0a91238`](https://github.com/towardsthecloud/cloudburn/commit/0a9123845a9c7486415d50fb2ee466b4b4095c04) Thanks [@axonstone](https://github.com/axonstone)! - Add AWS discovery datasets and hydrators for Lambda memory sizing, CloudWatch log metric-filter coverage, DynamoDB table utilization, Budgets and Cost Anomaly Detection summaries, load balancer request activity, CloudFront request activity, and ElastiCache cluster activity.
+
+### Patch Changes
+
+- Updated dependencies [[`0a91238`](https://github.com/towardsthecloud/cloudburn/commit/0a9123845a9c7486415d50fb2ee466b4b4095c04), [`e9b3176`](https://github.com/towardsthecloud/cloudburn/commit/e9b317658e97cc11670b0fc962eed3d08f0368d5), [`c5da62e`](https://github.com/towardsthecloud/cloudburn/commit/c5da62e474f04daedaea58cc26a46082dc18cbd6)]:
+  - @cloudburn/rules@0.20.0
+
 ## 0.19.0
 
 ### Minor Changes
