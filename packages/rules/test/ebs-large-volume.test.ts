@@ -19,6 +19,7 @@ const createStaticVolume = (overrides: Partial<AwsStaticEbsVolume> = {}): AwsSta
   volumeType: 'gp3',
   sizeGiB: 200,
   iops: 3000,
+  throughputMiBps: 125,
   ...overrides,
 });
 

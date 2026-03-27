@@ -1,4 +1,6 @@
 import { ebsAttachedToStoppedInstancesRule } from './attached-to-stopped-instances.js';
+import { ebsGp3ExtraIopsRule } from './gp3-extra-iops.js';
+import { ebsGp3ExtraThroughputRule } from './gp3-extra-throughput.js';
 import { ebsHighIopsVolumeRule } from './high-iops-volume.js';
 import { ebsLargeVolumeRule } from './large-volume.js';
 import { ebsLowIopsVolumeRule } from './low-iops-volume.js';
@@ -15,4 +17,6 @@ export const ebsRules = [
   ebsHighIopsVolumeRule,
   ebsLowIopsVolumeRule,
   ebsSnapshotMaxAgeRule,
+  ebsGp3ExtraThroughputRule,
+  ebsGp3ExtraIopsRule,
 ];

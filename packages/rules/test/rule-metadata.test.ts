@@ -550,8 +550,9 @@ describe('rule metadata', () => {
       message: 'Active REPLICA ECS services should use an autoscaling policy.',
       provider: 'aws',
       service: 'ecs',
-      supports: ['discovery'],
+      supports: ['discovery', 'iac'],
       discoveryDependencies: ['aws-ecs-services', 'aws-ecs-autoscaling'],
+      staticDependencies: ['aws-ecs-services', 'aws-ecs-autoscaling'],
     });
   });
 
@@ -899,8 +900,9 @@ describe('rule metadata', () => {
       message: 'Redshift clusters should enable both pause and resume schedules when eligible.',
       provider: 'aws',
       service: 'redshift',
-      supports: ['discovery'],
+      supports: ['discovery', 'iac'],
       discoveryDependencies: ['aws-redshift-clusters'],
+      staticDependencies: ['aws-redshift-clusters'],
     });
   });
 

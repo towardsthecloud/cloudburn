@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { ecsServiceAutoscalingPolicyRule } from '../src/aws/ecs/service-autoscaling-policy.js';
-import type { AwsEcsService, AwsEcsServiceAutoscaling } from '../src/index.js';
-import { LiveResourceBag } from '../src/index.js';
+import type {
+  AwsEcsService,
+  AwsEcsServiceAutoscaling,
+  AwsStaticEcsService,
+  AwsStaticEcsServiceAutoscaling,
+} from '../src/index.js';
+import { LiveResourceBag, StaticResourceBag } from '../src/index.js';
 
 const createService = (overrides: Partial<AwsEcsService> = {}): AwsEcsService => ({
   accountId: '123456789012',
@@ -23,6 +28,29 @@ const createAutoscaling = (overrides: Partial<AwsEcsServiceAutoscaling> = {}): A
   hasScalingPolicy: true,
   region: 'us-east-1',
   serviceArn: 'arn:aws:ecs:us-east-1:123456789012:service/production/web',
+  serviceName: 'web',
+  ...overrides,
+});
+
+const createStaticService = (overrides: Partial<AwsStaticEcsService> = {}): AwsStaticEcsService => ({
+  clusterName: 'production',
+  location: {
+    path: 'main.tf',
+    line: 5,
+    column: 3,
+  },
+  resourceId: 'aws_ecs_service.web',
+  schedulingStrategy: 'REPLICA',
+  serviceName: 'web',
+  ...overrides,
+});
+
+const createStaticAutoscaling = (
+  overrides: Partial<AwsStaticEcsServiceAutoscaling> = {},
+): AwsStaticEcsServiceAutoscaling => ({
+  clusterName: 'production',
+  hasScalableTarget: true,
+  hasScalingPolicy: true,
   serviceName: 'web',
   ...overrides,
 });
@@ -86,5 +114,60 @@ describe('ecsServiceAutoscalingPolicyRule', () => {
     });
 
     expect(finding).toBeNull();
+  });
+
+  it('flags static REPLICA services without full autoscaling coverage', () => {
+    const finding = ecsServiceAutoscalingPolicyRule.evaluateStatic?.({
+      resources: new StaticResourceBag({
+        'aws-ecs-services': [createStaticService()],
+        'aws-ecs-autoscaling': [createStaticAutoscaling({ hasScalingPolicy: false })],
+      }),
+    });
+
+    expect(finding).toEqual({
+      ruleId: 'CLDBRN-AWS-ECS-3',
+      service: 'ecs',
+      source: 'iac',
+      message: 'Active REPLICA ECS services should use an autoscaling policy.',
+      findings: [
+        {
+          location: {
+            path: 'main.tf',
+            line: 5,
+            column: 3,
+          },
+          resourceId: 'aws_ecs_service.web',
+        },
+      ],
+    });
+  });
+
+  it('flags static services with missing autoscaling coverage and skips unresolved identities', () => {
+    const finding = ecsServiceAutoscalingPolicyRule.evaluateStatic?.({
+      resources: new StaticResourceBag({
+        'aws-ecs-services': [
+          createStaticService(),
+          createStaticService({ clusterName: null, resourceId: 'UnresolvedService', serviceName: 'api' }),
+        ],
+        'aws-ecs-autoscaling': [],
+      }),
+    });
+
+    expect(finding).toEqual({
+      ruleId: 'CLDBRN-AWS-ECS-3',
+      service: 'ecs',
+      source: 'iac',
+      message: 'Active REPLICA ECS services should use an autoscaling policy.',
+      findings: [
+        {
+          location: {
+            path: 'main.tf',
+            line: 5,
+            column: 3,
+          },
+          resourceId: 'aws_ecs_service.web',
+        },
+      ],
+    });
   });
 });

@@ -30,6 +30,7 @@ Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
 | `CLDBRN-AWS-DYNAMODB-1` | DynamoDB Table Stale Data              | dynamodb | discovery     | Implemented |
 | `CLDBRN-AWS-DYNAMODB-2` | DynamoDB Table Without Autoscaling     | dynamodb | discovery, iac     | Implemented |
 | `CLDBRN-AWS-DYNAMODB-3` | DynamoDB Table Unused                  | dynamodb | discovery     | Implemented |
+| `CLDBRN-AWS-DYNAMODB-4` | DynamoDB Autoscaling Range Fixed       | dynamodb | iac           | Implemented |
 | `CLDBRN-AWS-EC2-1`    | EC2 Instance Type Not Preferred           | ec2     | iac, discovery | Implemented |
 | `CLDBRN-AWS-EC2-2`    | S3 Interface VPC Endpoint Used            | ec2     | iac            | Implemented |
 | `CLDBRN-AWS-EC2-3`    | Elastic IP Address Unassociated           | ec2     | discovery, iac      | Implemented |
@@ -39,9 +40,10 @@ Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
 | `CLDBRN-AWS-EC2-7`    | EC2 Reserved Instance Expiring            | ec2     | discovery      | Implemented |
 | `CLDBRN-AWS-EC2-8`    | EC2 Instance Large Size                   | ec2     | discovery, iac      | Implemented |
 | `CLDBRN-AWS-EC2-9`    | EC2 Instance Long Running                 | ec2     | discovery      | Implemented |
+| `CLDBRN-AWS-EC2-10`   | EC2 Instance Detailed Monitoring Enabled  | ec2     | iac            | Implemented |
 | `CLDBRN-AWS-ECS-1`    | ECS Container Instance Without Graviton   | ecs     | discovery      | Implemented |
 | `CLDBRN-AWS-ECS-2`    | ECS Cluster Low CPU Utilization           | ecs     | discovery      | Implemented |
-| `CLDBRN-AWS-ECS-3`    | ECS Service Missing Autoscaling Policy    | ecs     | discovery      | Implemented |
+| `CLDBRN-AWS-ECS-3`    | ECS Service Missing Autoscaling Policy    | ecs     | discovery, iac | Implemented |
 | `CLDBRN-AWS-EBS-1`    | EBS Volume Type Not Current Generation    | ebs     | discovery, iac | Implemented |
 | `CLDBRN-AWS-EBS-2`    | EBS Volume Unattached                     | ebs     | discovery      | Implemented |
 | `CLDBRN-AWS-EBS-3`    | EBS Volume Attached To Stopped Instances  | ebs     | discovery      | Implemented |
@@ -49,7 +51,11 @@ Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
 | `CLDBRN-AWS-EBS-5`    | EBS Volume High Provisioned IOPS          | ebs     | discovery, iac      | Implemented |
 | `CLDBRN-AWS-EBS-6`    | EBS Volume Low Provisioned IOPS On io1/io2 | ebs   | discovery, iac      | Implemented |
 | `CLDBRN-AWS-EBS-7`    | EBS Snapshot Max Age Exceeded             | ebs     | discovery      | Implemented |
+| `CLDBRN-AWS-EBS-8`    | EBS gp3 Volume Extra Throughput Provisioned | ebs   | iac            | Implemented |
+| `CLDBRN-AWS-EBS-9`    | EBS gp3 Volume Extra IOPS Provisioned     | ebs     | iac            | Implemented |
 | `CLDBRN-AWS-ECR-1`    | ECR Repository Missing Lifecycle Policy   | ecr     | iac, discovery | Implemented |
+| `CLDBRN-AWS-ECR-2`    | ECR Lifecycle Policy Missing Untagged Image Expiry | ecr | iac       | Implemented |
+| `CLDBRN-AWS-ECR-3`    | ECR Lifecycle Policy Missing Tagged Image Retention Cap | ecr | iac | Implemented |
 | `CLDBRN-AWS-EKS-1`    | EKS Node Group Without Graviton           | eks     | discovery, iac      | Implemented |
 | `CLDBRN-AWS-ELASTICACHE-1` | ElastiCache Cluster Missing Reserved Coverage | elasticache | discovery | Implemented |
 | `CLDBRN-AWS-ELASTICACHE-2` | ElastiCache Cluster Idle              | elasticache | discovery | Implemented |
@@ -67,19 +73,22 @@ Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
 | `CLDBRN-AWS-RDS-5`    | RDS DB Instance Low CPU Utilization       | rds     | discovery      | Implemented |
 | `CLDBRN-AWS-RDS-6`    | RDS DB Instance Unsupported Engine Version | rds    | discovery, iac      | Implemented |
 | `CLDBRN-AWS-RDS-7`    | RDS Snapshot Without Source DB Instance   | rds     | discovery      | Implemented |
+| `CLDBRN-AWS-RDS-8`    | RDS Performance Insights Extended Retention | rds   | iac            | Implemented |
 | `CLDBRN-AWS-REDSHIFT-1` | Redshift Cluster Low CPU Utilization    | redshift | discovery     | Implemented |
 | `CLDBRN-AWS-REDSHIFT-2` | Redshift Cluster Missing Reserved Coverage | redshift | discovery   | Implemented |
-| `CLDBRN-AWS-REDSHIFT-3` | Redshift Cluster Pause Resume Not Enabled | redshift | discovery    | Implemented |
+| `CLDBRN-AWS-REDSHIFT-3` | Redshift Cluster Pause Resume Not Enabled | redshift | discovery, iac | Implemented |
 | `CLDBRN-AWS-ROUTE53-1` | Route 53 Record Higher TTL              | route53 | discovery, iac      | Implemented |
 | `CLDBRN-AWS-ROUTE53-2` | Route 53 Health Check Unused            | route53 | discovery, iac      | Implemented |
 | `CLDBRN-AWS-S3-1`     | S3 Missing Lifecycle Configuration        | s3      | iac, discovery | Implemented |
 | `CLDBRN-AWS-S3-2`     | S3 Bucket Storage Class Not Optimized     | s3      | iac, discovery | Implemented |
 | `CLDBRN-AWS-S3-3`     | S3 Incomplete Multipart Upload Abort Configuration | s3 | iac, discovery | Implemented |
+| `CLDBRN-AWS-S3-4`     | S3 Versioned Bucket Missing Noncurrent Version Cleanup | s3 | iac      | Implemented |
 | `CLDBRN-AWS-SECRETSMANAGER-1` | Secrets Manager Secret Unused    | secretsmanager | discovery | Implemented |
 | `CLDBRN-AWS-LAMBDA-1` | Lambda Cost Optimal Architecture          | lambda  | iac, discovery | Implemented |
 | `CLDBRN-AWS-LAMBDA-2` | Lambda Function High Error Rate           | lambda  | discovery      | Implemented |
 | `CLDBRN-AWS-LAMBDA-3` | Lambda Function Excessive Timeout         | lambda  | discovery      | Implemented |
 | `CLDBRN-AWS-LAMBDA-4` | Lambda Function Memory Overprovisioned    | lambda  | discovery      | Implemented |
+| `CLDBRN-AWS-LAMBDA-5` | Lambda Provisioned Concurrency Configured | lambda  | iac            | Implemented |
 
 `CLDBRN-AWS-APIGATEWAY-1` flags REST API stages when `cacheClusterEnabled` is not explicitly `true`.
 
@@ -113,6 +122,8 @@ Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
 
 `CLDBRN-AWS-DYNAMODB-3` reviews only provisioned-capacity tables and flags them when 30 days of consumed read and write capacity both sum to zero.
 
+`CLDBRN-AWS-DYNAMODB-4` reviews only provisioned-capacity tables and flags them when statically resolved read or write autoscaling ranges have identical min and max capacity values.
+
 `CLDBRN-AWS-EC2-6` flags only families with a curated Graviton-equivalent path. Instances without architecture metadata or outside the curated family set are skipped.
 
 `CLDBRN-AWS-EC2-7` reviews only active reserved instances with an `endTime` inside the next 60 days.
@@ -121,11 +132,21 @@ Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
 
 `CLDBRN-AWS-EC2-9` flags only instances with a parsed launch timestamp at least 180 days old.
 
+`CLDBRN-AWS-EC2-10` flags IaC-defined instances only when detailed monitoring is explicitly enabled.
+
 `CLDBRN-AWS-ECS-1` flags only EC2-backed container instances whose instance families have a curated Graviton-equivalent path. Fargate and unclassified backing instances are skipped.
 
 `CLDBRN-AWS-ECS-2` flags only ECS clusters with a complete 14-day `AWS/ECS` CPU history and an average below `10%`.
 
 `CLDBRN-AWS-ECS-3` flags only active `REPLICA` ECS services and requires both a scalable target and at least one scaling policy.
+
+`CLDBRN-AWS-EBS-8` flags only `gp3` volumes whose provisioned throughput is above the included `125 MiB/s` baseline.
+
+`CLDBRN-AWS-EBS-9` flags only `gp3` volumes whose provisioned or defaulted IOPS exceed the included `3000` baseline.
+
+`CLDBRN-AWS-ECR-2` reviews only repositories with a lifecycle policy and flags them when the statically parsed policy does not expire untagged images.
+
+`CLDBRN-AWS-ECR-3` reviews only repositories with a lifecycle policy and flags them when the statically parsed policy does not cap tagged image retention.
 
 `CLDBRN-AWS-EKS-1` flags only managed node groups with classifiable non-Arm instance families. Arm AMIs and unclassified node groups are skipped.
 
@@ -147,6 +168,8 @@ Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
 
 `CLDBRN-AWS-LAMBDA-4` reviews only functions configured above `256 MB`, requires invocation history, and flags them when the observed 7-day average duration uses less than `30%` of the configured timeout.
 
+`CLDBRN-AWS-LAMBDA-5` flags explicit provisioned concurrency configuration when provisioned concurrent executions are greater than zero.
+
 `CLDBRN-AWS-RDS-3` reviews only `available` DB instances with a parsed create time at least 180 days old and requires active reserved-instance coverage on the same instance class, deployment mode, and normalized engine when AWS reports it.
 
 `CLDBRN-AWS-RDS-4` flags only curated non-Graviton RDS families with a clear Graviton migration path. Existing Graviton classes and unclassified families are skipped.
@@ -156,6 +179,8 @@ Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
 `CLDBRN-AWS-RDS-6` flags only RDS MySQL `5.7.x` and PostgreSQL `11.x` DB instances for extended-support review.
 
 `CLDBRN-AWS-RDS-7` flags only snapshots whose source DB instance no longer exists and whose parsed create time is at least `30` days old.
+
+`CLDBRN-AWS-RDS-8` flags only DB instances with Performance Insights enabled and a retention period above the included 7-day baseline.
 
 `CLDBRN-AWS-REDSHIFT-1` reviews only `available` clusters and treats a 14-day average `CPUUtilization` of 10% or lower as low utilization.
 
@@ -168,6 +193,8 @@ Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
 `CLDBRN-AWS-ROUTE53-2` flags only Route 53 health checks that are not referenced by any in-scope record set.
 
 `CLDBRN-AWS-S3-3` flags buckets when no enabled lifecycle rule aborts incomplete multipart uploads within 7 days.
+
+`CLDBRN-AWS-S3-4` flags only versioned buckets and requires either noncurrent-version expiration or transition cleanup to avoid unbounded version growth.
 
 `CLDBRN-AWS-SECRETSMANAGER-1` flags secrets with no `lastAccessedDate` and secrets whose parsed last access is at least `90` days old.
 

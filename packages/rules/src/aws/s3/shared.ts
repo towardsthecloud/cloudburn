@@ -21,6 +21,11 @@ export const hasMissingStorageClassOptimization = (bucket: AwsS3BucketAnalysisFl
   !bucket.hasIntelligentTieringTransition &&
   !bucket.hasAlternativeStorageClassTransition;
 
+/** Returns whether a versioned S3 bucket should be flagged for missing noncurrent-version cleanup. */
+export const hasMissingNoncurrentVersionCleanup = (
+  bucket: Pick<AwsStaticS3BucketAnalysis, 'versioningEnabled' | 'hasNoncurrentVersionCleanup'>,
+): boolean => bucket.versioningEnabled === true && bucket.hasNoncurrentVersionCleanup !== true;
+
 /** Creates a live finding target for a discovered S3 bucket analysis. */
 export const createLiveS3BucketFindingMatch = (bucket: AwsS3BucketAnalysis) =>
   createFindingMatch(bucket.bucketName, bucket.region, bucket.accountId);

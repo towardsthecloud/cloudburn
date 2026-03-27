@@ -1,6 +1,7 @@
 import { rdsGravitonReviewRule } from './graviton-review.js';
 import { rdsIdleInstanceRule } from './idle-instance.js';
 import { rdsLowCpuUtilizationRule } from './low-cpu-utilization.js';
+import { rdsPerformanceInsightsExtendedRetentionRule } from './performance-insights-extended-retention.js';
 import { rdsPreferredInstanceClassRule } from './preferred-instance-classes.js';
 import { rdsReservedCoverageRule } from './reserved-coverage.js';
 import { rdsUnsupportedEngineVersionRule } from './unsupported-engine-version.js';
@@ -16,4 +17,5 @@ export const rdsRules = [
   rdsLowCpuUtilizationRule,
   rdsUnsupportedEngineVersionRule,
   rdsUnusedSnapshotsRule,
+  rdsPerformanceInsightsExtendedRetentionRule,
 ];
