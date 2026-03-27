@@ -41,6 +41,10 @@ const createStaticAutoscaling = (
   tableName: 'orders',
   hasReadTarget: true,
   hasWriteTarget: true,
+  readMinCapacity: null,
+  readMaxCapacity: null,
+  writeMinCapacity: null,
+  writeMaxCapacity: null,
   ...overrides,
 });
 

@@ -2,6 +2,7 @@ import { lambdaCostOptimalArchitectureRule } from './cost-optimal-architecture.j
 import { lambdaExcessiveTimeoutRule } from './excessive-timeout.js';
 import { lambdaHighErrorRateRule } from './high-error-rate.js';
 import { lambdaMemoryOverprovisioningRule } from './memory-overprovisioning.js';
+import { lambdaProvisionedConcurrencyConfiguredRule } from './provisioned-concurrency-configured.js';
 
 // Intent: aggregate AWS Lambda rule definitions.
 export const lambdaRules = [
@@ -9,4 +10,5 @@ export const lambdaRules = [
   lambdaHighErrorRateRule,
   lambdaExcessiveTimeoutRule,
   lambdaMemoryOverprovisioningRule,
+  lambdaProvisionedConcurrencyConfiguredRule,
 ];

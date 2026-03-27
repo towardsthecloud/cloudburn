@@ -13,6 +13,7 @@ const createInstance = (overrides: Partial<AwsEc2Instance> = {}): AwsEc2Instance
 });
 
 const createStaticInstance = (overrides: Partial<AwsStaticEc2Instance> = {}): AwsStaticEc2Instance => ({
+  detailedMonitoringEnabled: false,
   resourceId: 'aws_instance.app',
   instanceType: 'm7i.large',
   ...overrides,

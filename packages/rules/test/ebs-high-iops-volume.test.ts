@@ -19,6 +19,7 @@ const createStaticVolume = (overrides: Partial<AwsStaticEbsVolume> = {}): AwsSta
   volumeType: 'io2',
   sizeGiB: 200,
   iops: 40000,
+  throughputMiBps: null,
   ...overrides,
 });
 

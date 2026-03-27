@@ -20,6 +20,17 @@ const isPauseResumeEligible = (cluster: {
   cluster.multiAz?.toLowerCase() !== 'enabled' &&
   cluster.vpcId !== undefined;
 
+const isStaticPauseResumeEligible = (cluster: {
+  automatedSnapshotRetentionPeriod?: number | null;
+  hasVpc: boolean;
+  hsmEnabled: boolean | null;
+  multiAz: boolean | null;
+}): boolean =>
+  (cluster.automatedSnapshotRetentionPeriod ?? 0) > 0 &&
+  cluster.hasVpc &&
+  cluster.hsmEnabled !== true &&
+  cluster.multiAz !== true;
+
 /** Flag eligible Redshift clusters that do not have both pause and resume schedules. */
 export const redshiftPauseResumeRule = createRule({
   id: RULE_ID,
@@ -28,8 +39,9 @@ export const redshiftPauseResumeRule = createRule({
   message: RULE_MESSAGE,
   provider: 'aws',
   service: RULE_SERVICE,
-  supports: ['discovery'],
+  supports: ['discovery', 'iac'],
   discoveryDependencies: ['aws-redshift-clusters'],
+  staticDependencies: ['aws-redshift-clusters'],
   evaluateLive: ({ resources }) => {
     const findings = resources
       .get('aws-redshift-clusters')
@@ -37,5 +49,15 @@ export const redshiftPauseResumeRule = createRule({
       .map((cluster) => createFindingMatch(cluster.clusterIdentifier, cluster.region, cluster.accountId));
 
     return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+  },
+  evaluateStatic: ({ resources }) => {
+    const findings = resources
+      .get('aws-redshift-clusters')
+      .filter(
+        (cluster) => isStaticPauseResumeEligible(cluster) && (!cluster.hasPauseSchedule || !cluster.hasResumeSchedule),
+      )
+      .map((cluster) => createFindingMatch(cluster.resourceId, undefined, undefined, cluster.location));
+
+    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'iac', findings);
   },
 });
