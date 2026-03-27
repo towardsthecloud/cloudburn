@@ -1,13 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import { ec2LargeInstanceRule } from '../src/aws/ec2/large-instance.js';
-import type { AwsEc2Instance } from '../src/index.js';
-import { LiveResourceBag } from '../src/index.js';
+import type { AwsEc2Instance, AwsStaticEc2Instance } from '../src/index.js';
+import { LiveResourceBag, StaticResourceBag } from '../src/index.js';
 
 const createInstance = (overrides: Partial<AwsEc2Instance> = {}): AwsEc2Instance => ({
   accountId: '123456789012',
   instanceId: 'i-123',
   instanceType: 'm7i.2xlarge',
   region: 'us-east-1',
+  ...overrides,
+});
+
+const createStaticInstance = (overrides: Partial<AwsStaticEc2Instance> = {}): AwsStaticEc2Instance => ({
+  resourceId: 'aws_instance.app',
+  instanceType: 'm7i.2xlarge',
   ...overrides,
 });
 
@@ -34,6 +40,26 @@ describe('ec2LargeInstanceRule', () => {
           accountId: '123456789012',
           region: 'us-east-1',
           resourceId: 'i-123',
+        },
+      ],
+    });
+  });
+
+  it('flags static instances sized at 2xlarge and above', () => {
+    const finding = ec2LargeInstanceRule.evaluateStatic?.({
+      resources: new StaticResourceBag({
+        'aws-ec2-instances': [createStaticInstance()],
+      }),
+    });
+
+    expect(finding).toEqual({
+      ruleId: 'CLDBRN-AWS-EC2-8',
+      service: 'ec2',
+      source: 'iac',
+      message: 'EC2 large instances of 2xlarge or greater should be reviewed.',
+      findings: [
+        {
+          resourceId: 'aws_instance.app',
         },
       ],
     });
@@ -73,5 +99,15 @@ describe('ec2LargeInstanceRule', () => {
         resourceId: 'i-123',
       },
     ]);
+  });
+
+  it('skips static instances below the large-instance threshold', () => {
+    const finding = ec2LargeInstanceRule.evaluateStatic?.({
+      resources: new StaticResourceBag({
+        'aws-ec2-instances': [createStaticInstance({ instanceType: 'm7i.xlarge' })],
+      }),
+    });
+
+    expect(finding).toBeNull();
   });
 });

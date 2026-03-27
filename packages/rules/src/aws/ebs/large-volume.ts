@@ -6,6 +6,9 @@ const RULE_MESSAGE = 'EBS volumes larger than 100 GiB should be reviewed.';
 // Treat volumes above 100 GiB as oversized enough to warrant an explicit cost review.
 const LARGE_VOLUME_SIZE_THRESHOLD_GIB = 100;
 
+const isLargeEbsVolume = (sizeGiB: number | null | undefined): boolean =>
+  sizeGiB !== null && sizeGiB !== undefined && sizeGiB > LARGE_VOLUME_SIZE_THRESHOLD_GIB;
+
 /** Flag EBS volumes that exceed the large-volume review threshold. */
 export const ebsLargeVolumeRule = createRule({
   id: RULE_ID,
@@ -14,14 +17,23 @@ export const ebsLargeVolumeRule = createRule({
   message: RULE_MESSAGE,
   provider: 'aws',
   service: RULE_SERVICE,
-  supports: ['discovery'],
+  supports: ['discovery', 'iac'],
   discoveryDependencies: ['aws-ebs-volumes'],
+  staticDependencies: ['aws-ebs-volumes'],
   evaluateLive: ({ resources }) => {
     const findings = resources
       .get('aws-ebs-volumes')
-      .filter((volume) => volume.sizeGiB > LARGE_VOLUME_SIZE_THRESHOLD_GIB)
+      .filter((volume) => isLargeEbsVolume(volume.sizeGiB))
       .map((volume) => createFindingMatch(volume.volumeId, volume.region, volume.accountId));
 
     return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+  },
+  evaluateStatic: ({ resources }) => {
+    const findings = resources
+      .get('aws-ebs-volumes')
+      .filter((volume) => isLargeEbsVolume(volume.sizeGiB))
+      .map((volume) => createFindingMatch(volume.resourceId, undefined, undefined, volume.location));
+
+    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'iac', findings);
   },
 });

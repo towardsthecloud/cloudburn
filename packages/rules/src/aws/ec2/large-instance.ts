@@ -6,7 +6,11 @@ const RULE_MESSAGE = 'EC2 large instances of 2xlarge or greater should be review
 // Treat 2xlarge and above as the right-sizing review threshold.
 const LARGE_INSTANCE_MIN_XLARGE_MULTIPLIER = 2;
 
-const isLargeInstanceSize = (instanceType: string): boolean => {
+const isLargeInstanceSize = (instanceType: string | null | undefined): boolean => {
+  if (!instanceType) {
+    return false;
+  }
+
   const size = instanceType.split('.').slice(1).join('.').toLowerCase();
 
   if (!size) {
@@ -38,8 +42,9 @@ export const ec2LargeInstanceRule = createRule({
   message: RULE_MESSAGE,
   provider: 'aws',
   service: RULE_SERVICE,
-  supports: ['discovery'],
+  supports: ['discovery', 'iac'],
   discoveryDependencies: ['aws-ec2-instances'],
+  staticDependencies: ['aws-ec2-instances'],
   evaluateLive: ({ resources }) => {
     const findings = resources
       .get('aws-ec2-instances')
@@ -47,5 +52,13 @@ export const ec2LargeInstanceRule = createRule({
       .map((instance) => createFindingMatch(instance.instanceId, instance.region, instance.accountId));
 
     return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+  },
+  evaluateStatic: ({ resources }) => {
+    const findings = resources
+      .get('aws-ec2-instances')
+      .filter((instance) => isLargeInstanceSize(instance.instanceType))
+      .map((instance) => createFindingMatch(instance.resourceId, undefined, undefined, instance.location));
+
+    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'iac', findings);
   },
 });

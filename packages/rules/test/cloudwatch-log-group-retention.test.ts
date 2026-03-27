@@ -1,13 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import { cloudWatchLogGroupRetentionRule } from '../src/aws/cloudwatch/log-group-retention.js';
-import type { AwsCloudWatchLogGroup } from '../src/index.js';
-import { LiveResourceBag } from '../src/index.js';
+import type { AwsCloudWatchLogGroup, AwsStaticCloudWatchLogGroup } from '../src/index.js';
+import { LiveResourceBag, StaticResourceBag } from '../src/index.js';
 
 const createLogGroup = (overrides: Partial<AwsCloudWatchLogGroup> = {}): AwsCloudWatchLogGroup => ({
   accountId: '123456789012',
   logGroupArn: 'arn:aws:logs:us-east-1:123456789012:log-group:/aws/lambda/app',
   logGroupName: '/aws/lambda/app',
   region: 'us-east-1',
+  ...overrides,
+});
+
+const createStaticLogGroup = (overrides: Partial<AwsStaticCloudWatchLogGroup> = {}): AwsStaticCloudWatchLogGroup => ({
+  resourceId: 'aws_cloudwatch_log_group.app',
+  retentionInDays: undefined,
+  logGroupClass: undefined,
   ...overrides,
 });
 
@@ -67,5 +74,47 @@ describe('cloudWatchLogGroupRetentionRule', () => {
     });
 
     expect(finding).toBeNull();
+  });
+
+  it('flags static log groups without retention configured', () => {
+    const finding = cloudWatchLogGroupRetentionRule.evaluateStatic?.({
+      resources: new StaticResourceBag({
+        'aws-cloudwatch-log-groups': [createStaticLogGroup()],
+      }),
+    });
+
+    expect(finding).toEqual({
+      ruleId: 'CLDBRN-AWS-CLOUDWATCH-1',
+      service: 'cloudwatch',
+      source: 'iac',
+      message: 'CloudWatch log groups should define a retention policy unless AWS manages lifecycle automatically.',
+      findings: [
+        {
+          resourceId: 'aws_cloudwatch_log_group.app',
+        },
+      ],
+    });
+  });
+
+  it('does not flag static log groups with retention, delivery class, or unresolved retention', () => {
+    const retentionFinding = cloudWatchLogGroupRetentionRule.evaluateStatic?.({
+      resources: new StaticResourceBag({
+        'aws-cloudwatch-log-groups': [createStaticLogGroup({ retentionInDays: 30 })],
+      }),
+    });
+    const deliveryFinding = cloudWatchLogGroupRetentionRule.evaluateStatic?.({
+      resources: new StaticResourceBag({
+        'aws-cloudwatch-log-groups': [createStaticLogGroup({ logGroupClass: 'DELIVERY' })],
+      }),
+    });
+    const unknownFinding = cloudWatchLogGroupRetentionRule.evaluateStatic?.({
+      resources: new StaticResourceBag({
+        'aws-cloudwatch-log-groups': [createStaticLogGroup({ retentionInDays: null })],
+      }),
+    });
+
+    expect(retentionFinding).toBeNull();
+    expect(deliveryFinding).toBeNull();
+    expect(unknownFinding).toBeNull();
   });
 });

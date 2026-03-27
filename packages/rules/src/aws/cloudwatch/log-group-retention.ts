@@ -5,6 +5,11 @@ const RULE_SERVICE = 'cloudwatch';
 const RULE_MESSAGE =
   'CloudWatch log groups should define a retention policy unless AWS manages lifecycle automatically.';
 
+const hasMissingRetention = (
+  retentionInDays: number | null | undefined,
+  logGroupClass: string | null | undefined,
+): boolean => retentionInDays === undefined && logGroupClass !== 'DELIVERY';
+
 /** Flag CloudWatch log groups that do not define retention and are not delivery-managed. */
 export const cloudWatchLogGroupRetentionRule = createRule({
   id: RULE_ID,
@@ -13,14 +18,23 @@ export const cloudWatchLogGroupRetentionRule = createRule({
   message: RULE_MESSAGE,
   provider: 'aws',
   service: RULE_SERVICE,
-  supports: ['discovery'],
+  supports: ['discovery', 'iac'],
   discoveryDependencies: ['aws-cloudwatch-log-groups'],
+  staticDependencies: ['aws-cloudwatch-log-groups'],
   evaluateLive: ({ resources }) => {
     const findings = resources
       .get('aws-cloudwatch-log-groups')
-      .filter((logGroup) => logGroup.retentionInDays === undefined && logGroup.logGroupClass !== 'DELIVERY')
+      .filter((logGroup) => hasMissingRetention(logGroup.retentionInDays, logGroup.logGroupClass))
       .map((logGroup) => createFindingMatch(logGroup.logGroupName, logGroup.region, logGroup.accountId));
 
     return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+  },
+  evaluateStatic: ({ resources }) => {
+    const findings = resources
+      .get('aws-cloudwatch-log-groups')
+      .filter((logGroup) => hasMissingRetention(logGroup.retentionInDays, logGroup.logGroupClass))
+      .map((logGroup) => createFindingMatch(logGroup.resourceId, undefined, undefined, logGroup.location));
+
+    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'iac', findings);
   },
 });

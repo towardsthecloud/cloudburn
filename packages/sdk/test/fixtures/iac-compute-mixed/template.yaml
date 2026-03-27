@@ -1,0 +1,9 @@
+Resources:
+  LegacyAnalytics:
+    Type: AWS::EMR::Cluster
+    Properties:
+      JobFlowInstancesConfig:
+        MasterInstanceGroup:
+          InstanceType: m6i.xlarge
+        CoreInstanceGroup:
+          InstanceType: m8g.xlarge

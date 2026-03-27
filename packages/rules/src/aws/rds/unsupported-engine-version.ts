@@ -5,7 +5,7 @@ const RULE_SERVICE = 'rds';
 const RULE_MESSAGE =
   'RDS MySQL 5.7 and PostgreSQL 11 DB instances should be upgraded to avoid extended support charges.';
 
-const isUnsupportedRdsEngineVersion = (engine?: string, engineVersion?: string): boolean => {
+const isUnsupportedRdsEngineVersion = (engine?: string | null, engineVersion?: string | null): boolean => {
   const normalizedEngine = engine?.toLowerCase();
 
   if (!normalizedEngine || !engineVersion) {
@@ -27,8 +27,9 @@ export const rdsUnsupportedEngineVersionRule = createRule({
   message: RULE_MESSAGE,
   provider: 'aws',
   service: RULE_SERVICE,
-  supports: ['discovery'],
+  supports: ['discovery', 'iac'],
   discoveryDependencies: ['aws-rds-instances'],
+  staticDependencies: ['aws-rds-instances'],
   evaluateLive: ({ resources }) => {
     const findings = resources
       .get('aws-rds-instances')
@@ -36,5 +37,13 @@ export const rdsUnsupportedEngineVersionRule = createRule({
       .map((instance) => createFindingMatch(instance.dbInstanceIdentifier, instance.region, instance.accountId));
 
     return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+  },
+  evaluateStatic: ({ resources }) => {
+    const findings = resources
+      .get('aws-rds-instances')
+      .filter((instance) => isUnsupportedRdsEngineVersion(instance.engine, instance.engineVersion))
+      .map((instance) => createFindingMatch(instance.resourceId, undefined, undefined, instance.location));
+
+    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'iac', findings);
   },
 });

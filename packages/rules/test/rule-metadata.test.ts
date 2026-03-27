@@ -110,8 +110,9 @@ describe('rule metadata', () => {
       message: 'CloudWatch log groups should define a retention policy unless AWS manages lifecycle automatically.',
       provider: 'aws',
       service: 'cloudwatch',
-      supports: ['discovery'],
+      supports: ['discovery', 'iac'],
       discoveryDependencies: ['aws-cloudwatch-log-groups'],
+      staticDependencies: ['aws-cloudwatch-log-groups'],
     });
   });
 
@@ -329,8 +330,9 @@ describe('rule metadata', () => {
       message: 'EBS volumes larger than 100 GiB should be reviewed.',
       provider: 'aws',
       service: 'ebs',
-      supports: ['discovery'],
+      supports: ['discovery', 'iac'],
       discoveryDependencies: ['aws-ebs-volumes'],
+      staticDependencies: ['aws-ebs-volumes'],
     });
   });
 
@@ -345,8 +347,9 @@ describe('rule metadata', () => {
       message: 'EBS io1 and io2 volumes above 32000 IOPS should be reviewed.',
       provider: 'aws',
       service: 'ebs',
-      supports: ['discovery'],
+      supports: ['discovery', 'iac'],
       discoveryDependencies: ['aws-ebs-volumes'],
+      staticDependencies: ['aws-ebs-volumes'],
     });
   });
 
@@ -361,8 +364,9 @@ describe('rule metadata', () => {
       message: 'EBS io1 and io2 volumes at 16000 IOPS or below should be reviewed for gp3.',
       provider: 'aws',
       service: 'ebs',
-      supports: ['discovery'],
+      supports: ['discovery', 'iac'],
       discoveryDependencies: ['aws-ebs-volumes'],
+      staticDependencies: ['aws-ebs-volumes'],
     });
   });
 
@@ -393,8 +397,9 @@ describe('rule metadata', () => {
       message: 'Elastic IP addresses should not remain unassociated.',
       provider: 'aws',
       service: 'ec2',
-      supports: ['discovery'],
+      supports: ['discovery', 'iac'],
       discoveryDependencies: ['aws-ec2-elastic-ips'],
+      staticDependencies: ['aws-ec2-elastic-ips'],
     });
   });
 
@@ -409,8 +414,9 @@ describe('rule metadata', () => {
       message: 'EMR clusters using previous-generation instance types should be reviewed.',
       provider: 'aws',
       service: 'emr',
-      supports: ['discovery'],
+      supports: ['discovery', 'iac'],
       discoveryDependencies: ['aws-emr-clusters'],
+      staticDependencies: ['aws-emr-clusters'],
     });
   });
 
@@ -475,8 +481,9 @@ describe('rule metadata', () => {
       message: 'EC2 instances without a Graviton equivalent in use should be reviewed.',
       provider: 'aws',
       service: 'ec2',
-      supports: ['discovery'],
+      supports: ['discovery', 'iac'],
       discoveryDependencies: ['aws-ec2-instances'],
+      staticDependencies: ['aws-ec2-instances'],
     });
   });
 
@@ -542,8 +549,9 @@ describe('rule metadata', () => {
       message: 'EKS node groups without a Graviton equivalent in use should be reviewed.',
       provider: 'aws',
       service: 'eks',
-      supports: ['discovery'],
+      supports: ['discovery', 'iac'],
       discoveryDependencies: ['aws-eks-nodegroups'],
+      staticDependencies: ['aws-eks-nodegroups'],
     });
   });
 
@@ -574,8 +582,9 @@ describe('rule metadata', () => {
       message: 'EC2 large instances of 2xlarge or greater should be reviewed.',
       provider: 'aws',
       service: 'ec2',
-      supports: ['discovery'],
+      supports: ['discovery', 'iac'],
       discoveryDependencies: ['aws-ec2-instances'],
+      staticDependencies: ['aws-ec2-instances'],
     });
   });
 
@@ -773,8 +782,9 @@ describe('rule metadata', () => {
       message: 'RDS DB instances without a Graviton equivalent in use should be reviewed.',
       provider: 'aws',
       service: 'rds',
-      supports: ['discovery'],
+      supports: ['discovery', 'iac'],
       discoveryDependencies: ['aws-rds-instances'],
+      staticDependencies: ['aws-rds-instances'],
     });
   });
 
@@ -806,8 +816,9 @@ describe('rule metadata', () => {
       message: 'RDS MySQL 5.7 and PostgreSQL 11 DB instances should be upgraded to avoid extended support charges.',
       provider: 'aws',
       service: 'rds',
-      supports: ['discovery'],
+      supports: ['discovery', 'iac'],
       discoveryDependencies: ['aws-rds-instances'],
+      staticDependencies: ['aws-rds-instances'],
     });
   });
 
@@ -886,8 +897,9 @@ describe('rule metadata', () => {
       message: 'API Gateway REST API stages should enable caching when stage caching is available.',
       provider: 'aws',
       service: 'apigateway',
-      supports: ['discovery'],
+      supports: ['discovery', 'iac'],
       discoveryDependencies: ['aws-apigateway-stages'],
+      staticDependencies: ['aws-apigateway-stages'],
     });
   });
 
@@ -902,8 +914,9 @@ describe('rule metadata', () => {
       message: 'CloudFront distributions using PriceClass_All should be reviewed for cheaper edge coverage.',
       provider: 'aws',
       service: 'cloudfront',
-      supports: ['discovery'],
+      supports: ['discovery', 'iac'],
       discoveryDependencies: ['aws-cloudfront-distributions'],
+      staticDependencies: ['aws-cloudfront-distributions'],
     });
   });
 
@@ -999,8 +1012,9 @@ describe('rule metadata', () => {
       message: 'Provisioned-capacity DynamoDB tables should use auto-scaling.',
       provider: 'aws',
       service: 'dynamodb',
-      supports: ['discovery'],
+      supports: ['discovery', 'iac'],
       discoveryDependencies: ['aws-dynamodb-tables', 'aws-dynamodb-autoscaling'],
+      staticDependencies: ['aws-dynamodb-tables', 'aws-dynamodb-autoscaling'],
     });
   });
 
@@ -1031,8 +1045,9 @@ describe('rule metadata', () => {
       message: 'Route 53 record sets should generally use TTL values of at least 3600 seconds.',
       provider: 'aws',
       service: 'route53',
-      supports: ['discovery'],
+      supports: ['discovery', 'iac'],
       discoveryDependencies: ['aws-route53-zones', 'aws-route53-records'],
+      staticDependencies: ['aws-route53-records'],
     });
   });
 
@@ -1047,8 +1062,9 @@ describe('rule metadata', () => {
       message: 'Route 53 health checks not associated with any DNS record should be deleted.',
       provider: 'aws',
       service: 'route53',
-      supports: ['discovery'],
+      supports: ['discovery', 'iac'],
       discoveryDependencies: ['aws-route53-health-checks', 'aws-route53-records'],
+      staticDependencies: ['aws-route53-health-checks', 'aws-route53-records'],
     });
   });
 

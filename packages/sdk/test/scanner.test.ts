@@ -309,6 +309,22 @@ describe('CloudBurnClient', () => {
               ],
             },
             {
+              ruleId: 'CLDBRN-AWS-EC2-6',
+              service: 'ec2',
+              source: 'iac',
+              message: 'EC2 instances without a Graviton equivalent in use should be reviewed.',
+              findings: [
+                {
+                  resourceId: 'aws_instance.web',
+                  location: {
+                    path: 'variables.tf',
+                    line: 14,
+                    column: 3,
+                  },
+                },
+              ],
+            },
+            {
               ruleId: 'CLDBRN-AWS-EBS-1',
               service: 'ebs',
               source: 'iac',
@@ -319,6 +335,22 @@ describe('CloudBurnClient', () => {
                   location: {
                     path: 'main.tf',
                     line: 4,
+                    column: 3,
+                  },
+                },
+              ],
+            },
+            {
+              ruleId: 'CLDBRN-AWS-EBS-4',
+              service: 'ebs',
+              source: 'iac',
+              message: 'EBS volumes larger than 100 GiB should be reviewed.',
+              findings: [
+                {
+                  resourceId: 'aws_ebs_volume.gp3_data',
+                  location: {
+                    path: 'main.tf',
+                    line: 10,
                     column: 3,
                   },
                 },
@@ -431,6 +463,22 @@ describe('CloudBurnClient', () => {
                 },
               ],
             },
+            {
+              ruleId: 'CLDBRN-AWS-RDS-4',
+              service: 'rds',
+              source: 'iac',
+              message: 'RDS DB instances without a Graviton equivalent in use should be reviewed.',
+              findings: [
+                {
+                  resourceId: 'aws_db_instance.legacy',
+                  location: {
+                    path: 'main.tf',
+                    line: 4,
+                    column: 3,
+                  },
+                },
+              ],
+            },
           ],
         },
       ],
@@ -468,6 +516,22 @@ describe('CloudBurnClient', () => {
                     path: 'template.yaml',
                     line: 7,
                     column: 7,
+                  },
+                },
+              ],
+            },
+            {
+              ruleId: 'CLDBRN-AWS-RDS-4',
+              service: 'rds',
+              source: 'iac',
+              message: 'RDS DB instances without a Graviton equivalent in use should be reviewed.',
+              findings: [
+                {
+                  resourceId: 'aws_db_instance.legacy',
+                  location: {
+                    path: 'main.tf',
+                    line: 4,
+                    column: 3,
                   },
                 },
               ],
@@ -550,6 +614,219 @@ describe('CloudBurnClient', () => {
                     path: 'template.yaml',
                     line: 10,
                     column: 7,
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+  });
+
+  it('returns static API Gateway, CloudFront, and CloudWatch findings from mixed IaC resources', async () => {
+    const scanner = new CloudBurnClient();
+    const fixturePath = fileURLToPath(new URL('./fixtures/iac-config-mixed', import.meta.url));
+
+    const result = await scanner.scanStatic(fixturePath);
+
+    expect(result).toEqual({
+      providers: [
+        {
+          provider: 'aws',
+          rules: [
+            {
+              ruleId: 'CLDBRN-AWS-APIGATEWAY-1',
+              service: 'apigateway',
+              source: 'iac',
+              message: 'API Gateway REST API stages should enable caching when stage caching is available.',
+              findings: [
+                {
+                  resourceId: 'aws_api_gateway_stage.prod',
+                  location: {
+                    path: 'main.tf',
+                    line: 4,
+                    column: 3,
+                  },
+                },
+              ],
+            },
+            {
+              ruleId: 'CLDBRN-AWS-CLOUDFRONT-1',
+              service: 'cloudfront',
+              source: 'iac',
+              message: 'CloudFront distributions using PriceClass_All should be reviewed for cheaper edge coverage.',
+              findings: [
+                {
+                  resourceId: 'aws_cloudfront_distribution.cdn',
+                  location: {
+                    path: 'main.tf',
+                    line: 7,
+                    column: 1,
+                  },
+                },
+              ],
+            },
+            {
+              ruleId: 'CLDBRN-AWS-CLOUDWATCH-1',
+              service: 'cloudwatch',
+              source: 'iac',
+              message:
+                'CloudWatch log groups should define a retention policy unless AWS manages lifecycle automatically.',
+              findings: [
+                {
+                  resourceId: 'MissingRetentionGroup',
+                  location: {
+                    path: 'template.yaml',
+                    line: 2,
+                    column: 3,
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+  });
+
+  it('returns static DynamoDB and Elastic IP findings from mixed IaC resources', async () => {
+    const scanner = new CloudBurnClient();
+    const fixturePath = fileURLToPath(new URL('./fixtures/iac-capacity-mixed', import.meta.url));
+
+    const result = await scanner.scanStatic(fixturePath);
+
+    expect(result).toEqual({
+      providers: [
+        {
+          provider: 'aws',
+          rules: [
+            {
+              ruleId: 'CLDBRN-AWS-DYNAMODB-2',
+              service: 'dynamodb',
+              source: 'iac',
+              message: 'Provisioned-capacity DynamoDB tables should use auto-scaling.',
+              findings: [
+                {
+                  resourceId: 'aws_dynamodb_table.logs',
+                  location: {
+                    path: 'main.tf',
+                    line: 11,
+                    column: 3,
+                  },
+                },
+              ],
+            },
+            {
+              ruleId: 'CLDBRN-AWS-EC2-3',
+              service: 'ec2',
+              source: 'iac',
+              message: 'Elastic IP addresses should not remain unassociated.',
+              findings: [
+                {
+                  resourceId: 'PublicAddress',
+                  location: {
+                    path: 'template.yaml',
+                    line: 2,
+                    column: 3,
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+  });
+
+  it('returns static EKS and EMR findings from mixed IaC resources', async () => {
+    const scanner = new CloudBurnClient();
+    const fixturePath = fileURLToPath(new URL('./fixtures/iac-compute-mixed', import.meta.url));
+
+    const result = await scanner.scanStatic(fixturePath);
+
+    expect(result).toEqual({
+      providers: [
+        {
+          provider: 'aws',
+          rules: [
+            {
+              ruleId: 'CLDBRN-AWS-EKS-1',
+              service: 'eks',
+              source: 'iac',
+              message: 'EKS node groups without a Graviton equivalent in use should be reviewed.',
+              findings: [
+                {
+                  resourceId: 'aws_eks_node_group.workers',
+                  location: {
+                    path: 'main.tf',
+                    line: 4,
+                    column: 3,
+                  },
+                },
+              ],
+            },
+            {
+              ruleId: 'CLDBRN-AWS-EMR-1',
+              service: 'emr',
+              source: 'iac',
+              message: 'EMR clusters using previous-generation instance types should be reviewed.',
+              findings: [
+                {
+                  resourceId: 'LegacyAnalytics',
+                  location: {
+                    path: 'template.yaml',
+                    line: 2,
+                    column: 3,
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+  });
+
+  it('returns static Route 53 findings from mixed IaC resources', async () => {
+    const scanner = new CloudBurnClient();
+    const fixturePath = fileURLToPath(new URL('./fixtures/iac-route53-mixed', import.meta.url));
+
+    const result = await scanner.scanStatic(fixturePath);
+
+    expect(result).toEqual({
+      providers: [
+        {
+          provider: 'aws',
+          rules: [
+            {
+              ruleId: 'CLDBRN-AWS-ROUTE53-1',
+              service: 'route53',
+              source: 'iac',
+              message: 'Route 53 record sets should generally use TTL values of at least 3600 seconds.',
+              findings: [
+                {
+                  resourceId: 'aws_route53_record.api',
+                  location: {
+                    path: 'main.tf',
+                    line: 11,
+                    column: 3,
+                  },
+                },
+              ],
+            },
+            {
+              ruleId: 'CLDBRN-AWS-ROUTE53-2',
+              service: 'route53',
+              source: 'iac',
+              message: 'Route 53 health checks not associated with any DNS record should be deleted.',
+              findings: [
+                {
+                  resourceId: 'UnusedCheck',
+                  location: {
+                    path: 'template.yaml',
+                    line: 2,
+                    column: 3,
                   },
                 },
               ],

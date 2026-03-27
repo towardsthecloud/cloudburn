@@ -57,14 +57,14 @@ describe('sdk exports', () => {
         id: 'CLDBRN-AWS-APIGATEWAY-1',
         provider: 'aws',
         service: 'apigateway',
-        supports: ['discovery'],
+        supports: ['discovery', 'iac'],
       },
       {
         description: 'Flag CloudFront distributions using PriceClass_All when a cheaper price class may suffice.',
         id: 'CLDBRN-AWS-CLOUDFRONT-1',
         provider: 'aws',
         service: 'cloudfront',
-        supports: ['discovery'],
+        supports: ['discovery', 'iac'],
       },
       {
         description: 'Flag CloudFront distributions with fewer than 100 requests over the last 30 days.',
@@ -92,7 +92,7 @@ describe('sdk exports', () => {
         id: 'CLDBRN-AWS-CLOUDWATCH-1',
         provider: 'aws',
         service: 'cloudwatch',
-        supports: ['discovery'],
+        supports: ['discovery', 'iac'],
       },
       {
         description:
@@ -142,7 +142,7 @@ describe('sdk exports', () => {
         id: 'CLDBRN-AWS-DYNAMODB-2',
         provider: 'aws',
         service: 'dynamodb',
-        supports: ['discovery'],
+        supports: ['discovery', 'iac'],
       },
       {
         description: 'Flag provisioned DynamoDB tables with no consumed read or write capacity over the last 30 days.',
@@ -178,21 +178,21 @@ describe('sdk exports', () => {
         id: 'CLDBRN-AWS-EBS-4',
         provider: 'aws',
         service: 'ebs',
-        supports: ['discovery'],
+        supports: ['discovery', 'iac'],
       },
       {
         description: 'Flag io1 and io2 EBS volumes with provisioned IOPS above 32000.',
         id: 'CLDBRN-AWS-EBS-5',
         provider: 'aws',
         service: 'ebs',
-        supports: ['discovery'],
+        supports: ['discovery', 'iac'],
       },
       {
         description: 'Flag io1 and io2 EBS volumes at 16000 IOPS or below as gp3 review candidates.',
         id: 'CLDBRN-AWS-EBS-6',
         provider: 'aws',
         service: 'ebs',
-        supports: ['discovery'],
+        supports: ['discovery', 'iac'],
       },
       {
         description: 'Flag completed EBS snapshots older than 90 days.',
@@ -220,7 +220,7 @@ describe('sdk exports', () => {
         id: 'CLDBRN-AWS-EC2-3',
         provider: 'aws',
         service: 'ec2',
-        supports: ['discovery'],
+        supports: ['discovery', 'iac'],
       },
       {
         description: 'Flag interface VPC endpoints that have processed no traffic in the last 30 days.',
@@ -243,7 +243,7 @@ describe('sdk exports', () => {
         id: 'CLDBRN-AWS-EC2-6',
         provider: 'aws',
         service: 'ec2',
-        supports: ['discovery'],
+        supports: ['discovery', 'iac'],
       },
       {
         description: 'Flag active EC2 reserved instances whose end date is within the next 60 days.',
@@ -257,7 +257,7 @@ describe('sdk exports', () => {
         id: 'CLDBRN-AWS-EC2-8',
         provider: 'aws',
         service: 'ec2',
-        supports: ['discovery'],
+        supports: ['discovery', 'iac'],
       },
       {
         description: 'Flag EC2 instances whose launch time is at least 180 days old.',
@@ -302,7 +302,7 @@ describe('sdk exports', () => {
         id: 'CLDBRN-AWS-EKS-1',
         provider: 'aws',
         service: 'eks',
-        supports: ['discovery'],
+        supports: ['discovery', 'iac'],
       },
       {
         description: 'Flag long-running ElastiCache clusters that do not have matching active reserved-node coverage.',
@@ -359,7 +359,7 @@ describe('sdk exports', () => {
         id: 'CLDBRN-AWS-EMR-1',
         provider: 'aws',
         service: 'emr',
-        supports: ['discovery'],
+        supports: ['discovery', 'iac'],
       },
       {
         description: 'Flag active EMR clusters whose `IsIdle` metric stays true for at least 30 minutes.',
@@ -425,7 +425,7 @@ describe('sdk exports', () => {
         id: 'CLDBRN-AWS-RDS-4',
         provider: 'aws',
         service: 'rds',
-        supports: ['discovery'],
+        supports: ['discovery', 'iac'],
       },
       {
         description: 'Flag available RDS DB instances whose 30-day average CPU stays at or below 10%.',
@@ -440,7 +440,7 @@ describe('sdk exports', () => {
         id: 'CLDBRN-AWS-RDS-6',
         provider: 'aws',
         service: 'rds',
-        supports: ['discovery'],
+        supports: ['discovery', 'iac'],
       },
       {
         description: 'Flag RDS snapshots older than 30 days whose source DB instance no longer exists.',
@@ -475,14 +475,14 @@ describe('sdk exports', () => {
         id: 'CLDBRN-AWS-ROUTE53-1',
         provider: 'aws',
         service: 'route53',
-        supports: ['discovery'],
+        supports: ['discovery', 'iac'],
       },
       {
         description: 'Flag Route 53 health checks not associated with any DNS record.',
         id: 'CLDBRN-AWS-ROUTE53-2',
         provider: 'aws',
         service: 'route53',
-        supports: ['discovery'],
+        supports: ['discovery', 'iac'],
       },
       {
         description: 'Ensure S3 buckets define lifecycle management policies.',

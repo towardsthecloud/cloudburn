@@ -43,8 +43,9 @@ export const eksGravitonReviewRule = createRule({
   message: RULE_MESSAGE,
   provider: 'aws',
   service: RULE_SERVICE,
-  supports: ['discovery'],
+  supports: ['discovery', 'iac'],
   discoveryDependencies: ['aws-eks-nodegroups'],
+  staticDependencies: ['aws-eks-nodegroups'],
   evaluateLive: ({ resources }) => {
     const findings = resources
       .get('aws-eks-nodegroups')
@@ -52,5 +53,13 @@ export const eksGravitonReviewRule = createRule({
       .map((nodegroup) => createFindingMatch(nodegroup.nodegroupArn, nodegroup.region, nodegroup.accountId));
 
     return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+  },
+  evaluateStatic: ({ resources }) => {
+    const findings = resources
+      .get('aws-eks-nodegroups')
+      .filter((nodegroup) => shouldReviewNodegroupForGraviton(nodegroup.instanceTypes, nodegroup.amiType ?? undefined))
+      .map((nodegroup) => createFindingMatch(nodegroup.resourceId, undefined, undefined, nodegroup.location));
+
+    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'iac', findings);
   },
 });

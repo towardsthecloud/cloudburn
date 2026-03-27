@@ -1,5 +1,8 @@
 import { createFinding, createFindingMatch, createRule } from '../../shared/helpers.js';
-import { shouldReviewAwsEc2InstanceForGraviton } from './preferred-instance-families.js';
+import {
+  shouldReviewAwsEc2InstanceForGraviton,
+  shouldReviewAwsEc2InstanceTypeForGraviton,
+} from './preferred-instance-families.js';
 
 const RULE_ID = 'CLDBRN-AWS-EC2-6';
 const RULE_SERVICE = 'ec2';
@@ -13,8 +16,9 @@ export const ec2GravitonReviewRule = createRule({
   message: RULE_MESSAGE,
   provider: 'aws',
   service: RULE_SERVICE,
-  supports: ['discovery'],
+  supports: ['discovery', 'iac'],
   discoveryDependencies: ['aws-ec2-instances'],
+  staticDependencies: ['aws-ec2-instances'],
   evaluateLive: ({ resources }) => {
     const findings = resources
       .get('aws-ec2-instances')
@@ -22,5 +26,16 @@ export const ec2GravitonReviewRule = createRule({
       .map((instance) => createFindingMatch(instance.instanceId, instance.region, instance.accountId));
 
     return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+  },
+  evaluateStatic: ({ resources }) => {
+    const findings = resources
+      .get('aws-ec2-instances')
+      .filter(
+        (instance) =>
+          instance.instanceType !== null && shouldReviewAwsEc2InstanceTypeForGraviton(instance.instanceType),
+      )
+      .map((instance) => createFindingMatch(instance.resourceId, undefined, undefined, instance.location));
+
+    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'iac', findings);
   },
 });

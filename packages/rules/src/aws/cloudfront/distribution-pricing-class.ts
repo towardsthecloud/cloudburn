@@ -12,8 +12,9 @@ export const cloudFrontDistributionPricingClassRule = createRule({
   message: RULE_MESSAGE,
   provider: 'aws',
   service: RULE_SERVICE,
-  supports: ['discovery'],
+  supports: ['discovery', 'iac'],
   discoveryDependencies: ['aws-cloudfront-distributions'],
+  staticDependencies: ['aws-cloudfront-distributions'],
   evaluateLive: ({ resources }) => {
     const findings = resources
       .get('aws-cloudfront-distributions')
@@ -23,5 +24,13 @@ export const cloudFrontDistributionPricingClassRule = createRule({
       );
 
     return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+  },
+  evaluateStatic: ({ resources }) => {
+    const findings = resources
+      .get('aws-cloudfront-distributions')
+      .filter((distribution) => distribution.priceClass === 'PriceClass_All')
+      .map((distribution) => createFindingMatch(distribution.resourceId, undefined, undefined, distribution.location));
+
+    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'iac', findings);
   },
 });

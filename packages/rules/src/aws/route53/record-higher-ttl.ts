@@ -6,6 +6,9 @@ const RULE_MESSAGE = 'Route 53 record sets should generally use TTL values of at
 // Match the upstream Route 53 guidance that treats one hour as the low-TTL review floor.
 const LOW_TTL_SECONDS = 3600;
 
+const hasLowTtl = (ttl: number | null | undefined): ttl is number =>
+  ttl !== undefined && ttl !== null && ttl < LOW_TTL_SECONDS;
+
 /** Flag Route 53 record sets whose TTL is lower than the common one-hour baseline. */
 export const route53RecordHigherTtlRule = createRule({
   id: RULE_ID,
@@ -14,8 +17,9 @@ export const route53RecordHigherTtlRule = createRule({
   message: RULE_MESSAGE,
   provider: 'aws',
   service: RULE_SERVICE,
-  supports: ['discovery'],
+  supports: ['discovery', 'iac'],
   discoveryDependencies: ['aws-route53-zones', 'aws-route53-records'],
+  staticDependencies: ['aws-route53-records'],
   evaluateLive: ({ resources }) => {
     const knownZones = new Set(resources.get('aws-route53-zones').map((zone) => zone.hostedZoneId));
     const findings = resources
@@ -28,5 +32,13 @@ export const route53RecordHigherTtlRule = createRule({
       );
 
     return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+  },
+  evaluateStatic: ({ resources }) => {
+    const findings = resources
+      .get('aws-route53-records')
+      .filter((record) => !record.isAlias && hasLowTtl(record.ttl))
+      .map((record) => createFindingMatch(record.resourceId, undefined, undefined, record.location));
+
+    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'iac', findings);
   },
 });

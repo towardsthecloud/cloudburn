@@ -596,11 +596,21 @@ export type AwsDiscoveryCatalog = {
 
 /** Rule-facing live discovery dataset key exposed through the evaluation context. */
 export type SharedDatasetKey =
+  | 'aws-apigateway-stages'
+  | 'aws-cloudfront-distributions'
+  | 'aws-cloudwatch-log-groups'
+  | 'aws-dynamodb-autoscaling'
+  | 'aws-dynamodb-tables'
   | 'aws-ebs-volumes'
   | 'aws-ecr-repositories'
+  | 'aws-ec2-elastic-ips'
   | 'aws-ec2-instances'
+  | 'aws-eks-nodegroups'
+  | 'aws-emr-clusters'
   | 'aws-lambda-functions'
   | 'aws-rds-instances'
+  | 'aws-route53-health-checks'
+  | 'aws-route53-records'
   | 'aws-s3-bucket-analyses';
 
 /** Rule-facing live discovery dataset key exposed through the evaluation context. */
@@ -713,9 +723,48 @@ export type DiscoveryDatasetMap = {
 /** Rule-facing static IaC dataset key exposed through the evaluation context. */
 export type StaticDatasetKey = SharedDatasetKey | 'aws-ec2-vpc-endpoints';
 
+/** Normalized static API Gateway stage dataset entry. */
+export type AwsStaticApiGatewayStage = {
+  resourceId: string;
+  cacheClusterEnabled: boolean | null;
+  location?: SourceLocation;
+};
+
+/** Normalized static CloudFront distribution dataset entry. */
+export type AwsStaticCloudFrontDistribution = {
+  resourceId: string;
+  priceClass: string | null;
+  location?: SourceLocation;
+};
+
+/** Normalized static CloudWatch log group dataset entry. */
+export type AwsStaticCloudWatchLogGroup = {
+  resourceId: string;
+  retentionInDays: number | null | undefined;
+  logGroupClass: string | null | undefined;
+  location?: SourceLocation;
+};
+
+/** Normalized static DynamoDB table dataset entry. */
+export type AwsStaticDynamoDbTable = {
+  resourceId: string;
+  tableName: string | null;
+  billingMode: 'PAY_PER_REQUEST' | 'PROVISIONED' | null;
+  location?: SourceLocation;
+};
+
+/** Normalized static DynamoDB table autoscaling dataset entry. */
+export type AwsStaticDynamoDbAutoscaling = {
+  tableName: string | null;
+  hasReadTarget: boolean;
+  hasWriteTarget: boolean;
+};
+
 /** Normalized static EBS volume dataset entry with a precomputed finding target. */
 export type AwsStaticEbsVolume = {
   resourceId: string;
+  sizeGiB: number | null;
+  iops: number | null;
   volumeType: string | null;
   location?: SourceLocation;
 };
@@ -734,10 +783,49 @@ export type AwsStaticEc2Instance = {
   location?: SourceLocation;
 };
 
+/** Normalized static Elastic IP dataset entry with derived association state. */
+export type AwsStaticEc2ElasticIp = {
+  resourceId: string;
+  isAssociated: boolean;
+  location?: SourceLocation;
+};
+
+/** Normalized static EKS node group dataset entry. */
+export type AwsStaticEksNodegroup = {
+  resourceId: string;
+  instanceTypes: string[];
+  amiType: string | null;
+  location?: SourceLocation;
+};
+
+/** Normalized static EMR cluster dataset entry. */
+export type AwsStaticEmrCluster = {
+  resourceId: string;
+  instanceTypes: string[];
+  location?: SourceLocation;
+};
+
+/** Normalized static Route 53 record dataset entry. */
+export type AwsStaticRoute53Record = {
+  resourceId: string;
+  isAlias: boolean;
+  ttl: number | null | undefined;
+  referencedHealthCheckResourceId: string | null;
+  location?: SourceLocation;
+};
+
+/** Normalized static Route 53 health check dataset entry. */
+export type AwsStaticRoute53HealthCheck = {
+  resourceId: string;
+  location?: SourceLocation;
+};
+
 /** Normalized static RDS instance dataset entry with a precomputed finding target. */
 export type AwsStaticRdsInstance = {
   resourceId: string;
   instanceClass: string | null;
+  engine: string | null;
+  engineVersion: string | null;
   location?: SourceLocation;
 };
 
@@ -764,12 +852,22 @@ export type AwsStaticS3BucketAnalysis = AwsS3BucketAnalysisFlags & {
 
 /** Normalized static datasets available to rule evaluators. */
 export type StaticDatasetMap = {
+  'aws-apigateway-stages': AwsStaticApiGatewayStage[];
+  'aws-cloudfront-distributions': AwsStaticCloudFrontDistribution[];
+  'aws-cloudwatch-log-groups': AwsStaticCloudWatchLogGroup[];
+  'aws-dynamodb-autoscaling': AwsStaticDynamoDbAutoscaling[];
+  'aws-dynamodb-tables': AwsStaticDynamoDbTable[];
   'aws-ebs-volumes': AwsStaticEbsVolume[];
   'aws-ecr-repositories': AwsStaticEcrRepository[];
+  'aws-ec2-elastic-ips': AwsStaticEc2ElasticIp[];
   'aws-ec2-instances': AwsStaticEc2Instance[];
+  'aws-eks-nodegroups': AwsStaticEksNodegroup[];
+  'aws-emr-clusters': AwsStaticEmrCluster[];
   'aws-lambda-functions': AwsStaticLambdaFunction[];
   'aws-ec2-vpc-endpoints': AwsStaticEc2VpcEndpoint[];
   'aws-rds-instances': AwsStaticRdsInstance[];
+  'aws-route53-health-checks': AwsStaticRoute53HealthCheck[];
+  'aws-route53-records': AwsStaticRoute53Record[];
   'aws-s3-bucket-analyses': AwsStaticS3BucketAnalysis[];
 };
 
