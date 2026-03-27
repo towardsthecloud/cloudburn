@@ -1,5 +1,15 @@
 # @cloudburn/rules
 
+## 0.20.0
+
+### Minor Changes
+
+- [#49](https://github.com/towardsthecloud/cloudburn/pull/49) [`0a91238`](https://github.com/towardsthecloud/cloudburn/commit/0a9123845a9c7486415d50fb2ee466b4b4095c04) Thanks [@axonstone](https://github.com/axonstone)! - Add new AWS discovery cost rules for Lambda memory overprovisioning, CloudWatch log groups without metric filters, DynamoDB unused tables, missing AWS cost guardrails, idle load balancers, unused CloudFront distributions, and idle ElastiCache clusters.
+
+- [#50](https://github.com/towardsthecloud/cloudburn/pull/50) [`e9b3176`](https://github.com/towardsthecloud/cloudburn/commit/e9b317658e97cc11670b0fc962eed3d08f0368d5) Thanks [@axonstone](https://github.com/axonstone)! - Add an S3 rule for buckets missing lifecycle cleanup for incomplete multipart uploads within 7 days across IaC and discovery.
+
+- [#48](https://github.com/towardsthecloud/cloudburn/pull/48) [`c5da62e`](https://github.com/towardsthecloud/cloudburn/commit/c5da62e474f04daedaea58cc26a46082dc18cbd6) Thanks [@axonstone](https://github.com/axonstone)! - Add IaC evaluation support for high-confidence AWS rules covering EBS sizing and IOPS checks, EC2 instance and Elastic IP reviews, RDS Graviton and engine-version checks, API Gateway stages, CloudFront price classes, CloudWatch log retention, DynamoDB autoscaling, EKS node groups, EMR instance generations, and Route 53 TTL and health-check usage.
+
 ## 0.19.0
 
 ### Minor Changes
