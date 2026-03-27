@@ -48,6 +48,7 @@ describe('hydrateAwsS3BucketAnalyses', () => {
       {
         accountId: '123456789012',
         bucketName: 'logs-bucket',
+        hasAbortIncompleteMultipartUploadAfter7Days: false,
         hasAlternativeStorageClassTransition: false,
         hasCostFocusedLifecycle: false,
         hasIntelligentTieringConfiguration: false,
@@ -97,6 +98,7 @@ describe('hydrateAwsS3BucketAnalyses', () => {
       {
         accountId: '123456789012',
         bucketName: 'logs-bucket',
+        hasAbortIncompleteMultipartUploadAfter7Days: false,
         hasAlternativeStorageClassTransition: false,
         hasCostFocusedLifecycle: true,
         hasIntelligentTieringConfiguration: false,
@@ -162,6 +164,7 @@ describe('hydrateAwsS3BucketAnalyses', () => {
       {
         accountId: '123456789012',
         bucketName: 'logs-bucket',
+        hasAbortIncompleteMultipartUploadAfter7Days: false,
         hasAlternativeStorageClassTransition: false,
         hasCostFocusedLifecycle: true,
         hasIntelligentTieringConfiguration: true,
@@ -211,6 +214,7 @@ describe('hydrateAwsS3BucketAnalyses', () => {
       {
         accountId: '123456789012',
         bucketName: 'logs-bucket',
+        hasAbortIncompleteMultipartUploadAfter7Days: false,
         hasAlternativeStorageClassTransition: true,
         hasCostFocusedLifecycle: true,
         hasIntelligentTieringConfiguration: false,
@@ -266,6 +270,7 @@ describe('hydrateAwsS3BucketAnalyses', () => {
       {
         accountId: '123456789012',
         bucketName: 'alpha-bucket',
+        hasAbortIncompleteMultipartUploadAfter7Days: false,
         hasAlternativeStorageClassTransition: false,
         hasCostFocusedLifecycle: true,
         hasIntelligentTieringConfiguration: false,
@@ -277,6 +282,7 @@ describe('hydrateAwsS3BucketAnalyses', () => {
       {
         accountId: '123456789012',
         bucketName: 'zeta-bucket',
+        hasAbortIncompleteMultipartUploadAfter7Days: false,
         hasAlternativeStorageClassTransition: false,
         hasCostFocusedLifecycle: false,
         hasIntelligentTieringConfiguration: false,
@@ -284,6 +290,56 @@ describe('hydrateAwsS3BucketAnalyses', () => {
         hasLifecycleSignal: false,
         hasUnclassifiedTransition: false,
         region: 'eu-west-1',
+      },
+    ]);
+  });
+
+  it('detects enabled abort-incomplete-multipart rules within 7 days', async () => {
+    const send = vi.fn(
+      async (command: GetBucketLifecycleConfigurationCommand | ListBucketIntelligentTieringConfigurationsCommand) => {
+        if (command.constructor.name === 'GetBucketLifecycleConfigurationCommand') {
+          return {
+            Rules: [
+              {
+                AbortIncompleteMultipartUpload: { DaysAfterInitiation: 7 },
+                Status: 'Enabled',
+              },
+            ],
+          };
+        }
+
+        return {
+          IntelligentTieringConfigurationList: [],
+          IsTruncated: false,
+        };
+      },
+    );
+
+    mockedCreateS3Client.mockReturnValue({ send } as never);
+
+    await expect(
+      hydrateAwsS3BucketAnalyses([
+        {
+          accountId: '123456789012',
+          arn: 'arn:aws:s3:::logs-bucket',
+          properties: [],
+          region: 'us-east-1',
+          resourceType: 's3:bucket',
+          service: 's3',
+        },
+      ]),
+    ).resolves.toEqual([
+      {
+        accountId: '123456789012',
+        bucketName: 'logs-bucket',
+        hasAbortIncompleteMultipartUploadAfter7Days: true,
+        hasAlternativeStorageClassTransition: false,
+        hasCostFocusedLifecycle: false,
+        hasIntelligentTieringConfiguration: false,
+        hasIntelligentTieringTransition: false,
+        hasLifecycleSignal: true,
+        hasUnclassifiedTransition: false,
+        region: 'us-east-1',
       },
     ]);
   });

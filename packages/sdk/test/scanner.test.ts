@@ -897,6 +897,46 @@ describe('CloudBurnClient', () => {
                 },
               ],
             },
+            {
+              ruleId: 'CLDBRN-AWS-S3-3',
+              service: 's3',
+              source: 'iac',
+              message: 'S3 buckets should abort incomplete multipart uploads within 7 days.',
+              findings: [
+                {
+                  resourceId: 'aws_s3_bucket.missing_lifecycle',
+                  location: {
+                    path: 'main.tf',
+                    line: 1,
+                    column: 1,
+                  },
+                },
+                {
+                  resourceId: 'aws_s3_bucket.expire_only',
+                  location: {
+                    path: 'main.tf',
+                    line: 5,
+                    column: 1,
+                  },
+                },
+                {
+                  resourceId: 'MissingLifecycleBucket',
+                  location: {
+                    path: 'template.yaml',
+                    line: 2,
+                    column: 3,
+                  },
+                },
+                {
+                  resourceId: 'ExpireOnlyBucket',
+                  location: {
+                    path: 'template.yaml',
+                    line: 4,
+                    column: 3,
+                  },
+                },
+              ],
+            },
           ],
         },
       ],

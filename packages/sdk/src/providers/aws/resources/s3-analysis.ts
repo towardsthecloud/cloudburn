@@ -42,6 +42,16 @@ const getTransitionStorageClasses = (rule: Record<string, unknown>): string[] =>
 const hasTransitionAction = (rule: Record<string, unknown>): boolean =>
   getTerraformTransitions(rule).length > 0 || getCloudFormationTransitions(rule).length > 0;
 
+const getAbortIncompleteMultipartUploadDays = (rule: Record<string, unknown>): number | null => {
+  const terraformAbortRule = toRecordArray(rule.abort_incomplete_multipart_upload)[0];
+  const cloudFormationAbortRule = isRecord(rule.AbortIncompleteMultipartUpload)
+    ? rule.AbortIncompleteMultipartUpload
+    : null;
+  const candidateValue = terraformAbortRule?.days_after_initiation ?? cloudFormationAbortRule?.DaysAfterInitiation;
+
+  return typeof candidateValue === 'number' ? candidateValue : null;
+};
+
 const hasUnclassifiedTransition = (rule: Record<string, unknown>): boolean =>
   [...getTerraformTransitions(rule), ...getCloudFormationTransitions(rule)].some(
     (transition) => getLiteralStorageClass(transition.storage_class ?? transition.StorageClass) === null,
@@ -56,6 +66,16 @@ const hasCostFocusedLifecycleRule = (rule: Record<string, unknown>): boolean => 
   }
 
   return ruleHasTerraformExpiration(rule) || ruleHasCloudFormationExpiration(rule) || hasTransitionAction(rule);
+};
+
+const hasAbortIncompleteMultipartUploadAfter7Days = (rule: Record<string, unknown>): boolean => {
+  if (!isLifecycleRuleEnabled(rule)) {
+    return false;
+  }
+
+  const daysAfterInitiation = getAbortIncompleteMultipartUploadDays(rule);
+
+  return daysAfterInitiation !== null && daysAfterInitiation <= 7;
 };
 
 const hasEnabledIntelligentTieringConfiguration = (configuration: Record<string, unknown>): boolean => {
@@ -82,6 +102,9 @@ export const buildS3BucketAnalysisFlags = (
   return {
     hasLifecycleSignal: lifecycleRules.length > 0,
     hasCostFocusedLifecycle: lifecycleRules.some((rule) => hasCostFocusedLifecycleRule(rule)),
+    hasAbortIncompleteMultipartUploadAfter7Days: lifecycleRules.some((rule) =>
+      hasAbortIncompleteMultipartUploadAfter7Days(rule),
+    ),
     hasIntelligentTieringConfiguration: intelligentTieringConfigurations.some((configuration) =>
       hasEnabledIntelligentTieringConfiguration(configuration),
     ),

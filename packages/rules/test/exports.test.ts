@@ -111,6 +111,7 @@ describe('rule exports', () => {
         'CLDBRN-AWS-ROUTE53-2',
         'CLDBRN-AWS-S3-1',
         'CLDBRN-AWS-S3-2',
+        'CLDBRN-AWS-S3-3',
         'CLDBRN-AWS-SECRETSMANAGER-1',
       ]),
     );

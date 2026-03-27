@@ -74,6 +74,7 @@ Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
 | `CLDBRN-AWS-ROUTE53-2` | Route 53 Health Check Unused            | route53 | discovery, iac      | Implemented |
 | `CLDBRN-AWS-S3-1`     | S3 Missing Lifecycle Configuration        | s3      | iac, discovery | Implemented |
 | `CLDBRN-AWS-S3-2`     | S3 Bucket Storage Class Not Optimized     | s3      | iac, discovery | Implemented |
+| `CLDBRN-AWS-S3-3`     | S3 Incomplete Multipart Upload Abort Configuration | s3 | iac, discovery | Implemented |
 | `CLDBRN-AWS-SECRETSMANAGER-1` | Secrets Manager Secret Unused    | secretsmanager | discovery | Implemented |
 | `CLDBRN-AWS-LAMBDA-1` | Lambda Cost Optimal Architecture          | lambda  | iac, discovery | Implemented |
 | `CLDBRN-AWS-LAMBDA-2` | Lambda Function High Error Rate           | lambda  | discovery      | Implemented |
@@ -165,6 +166,8 @@ Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
 `CLDBRN-AWS-ROUTE53-1` reviews only non-alias records and treats `3600` seconds as the low-TTL floor.
 
 `CLDBRN-AWS-ROUTE53-2` flags only Route 53 health checks that are not referenced by any in-scope record set.
+
+`CLDBRN-AWS-S3-3` flags buckets when no enabled lifecycle rule aborts incomplete multipart uploads within 7 days.
 
 `CLDBRN-AWS-SECRETSMANAGER-1` flags secrets with no `lastAccessedDate` and secrets whose parsed last access is at least `90` days old.
 

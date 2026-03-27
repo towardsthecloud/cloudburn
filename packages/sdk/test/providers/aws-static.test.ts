@@ -1654,6 +1654,7 @@ describe('aws static dataset registry', () => {
       ]),
     ).toEqual([
       {
+        hasAbortIncompleteMultipartUploadAfter7Days: false,
         hasAlternativeStorageClassTransition: false,
         hasCostFocusedLifecycle: true,
         hasIntelligentTieringConfiguration: false,
@@ -1709,6 +1710,7 @@ describe('aws static dataset registry', () => {
       ]),
     ).toEqual([
       {
+        hasAbortIncompleteMultipartUploadAfter7Days: false,
         hasAlternativeStorageClassTransition: false,
         hasCostFocusedLifecycle: true,
         hasIntelligentTieringConfiguration: false,
@@ -1760,12 +1762,116 @@ describe('aws static dataset registry', () => {
       ]),
     ).toEqual([
       {
+        hasAbortIncompleteMultipartUploadAfter7Days: false,
         hasAlternativeStorageClassTransition: false,
         hasCostFocusedLifecycle: true,
         hasIntelligentTieringConfiguration: false,
         hasIntelligentTieringTransition: false,
         hasLifecycleSignal: true,
         hasUnclassifiedTransition: true,
+        location: {
+          path: 'template.yaml',
+          line: 3,
+          column: 3,
+        },
+        resourceId: 'LogsBucket',
+      },
+    ]);
+  });
+
+  it('builds S3 bucket analyses with abort-incomplete-multipart rules from Terraform lifecycle resources', () => {
+    const definition = getAwsStaticDatasetDefinition('aws-s3-bucket-analyses');
+
+    expect(
+      definition?.load([
+        createIaCResource({
+          type: 'aws_s3_bucket',
+          name: 'logs',
+          location: {
+            path: 'main.tf',
+            line: 1,
+            column: 1,
+          },
+          attributes: {
+            bucket: 'example-logs',
+          },
+        }),
+        createIaCResource({
+          type: 'aws_s3_bucket_lifecycle_configuration',
+          name: 'logs',
+          attributes: {
+            bucket: '${' + 'aws_s3_bucket.logs.id}',
+            rule: [
+              {
+                abort_incomplete_multipart_upload: [
+                  {
+                    days_after_initiation: 7,
+                  },
+                ],
+                id: 'abort-multipart',
+                status: 'Enabled',
+              },
+            ],
+          },
+        }),
+      ]),
+    ).toEqual([
+      {
+        hasAbortIncompleteMultipartUploadAfter7Days: true,
+        hasAlternativeStorageClassTransition: false,
+        hasCostFocusedLifecycle: false,
+        hasIntelligentTieringConfiguration: false,
+        hasIntelligentTieringTransition: false,
+        hasLifecycleSignal: true,
+        hasUnclassifiedTransition: false,
+        location: {
+          path: 'main.tf',
+          line: 1,
+          column: 1,
+        },
+        resourceId: 'aws_s3_bucket.logs',
+      },
+    ]);
+  });
+
+  it('builds S3 bucket analyses with abort-incomplete-multipart rules from CloudFormation buckets', () => {
+    const definition = getAwsStaticDatasetDefinition('aws-s3-bucket-analyses');
+
+    expect(
+      definition?.load([
+        createIaCResource({
+          type: 'AWS::S3::Bucket',
+          name: 'LogsBucket',
+          location: {
+            path: 'template.yaml',
+            line: 3,
+            column: 3,
+          },
+          attributes: {
+            Properties: {
+              LifecycleConfiguration: {
+                Rules: [
+                  {
+                    AbortIncompleteMultipartUpload: {
+                      DaysAfterInitiation: 7,
+                    },
+                    Status: 'Enabled',
+                  },
+                ],
+              },
+            },
+          },
+        }),
+      ]),
+    ).toEqual([
+      {
+        hasAbortIncompleteMultipartUploadAfter7Days: true,
+        hasAlternativeStorageClassTransition: false,
+        hasCostFocusedLifecycle: false,
+        hasIntelligentTieringConfiguration: false,
+        hasIntelligentTieringTransition: false,
+        hasLifecycleSignal: true,
+        hasUnclassifiedTransition: false,
         location: {
           path: 'template.yaml',
           line: 3,

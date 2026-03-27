@@ -4,6 +4,7 @@ import type { AwsS3BucketAnalysis, AwsStaticS3BucketAnalysis } from '../src/inde
 import { LiveResourceBag, StaticResourceBag } from '../src/index.js';
 
 const createBucketAnalysis = (overrides: Partial<AwsStaticS3BucketAnalysis> = {}): AwsStaticS3BucketAnalysis => ({
+  hasAbortIncompleteMultipartUploadAfter7Days: false,
   hasAlternativeStorageClassTransition: false,
   hasCostFocusedLifecycle: false,
   hasIntelligentTieringConfiguration: false,
@@ -22,6 +23,7 @@ const createBucketAnalysis = (overrides: Partial<AwsStaticS3BucketAnalysis> = {}
 const createLiveBucketAnalysis = (overrides: Partial<AwsS3BucketAnalysis> = {}): AwsS3BucketAnalysis => ({
   accountId: '123456789012',
   bucketName: 'logs-bucket',
+  hasAbortIncompleteMultipartUploadAfter7Days: false,
   hasAlternativeStorageClassTransition: false,
   hasCostFocusedLifecycle: false,
   hasIntelligentTieringConfiguration: false,

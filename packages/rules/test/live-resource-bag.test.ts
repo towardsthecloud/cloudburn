@@ -8,6 +8,7 @@ describe('LiveResourceBag', () => {
         {
           accountId: '123456789012',
           bucketName: 'logs-bucket',
+          hasAbortIncompleteMultipartUploadAfter7Days: false,
           hasAlternativeStorageClassTransition: false,
           hasCostFocusedLifecycle: false,
           hasIntelligentTieringConfiguration: false,
@@ -23,6 +24,7 @@ describe('LiveResourceBag', () => {
       {
         accountId: '123456789012',
         bucketName: 'logs-bucket',
+        hasAbortIncompleteMultipartUploadAfter7Days: false,
         hasAlternativeStorageClassTransition: false,
         hasCostFocusedLifecycle: false,
         hasIntelligentTieringConfiguration: false,
