@@ -20,14 +20,26 @@ import {
   waitForAwsResourceExplorerSetup,
 } from '../../src/providers/aws/resource-explorer.js';
 import { hydrateAwsApiGatewayStages } from '../../src/providers/aws/resources/apigateway.js';
-import { hydrateAwsCloudFrontDistributions } from '../../src/providers/aws/resources/cloudfront.js';
+import {
+  hydrateAwsCloudFrontDistributionRequestActivity,
+  hydrateAwsCloudFrontDistributions,
+} from '../../src/providers/aws/resources/cloudfront.js';
 import { hydrateAwsCloudTrailTrails } from '../../src/providers/aws/resources/cloudtrail.js';
 import {
   hydrateAwsCloudWatchLogGroups,
+  hydrateAwsCloudWatchLogMetricFilterCoverage,
   hydrateAwsCloudWatchLogStreams,
 } from '../../src/providers/aws/resources/cloudwatch-logs.js';
 import { hydrateAwsCostUsage } from '../../src/providers/aws/resources/cost-explorer.js';
-import { hydrateAwsDynamoDbAutoscaling, hydrateAwsDynamoDbTables } from '../../src/providers/aws/resources/dynamodb.js';
+import {
+  hydrateAwsCostAnomalyMonitors,
+  hydrateAwsCostGuardrailBudgets,
+} from '../../src/providers/aws/resources/cost-guardrails.js';
+import {
+  hydrateAwsDynamoDbAutoscaling,
+  hydrateAwsDynamoDbTables,
+  hydrateAwsDynamoDbTableUtilization,
+} from '../../src/providers/aws/resources/dynamodb.js';
 import { hydrateAwsEbsSnapshots, hydrateAwsEbsVolumes } from '../../src/providers/aws/resources/ebs.js';
 import { hydrateAwsEc2Instances } from '../../src/providers/aws/resources/ec2.js';
 import { hydrateAwsEc2ReservedInstances } from '../../src/providers/aws/resources/ec2-reserved-instances.js';
@@ -42,10 +54,15 @@ import { hydrateAwsEcsAutoscaling } from '../../src/providers/aws/resources/ecs-
 import { hydrateAwsEcsClusterMetrics } from '../../src/providers/aws/resources/ecs-cluster-metrics.js';
 import { hydrateAwsEksNodegroups } from '../../src/providers/aws/resources/eks.js';
 import {
+  hydrateAwsElastiCacheClusterActivity,
   hydrateAwsElastiCacheClusters,
   hydrateAwsElastiCacheReservedNodes,
 } from '../../src/providers/aws/resources/elasticache.js';
-import { hydrateAwsEc2LoadBalancers, hydrateAwsEc2TargetGroups } from '../../src/providers/aws/resources/elbv2.js';
+import {
+  hydrateAwsEc2LoadBalancerRequestActivity,
+  hydrateAwsEc2LoadBalancers,
+  hydrateAwsEc2TargetGroups,
+} from '../../src/providers/aws/resources/elbv2.js';
 import { hydrateAwsEmrClusterMetrics, hydrateAwsEmrClusters } from '../../src/providers/aws/resources/emr.js';
 import {
   hydrateAwsLambdaFunctionMetrics,
@@ -100,6 +117,7 @@ vi.mock('../../src/providers/aws/resources/ebs.js', () => ({
 }));
 
 vi.mock('../../src/providers/aws/resources/elasticache.js', () => ({
+  hydrateAwsElastiCacheClusterActivity: vi.fn(),
   hydrateAwsElastiCacheClusters: vi.fn(),
   hydrateAwsElastiCacheReservedNodes: vi.fn(),
 }));
@@ -127,11 +145,13 @@ vi.mock('../../src/providers/aws/resources/apigateway.js', () => ({
 }));
 
 vi.mock('../../src/providers/aws/resources/cloudfront.js', () => ({
+  hydrateAwsCloudFrontDistributionRequestActivity: vi.fn(),
   hydrateAwsCloudFrontDistributions: vi.fn(),
 }));
 
 vi.mock('../../src/providers/aws/resources/cloudwatch-logs.js', () => ({
   hydrateAwsCloudWatchLogGroups: vi.fn(),
+  hydrateAwsCloudWatchLogMetricFilterCoverage: vi.fn(),
   hydrateAwsCloudWatchLogStreams: vi.fn(),
 }));
 
@@ -139,8 +159,14 @@ vi.mock('../../src/providers/aws/resources/cost-explorer.js', () => ({
   hydrateAwsCostUsage: vi.fn(),
 }));
 
+vi.mock('../../src/providers/aws/resources/cost-guardrails.js', () => ({
+  hydrateAwsCostAnomalyMonitors: vi.fn(),
+  hydrateAwsCostGuardrailBudgets: vi.fn(),
+}));
+
 vi.mock('../../src/providers/aws/resources/dynamodb.js', () => ({
   hydrateAwsDynamoDbAutoscaling: vi.fn(),
+  hydrateAwsDynamoDbTableUtilization: vi.fn(),
   hydrateAwsDynamoDbTables: vi.fn(),
 }));
 
@@ -175,6 +201,7 @@ vi.mock('../../src/providers/aws/resources/lambda.js', () => ({
 }));
 
 vi.mock('../../src/providers/aws/resources/elbv2.js', () => ({
+  hydrateAwsEc2LoadBalancerRequestActivity: vi.fn(),
   hydrateAwsEc2LoadBalancers: vi.fn(),
   hydrateAwsEc2TargetGroups: vi.fn(),
 }));
@@ -222,14 +249,22 @@ const mockedWaitForAwsResourceExplorerIndex = vi.mocked(waitForAwsResourceExplor
 const mockedWaitForAwsResourceExplorerSetup = vi.mocked(waitForAwsResourceExplorerSetup);
 const mockedHydrateAwsApiGatewayStages = vi.mocked(hydrateAwsApiGatewayStages);
 const mockedHydrateAwsCloudFrontDistributions = vi.mocked(hydrateAwsCloudFrontDistributions);
+const _mockedHydrateAwsCloudFrontDistributionRequestActivity = vi.mocked(
+  hydrateAwsCloudFrontDistributionRequestActivity,
+);
 const mockedHydrateAwsCloudTrailTrails = vi.mocked(hydrateAwsCloudTrailTrails);
 const mockedHydrateAwsCloudWatchLogGroups = vi.mocked(hydrateAwsCloudWatchLogGroups);
+const mockedHydrateAwsCloudWatchLogMetricFilterCoverage = vi.mocked(hydrateAwsCloudWatchLogMetricFilterCoverage);
 const mockedHydrateAwsCloudWatchLogStreams = vi.mocked(hydrateAwsCloudWatchLogStreams);
 const mockedHydrateAwsCostUsage = vi.mocked(hydrateAwsCostUsage);
+const mockedHydrateAwsCostAnomalyMonitors = vi.mocked(hydrateAwsCostAnomalyMonitors);
+const mockedHydrateAwsCostGuardrailBudgets = vi.mocked(hydrateAwsCostGuardrailBudgets);
 const mockedHydrateAwsDynamoDbAutoscaling = vi.mocked(hydrateAwsDynamoDbAutoscaling);
+const mockedHydrateAwsDynamoDbTableUtilization = vi.mocked(hydrateAwsDynamoDbTableUtilization);
 const mockedHydrateAwsDynamoDbTables = vi.mocked(hydrateAwsDynamoDbTables);
 const mockedHydrateAwsEbsSnapshots = vi.mocked(hydrateAwsEbsSnapshots);
 const mockedHydrateAwsEbsVolumes = vi.mocked(hydrateAwsEbsVolumes);
+const _mockedHydrateAwsElastiCacheClusterActivity = vi.mocked(hydrateAwsElastiCacheClusterActivity);
 const mockedHydrateAwsElastiCacheClusters = vi.mocked(hydrateAwsElastiCacheClusters);
 const mockedHydrateAwsElastiCacheReservedNodes = vi.mocked(hydrateAwsElastiCacheReservedNodes);
 const mockedHydrateAwsEcsAutoscaling = vi.mocked(hydrateAwsEcsAutoscaling);
@@ -244,6 +279,7 @@ const mockedHydrateAwsEc2Instances = vi.mocked(hydrateAwsEc2Instances);
 const mockedHydrateAwsEc2InstanceUtilization = vi.mocked(hydrateAwsEc2InstanceUtilization);
 const mockedHydrateAwsEc2ReservedInstances = vi.mocked(hydrateAwsEc2ReservedInstances);
 const mockedHydrateAwsEc2LoadBalancers = vi.mocked(hydrateAwsEc2LoadBalancers);
+const _mockedHydrateAwsEc2LoadBalancerRequestActivity = vi.mocked(hydrateAwsEc2LoadBalancerRequestActivity);
 const mockedHydrateAwsEc2TargetGroups = vi.mocked(hydrateAwsEc2TargetGroups);
 const mockedHydrateAwsEksNodegroups = vi.mocked(hydrateAwsEksNodegroups);
 const mockedHydrateAwsLambdaFunctionMetrics = vi.mocked(hydrateAwsLambdaFunctionMetrics);
@@ -501,6 +537,7 @@ describe('discoverAwsResources', () => {
         accountId: '123456789012',
         architectures: ['x86_64'],
         functionName: 'my-func',
+        memorySizeMb: 512,
         region: 'us-east-1',
         timeoutSeconds: 60,
       },
@@ -593,6 +630,7 @@ describe('discoverAwsResources', () => {
         accountId: '123456789012',
         architectures: ['x86_64'],
         functionName: 'my-func',
+        memorySizeMb: 512,
         region: 'us-east-1',
         timeoutSeconds: 60,
       },
@@ -720,6 +758,16 @@ describe('discoverAwsResources', () => {
         tableName: 'orders',
       },
     ]);
+    mockedHydrateAwsDynamoDbTableUtilization.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        region: 'us-east-1',
+        tableArn: 'arn:aws:dynamodb:us-east-1:123456789012:table/orders',
+        tableName: 'orders',
+        totalConsumedReadCapacityUnitsLast30Days: 0,
+        totalConsumedWriteCapacityUnitsLast30Days: 0,
+      },
+    ]);
     mockedHydrateAwsRoute53Zones.mockResolvedValue([
       {
         accountId: '123456789012',
@@ -778,7 +826,7 @@ describe('discoverAwsResources', () => {
         createRule({
           id: 'CLDBRN-AWS-TEST-4',
           service: 'dynamodb',
-          discoveryDependencies: ['aws-dynamodb-tables', 'aws-dynamodb-autoscaling'],
+          discoveryDependencies: ['aws-dynamodb-tables', 'aws-dynamodb-autoscaling', 'aws-dynamodb-table-utilization'],
         }),
         createRule({
           id: 'CLDBRN-AWS-TEST-5',
@@ -807,6 +855,7 @@ describe('discoverAwsResources', () => {
     expect(mockedHydrateAwsCostUsage).toHaveBeenCalledWith([]);
     expect(mockedHydrateAwsDynamoDbTables).toHaveBeenCalledWith([extendedCatalog.resources[2]]);
     expect(mockedHydrateAwsDynamoDbAutoscaling).toHaveBeenCalledWith([extendedCatalog.resources[2]]);
+    expect(mockedHydrateAwsDynamoDbTableUtilization).toHaveBeenCalledWith([extendedCatalog.resources[2]]);
     expect(mockedHydrateAwsRoute53Zones).toHaveBeenCalledWith([extendedCatalog.resources[3]]);
     expect(mockedHydrateAwsRoute53Records).toHaveBeenCalledWith([extendedCatalog.resources[3]]);
     expect(mockedHydrateAwsRoute53HealthChecks).toHaveBeenCalledWith([extendedCatalog.resources[4]]);
@@ -828,6 +877,18 @@ describe('discoverAwsResources', () => {
         serviceSlug: 'amazon-route-53',
       },
     ]);
+    mockedHydrateAwsCostGuardrailBudgets.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        budgetCount: 0,
+      },
+    ]);
+    mockedHydrateAwsCostAnomalyMonitors.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        monitorCount: 0,
+      },
+    ]);
 
     const result = await discoverAwsResources(
       [
@@ -835,12 +896,24 @@ describe('discoverAwsResources', () => {
           service: 'costexplorer',
           discoveryDependencies: ['aws-cost-usage'],
         }),
+        createRule({
+          id: 'CLDBRN-AWS-TEST-BUDGETS',
+          service: 'costguardrails',
+          discoveryDependencies: ['aws-cost-guardrail-budgets'],
+        }),
+        createRule({
+          id: 'CLDBRN-AWS-TEST-ANOMALY',
+          service: 'costguardrails',
+          discoveryDependencies: ['aws-cost-anomaly-monitors'],
+        }),
       ],
       { mode: 'region', region: 'eu-west-1' },
     );
 
     expect(mockedBuildAwsDiscoveryCatalog).not.toHaveBeenCalled();
     expect(mockedHydrateAwsCostUsage).toHaveBeenCalledWith([]);
+    expect(mockedHydrateAwsCostGuardrailBudgets).toHaveBeenCalledWith([]);
+    expect(mockedHydrateAwsCostAnomalyMonitors).toHaveBeenCalledWith([]);
     expect(result.catalog).toEqual({
       indexType: 'LOCAL',
       resources: [],
@@ -855,6 +928,18 @@ describe('discoverAwsResources', () => {
         previousMonthCost: 20,
         serviceName: 'Amazon Route 53',
         serviceSlug: 'amazon-route-53',
+      },
+    ]);
+    expect(result.resources.get('aws-cost-guardrail-budgets')).toEqual([
+      {
+        accountId: '123456789012',
+        budgetCount: 0,
+      },
+    ]);
+    expect(result.resources.get('aws-cost-anomaly-monitors')).toEqual([
+      {
+        accountId: '123456789012',
+        monitorCount: 0,
       },
     ]);
   });
@@ -1347,6 +1432,45 @@ describe('discoverAwsResources', () => {
         lastIngestionTime: 1_710_000_000_000,
         logGroupName: '/aws/lambda/app',
         logStreamName: '2026/03/16/[$LATEST]abc',
+        region: 'us-east-1',
+      },
+    ]);
+  });
+
+  it('hydrates CloudWatch log metric-filter coverage from log-group catalog resources', async () => {
+    mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
+      indexType: 'LOCAL',
+      resources: [catalog.resources[7]],
+      searchRegion: 'us-east-1',
+    });
+    mockedHydrateAwsCloudWatchLogMetricFilterCoverage.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        logGroupName: '/aws/lambda/app',
+        metricFilterCount: 0,
+        region: 'us-east-1',
+      },
+    ]);
+
+    const result = await discoverAwsResources(
+      [
+        createRule({
+          discoveryDependencies: ['aws-cloudwatch-log-metric-filter-coverage'],
+          service: 'cloudwatch',
+        }),
+      ],
+      { mode: 'region', region: 'us-east-1' },
+    );
+
+    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith({ mode: 'region', region: 'us-east-1' }, [
+      'logs:log-group',
+    ]);
+    expect(mockedHydrateAwsCloudWatchLogMetricFilterCoverage).toHaveBeenCalledWith([catalog.resources[7]]);
+    expect(result.resources.get('aws-cloudwatch-log-metric-filter-coverage')).toEqual([
+      {
+        accountId: '123456789012',
+        logGroupName: '/aws/lambda/app',
+        metricFilterCount: 0,
         region: 'us-east-1',
       },
     ]);

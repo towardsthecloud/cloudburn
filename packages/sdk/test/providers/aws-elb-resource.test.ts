@@ -9,15 +9,25 @@ import {
   createElasticLoadBalancingClient,
   createElasticLoadBalancingV2Client,
 } from '../../src/providers/aws/client.js';
-import { hydrateAwsEc2LoadBalancers, hydrateAwsEc2TargetGroups } from '../../src/providers/aws/resources/elbv2.js';
+import { fetchCloudWatchSignals } from '../../src/providers/aws/resources/cloudwatch.js';
+import {
+  hydrateAwsEc2LoadBalancerRequestActivity,
+  hydrateAwsEc2LoadBalancers,
+  hydrateAwsEc2TargetGroups,
+} from '../../src/providers/aws/resources/elbv2.js';
 
 vi.mock('../../src/providers/aws/client.js', () => ({
   createElasticLoadBalancingClient: vi.fn(),
   createElasticLoadBalancingV2Client: vi.fn(),
 }));
 
+vi.mock('../../src/providers/aws/resources/cloudwatch.js', () => ({
+  fetchCloudWatchSignals: vi.fn(),
+}));
+
 const mockedCreateElasticLoadBalancingClient = vi.mocked(createElasticLoadBalancingClient);
 const mockedCreateElasticLoadBalancingV2Client = vi.mocked(createElasticLoadBalancingV2Client);
+const mockedFetchCloudWatchSignals = vi.mocked(fetchCloudWatchSignals);
 
 describe('hydrateAwsEc2LoadBalancers', () => {
   beforeEach(() => {
@@ -252,6 +262,153 @@ describe('hydrateAwsEc2LoadBalancers', () => {
         loadBalancerArn: 'arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/classic-lb',
         loadBalancerName: 'classic-lb',
         loadBalancerType: 'classic',
+        region: 'us-east-1',
+      },
+    ]);
+  });
+
+  it('hydrates 14-day request activity for classic and v2 load balancers', async () => {
+    mockedCreateElasticLoadBalancingClient.mockImplementation(({ region }) => {
+      const send = vi.fn(async (_command: DescribeClassicLoadBalancersCommand) => ({
+        LoadBalancerDescriptions: [
+          {
+            Instances: [{ InstanceId: 'i-123' }],
+            LoadBalancerName: 'classic-lb',
+          },
+        ],
+      }));
+
+      return { send, region } as never;
+    });
+    mockedCreateElasticLoadBalancingV2Client.mockImplementation(({ region }) => {
+      const send = vi.fn(
+        async (command: DescribeLoadBalancersV2Command | DescribeTargetGroupsCommand | DescribeTargetHealthCommand) => {
+          const input = command.input as { LoadBalancerArn?: string; LoadBalancerArns?: string[] };
+
+          if ('LoadBalancerArn' in input) {
+            return { TargetGroups: [] };
+          }
+
+          return {
+            LoadBalancers: (input.LoadBalancerArns ?? []).map((loadBalancerArn) => ({
+              LoadBalancerArn: loadBalancerArn,
+              LoadBalancerName: 'alb',
+              Type: 'application',
+            })),
+          };
+        },
+      );
+
+      return { send, region } as never;
+    });
+    mockedFetchCloudWatchSignals.mockResolvedValue(
+      new Map([
+        [
+          'lb0',
+          Array.from({ length: 14 }, (_, index) => ({
+            timestamp: `2026-03-${String(index + 1).padStart(2, '0')}T00:00:00.000Z`,
+            value: 5,
+          })),
+        ],
+        [
+          'lb1',
+          Array.from({ length: 14 }, (_, index) => ({
+            timestamp: `2026-03-${String(index + 1).padStart(2, '0')}T00:00:00.000Z`,
+            value: 14,
+          })),
+        ],
+      ]),
+    );
+
+    await expect(
+      hydrateAwsEc2LoadBalancerRequestActivity([
+        {
+          accountId: '123456789012',
+          arn: 'arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/classic-lb',
+          properties: [],
+          region: 'us-east-1',
+          resourceType: 'elasticloadbalancing:loadbalancer',
+          service: 'elasticloadbalancing',
+        },
+        {
+          accountId: '123456789012',
+          arn: 'arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/app/alb/123',
+          properties: [],
+          region: 'us-east-1',
+          resourceType: 'elasticloadbalancing:loadbalancer/app',
+          service: 'elasticloadbalancing',
+        },
+      ]),
+    ).resolves.toEqual([
+      {
+        accountId: '123456789012',
+        averageRequestsPerDayLast14Days: 5,
+        loadBalancerArn: 'arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/app/alb/123',
+        region: 'us-east-1',
+      },
+      {
+        accountId: '123456789012',
+        averageRequestsPerDayLast14Days: 14,
+        loadBalancerArn: 'arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/classic-lb',
+        region: 'us-east-1',
+      },
+    ]);
+  });
+
+  it('preserves incomplete ELB request coverage as null averages', async () => {
+    mockedCreateElasticLoadBalancingV2Client.mockImplementation(({ region }) => {
+      const send = vi.fn(
+        async (command: DescribeLoadBalancersV2Command | DescribeTargetGroupsCommand | DescribeTargetHealthCommand) => {
+          const input = command.input as { LoadBalancerArn?: string; LoadBalancerArns?: string[] };
+
+          if ('LoadBalancerArn' in input) {
+            return { TargetGroups: [] };
+          }
+
+          return {
+            LoadBalancers: [
+              {
+                LoadBalancerArn: input.LoadBalancerArns?.[0],
+                LoadBalancerName: 'alb',
+                Type: 'application',
+              },
+            ],
+          };
+        },
+      );
+
+      return { send, region } as never;
+    });
+    mockedFetchCloudWatchSignals.mockResolvedValue(
+      new Map([
+        [
+          'lb0',
+          [
+            {
+              timestamp: '2026-03-01T00:00:00.000Z',
+              value: 5,
+            },
+          ],
+        ],
+      ]),
+    );
+
+    await expect(
+      hydrateAwsEc2LoadBalancerRequestActivity([
+        {
+          accountId: '123456789012',
+          arn: 'arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/app/alb/123',
+          properties: [],
+          region: 'us-east-1',
+          resourceType: 'elasticloadbalancing:loadbalancer/app',
+          service: 'elasticloadbalancing',
+        },
+      ]),
+    ).resolves.toEqual([
+      {
+        accountId: '123456789012',
+        averageRequestsPerDayLast14Days: null,
+        loadBalancerArn: 'arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/app/alb/123',
         region: 'us-east-1',
       },
     ]);

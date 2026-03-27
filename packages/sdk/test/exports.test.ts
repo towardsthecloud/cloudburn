@@ -67,6 +67,13 @@ describe('sdk exports', () => {
         supports: ['discovery', 'iac'],
       },
       {
+        description: 'Flag CloudFront distributions with fewer than 100 requests over the last 30 days.',
+        id: 'CLDBRN-AWS-CLOUDFRONT-2',
+        provider: 'aws',
+        service: 'cloudfront',
+        supports: ['discovery'],
+      },
+      {
         description: 'Flag redundant multi-region CloudTrail trails when more than one trail covers the same account.',
         id: 'CLDBRN-AWS-CLOUDTRAIL-1',
         provider: 'aws',
@@ -96,10 +103,31 @@ describe('sdk exports', () => {
         supports: ['discovery'],
       },
       {
+        description: 'Flag CloudWatch log groups storing at least 1 GB when they define no metric filters.',
+        id: 'CLDBRN-AWS-CLOUDWATCH-3',
+        provider: 'aws',
+        service: 'cloudwatch',
+        supports: ['discovery'],
+      },
+      {
         description: 'Flag services with significant cost increases between the last two full months.',
         id: 'CLDBRN-AWS-COSTEXPLORER-1',
         provider: 'aws',
         service: 'costexplorer',
+        supports: ['discovery'],
+      },
+      {
+        description: 'Flag AWS accounts that do not have any AWS Budgets configured.',
+        id: 'CLDBRN-AWS-COSTGUARDRAILS-1',
+        provider: 'aws',
+        service: 'costguardrails',
+        supports: ['discovery'],
+      },
+      {
+        description: 'Flag AWS accounts that do not have any Cost Anomaly Detection monitors configured.',
+        id: 'CLDBRN-AWS-COSTGUARDRAILS-2',
+        provider: 'aws',
+        service: 'costguardrails',
         supports: ['discovery'],
       },
       {
@@ -115,6 +143,13 @@ describe('sdk exports', () => {
         provider: 'aws',
         service: 'dynamodb',
         supports: ['discovery', 'iac'],
+      },
+      {
+        description: 'Flag provisioned DynamoDB tables with no consumed read or write capacity over the last 30 days.',
+        id: 'CLDBRN-AWS-DYNAMODB-3',
+        provider: 'aws',
+        service: 'dynamodb',
+        supports: ['discovery'],
       },
       {
         description:
@@ -277,6 +312,14 @@ describe('sdk exports', () => {
         supports: ['discovery'],
       },
       {
+        description:
+          'Flag available ElastiCache clusters whose 14-day average cache hit rate stays below 5% and average current connections stay below 2.',
+        id: 'CLDBRN-AWS-ELASTICACHE-2',
+        provider: 'aws',
+        service: 'elasticache',
+        supports: ['discovery'],
+      },
+      {
         description: 'Flag Application Load Balancers that have no attached target groups or no registered targets.',
         id: 'CLDBRN-AWS-ELB-1',
         provider: 'aws',
@@ -300,6 +343,13 @@ describe('sdk exports', () => {
       {
         description: 'Flag Network Load Balancers that have no attached target groups or no registered targets.',
         id: 'CLDBRN-AWS-ELB-4',
+        provider: 'aws',
+        service: 'elb',
+        supports: ['discovery'],
+      },
+      {
+        description: 'Flag load balancers whose 14-day average request count stays below 10 requests per day.',
+        id: 'CLDBRN-AWS-ELB-5',
         provider: 'aws',
         service: 'elb',
         supports: ['discovery'],
@@ -336,6 +386,14 @@ describe('sdk exports', () => {
         description:
           'Flag Lambda functions whose configured timeout is at least 30 seconds and 5x their 7-day average duration.',
         id: 'CLDBRN-AWS-LAMBDA-3',
+        provider: 'aws',
+        service: 'lambda',
+        supports: ['discovery'],
+      },
+      {
+        description:
+          'Flag Lambda functions above 256 MB whose observed 7-day average duration uses less than 30% of the configured timeout.',
+        id: 'CLDBRN-AWS-LAMBDA-4',
         provider: 'aws',
         service: 'lambda',
         supports: ['discovery'],

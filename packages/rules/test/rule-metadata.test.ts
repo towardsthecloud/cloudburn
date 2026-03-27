@@ -134,6 +134,23 @@ describe('rule metadata', () => {
     });
   });
 
+  it('defines the expected CloudWatch no-metric-filters rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-CLOUDWATCH-3');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-CLOUDWATCH-3',
+      name: 'CloudWatch Log Group No Metric Filters',
+      description: 'Flag CloudWatch log groups storing at least 1 GB when they define no metric filters.',
+      message:
+        'CloudWatch log groups storing at least 1 GB should define metric filters or reduce retention aggressively.',
+      provider: 'aws',
+      service: 'cloudwatch',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-cloudwatch-log-groups', 'aws-cloudwatch-log-metric-filter-coverage'],
+    });
+  });
+
   it('defines the expected S3 lifecycle rule metadata', () => {
     const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-S3-1');
 
@@ -232,6 +249,23 @@ describe('rule metadata', () => {
       service: 'elasticache',
       supports: ['discovery'],
       discoveryDependencies: ['aws-elasticache-clusters', 'aws-elasticache-reserved-nodes'],
+    });
+  });
+
+  it('defines the expected ElastiCache idle-cluster rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-ELASTICACHE-2');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-ELASTICACHE-2',
+      name: 'ElastiCache Cluster Idle',
+      description:
+        'Flag available ElastiCache clusters whose 14-day average cache hit rate stays below 5% and average current connections stay below 2.',
+      message: 'ElastiCache clusters with almost no cache hits and active connections should be reviewed for cleanup.',
+      provider: 'aws',
+      service: 'elasticache',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-elasticache-clusters', 'aws-elasticache-cluster-activity'],
     });
   });
 
@@ -634,6 +668,26 @@ describe('rule metadata', () => {
     });
   });
 
+  it('defines the expected ELB idle rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-ELB-5');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-ELB-5',
+      name: 'Load Balancer Idle',
+      description: 'Flag load balancers whose 14-day average request count stays below 10 requests per day.',
+      message: 'Load balancers with consistently low request volume should be reviewed for cleanup.',
+      provider: 'aws',
+      service: 'elb',
+      supports: ['discovery'],
+      discoveryDependencies: [
+        'aws-ec2-load-balancer-request-activity',
+        'aws-ec2-load-balancers',
+        'aws-ec2-target-groups',
+      ],
+    });
+  });
+
   it('defines the expected Lambda high-error-rate rule metadata', () => {
     const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-LAMBDA-2');
 
@@ -660,6 +714,23 @@ describe('rule metadata', () => {
       description:
         'Flag Lambda functions whose configured timeout is at least 30 seconds and 5x their 7-day average duration.',
       message: 'Lambda functions should not keep timeouts far above their observed average duration.',
+      provider: 'aws',
+      service: 'lambda',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-lambda-functions', 'aws-lambda-function-metrics'],
+    });
+  });
+
+  it('defines the expected Lambda memory-overprovisioning rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-LAMBDA-4');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-LAMBDA-4',
+      name: 'Lambda Function Memory Overprovisioned',
+      description:
+        'Flag Lambda functions above 256 MB whose observed 7-day average duration uses less than 30% of the configured timeout.',
+      message: 'Lambda functions should not keep memory far above their observed execution needs.',
       provider: 'aws',
       service: 'lambda',
       supports: ['discovery'],
@@ -849,6 +920,22 @@ describe('rule metadata', () => {
     });
   });
 
+  it('defines the expected CloudFront unused-distribution rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-CLOUDFRONT-2');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-CLOUDFRONT-2',
+      name: 'CloudFront Distribution Unused',
+      description: 'Flag CloudFront distributions with fewer than 100 requests over the last 30 days.',
+      message: 'CloudFront distributions with almost no request traffic should be reviewed for cleanup.',
+      provider: 'aws',
+      service: 'cloudfront',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-cloudfront-distribution-request-activity'],
+    });
+  });
+
   it('defines the expected Cost Explorer full-month-cost-changes rule metadata', () => {
     const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-COSTEXPLORER-1');
 
@@ -863,6 +950,38 @@ describe('rule metadata', () => {
       service: 'costexplorer',
       supports: ['discovery'],
       discoveryDependencies: ['aws-cost-usage'],
+    });
+  });
+
+  it('defines the expected cost guardrail missing-budgets rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-COSTGUARDRAILS-1');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-COSTGUARDRAILS-1',
+      name: 'AWS Budgets Missing',
+      description: 'Flag AWS accounts that do not have any AWS Budgets configured.',
+      message: 'AWS accounts should define at least one AWS Budget for spend guardrails.',
+      provider: 'aws',
+      service: 'costguardrails',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-cost-guardrail-budgets'],
+    });
+  });
+
+  it('defines the expected cost guardrail missing-anomaly-detection rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-COSTGUARDRAILS-2');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-COSTGUARDRAILS-2',
+      name: 'Cost Anomaly Detection Missing',
+      description: 'Flag AWS accounts that do not have any Cost Anomaly Detection monitors configured.',
+      message: 'AWS accounts should enable Cost Anomaly Detection monitors for spend spikes.',
+      provider: 'aws',
+      service: 'costguardrails',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-cost-anomaly-monitors'],
     });
   });
 
@@ -896,6 +1015,22 @@ describe('rule metadata', () => {
       supports: ['discovery', 'iac'],
       discoveryDependencies: ['aws-dynamodb-tables', 'aws-dynamodb-autoscaling'],
       staticDependencies: ['aws-dynamodb-tables', 'aws-dynamodb-autoscaling'],
+    });
+  });
+
+  it('defines the expected DynamoDB unused-table rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-DYNAMODB-3');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-DYNAMODB-3',
+      name: 'DynamoDB Table Unused',
+      description: 'Flag provisioned DynamoDB tables with no consumed read or write capacity over the last 30 days.',
+      message: 'Provisioned DynamoDB tables should not remain unused for 30 days.',
+      provider: 'aws',
+      service: 'dynamodb',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-dynamodb-tables', 'aws-dynamodb-table-utilization'],
     });
   });
 

@@ -89,11 +89,29 @@ export type AwsCloudWatchLogStream = {
   accountId: string;
 };
 
+/** Discovered CloudWatch Logs metric-filter coverage keyed by log group. */
+export type AwsCloudWatchLogMetricFilterCoverage = {
+  logGroupName: string;
+  metricFilterCount: number;
+  region: string;
+  accountId: string;
+};
+
 /** Discovered CloudFront distribution normalized for price-class review checks. */
 export type AwsCloudFrontDistribution = {
   distributionArn: string;
   distributionId: string;
   priceClass?: string;
+  region: string;
+  accountId: string;
+};
+
+/** Discovered CloudFront distribution with 30-day request activity coverage. */
+export type AwsCloudFrontDistributionRequestActivity = {
+  distributionArn: string;
+  distributionId: string;
+  /** `null` means CloudWatch returned incomplete datapoints for the 30-day lookback window. */
+  totalRequestsLast30Days: number | null;
   region: string;
   accountId: string;
 };
@@ -108,6 +126,18 @@ export type AwsCostUsage = {
   costIncrease: number;
   /** The AWS cost metric unit, which is usually `USD`. */
   costUnit: string;
+  accountId: string;
+};
+
+/** Account-scoped AWS Budget summary used by cost guardrail rules. */
+export type AwsCostGuardrailBudget = {
+  budgetCount: number;
+  accountId: string;
+};
+
+/** Account-scoped Cost Anomaly Detection monitor summary used by guardrail rules. */
+export type AwsCostAnomalyMonitor = {
+  monitorCount: number;
   accountId: string;
 };
 
@@ -164,6 +194,17 @@ export type AwsElastiCacheCluster = {
   accountId: string;
 };
 
+/** Discovered ElastiCache cluster with 14-day cache-hit and connection activity coverage. */
+export type AwsElastiCacheClusterActivity = {
+  cacheClusterId: string;
+  /** `null` means CloudWatch returned incomplete datapoints or the cluster engine is unsupported in v1. */
+  averageCacheHitRateLast14Days: number | null;
+  /** `null` means CloudWatch returned incomplete datapoints or the cluster engine is unsupported in v1. */
+  averageCurrentConnectionsLast14Days: number | null;
+  region: string;
+  accountId: string;
+};
+
 /** Discovered ElastiCache reserved node normalized for coverage checks. */
 export type AwsElastiCacheReservedNode = {
   reservedCacheNodeId: string;
@@ -215,6 +256,8 @@ export type AwsLambdaFunction = {
   functionName: string;
   /** Normalized function architectures. Missing AWS API values default to `['x86_64']`. */
   architectures: string[];
+  /** Configured function memory size in MB. */
+  memorySizeMb: number;
   /** Configured function timeout in seconds. */
   timeoutSeconds: number;
   region: string;
@@ -349,6 +392,15 @@ export type AwsEc2LoadBalancer = {
   accountId: string;
 };
 
+/** Discovered Elastic Load Balancer with 14-day request activity coverage. */
+export type AwsEc2LoadBalancerRequestActivity = {
+  loadBalancerArn: string;
+  /** `null` means CloudWatch returned incomplete datapoints for the 14-day lookback window. */
+  averageRequestsPerDayLast14Days: number | null;
+  region: string;
+  accountId: string;
+};
+
 /** Discovered target group normalized for target registration checks. */
 export type AwsEc2TargetGroup = {
   targetGroupArn: string;
@@ -442,6 +494,18 @@ export type AwsDynamoDbAutoscaling = {
   tableName: string;
   hasReadTarget: boolean;
   hasWriteTarget: boolean;
+  region: string;
+  accountId: string;
+};
+
+/** Discovered DynamoDB table with 30-day consumed-capacity summaries. */
+export type AwsDynamoDbTableUtilization = {
+  tableArn: string;
+  tableName: string;
+  /** `null` means CloudWatch returned incomplete datapoints for the 30-day read lookback window. */
+  totalConsumedReadCapacityUnitsLast30Days: number | null;
+  /** `null` means CloudWatch returned incomplete datapoints for the 30-day write lookback window. */
+  totalConsumedWriteCapacityUnitsLast30Days: number | null;
   region: string;
   accountId: string;
 };
@@ -554,13 +618,19 @@ export type DiscoveryDatasetKey =
   | 'aws-apigateway-stages'
   | 'aws-cloudtrail-trails'
   | 'aws-cloudfront-distributions'
+  | 'aws-cloudfront-distribution-request-activity'
   | 'aws-cloudwatch-log-groups'
+  | 'aws-cloudwatch-log-metric-filter-coverage'
   | 'aws-cloudwatch-log-streams'
   | 'aws-cost-usage'
+  | 'aws-cost-anomaly-monitors'
+  | 'aws-cost-guardrail-budgets'
   | 'aws-dynamodb-autoscaling'
+  | 'aws-dynamodb-table-utilization'
   | 'aws-dynamodb-tables'
   | 'aws-ebs-snapshots'
   | 'aws-ebs-volumes'
+  | 'aws-elasticache-cluster-activity'
   | 'aws-elasticache-clusters'
   | 'aws-elasticache-reserved-nodes'
   | 'aws-ecs-autoscaling'
@@ -572,6 +642,7 @@ export type DiscoveryDatasetKey =
   | 'aws-ec2-elastic-ips'
   | 'aws-ec2-instances'
   | 'aws-ec2-instance-utilization'
+  | 'aws-ec2-load-balancer-request-activity'
   | 'aws-ec2-load-balancers'
   | 'aws-ec2-reserved-instances'
   | 'aws-ec2-target-groups'
@@ -600,13 +671,19 @@ export type DiscoveryDatasetMap = {
   'aws-apigateway-stages': AwsApiGatewayStage[];
   'aws-cloudtrail-trails': AwsCloudTrailTrail[];
   'aws-cloudfront-distributions': AwsCloudFrontDistribution[];
+  'aws-cloudfront-distribution-request-activity': AwsCloudFrontDistributionRequestActivity[];
   'aws-cloudwatch-log-groups': AwsCloudWatchLogGroup[];
+  'aws-cloudwatch-log-metric-filter-coverage': AwsCloudWatchLogMetricFilterCoverage[];
   'aws-cloudwatch-log-streams': AwsCloudWatchLogStream[];
   'aws-cost-usage': AwsCostUsage[];
+  'aws-cost-anomaly-monitors': AwsCostAnomalyMonitor[];
+  'aws-cost-guardrail-budgets': AwsCostGuardrailBudget[];
   'aws-dynamodb-autoscaling': AwsDynamoDbAutoscaling[];
+  'aws-dynamodb-table-utilization': AwsDynamoDbTableUtilization[];
   'aws-dynamodb-tables': AwsDynamoDbTable[];
   'aws-ebs-snapshots': AwsEbsSnapshot[];
   'aws-ebs-volumes': AwsEbsVolume[];
+  'aws-elasticache-cluster-activity': AwsElastiCacheClusterActivity[];
   'aws-elasticache-clusters': AwsElastiCacheCluster[];
   'aws-elasticache-reserved-nodes': AwsElastiCacheReservedNode[];
   'aws-ecs-autoscaling': AwsEcsServiceAutoscaling[];
@@ -618,6 +695,7 @@ export type DiscoveryDatasetMap = {
   'aws-ec2-elastic-ips': AwsEc2ElasticIp[];
   'aws-ec2-instances': AwsEc2Instance[];
   'aws-ec2-instance-utilization': AwsEc2InstanceUtilization[];
+  'aws-ec2-load-balancer-request-activity': AwsEc2LoadBalancerRequestActivity[];
   'aws-ec2-load-balancers': AwsEc2LoadBalancer[];
   'aws-ec2-reserved-instances': AwsEc2ReservedInstance[];
   'aws-ec2-target-groups': AwsEc2TargetGroup[];
