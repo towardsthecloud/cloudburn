@@ -2490,6 +2490,43 @@ describe('aws static dataset registry', () => {
     ]);
   });
 
+  it('correlates CloudFormation ECS autoscaling when the scaling policy appears before the scalable target', () => {
+    const definition = getAwsStaticDatasetDefinition('aws-ecs-autoscaling');
+    const resources = [
+      createIaCResource({
+        type: 'AWS::ApplicationAutoScaling::ScalingPolicy',
+        name: 'ApiPolicy',
+        attributes: {
+          Properties: {
+            ScalingTargetId: {
+              Ref: 'ApiTarget',
+            },
+          },
+        },
+      }),
+      createIaCResource({
+        type: 'AWS::ApplicationAutoScaling::ScalableTarget',
+        name: 'ApiTarget',
+        attributes: {
+          Properties: {
+            ResourceId: 'service/shared/api',
+            ScalableDimension: 'ecs:service:DesiredCount',
+            ServiceNamespace: 'ecs',
+          },
+        },
+      }),
+    ];
+
+    expect(definition?.load(resources)).toEqual([
+      {
+        clusterName: 'shared',
+        hasScalableTarget: true,
+        hasScalingPolicy: true,
+        serviceName: 'api',
+      },
+    ]);
+  });
+
   it('correlates Redshift clusters with scheduled pause and resume actions', () => {
     const definition = getAwsStaticDatasetDefinition('aws-redshift-clusters');
 

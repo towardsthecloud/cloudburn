@@ -1224,6 +1224,7 @@ const loadStaticEcsServices = (resources: IaCResource[]): AwsStaticEcsService[] 
 const loadStaticEcsAutoscaling = (resources: IaCResource[]): AwsStaticEcsServiceAutoscaling[] => {
   const autoscalingByService = new Map<string, AwsStaticEcsServiceAutoscaling>();
   const cloudFormationTargetsByLogicalId = new Map<string, { clusterName: string; serviceName: string }>();
+  const pendingCloudFormationPolicyTargets: string[] = [];
 
   for (const resource of resources) {
     const properties = isRecord(resource.attributes.Properties) ? resource.attributes.Properties : undefined;
@@ -1278,16 +1279,25 @@ const loadStaticEcsAutoscaling = (resources: IaCResource[]): AwsStaticEcsService
 
     if (resource.type === CLOUDFORMATION_SCALING_POLICY_TYPE) {
       const targetRef = getCloudFormationScalingTargetReference(properties?.ScalingTargetId);
-      const serviceIdentity = targetRef ? cloudFormationTargetsByLogicalId.get(targetRef) : undefined;
 
-      if (serviceIdentity) {
-        getStaticEcsAutoscalingEntry(
-          autoscalingByService,
-          serviceIdentity.clusterName,
-          serviceIdentity.serviceName,
-        ).hasScalingPolicy = true;
+      if (targetRef) {
+        pendingCloudFormationPolicyTargets.push(targetRef);
       }
     }
+  }
+
+  for (const targetRef of pendingCloudFormationPolicyTargets) {
+    const serviceIdentity = cloudFormationTargetsByLogicalId.get(targetRef);
+
+    if (!serviceIdentity) {
+      continue;
+    }
+
+    getStaticEcsAutoscalingEntry(
+      autoscalingByService,
+      serviceIdentity.clusterName,
+      serviceIdentity.serviceName,
+    ).hasScalingPolicy = true;
   }
 
   return [...autoscalingByService.values()];
