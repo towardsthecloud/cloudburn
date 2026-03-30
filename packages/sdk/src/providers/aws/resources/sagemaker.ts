@@ -5,6 +5,21 @@ import { chunkItems, extractTerminalResourceIdentifier, withAwsServiceErrorConte
 
 const NOTEBOOK_INSTANCE_BATCH_SIZE = 10;
 
+const isNotebookInstanceMissingError = (error: unknown): boolean => {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  const candidates = [error.name, error.message].map((value) => value.toLowerCase());
+
+  return (
+    candidates.some((value) => value.includes('resourcenotfound')) ||
+    candidates.some((value) => value.includes('could not find notebook instance')) ||
+    candidates.some((value) => value.includes('notebook instance') && value.includes('not found')) ||
+    candidates.some((value) => value.includes('validationexception') && value.includes('notebook instance'))
+  );
+};
+
 /**
  * Hydrates discovered SageMaker notebook instances with their runtime metadata.
  *
@@ -39,30 +54,41 @@ export const hydrateAwsSageMakerNotebookInstances = async (
       for (const batch of chunkItems(regionResources, NOTEBOOK_INSTANCE_BATCH_SIZE)) {
         const hydratedBatch = await Promise.all(
           batch.map(async (resource) => {
-            const response = await withAwsServiceErrorContext(
-              'Amazon SageMaker',
-              'DescribeNotebookInstance',
-              region,
-              () =>
-                client.send(
-                  new DescribeNotebookInstanceCommand({
-                    NotebookInstanceName: resource.notebookInstanceName,
-                  }),
-                ),
-            );
+            try {
+              const response = await withAwsServiceErrorContext(
+                'Amazon SageMaker',
+                'DescribeNotebookInstance',
+                region,
+                () =>
+                  client.send(
+                    new DescribeNotebookInstanceCommand({
+                      NotebookInstanceName: resource.notebookInstanceName,
+                    }),
+                  ),
+                {
+                  passthrough: isNotebookInstanceMissingError,
+                },
+              );
 
-            if (!response.NotebookInstanceName || !response.NotebookInstanceStatus || !response.InstanceType) {
-              return null;
+              if (!response.NotebookInstanceName || !response.NotebookInstanceStatus || !response.InstanceType) {
+                return null;
+              }
+
+              return {
+                accountId: resource.accountId,
+                instanceType: response.InstanceType,
+                lastModifiedTime: response.LastModifiedTime?.toISOString(),
+                notebookInstanceName: response.NotebookInstanceName,
+                notebookInstanceStatus: response.NotebookInstanceStatus,
+                region,
+              } satisfies AwsSageMakerNotebookInstance;
+            } catch (error) {
+              if (isNotebookInstanceMissingError(error)) {
+                return null;
+              }
+
+              throw error;
             }
-
-            return {
-              accountId: resource.accountId,
-              instanceType: response.InstanceType,
-              lastModifiedTime: response.LastModifiedTime?.toISOString(),
-              notebookInstanceName: response.NotebookInstanceName,
-              notebookInstanceStatus: response.NotebookInstanceStatus,
-              region,
-            } satisfies AwsSageMakerNotebookInstance;
           }),
         );
 

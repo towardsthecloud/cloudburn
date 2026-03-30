@@ -46,4 +46,28 @@ describe('hydrateAwsSageMakerNotebookInstances', () => {
       },
     ]);
   });
+
+  it('skips notebook instances that disappear before hydration completes', async () => {
+    const error = new Error("Could not find notebook instance 'analytics-notebook'.");
+    error.name = 'ValidationException';
+
+    mockedCreateSageMakerClient.mockReturnValue({
+      send: vi.fn(async (_command: DescribeNotebookInstanceCommand) => {
+        throw error;
+      }),
+    } as never);
+
+    await expect(
+      hydrateAwsSageMakerNotebookInstances([
+        {
+          accountId: '123456789012',
+          arn: 'arn:aws:sagemaker:eu-west-1:123456789012:notebook-instance/analytics-notebook',
+          properties: [],
+          region: 'eu-west-1',
+          resourceType: 'sagemaker:notebook-instance',
+          service: 'sagemaker',
+        },
+      ]),
+    ).resolves.toEqual([]);
+  });
 });
