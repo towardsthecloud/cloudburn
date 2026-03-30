@@ -1,4 +1,5 @@
 import { ec2GravitonReviewRule } from './graviton-review.js';
+import { ec2IdleNatGatewayRule } from './idle-nat-gateway.js';
 import { ec2InactiveVpcInterfaceEndpointRule } from './inactive-vpc-interface-endpoint.js';
 import { ec2LargeInstanceRule } from './large-instance.js';
 import { ec2LongRunningInstanceRule } from './long-running-instance.js';
@@ -19,4 +20,5 @@ export const ec2Rules = [
   ec2ReservedInstanceExpiringRule,
   ec2LargeInstanceRule,
   ec2LongRunningInstanceRule,
+  ec2IdleNatGatewayRule,
 ];

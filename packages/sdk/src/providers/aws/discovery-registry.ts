@@ -21,6 +21,7 @@ import {
 import { hydrateAwsEbsSnapshots, hydrateAwsEbsVolumes } from './resources/ebs.js';
 import { hydrateAwsEc2Instances } from './resources/ec2.js';
 import { hydrateAwsEc2ElasticIps } from './resources/ec2-elastic-ips.js';
+import { hydrateAwsEc2NatGatewayActivity } from './resources/ec2-nat-gateways.js';
 import { hydrateAwsEc2ReservedInstances } from './resources/ec2-reserved-instances.js';
 import { hydrateAwsEc2InstanceUtilization } from './resources/ec2-utilization.js';
 import { hydrateAwsEcrRepositories } from './resources/ecr.js';
@@ -53,6 +54,7 @@ import {
   hydrateAwsRoute53Zones,
 } from './resources/route53.js';
 import { hydrateAwsS3BucketAnalyses } from './resources/s3.js';
+import { hydrateAwsSageMakerNotebookInstances } from './resources/sagemaker.js';
 import { hydrateAwsSecretsManagerSecrets } from './resources/secretsmanager.js';
 import { hydrateAwsEc2VpcEndpointActivity } from './resources/vpc-endpoints.js';
 
@@ -90,6 +92,7 @@ export type AwsDiscoveryDatasetDefinition<K extends DiscoveryDatasetKey = Discov
     | 'redshift'
     | 'route53'
     | 's3'
+    | 'sagemaker'
     | 'secretsmanager';
   load: (resources: AwsDiscoveredResource[]) => Promise<DiscoveryDatasetMap[K] | AwsDiscoveryDatasetLoadResult<K>>;
 };
@@ -259,6 +262,12 @@ const awsDiscoveryDatasetRegistry: {
     service: 'ec2',
     load: hydrateAwsEc2InstanceUtilization,
   },
+  'aws-ec2-nat-gateway-activity': {
+    datasetKey: 'aws-ec2-nat-gateway-activity',
+    resourceTypes: ['ec2:natgateway'],
+    service: 'ec2',
+    load: hydrateAwsEc2NatGatewayActivity,
+  },
   'aws-ec2-load-balancers': {
     datasetKey: 'aws-ec2-load-balancers',
     resourceTypes: [
@@ -405,6 +414,12 @@ const awsDiscoveryDatasetRegistry: {
     resourceTypes: ['s3:bucket'],
     service: 's3',
     load: hydrateAwsS3BucketAnalyses,
+  },
+  'aws-sagemaker-notebook-instances': {
+    datasetKey: 'aws-sagemaker-notebook-instances',
+    resourceTypes: ['sagemaker:notebook-instance'],
+    service: 'sagemaker',
+    load: hydrateAwsSageMakerNotebookInstances,
   },
   'aws-secretsmanager-secrets': {
     datasetKey: 'aws-secretsmanager-secrets',

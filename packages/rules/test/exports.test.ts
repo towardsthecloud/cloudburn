@@ -13,6 +13,7 @@ import type {
   AwsEc2Instance,
   AwsEc2LoadBalancer,
   AwsEc2LoadBalancerRequestActivity,
+  AwsEc2NatGatewayActivity,
   AwsEc2ReservedInstance,
   AwsEc2TargetGroup,
   AwsEcsClusterMetric,
@@ -30,6 +31,7 @@ import type {
   AwsRoute53HealthCheck,
   AwsRoute53Record,
   AwsRoute53Zone,
+  AwsSageMakerNotebookInstance,
   AwsSecretsManagerSecret,
   AwsStaticRdsInstance,
   DiscoveryDatasetKey,
@@ -75,6 +77,7 @@ describe('rule exports', () => {
         'CLDBRN-AWS-EC2-7',
         'CLDBRN-AWS-EC2-8',
         'CLDBRN-AWS-EC2-9',
+        'CLDBRN-AWS-EC2-10',
         'CLDBRN-AWS-ECS-1',
         'CLDBRN-AWS-ECS-2',
         'CLDBRN-AWS-ECS-3',
@@ -112,6 +115,7 @@ describe('rule exports', () => {
         'CLDBRN-AWS-S3-1',
         'CLDBRN-AWS-S3-2',
         'CLDBRN-AWS-S3-3',
+        'CLDBRN-AWS-SAGEMAKER-1',
         'CLDBRN-AWS-SECRETSMANAGER-1',
       ]),
     );
@@ -212,6 +216,15 @@ describe('rule exports', () => {
       region: 'us-east-1',
       reservedInstancesId: 'abcd1234-ef56-7890-abcd-1234567890ab',
       state: 'active',
+    };
+    const natGatewayActivity: AwsEc2NatGatewayActivity = {
+      accountId: '123456789012',
+      bytesInFromDestinationLast7Days: 0,
+      bytesOutToDestinationLast7Days: 0,
+      natGatewayId: 'nat-123',
+      region: 'us-east-1',
+      state: 'available',
+      subnetId: 'subnet-123',
     };
 
     const loadBalancer: AwsEc2LoadBalancer = {
@@ -401,6 +414,14 @@ describe('rule exports', () => {
       secretArn: 'arn:aws:secretsmanager:us-east-1:123456789012:secret:db-password-AbCdEf',
       secretName: 'db-password',
     };
+    const notebookInstance: AwsSageMakerNotebookInstance = {
+      accountId: '123456789012',
+      instanceType: 'ml.t3.medium',
+      lastModifiedTime: '2026-03-01T00:00:00.000Z',
+      notebookInstanceName: 'analytics-notebook',
+      notebookInstanceStatus: 'InService',
+      region: 'eu-west-1',
+    };
 
     const apiGatewayDatasetKey: DiscoveryDatasetKey = 'aws-apigateway-stages';
     const cloudFrontDatasetKey: DiscoveryDatasetKey = 'aws-cloudfront-distributions';
@@ -417,6 +438,7 @@ describe('rule exports', () => {
     const elastiCacheReservedDatasetKey: DiscoveryDatasetKey = 'aws-elasticache-reserved-nodes';
     const loadBalancerDatasetKey: DiscoveryDatasetKey = 'aws-ec2-load-balancers';
     const loadBalancerRequestActivityDatasetKey: DiscoveryDatasetKey = 'aws-ec2-load-balancer-request-activity';
+    const natGatewayDatasetKey: DiscoveryDatasetKey = 'aws-ec2-nat-gateway-activity';
     const emrDatasetKey: DiscoveryDatasetKey = 'aws-emr-clusters';
     const emrMetricDatasetKey: DiscoveryDatasetKey = 'aws-emr-cluster-metrics';
     const reservedInstanceDatasetKey: DiscoveryDatasetKey = 'aws-ec2-reserved-instances';
@@ -426,6 +448,7 @@ describe('rule exports', () => {
     const route53HealthCheckDatasetKey: DiscoveryDatasetKey = 'aws-route53-health-checks';
     const route53RecordDatasetKey: DiscoveryDatasetKey = 'aws-route53-records';
     const route53ZoneDatasetKey: DiscoveryDatasetKey = 'aws-route53-zones';
+    const sagemakerDatasetKey: DiscoveryDatasetKey = 'aws-sagemaker-notebook-instances';
     const secretsManagerDatasetKey: DiscoveryDatasetKey = 'aws-secretsmanager-secrets';
     const targetGroupDatasetKey: DiscoveryDatasetKey = 'aws-ec2-target-groups';
     const staticDatasetKey: StaticDatasetKey = 'aws-rds-instances';
@@ -445,6 +468,7 @@ describe('rule exports', () => {
     expect(elastiCacheReservedDatasetKey).toBe('aws-elasticache-reserved-nodes');
     expect(loadBalancerDatasetKey).toBe('aws-ec2-load-balancers');
     expect(loadBalancerRequestActivityDatasetKey).toBe('aws-ec2-load-balancer-request-activity');
+    expect(natGatewayDatasetKey).toBe('aws-ec2-nat-gateway-activity');
     expect(emrDatasetKey).toBe('aws-emr-clusters');
     expect(emrMetricDatasetKey).toBe('aws-emr-cluster-metrics');
     expect(reservedInstanceDatasetKey).toBe('aws-ec2-reserved-instances');
@@ -454,6 +478,7 @@ describe('rule exports', () => {
     expect(route53HealthCheckDatasetKey).toBe('aws-route53-health-checks');
     expect(route53RecordDatasetKey).toBe('aws-route53-records');
     expect(route53ZoneDatasetKey).toBe('aws-route53-zones');
+    expect(sagemakerDatasetKey).toBe('aws-sagemaker-notebook-instances');
     expect(secretsManagerDatasetKey).toBe('aws-secretsmanager-secrets');
     expect(cloudFrontDistribution.priceClass).toBe('PriceClass_All');
     expect(costUsage.costIncrease).toBe(15);
@@ -462,9 +487,11 @@ describe('rule exports', () => {
     expect(targetGroupDatasetKey).toBe('aws-ec2-target-groups');
     expect(cloudFrontRequestActivity.totalRequestsLast30Days).toBe(42);
     expect(loadBalancerRequestActivity.averageRequestsPerDayLast14Days).toBe(7);
+    expect(natGatewayActivity.natGatewayId).toBe('nat-123');
     expect(route53Zone.zoneName).toBe('example.com.');
     expect(route53Record.ttl).toBe(300);
     expect(route53HealthCheck.healthCheckId).toBe('abcd1234');
+    expect(notebookInstance.notebookInstanceStatus).toBe('InService');
     expect(secret.secretName).toBe('db-password');
     expect(cacheCluster.cacheClusterStatus).toBe('available');
     expect(cacheClusterActivity.averageCacheHitRateLast14Days).toBe(4.5);

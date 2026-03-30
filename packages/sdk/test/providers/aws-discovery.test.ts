@@ -42,6 +42,7 @@ import {
 } from '../../src/providers/aws/resources/dynamodb.js';
 import { hydrateAwsEbsSnapshots, hydrateAwsEbsVolumes } from '../../src/providers/aws/resources/ebs.js';
 import { hydrateAwsEc2Instances } from '../../src/providers/aws/resources/ec2.js';
+import { hydrateAwsEc2NatGatewayActivity } from '../../src/providers/aws/resources/ec2-nat-gateways.js';
 import { hydrateAwsEc2ReservedInstances } from '../../src/providers/aws/resources/ec2-reserved-instances.js';
 import { hydrateAwsEc2InstanceUtilization } from '../../src/providers/aws/resources/ec2-utilization.js';
 import { hydrateAwsEcrRepositories } from '../../src/providers/aws/resources/ecr.js';
@@ -88,6 +89,7 @@ import {
   hydrateAwsRoute53Zones,
 } from '../../src/providers/aws/resources/route53.js';
 import { hydrateAwsS3BucketAnalyses } from '../../src/providers/aws/resources/s3.js';
+import { hydrateAwsSageMakerNotebookInstances } from '../../src/providers/aws/resources/sagemaker.js';
 import { hydrateAwsSecretsManagerSecrets } from '../../src/providers/aws/resources/secretsmanager.js';
 
 vi.mock('../../src/providers/aws/client.js', async (importOriginal) => {
@@ -187,6 +189,10 @@ vi.mock('../../src/providers/aws/resources/ec2.js', () => ({
   hydrateAwsEc2Instances: vi.fn(),
 }));
 
+vi.mock('../../src/providers/aws/resources/ec2-nat-gateways.js', () => ({
+  hydrateAwsEc2NatGatewayActivity: vi.fn(),
+}));
+
 vi.mock('../../src/providers/aws/resources/ec2-utilization.js', () => ({
   hydrateAwsEc2InstanceUtilization: vi.fn(),
 }));
@@ -233,6 +239,10 @@ vi.mock('../../src/providers/aws/resources/s3.js', () => ({
   hydrateAwsS3BucketAnalyses: vi.fn(),
 }));
 
+vi.mock('../../src/providers/aws/resources/sagemaker.js', () => ({
+  hydrateAwsSageMakerNotebookInstances: vi.fn(),
+}));
+
 vi.mock('../../src/providers/aws/resources/secretsmanager.js', () => ({
   hydrateAwsSecretsManagerSecrets: vi.fn(),
 }));
@@ -276,6 +286,7 @@ const mockedHydrateAwsEcrRepositories = vi.mocked(hydrateAwsEcrRepositories);
 const mockedHydrateAwsEmrClusterMetrics = vi.mocked(hydrateAwsEmrClusterMetrics);
 const mockedHydrateAwsEmrClusters = vi.mocked(hydrateAwsEmrClusters);
 const mockedHydrateAwsEc2Instances = vi.mocked(hydrateAwsEc2Instances);
+const mockedHydrateAwsEc2NatGatewayActivity = vi.mocked(hydrateAwsEc2NatGatewayActivity);
 const mockedHydrateAwsEc2InstanceUtilization = vi.mocked(hydrateAwsEc2InstanceUtilization);
 const mockedHydrateAwsEc2ReservedInstances = vi.mocked(hydrateAwsEc2ReservedInstances);
 const mockedHydrateAwsEc2LoadBalancers = vi.mocked(hydrateAwsEc2LoadBalancers);
@@ -296,6 +307,7 @@ const mockedHydrateAwsRoute53HealthChecks = vi.mocked(hydrateAwsRoute53HealthChe
 const mockedHydrateAwsRoute53Records = vi.mocked(hydrateAwsRoute53Records);
 const mockedHydrateAwsRoute53Zones = vi.mocked(hydrateAwsRoute53Zones);
 const mockedHydrateAwsS3BucketAnalyses = vi.mocked(hydrateAwsS3BucketAnalyses);
+const mockedHydrateAwsSageMakerNotebookInstances = vi.mocked(hydrateAwsSageMakerNotebookInstances);
 const mockedHydrateAwsSecretsManagerSecrets = vi.mocked(hydrateAwsSecretsManagerSecrets);
 
 const catalog: AwsDiscoveryCatalog = {
@@ -1773,6 +1785,69 @@ describe('discoverAwsResources', () => {
     ]);
   });
 
+  it('hydrates NAT gateway activity when an active rule requires idle NAT gateway data', async () => {
+    mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
+      indexType: 'LOCAL',
+      resources: [
+        {
+          accountId: '123456789012',
+          arn: 'arn:aws:ec2:us-east-1:123456789012:natgateway/nat-123',
+          properties: [],
+          region: 'us-east-1',
+          resourceType: 'ec2:natgateway',
+          service: 'ec2',
+        },
+      ],
+      searchRegion: 'us-east-1',
+    });
+    mockedHydrateAwsEc2NatGatewayActivity.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        bytesInFromDestinationLast7Days: 0,
+        bytesOutToDestinationLast7Days: 0,
+        natGatewayId: 'nat-123',
+        region: 'us-east-1',
+        state: 'available',
+        subnetId: 'subnet-123',
+      },
+    ]);
+
+    const result = await discoverAwsResources(
+      [
+        createRule({
+          discoveryDependencies: ['aws-ec2-nat-gateway-activity'],
+          service: 'ec2',
+        }),
+      ],
+      { mode: 'region', region: 'us-east-1' },
+    );
+
+    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith({ mode: 'region', region: 'us-east-1' }, [
+      'ec2:natgateway',
+    ]);
+    expect(mockedHydrateAwsEc2NatGatewayActivity).toHaveBeenCalledWith([
+      {
+        accountId: '123456789012',
+        arn: 'arn:aws:ec2:us-east-1:123456789012:natgateway/nat-123',
+        properties: [],
+        region: 'us-east-1',
+        resourceType: 'ec2:natgateway',
+        service: 'ec2',
+      },
+    ]);
+    expect(result.resources.get('aws-ec2-nat-gateway-activity')).toEqual([
+      {
+        accountId: '123456789012',
+        bytesInFromDestinationLast7Days: 0,
+        bytesOutToDestinationLast7Days: 0,
+        natGatewayId: 'nat-123',
+        region: 'us-east-1',
+        state: 'available',
+        subnetId: 'subnet-123',
+      },
+    ]);
+  });
+
   it('hydrates RDS activity summaries when an active rule requires idle-instance data', async () => {
     mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
       indexType: 'LOCAL',
@@ -1896,6 +1971,67 @@ describe('discoverAwsResources', () => {
         region: 'us-east-1',
         snapshotCreateTime: '2026-01-01T00:00:00.000Z',
         snapshotType: 'manual',
+      },
+    ]);
+  });
+
+  it('hydrates SageMaker notebook instances when an active rule requires notebook data', async () => {
+    mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
+      indexType: 'LOCAL',
+      resources: [
+        {
+          accountId: '123456789012',
+          arn: 'arn:aws:sagemaker:eu-west-1:123456789012:notebook-instance/analytics-notebook',
+          properties: [],
+          region: 'eu-west-1',
+          resourceType: 'sagemaker:notebook-instance',
+          service: 'sagemaker',
+        },
+      ],
+      searchRegion: 'eu-west-1',
+    });
+    mockedHydrateAwsSageMakerNotebookInstances.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        instanceType: 'ml.t3.medium',
+        lastModifiedTime: '2026-03-01T00:00:00.000Z',
+        notebookInstanceName: 'analytics-notebook',
+        notebookInstanceStatus: 'InService',
+        region: 'eu-west-1',
+      },
+    ]);
+
+    const result = await discoverAwsResources(
+      [
+        createRule({
+          discoveryDependencies: ['aws-sagemaker-notebook-instances'],
+          service: 'sagemaker',
+        }),
+      ],
+      { mode: 'region', region: 'eu-west-1' },
+    );
+
+    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith({ mode: 'region', region: 'eu-west-1' }, [
+      'sagemaker:notebook-instance',
+    ]);
+    expect(mockedHydrateAwsSageMakerNotebookInstances).toHaveBeenCalledWith([
+      {
+        accountId: '123456789012',
+        arn: 'arn:aws:sagemaker:eu-west-1:123456789012:notebook-instance/analytics-notebook',
+        properties: [],
+        region: 'eu-west-1',
+        resourceType: 'sagemaker:notebook-instance',
+        service: 'sagemaker',
+      },
+    ]);
+    expect(result.resources.get('aws-sagemaker-notebook-instances')).toEqual([
+      {
+        accountId: '123456789012',
+        instanceType: 'ml.t3.medium',
+        lastModifiedTime: '2026-03-01T00:00:00.000Z',
+        notebookInstanceName: 'analytics-notebook',
+        notebookInstanceStatus: 'InService',
+        region: 'eu-west-1',
       },
     ]);
   });

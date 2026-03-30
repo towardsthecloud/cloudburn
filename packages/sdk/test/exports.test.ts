@@ -267,6 +267,13 @@ describe('sdk exports', () => {
         supports: ['discovery'],
       },
       {
+        description: 'Flag available NAT gateways whose inbound and outbound traffic both stay at zero for 7 days.',
+        id: 'CLDBRN-AWS-EC2-10',
+        provider: 'aws',
+        service: 'ec2',
+        supports: ['discovery'],
+      },
+      {
         description: 'Flag ECR repositories that do not define a lifecycle policy.',
         id: 'CLDBRN-AWS-ECR-1',
         provider: 'aws',
@@ -506,6 +513,13 @@ describe('sdk exports', () => {
         provider: 'aws',
         service: 's3',
         supports: ['iac', 'discovery'],
+      },
+      {
+        description: 'Flag SageMaker notebook instances whose status remains InService.',
+        id: 'CLDBRN-AWS-SAGEMAKER-1',
+        provider: 'aws',
+        service: 'sagemaker',
+        supports: ['discovery'],
       },
       {
         description: 'Flag Secrets Manager secrets not accessed within a threshold (default 90 days).',

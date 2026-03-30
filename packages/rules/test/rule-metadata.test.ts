@@ -622,6 +622,22 @@ describe('rule metadata', () => {
     });
   });
 
+  it('defines the expected EC2 idle NAT gateway rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-EC2-10');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-EC2-10',
+      name: 'NAT Gateway Idle',
+      description: 'Flag available NAT gateways whose inbound and outbound traffic both stay at zero for 7 days.',
+      message: 'NAT gateways should process traffic or be removed.',
+      provider: 'aws',
+      service: 'ec2',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-ec2-nat-gateway-activity'],
+    });
+  });
+
   it('defines the expected ELB ALB-without-targets rule metadata', () => {
     const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-ELB-1');
 
@@ -918,6 +934,22 @@ describe('rule metadata', () => {
       supports: ['discovery', 'iac'],
       discoveryDependencies: ['aws-apigateway-stages'],
       staticDependencies: ['aws-apigateway-stages'],
+    });
+  });
+
+  it('defines the expected SageMaker notebook-running rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-SAGEMAKER-1');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-SAGEMAKER-1',
+      name: 'SageMaker Notebook Instance Running',
+      description: 'Flag SageMaker notebook instances whose status remains InService.',
+      message: 'SageMaker notebook instances should not remain running when they are no longer needed.',
+      provider: 'aws',
+      service: 'sagemaker',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-sagemaker-notebook-instances'],
     });
   });
 
