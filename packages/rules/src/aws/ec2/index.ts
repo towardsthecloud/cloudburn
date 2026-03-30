@@ -1,3 +1,4 @@
+import { ec2DetailedMonitoringEnabledRule } from './detailed-monitoring-enabled.js';
 import { ec2GravitonReviewRule } from './graviton-review.js';
 import { ec2InactiveVpcInterfaceEndpointRule } from './inactive-vpc-interface-endpoint.js';
 import { ec2LargeInstanceRule } from './large-instance.js';
@@ -19,4 +20,5 @@ export const ec2Rules = [
   ec2ReservedInstanceExpiringRule,
   ec2LargeInstanceRule,
   ec2LongRunningInstanceRule,
+  ec2DetailedMonitoringEnabledRule,
 ];

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { redshiftPauseResumeRule } from '../src/aws/redshift/pause-resume.js';
-import type { AwsRedshiftCluster } from '../src/index.js';
-import { LiveResourceBag } from '../src/index.js';
+import type { AwsRedshiftCluster, AwsStaticRedshiftCluster } from '../src/index.js';
+import { LiveResourceBag, StaticResourceBag } from '../src/index.js';
 
 const createCluster = (overrides: Partial<AwsRedshiftCluster> = {}): AwsRedshiftCluster => ({
   accountId: '123456789012',
@@ -17,6 +17,22 @@ const createCluster = (overrides: Partial<AwsRedshiftCluster> = {}): AwsRedshift
   numberOfNodes: 2,
   region: 'us-east-1',
   vpcId: 'vpc-123',
+  ...overrides,
+});
+
+const createStaticCluster = (overrides: Partial<AwsStaticRedshiftCluster> = {}): AwsStaticRedshiftCluster => ({
+  automatedSnapshotRetentionPeriod: 1,
+  hasPauseSchedule: false,
+  hasResumeSchedule: true,
+  hasVpc: true,
+  hsmEnabled: false,
+  location: {
+    path: 'main.tf',
+    line: 6,
+    column: 3,
+  },
+  multiAz: false,
+  resourceId: 'aws_redshift_cluster.warehouse',
   ...overrides,
 });
 
@@ -64,6 +80,47 @@ describe('redshiftPauseResumeRule', () => {
             automatedSnapshotRetentionPeriod: undefined,
             clusterIdentifier: 'warehouse-unknown-snapshots',
           }),
+        ],
+      }),
+    });
+
+    expect(finding).toBeNull();
+  });
+
+  it('flags eligible static clusters that are missing a pause or resume schedule', () => {
+    const finding = redshiftPauseResumeRule.evaluateStatic?.({
+      resources: new StaticResourceBag({
+        'aws-redshift-clusters': [createStaticCluster()],
+      }),
+    });
+
+    expect(finding).toEqual({
+      ruleId: 'CLDBRN-AWS-REDSHIFT-3',
+      service: 'redshift',
+      source: 'iac',
+      message: 'Redshift clusters should enable both pause and resume schedules when eligible.',
+      findings: [
+        {
+          location: {
+            path: 'main.tf',
+            line: 6,
+            column: 3,
+          },
+          resourceId: 'aws_redshift_cluster.warehouse',
+        },
+      ],
+    });
+  });
+
+  it('skips ineligible static clusters or clusters that already have both schedules', () => {
+    const finding = redshiftPauseResumeRule.evaluateStatic?.({
+      resources: new StaticResourceBag({
+        'aws-redshift-clusters': [
+          createStaticCluster({ hasPauseSchedule: true, hasResumeSchedule: true, resourceId: 'covered' }),
+          createStaticCluster({ automatedSnapshotRetentionPeriod: 0, resourceId: 'snapshot-disabled' }),
+          createStaticCluster({ hasVpc: false, resourceId: 'classic-cluster' }),
+          createStaticCluster({ hsmEnabled: true, resourceId: 'hsm-cluster' }),
+          createStaticCluster({ multiAz: true, resourceId: 'multi-az-cluster' }),
         ],
       }),
     });

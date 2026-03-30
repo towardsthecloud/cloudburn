@@ -10,6 +10,7 @@ const createBucketAnalysis = (overrides: Partial<AwsStaticS3BucketAnalysis> = {}
   hasIntelligentTieringConfiguration: false,
   hasIntelligentTieringTransition: false,
   hasLifecycleSignal: false,
+  hasNoncurrentVersionCleanup: false,
   hasUnclassifiedTransition: false,
   location: {
     path: 'main.tf',
@@ -17,6 +18,7 @@ const createBucketAnalysis = (overrides: Partial<AwsStaticS3BucketAnalysis> = {}
     column: 1,
   },
   resourceId: 'aws_s3_bucket.logs',
+  versioningEnabled: false,
   ...overrides,
 });
 
