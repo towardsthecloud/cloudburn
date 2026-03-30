@@ -14,6 +14,8 @@ const createRepository = (overrides: Partial<AwsEcrRepository> = {}): AwsEcrRepo
 
 const createStaticRepository = (overrides: Partial<AwsStaticEcrRepository> = {}): AwsStaticEcrRepository => ({
   hasLifecyclePolicy: false,
+  hasTaggedImageRetentionCap: null,
+  hasUntaggedImageExpiry: null,
   location: {
     path: 'main.tf',
     line: 4,

@@ -23,6 +23,7 @@ const createStaticVolume = (overrides: Partial<AwsStaticEbsVolume> = {}): AwsSta
     column: 3,
   },
   resourceId: 'aws_ebs_volume.gp2_data',
+  throughputMiBps: 125,
   volumeType: 'gp2',
   ...overrides,
 });

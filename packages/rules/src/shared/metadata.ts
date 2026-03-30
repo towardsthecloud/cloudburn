@@ -626,6 +626,8 @@ export type SharedDatasetKey =
   | 'aws-dynamodb-autoscaling'
   | 'aws-dynamodb-tables'
   | 'aws-ebs-volumes'
+  | 'aws-ecs-autoscaling'
+  | 'aws-ecs-services'
   | 'aws-ecr-repositories'
   | 'aws-ec2-elastic-ips'
   | 'aws-ec2-instances'
@@ -633,6 +635,7 @@ export type SharedDatasetKey =
   | 'aws-emr-clusters'
   | 'aws-lambda-functions'
   | 'aws-rds-instances'
+  | 'aws-redshift-clusters'
   | 'aws-route53-health-checks'
   | 'aws-route53-records'
   | 'aws-s3-bucket-analyses';
@@ -749,7 +752,7 @@ export type DiscoveryDatasetMap = {
 };
 
 /** Rule-facing static IaC dataset key exposed through the evaluation context. */
-export type StaticDatasetKey = SharedDatasetKey | 'aws-ec2-vpc-endpoints';
+export type StaticDatasetKey = SharedDatasetKey | 'aws-ec2-vpc-endpoints' | 'aws-lambda-provisioned-concurrency';
 
 /** Normalized static API Gateway stage dataset entry. */
 export type AwsStaticApiGatewayStage = {
@@ -786,6 +789,10 @@ export type AwsStaticDynamoDbAutoscaling = {
   tableName: string | null;
   hasReadTarget: boolean;
   hasWriteTarget: boolean;
+  readMinCapacity?: number | null;
+  readMaxCapacity?: number | null;
+  writeMinCapacity?: number | null;
+  writeMaxCapacity?: number | null;
 };
 
 /** Normalized static EBS volume dataset entry with a precomputed finding target. */
@@ -793,6 +800,7 @@ export type AwsStaticEbsVolume = {
   resourceId: string;
   sizeGiB: number | null;
   iops: number | null;
+  throughputMiBps?: number | null;
   volumeType: string | null;
   location?: SourceLocation;
 };
@@ -801,12 +809,15 @@ export type AwsStaticEbsVolume = {
 export type AwsStaticEcrRepository = {
   resourceId: string;
   hasLifecyclePolicy: boolean;
+  hasTaggedImageRetentionCap?: boolean | null;
+  hasUntaggedImageExpiry?: boolean | null;
   location?: SourceLocation;
 };
 
 /** Normalized static EC2 instance dataset entry with a precomputed finding target. */
 export type AwsStaticEc2Instance = {
   resourceId: string;
+  detailedMonitoringEnabled?: boolean;
   instanceType: string | null;
   location?: SourceLocation;
 };
@@ -854,6 +865,8 @@ export type AwsStaticRdsInstance = {
   instanceClass: string | null;
   engine: string | null;
   engineVersion: string | null;
+  performanceInsightsEnabled?: boolean | null;
+  performanceInsightsRetentionPeriod?: number | null | undefined;
   location?: SourceLocation;
 };
 
@@ -861,6 +874,42 @@ export type AwsStaticRdsInstance = {
 export type AwsStaticLambdaFunction = {
   resourceId: string;
   architectures: string[] | null;
+  location?: SourceLocation;
+};
+
+/** Normalized static Lambda provisioned concurrency dataset entry. */
+export type AwsStaticLambdaProvisionedConcurrency = {
+  resourceId: string;
+  provisionedConcurrentExecutions: number | null;
+  location?: SourceLocation;
+};
+
+/** Normalized static ECS service dataset entry. */
+export type AwsStaticEcsService = {
+  resourceId: string;
+  clusterName: string | null;
+  serviceName: string | null;
+  schedulingStrategy: string | null;
+  location?: SourceLocation;
+};
+
+/** Normalized static ECS autoscaling dataset entry. */
+export type AwsStaticEcsServiceAutoscaling = {
+  clusterName: string | null;
+  serviceName: string | null;
+  hasScalableTarget: boolean;
+  hasScalingPolicy: boolean;
+};
+
+/** Normalized static Redshift cluster dataset entry. */
+export type AwsStaticRedshiftCluster = {
+  resourceId: string;
+  automatedSnapshotRetentionPeriod: number | null | undefined;
+  hasPauseSchedule: boolean;
+  hasResumeSchedule: boolean;
+  hasVpc: boolean;
+  hsmEnabled: boolean | null;
+  multiAz: boolean | null;
   location?: SourceLocation;
 };
 
@@ -874,7 +923,9 @@ export type AwsStaticEc2VpcEndpoint = {
 
 /** Aggregated static S3 bucket analysis dataset entry. */
 export type AwsStaticS3BucketAnalysis = AwsS3BucketAnalysisFlags & {
+  hasNoncurrentVersionCleanup?: boolean;
   resourceId: string;
+  versioningEnabled?: boolean | null;
   location?: SourceLocation;
 };
 
@@ -887,13 +938,17 @@ export type StaticDatasetMap = {
   'aws-dynamodb-tables': AwsStaticDynamoDbTable[];
   'aws-ebs-volumes': AwsStaticEbsVolume[];
   'aws-ecr-repositories': AwsStaticEcrRepository[];
+  'aws-ecs-autoscaling': AwsStaticEcsServiceAutoscaling[];
+  'aws-ecs-services': AwsStaticEcsService[];
   'aws-ec2-elastic-ips': AwsStaticEc2ElasticIp[];
   'aws-ec2-instances': AwsStaticEc2Instance[];
   'aws-eks-nodegroups': AwsStaticEksNodegroup[];
   'aws-emr-clusters': AwsStaticEmrCluster[];
   'aws-lambda-functions': AwsStaticLambdaFunction[];
+  'aws-lambda-provisioned-concurrency': AwsStaticLambdaProvisionedConcurrency[];
   'aws-ec2-vpc-endpoints': AwsStaticEc2VpcEndpoint[];
   'aws-rds-instances': AwsStaticRdsInstance[];
+  'aws-redshift-clusters': AwsStaticRedshiftCluster[];
   'aws-route53-health-checks': AwsStaticRoute53HealthCheck[];
   'aws-route53-records': AwsStaticRoute53Record[];
   'aws-s3-bucket-analyses': AwsStaticS3BucketAnalysis[];

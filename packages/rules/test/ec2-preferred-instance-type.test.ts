@@ -22,6 +22,7 @@ const createDiscoveredResource = (overrides: Partial<AwsDiscoveredResource> = {}
 });
 
 const createStaticInstance = (overrides: Partial<AwsStaticEc2Instance> = {}): AwsStaticEc2Instance => ({
+  detailedMonitoringEnabled: false,
   instanceType: 'm4.large',
   location: {
     path: 'main.tf',

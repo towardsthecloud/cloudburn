@@ -21,6 +21,8 @@ const createStaticInstance = (overrides: Partial<AwsStaticRdsInstance> = {}): Aw
   instanceClass: 'db.m6i.large',
   engine: 'mysql',
   engineVersion: '8.0.39',
+  performanceInsightsEnabled: false,
+  performanceInsightsRetentionPeriod: undefined,
   ...overrides,
 });
 

@@ -1,6 +1,6 @@
 import { createFinding, createFindingMatch, createRule } from '../../shared/helpers.js';
 
-const RULE_ID = 'CLDBRN-AWS-EC2-10';
+const RULE_ID = 'CLDBRN-AWS-EC2-11';
 const RULE_SERVICE = 'ec2';
 const RULE_MESSAGE = 'NAT gateways should process traffic or be removed.';
 

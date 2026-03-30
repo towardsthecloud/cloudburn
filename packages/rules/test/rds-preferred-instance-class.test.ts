@@ -35,6 +35,8 @@ const createStaticRdsInstance = (overrides: Partial<AwsStaticRdsInstance> = {}):
     line: 6,
     column: 3,
   },
+  performanceInsightsEnabled: false,
+  performanceInsightsRetentionPeriod: undefined,
   resourceId: 'aws_db_instance.legacy',
   ...overrides,
 });

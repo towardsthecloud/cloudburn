@@ -99,11 +99,13 @@ describe('loadAwsStaticResources', () => {
         },
         resourceId: 'aws_ebs_volume.logs',
         sizeGiB: null,
+        throughputMiBps: null,
         volumeType: 'gp2',
       },
     ]);
     expect(result.resources.get('aws-ec2-instances')).toEqual([
       {
+        detailedMonitoringEnabled: false,
         instanceType: 'c6i.large',
         location: {
           path: 'template.yaml',
@@ -168,6 +170,8 @@ describe('loadAwsStaticResources', () => {
           line: 5,
           column: 3,
         },
+        performanceInsightsEnabled: false,
+        performanceInsightsRetentionPeriod: undefined,
         resourceId: 'aws_db_instance.legacy',
       },
       {
@@ -179,6 +183,8 @@ describe('loadAwsStaticResources', () => {
           line: 9,
           column: 7,
         },
+        performanceInsightsEnabled: false,
+        performanceInsightsRetentionPeriod: undefined,
         resourceId: 'Database',
       },
     ]);
@@ -258,6 +264,7 @@ describe('loadAwsStaticResources', () => {
         },
         resourceId: 'aws_ebs_volume.logs',
         sizeGiB: 200,
+        throughputMiBps: null,
         volumeType: 'io2',
       },
       {
@@ -269,6 +276,7 @@ describe('loadAwsStaticResources', () => {
         },
         resourceId: 'DataVolume',
         sizeGiB: 500,
+        throughputMiBps: null,
         volumeType: 'io1',
       },
     ]);
@@ -348,6 +356,8 @@ describe('loadAwsStaticResources', () => {
           line: 5,
           column: 3,
         },
+        performanceInsightsEnabled: false,
+        performanceInsightsRetentionPeriod: undefined,
         resourceId: 'aws_db_instance.legacy',
       },
       {
@@ -359,6 +369,8 @@ describe('loadAwsStaticResources', () => {
           line: 9,
           column: 7,
         },
+        performanceInsightsEnabled: false,
+        performanceInsightsRetentionPeriod: undefined,
         resourceId: 'Database',
       },
     ]);
@@ -665,7 +677,11 @@ describe('loadAwsStaticResources', () => {
       {
         hasReadTarget: true,
         hasWriteTarget: true,
+        readMaxCapacity: null,
+        readMinCapacity: null,
         tableName: 'orders',
+        writeMaxCapacity: null,
+        writeMinCapacity: null,
       },
     ]);
   });
@@ -1131,6 +1147,8 @@ describe('loadAwsStaticResources', () => {
     expect(result.resources.get('aws-ecr-repositories')).toEqual([
       {
         hasLifecyclePolicy: true,
+        hasTaggedImageRetentionCap: null,
+        hasUntaggedImageExpiry: null,
         location: {
           path: 'main.tf',
           line: 1,
@@ -1140,6 +1158,8 @@ describe('loadAwsStaticResources', () => {
       },
       {
         hasLifecyclePolicy: true,
+        hasTaggedImageRetentionCap: false,
+        hasUntaggedImageExpiry: false,
         location: {
           path: 'template.yaml',
           line: 10,
@@ -1149,6 +1169,8 @@ describe('loadAwsStaticResources', () => {
       },
       {
         hasLifecyclePolicy: false,
+        hasTaggedImageRetentionCap: null,
+        hasUntaggedImageExpiry: null,
         location: {
           path: 'template.yaml',
           line: 18,
@@ -1191,6 +1213,8 @@ describe('loadAwsStaticResources', () => {
     expect(result.resources.get('aws-ecr-repositories')).toEqual([
       {
         hasLifecyclePolicy: true,
+        hasTaggedImageRetentionCap: null,
+        hasUntaggedImageExpiry: null,
         location: {
           path: 'main.tf',
           line: 1,
@@ -1233,6 +1257,8 @@ describe('loadAwsStaticResources', () => {
     expect(result.resources.get('aws-ecr-repositories')).toEqual([
       {
         hasLifecyclePolicy: true,
+        hasTaggedImageRetentionCap: null,
+        hasUntaggedImageExpiry: null,
         location: {
           path: 'main.tf',
           line: 1,
@@ -1340,6 +1366,7 @@ describe('aws static dataset registry', () => {
         },
         resourceId: 'aws_ebs_volume.logs',
         sizeGiB: null,
+        throughputMiBps: null,
         volumeType: 'gp2',
       },
       {
@@ -1351,6 +1378,7 @@ describe('aws static dataset registry', () => {
         },
         resourceId: 'DataVolume',
         sizeGiB: null,
+        throughputMiBps: null,
         volumeType: 'gp3',
       },
     ]);
@@ -1401,6 +1429,8 @@ describe('aws static dataset registry', () => {
     ).toEqual([
       {
         hasLifecyclePolicy: true,
+        hasTaggedImageRetentionCap: null,
+        hasUntaggedImageExpiry: null,
         location: {
           path: 'main.tf',
           line: 2,
@@ -1410,6 +1440,8 @@ describe('aws static dataset registry', () => {
       },
       {
         hasLifecyclePolicy: true,
+        hasTaggedImageRetentionCap: false,
+        hasUntaggedImageExpiry: false,
         location: {
           path: 'template.yaml',
           line: 7,
@@ -1442,6 +1474,7 @@ describe('aws static dataset registry', () => {
       ]),
     ).toEqual([
       {
+        detailedMonitoringEnabled: false,
         instanceType: null,
         location: {
           path: 'main.tf',
@@ -1557,6 +1590,8 @@ describe('aws static dataset registry', () => {
           line: 4,
           column: 3,
         },
+        performanceInsightsEnabled: false,
+        performanceInsightsRetentionPeriod: undefined,
         resourceId: 'aws_db_instance.legacy',
       },
       {
@@ -1568,6 +1603,8 @@ describe('aws static dataset registry', () => {
           line: 11,
           column: 7,
         },
+        performanceInsightsEnabled: false,
+        performanceInsightsRetentionPeriod: undefined,
         resourceId: 'Database',
       },
     ]);
@@ -1660,6 +1697,7 @@ describe('aws static dataset registry', () => {
         hasIntelligentTieringConfiguration: false,
         hasIntelligentTieringTransition: true,
         hasLifecycleSignal: true,
+        hasNoncurrentVersionCleanup: false,
         hasUnclassifiedTransition: false,
         location: {
           path: 'main.tf',
@@ -1667,6 +1705,7 @@ describe('aws static dataset registry', () => {
           column: 1,
         },
         resourceId: 'aws_s3_bucket.logs',
+        versioningEnabled: false,
       },
     ]);
   });
@@ -1716,6 +1755,7 @@ describe('aws static dataset registry', () => {
         hasIntelligentTieringConfiguration: false,
         hasIntelligentTieringTransition: false,
         hasLifecycleSignal: true,
+        hasNoncurrentVersionCleanup: false,
         hasUnclassifiedTransition: true,
         location: {
           path: 'main.tf',
@@ -1723,6 +1763,7 @@ describe('aws static dataset registry', () => {
           column: 1,
         },
         resourceId: 'aws_s3_bucket.logs',
+        versioningEnabled: false,
       },
     ]);
   });
@@ -1768,6 +1809,7 @@ describe('aws static dataset registry', () => {
         hasIntelligentTieringConfiguration: false,
         hasIntelligentTieringTransition: false,
         hasLifecycleSignal: true,
+        hasNoncurrentVersionCleanup: false,
         hasUnclassifiedTransition: true,
         location: {
           path: 'template.yaml',
@@ -1775,6 +1817,7 @@ describe('aws static dataset registry', () => {
           column: 3,
         },
         resourceId: 'LogsBucket',
+        versioningEnabled: false,
       },
     ]);
   });
@@ -1823,6 +1866,7 @@ describe('aws static dataset registry', () => {
         hasIntelligentTieringConfiguration: false,
         hasIntelligentTieringTransition: false,
         hasLifecycleSignal: true,
+        hasNoncurrentVersionCleanup: false,
         hasUnclassifiedTransition: false,
         location: {
           path: 'main.tf',
@@ -1830,6 +1874,7 @@ describe('aws static dataset registry', () => {
           column: 1,
         },
         resourceId: 'aws_s3_bucket.logs',
+        versioningEnabled: false,
       },
     ]);
   });
@@ -1871,6 +1916,7 @@ describe('aws static dataset registry', () => {
         hasIntelligentTieringConfiguration: false,
         hasIntelligentTieringTransition: false,
         hasLifecycleSignal: true,
+        hasNoncurrentVersionCleanup: false,
         hasUnclassifiedTransition: false,
         location: {
           path: 'template.yaml',
@@ -1878,6 +1924,858 @@ describe('aws static dataset registry', () => {
           column: 3,
         },
         resourceId: 'LogsBucket',
+        versioningEnabled: false,
+      },
+    ]);
+  });
+
+  it('normalizes gp3 throughput for Terraform and CloudFormation EBS volumes', () => {
+    const definition = getAwsStaticDatasetDefinition('aws-ebs-volumes');
+
+    expect(
+      definition?.load([
+        createIaCResource({
+          type: 'aws_ebs_volume',
+          name: 'logs',
+          attributeLocations: {
+            type: {
+              path: 'main.tf',
+              line: 4,
+              column: 3,
+            },
+            throughput: {
+              path: 'main.tf',
+              line: 5,
+              column: 3,
+            },
+          },
+          attributes: {
+            throughput: 250,
+            type: 'gp3',
+          },
+        }),
+        createIaCResource({
+          type: 'AWS::EC2::Volume',
+          name: 'DataVolume',
+          attributeLocations: {
+            'Properties.VolumeType': {
+              path: 'template.yaml',
+              line: 10,
+              column: 7,
+            },
+            'Properties.Throughput': {
+              path: 'template.yaml',
+              line: 11,
+              column: 7,
+            },
+          },
+          attributes: {
+            Properties: {
+              Throughput: 500,
+              VolumeType: 'gp3',
+            },
+          },
+        }),
+      ]),
+    ).toEqual([
+      {
+        iops: null,
+        location: {
+          path: 'main.tf',
+          line: 4,
+          column: 3,
+        },
+        resourceId: 'aws_ebs_volume.logs',
+        sizeGiB: null,
+        throughputMiBps: 250,
+        volumeType: 'gp3',
+      },
+      {
+        iops: null,
+        location: {
+          path: 'template.yaml',
+          line: 10,
+          column: 7,
+        },
+        resourceId: 'DataVolume',
+        sizeGiB: null,
+        throughputMiBps: 500,
+        volumeType: 'gp3',
+      },
+    ]);
+  });
+
+  it('normalizes ECR lifecycle policy traits for Terraform and CloudFormation repositories', () => {
+    const definition = getAwsStaticDatasetDefinition('aws-ecr-repositories');
+
+    expect(
+      definition?.load([
+        createIaCResource({
+          type: 'aws_ecr_repository',
+          name: 'app',
+          location: {
+            path: 'main.tf',
+            line: 1,
+            column: 1,
+          },
+          attributes: {
+            name: 'app',
+          },
+        }),
+        createIaCResource({
+          type: 'aws_ecr_lifecycle_policy',
+          name: 'app',
+          attributes: {
+            policy: JSON.stringify({
+              rules: [
+                {
+                  action: { type: 'expire' },
+                  selection: { countNumber: 14, countType: 'sinceImagePushed', tagStatus: 'untagged' },
+                },
+                {
+                  action: { type: 'expire' },
+                  selection: { countNumber: 20, countType: 'imageCountMoreThan', tagStatus: 'tagged' },
+                },
+              ],
+            }),
+            repository: '${' + 'aws_ecr_repository.app.name}',
+          },
+        }),
+        createIaCResource({
+          type: 'AWS::ECR::Repository',
+          name: 'LogsRepository',
+          location: {
+            path: 'template.yaml',
+            line: 7,
+            column: 3,
+          },
+          attributes: {
+            Properties: {
+              LifecyclePolicy: {
+                LifecyclePolicyText: JSON.stringify({
+                  rules: [
+                    {
+                      Action: { Type: 'expire' },
+                      Selection: { CountNumber: 30, CountType: 'sinceImagePushed', TagStatus: 'untagged' },
+                    },
+                    {
+                      Action: { Type: 'expire' },
+                      Selection: { CountNumber: 50, CountType: 'imageCountMoreThan', TagStatus: 'tagged' },
+                    },
+                  ],
+                }),
+              },
+              RepositoryName: 'logs',
+            },
+          },
+        }),
+      ]),
+    ).toEqual([
+      {
+        hasLifecyclePolicy: true,
+        hasTaggedImageRetentionCap: true,
+        hasUntaggedImageExpiry: true,
+        location: {
+          path: 'main.tf',
+          line: 1,
+          column: 1,
+        },
+        resourceId: 'aws_ecr_repository.app',
+      },
+      {
+        hasLifecyclePolicy: true,
+        hasTaggedImageRetentionCap: true,
+        hasUntaggedImageExpiry: true,
+        location: {
+          path: 'template.yaml',
+          line: 7,
+          column: 3,
+        },
+        resourceId: 'LogsRepository',
+      },
+    ]);
+  });
+
+  it('normalizes EC2 detailed monitoring for Terraform and CloudFormation instances', () => {
+    const definition = getAwsStaticDatasetDefinition('aws-ec2-instances');
+
+    expect(
+      definition?.load([
+        createIaCResource({
+          type: 'aws_instance',
+          name: 'app',
+          attributeLocations: {
+            instance_type: {
+              path: 'main.tf',
+              line: 3,
+              column: 3,
+            },
+            monitoring: {
+              path: 'main.tf',
+              line: 4,
+              column: 3,
+            },
+          },
+          attributes: {
+            instance_type: 'm7i.large',
+            monitoring: true,
+          },
+        }),
+        createIaCResource({
+          type: 'AWS::EC2::Instance',
+          name: 'WorkerInstance',
+          attributeLocations: {
+            'Properties.InstanceType': {
+              path: 'template.yaml',
+              line: 8,
+              column: 7,
+            },
+            'Properties.Monitoring': {
+              path: 'template.yaml',
+              line: 9,
+              column: 7,
+            },
+          },
+          attributes: {
+            Properties: {
+              InstanceType: 'c7g.large',
+              Monitoring: true,
+            },
+          },
+        }),
+      ]),
+    ).toEqual([
+      {
+        detailedMonitoringEnabled: true,
+        instanceType: 'm7i.large',
+        location: {
+          path: 'main.tf',
+          line: 3,
+          column: 3,
+        },
+        resourceId: 'aws_instance.app',
+      },
+      {
+        detailedMonitoringEnabled: true,
+        instanceType: 'c7g.large',
+        location: {
+          path: 'template.yaml',
+          line: 8,
+          column: 7,
+        },
+        resourceId: 'WorkerInstance',
+      },
+    ]);
+  });
+
+  it('normalizes DynamoDB autoscaling min and max capacity values', () => {
+    const definition = getAwsStaticDatasetDefinition('aws-dynamodb-autoscaling');
+
+    expect(
+      definition?.load([
+        createIaCResource({
+          type: 'aws_appautoscaling_target',
+          name: 'orders_read',
+          attributes: {
+            max_capacity: 100,
+            min_capacity: 10,
+            resource_id: 'table/orders',
+            scalable_dimension: 'dynamodb:table:ReadCapacityUnits',
+            service_namespace: 'dynamodb',
+          },
+        }),
+        createIaCResource({
+          type: 'AWS::ApplicationAutoScaling::ScalableTarget',
+          name: 'OrdersWriteTarget',
+          attributes: {
+            Properties: {
+              MaxCapacity: 200,
+              MinCapacity: 20,
+              ResourceId: 'table/orders',
+              ScalableDimension: 'dynamodb:table:WriteCapacityUnits',
+              ServiceNamespace: 'dynamodb',
+            },
+          },
+        }),
+      ]),
+    ).toEqual([
+      {
+        hasReadTarget: true,
+        hasWriteTarget: true,
+        readMaxCapacity: 100,
+        readMinCapacity: 10,
+        tableName: 'orders',
+        writeMaxCapacity: 200,
+        writeMinCapacity: 20,
+      },
+    ]);
+  });
+
+  it('normalizes Lambda provisioned concurrency resources for Terraform and CloudFormation', () => {
+    const definition = getAwsStaticDatasetDefinition('aws-lambda-provisioned-concurrency');
+
+    expect(
+      definition?.load([
+        createIaCResource({
+          type: 'aws_lambda_provisioned_concurrency_config',
+          name: 'worker',
+          attributeLocations: {
+            provisioned_concurrent_executions: {
+              path: 'main.tf',
+              line: 7,
+              column: 3,
+            },
+          },
+          attributes: {
+            provisioned_concurrent_executions: 5,
+          },
+        }),
+        createIaCResource({
+          type: 'AWS::Lambda::Alias',
+          name: 'WorkerAlias',
+          attributeLocations: {
+            'Properties.ProvisionedConcurrencyConfig.ProvisionedConcurrentExecutions': {
+              path: 'template.yaml',
+              line: 14,
+              column: 7,
+            },
+          },
+          attributes: {
+            Properties: {
+              ProvisionedConcurrencyConfig: {
+                ProvisionedConcurrentExecutions: 12,
+              },
+            },
+          },
+        }),
+      ]),
+    ).toEqual([
+      {
+        location: {
+          path: 'main.tf',
+          line: 7,
+          column: 3,
+        },
+        provisionedConcurrentExecutions: 5,
+        resourceId: 'aws_lambda_provisioned_concurrency_config.worker',
+      },
+      {
+        location: {
+          path: 'template.yaml',
+          line: 14,
+          column: 7,
+        },
+        provisionedConcurrentExecutions: 12,
+        resourceId: 'WorkerAlias',
+      },
+    ]);
+  });
+
+  it('normalizes RDS Performance Insights settings for Terraform and CloudFormation', () => {
+    const definition = getAwsStaticDatasetDefinition('aws-rds-instances');
+
+    expect(
+      definition?.load([
+        createIaCResource({
+          type: 'aws_db_instance',
+          name: 'app',
+          attributeLocations: {
+            instance_class: {
+              path: 'main.tf',
+              line: 4,
+              column: 3,
+            },
+            performance_insights_enabled: {
+              path: 'main.tf',
+              line: 5,
+              column: 3,
+            },
+            performance_insights_retention_period: {
+              path: 'main.tf',
+              line: 6,
+              column: 3,
+            },
+          },
+          attributes: {
+            instance_class: 'db.r7g.large',
+            performance_insights_enabled: true,
+            performance_insights_retention_period: 93,
+          },
+        }),
+        createIaCResource({
+          type: 'AWS::RDS::DBInstance',
+          name: 'Database',
+          attributeLocations: {
+            'Properties.DBInstanceClass': {
+              path: 'template.yaml',
+              line: 9,
+              column: 7,
+            },
+            'Properties.EnablePerformanceInsights': {
+              path: 'template.yaml',
+              line: 10,
+              column: 7,
+            },
+            'Properties.PerformanceInsightsRetentionPeriod': {
+              path: 'template.yaml',
+              line: 11,
+              column: 7,
+            },
+          },
+          attributes: {
+            Properties: {
+              DBInstanceClass: 'db.m7g.large',
+              EnablePerformanceInsights: true,
+              PerformanceInsightsRetentionPeriod: 731,
+            },
+          },
+        }),
+      ]),
+    ).toEqual([
+      {
+        engine: null,
+        engineVersion: null,
+        instanceClass: 'db.r7g.large',
+        location: {
+          path: 'main.tf',
+          line: 4,
+          column: 3,
+        },
+        performanceInsightsEnabled: true,
+        performanceInsightsRetentionPeriod: 93,
+        resourceId: 'aws_db_instance.app',
+      },
+      {
+        engine: null,
+        engineVersion: null,
+        instanceClass: 'db.m7g.large',
+        location: {
+          path: 'template.yaml',
+          line: 9,
+          column: 7,
+        },
+        performanceInsightsEnabled: true,
+        performanceInsightsRetentionPeriod: 731,
+        resourceId: 'Database',
+      },
+    ]);
+  });
+
+  it('correlates ECS services with autoscaling resources for Terraform and CloudFormation', () => {
+    const servicesDefinition = getAwsStaticDatasetDefinition('aws-ecs-services');
+    const autoscalingDefinition = getAwsStaticDatasetDefinition('aws-ecs-autoscaling');
+    const resources = [
+      createIaCResource({
+        type: 'aws_ecs_service',
+        name: 'web',
+        attributeLocations: {
+          cluster: {
+            path: 'main.tf',
+            line: 10,
+            column: 3,
+          },
+          name: {
+            path: 'main.tf',
+            line: 11,
+            column: 3,
+          },
+        },
+        attributes: {
+          cluster: 'aws_ecs_cluster.production.name',
+          name: 'web',
+        },
+      }),
+      createIaCResource({
+        type: 'aws_appautoscaling_target',
+        name: 'web',
+        attributes: {
+          resource_id: 'service/production/web',
+          scalable_dimension: 'ecs:service:DesiredCount',
+          service_namespace: 'ecs',
+        },
+      }),
+      createIaCResource({
+        type: 'aws_appautoscaling_policy',
+        name: 'web',
+        attributes: {
+          resource_id: 'service/production/web',
+          scalable_dimension: 'ecs:service:DesiredCount',
+          service_namespace: 'ecs',
+        },
+      }),
+      createIaCResource({
+        type: 'AWS::ECS::Service',
+        name: 'ApiService',
+        attributeLocations: {
+          'Properties.Cluster': {
+            path: 'template.yaml',
+            line: 20,
+            column: 7,
+          },
+          'Properties.ServiceName': {
+            path: 'template.yaml',
+            line: 21,
+            column: 7,
+          },
+        },
+        attributes: {
+          Properties: {
+            Cluster: 'shared',
+            ServiceName: 'api',
+          },
+        },
+      }),
+      createIaCResource({
+        type: 'AWS::ApplicationAutoScaling::ScalableTarget',
+        name: 'ApiTarget',
+        attributes: {
+          Properties: {
+            ResourceId: 'service/shared/api',
+            ScalableDimension: 'ecs:service:DesiredCount',
+            ServiceNamespace: 'ecs',
+          },
+        },
+      }),
+      createIaCResource({
+        type: 'AWS::ApplicationAutoScaling::ScalingPolicy',
+        name: 'ApiPolicy',
+        attributes: {
+          Properties: {
+            ScalingTargetId: {
+              Ref: 'ApiTarget',
+            },
+          },
+        },
+      }),
+    ];
+
+    expect(servicesDefinition?.load(resources)).toEqual([
+      {
+        clusterName: 'production',
+        location: {
+          path: 'main.tf',
+          line: 10,
+          column: 3,
+        },
+        resourceId: 'aws_ecs_service.web',
+        schedulingStrategy: 'REPLICA',
+        serviceName: 'web',
+      },
+      {
+        clusterName: 'shared',
+        location: {
+          path: 'template.yaml',
+          line: 20,
+          column: 7,
+        },
+        resourceId: 'ApiService',
+        schedulingStrategy: 'REPLICA',
+        serviceName: 'api',
+      },
+    ]);
+
+    expect(autoscalingDefinition?.load(resources)).toEqual([
+      {
+        clusterName: 'production',
+        hasScalableTarget: true,
+        hasScalingPolicy: true,
+        serviceName: 'web',
+      },
+      {
+        clusterName: 'shared',
+        hasScalableTarget: true,
+        hasScalingPolicy: true,
+        serviceName: 'api',
+      },
+    ]);
+  });
+
+  it('correlates CloudFormation ECS autoscaling when the scaling policy appears before the scalable target', () => {
+    const definition = getAwsStaticDatasetDefinition('aws-ecs-autoscaling');
+    const resources = [
+      createIaCResource({
+        type: 'AWS::ApplicationAutoScaling::ScalingPolicy',
+        name: 'ApiPolicy',
+        attributes: {
+          Properties: {
+            ScalingTargetId: {
+              Ref: 'ApiTarget',
+            },
+          },
+        },
+      }),
+      createIaCResource({
+        type: 'AWS::ApplicationAutoScaling::ScalableTarget',
+        name: 'ApiTarget',
+        attributes: {
+          Properties: {
+            ResourceId: 'service/shared/api',
+            ScalableDimension: 'ecs:service:DesiredCount',
+            ServiceNamespace: 'ecs',
+          },
+        },
+      }),
+    ];
+
+    expect(definition?.load(resources)).toEqual([
+      {
+        clusterName: 'shared',
+        hasScalableTarget: true,
+        hasScalingPolicy: true,
+        serviceName: 'api',
+      },
+    ]);
+  });
+
+  it('correlates Redshift clusters with scheduled pause and resume actions', () => {
+    const definition = getAwsStaticDatasetDefinition('aws-redshift-clusters');
+
+    expect(
+      definition?.load([
+        createIaCResource({
+          type: 'aws_redshift_cluster',
+          name: 'analytics',
+          attributeLocations: {
+            cluster_identifier: {
+              path: 'main.tf',
+              line: 5,
+              column: 3,
+            },
+            cluster_subnet_group_name: {
+              path: 'main.tf',
+              line: 6,
+              column: 3,
+            },
+          },
+          attributes: {
+            automated_snapshot_retention_period: 1,
+            cluster_identifier: 'warehouse',
+            cluster_subnet_group_name: 'subnet-group',
+          },
+        }),
+        createIaCResource({
+          type: 'aws_redshift_scheduled_action',
+          name: 'pause',
+          attributes: {
+            target_action: [
+              {
+                pause_cluster: [
+                  {
+                    cluster_identifier: 'aws_redshift_cluster.analytics.cluster_identifier',
+                  },
+                ],
+              },
+            ],
+          },
+        }),
+        createIaCResource({
+          type: 'aws_redshift_scheduled_action',
+          name: 'resume',
+          attributes: {
+            target_action: [
+              {
+                resume_cluster: [
+                  {
+                    cluster_identifier: 'warehouse',
+                  },
+                ],
+              },
+            ],
+          },
+        }),
+        createIaCResource({
+          type: 'AWS::Redshift::Cluster',
+          name: 'WarehouseCluster',
+          attributeLocations: {
+            'Properties.ClusterIdentifier': {
+              path: 'template.yaml',
+              line: 10,
+              column: 7,
+            },
+            'Properties.ClusterSubnetGroupName': {
+              path: 'template.yaml',
+              line: 11,
+              column: 7,
+            },
+          },
+          attributes: {
+            Properties: {
+              AutomatedSnapshotRetentionPeriod: 1,
+              ClusterIdentifier: 'warehouse-cfn',
+              ClusterSubnetGroupName: 'subnet-group',
+            },
+          },
+        }),
+        createIaCResource({
+          type: 'AWS::Redshift::ScheduledAction',
+          name: 'PauseAction',
+          attributes: {
+            Properties: {
+              TargetAction: {
+                PauseCluster: {
+                  ClusterIdentifier: {
+                    Ref: 'WarehouseCluster',
+                  },
+                },
+              },
+            },
+          },
+        }),
+        createIaCResource({
+          type: 'AWS::Redshift::ScheduledAction',
+          name: 'ResumeAction',
+          attributes: {
+            Properties: {
+              TargetAction: {
+                ResumeCluster: {
+                  ClusterIdentifier: {
+                    Ref: 'WarehouseCluster',
+                  },
+                },
+              },
+            },
+          },
+        }),
+      ]),
+    ).toEqual([
+      {
+        automatedSnapshotRetentionPeriod: 1,
+        hasPauseSchedule: true,
+        hasResumeSchedule: true,
+        hasVpc: true,
+        hsmEnabled: false,
+        location: {
+          path: 'main.tf',
+          line: 5,
+          column: 3,
+        },
+        multiAz: null,
+        resourceId: 'aws_redshift_cluster.analytics',
+      },
+      {
+        automatedSnapshotRetentionPeriod: 1,
+        hasPauseSchedule: true,
+        hasResumeSchedule: true,
+        hasVpc: true,
+        hsmEnabled: false,
+        location: {
+          path: 'template.yaml',
+          line: 10,
+          column: 7,
+        },
+        multiAz: null,
+        resourceId: 'WarehouseCluster',
+      },
+    ]);
+  });
+
+  it('builds versioning and noncurrent-version cleanup signals for Terraform and CloudFormation S3 buckets', () => {
+    const definition = getAwsStaticDatasetDefinition('aws-s3-bucket-analyses');
+
+    expect(
+      definition?.load([
+        createIaCResource({
+          type: 'aws_s3_bucket',
+          name: 'logs',
+          location: {
+            path: 'main.tf',
+            line: 1,
+            column: 1,
+          },
+          attributes: {
+            bucket: 'example-logs',
+          },
+        }),
+        createIaCResource({
+          type: 'aws_s3_bucket_versioning',
+          name: 'logs',
+          attributes: {
+            bucket: '${' + 'aws_s3_bucket.logs.id}',
+            versioning_configuration: [
+              {
+                status: 'Enabled',
+              },
+            ],
+          },
+        }),
+        createIaCResource({
+          type: 'aws_s3_bucket_lifecycle_configuration',
+          name: 'logs',
+          attributes: {
+            bucket: '${' + 'aws_s3_bucket.logs.id}',
+            rule: [
+              {
+                noncurrent_version_expiration: [
+                  {
+                    noncurrent_days: 30,
+                  },
+                ],
+                status: 'Enabled',
+              },
+            ],
+          },
+        }),
+        createIaCResource({
+          type: 'AWS::S3::Bucket',
+          name: 'LogsBucket',
+          location: {
+            path: 'template.yaml',
+            line: 3,
+            column: 3,
+          },
+          attributes: {
+            Properties: {
+              LifecycleConfiguration: {
+                Rules: [
+                  {
+                    NoncurrentVersionExpiration: {
+                      NoncurrentDays: 30,
+                    },
+                    Status: 'Enabled',
+                  },
+                ],
+              },
+              VersioningConfiguration: {
+                Status: 'Enabled',
+              },
+            },
+          },
+        }),
+      ]),
+    ).toEqual([
+      {
+        hasAbortIncompleteMultipartUploadAfter7Days: false,
+        hasAlternativeStorageClassTransition: false,
+        hasCostFocusedLifecycle: true,
+        hasIntelligentTieringConfiguration: false,
+        hasIntelligentTieringTransition: false,
+        hasLifecycleSignal: true,
+        hasNoncurrentVersionCleanup: true,
+        hasUnclassifiedTransition: false,
+        location: {
+          path: 'main.tf',
+          line: 1,
+          column: 1,
+        },
+        resourceId: 'aws_s3_bucket.logs',
+        versioningEnabled: true,
+      },
+      {
+        hasAbortIncompleteMultipartUploadAfter7Days: false,
+        hasAlternativeStorageClassTransition: false,
+        hasCostFocusedLifecycle: true,
+        hasIntelligentTieringConfiguration: false,
+        hasIntelligentTieringTransition: false,
+        hasLifecycleSignal: true,
+        hasNoncurrentVersionCleanup: true,
+        hasUnclassifiedTransition: false,
+        location: {
+          path: 'template.yaml',
+          line: 3,
+          column: 3,
+        },
+        resourceId: 'LogsBucket',
+        versioningEnabled: true,
       },
     ]);
   });

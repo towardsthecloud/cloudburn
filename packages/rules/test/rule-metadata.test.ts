@@ -221,6 +221,23 @@ describe('rule metadata', () => {
     });
   });
 
+  it('defines the expected S3 noncurrent-version-cleanup rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-S3-4');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-S3-4',
+      name: 'S3 Versioned Bucket Missing Noncurrent Version Cleanup',
+      description:
+        'Flag versioned S3 buckets that do not define noncurrent-version expiration or transition lifecycle cleanup.',
+      message: 'Versioned S3 buckets should define noncurrent-version cleanup.',
+      provider: 'aws',
+      service: 's3',
+      supports: ['iac'],
+      staticDependencies: ['aws-s3-bucket-analyses'],
+    });
+  });
+
   it('defines the expected EC2 S3 endpoint rule metadata', () => {
     const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-EC2-2');
 
@@ -250,6 +267,38 @@ describe('rule metadata', () => {
       service: 'ecr',
       supports: ['iac', 'discovery'],
       discoveryDependencies: ['aws-ecr-repositories'],
+      staticDependencies: ['aws-ecr-repositories'],
+    });
+  });
+
+  it('defines the expected ECR untagged-image-expiry rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-ECR-2');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-ECR-2',
+      name: 'ECR Lifecycle Policy Missing Untagged Image Expiry',
+      description: 'Flag ECR repositories whose lifecycle policy does not expire untagged images.',
+      message: 'ECR repositories should expire untagged images.',
+      provider: 'aws',
+      service: 'ecr',
+      supports: ['iac'],
+      staticDependencies: ['aws-ecr-repositories'],
+    });
+  });
+
+  it('defines the expected ECR tagged-image-retention-cap rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-ECR-3');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-ECR-3',
+      name: 'ECR Lifecycle Policy Missing Tagged Image Retention Cap',
+      description: 'Flag ECR repositories whose lifecycle policy does not cap tagged image retention.',
+      message: 'ECR repositories should cap tagged image retention.',
+      provider: 'aws',
+      service: 'ecr',
+      supports: ['iac'],
       staticDependencies: ['aws-ecr-repositories'],
     });
   });
@@ -404,6 +453,38 @@ describe('rule metadata', () => {
     });
   });
 
+  it('defines the expected EBS gp3-extra-throughput rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-EBS-8');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-EBS-8',
+      name: 'EBS gp3 Volume Extra Throughput Provisioned',
+      description: 'Flag gp3 volumes that provision throughput above the included 125 MiB/s baseline.',
+      message: 'EBS gp3 volumes should avoid paid throughput above the included baseline unless required.',
+      provider: 'aws',
+      service: 'ebs',
+      supports: ['iac'],
+      staticDependencies: ['aws-ebs-volumes'],
+    });
+  });
+
+  it('defines the expected EBS gp3-extra-iops rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-EBS-9');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-EBS-9',
+      name: 'EBS gp3 Volume Extra IOPS Provisioned',
+      description: 'Flag gp3 volumes that provision IOPS above the included 3000 baseline.',
+      message: 'EBS gp3 volumes should avoid paid IOPS above the included baseline unless required.',
+      provider: 'aws',
+      service: 'ebs',
+      supports: ['iac'],
+      staticDependencies: ['aws-ebs-volumes'],
+    });
+  });
+
   it('defines the expected EC2 unassociated-elastic-ip rule metadata', () => {
     const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-EC2-3');
 
@@ -550,8 +631,9 @@ describe('rule metadata', () => {
       message: 'Active REPLICA ECS services should use an autoscaling policy.',
       provider: 'aws',
       service: 'ecs',
-      supports: ['discovery'],
+      supports: ['discovery', 'iac'],
       discoveryDependencies: ['aws-ecs-services', 'aws-ecs-autoscaling'],
+      staticDependencies: ['aws-ecs-services', 'aws-ecs-autoscaling'],
     });
   });
 
@@ -622,12 +704,28 @@ describe('rule metadata', () => {
     });
   });
 
-  it('defines the expected EC2 idle NAT gateway rule metadata', () => {
+  it('defines the expected EC2 detailed-monitoring rule metadata', () => {
     const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-EC2-10');
 
     expect(rule).toBeDefined();
     expect(rule).toMatchObject({
       id: 'CLDBRN-AWS-EC2-10',
+      name: 'EC2 Instance Detailed Monitoring Enabled',
+      description: 'Flag EC2 instances that explicitly enable detailed monitoring.',
+      message: 'EC2 instances should review detailed monitoring because it adds CloudWatch cost.',
+      provider: 'aws',
+      service: 'ec2',
+      supports: ['iac'],
+      staticDependencies: ['aws-ec2-instances'],
+    });
+  });
+
+  it('defines the expected EC2 idle NAT gateway rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-EC2-11');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-EC2-11',
       name: 'NAT Gateway Idle',
       description: 'Flag available NAT gateways whose inbound and outbound traffic both stay at zero for 7 days.',
       message: 'NAT gateways should process traffic or be removed.',
@@ -772,6 +870,22 @@ describe('rule metadata', () => {
     });
   });
 
+  it('defines the expected Lambda provisioned-concurrency rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-LAMBDA-5');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-LAMBDA-5',
+      name: 'Lambda Provisioned Concurrency Configured',
+      description: 'Flag explicit Lambda provisioned concurrency configuration for cost review.',
+      message: 'Lambda provisioned concurrency should be reviewed for steady low-latency demand.',
+      provider: 'aws',
+      service: 'lambda',
+      supports: ['iac'],
+      staticDependencies: ['aws-lambda-provisioned-concurrency'],
+    });
+  });
+
   it('defines the expected RDS idle-instance rule metadata', () => {
     const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-RDS-2');
 
@@ -872,6 +986,22 @@ describe('rule metadata', () => {
     });
   });
 
+  it('defines the expected RDS performance-insights-retention rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-RDS-8');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-RDS-8',
+      name: 'RDS Performance Insights Extended Retention',
+      description: 'Flag DB instances that enable Performance Insights retention beyond the included 7-day period.',
+      message: 'RDS Performance Insights should use the included 7-day retention unless longer retention is required.',
+      provider: 'aws',
+      service: 'rds',
+      supports: ['iac'],
+      staticDependencies: ['aws-rds-instances'],
+    });
+  });
+
   it('defines the expected Redshift low-cpu rule metadata', () => {
     const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-REDSHIFT-1');
 
@@ -915,8 +1045,9 @@ describe('rule metadata', () => {
       message: 'Redshift clusters should enable both pause and resume schedules when eligible.',
       provider: 'aws',
       service: 'redshift',
-      supports: ['discovery'],
+      supports: ['discovery', 'iac'],
       discoveryDependencies: ['aws-redshift-clusters'],
+      staticDependencies: ['aws-redshift-clusters'],
     });
   });
 
@@ -1081,6 +1212,23 @@ describe('rule metadata', () => {
       service: 'dynamodb',
       supports: ['discovery'],
       discoveryDependencies: ['aws-dynamodb-tables', 'aws-dynamodb-table-utilization'],
+    });
+  });
+
+  it('defines the expected DynamoDB autoscaling-range-fixed rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-DYNAMODB-4');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-DYNAMODB-4',
+      name: 'DynamoDB Autoscaling Range Fixed',
+      description:
+        'Flag provisioned-capacity DynamoDB tables whose table autoscaling min and max capacity are identical.',
+      message: 'Provisioned DynamoDB autoscaling should allow capacity to change.',
+      provider: 'aws',
+      service: 'dynamodb',
+      supports: ['iac'],
+      staticDependencies: ['aws-dynamodb-tables', 'aws-dynamodb-autoscaling'],
     });
   });
 

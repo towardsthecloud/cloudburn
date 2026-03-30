@@ -102,7 +102,8 @@ Rule evaluators consume static and live datasets through `context.resources.get(
 | `CLDBRN-AWS-EC2-3`        | Elastic IP Address Unassociated            | ec2        | discovery      | Implemented |
 | `CLDBRN-AWS-EC2-4`        | VPC Interface Endpoint Inactive            | ec2        | discovery      | Implemented |
 | `CLDBRN-AWS-EC2-5`        | EC2 Instance Low Utilization               | ec2        | discovery      | Implemented |
-| `CLDBRN-AWS-EC2-10`       | NAT Gateway Idle                           | ec2        | discovery      | Implemented |
+| `CLDBRN-AWS-EC2-10`       | EC2 Instance Detailed Monitoring Enabled   | ec2        | iac            | Implemented |
+| `CLDBRN-AWS-EC2-11`       | NAT Gateway Idle                           | ec2        | discovery      | Implemented |
 | `CLDBRN-AWS-EBS-1`        | EBS Volume Type Not Current Generation     | ebs        | discovery, iac | Implemented |
 | `CLDBRN-AWS-EBS-2`        | EBS Volume Unattached                      | ebs        | discovery      | Implemented |
 | `CLDBRN-AWS-EBS-3`        | EBS Volume Attached To Stopped Instances   | ebs        | discovery      | Implemented |
