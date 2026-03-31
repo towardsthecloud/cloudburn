@@ -70,6 +70,7 @@ export const AWS_REGIONS = [
 ] as const;
 
 export type AwsRegion = (typeof AWS_REGIONS)[number];
+const SUPPORTED_AWS_REGIONS_MESSAGE = AWS_REGIONS.join(', ');
 
 /**
  * Validates an AWS region string before it is used in clients or filters.
@@ -81,7 +82,7 @@ export const assertValidAwsRegion = (region: string | undefined): AwsRegion => {
   if (!region || !AWS_REGION_PATTERN.test(region) || !AWS_REGIONS.includes(region as AwsRegion)) {
     throw new AwsDiscoveryError(
       'INVALID_AWS_REGION',
-      `Invalid AWS region '${region ?? ''}'. Use a supported AWS region name such as 'eu-central-1' or 'us-east-1'.`,
+      `Invalid AWS region '${region ?? ''}'. Supported regions: ${SUPPORTED_AWS_REGIONS_MESSAGE}.`,
     );
   }
 

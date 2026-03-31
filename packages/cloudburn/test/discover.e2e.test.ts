@@ -203,6 +203,9 @@ describe('discover command e2e', () => {
 
     expect(discover).not.toHaveBeenCalled();
     expect(stderr).toHaveBeenCalledWith(expect.stringContaining("Invalid AWS region 'totally-fake-1'."));
+    expect(stderr).toHaveBeenCalledWith(expect.stringContaining('Supported regions:'));
+    expect(stderr).toHaveBeenCalledWith(expect.stringContaining('eu-central-1'));
+    expect(stderr).toHaveBeenCalledWith(expect.stringContaining('us-east-1'));
   });
 
   it('rejects invalid service filters before invoking the sdk discover method', async () => {

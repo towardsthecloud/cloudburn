@@ -52,4 +52,12 @@ describe('resolveCurrentAwsRegion', { timeout: 30_000 }, () => {
       code: 'INVALID_AWS_REGION',
     });
   });
+
+  it('lists supported regions when region validation fails', async () => {
+    const clientModule = await importClientModule();
+
+    expect(() => clientModule.assertValidAwsRegion('bla')).toThrowError("Invalid AWS region 'bla'. Supported regions:");
+    expect(() => clientModule.assertValidAwsRegion('bla')).toThrowError('eu-central-1');
+    expect(() => clientModule.assertValidAwsRegion('bla')).toThrowError('us-east-1');
+  });
 });
