@@ -1,5 +1,18 @@
 # @cloudburn/sdk
 
+## 0.21.0
+
+### Minor Changes
+
+- [#52](https://github.com/towardsthecloud/cloudburn/pull/52) [`8cd3b28`](https://github.com/towardsthecloud/cloudburn/commit/8cd3b28794555b0a876830b55e77ce21622fa581) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Add AWS static IaC dataset support for new cost review rules across S3, ECR, EBS, EC2, DynamoDB, ECS, Lambda, RDS, and Redshift.
+
+### Patch Changes
+
+- [#53](https://github.com/towardsthecloud/cloudburn/pull/53) [`b59a9f3`](https://github.com/towardsthecloud/cloudburn/commit/b59a9f3b0f2ae04894095cf79d3b070e61e1fbb6) Thanks [@axonstone](https://github.com/axonstone)! - Add AWS discovery dataset support for idle NAT gateways and running SageMaker notebook instances.
+
+- Updated dependencies [[`8cd3b28`](https://github.com/towardsthecloud/cloudburn/commit/8cd3b28794555b0a876830b55e77ce21622fa581), [`b59a9f3`](https://github.com/towardsthecloud/cloudburn/commit/b59a9f3b0f2ae04894095cf79d3b070e61e1fbb6)]:
+  - @cloudburn/rules@0.21.0
+
 ## 0.20.0
 
 ### Minor Changes
