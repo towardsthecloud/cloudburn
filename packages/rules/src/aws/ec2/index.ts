@@ -1,5 +1,6 @@
 import { ec2DetailedMonitoringEnabledRule } from './detailed-monitoring-enabled.js';
 import { ec2GravitonReviewRule } from './graviton-review.js';
+import { ec2IdleNatGatewayRule } from './idle-nat-gateway.js';
 import { ec2InactiveVpcInterfaceEndpointRule } from './inactive-vpc-interface-endpoint.js';
 import { ec2LargeInstanceRule } from './large-instance.js';
 import { ec2LongRunningInstanceRule } from './long-running-instance.js';
@@ -21,4 +22,5 @@ export const ec2Rules = [
   ec2LargeInstanceRule,
   ec2LongRunningInstanceRule,
   ec2DetailedMonitoringEnabledRule,
+  ec2IdleNatGatewayRule,
 ];

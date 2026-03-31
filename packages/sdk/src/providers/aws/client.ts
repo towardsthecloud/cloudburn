@@ -21,6 +21,7 @@ import { RedshiftClient } from '@aws-sdk/client-redshift';
 import { ResourceExplorer2Client } from '@aws-sdk/client-resource-explorer-2';
 import { Route53Client } from '@aws-sdk/client-route-53';
 import { S3Client } from '@aws-sdk/client-s3';
+import { SageMakerClient } from '@aws-sdk/client-sagemaker';
 import { SecretsManagerClient } from '@aws-sdk/client-secrets-manager';
 import { GetCallerIdentityCommand, STSClient } from '@aws-sdk/client-sts';
 import { AwsDiscoveryError } from './errors.js';
@@ -178,6 +179,12 @@ export const createRoute53Client = (): Route53Client =>
 /** Creates an AWS S3 client for a specific region. */
 export const createS3Client = (config: AwsClientConfig): S3Client =>
   new S3Client({
+    region: config.region,
+  });
+
+/** Creates an AWS SageMaker client for a specific region. */
+export const createSageMakerClient = (config: AwsClientConfig): SageMakerClient =>
+  new SageMakerClient({
     region: config.region,
   });
 

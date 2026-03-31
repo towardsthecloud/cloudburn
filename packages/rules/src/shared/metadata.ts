@@ -182,6 +182,19 @@ export type AwsEc2ElasticIp = {
   accountId: string;
 };
 
+/** Discovered NAT gateway with 7-day traffic totals for idle checks. */
+export type AwsEc2NatGatewayActivity = {
+  natGatewayId: string;
+  subnetId: string;
+  state: string;
+  /** `null` means CloudWatch returned incomplete datapoints for the 7-day lookback window. */
+  bytesInFromDestinationLast7Days: number | null;
+  /** `null` means CloudWatch returned incomplete datapoints for the 7-day lookback window. */
+  bytesOutToDestinationLast7Days: number | null;
+  region: string;
+  accountId: string;
+};
+
 /** Discovered ElastiCache cluster normalized for reservation checks. */
 export type AwsElastiCacheCluster = {
   cacheClusterId: string;
@@ -273,6 +286,16 @@ export type AwsLambdaFunctionMetric = {
   totalErrorsLast7Days: number | null;
   /** `null` means CloudWatch did not return a usable 7-day average duration. */
   averageDurationMsLast7Days: number | null;
+  region: string;
+  accountId: string;
+};
+
+/** Discovered SageMaker notebook instance normalized for running-state checks. */
+export type AwsSageMakerNotebookInstance = {
+  notebookInstanceName: string;
+  notebookInstanceStatus: string;
+  instanceType: string;
+  lastModifiedTime?: string;
   region: string;
   accountId: string;
 };
@@ -646,6 +669,7 @@ export type DiscoveryDatasetKey =
   | 'aws-ec2-elastic-ips'
   | 'aws-ec2-instances'
   | 'aws-ec2-instance-utilization'
+  | 'aws-ec2-nat-gateway-activity'
   | 'aws-ec2-load-balancer-request-activity'
   | 'aws-ec2-load-balancers'
   | 'aws-ec2-reserved-instances'
@@ -668,6 +692,7 @@ export type DiscoveryDatasetKey =
   | 'aws-route53-records'
   | 'aws-route53-zones'
   | 'aws-s3-bucket-analyses'
+  | 'aws-sagemaker-notebook-instances'
   | 'aws-secretsmanager-secrets';
 
 /** Normalized live discovery datasets available to rule evaluators. */
@@ -699,6 +724,7 @@ export type DiscoveryDatasetMap = {
   'aws-ec2-elastic-ips': AwsEc2ElasticIp[];
   'aws-ec2-instances': AwsEc2Instance[];
   'aws-ec2-instance-utilization': AwsEc2InstanceUtilization[];
+  'aws-ec2-nat-gateway-activity': AwsEc2NatGatewayActivity[];
   'aws-ec2-load-balancer-request-activity': AwsEc2LoadBalancerRequestActivity[];
   'aws-ec2-load-balancers': AwsEc2LoadBalancer[];
   'aws-ec2-reserved-instances': AwsEc2ReservedInstance[];
@@ -721,6 +747,7 @@ export type DiscoveryDatasetMap = {
   'aws-route53-records': AwsRoute53Record[];
   'aws-route53-zones': AwsRoute53Zone[];
   'aws-s3-bucket-analyses': AwsS3BucketAnalysis[];
+  'aws-sagemaker-notebook-instances': AwsSageMakerNotebookInstance[];
   'aws-secretsmanager-secrets': AwsSecretsManagerSecret[];
 };
 

@@ -18,6 +18,7 @@ import { rdsRules } from './rds/index.js';
 import { redshiftRules } from './redshift/index.js';
 import { route53Rules } from './route53/index.js';
 import { s3Rules } from './s3/index.js';
+import { sagemakerRules } from './sagemaker/index.js';
 import { secretsmanagerRules } from './secretsmanager/index.js';
 
 // Intent: aggregate all AWS rules into a single provider collection.
@@ -42,6 +43,7 @@ export const awsRules = [
   ...redshiftRules,
   ...route53Rules,
   ...s3Rules,
+  ...sagemakerRules,
   ...secretsmanagerRules,
   ...lambdaRules,
 ];
