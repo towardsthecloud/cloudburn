@@ -1,5 +1,15 @@
 # @cloudburn/rules
 
+## 0.21.0
+
+### Minor Changes
+
+- [#52](https://github.com/towardsthecloud/cloudburn/pull/52) [`8cd3b28`](https://github.com/towardsthecloud/cloudburn/commit/8cd3b28794555b0a876830b55e77ce21622fa581) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Add new AWS IaC cost review rules for versioned S3 cleanup, ECR lifecycle quality, gp3 tuning, EC2 detailed monitoring, DynamoDB autoscaling ranges, Lambda provisioned concurrency, and RDS Performance Insights retention, and extend ECS and Redshift rules to support IaC.
+
+### Patch Changes
+
+- [#53](https://github.com/towardsthecloud/cloudburn/pull/53) [`b59a9f3`](https://github.com/towardsthecloud/cloudburn/commit/b59a9f3b0f2ae04894095cf79d3b070e61e1fbb6) Thanks [@axonstone](https://github.com/axonstone)! - Add built-in AWS discovery rules for idle NAT gateways and running SageMaker notebook instances.
+
 ## 0.20.0
 
 ### Minor Changes
