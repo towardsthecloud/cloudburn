@@ -5,14 +5,16 @@ import {
 } from '@aws-sdk/client-cloudwatch-logs';
 import type {
   AwsCloudWatchLogGroup,
+  AwsCloudWatchLogGroupRecentStreamActivity,
   AwsCloudWatchLogMetricFilterCoverage,
   AwsCloudWatchLogStream,
   AwsDiscoveredResource,
 } from '@cloudburn/rules';
 import { createCloudWatchLogsClient } from '../client.js';
-import { withAwsServiceErrorContext } from './utils.js';
+import { chunkItems, withAwsServiceErrorContext } from './utils.js';
 
 const CLOUDWATCH_LOG_GROUP_ARN_PATTERN = /^arn:[^:]+:logs:[^:]+:[^:]+:log-group:(.+)$/u;
+const CLOUDWATCH_LOG_STREAM_ACTIVITY_CONCURRENCY = 10;
 
 const extractAccountIdFromArn = (arn: string): string | null => {
   const arnSegments = arn.split(':');
@@ -192,6 +194,84 @@ export const hydrateAwsCloudWatchLogStreams = async (
   );
 
   return hydratedPages.flat().sort((left, right) => left.arn.localeCompare(right.arn));
+};
+
+/**
+ * Hydrates discovered CloudWatch log groups with only the latest known stream activity summary.
+ *
+ * This avoids enumerating every stream when rules only need recency at log-group scope.
+ *
+ * @param resources - Catalog resources filtered to CloudWatch Logs log groups.
+ * @returns One latest-stream activity summary per discovered log group.
+ */
+export const hydrateAwsCloudWatchLogGroupRecentStreamActivity = async (
+  resources: AwsDiscoveredResource[],
+): Promise<AwsCloudWatchLogGroupRecentStreamActivity[]> => {
+  const resourcesByRegion = new Map<string, AwsDiscoveredResource[]>();
+
+  for (const resource of resources) {
+    const logGroupName = extractLogGroupName(resource.arn);
+
+    if (!logGroupName) {
+      continue;
+    }
+
+    const regionResources = resourcesByRegion.get(resource.region) ?? [];
+    regionResources.push(resource);
+    resourcesByRegion.set(resource.region, regionResources);
+  }
+
+  const hydratedPages = await Promise.all(
+    [...resourcesByRegion.entries()].map(async ([region, regionResources]) => {
+      const client = createCloudWatchLogsClient({ region });
+      const desiredLogGroups = new Map(
+        regionResources.flatMap((resource) => {
+          const logGroupName = extractLogGroupName(resource.arn);
+
+          return logGroupName ? [[logGroupName, resource.accountId] as const] : [];
+        }),
+      );
+      const activity: AwsCloudWatchLogGroupRecentStreamActivity[] = [];
+
+      for (const batch of chunkItems([...desiredLogGroups.entries()], CLOUDWATCH_LOG_STREAM_ACTIVITY_CONCURRENCY)) {
+        const hydratedBatch = await Promise.all(
+          batch.map(async ([logGroupName, discoveredAccountId]) => {
+            const response = await withAwsServiceErrorContext(
+              'Amazon CloudWatch Logs',
+              'DescribeLogStreams',
+              region,
+              () =>
+                client.send(
+                  new DescribeLogStreamsCommand({
+                    descending: true,
+                    limit: 1,
+                    logGroupName,
+                    orderBy: 'LastEventTime',
+                  }),
+                ),
+            );
+            const latestStream = response.logStreams?.[0];
+
+            return {
+              accountId: (latestStream?.arn ? extractAccountIdFromArn(latestStream.arn) : null) ?? discoveredAccountId,
+              lastEventTimestamp: latestStream?.lastEventTimestamp,
+              lastIngestionTime: latestStream?.lastIngestionTime,
+              latestStreamArn: latestStream?.arn,
+              latestStreamName: latestStream?.logStreamName,
+              logGroupName,
+              region,
+            } satisfies AwsCloudWatchLogGroupRecentStreamActivity;
+          }),
+        );
+
+        activity.push(...hydratedBatch);
+      }
+
+      return activity;
+    }),
+  );
+
+  return hydratedPages.flat().sort((left, right) => left.logGroupName.localeCompare(right.logGroupName));
 };
 
 /**

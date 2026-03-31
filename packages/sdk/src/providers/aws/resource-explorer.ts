@@ -14,6 +14,7 @@ import {
   UpdateIndexTypeCommand,
 } from '@aws-sdk/client-resource-explorer-2';
 import type { AwsDiscoveredResource, AwsDiscoveryCatalog } from '@cloudburn/rules';
+import { emitDebugLog } from '../../debug.js';
 import type {
   AwsDiscoveryRegion,
   AwsDiscoveryRegionStatus,
@@ -21,6 +22,7 @@ import type {
   AwsSupportedResourceType,
 } from '../../types.js';
 import {
+  type AwsRegion,
   assertValidAwsRegion,
   createResourceExplorerClient,
   listEnabledAwsRegions,
@@ -32,14 +34,24 @@ import {
   RESOURCE_EXPLORER_SETUP_DOCS_URL,
   wrapAwsServiceError,
 } from './errors.js';
+import { withAwsServiceErrorContext } from './resources/utils.js';
 
 const DEFAULT_RESOURCE_EXPLORER_VIEW_NAME = 'cloudburn-default';
 const TERMINAL_OPERATION_STATUSES = new Set(['FAILED', 'SKIPPED', 'SUCCEEDED']);
+const RESOURCE_EXPLORER_FILTER_STRING_MAX_LENGTH = 2048;
+const RESOURCE_EXPLORER_LIST_RESOURCES_INITIAL_DELAY_MS = 250;
+const RESOURCE_EXPLORER_LIST_RESOURCES_MAX_ATTEMPTS = 5;
+const RESOURCE_EXPLORER_LIST_RESOURCES_MAX_RESULTS = 1000;
 
 type SearchPlan = {
   searchRegion: string;
   indexType: 'LOCAL' | 'AGGREGATOR';
-  regionFilters?: string[];
+  regionFilters?: AwsRegion[];
+};
+
+type ListResourcesQueryPlan = {
+  resourceTypes: string[];
+  regionFilters?: AwsRegion[];
 };
 
 type AggregatorLookupResult =
@@ -323,14 +335,29 @@ const findAccessibleAggregatorRegion = async (): Promise<AccessibleAggregatorLoo
   };
 };
 
-const resolveAggregatorSearchPlan = async (): Promise<SearchPlan> => {
+const sortUniqueStrings = <T extends string>(values: T[]): T[] =>
+  [...new Set(values)].sort((left, right) => left.localeCompare(right)) as T[];
+
+const resolveAggregatorSearchPlan = async (requestedRegions?: AwsRegion[]): Promise<SearchPlan> => {
   const { accessibleIndexedRegions, aggregatorRegion, sawDeniedRegion } = await findAccessibleAggregatorRegion();
+  const selectedRegions: AwsRegion[] = requestedRegions
+    ? sortUniqueStrings(requestedRegions)
+    : (accessibleIndexedRegions as AwsRegion[]);
 
   if (aggregatorRegion) {
+    const missingRegions = selectedRegions.filter((region) => !accessibleIndexedRegions.includes(region));
+
+    if (missingRegions.length > 0) {
+      throw new AwsDiscoveryError(
+        'RESOURCE_EXPLORER_REGION_NOT_ENABLED',
+        `AWS Resource Explorer is not enabled in ${missingRegions[0]}. Enable it first: ${RESOURCE_EXPLORER_SETUP_DOCS_URL} or run 'cloudburn discover init'.`,
+      );
+    }
+
     return {
       searchRegion: aggregatorRegion,
       indexType: 'AGGREGATOR',
-      regionFilters: accessibleIndexedRegions,
+      regionFilters: selectedRegions,
     };
   }
 
@@ -347,12 +374,88 @@ const resolveAggregatorSearchPlan = async (): Promise<SearchPlan> => {
   );
 };
 
-const buildFilterString = (resourceType: string, regionFilter?: string): string => {
-  if (!regionFilter) {
-    return `resourcetype:${resourceType}`;
+const buildFilterString = (resourceTypes: string[], regionFilters?: AwsRegion[]): string => {
+  const normalizedResourceTypes = sortUniqueStrings(resourceTypes);
+
+  if (normalizedResourceTypes.length === 0) {
+    throw new Error('At least one Resource Explorer resource type is required.');
   }
 
-  return `resourcetype:${resourceType} region:${assertValidAwsRegion(regionFilter)}`;
+  const segments = [`resourcetype:${normalizedResourceTypes.join(',')}`];
+
+  if (regionFilters && regionFilters.length > 0) {
+    segments.push(`region:${sortUniqueStrings(regionFilters).map(assertValidAwsRegion).join(',')}`);
+  }
+
+  return segments.join(' ');
+};
+
+const chunkValuesByFilterLength = <T extends string>(values: T[], buildCandidate: (batch: T[]) => string): T[][] => {
+  const batches: T[][] = [];
+  let currentBatch: T[] = [];
+
+  for (const value of values) {
+    const nextBatch = [...currentBatch, value];
+
+    if (buildCandidate(nextBatch).length <= RESOURCE_EXPLORER_FILTER_STRING_MAX_LENGTH) {
+      currentBatch = nextBatch;
+      continue;
+    }
+
+    if (currentBatch.length === 0) {
+      throw new Error(`Resource Explorer filter value '${value}' exceeds the maximum filter length.`);
+    }
+
+    batches.push(currentBatch);
+    currentBatch = [value];
+  }
+
+  if (currentBatch.length > 0) {
+    batches.push(currentBatch);
+  }
+
+  return batches;
+};
+
+const planListResourcesQueries = (resourceTypes: string[], regionFilters?: AwsRegion[]): ListResourcesQueryPlan[] => {
+  const normalizedResourceTypes = sortUniqueStrings(resourceTypes);
+  const normalizedRegionFilters = regionFilters ? (sortUniqueStrings(regionFilters) as AwsRegion[]) : undefined;
+
+  if (!normalizedRegionFilters || normalizedRegionFilters.length === 0) {
+    return chunkValuesByFilterLength(normalizedResourceTypes, (resourceTypeBatch) =>
+      buildFilterString(resourceTypeBatch),
+    ).map((resourceTypeBatch) => ({
+      resourceTypes: resourceTypeBatch,
+    }));
+  }
+
+  let regionBatches: AwsRegion[][];
+
+  try {
+    regionBatches = chunkValuesByFilterLength(normalizedRegionFilters, (regionBatch) =>
+      buildFilterString(normalizedResourceTypes, regionBatch),
+    );
+  } catch {
+    regionBatches = normalizedRegionFilters.map((region) => [region]);
+  }
+
+  return regionBatches.flatMap((regionBatch) => {
+    if (buildFilterString(normalizedResourceTypes, regionBatch).length <= RESOURCE_EXPLORER_FILTER_STRING_MAX_LENGTH) {
+      return [
+        {
+          resourceTypes: normalizedResourceTypes,
+          regionFilters: regionBatch,
+        } satisfies ListResourcesQueryPlan,
+      ];
+    }
+
+    return chunkValuesByFilterLength(normalizedResourceTypes, (resourceTypeBatch) =>
+      buildFilterString(resourceTypeBatch, regionBatch),
+    ).map((resourceTypeBatch) => ({
+      resourceTypes: resourceTypeBatch,
+      regionFilters: regionBatch,
+    }));
+  });
 };
 
 const resolveSearchViewArn = async (searchRegion: string): Promise<string> => {
@@ -573,48 +676,90 @@ export const waitForAwsResourceExplorerSetup = async (
 export const buildAwsDiscoveryCatalog = async (
   target: AwsDiscoveryTarget,
   resourceTypes: string[],
+  options?: { debugLogger?: (message: string) => void },
 ): Promise<AwsDiscoveryCatalog> => {
-  const currentRegion =
-    target.mode === 'region' ? assertValidAwsRegion(target.region) : await resolveCurrentAwsRegion();
-  const searchPlan =
-    target.mode === 'all'
-      ? await resolveAggregatorSearchPlan()
-      : await resolveRegionalSearchPlan(target.mode === 'region' ? target.region : currentRegion);
+  const currentRegion = await resolveCurrentAwsRegion();
+  let searchPlan: SearchPlan;
+
+  if (target.mode === 'regions') {
+    if (target.regions.length === 1) {
+      const [requestedRegion] = target.regions;
+      searchPlan = await resolveRegionalSearchPlan(assertValidAwsRegion(requestedRegion));
+    } else {
+      searchPlan = await resolveAggregatorSearchPlan(target.regions);
+    }
+  } else {
+    searchPlan = await resolveRegionalSearchPlan(currentRegion);
+  }
+  emitDebugLog(
+    options?.debugLogger,
+    `aws: Resource Explorer using ${searchPlan.indexType.toLowerCase()} control plane ${searchPlan.searchRegion}${
+      searchPlan.regionFilters ? ` for regions ${searchPlan.regionFilters.join(', ')}` : ''
+    }`,
+  );
   const client = createResourceExplorerClient({ region: searchPlan.searchRegion });
   const viewArn = await resolveSearchViewArn(searchPlan.searchRegion);
   const resourcesByArn = new Map<string, AwsDiscoveredResource>();
-  const regionFilters = searchPlan.regionFilters?.length ? searchPlan.regionFilters : [undefined];
+  const queryPlans = planListResourcesQueries(resourceTypes, searchPlan.regionFilters);
+  emitDebugLog(
+    options?.debugLogger,
+    `aws: planned ${queryPlans.length} Resource Explorer quer${queryPlans.length === 1 ? 'y' : 'ies'} for ${resourceTypes.length} resource types`,
+  );
 
-  for (const resourceType of resourceTypes) {
-    for (const regionFilter of regionFilters) {
-      let nextToken: string | undefined;
+  for (const [queryIndex, queryPlan] of queryPlans.entries()) {
+    let nextToken: string | undefined;
+    let page = 1;
+    const filterString = buildFilterString(queryPlan.resourceTypes, queryPlan.regionFilters);
 
-      do {
-        const response = await client
-          .send(
+    do {
+      emitDebugLog(
+        options?.debugLogger,
+        `aws: Resource Explorer query ${queryIndex + 1}/${queryPlans.length} page ${page} filter="${filterString}"`,
+      );
+      const response = await withAwsServiceErrorContext(
+        'AWS Resource Explorer',
+        'ListResources',
+        searchPlan.searchRegion,
+        () =>
+          client.send(
             new ListResourcesCommand({
               Filters: {
-                FilterString: buildFilterString(resourceType, regionFilter),
+                FilterString: filterString,
               },
-              MaxResults: 100,
+              MaxResults: RESOURCE_EXPLORER_LIST_RESOURCES_MAX_RESULTS,
               NextToken: nextToken,
               ViewArn: viewArn,
             }),
-          )
-          .catch((err: unknown) => throwResourceExplorerOperationError(err, 'ListResources', searchPlan.searchRegion));
+          ),
+        {
+          initialDelayMs: RESOURCE_EXPLORER_LIST_RESOURCES_INITIAL_DELAY_MS,
+          maxAttempts: RESOURCE_EXPLORER_LIST_RESOURCES_MAX_ATTEMPTS,
+          onRetry: ({ attempt, delayMs, maxAttempts: retryMaxAttempts }) => {
+            emitDebugLog(
+              options?.debugLogger,
+              `aws: retrying throttled Resource Explorer ListResources attempt ${attempt + 1}/${retryMaxAttempts} after ${delayMs}ms`,
+            );
+          },
+        },
+      );
 
-        for (const resource of response.Resources ?? []) {
-          const normalized = mapResource(resource);
+      for (const resource of response.Resources ?? []) {
+        const normalized = mapResource(resource);
 
-          if (normalized) {
-            resourcesByArn.set(normalized.arn, normalized);
-          }
+        if (normalized) {
+          resourcesByArn.set(normalized.arn, normalized);
         }
+      }
 
-        nextToken = response.NextToken;
-      } while (nextToken);
-    }
+      nextToken = response.NextToken;
+      page += 1;
+    } while (nextToken);
   }
+
+  emitDebugLog(
+    options?.debugLogger,
+    `aws: Resource Explorer catalog collected ${resourcesByArn.size} unique resources`,
+  );
 
   return {
     resources: [...resourcesByArn.values()].sort((left, right) => left.arn.localeCompare(right.arn)),

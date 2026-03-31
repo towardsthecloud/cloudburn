@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cloudWatchUnusedLogStreamsRule } from '../src/aws/cloudwatch/unused-log-streams.js';
-import type { AwsCloudWatchLogGroup, AwsCloudWatchLogStream } from '../src/index.js';
+import type { AwsCloudWatchLogGroup, AwsCloudWatchLogGroupRecentStreamActivity } from '../src/index.js';
 import { LiveResourceBag } from '../src/index.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -13,11 +13,13 @@ const createLogGroup = (overrides: Partial<AwsCloudWatchLogGroup> = {}): AwsClou
   ...overrides,
 });
 
-const createLogStream = (overrides: Partial<AwsCloudWatchLogStream> = {}): AwsCloudWatchLogStream => ({
+const createRecentActivity = (
+  overrides: Partial<AwsCloudWatchLogGroupRecentStreamActivity> = {},
+): AwsCloudWatchLogGroupRecentStreamActivity => ({
   accountId: '123456789012',
-  arn: 'arn:aws:logs:us-east-1:123456789012:log-group:/aws/lambda/app:log-stream:2026/03/16/[$LATEST]abc',
   logGroupName: '/aws/lambda/app',
-  logStreamName: '2026/03/16/[$LATEST]abc',
+  latestStreamArn: 'arn:aws:logs:us-east-1:123456789012:log-group:/aws/lambda/app:log-stream:2026/03/16/[$LATEST]abc',
+  latestStreamName: '2026/03/16/[$LATEST]abc',
   region: 'us-east-1',
   ...overrides,
 });
@@ -32,7 +34,7 @@ describe('cloudWatchUnusedLogStreamsRule', () => {
     vi.useRealTimers();
   });
 
-  it('flags log streams with no event history', () => {
+  it('flags log groups whose latest stream has no event history', () => {
     const finding = cloudWatchUnusedLogStreamsRule.evaluateLive?.({
       catalog: {
         resources: [],
@@ -41,7 +43,7 @@ describe('cloudWatchUnusedLogStreamsRule', () => {
       },
       resources: new LiveResourceBag({
         'aws-cloudwatch-log-groups': [createLogGroup()],
-        'aws-cloudwatch-log-streams': [createLogStream()],
+        'aws-cloudwatch-log-group-recent-stream-activity': [createRecentActivity()],
       }),
     });
 
@@ -50,11 +52,10 @@ describe('cloudWatchUnusedLogStreamsRule', () => {
       service: 'cloudwatch',
       source: 'discovery',
       message:
-        'CloudWatch log streams that have never received events or have been inactive for more than 90 days should be removed.',
+        'CloudWatch log groups whose most recent stream activity is older than 90 days should be reviewed or removed.',
       findings: [
         {
-          resourceId:
-            'arn:aws:logs:us-east-1:123456789012:log-group:/aws/lambda/app:log-stream:2026/03/16/[$LATEST]abc',
+          resourceId: 'arn:aws:logs:us-east-1:123456789012:log-group:/aws/lambda/app',
           region: 'us-east-1',
           accountId: '123456789012',
         },
@@ -62,7 +63,7 @@ describe('cloudWatchUnusedLogStreamsRule', () => {
     });
   });
 
-  it('flags log streams whose last ingestion was more than 90 days ago', () => {
+  it('flags log groups whose latest stream activity was more than 90 days ago', () => {
     const finding = cloudWatchUnusedLogStreamsRule.evaluateLive?.({
       catalog: {
         resources: [],
@@ -71,20 +72,22 @@ describe('cloudWatchUnusedLogStreamsRule', () => {
       },
       resources: new LiveResourceBag({
         'aws-cloudwatch-log-groups': [createLogGroup()],
-        'aws-cloudwatch-log-streams': [createLogStream({ lastIngestionTime: Date.now() - 91 * DAY_MS })],
+        'aws-cloudwatch-log-group-recent-stream-activity': [
+          createRecentActivity({ lastIngestionTime: Date.now() - 91 * DAY_MS }),
+        ],
       }),
     });
 
     expect(finding?.findings).toEqual([
       {
-        resourceId: 'arn:aws:logs:us-east-1:123456789012:log-group:/aws/lambda/app:log-stream:2026/03/16/[$LATEST]abc',
+        resourceId: 'arn:aws:logs:us-east-1:123456789012:log-group:/aws/lambda/app',
         region: 'us-east-1',
         accountId: '123456789012',
       },
     ]);
   });
 
-  it('does not flag log streams with observed event history', () => {
+  it('does not flag log groups with recent observed stream activity', () => {
     const finding = cloudWatchUnusedLogStreamsRule.evaluateLive?.({
       catalog: {
         resources: [],
@@ -93,14 +96,16 @@ describe('cloudWatchUnusedLogStreamsRule', () => {
       },
       resources: new LiveResourceBag({
         'aws-cloudwatch-log-groups': [createLogGroup()],
-        'aws-cloudwatch-log-streams': [createLogStream({ lastEventTimestamp: 1_710_000_000_000 })],
+        'aws-cloudwatch-log-group-recent-stream-activity': [
+          createRecentActivity({ lastEventTimestamp: 1_770_000_000_000 }),
+        ],
       }),
     });
 
     expect(finding).toBeNull();
   });
 
-  it('does not flag log streams whose last ingestion was within 90 days', () => {
+  it('does not flag log groups whose latest stream ingestion was within 90 days', () => {
     const finding = cloudWatchUnusedLogStreamsRule.evaluateLive?.({
       catalog: {
         resources: [],
@@ -109,14 +114,16 @@ describe('cloudWatchUnusedLogStreamsRule', () => {
       },
       resources: new LiveResourceBag({
         'aws-cloudwatch-log-groups': [createLogGroup()],
-        'aws-cloudwatch-log-streams': [createLogStream({ lastIngestionTime: Date.now() - 30 * DAY_MS })],
+        'aws-cloudwatch-log-group-recent-stream-activity': [
+          createRecentActivity({ lastIngestionTime: Date.now() - 30 * DAY_MS }),
+        ],
       }),
     });
 
     expect(finding).toBeNull();
   });
 
-  it('does not flag log streams whose last ingestion was exactly 90 days ago', () => {
+  it('does not flag log groups whose latest stream activity was exactly 90 days ago', () => {
     const finding = cloudWatchUnusedLogStreamsRule.evaluateLive?.({
       catalog: {
         resources: [],
@@ -125,14 +132,16 @@ describe('cloudWatchUnusedLogStreamsRule', () => {
       },
       resources: new LiveResourceBag({
         'aws-cloudwatch-log-groups': [createLogGroup()],
-        'aws-cloudwatch-log-streams': [createLogStream({ lastIngestionTime: Date.now() - 90 * DAY_MS })],
+        'aws-cloudwatch-log-group-recent-stream-activity': [
+          createRecentActivity({ lastIngestionTime: Date.now() - 90 * DAY_MS }),
+        ],
       }),
     });
 
     expect(finding).toBeNull();
   });
 
-  it('does not flag streams inside delivery-managed log groups', () => {
+  it('does not flag delivery-managed log groups even when their latest stream is stale', () => {
     const finding = cloudWatchUnusedLogStreamsRule.evaluateLive?.({
       catalog: {
         resources: [],
@@ -141,14 +150,14 @@ describe('cloudWatchUnusedLogStreamsRule', () => {
       },
       resources: new LiveResourceBag({
         'aws-cloudwatch-log-groups': [createLogGroup({ logGroupClass: 'DELIVERY' })],
-        'aws-cloudwatch-log-streams': [createLogStream()],
+        'aws-cloudwatch-log-group-recent-stream-activity': [createRecentActivity()],
       }),
     });
 
     expect(finding).toBeNull();
   });
 
-  it('does not flag streams when log-group metadata is unavailable', () => {
+  it('does not flag activity summaries when log-group metadata is unavailable', () => {
     const finding = cloudWatchUnusedLogStreamsRule.evaluateLive?.({
       catalog: {
         resources: [],
@@ -157,7 +166,7 @@ describe('cloudWatchUnusedLogStreamsRule', () => {
       },
       resources: new LiveResourceBag({
         'aws-cloudwatch-log-groups': [],
-        'aws-cloudwatch-log-streams': [createLogStream()],
+        'aws-cloudwatch-log-group-recent-stream-activity': [createRecentActivity()],
       }),
     });
 
@@ -186,13 +195,35 @@ describe('cloudWatchUnusedLogStreamsRule', () => {
             logGroupClass: 'DELIVERY',
           }),
         ],
-        'aws-cloudwatch-log-streams': [createLogStream()],
+        'aws-cloudwatch-log-group-recent-stream-activity': [createRecentActivity()],
       }),
     });
 
     expect(finding?.findings).toEqual([
       {
-        resourceId: 'arn:aws:logs:us-east-1:123456789012:log-group:/aws/lambda/app:log-stream:2026/03/16/[$LATEST]abc',
+        resourceId: 'arn:aws:logs:us-east-1:123456789012:log-group:/aws/lambda/app',
+        region: 'us-east-1',
+        accountId: '123456789012',
+      },
+    ]);
+  });
+
+  it('flags log groups when no streams exist yet', () => {
+    const finding = cloudWatchUnusedLogStreamsRule.evaluateLive?.({
+      catalog: {
+        resources: [],
+        searchRegion: 'us-east-1',
+        indexType: 'LOCAL',
+      },
+      resources: new LiveResourceBag({
+        'aws-cloudwatch-log-groups': [createLogGroup()],
+        'aws-cloudwatch-log-group-recent-stream-activity': [],
+      }),
+    });
+
+    expect(finding?.findings).toEqual([
+      {
+        resourceId: 'arn:aws:logs:us-east-1:123456789012:log-group:/aws/lambda/app',
         region: 'us-east-1',
         accountId: '123456789012',
       },

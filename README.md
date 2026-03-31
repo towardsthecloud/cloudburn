@@ -118,17 +118,18 @@ cloudburn --format json scan ./iac
 
 ### Discover
 
-`discover` runs the same rules against live AWS resources. Initialize AWS Resource Explorer first, then run against one region or all of them.
+`discover` runs the same rules against live AWS resources. Initialize AWS Resource Explorer first, then run against the current AWS region or one explicit region.
 
 ```bash
 cloudburn discover init
 cloudburn discover
 cloudburn discover --region eu-central-1
-cloudburn discover --region all
 cloudburn discover --service ec2,s3
+cloudburn --debug discover --region eu-central-1
 ```
 
-`--region all` requires an AWS Resource Explorer aggregator index.
+The CLI targets one region at a time. Multi-region discovery remains available through the SDK.
+Use `--debug` to relay SDK and provider execution trace details to `stderr` while keeping normal command output on `stdout`.
 
 Generate a starter config with `cloudburn config --init`. Full details in the [config reference](docs/reference/config-schema.md).
 

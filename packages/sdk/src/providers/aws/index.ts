@@ -22,6 +22,5 @@ export {
 export {
   discoverAwsResources,
   initializeAwsDiscovery,
-  listEnabledAwsDiscoveryRegions,
   listSupportedAwsResourceTypes,
 } from './discovery.js';

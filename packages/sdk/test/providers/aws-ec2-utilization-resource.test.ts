@@ -72,4 +72,39 @@ describe('hydrateAwsEc2InstanceUtilization', () => {
       },
     ]);
   });
+
+  it('reuses the shared EC2 instance dataset when a discovery context provides preloaded instances', async () => {
+    mockedFetchCloudWatchSignals.mockResolvedValue(
+      new Map([
+        ['cpu0', [{ timestamp: '2026-03-01T00:00:00.000Z', value: 5 }]],
+        ['in0', [{ timestamp: '2026-03-01T00:00:00.000Z', value: 1024 }]],
+        ['out0', [{ timestamp: '2026-03-01T00:00:00.000Z', value: 1024 }]],
+      ]),
+    );
+
+    await expect(
+      hydrateAwsEc2InstanceUtilization([], {
+        loadDataset: async () => [
+          {
+            accountId: '123456789012',
+            instanceId: 'i-123',
+            instanceType: 'm6i.large',
+            region: 'us-east-1',
+          },
+        ],
+      }),
+    ).resolves.toEqual([
+      {
+        accountId: '123456789012',
+        averageCpuUtilizationLast14Days: 5,
+        averageDailyNetworkBytesLast14Days: 2048,
+        instanceId: 'i-123',
+        instanceType: 'm6i.large',
+        lowUtilizationDays: 1,
+        region: 'us-east-1',
+      },
+    ]);
+
+    expect(mockedHydrateAwsEc2Instances).not.toHaveBeenCalled();
+  });
 });

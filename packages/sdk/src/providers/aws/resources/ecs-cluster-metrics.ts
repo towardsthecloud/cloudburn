@@ -1,4 +1,5 @@
 import type { AwsDiscoveredResource, AwsEcsClusterMetric } from '@cloudburn/rules';
+import type { AwsDiscoveryDatasetLoadContext } from '../discovery-registry.js';
 import { fetchCloudWatchSignals } from './cloudwatch.js';
 import { hydrateAwsEcsClusters } from './ecs.js';
 
@@ -14,8 +15,9 @@ const REQUIRED_ECS_DAILY_POINTS = FOURTEEN_DAYS_IN_SECONDS / DAILY_PERIOD_IN_SEC
  */
 export const hydrateAwsEcsClusterMetrics = async (
   resources: AwsDiscoveredResource[],
+  context?: AwsDiscoveryDatasetLoadContext,
 ): Promise<AwsEcsClusterMetric[]> => {
-  const clusters = await hydrateAwsEcsClusters(resources);
+  const clusters = context ? await context.loadDataset('aws-ecs-clusters') : await hydrateAwsEcsClusters(resources);
   const clustersByRegion = new Map<string, typeof clusters>();
 
   for (const cluster of clusters) {

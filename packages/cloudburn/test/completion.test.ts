@@ -45,6 +45,7 @@ describe('completion command', () => {
         'rules',
         'estimate',
         'completion',
+        '--debug',
         '--format',
         '-h',
         '--help',
@@ -59,12 +60,12 @@ describe('completion command', () => {
     expect(suggestions).toEqual(
       expect.arrayContaining([
         'init',
-        'list-enabled-regions',
         'supported-resource-types',
         '--config',
         '--disabled-rules',
         '--enabled-rules',
         '--region',
+        '--debug',
         '--format',
         '--exit-code',
         '-h',
@@ -76,8 +77,7 @@ describe('completion command', () => {
   it('suggests only flags for nested discover init contexts', async () => {
     const suggestions = toLines(await runCompletion('discover', 'init', '--'));
 
-    expect(suggestions).toEqual(expect.arrayContaining(['--region', '--format', '--help']));
-    expect(suggestions).not.toContain('list-enabled-regions');
+    expect(suggestions).toEqual(expect.arrayContaining(['--region', '--debug', '--format', '--help']));
   });
 
   it('does not suggest completions while the cursor is positioned on an option value', async () => {

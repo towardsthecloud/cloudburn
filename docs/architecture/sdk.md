@@ -7,7 +7,6 @@
   class CloudBurnClient {
     +scanStatic(path: string, config?: Partial~CloudBurnConfig~, options?: { configPath?: string }) Promise~ScanResult~
     +discover(options?: { target?: AwsDiscoveryTarget, config?: Partial~CloudBurnConfig~, configPath?: string }) Promise~ScanResult~
-    +listEnabledDiscoveryRegions() Promise~AwsDiscoveryRegion[]~
     +initializeDiscovery(options?: { region?: string }) Promise~AwsDiscoveryInitialization~
     +listSupportedDiscoveryResourceTypes() Promise~AwsSupportedResourceType[]~
     +loadConfig(path?: string) Promise~CloudBurnConfig~
@@ -72,11 +71,13 @@ Current live-discovery behavior:
 - `discover` is the live entrypoint for both the CLI and direct SDK callers.
 - `discoverAwsResources` in `src/providers/aws/discovery.ts` is the AWS live orchestration entrypoint.
 - Default discovery target is the current region, resolved from `AWS_REGION`, then `AWS_DEFAULT_REGION`, then `aws_region`, then the AWS SDK region provider chain.
+- Explicit discovery uses `target: { mode: 'regions', regions: [...] }`.
 - Explicit single-region discovery uses the selected region as the Resource Explorer control plane instead of the ambient current region.
-- `--region all` requires an aggregator index and fails fast when one is not enabled.
+- Explicit multi-region discovery requires an aggregator index and fails fast when one is not enabled.
 - Discovery resolves the explicit default Resource Explorer view in the chosen search region and fails if no default view exists or if that default view applies additional filters.
 - Discovery setup returns existing local indexes without forcing aggregator creation, and `discover init` retries as local-only setup when cross-region aggregator creation is denied.
 - Catalog collection uses Resource Explorer `ListResources` with filter strings instead of `Search`, which avoids the 1,000-result ceiling on filter-only queries.
+- Resource Explorer catalog seeding batches `resourcetype:` and `region:` filters into the smallest possible query set, raises `MaxResults` to `1000`, and retries throttled `ListResources` calls before failing.
 - Account-scoped or fallback-backed datasets can bypass Resource Explorer seeding entirely by declaring no `resourceTypes`; the loader then receives `[]` and owns the account-level API call.
 - Resource Explorer inventory failures and dataset loader failures are fatal. The SDK does not degrade to partial live results.
 - Missing Lambda `Architectures` values from AWS are normalized to `['x86_64']`, matching the AWS default architecture.

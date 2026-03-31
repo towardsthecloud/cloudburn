@@ -36,7 +36,8 @@ describe('resource explorer discovery', () => {
         },
       }))
       .mockImplementationOnce(async (command) => {
-        expect(command.input.Filters?.FilterString).toBe('resourcetype:ec2:volume region:eu-central-1');
+        expect(command.input.Filters?.FilterString).toBe('resourcetype:ec2:volume,lambda:function region:eu-central-1');
+        expect(command.input.MaxResults).toBe(1000);
         expect(command.input.ViewArn).toBe('arn:aws:resource-explorer-2:eu-central-1:123456789012:view/default');
 
         return {
@@ -49,30 +50,12 @@ describe('resource explorer discovery', () => {
               Service: 'ec2',
               Properties: [],
             },
-          ],
-          ViewArn: 'arn:aws:resource-explorer-2:eu-central-1:123456789012:view/default',
-        };
-      })
-      .mockImplementationOnce(async (command) => {
-        expect(command.input.Filters?.FilterString).toBe('resourcetype:lambda:function region:eu-central-1');
-        expect(command.input.ViewArn).toBe('arn:aws:resource-explorer-2:eu-central-1:123456789012:view/default');
-
-        return {
-          Resources: [
             {
               Arn: 'arn:aws:lambda:eu-central-1:123456789012:function:my-func',
               OwningAccountId: '123456789012',
               Region: 'eu-central-1',
               ResourceType: 'lambda:function',
               Service: 'lambda',
-              Properties: [],
-            },
-            {
-              Arn: 'arn:aws:ec2:eu-central-1:123456789012:volume/vol-123',
-              OwningAccountId: '123456789012',
-              Region: 'eu-central-1',
-              ResourceType: 'ec2:volume',
-              Service: 'ec2',
               Properties: [],
             },
           ],
@@ -226,12 +209,104 @@ describe('resource explorer discovery', () => {
               requestId: 'request-123',
             },
           }),
+        )
+        .mockRejectedValueOnce(
+          Object.assign(new Error('Rate exceeded'), {
+            name: 'ThrottlingException',
+            $metadata: {
+              httpStatusCode: 429,
+              requestId: 'request-123',
+            },
+          }),
+        )
+        .mockRejectedValueOnce(
+          Object.assign(new Error('Rate exceeded'), {
+            name: 'ThrottlingException',
+            $metadata: {
+              httpStatusCode: 429,
+              requestId: 'request-123',
+            },
+          }),
+        )
+        .mockRejectedValueOnce(
+          Object.assign(new Error('Rate exceeded'), {
+            name: 'ThrottlingException',
+            $metadata: {
+              httpStatusCode: 429,
+              requestId: 'request-123',
+            },
+          }),
+        )
+        .mockRejectedValueOnce(
+          Object.assign(new Error('Rate exceeded'), {
+            name: 'ThrottlingException',
+            $metadata: {
+              httpStatusCode: 429,
+              requestId: 'request-123',
+            },
+          }),
         ),
     } as never);
 
     await expect(buildAwsDiscoveryCatalog({ mode: 'current' }, ['ec2:volume'])).rejects.toMatchObject({
       message:
         'AWS Resource Explorer ListResources failed in eu-central-1 with ThrottlingException: Rate exceeded Request ID: request-123.',
+    });
+  });
+
+  it('retries throttled list resources calls before succeeding', async () => {
+    vi.spyOn(clientModule, 'resolveCurrentAwsRegion').mockResolvedValue('eu-central-1');
+    vi.spyOn(clientModule, 'createResourceExplorerClient').mockReturnValue({
+      send: vi
+        .fn()
+        .mockImplementationOnce(async (command) => {
+          expect(command.input.Regions).toEqual(['eu-central-1']);
+
+          return {
+            Indexes: [
+              {
+                Region: 'eu-central-1',
+                Type: 'AGGREGATOR',
+              },
+            ],
+          };
+        })
+        .mockResolvedValueOnce({
+          ViewArn: 'arn:aws:resource-explorer-2:eu-central-1:123456789012:view/default',
+        })
+        .mockResolvedValueOnce({
+          View: {
+            Filters: {
+              FilterString: '',
+            },
+            ViewArn: 'arn:aws:resource-explorer-2:eu-central-1:123456789012:view/default',
+          },
+        })
+        .mockRejectedValueOnce(
+          Object.assign(new Error('Rate exceeded'), {
+            name: 'ThrottlingException',
+            $metadata: {
+              httpStatusCode: 429,
+              requestId: 'request-123',
+            },
+          }),
+        )
+        .mockResolvedValueOnce({
+          Resources: [
+            {
+              Arn: 'arn:aws:ec2:eu-central-1:123456789012:volume/vol-123',
+              OwningAccountId: '123456789012',
+              Region: 'eu-central-1',
+              ResourceType: 'ec2:volume',
+              Service: 'ec2',
+              Properties: [],
+            },
+          ],
+        }),
+    } as never);
+
+    await expect(buildAwsDiscoveryCatalog({ mode: 'current' }, ['ec2:volume'])).resolves.toMatchObject({
+      resources: [{ arn: 'arn:aws:ec2:eu-central-1:123456789012:volume/vol-123' }],
     });
   });
 
@@ -249,7 +324,9 @@ describe('resource explorer discovery', () => {
     } as never);
 
     await expect(
-      buildAwsDiscoveryCatalog({ mode: 'region', region: 'eu-central-1 resourcetype:s3:bucket' }, ['ec2:volume']),
+      buildAwsDiscoveryCatalog({ mode: 'regions', regions: ['eu-central-1 resourcetype:s3:bucket' as never] }, [
+        'ec2:volume',
+      ]),
     ).rejects.toMatchObject({
       code: 'INVALID_AWS_REGION',
     });
@@ -317,23 +394,23 @@ describe('resource explorer discovery', () => {
         return euCentralClient;
       });
 
-    await expect(buildAwsDiscoveryCatalog({ mode: 'region', region: 'eu-central-1' }, ['ec2:volume'])).resolves.toEqual(
-      {
-        resources: [
-          {
-            arn: 'arn:aws:ec2:eu-central-1:123456789012:volume/vol-123',
-            accountId: '123456789012',
-            region: 'eu-central-1',
-            resourceType: 'ec2:volume',
-            service: 'ec2',
-            properties: [],
-          },
-        ],
-        searchRegion: 'eu-central-1',
-        indexType: 'LOCAL',
-        viewArn: 'arn:aws:resource-explorer-2:eu-central-1:123456789012:view/default',
-      },
-    );
+    await expect(
+      buildAwsDiscoveryCatalog({ mode: 'regions', regions: ['eu-central-1'] }, ['ec2:volume']),
+    ).resolves.toEqual({
+      resources: [
+        {
+          arn: 'arn:aws:ec2:eu-central-1:123456789012:volume/vol-123',
+          accountId: '123456789012',
+          region: 'eu-central-1',
+          resourceType: 'ec2:volume',
+          service: 'ec2',
+          properties: [],
+        },
+      ],
+      searchRegion: 'eu-central-1',
+      indexType: 'LOCAL',
+      viewArn: 'arn:aws:resource-explorer-2:eu-central-1:123456789012:view/default',
+    });
     expect(createResourceExplorerClient).toHaveBeenCalled();
   });
 
@@ -397,6 +474,7 @@ describe('resource explorer discovery', () => {
         })
         .mockImplementationOnce(async (command) => {
           expect(command.input.Filters?.FilterString).toBe('resourcetype:ec2:volume region:eu-west-1');
+          expect(command.input.MaxResults).toBe(1000);
 
           return {
             Resources: [
@@ -425,7 +503,9 @@ describe('resource explorer discovery', () => {
       throw new Error(`Unexpected client region ${region}`);
     });
 
-    await expect(buildAwsDiscoveryCatalog({ mode: 'region', region: 'eu-west-1' }, ['ec2:volume'])).resolves.toEqual({
+    await expect(
+      buildAwsDiscoveryCatalog({ mode: 'regions', regions: ['eu-west-1'] }, ['ec2:volume']),
+    ).resolves.toEqual({
       resources: [
         {
           arn: 'arn:aws:ec2:eu-west-1:123456789012:volume/vol-123',
@@ -522,7 +602,7 @@ describe('resource explorer discovery', () => {
     });
   });
 
-  it('limits all-region discovery to accessible indexed regions while skipping denied regions', async () => {
+  it('limits multi-region discovery to accessible indexed regions while skipping denied regions', async () => {
     vi.spyOn(clientModule, 'listEnabledAwsRegions').mockResolvedValue(['ap-south-1', 'eu-central-1', 'eu-west-1']);
 
     const apSouthClient = {
@@ -562,7 +642,8 @@ describe('resource explorer discovery', () => {
           },
         })
         .mockImplementationOnce(async (command) => {
-          expect(command.input.Filters?.FilterString).toBe('resourcetype:ec2:volume region:eu-central-1');
+          expect(command.input.Filters?.FilterString).toBe('resourcetype:ec2:volume region:eu-central-1,eu-west-1');
+          expect(command.input.MaxResults).toBe(1000);
 
           return {
             Resources: [
@@ -574,14 +655,6 @@ describe('resource explorer discovery', () => {
                 Service: 'ec2',
                 Properties: [],
               },
-            ],
-          };
-        })
-        .mockImplementationOnce(async (command) => {
-          expect(command.input.Filters?.FilterString).toBe('resourcetype:ec2:volume region:eu-west-1');
-
-          return {
-            Resources: [
               {
                 Arn: 'arn:aws:ec2:eu-west-1:123456789012:volume/vol-456',
                 OwningAccountId: '123456789012',
@@ -625,7 +698,9 @@ describe('resource explorer discovery', () => {
       throw new Error(`Unexpected client region ${region}`);
     });
 
-    await expect(buildAwsDiscoveryCatalog({ mode: 'all' }, ['ec2:volume'])).resolves.toEqual({
+    await expect(
+      buildAwsDiscoveryCatalog({ mode: 'regions', regions: ['eu-central-1', 'eu-west-1'] }, ['ec2:volume']),
+    ).resolves.toEqual({
       resources: [
         {
           arn: 'arn:aws:ec2:eu-central-1:123456789012:volume/vol-123',
@@ -650,10 +725,10 @@ describe('resource explorer discovery', () => {
     });
     expect(apSouthClient.send).toHaveBeenCalledTimes(1);
     expect(euWestClient.send).toHaveBeenCalledTimes(1);
-    expect(euCentralClient.send).toHaveBeenCalledTimes(5);
+    expect(euCentralClient.send).toHaveBeenCalledTimes(4);
   });
 
-  it('fails all-region discovery when denied regions are skipped and no accessible aggregator exists', async () => {
+  it('fails multi-region discovery when denied regions are skipped and no accessible aggregator exists', async () => {
     vi.spyOn(clientModule, 'listEnabledAwsRegions').mockResolvedValue(['ap-south-1', 'eu-central-1']);
 
     const apSouthClient = {
@@ -693,7 +768,9 @@ describe('resource explorer discovery', () => {
       throw new Error(`Unexpected client region ${region}`);
     });
 
-    await expect(buildAwsDiscoveryCatalog({ mode: 'all' }, ['ec2:volume'])).rejects.toMatchObject({
+    await expect(
+      buildAwsDiscoveryCatalog({ mode: 'regions', regions: ['ap-south-1', 'eu-central-1'] }, ['ec2:volume']),
+    ).rejects.toMatchObject({
       code: 'RESOURCE_EXPLORER_AGGREGATOR_REQUIRED',
     });
   });

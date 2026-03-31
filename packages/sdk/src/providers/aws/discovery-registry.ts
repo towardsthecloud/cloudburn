@@ -7,6 +7,7 @@ import {
 } from './resources/cloudfront.js';
 import { hydrateAwsCloudTrailTrails } from './resources/cloudtrail.js';
 import {
+  hydrateAwsCloudWatchLogGroupRecentStreamActivity,
   hydrateAwsCloudWatchLogGroups,
   hydrateAwsCloudWatchLogMetricFilterCoverage,
   hydrateAwsCloudWatchLogStreams,
@@ -67,6 +68,16 @@ export type AwsDiscoveryDatasetLoadResult<K extends DiscoveryDatasetKey = Discov
   resources: DiscoveryDatasetMap[K];
 };
 
+/**
+ * Shared per-run loader context available to AWS discovery dataset hydrators.
+ *
+ * Hydrators can use this to reuse already-loading base datasets instead of
+ * rehydrating the same resources multiple times in one discover run.
+ */
+export type AwsDiscoveryDatasetLoadContext = {
+  loadDataset: <K extends DiscoveryDatasetKey>(datasetKey: K) => Promise<DiscoveryDatasetMap[K]>;
+};
+
 /** Declarative definition for one rule-facing AWS discovery dataset. */
 export type AwsDiscoveryDatasetDefinition<K extends DiscoveryDatasetKey = DiscoveryDatasetKey> = {
   datasetKey: K;
@@ -94,7 +105,10 @@ export type AwsDiscoveryDatasetDefinition<K extends DiscoveryDatasetKey = Discov
     | 's3'
     | 'sagemaker'
     | 'secretsmanager';
-  load: (resources: AwsDiscoveredResource[]) => Promise<DiscoveryDatasetMap[K] | AwsDiscoveryDatasetLoadResult<K>>;
+  load: (
+    resources: AwsDiscoveredResource[],
+    context: AwsDiscoveryDatasetLoadContext,
+  ) => Promise<DiscoveryDatasetMap[K] | AwsDiscoveryDatasetLoadResult<K>>;
 };
 
 const awsDiscoveryDatasetRegistry: {
@@ -129,6 +143,12 @@ const awsDiscoveryDatasetRegistry: {
     resourceTypes: ['logs:log-group'],
     service: 'cloudwatch',
     load: hydrateAwsCloudWatchLogGroups,
+  },
+  'aws-cloudwatch-log-group-recent-stream-activity': {
+    datasetKey: 'aws-cloudwatch-log-group-recent-stream-activity',
+    resourceTypes: ['logs:log-group'],
+    service: 'cloudwatch',
+    load: hydrateAwsCloudWatchLogGroupRecentStreamActivity,
   },
   'aws-cloudwatch-log-metric-filter-coverage': {
     datasetKey: 'aws-cloudwatch-log-metric-filter-coverage',

@@ -45,6 +45,7 @@ export const createProgram = (): Command => {
     .usage('[command]')
     .description('Know what you spend. Fix what you waste.')
     .version(__VERSION__)
+    .option('--debug', 'Write execution trace messages to stderr')
     .option('--format <format>', OUTPUT_FORMAT_OPTION_DESCRIPTION, parseOutputFormat);
   configureCliHelp(program);
 

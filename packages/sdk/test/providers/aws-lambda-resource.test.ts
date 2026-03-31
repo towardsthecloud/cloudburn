@@ -379,4 +379,40 @@ describe('hydrateAwsLambdaFunctionMetrics', () => {
       },
     ]);
   });
+
+  it('reuses the shared lambda dataset when a discovery context provides preloaded functions', async () => {
+    mockedFetchCloudWatchSignals.mockResolvedValue(
+      new Map([
+        ['invocations0', [{ timestamp: '2026-03-24T00:00:00.000Z', value: 100 }]],
+        ['errors0', [{ timestamp: '2026-03-24T00:00:00.000Z', value: 12 }]],
+        ['duration0', [{ timestamp: '2026-03-24T00:00:00.000Z', value: 2_500 }]],
+      ]),
+    );
+
+    await expect(
+      hydrateAwsLambdaFunctionMetrics([], {
+        loadDataset: async () => [
+          {
+            accountId: '123456789012',
+            architectures: ['x86_64'],
+            functionName: 'shared-function',
+            memorySizeMb: 512,
+            region: 'us-east-1',
+            timeoutSeconds: 60,
+          },
+        ],
+      }),
+    ).resolves.toEqual([
+      {
+        accountId: '123456789012',
+        averageDurationMsLast7Days: 2_500,
+        functionName: 'shared-function',
+        region: 'us-east-1',
+        totalErrorsLast7Days: 12,
+        totalInvocationsLast7Days: 100,
+      },
+    ]);
+
+    expect(mockedCreateLambdaClient).not.toHaveBeenCalled();
+  });
 });

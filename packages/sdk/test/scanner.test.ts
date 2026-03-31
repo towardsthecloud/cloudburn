@@ -50,14 +50,14 @@ describe('CloudBurnClient', () => {
 
     const result = await scanner.discover({
       target: {
-        mode: 'region',
-        region: 'us-east-1',
+        mode: 'regions',
+        regions: ['us-east-1'],
       },
     });
 
     expect(mockedDiscoverAwsResources).toHaveBeenCalledWith(expect.any(Array), {
-      mode: 'region',
-      region: 'us-east-1',
+      mode: 'regions',
+      regions: ['us-east-1'],
     });
 
     expect(result).toEqual({
@@ -99,8 +99,8 @@ describe('CloudBurnClient', () => {
 
     const result = await scanner.discover({
       target: {
-        mode: 'region',
-        region: 'us-east-1',
+        mode: 'regions',
+        regions: ['us-east-1'],
       },
     });
 
@@ -153,8 +153,8 @@ describe('CloudBurnClient', () => {
 
     const result = await scanner.discover({
       target: {
-        mode: 'region',
-        region: 'us-east-1',
+        mode: 'regions',
+        regions: ['us-east-1'],
       },
     });
 
@@ -207,8 +207,8 @@ describe('CloudBurnClient', () => {
 
     const result = await scanner.discover({
       target: {
-        mode: 'region',
-        region: 'us-east-1',
+        mode: 'regions',
+        regions: ['us-east-1'],
       },
     });
 
@@ -262,6 +262,29 @@ describe('CloudBurnClient', () => {
     expect(mockedDiscoverAwsResources).toHaveBeenCalledWith(expect.any(Array), {
       mode: 'current',
     });
+  });
+
+  it('forwards the configured debug logger into live discovery', async () => {
+    mockedDiscoverAwsResources.mockResolvedValue({
+      catalog: discoveryCatalog,
+      resources: new LiveResourceBag(),
+    });
+
+    const debugLogger = vi.fn();
+    const scanner = new CloudBurnClient({ debugLogger });
+
+    await scanner.discover();
+
+    expect(mockedDiscoverAwsResources).toHaveBeenCalledWith(
+      expect.any(Array),
+      {
+        mode: 'current',
+      },
+      {
+        debugLogger,
+      },
+    );
+    expect(debugLogger).toHaveBeenCalledWith('sdk: starting live discovery scan');
   });
 
   it('passes an explicit config path through discovery config loading', async () => {

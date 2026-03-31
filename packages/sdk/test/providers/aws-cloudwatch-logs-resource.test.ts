@@ -6,6 +6,7 @@ import type {
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createCloudWatchLogsClient } from '../../src/providers/aws/client.js';
 import {
+  hydrateAwsCloudWatchLogGroupRecentStreamActivity,
   hydrateAwsCloudWatchLogGroups,
   hydrateAwsCloudWatchLogMetricFilterCoverage,
   hydrateAwsCloudWatchLogStreams,
@@ -334,6 +335,98 @@ describe('hydrateAwsCloudWatchLogStreams', () => {
     expect((error as Error).message).toBe(
       'Amazon CloudWatch Logs DescribeLogStreams failed in eu-central-1 with AccessDeniedException: User is not authorized to perform: logs:DescribeLogStreams Request ID: request-streams.',
     );
+  });
+});
+
+describe('hydrateAwsCloudWatchLogGroupRecentStreamActivity', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
+  it('loads only the most recent stream summary for each discovered log group', async () => {
+    const send = vi.fn(async (command: DescribeLogStreamsCommand) => {
+      const input = command.input as {
+        descending?: boolean;
+        limit?: number;
+        logGroupName?: string;
+        nextToken?: string;
+        orderBy?: string;
+      };
+
+      expect(input.nextToken).toBeUndefined();
+      expect(input.orderBy).toBe('LastEventTime');
+      expect(input.descending).toBe(true);
+      expect(input.limit).toBe(1);
+
+      return {
+        logStreams: [
+          {
+            arn: `arn:aws:logs:us-east-1:123456789012:log-group:${input.logGroupName}:log-stream:latest`,
+            lastEventTimestamp: 1_770_000_000_000,
+            lastIngestionTime: 1_770_000_100_000,
+            logStreamName: 'latest',
+          },
+        ],
+      };
+    });
+
+    mockedCreateCloudWatchLogsClient.mockReturnValue({ send } as never);
+
+    await expect(
+      hydrateAwsCloudWatchLogGroupRecentStreamActivity([
+        {
+          accountId: '123456789012',
+          arn: 'arn:aws:logs:us-east-1:123456789012:log-group:/aws/lambda/app',
+          properties: [],
+          region: 'us-east-1',
+          resourceType: 'logs:log-group',
+          service: 'logs',
+        },
+      ]),
+    ).resolves.toEqual([
+      {
+        accountId: '123456789012',
+        lastEventTimestamp: 1_770_000_000_000,
+        lastIngestionTime: 1_770_000_100_000,
+        latestStreamArn: 'arn:aws:logs:us-east-1:123456789012:log-group:/aws/lambda/app:log-stream:latest',
+        latestStreamName: 'latest',
+        logGroupName: '/aws/lambda/app',
+        region: 'us-east-1',
+      },
+    ]);
+
+    expect(send).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls back to the discovered account id when a log group has no streams yet', async () => {
+    mockedCreateCloudWatchLogsClient.mockReturnValue({
+      send: vi.fn(async (_command: DescribeLogStreamsCommand) => ({
+        logStreams: [],
+      })),
+    } as never);
+
+    await expect(
+      hydrateAwsCloudWatchLogGroupRecentStreamActivity([
+        {
+          accountId: '123456789012',
+          arn: 'arn:aws:logs:us-east-1:123456789012:log-group:/aws/lambda/app',
+          properties: [],
+          region: 'us-east-1',
+          resourceType: 'logs:log-group',
+          service: 'logs',
+        },
+      ]),
+    ).resolves.toEqual([
+      {
+        accountId: '123456789012',
+        lastEventTimestamp: undefined,
+        lastIngestionTime: undefined,
+        latestStreamArn: undefined,
+        latestStreamName: undefined,
+        logGroupName: '/aws/lambda/app',
+        region: 'us-east-1',
+      },
+    ]);
   });
 });
 

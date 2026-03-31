@@ -35,6 +35,7 @@ describe('cli', () => {
 
     const help = stdout.mock.calls.map(([chunk]) => String(chunk)).join('');
 
+    expect(help).toContain('--debug');
     expect(help).toContain('--format <format>');
     expect(help).toContain('completion');
     expect(help).toContain('table: human-readable terminal output');

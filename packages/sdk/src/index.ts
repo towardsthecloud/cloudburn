@@ -48,6 +48,7 @@ export type {
   AwsRedshiftCluster,
   AwsRedshiftClusterMetric,
   AwsRedshiftReservedNode,
+  AwsRegion,
   AwsRoute53HealthCheck,
   AwsRoute53Record,
   AwsRoute53Zone,

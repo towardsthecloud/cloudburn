@@ -59,6 +59,8 @@ import type {
   StaticDatasetMap,
   StaticResourceBag,
 } from '@cloudburn/rules';
+import type { AwsRegion } from './providers/aws/client.js';
+export type { AwsRegion };
 
 // Intent: define SDK-facing contracts for scanner orchestration.
 // TODO(cloudburn): extend config and result metadata as new providers/resources land.
@@ -86,10 +88,9 @@ export type BuiltInRuleMetadata = Pick<Rule, 'id' | 'name' | 'description' | 'pr
 /** Selects how a live AWS discovery resolves its search region or index scope. */
 export type AwsDiscoveryTarget =
   | { mode: 'current' }
-  | { mode: 'all' }
   | {
-      mode: 'region';
-      region: string;
+      mode: 'regions';
+      regions: AwsRegion[];
     };
 
 /** Describes one enabled Resource Explorer index region. */

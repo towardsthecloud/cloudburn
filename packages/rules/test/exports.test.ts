@@ -441,6 +441,7 @@ describe('rule exports', () => {
     const cloudFrontRequestActivityDatasetKey: DiscoveryDatasetKey = 'aws-cloudfront-distribution-request-activity';
     const datasetKey: DiscoveryDatasetKey = 'aws-rds-instances';
     const cloudWatchDatasetKey: DiscoveryDatasetKey = 'aws-cloudwatch-log-groups';
+    const cloudWatchRecentActivityDatasetKey: DiscoveryDatasetKey = 'aws-cloudwatch-log-group-recent-stream-activity';
     const cloudWatchLogStreamDatasetKey: DiscoveryDatasetKey = 'aws-cloudwatch-log-streams';
     const costUsageDatasetKey: DiscoveryDatasetKey = 'aws-cost-usage';
     const dynamoDbAutoscalingDatasetKey: DiscoveryDatasetKey = 'aws-dynamodb-autoscaling';
@@ -471,6 +472,7 @@ describe('rule exports', () => {
     expect(cloudFrontRequestActivityDatasetKey).toBe('aws-cloudfront-distribution-request-activity');
     expect(datasetKey).toBe('aws-rds-instances');
     expect(cloudWatchDatasetKey).toBe('aws-cloudwatch-log-groups');
+    expect(cloudWatchRecentActivityDatasetKey).toBe('aws-cloudwatch-log-group-recent-stream-activity');
     expect(cloudWatchLogStreamDatasetKey).toBe('aws-cloudwatch-log-streams');
     expect(costUsageDatasetKey).toBe('aws-cost-usage');
     expect(dynamoDbAutoscalingDatasetKey).toBe('aws-dynamodb-autoscaling');
