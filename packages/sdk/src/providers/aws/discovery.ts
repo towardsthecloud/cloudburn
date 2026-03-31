@@ -393,10 +393,12 @@ export const discoverAwsResources = async (
           }
         }
 
-        emitDebugLog(
-          options?.debugLogger,
-          `aws: completed dataset ${definition.datasetKey} with ${loadedResources.length} resources in ${formatElapsedMs(startedAtMs)}`,
-        );
+        if (regionResourceGroups.size > 1) {
+          emitDebugLog(
+            options?.debugLogger,
+            `aws: completed dataset ${definition.datasetKey} with ${loadedResources.length} resources in ${formatElapsedMs(startedAtMs)}`,
+          );
+        }
 
         return {
           dataset: [definition.datasetKey, loadedResources as DiscoveryDatasetMap[K]] as [K, DiscoveryDatasetMap[K]],

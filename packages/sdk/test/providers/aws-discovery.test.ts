@@ -1167,6 +1167,10 @@ describe('discoverAwsResources', () => {
     expect(debugLogger.mock.calls.map(([message]) => message)).toEqual(
       expect.arrayContaining([
         expect.stringMatching(/^aws: completed dataset aws-lambda-functions in us-east-1 with 1 resources in \d+ms$/),
+      ]),
+    );
+    expect(debugLogger.mock.calls.map(([message]) => message)).not.toEqual(
+      expect.arrayContaining([
         expect.stringMatching(/^aws: completed dataset aws-lambda-functions with 1 resources in \d+ms$/),
       ]),
     );
@@ -2587,6 +2591,56 @@ describe('discoverAwsResources', () => {
     ).toBe(true);
     expect(
       debugLines.some((line) => /^aws: completed dataset aws-ec2-instances with 1 resources in \d+ms$/.test(line)),
+    ).toBe(false);
+  });
+
+  it('emits one aggregate completion timing when a dataset spans multiple regions', async () => {
+    mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
+      indexType: 'AGGREGATOR',
+      resources: [
+        catalog.resources[1],
+        {
+          ...catalog.resources[1],
+          arn: 'arn:aws:ec2:eu-west-1:123456789012:instance/i-456',
+          region: 'eu-west-1',
+        },
+      ],
+      searchRegion: 'us-east-1',
+    });
+    mockedHydrateAwsEc2Instances.mockImplementation(async (resources) =>
+      resources.map((resource) => ({
+        accountId: resource.accountId,
+        instanceId: resource.arn.split('/').at(-1) ?? 'unknown',
+        instanceType: 'c6i.large',
+        region: resource.region,
+      })),
+    );
+    const debugLines: string[] = [];
+
+    await discoverAwsResources(
+      [
+        createRule({
+          discoveryDependencies: ['aws-ec2-instances'],
+        }),
+      ],
+      { mode: 'regions', regions: ['eu-west-1', 'us-east-1'] },
+      {
+        debugLogger: (message) => debugLines.push(message),
+      },
+    );
+
+    expect(
+      debugLines.some((line) =>
+        /^aws: completed dataset aws-ec2-instances in us-east-1 with 1 resources in \d+ms$/.test(line),
+      ),
+    ).toBe(true);
+    expect(
+      debugLines.some((line) =>
+        /^aws: completed dataset aws-ec2-instances in eu-west-1 with 1 resources in \d+ms$/.test(line),
+      ),
+    ).toBe(true);
+    expect(
+      debugLines.some((line) => /^aws: completed dataset aws-ec2-instances with 2 resources in \d+ms$/.test(line)),
     ).toBe(true);
   });
 
