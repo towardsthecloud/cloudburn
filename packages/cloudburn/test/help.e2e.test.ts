@@ -51,6 +51,7 @@ describe('cli help e2e', () => {
     expect(help).toContain('Usage: cloudburn');
     expect(help).toContain('Available Commands:');
     expect(help).toContain('Global Flags:');
+    expect(help).toContain('--debug');
     expect(help).toContain('completion');
     expect(help).not.toContain('__complete');
     expect(help).not.toContain('Use "cloudburn [command] --help" for more information about a command.');
@@ -108,6 +109,7 @@ describe('cli help e2e', () => {
     expect(help).toContain('Flags:');
     expect(help).toContain('--no-descriptions');
     expect(help).toContain('Global Flags:');
+    expect(help).toContain('--debug');
     expect(help).toContain('--format <format>');
     expect(help).toContain('Options: table: human-readable terminal output.');
     expect(help).toContain('json: machine-readable output for automation and downstream systems.');
@@ -125,6 +127,7 @@ describe('cli help e2e', () => {
     expect(help).toContain('Requested aggregator region to create or reuse');
     expect(help).toContain('during setup.');
     expect(help).toContain('Global Flags:');
+    expect(help).toContain('--debug');
     expect(help).toContain('--format <format>');
     expect(help).not.toContain('Discovery region to use. Defaults to the current AWS region from AWS_REGION');
     expect(help).not.toContain('--config <path>');

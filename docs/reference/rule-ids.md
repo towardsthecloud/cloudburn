@@ -22,7 +22,7 @@ Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
 | `CLDBRN-AWS-CLOUDTRAIL-1`     | CloudTrail Redundant Global Trails                      | cloudtrail     | discovery      | Implemented |
 | `CLDBRN-AWS-CLOUDTRAIL-2`     | CloudTrail Redundant Regional Trails                    | cloudtrail     | discovery      | Implemented |
 | `CLDBRN-AWS-CLOUDWATCH-1`     | CloudWatch Log Group Missing Retention                  | cloudwatch     | discovery, iac | Implemented |
-| `CLDBRN-AWS-CLOUDWATCH-2`     | CloudWatch Unused Log Streams                           | cloudwatch     | discovery      | Implemented |
+| `CLDBRN-AWS-CLOUDWATCH-2`     | CloudWatch Log Group Inactive                           | cloudwatch     | discovery      | Implemented |
 | `CLDBRN-AWS-CLOUDWATCH-3`     | CloudWatch Log Group No Metric Filters                  | cloudwatch     | discovery      | Implemented |
 | `CLDBRN-AWS-COSTGUARDRAILS-1` | AWS Budgets Missing                                     | costguardrails | discovery      | Implemented |
 | `CLDBRN-AWS-COSTGUARDRAILS-2` | Cost Anomaly Detection Missing                          | costguardrails | discovery      | Implemented |
@@ -108,7 +108,7 @@ Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
 
 `CLDBRN-AWS-EBS-7` flags only `completed` snapshots with a parsed `StartTime` older than `90` days.
 
-`CLDBRN-AWS-CLOUDWATCH-2` flags log streams with no observed event history and log streams whose `lastIngestionTime` is more than 90 days old. Delivery-managed log groups remain exempt.
+`CLDBRN-AWS-CLOUDWATCH-2` flags log groups whose most recent observed stream activity is missing or older than 90 days. Delivery-managed log groups remain exempt.
 
 `CLDBRN-AWS-CLOUDWATCH-3` reviews only log groups storing at least `1 GiB` and flags them when no metric filters are configured.
 

@@ -68,4 +68,31 @@ describe('hydrateAwsEcsClusterMetrics', () => {
       },
     ]);
   });
+
+  it('reuses the shared ECS cluster dataset when a discovery context provides preloaded clusters', async () => {
+    mockedFetchCloudWatchSignals.mockResolvedValue(new Map([['ecsCluster0', createDailyPoints(14, 5)]]));
+
+    await expect(
+      hydrateAwsEcsClusterMetrics([], {
+        loadDataset: async () => [
+          {
+            accountId: '123456789012',
+            clusterArn: 'arn:aws:ecs:us-east-1:123456789012:cluster/production',
+            clusterName: 'production',
+            region: 'us-east-1',
+          },
+        ],
+      }),
+    ).resolves.toEqual([
+      {
+        accountId: '123456789012',
+        averageCpuUtilizationLast14Days: 5,
+        clusterArn: 'arn:aws:ecs:us-east-1:123456789012:cluster/production',
+        clusterName: 'production',
+        region: 'us-east-1',
+      },
+    ]);
+
+    expect(mockedHydrateAwsEcsClusters).not.toHaveBeenCalled();
+  });
 });

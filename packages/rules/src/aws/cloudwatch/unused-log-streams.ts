@@ -3,51 +3,60 @@ import { createFinding, createFindingMatch, createRule } from '../../shared/help
 const RULE_ID = 'CLDBRN-AWS-CLOUDWATCH-2';
 const RULE_SERVICE = 'cloudwatch';
 const RULE_MESSAGE =
-  'CloudWatch log streams that have never received events or have been inactive for more than 90 days should be removed.';
+  'CloudWatch log groups whose most recent stream activity is older than 90 days should be reviewed or removed.';
 const DAY_MS = 24 * 60 * 60 * 1000;
 const UNUSED_LOG_STREAM_DAYS = 90;
 
 const toLogGroupScopeKey = (region: string, accountId: string, logGroupName: string): string =>
   `${region}:${accountId}:${logGroupName}`;
 
-/** Flag CloudWatch log streams with no event history or stale ingestion outside delivery-managed log groups. */
+/** Flag CloudWatch log groups whose latest observed stream activity is stale outside delivery-managed log groups. */
 export const cloudWatchUnusedLogStreamsRule = createRule({
   id: RULE_ID,
-  name: 'CloudWatch Unused Log Streams',
+  name: 'CloudWatch Log Group Inactive',
   description:
-    'Flag CloudWatch log streams that have never received events or whose last ingestion was more than 90 days ago outside delivery-managed log groups.',
+    'Flag CloudWatch log groups whose most recent stream has no observed event history or whose latest stream activity is more than 90 days old outside delivery-managed log groups.',
   message: RULE_MESSAGE,
   provider: 'aws',
   service: RULE_SERVICE,
   supports: ['discovery'],
-  discoveryDependencies: ['aws-cloudwatch-log-groups', 'aws-cloudwatch-log-streams'],
+  discoveryDependencies: ['aws-cloudwatch-log-groups', 'aws-cloudwatch-log-group-recent-stream-activity'],
   evaluateLive: ({ resources }) => {
     const cutoff = Date.now() - UNUSED_LOG_STREAM_DAYS * DAY_MS;
     const logGroups = resources.get('aws-cloudwatch-log-groups');
-    const knownLogGroups = new Set(
-      logGroups.map((logGroup) => toLogGroupScopeKey(logGroup.region, logGroup.accountId, logGroup.logGroupName)),
+    const logGroupsByScopeKey = new Map(
+      logGroups.map((logGroup) => [
+        toLogGroupScopeKey(logGroup.region, logGroup.accountId, logGroup.logGroupName),
+        logGroup,
+      ]),
     );
     const deliveryManagedLogGroups = new Set(
       logGroups
         .filter((logGroup) => logGroup.logGroupClass === 'DELIVERY')
         .map((logGroup) => toLogGroupScopeKey(logGroup.region, logGroup.accountId, logGroup.logGroupName)),
     );
+    const recentActivityByScopeKey = new Map(
+      resources
+        .get('aws-cloudwatch-log-group-recent-stream-activity')
+        .map((activity) => [toLogGroupScopeKey(activity.region, activity.accountId, activity.logGroupName), activity]),
+    );
 
-    const findings = resources
-      .get('aws-cloudwatch-log-streams')
-      .filter((logStream) => {
-        const logGroupScopeKey = toLogGroupScopeKey(logStream.region, logStream.accountId, logStream.logGroupName);
+    const findings = logGroups
+      .filter((logGroup) => {
+        const logGroupScopeKey = toLogGroupScopeKey(logGroup.region, logGroup.accountId, logGroup.logGroupName);
+        const recentActivity = recentActivityByScopeKey.get(logGroupScopeKey);
+        const latestActivityTimestamp =
+          recentActivity?.lastEventTimestamp !== undefined || recentActivity?.lastIngestionTime !== undefined
+            ? Math.max(recentActivity?.lastEventTimestamp ?? 0, recentActivity?.lastIngestionTime ?? 0)
+            : undefined;
 
         return (
-          knownLogGroups.has(logGroupScopeKey) &&
+          logGroupsByScopeKey.has(logGroupScopeKey) &&
           !deliveryManagedLogGroups.has(logGroupScopeKey) &&
-          ((logStream.firstEventTimestamp === undefined &&
-            logStream.lastEventTimestamp === undefined &&
-            logStream.lastIngestionTime === undefined) ||
-            (logStream.lastIngestionTime !== undefined && logStream.lastIngestionTime < cutoff))
+          (latestActivityTimestamp === undefined || latestActivityTimestamp < cutoff)
         );
       })
-      .map((logStream) => createFindingMatch(logStream.arn, logStream.region, logStream.accountId));
+      .map((logGroup) => createFindingMatch(logGroup.logGroupArn, logGroup.region, logGroup.accountId));
 
     return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
   },

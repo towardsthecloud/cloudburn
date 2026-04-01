@@ -18,6 +18,7 @@ export type {
   AwsCloudFrontDistributionRequestActivity,
   AwsCloudTrailTrail,
   AwsCloudWatchLogGroup,
+  AwsCloudWatchLogGroupRecentStreamActivity,
   AwsCloudWatchLogMetricFilterCoverage,
   AwsCloudWatchLogStream,
   AwsCostAnomalyMonitor,

@@ -3,6 +3,7 @@ import { AwsDiscoveryError, isAwsThrottlingError, wrapAwsServiceError } from '..
 type AwsServiceErrorContextOptions = {
   initialDelayMs?: number;
   maxAttempts?: number;
+  onRetry?: (details: { attempt: number; delayMs: number; error: unknown; maxAttempts: number }) => void;
   passthrough?: (err: unknown) => boolean;
 };
 
@@ -90,7 +91,9 @@ export const withAwsServiceErrorContext = async <T>(
       }
 
       if (attempt < maxAttempts && isAwsThrottlingError(err)) {
-        await sleep(initialDelayMs * 2 ** (attempt - 1));
+        const delayMs = initialDelayMs * 2 ** (attempt - 1);
+        options.onRetry?.({ attempt, delayMs, error: err, maxAttempts });
+        await sleep(delayMs);
         continue;
       }
 

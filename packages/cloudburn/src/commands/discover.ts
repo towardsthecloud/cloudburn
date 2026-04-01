@@ -1,5 +1,6 @@
-import { type AwsDiscoveryTarget, assertValidAwsRegion, CloudBurnClient } from '@cloudburn/sdk';
+import { type AwsDiscoveryTarget, type AwsRegion, assertSupportedAwsRegion, CloudBurnClient } from '@cloudburn/sdk';
 import { type Command, InvalidArgumentError } from 'commander';
+import { resolveCliDebugLogger } from '../debug.js';
 import { EXIT_CODE_OK, EXIT_CODE_POLICY_VIOLATION, EXIT_CODE_RUNTIME_ERROR } from '../exit-codes.js';
 import { formatError } from '../formatters/error.js';
 import { type CliResponse, type OutputFormat, renderResponse, resolveOutputFormat } from '../formatters/output.js';
@@ -12,7 +13,7 @@ type DiscoverOptions = {
   disabledRules?: string[];
   enabledRules?: string[];
   exitCode?: boolean;
-  region?: string;
+  region?: AwsRegion;
   service?: string[];
 };
 
@@ -127,24 +128,34 @@ const buildInitializationStatusData = (
   };
 };
 
-const parseAwsRegion = (value: string): string => {
+const parseAwsRegion = (value: string): AwsRegion => {
   try {
-    return assertValidAwsRegion(value);
+    return assertSupportedAwsRegion(value);
   } catch (err) {
     throw new InvalidArgumentError(err instanceof Error ? err.message : 'Invalid AWS region.');
   }
 };
 
-const parseDiscoverRegion = (value: string): string => {
-  if (value === 'all') {
-    return value;
+const resolveDiscoveryTarget = (region?: AwsRegion): AwsDiscoveryTarget =>
+  region === undefined ? { mode: 'current' } : { mode: 'regions', regions: [region] };
+
+const resolveNestedRegionOption = (command: Command, subcommandName: string): string | undefined => {
+  const rootCommand = command.parent?.parent as (Command & { rawArgs?: string[] }) | undefined;
+  const rawArgs = rootCommand?.rawArgs ?? [];
+  const subcommandIndex = rawArgs.lastIndexOf(subcommandName);
+
+  if (subcommandIndex === -1) {
+    return undefined;
   }
 
-  return parseAwsRegion(value);
-};
+  const optionIndex = rawArgs.indexOf('--region', subcommandIndex + 1);
 
-const resolveDiscoveryTarget = (region?: string): AwsDiscoveryTarget =>
-  region === undefined ? { mode: 'current' } : region === 'all' ? { mode: 'all' } : { mode: 'region', region };
+  if (optionIndex === -1 || optionIndex + 1 >= rawArgs.length) {
+    return undefined;
+  }
+
+  return rawArgs[optionIndex + 1];
+};
 
 const toDiscoveryConfigOverride = (options: DiscoverOptions) => {
   if (options.enabledRules === undefined && options.disabledRules === undefined && options.service === undefined) {
@@ -180,11 +191,10 @@ export const registerDiscoverCommand = (program: Command): void => {
     program
       .command('discover')
       .description('Run a live AWS discovery')
-      .enablePositionalOptions()
       .option(
         '--region <region>',
-        'Discovery region to use. Defaults to the current AWS region from AWS_REGION; use this flag to override it. Pass "all" to check resources in all regions that are indexed in AWS Resource Explorer.',
-        parseDiscoverRegion,
+        'AWS region to discover. Defaults to the current AWS region from AWS_REGION when omitted.',
+        parseAwsRegion,
       )
       .option('--config <path>', 'Explicit CloudBurn config file to load')
       .option(
@@ -205,7 +215,8 @@ export const registerDiscoverCommand = (program: Command): void => {
       .option('--exit-code', 'Exit with code 1 when findings exist')
       .action(async (options: DiscoverOptions, command: Command) => {
         await runCommand(async () => {
-          const scanner = new CloudBurnClient();
+          const debugLogger = resolveCliDebugLogger(command);
+          const scanner = new CloudBurnClient({ debugLogger });
           const configOverride = toDiscoveryConfigOverride(options);
           const loadedConfig = await scanner.loadConfig(options.config);
           const discoveryOptions: {
@@ -240,9 +251,7 @@ export const registerDiscoverCommand = (program: Command): void => {
     [
       'cloudburn discover',
       'cloudburn discover --region eu-central-1',
-      'cloudburn discover --region all',
       'cloudburn discover status',
-      'cloudburn discover list-enabled-regions',
       'cloudburn discover init',
     ],
   );
@@ -252,10 +261,9 @@ export const registerDiscoverCommand = (program: Command): void => {
     .description('Show Resource Explorer status across all enabled AWS regions')
     .action(async (_options: DiscoverListOptions, command: Command) => {
       await runCommand(async () => {
-        const scanner = new CloudBurnClient();
-        const parentRegion = discoverCommand.opts().region;
-        const region = parentRegion === 'all' ? undefined : parentRegion;
-        const status = await scanner.getDiscoveryStatus({ region });
+        const debugLogger = resolveCliDebugLogger(command);
+        const scanner = new CloudBurnClient({ debugLogger });
+        const status = await scanner.getDiscoveryStatus({ region: undefined });
         const format = resolveOutputFormat(command);
         const rows =
           format === 'json'
@@ -315,32 +323,6 @@ export const registerDiscoverCommand = (program: Command): void => {
     });
 
   discoverCommand
-    .command('list-enabled-regions')
-    .description('List AWS regions with a local or aggregator Resource Explorer index')
-    .action(async (_options: DiscoverListOptions, command: Command) => {
-      await runCommand(async () => {
-        const scanner = new CloudBurnClient();
-        const regions = await scanner.listEnabledDiscoveryRegions();
-        const format = resolveOutputFormat(command);
-        const output = renderResponse(
-          {
-            kind: 'record-list',
-            columns: [
-              { key: 'region', header: 'Region' },
-              { key: 'type', header: 'Type' },
-            ],
-            emptyMessage: 'No Resource Explorer indexes are enabled.',
-            rows: regions,
-          },
-          format,
-        );
-
-        process.stdout.write(`${output}\n`);
-        return EXIT_CODE_OK;
-      });
-    });
-
-  discoverCommand
     .command('init')
     .description('Set up AWS Resource Explorer for CloudBurn')
     .option(
@@ -350,9 +332,9 @@ export const registerDiscoverCommand = (program: Command): void => {
     )
     .action(async (options: DiscoverInitOptions, command: Command) => {
       await runCommand(async () => {
-        const scanner = new CloudBurnClient();
-        const parentRegion = discoverCommand.opts().region;
-        const region = options.region ?? (parentRegion === 'all' ? undefined : parentRegion);
+        const debugLogger = resolveCliDebugLogger(command);
+        const scanner = new CloudBurnClient({ debugLogger });
+        const region = options.region ?? resolveNestedRegionOption(command, 'init');
         const result = await scanner.initializeDiscovery({ region });
         const message = describeInitializationMessage(result);
         const format = resolveOutputFormat(command);
@@ -374,7 +356,8 @@ export const registerDiscoverCommand = (program: Command): void => {
     .description('List Resource Explorer supported AWS resource types')
     .action(async (_options: DiscoverListOptions, command: Command) => {
       await runCommand(async () => {
-        const scanner = new CloudBurnClient();
+        const debugLogger = resolveCliDebugLogger(command);
+        const scanner = new CloudBurnClient({ debugLogger });
         const resourceTypes = await scanner.listSupportedDiscoveryResourceTypes();
         const format = resolveOutputFormat(command);
         const output = renderResponse(

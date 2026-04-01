@@ -11,16 +11,15 @@ graph TD
   Root --> Estimate["estimate"]
   Root --> Completion["completion"]
   Rules --> RulesList["list"]
-  Discover --> DiscoverRegions["list-enabled-regions"]
   Discover --> DiscoverInit["init"]
   Discover --> DiscoverTypes["supported-resource-types"]
   Completion --> CompletionBash["bash"]
   Completion --> CompletionFish["fish"]
   Completion --> CompletionZsh["zsh"]
 
-  Root -.- RootFlags["--format json|table"]
+  Root -.- RootFlags["--debug\n--format json|table"]
   Scan -.- ScanFlags["--config path\n--enabled-rules ids\n--disabled-rules ids\n--exit-code"]
-  Discover -.- DiscoverFlags["--region <region|all>\n--config path\n--enabled-rules ids\n--disabled-rules ids\n--exit-code"]
+  Discover -.- DiscoverFlags["--region region\n--config path\n--enabled-rules ids\n--disabled-rules ids\n--exit-code"]
   Estimate -.- EstimateFlags["--server url"]
 ```
 
@@ -38,9 +37,9 @@ graph LR
 
 All stdout-producing commands return a typed `CliResponse` and share the same format resolver.
 
-| Format  | Output                                                                                                                             |
-| ------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `json`  | Pretty JSON for the underlying response payload |
+| Format  | Output                                                                                        |
+| ------- | --------------------------------------------------------------------------------------------- |
+| `json`  | Pretty JSON for the underlying response payload                                               |
 | `table` | ASCII tables for scans, record lists, string lists, key/value status output, and `rules list` |
 
 ## Command Behavior
@@ -50,9 +49,9 @@ All stdout-producing commands return a typed `CliResponse` and share the same fo
 - `discover` runs live AWS discovery and rule evaluation through `CloudBurnClient.discover({ target, config?, configPath? })`.
 - `discover` accepts `--config`, `--enabled-rules`, `--disabled-rules`, and `--service` for one-off overrides of discovery config.
 - `discover --region <region>` overrides the current AWS region resolved from `AWS_REGION`, `AWS_DEFAULT_REGION`, `aws_region`, then the AWS SDK region provider chain.
-- `discover --region all` requires a Resource Explorer aggregator index.
-- `discover --region <region>` targets one enabled Resource Explorer index region.
-- `discover list-enabled-regions` and `discover supported-resource-types` use the shared `json|table` renderer.
+- The CLI targets one explicit AWS region per discover run.
+- Multi-region discovery remains an SDK capability through `target: { mode: 'regions', regions: [...] }` and requires a Resource Explorer aggregator index.
+- `discover supported-resource-types` uses the shared `json|table` renderer.
 - `discover init` bootstraps Resource Explorer through the SDK, defaults to the current AWS region, accepts `--region <region>` as an override, and falls back to local-only setup when cross-region bootstrap is denied.
 - `discover init` status output includes the resolved setup `indexType` so users can distinguish local-only setup from aggregator setup.
 - `config --init` creates `.cloudburn.yml` in the git root (or current directory when no git root exists), unless a config file already exists there.
@@ -60,6 +59,7 @@ All stdout-producing commands return a typed `CliResponse` and share the same fo
 - `config --print-template` prints the starter template without writing a file.
 - `rules list`, `config`, and `estimate` all use the shared formatter system instead of ad hoc string output.
 - `completion` is a structural parent command. `completion bash|fish|zsh` prints shell completion scripts for the selected shell.
+- `--debug` is a global flag that relays SDK and provider execution tracing to `stderr` without changing normal command output on `stdout`.
 - `--format` is documented as a global option and defaults to `table`, except `config --print` and `config --print-template`, which preserve raw YAML by default for redirection workflows.
 - `scan` and `discover` can also source their default format from `.cloudburn.yml`; explicit `--format` still wins.
 - The hidden `__complete` command exists only as the runtime hook for generated shell scripts.
@@ -78,10 +78,8 @@ cloudburn scan ./iac --enabled-rules CLDBRN-AWS-EBS-1,CLDBRN-AWS-EC2-1
 cloudburn scan ./iac --service ec2,s3
 cloudburn discover
 cloudburn discover --region eu-central-1
-cloudburn discover --region all
 cloudburn discover --config .cloudburn.yml --disabled-rules CLDBRN-AWS-S3-1
 cloudburn discover --service ec2,s3
-cloudburn discover list-enabled-regions
 cloudburn discover init
 cloudburn config --init
 cloudburn config --print

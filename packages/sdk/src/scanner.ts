@@ -1,16 +1,15 @@
 import { loadConfig } from './config/loader.js';
 import { mergeConfig } from './config/merge.js';
+import { emitDebugLog } from './debug.js';
 import { runLiveScan } from './engine/run-live.js';
 import { runStaticScan } from './engine/run-static.js';
 import {
   getAwsDiscoveryStatus,
   initializeAwsDiscovery,
-  listEnabledAwsDiscoveryRegions,
   listSupportedAwsResourceTypes,
 } from './providers/aws/discovery.js';
 import type {
   AwsDiscoveryInitialization,
-  AwsDiscoveryRegion,
   AwsDiscoveryStatus,
   AwsDiscoveryTarget,
   AwsSupportedResourceType,
@@ -22,6 +21,8 @@ import type {
  * High-level SDK facade for CloudBurn scans and config loading.
  */
 export class CloudBurnClient {
+  public constructor(private readonly options?: { debugLogger?: (message: string) => void }) {}
+
   /**
    * Merges runtime config overrides onto the loaded CloudBurn config.
    *
@@ -30,7 +31,12 @@ export class CloudBurnClient {
    * @returns The merged effective config for the requested operation.
    */
   private async getEffectiveConfig(config?: Partial<CloudBurnConfig>, configPath?: string): Promise<CloudBurnConfig> {
+    emitDebugLog(
+      this.options?.debugLogger,
+      `sdk: loading config${configPath ? ` from ${configPath}` : ' from default search path'}`,
+    );
     const loadedConfig = await this.loadConfig(configPath);
+    emitDebugLog(this.options?.debugLogger, 'sdk: merged runtime config overrides');
 
     return mergeConfig(config, loadedConfig);
   }
@@ -51,6 +57,7 @@ export class CloudBurnClient {
     config?: Partial<CloudBurnConfig>,
     options?: { configPath?: string },
   ): Promise<ScanResult> {
+    emitDebugLog(this.options?.debugLogger, `sdk: starting static scan for ${path}`);
     const effectiveConfig = await this.getEffectiveConfig(config, options?.configPath);
 
     return runStaticScan(path, effectiveConfig);
@@ -67,18 +74,12 @@ export class CloudBurnClient {
     config?: Partial<CloudBurnConfig>;
     configPath?: string;
   }): Promise<ScanResult> {
+    emitDebugLog(this.options?.debugLogger, 'sdk: starting live discovery scan');
     const effectiveConfig = await this.getEffectiveConfig(options?.config, options?.configPath);
 
-    return runLiveScan(effectiveConfig, options?.target ?? { mode: 'current' });
-  }
-
-  /**
-   * Lists all AWS regions with an enabled Resource Explorer index.
-   *
-   * @returns Enabled local and aggregator index regions.
-   */
-  public async listEnabledDiscoveryRegions(): Promise<AwsDiscoveryRegion[]> {
-    return listEnabledAwsDiscoveryRegions();
+    return runLiveScan(effectiveConfig, options?.target ?? { mode: 'current' }, {
+      debugLogger: this.options?.debugLogger,
+    });
   }
 
   /**
@@ -88,7 +89,11 @@ export class CloudBurnClient {
    * @returns The observed discovery status.
    */
   public async getDiscoveryStatus(options?: { region?: string }): Promise<AwsDiscoveryStatus> {
-    return getAwsDiscoveryStatus(options?.region);
+    emitDebugLog(this.options?.debugLogger, 'sdk: requesting discovery status');
+
+    return this.options?.debugLogger === undefined
+      ? getAwsDiscoveryStatus(options?.region)
+      : getAwsDiscoveryStatus(options?.region, this.options.debugLogger);
   }
 
   /**
@@ -98,7 +103,11 @@ export class CloudBurnClient {
    * @returns The initialization result.
    */
   public async initializeDiscovery(options?: { region?: string }): Promise<AwsDiscoveryInitialization> {
-    return initializeAwsDiscovery(options?.region);
+    emitDebugLog(this.options?.debugLogger, 'sdk: initializing discovery');
+
+    return this.options?.debugLogger === undefined
+      ? initializeAwsDiscovery(options?.region)
+      : initializeAwsDiscovery(options?.region, this.options.debugLogger);
   }
 
   /**
@@ -107,6 +116,7 @@ export class CloudBurnClient {
    * @returns Supported AWS resource types.
    */
   public async listSupportedDiscoveryResourceTypes(): Promise<AwsSupportedResourceType[]> {
+    emitDebugLog(this.options?.debugLogger, 'sdk: listing supported Resource Explorer resource types');
     return listSupportedAwsResourceTypes();
   }
 

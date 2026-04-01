@@ -60,21 +60,21 @@ Use `discover` to run the same rules against live AWS resources.
 
 Run `cloudburn discover init` first. It automatically configures AWS Resource Explorer indexes, which CloudBurn uses as its live service catalog before it evaluates rules.
 
-By default, `cloudburn discover` runs against your active AWS region. You can pass `--region <region>` to target another region, or use `--region all` to run against all indexed regions through the AWS Resource Explorer aggregator.
+By default, `cloudburn discover` runs against your active AWS region. You can pass `--region <region>` to target one explicit region.
 
 ```bash
 cloudburn discover init
 cloudburn discover
 cloudburn discover --region eu-central-1
-cloudburn discover --region all
 cloudburn discover --config .cloudburn.yml --enabled-rules CLDBRN-AWS-EBS-1
 cloudburn discover --service ec2,s3
-cloudburn discover list-enabled-regions --format text
+cloudburn --debug discover --region eu-central-1
 cloudburn rules list
 cloudburn rules list --service ec2 --source discovery
 ```
 
-`cloudburn discover --region all` needs an AWS Resource Explorer aggregator and an unfiltered default view in the aggregator region.
+The CLI targets one region per run. Multi-region discovery remains available through the SDK and still needs an AWS Resource Explorer aggregator plus an unfiltered default view in the aggregator region.
+Use `--debug` to print SDK and provider execution tracing to `stderr` without changing the normal `stdout` format.
 
 ## Shell Completion
 

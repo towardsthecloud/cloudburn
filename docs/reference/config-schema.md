@@ -11,12 +11,12 @@ Source of truth: `packages/sdk/src/types.ts` (type), `packages/sdk/src/config/de
 
 Each mode uses the same fields:
 
-| Field            | Type                         | Default | Description                                                                 |
-| ---------------- | ---------------------------- | ------- | --------------------------------------------------------------------------- |
-| `enabled-rules`  | `string[]`                   | unset   | If present, only the listed rule IDs remain active for that mode.          |
-| `disabled-rules` | `string[]`                   | unset   | Rule IDs to remove from the active set after `enabled-rules` is applied.   |
-| `services`       | `string[]`                   | unset   | Service allowlist applied before `enabled-rules` and `disabled-rules`.     |
-| `format`         | `'json' \| 'table'` | unset   | Default CLI output format for that mode when `--format` is not passed.     |
+| Field            | Type                | Default | Description                                                              |
+| ---------------- | ------------------- | ------- | ------------------------------------------------------------------------ |
+| `enabled-rules`  | `string[]`          | unset   | If present, only the listed rule IDs remain active for that mode.        |
+| `disabled-rules` | `string[]`          | unset   | Rule IDs to remove from the active set after `enabled-rules` is applied. |
+| `services`       | `string[]`          | unset   | Service allowlist applied before `enabled-rules` and `disabled-rules`.   |
+| `format`         | `'json' \| 'table'` | unset   | Default CLI output format for that mode when `--format` is not passed.   |
 
 ## Merge Behavior
 
@@ -89,7 +89,8 @@ discovery:
 
 - `cloudburn discover` defaults to the current region.
 - Current region resolution order is `AWS_REGION`, `AWS_DEFAULT_REGION`, `aws_region`, then the AWS SDK region provider chain.
-- Passing `--region <region>` overrides the current region and queries Resource Explorer from that selected region.
+- Passing `--region <region>` overrides the current region for the CLI discover command.
 - `discover({ target })` is the SDK live-discovery entrypoint.
-- `--region all` requires an aggregator index and an unfiltered default Resource Explorer view in the aggregator region.
+- `discover({ target: { mode: 'regions', regions: [...] } })` is the SDK shape for explicit discovery regions.
+- Multi-region SDK discovery requires an aggregator index and an unfiltered default Resource Explorer view in the aggregator region.
 - `cloudburn discover init` defaults to the current region, accepts `--region <region>` as an override, and falls back to local-only setup in that region when cross-region aggregator setup is denied.

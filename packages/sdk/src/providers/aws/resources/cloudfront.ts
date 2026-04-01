@@ -5,6 +5,7 @@ import type {
   AwsDiscoveredResource,
 } from '@cloudburn/rules';
 import { createCloudFrontClient, resolveAwsAccountId } from '../client.js';
+import type { AwsDiscoveryDatasetLoadContext } from '../discovery-registry.js';
 import { fetchCloudWatchSignals } from './cloudwatch.js';
 import { chunkItems, extractTerminalArnResourceIdentifier, withAwsServiceErrorContext } from './utils.js';
 
@@ -128,8 +129,11 @@ export const hydrateAwsCloudFrontDistributions = async (
  */
 export const hydrateAwsCloudFrontDistributionRequestActivity = async (
   resources: AwsDiscoveredResource[],
+  context?: AwsDiscoveryDatasetLoadContext,
 ): Promise<AwsCloudFrontDistributionRequestActivity[]> => {
-  const distributions = await hydrateAwsCloudFrontDistributions(resources);
+  const distributions = context
+    ? await context.loadDataset('aws-cloudfront-distributions')
+    : await hydrateAwsCloudFrontDistributions(resources);
 
   if (distributions.length === 0) {
     return [];

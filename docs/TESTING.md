@@ -68,7 +68,7 @@ Mock at the SDK boundary — do not run real scans.
 - `--config`, `--enabled-rules`, and `--disabled-rules` pass the expected runtime overrides to the SDK
 - `--exit-code` sets `process.exitCode = 1` when findings exist
 - `--exit-code` without findings sets `process.exitCode = 0`
-- `discover list-enabled-regions`, `discover supported-resource-types`, `discover init`, `config`, `rules list`, and `estimate` all go through the shared formatter system
+- `discover supported-resource-types`, `discover init`, `discover status`, `config`, `rules list`, and `estimate` all go through the shared formatter system
 - `table` output stays human-readable and `json` output stays machine-readable
 - Runtime errors remain structured JSON on `stderr` regardless of stdout format
 

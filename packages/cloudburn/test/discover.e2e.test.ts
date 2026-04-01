@@ -158,8 +158,39 @@ describe('discover command e2e', () => {
 
     await createProgram().parseAsync(['discover', '--region', 'eu-central-1'], { from: 'user' });
 
-    expect(discover).toHaveBeenCalledWith({ target: { mode: 'region', region: 'eu-central-1' } });
+    expect(discover).toHaveBeenCalledWith({ target: { mode: 'regions', regions: ['eu-central-1'] } });
     expect(process.exitCode).toBe(0);
+  });
+
+  it('writes sdk debug tracing to stderr without adding cli-originated debug lines', async () => {
+    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    vi.spyOn(CloudBurnClient.prototype, 'loadConfig').mockImplementation(async function () {
+      (this as { options?: { debugLogger?: (message: string) => void } }).options?.debugLogger?.(
+        'sdk: loading config from default search path',
+      );
+
+      return {
+        discovery: {},
+        iac: {},
+      };
+    });
+    vi.spyOn(CloudBurnClient.prototype, 'discover').mockImplementation(async function () {
+      (this as { options?: { debugLogger?: (message: string) => void } }).options?.debugLogger?.(
+        'sdk: starting live discovery scan',
+      );
+
+      return { providers: [] };
+    });
+
+    await createProgram().parseAsync(['discover', '--debug'], { from: 'user' });
+
+    const debugOutput = stderr.mock.calls.map(([chunk]) => String(chunk)).join('');
+
+    expect(debugOutput).toContain('[debug] sdk: loading config from default search path');
+    expect(debugOutput).toContain('[debug] sdk: starting live discovery scan');
+    expect(debugOutput).not.toContain('[debug] discover:');
+    expect(stdout).toHaveBeenCalledWith('No findings.\n');
   });
 
   it('rejects invalid discovery regions before invoking the sdk', async () => {
@@ -167,11 +198,14 @@ describe('discover command e2e', () => {
     const discover = vi.spyOn(CloudBurnClient.prototype, 'discover').mockResolvedValue({ providers: [] });
 
     await expect(
-      createProgram().parseAsync(['discover', '--region', 'us-east-1 region:eu-west-1'], { from: 'user' }),
+      createProgram().parseAsync(['discover', '--region', 'totally-fake-1'], { from: 'user' }),
     ).rejects.toThrow('process.exit unexpectedly called with "1"');
 
     expect(discover).not.toHaveBeenCalled();
-    expect(stderr).toHaveBeenCalledWith(expect.stringContaining("Invalid AWS region 'us-east-1 region:eu-west-1'."));
+    expect(stderr).toHaveBeenCalledWith(expect.stringContaining("Invalid AWS region 'totally-fake-1'."));
+    expect(stderr).toHaveBeenCalledWith(expect.stringContaining('Supported regions:'));
+    expect(stderr).toHaveBeenCalledWith(expect.stringContaining('eu-central-1'));
+    expect(stderr).toHaveBeenCalledWith(expect.stringContaining('us-east-1'));
   });
 
   it('rejects invalid service filters before invoking the sdk discover method', async () => {
@@ -192,13 +226,28 @@ describe('discover command e2e', () => {
     expect(stderr).toHaveBeenCalled();
   });
 
-  it('passes the all-regions target to the sdk discover method', async () => {
+  it('rejects all as a discovery region value', async () => {
+    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     const discover = vi.spyOn(CloudBurnClient.prototype, 'discover').mockResolvedValue({ providers: [] });
 
-    await createProgram().parseAsync(['discover', '--region', 'all'], { from: 'user' });
+    await expect(createProgram().parseAsync(['discover', '--region', 'all'], { from: 'user' })).rejects.toThrow(
+      'process.exit unexpectedly called with "1"',
+    );
 
-    expect(discover).toHaveBeenCalledWith({ target: { mode: 'all' } });
-    expect(process.exitCode).toBe(0);
+    expect(discover).not.toHaveBeenCalled();
+    expect(stderr).toHaveBeenCalledWith(expect.stringContaining("Invalid AWS region 'all'."));
+  });
+
+  it('rejects comma-separated discovery regions in the cli before invoking the sdk', async () => {
+    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    const discover = vi.spyOn(CloudBurnClient.prototype, 'discover').mockResolvedValue({ providers: [] });
+
+    await expect(
+      createProgram().parseAsync(['discover', '--region', 'eu-central-1,us-east-1'], { from: 'user' }),
+    ).rejects.toThrow('process.exit unexpectedly called with "1"');
+
+    expect(discover).not.toHaveBeenCalled();
+    expect(stderr).toHaveBeenCalledWith(expect.stringContaining("Invalid AWS region 'eu-central-1,us-east-1'."));
   });
 
   it('preserves the policy violation exit code when discover finds resources and --exit-code is set', async () => {
@@ -305,10 +354,10 @@ describe('discover command e2e', () => {
 
     expect(help).toContain('Run a live AWS discovery');
     expect(help).toContain('--region <region>');
-    expect(help).toContain('Defaults to the current');
+    expect(help).toContain('AWS region to discover. Defaults');
     expect(help).toContain('AWS region from AWS_REGION');
-    expect(help).toContain('Pass "all" to check resources in all');
-    expect(help).toContain('regions that are indexed in AWS Resource Explorer');
+    expect(help).toContain('omitted.');
+    expect(help).not.toContain('--regions <regions>');
     expect(help).toContain('--config <path>');
     expect(help).toContain('--enabled-rules <ruleIds>');
     expect(help).toContain('When set,');
@@ -321,56 +370,7 @@ describe('discover command e2e', () => {
     expect(help).toContain('use this to exclude');
     expect(help).toContain('specific rules');
     expect(help).toContain('cloudburn discover');
-    expect(help).toContain('cloudburn discover --region all');
-    expect(help).toContain('cloudburn discover list-enabled-regions');
-  });
-
-  it('lists enabled regions via the sdk', async () => {
-    const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
-    const listEnabledRegions = vi.spyOn(CloudBurnClient.prototype, 'listEnabledDiscoveryRegions').mockResolvedValue([
-      { region: 'eu-west-1', type: 'local' },
-      { region: 'eu-central-1', type: 'aggregator' },
-    ]);
-
-    await createProgram().parseAsync(['discover', 'list-enabled-regions', '--format', 'json'], { from: 'user' });
-
-    expect(listEnabledRegions).toHaveBeenCalledTimes(1);
-    expect(stdout).toHaveBeenCalledWith(`[
-  {
-    "region": "eu-west-1",
-    "type": "local"
-  },
-  {
-    "region": "eu-central-1",
-    "type": "aggregator"
-  }
-]\n`);
-    expect(process.exitCode).toBe(0);
-  });
-
-  it('rejects text output for list-enabled-regions before invoking the sdk', async () => {
-    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
-    const listEnabledRegions = vi.spyOn(CloudBurnClient.prototype, 'listEnabledDiscoveryRegions').mockResolvedValue([
-      { region: 'eu-west-1', type: 'local' },
-      { region: 'eu-central-1', type: 'aggregator' },
-    ]);
-    const program = createProgram();
-    const discoverCommand = program.commands.find((command) => command.name() === 'discover');
-    const listCommand = discoverCommand?.commands.find((command) => command.name() === 'list-enabled-regions');
-
-    program.exitOverride();
-    discoverCommand?.exitOverride();
-    listCommand?.exitOverride();
-
-    await expect(
-      program.parseAsync(['discover', '--format', 'text', 'list-enabled-regions'], { from: 'user' }),
-    ).rejects.toMatchObject({
-      code: 'commander.invalidArgument',
-      exitCode: 1,
-      message: expect.stringContaining('text'),
-    });
-    expect(listEnabledRegions).not.toHaveBeenCalled();
-    expect(stderr).toHaveBeenCalled();
+    expect(help).toContain('cloudburn discover --region eu-central-1');
   });
 
   it('initializes resource explorer setup via the sdk', async () => {
@@ -506,7 +506,7 @@ describe('discover command e2e', () => {
     expect(process.exitCode).toBe(0);
   });
 
-  it('does not forward parent --region all into discover init', async () => {
+  it('does not forward discover region into discover init', async () => {
     const initializeDiscovery = vi.spyOn(CloudBurnClient.prototype, 'initializeDiscovery').mockResolvedValue({
       aggregatorAction: 'created',
       status: 'CREATED',
@@ -520,20 +520,20 @@ describe('discover command e2e', () => {
       verificationStatus: 'verified',
     });
 
-    await createProgram().parseAsync(['discover', '--region', 'all', 'init'], { from: 'user' });
+    await createProgram().parseAsync(['discover', '--region', 'eu-central-1', 'init'], { from: 'user' });
 
     expect(initializeDiscovery).toHaveBeenCalledWith({ region: undefined });
     expect(process.exitCode).toBe(0);
   });
 
-  it('reuses the parent discovery region for discover status unless it is all', async () => {
+  it('does not forward discover region into discover status', async () => {
     const getDiscoveryStatus = vi
       .spyOn(CloudBurnClient.prototype, 'getDiscoveryStatus')
       .mockResolvedValue(observedAggregatorStatus);
 
     await createProgram().parseAsync(['discover', '--region', 'eu-central-1', 'status'], { from: 'user' });
 
-    expect(getDiscoveryStatus).toHaveBeenCalledWith({ region: 'eu-central-1' });
+    expect(getDiscoveryStatus).toHaveBeenCalledWith({ region: undefined });
     expect(process.exitCode).toBe(0);
   });
 

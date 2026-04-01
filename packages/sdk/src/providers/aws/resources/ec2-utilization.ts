@@ -1,4 +1,5 @@
 import type { AwsDiscoveredResource, AwsEc2InstanceUtilization } from '@cloudburn/rules';
+import type { AwsDiscoveryDatasetLoadContext } from '../discovery-registry.js';
 import { fetchCloudWatchSignals } from './cloudwatch.js';
 import { hydrateAwsEc2Instances } from './ec2.js';
 
@@ -17,8 +18,9 @@ const toIsoDate = (timestamp: string): string => timestamp.slice(0, 10);
  */
 export const hydrateAwsEc2InstanceUtilization = async (
   resources: AwsDiscoveredResource[],
+  context?: AwsDiscoveryDatasetLoadContext,
 ): Promise<AwsEc2InstanceUtilization[]> => {
-  const instances = await hydrateAwsEc2Instances(resources);
+  const instances = context ? await context.loadDataset('aws-ec2-instances') : await hydrateAwsEc2Instances(resources);
   const instancesByRegion = new Map<string, typeof instances>();
 
   for (const instance of instances) {

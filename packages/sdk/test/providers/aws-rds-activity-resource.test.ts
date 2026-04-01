@@ -92,6 +92,33 @@ describe('hydrateAwsRdsInstanceActivity', () => {
       },
     ]);
   });
+
+  it('reuses the shared RDS instance dataset when a discovery context provides preloaded instances', async () => {
+    mockedFetchCloudWatchSignals.mockResolvedValue(new Map([['rds0', createDailyPoints(7, 0)]]));
+
+    await expect(
+      hydrateAwsRdsInstanceActivity([], {
+        loadDataset: async () => [
+          {
+            accountId: '123456789012',
+            dbInstanceIdentifier: 'legacy-db',
+            instanceClass: 'db.m6i.large',
+            region: 'us-east-1',
+          },
+        ],
+      }),
+    ).resolves.toEqual([
+      {
+        accountId: '123456789012',
+        dbInstanceIdentifier: 'legacy-db',
+        instanceClass: 'db.m6i.large',
+        maxDatabaseConnectionsLast7Days: 0,
+        region: 'us-east-1',
+      },
+    ]);
+
+    expect(mockedHydrateAwsRdsInstances).not.toHaveBeenCalled();
+  });
 });
 
 describe('hydrateAwsRdsInstanceCpuMetrics', () => {
@@ -139,5 +166,31 @@ describe('hydrateAwsRdsInstanceCpuMetrics', () => {
         region: 'us-east-1',
       },
     ]);
+  });
+
+  it('reuses the shared RDS instance dataset for CPU metrics when a discovery context provides preloaded instances', async () => {
+    mockedFetchCloudWatchSignals.mockResolvedValue(new Map([['cpu0', createDailyPoints(30, 8)]]));
+
+    await expect(
+      hydrateAwsRdsInstanceCpuMetrics([], {
+        loadDataset: async () => [
+          {
+            accountId: '123456789012',
+            dbInstanceIdentifier: 'legacy-db',
+            instanceClass: 'db.m6i.large',
+            region: 'us-east-1',
+          },
+        ],
+      }),
+    ).resolves.toEqual([
+      {
+        accountId: '123456789012',
+        averageCpuUtilizationLast30Days: 8,
+        dbInstanceIdentifier: 'legacy-db',
+        region: 'us-east-1',
+      },
+    ]);
+
+    expect(mockedHydrateAwsRdsInstances).not.toHaveBeenCalled();
   });
 });

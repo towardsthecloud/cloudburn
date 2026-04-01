@@ -1,5 +1,6 @@
 import { CloudBurnClient } from '@cloudburn/sdk';
 import type { Command } from 'commander';
+import { resolveCliDebugLogger } from '../debug.js';
 import { EXIT_CODE_OK, EXIT_CODE_POLICY_VIOLATION, EXIT_CODE_RUNTIME_ERROR } from '../exit-codes.js';
 import { formatError } from '../formatters/error.js';
 import { renderResponse, resolveOutputFormat } from '../formatters/output.js';
@@ -54,7 +55,8 @@ export const registerScanCommand = (program: Command): void => {
       .option('--exit-code', 'Exit with code 1 when findings exist')
       .action(async (path: string | undefined, options: ScanOptions, command: Command) => {
         try {
-          const scanner = new CloudBurnClient();
+          const debugLogger = resolveCliDebugLogger(command);
+          const scanner = new CloudBurnClient({ debugLogger });
           const configOverride = toScanConfigOverride(options);
           const loadedConfig = await scanner.loadConfig(options.config);
           const scanPath = path ?? process.cwd();

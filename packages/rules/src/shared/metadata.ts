@@ -89,6 +89,17 @@ export type AwsCloudWatchLogStream = {
   accountId: string;
 };
 
+/** Discovered CloudWatch Logs latest-stream activity summary keyed by log group. */
+export type AwsCloudWatchLogGroupRecentStreamActivity = {
+  logGroupName: string;
+  latestStreamArn?: string;
+  latestStreamName?: string;
+  lastEventTimestamp?: number;
+  lastIngestionTime?: number;
+  region: string;
+  accountId: string;
+};
+
 /** Discovered CloudWatch Logs metric-filter coverage keyed by log group. */
 export type AwsCloudWatchLogMetricFilterCoverage = {
   logGroupName: string;
@@ -647,6 +658,7 @@ export type DiscoveryDatasetKey =
   | 'aws-cloudfront-distributions'
   | 'aws-cloudfront-distribution-request-activity'
   | 'aws-cloudwatch-log-groups'
+  | 'aws-cloudwatch-log-group-recent-stream-activity'
   | 'aws-cloudwatch-log-metric-filter-coverage'
   | 'aws-cloudwatch-log-streams'
   | 'aws-cost-usage'
@@ -702,6 +714,7 @@ export type DiscoveryDatasetMap = {
   'aws-cloudfront-distributions': AwsCloudFrontDistribution[];
   'aws-cloudfront-distribution-request-activity': AwsCloudFrontDistributionRequestActivity[];
   'aws-cloudwatch-log-groups': AwsCloudWatchLogGroup[];
+  'aws-cloudwatch-log-group-recent-stream-activity': AwsCloudWatchLogGroupRecentStreamActivity[];
   'aws-cloudwatch-log-metric-filter-coverage': AwsCloudWatchLogMetricFilterCoverage[];
   'aws-cloudwatch-log-streams': AwsCloudWatchLogStream[];
   'aws-cost-usage': AwsCostUsage[];

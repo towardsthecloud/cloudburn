@@ -1,8 +1,14 @@
-import type { DiscoveryDatasetKey, DiscoveryDatasetMap, LiveEvaluationContext, Rule } from '@cloudburn/rules';
+import type {
+  AwsDiscoveredResource,
+  DiscoveryDatasetKey,
+  DiscoveryDatasetMap,
+  LiveEvaluationContext,
+  Rule,
+} from '@cloudburn/rules';
 import { LiveResourceBag } from '@cloudburn/rules';
+import { emitDebugLog } from '../../debug.js';
 import type {
   AwsDiscoveryInitialization,
-  AwsDiscoveryRegion,
   AwsDiscoveryStatus,
   AwsDiscoveryTarget,
   AwsSupportedResourceType,
@@ -196,6 +202,26 @@ const normalizeDatasetLoadResult = (
         resources: loadResult.resources,
       };
 
+const formatElapsedMs = (startedAtMs: number): string => `${Math.max(0, Date.now() - startedAtMs)}ms`;
+
+const buildResourcesByTypeIndex = (resources: AwsDiscoveredResource[]): Map<string, AwsDiscoveredResource[]> => {
+  const resourcesByType = new Map<string, AwsDiscoveredResource[]>();
+
+  for (const resource of resources) {
+    const typedResources = resourcesByType.get(resource.resourceType) ?? [];
+    typedResources.push(resource);
+    resourcesByType.set(resource.resourceType, typedResources);
+  }
+
+  return resourcesByType;
+};
+
+const appendItems = <T>(target: T[], items: Iterable<T>): void => {
+  for (const item of items) {
+    target.push(item);
+  }
+};
+
 /**
  * Discovers AWS resources for live rule evaluation using Resource Explorer and
  * registry-driven discovery datasets.
@@ -207,8 +233,13 @@ const normalizeDatasetLoadResult = (
 export const discoverAwsResources = async (
   rules: Rule[],
   target: AwsDiscoveryTarget,
+  options?: { debugLogger?: (message: string) => void },
 ): Promise<LiveDiscoveryContext> => {
   const datasetKeys = collectDiscoveryDependencies(rules);
+  emitDebugLog(
+    options?.debugLogger,
+    `aws: resolved discovery datasets ${datasetKeys.length === 0 ? 'none' : datasetKeys.join(', ')}`,
+  );
 
   if (datasetKeys.length === 0) {
     return {
@@ -234,78 +265,176 @@ export const discoverAwsResources = async (
   const resourceTypes = sortUnique(
     datasetDefinitions.flatMap((definition) => definition.resourceTypes.map(assertValidResourceExplorerResourceType)),
   );
+  emitDebugLog(
+    options?.debugLogger,
+    `aws: resolved Resource Explorer resource types ${resourceTypes.length === 0 ? 'none' : resourceTypes.join(', ')}`,
+  );
   const catalog =
     resourceTypes.length > 0
-      ? await buildAwsDiscoveryCatalog(target, resourceTypes)
+      ? options?.debugLogger === undefined
+        ? await buildAwsDiscoveryCatalog(target, resourceTypes)
+        : await buildAwsDiscoveryCatalog(target, resourceTypes, { debugLogger: options.debugLogger })
       : {
           indexType: 'LOCAL' as const,
           resources: [],
           searchRegion: await resolveCurrentAwsRegion(),
         };
-  const datasetLoads = await Promise.all(
-    datasetDefinitions.map(async (definition) => {
-      if (definition.resourceTypes.length === 0) {
-        const loadResult = normalizeDatasetLoadResult(await definition.load([]));
+  emitDebugLog(
+    options?.debugLogger,
+    `aws: catalog ready with ${catalog.resources.length} resources from ${catalog.searchRegion}`,
+  );
+  const resourcesByType = buildResourcesByTypeIndex(catalog.resources);
+  const datasetLoadPromises = new Map<
+    DiscoveryDatasetKey,
+    Promise<{
+      dataset: [DiscoveryDatasetKey, DiscoveryDatasetMap[DiscoveryDatasetKey]];
+      diagnostics: ScanDiagnostic[];
+    }>
+  >();
+  const loadDataset = <K extends DiscoveryDatasetKey>(
+    datasetKey: K,
+  ): Promise<{
+    dataset: [K, DiscoveryDatasetMap[K]];
+    diagnostics: ScanDiagnostic[];
+  }> => {
+    const cachedLoad = datasetLoadPromises.get(datasetKey);
+
+    if (cachedLoad) {
+      return cachedLoad as Promise<{
+        dataset: [K, DiscoveryDatasetMap[K]];
+        diagnostics: ScanDiagnostic[];
+      }>;
+    }
+
+    const definition = getAwsDiscoveryDatasetDefinition(datasetKey);
+
+    if (!definition) {
+      throw new Error(`Unknown discovery dataset '${datasetKey}'.`);
+    }
+
+    const startedAtMs = Date.now();
+    const loadPromise = (async () => {
+      emitDebugLog(options?.debugLogger, `aws: loading dataset ${definition.datasetKey}`);
+
+      try {
+        if (definition.resourceTypes.length === 0) {
+          const loadResult = normalizeDatasetLoadResult(
+            await definition.load([], {
+              loadDataset: async <T extends DiscoveryDatasetKey>(
+                nestedDatasetKey: T,
+              ): Promise<DiscoveryDatasetMap[T]> => (await loadDataset(nestedDatasetKey)).dataset[1],
+            }),
+          );
+          emitDebugLog(
+            options?.debugLogger,
+            `aws: completed dataset ${definition.datasetKey} with ${loadResult.resources.length} resources in ${formatElapsedMs(startedAtMs)}`,
+          );
+
+          return {
+            dataset: [definition.datasetKey, loadResult.resources as DiscoveryDatasetMap[K]] as [
+              K,
+              DiscoveryDatasetMap[K],
+            ],
+            diagnostics: loadResult.diagnostics,
+          };
+        }
+
+        const matchingResources = definition.resourceTypes.flatMap(
+          (resourceType) => resourcesByType.get(resourceType) ?? [],
+        );
+        const regionResourceGroups = groupResourcesByRegion(matchingResources);
+        const loadedResources: unknown[] = [];
+        const diagnostics: ScanDiagnostic[] = [];
+
+        for (const [region, regionResources] of regionResourceGroups) {
+          const regionStartedAtMs = Date.now();
+
+          try {
+            emitDebugLog(
+              options?.debugLogger,
+              `aws: loading dataset ${definition.datasetKey} in ${region} from ${regionResources.length} resources`,
+            );
+            const loadResult = normalizeDatasetLoadResult(
+              await definition.load(regionResources, {
+                loadDataset: async <T extends DiscoveryDatasetKey>(
+                  nestedDatasetKey: T,
+                ): Promise<DiscoveryDatasetMap[T]> => (await loadDataset(nestedDatasetKey)).dataset[1],
+              }),
+            );
+            appendItems(loadedResources, loadResult.resources);
+            appendItems(diagnostics, loadResult.diagnostics);
+            emitDebugLog(
+              options?.debugLogger,
+              `aws: completed dataset ${definition.datasetKey} in ${region} with ${loadResult.resources.length} resources in ${formatElapsedMs(regionStartedAtMs)}`,
+            );
+          } catch (err) {
+            if (!isAwsAccessDeniedError(err)) {
+              emitDebugLog(
+                options?.debugLogger,
+                `aws: dataset ${definition.datasetKey} failed in ${region} after ${formatElapsedMs(regionStartedAtMs)}: ${err instanceof Error ? err.message : String(err)}`,
+              );
+              throw err;
+            }
+
+            diagnostics.push({
+              code: getAwsErrorCode(err),
+              details: err instanceof Error ? err.message : String(err),
+              message: buildAccessDeniedDiagnosticMessage(definition.service, region, err),
+              provider: 'aws',
+              region,
+              service: definition.service,
+              source: 'discovery',
+              status: 'access_denied',
+            });
+            emitDebugLog(
+              options?.debugLogger,
+              `aws: completed dataset ${definition.datasetKey} in ${region} with 0 resources in ${formatElapsedMs(regionStartedAtMs)}`,
+            );
+          }
+        }
+
+        if (regionResourceGroups.size > 1) {
+          emitDebugLog(
+            options?.debugLogger,
+            `aws: completed dataset ${definition.datasetKey} with ${loadedResources.length} resources in ${formatElapsedMs(startedAtMs)}`,
+          );
+        }
 
         return {
-          dataset: [definition.datasetKey, loadResult.resources] as const,
-          diagnostics: loadResult.diagnostics,
+          dataset: [definition.datasetKey, loadedResources as DiscoveryDatasetMap[K]] as [K, DiscoveryDatasetMap[K]],
+          diagnostics,
         };
+      } catch (err) {
+        emitDebugLog(
+          options?.debugLogger,
+          `aws: dataset ${definition.datasetKey} failed after ${formatElapsedMs(startedAtMs)}: ${err instanceof Error ? err.message : String(err)}`,
+        );
+        throw err;
       }
+    })();
 
-      const matchingResources = catalog.resources.filter((resource) =>
-        definition.resourceTypes.includes(resource.resourceType),
-      );
-      const resourcesByRegion = groupResourcesByRegion(matchingResources);
-      const loadedResources: unknown[] = [];
-      const diagnostics: ScanDiagnostic[] = [];
+    datasetLoadPromises.set(
+      datasetKey,
+      loadPromise as Promise<{
+        dataset: [DiscoveryDatasetKey, DiscoveryDatasetMap[DiscoveryDatasetKey]];
+        diagnostics: ScanDiagnostic[];
+      }>,
+    );
 
-      for (const [region, regionResources] of resourcesByRegion) {
-        try {
-          const loadResult = normalizeDatasetLoadResult(await definition.load(regionResources));
-          loadedResources.push(...loadResult.resources);
-          diagnostics.push(...loadResult.diagnostics);
-        } catch (err) {
-          if (!isAwsAccessDeniedError(err)) {
-            throw err;
-          }
-
-          diagnostics.push({
-            code: getAwsErrorCode(err),
-            details: err instanceof Error ? err.message : String(err),
-            message: buildAccessDeniedDiagnosticMessage(definition.service, region, err),
-            provider: 'aws',
-            region,
-            service: definition.service,
-            source: 'discovery',
-            status: 'access_denied',
-          });
-        }
-      }
-
-      return {
-        dataset: [definition.datasetKey, loadedResources] as const,
-        diagnostics,
-      };
-    }),
-  );
+    return loadPromise;
+  };
+  const datasetLoads = await Promise.all(datasetKeys.map((datasetKey) => loadDataset(datasetKey)));
+  const allDatasetLoads = await Promise.all(datasetLoadPromises.values());
   const resources = new LiveResourceBag(
     Object.fromEntries(datasetLoads.map((loadResult) => loadResult.dataset)) as Partial<DiscoveryDatasetMap>,
   );
 
   return {
     catalog,
-    diagnostics: datasetLoads.flatMap((loadResult) => loadResult.diagnostics),
+    diagnostics: allDatasetLoads.flatMap((loadResult) => loadResult.diagnostics),
     resources,
   };
 };
-
-/**
- * Lists all AWS regions with an enabled Resource Explorer index.
- *
- * @returns Enabled local and aggregator index regions.
- */
-export const listEnabledAwsDiscoveryRegions = async (): Promise<AwsDiscoveryRegion[]> => listAwsDiscoveryIndexes();
 
 /**
  * Retrieves observed Resource Explorer status across all enabled AWS regions.
@@ -313,9 +442,14 @@ export const listEnabledAwsDiscoveryRegions = async (): Promise<AwsDiscoveryRegi
  * @param region - Optional explicit region to use as the preferred control region.
  * @returns Observed discovery status across the account.
  */
-export const getAwsDiscoveryStatus = async (region?: string): Promise<AwsDiscoveryStatus> => {
+export const getAwsDiscoveryStatus = async (
+  region?: string,
+  debugLogger?: (message: string) => void,
+): Promise<AwsDiscoveryStatus> => {
   const selectedRegion = region ? assertValidAwsRegion(region) : await resolveCurrentAwsRegion();
+  emitDebugLog(debugLogger, `aws: collecting discovery status from control region ${selectedRegion}`);
   const enabledRegions = await listEnabledAwsRegions(selectedRegion);
+  emitDebugLog(debugLogger, `aws: inspecting discovery status across ${enabledRegions.length} enabled regions`);
   const statuses = await Promise.all(enabledRegions.map((enabledRegion) => getAwsDiscoveryRegionStatus(enabledRegion)));
   const orderedStatuses = [...statuses].sort((left, right) => left.region.localeCompare(right.region));
   const indexedRegionCount = orderedStatuses.filter((status) => status.status === 'indexed').length;
@@ -343,11 +477,16 @@ export const getAwsDiscoveryStatus = async (region?: string): Promise<AwsDiscove
  * @param region - Optional explicit aggregator region.
  * @returns Setup metadata for the created configuration.
  */
-export const initializeAwsDiscovery = async (region?: string): Promise<AwsDiscoveryInitialization> => {
+export const initializeAwsDiscovery = async (
+  region?: string,
+  debugLogger?: (message: string) => void,
+): Promise<AwsDiscoveryInitialization> => {
   const explicitRegionRequested = region !== undefined;
   const selectedRegion = region ? assertValidAwsRegion(region) : await resolveCurrentAwsRegion();
-  const observedStatus = await getAwsDiscoveryStatus(selectedRegion);
+  emitDebugLog(debugLogger, `aws: initializing discovery from control region ${selectedRegion}`);
+  const observedStatus = await getAwsDiscoveryStatus(selectedRegion, debugLogger);
   const enabledRegions = await listEnabledAwsRegions(selectedRegion);
+  emitDebugLog(debugLogger, `aws: found ${enabledRegions.length} enabled regions for initialization`);
   const indexes = await listAwsDiscoveryIndexes(selectedRegion);
   const beforeIndexedRegions = new Set(indexes.map((index) => index.region));
   const aggregator = indexes.find((index) => index.type === 'aggregator');
@@ -382,7 +521,7 @@ export const initializeAwsDiscovery = async (region?: string): Promise<AwsDiscov
       const promotion = await updateAwsResourceExplorerIndexType(selectedRegion, 'aggregator');
       const verificationStatus =
         promotion.state === 'ACTIVE' ? 'verified' : await waitForAwsResourceExplorerIndex(selectedRegion);
-      const updatedStatus = await getAwsDiscoveryStatus(selectedRegion);
+      const updatedStatus = await getAwsDiscoveryStatus(selectedRegion, debugLogger);
 
       return buildInitializationResult({
         aggregatorAction: 'promoted',
@@ -400,7 +539,7 @@ export const initializeAwsDiscovery = async (region?: string): Promise<AwsDiscov
         throw err;
       }
 
-      const updatedStatus = await getAwsDiscoveryStatus(selectedRegion);
+      const updatedStatus = await getAwsDiscoveryStatus(selectedRegion, debugLogger);
 
       return buildInitializationResult({
         aggregatorAction: 'none',
@@ -432,7 +571,7 @@ export const initializeAwsDiscovery = async (region?: string): Promise<AwsDiscov
     }
 
     if (existingLocal) {
-      const updatedStatus = await getAwsDiscoveryStatus(selectedRegion);
+      const updatedStatus = await getAwsDiscoveryStatus(selectedRegion, debugLogger);
 
       return buildInitializationResult({
         aggregatorAction: 'none',
@@ -456,7 +595,7 @@ export const initializeAwsDiscovery = async (region?: string): Promise<AwsDiscov
     const verificationStatus = localSetup.taskId
       ? await waitForAwsResourceExplorerSetup(localSetup.taskId, selectedRegion)
       : 'verified';
-    const updatedStatus = await getAwsDiscoveryStatus(selectedRegion);
+    const updatedStatus = await getAwsDiscoveryStatus(selectedRegion, debugLogger);
     const localRegion =
       updatedStatus.regions.find((status) => status.region === selectedRegion && status.status === 'indexed')?.region ??
       selectedRegion;
@@ -480,7 +619,7 @@ export const initializeAwsDiscovery = async (region?: string): Promise<AwsDiscov
   const verificationStatus = createdSetup.taskId
     ? await waitForAwsResourceExplorerSetup(createdSetup.taskId, selectedRegion)
     : 'verified';
-  let updatedStatus = await getAwsDiscoveryStatus(selectedRegion);
+  let updatedStatus = await getAwsDiscoveryStatus(selectedRegion, debugLogger);
   let finalVerificationStatus = verificationStatus;
 
   if (!updatedStatus.aggregatorRegion) {
@@ -495,7 +634,7 @@ export const initializeAwsDiscovery = async (region?: string): Promise<AwsDiscov
           promotion.state === 'ACTIVE' ? 'verified' : await waitForAwsResourceExplorerIndex(selectedRegion);
 
         finalVerificationStatus = combineVerificationStatus(finalVerificationStatus, promotionVerificationStatus);
-        updatedStatus = await getAwsDiscoveryStatus(selectedRegion);
+        updatedStatus = await getAwsDiscoveryStatus(selectedRegion, debugLogger);
       } catch (err) {
         if (!isAwsAccessDeniedError(err)) {
           throw err;

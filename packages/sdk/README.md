@@ -46,10 +46,15 @@ const client = new CloudBurnClient();
 await client.initializeDiscovery();
 
 const currentRegion = await client.discover();
-const allRegions = await client.discover({ target: { mode: 'all' } });
+const explicitRegion = await client.discover({
+  target: { mode: 'regions', regions: ['eu-central-1'] },
+});
+const multipleRegions = await client.discover({
+  target: { mode: 'regions', regions: ['eu-central-1', 'us-east-1'] },
+});
 ```
 
-`discover()` defaults to the current AWS region. You can also target a specific region with `{ target: { mode: 'region', region: 'eu-central-1' } }`.
+`discover()` defaults to the current AWS region. You can also target one or more explicit AWS regions with `{ target: { mode: 'regions', regions: [...] } }`. Multi-region discovery requires an AWS Resource Explorer aggregator index.
 
 ### Lower-level helpers
 
@@ -61,7 +66,6 @@ The `CloudBurnClient` also exposes helper methods:
 
 - `client.loadConfig(path?)` to resolve CloudBurn config from disk
 - `client.getDiscoveryStatus()` to inspect AWS Resource Explorer readiness
-- `client.listEnabledDiscoveryRegions()` to see which regions have indexes
 - `client.listSupportedDiscoveryResourceTypes()` to inspect the AWS resource types discovery can search
 
 ## Docs

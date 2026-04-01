@@ -1,6 +1,7 @@
 import { GetFunctionConfigurationCommand } from '@aws-sdk/client-lambda';
 import type { AwsDiscoveredResource, AwsLambdaFunction, AwsLambdaFunctionMetric } from '@cloudburn/rules';
 import { createLambdaClient } from '../client.js';
+import type { AwsDiscoveryDatasetLoadContext } from '../discovery-registry.js';
 import { fetchCloudWatchSignals } from './cloudwatch.js';
 import { chunkItems, withAwsServiceErrorContext } from './utils.js';
 
@@ -96,8 +97,11 @@ export const hydrateAwsLambdaFunctions = async (resources: AwsDiscoveredResource
  */
 export const hydrateAwsLambdaFunctionMetrics = async (
   resources: AwsDiscoveredResource[],
+  context?: AwsDiscoveryDatasetLoadContext,
 ): Promise<AwsLambdaFunctionMetric[]> => {
-  const functions = await hydrateAwsLambdaFunctions(resources);
+  const functions = context
+    ? await context.loadDataset('aws-lambda-functions')
+    : await hydrateAwsLambdaFunctions(resources);
   const functionsByRegion = new Map<string, AwsLambdaFunction[]>();
 
   for (const fn of functions) {

@@ -96,7 +96,7 @@ Rule evaluators consume static and live datasets through `context.resources.get(
 | `CLDBRN-AWS-CLOUDTRAIL-1` | CloudTrail Redundant Global Trails         | cloudtrail | discovery      | Implemented |
 | `CLDBRN-AWS-CLOUDTRAIL-2` | CloudTrail Redundant Regional Trails       | cloudtrail | discovery      | Implemented |
 | `CLDBRN-AWS-CLOUDWATCH-1` | CloudWatch Log Group Missing Retention     | cloudwatch | discovery      | Implemented |
-| `CLDBRN-AWS-CLOUDWATCH-2` | CloudWatch Unused Log Streams              | cloudwatch | discovery      | Implemented |
+| `CLDBRN-AWS-CLOUDWATCH-2` | CloudWatch Log Group Inactive              | cloudwatch | discovery      | Implemented |
 | `CLDBRN-AWS-EC2-1`        | EC2 Instance Type Not Preferred            | ec2        | iac, discovery | Implemented |
 | `CLDBRN-AWS-EC2-2`        | S3 Interface VPC Endpoint Used             | ec2        | iac            | Implemented |
 | `CLDBRN-AWS-EC2-3`        | Elastic IP Address Unassociated            | ec2        | discovery      | Implemented |

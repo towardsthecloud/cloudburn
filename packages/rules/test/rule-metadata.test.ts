@@ -122,15 +122,15 @@ describe('rule metadata', () => {
     expect(rule).toBeDefined();
     expect(rule).toMatchObject({
       id: 'CLDBRN-AWS-CLOUDWATCH-2',
-      name: 'CloudWatch Unused Log Streams',
+      name: 'CloudWatch Log Group Inactive',
       description:
-        'Flag CloudWatch log streams that have never received events or whose last ingestion was more than 90 days ago outside delivery-managed log groups.',
+        'Flag CloudWatch log groups whose most recent stream has no observed event history or whose latest stream activity is more than 90 days old outside delivery-managed log groups.',
       message:
-        'CloudWatch log streams that have never received events or have been inactive for more than 90 days should be removed.',
+        'CloudWatch log groups whose most recent stream activity is older than 90 days should be reviewed or removed.',
       provider: 'aws',
       service: 'cloudwatch',
       supports: ['discovery'],
-      discoveryDependencies: ['aws-cloudwatch-log-groups', 'aws-cloudwatch-log-streams'],
+      discoveryDependencies: ['aws-cloudwatch-log-groups', 'aws-cloudwatch-log-group-recent-stream-activity'],
     });
   });
 

@@ -59,6 +59,8 @@ import type {
   StaticDatasetMap,
   StaticResourceBag,
 } from '@cloudburn/rules';
+import type { AwsRegion } from './providers/aws/client.js';
+export type { AwsRegion };
 
 // Intent: define SDK-facing contracts for scanner orchestration.
 // TODO(cloudburn): extend config and result metadata as new providers/resources land.
@@ -90,6 +92,10 @@ export type AwsDiscoveryTarget =
   | {
       mode: 'region';
       region: string;
+    }
+  | {
+      mode: 'regions';
+      regions: AwsRegion[];
     };
 
 /** Describes one enabled Resource Explorer index region. */
