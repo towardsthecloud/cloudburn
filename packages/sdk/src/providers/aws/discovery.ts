@@ -16,7 +16,7 @@ import type {
 } from '../../types.js';
 import { assertValidAwsRegion, listEnabledAwsRegions, resolveCurrentAwsRegion } from './client.js';
 import { getAwsDiscoveryDatasetDefinition } from './discovery-registry.js';
-import { AwsDiscoveryError, getAwsErrorCode, isAwsAccessDeniedError } from './errors.js';
+import { AwsDiscoveryError, getAwsErrorCode, isAwsAccessDeniedError, isAwsThrottlingError } from './errors.js';
 import {
   buildAwsDiscoveryCatalog,
   createAwsResourceExplorerSetup,
@@ -166,6 +166,7 @@ const collectDiscoveryDependencies = (rules: Rule[]): DiscoveryDatasetKey[] => {
 
 type LiveDiscoveryContext = LiveEvaluationContext & {
   diagnostics: ScanDiagnostic[];
+  unavailableDatasets?: Map<DiscoveryDatasetKey, ScanDiagnostic[]>;
 };
 
 const groupResourcesByRegion = <T extends { region: string }>(resources: T[]): Map<string, T[]> => {
@@ -188,6 +189,19 @@ const buildAccessDeniedDiagnosticMessage = (service: string, region: string, err
   isScpAccessDeniedError(err)
     ? `Skipped ${service} discovery in ${region} because access is denied by a service control policy (SCP).`
     : `Skipped ${service} discovery in ${region} because access is denied by AWS permissions.`;
+
+const buildDatasetFailureDiagnostic = (service: string, region: string | undefined, err: unknown): ScanDiagnostic => ({
+  code: getAwsErrorCode(err),
+  details: err instanceof Error ? err.message : String(err),
+  message: isAwsThrottlingError(err)
+    ? `Skipped ${service} discovery${region ? ` in ${region}` : ''} because AWS throttled the required dataset after retrying.`
+    : `Skipped ${service} discovery${region ? ` in ${region}` : ''} because a required dataset failed to load.`,
+  provider: 'aws',
+  ...(region ? { region } : {}),
+  service,
+  source: 'discovery',
+  status: isAwsThrottlingError(err) ? 'throttled' : 'error',
+});
 
 const normalizeDatasetLoadResult = (
   loadResult: unknown[] | { diagnostics?: ScanDiagnostic[]; resources: unknown[] },
@@ -289,6 +303,7 @@ export const discoverAwsResources = async (
     Promise<{
       dataset: [DiscoveryDatasetKey, DiscoveryDatasetMap[DiscoveryDatasetKey]];
       diagnostics: ScanDiagnostic[];
+      unavailable: boolean;
     }>
   >();
   const loadDataset = <K extends DiscoveryDatasetKey>(
@@ -296,6 +311,7 @@ export const discoverAwsResources = async (
   ): Promise<{
     dataset: [K, DiscoveryDatasetMap[K]];
     diagnostics: ScanDiagnostic[];
+    unavailable: boolean;
   }> => {
     const cachedLoad = datasetLoadPromises.get(datasetKey);
 
@@ -303,6 +319,7 @@ export const discoverAwsResources = async (
       return cachedLoad as Promise<{
         dataset: [K, DiscoveryDatasetMap[K]];
         diagnostics: ScanDiagnostic[];
+        unavailable: boolean;
       }>;
     }
 
@@ -316,8 +333,8 @@ export const discoverAwsResources = async (
     const loadPromise = (async () => {
       emitDebugLog(options?.debugLogger, `aws: loading dataset ${definition.datasetKey}`);
 
-      try {
-        if (definition.resourceTypes.length === 0) {
+      if (definition.resourceTypes.length === 0) {
+        try {
           const loadResult = normalizeDatasetLoadResult(
             await definition.load([], {
               loadDataset: async <T extends DiscoveryDatasetKey>(
@@ -336,81 +353,94 @@ export const discoverAwsResources = async (
               DiscoveryDatasetMap[K],
             ],
             diagnostics: loadResult.diagnostics,
+            unavailable: false,
           };
-        }
-
-        const matchingResources = definition.resourceTypes.flatMap(
-          (resourceType) => resourcesByType.get(resourceType) ?? [],
-        );
-        const regionResourceGroups = groupResourcesByRegion(matchingResources);
-        const loadedResources: unknown[] = [];
-        const diagnostics: ScanDiagnostic[] = [];
-
-        for (const [region, regionResources] of regionResourceGroups) {
-          const regionStartedAtMs = Date.now();
-
-          try {
-            emitDebugLog(
-              options?.debugLogger,
-              `aws: loading dataset ${definition.datasetKey} in ${region} from ${regionResources.length} resources`,
-            );
-            const loadResult = normalizeDatasetLoadResult(
-              await definition.load(regionResources, {
-                loadDataset: async <T extends DiscoveryDatasetKey>(
-                  nestedDatasetKey: T,
-                ): Promise<DiscoveryDatasetMap[T]> => (await loadDataset(nestedDatasetKey)).dataset[1],
-              }),
-            );
-            appendItems(loadedResources, loadResult.resources);
-            appendItems(diagnostics, loadResult.diagnostics);
-            emitDebugLog(
-              options?.debugLogger,
-              `aws: completed dataset ${definition.datasetKey} in ${region} with ${loadResult.resources.length} resources in ${formatElapsedMs(regionStartedAtMs)}`,
-            );
-          } catch (err) {
-            if (!isAwsAccessDeniedError(err)) {
-              emitDebugLog(
-                options?.debugLogger,
-                `aws: dataset ${definition.datasetKey} failed in ${region} after ${formatElapsedMs(regionStartedAtMs)}: ${err instanceof Error ? err.message : String(err)}`,
-              );
-              throw err;
-            }
-
-            diagnostics.push({
-              code: getAwsErrorCode(err),
-              details: err instanceof Error ? err.message : String(err),
-              message: buildAccessDeniedDiagnosticMessage(definition.service, region, err),
-              provider: 'aws',
-              region,
-              service: definition.service,
-              source: 'discovery',
-              status: 'access_denied',
-            });
-            emitDebugLog(
-              options?.debugLogger,
-              `aws: completed dataset ${definition.datasetKey} in ${region} with 0 resources in ${formatElapsedMs(regionStartedAtMs)}`,
-            );
-          }
-        }
-
-        if (regionResourceGroups.size > 1) {
+        } catch (err) {
           emitDebugLog(
             options?.debugLogger,
-            `aws: completed dataset ${definition.datasetKey} with ${loadedResources.length} resources in ${formatElapsedMs(startedAtMs)}`,
+            `aws: dataset ${definition.datasetKey} failed after ${formatElapsedMs(startedAtMs)}: ${err instanceof Error ? err.message : String(err)}`,
+          );
+          emitDebugLog(
+            options?.debugLogger,
+            `aws: completed dataset ${definition.datasetKey} with 0 resources in ${formatElapsedMs(startedAtMs)}`,
+          );
+
+          return {
+            dataset: [definition.datasetKey, [] as DiscoveryDatasetMap[K]] as [K, DiscoveryDatasetMap[K]],
+            diagnostics: [buildDatasetFailureDiagnostic(definition.service, catalog.searchRegion, err)],
+            unavailable: true,
+          };
+        }
+      }
+
+      const matchingResources = definition.resourceTypes.flatMap(
+        (resourceType) => resourcesByType.get(resourceType) ?? [],
+      );
+      const regionResourceGroups = groupResourcesByRegion(matchingResources);
+      const loadedResources: unknown[] = [];
+      const diagnostics: ScanDiagnostic[] = [];
+      let unavailable = false;
+
+      for (const [region, regionResources] of regionResourceGroups) {
+        const regionStartedAtMs = Date.now();
+
+        try {
+          emitDebugLog(
+            options?.debugLogger,
+            `aws: loading dataset ${definition.datasetKey} in ${region} from ${regionResources.length} resources`,
+          );
+          const loadResult = normalizeDatasetLoadResult(
+            await definition.load(regionResources, {
+              loadDataset: async <T extends DiscoveryDatasetKey>(
+                nestedDatasetKey: T,
+              ): Promise<DiscoveryDatasetMap[T]> => (await loadDataset(nestedDatasetKey)).dataset[1],
+            }),
+          );
+          appendItems(loadedResources, loadResult.resources);
+          appendItems(diagnostics, loadResult.diagnostics);
+          emitDebugLog(
+            options?.debugLogger,
+            `aws: completed dataset ${definition.datasetKey} in ${region} with ${loadResult.resources.length} resources in ${formatElapsedMs(regionStartedAtMs)}`,
+          );
+        } catch (err) {
+          emitDebugLog(
+            options?.debugLogger,
+            `aws: dataset ${definition.datasetKey} failed in ${region} after ${formatElapsedMs(regionStartedAtMs)}: ${err instanceof Error ? err.message : String(err)}`,
+          );
+          unavailable = true;
+          diagnostics.push(
+            isAwsAccessDeniedError(err)
+              ? {
+                  code: getAwsErrorCode(err),
+                  details: err instanceof Error ? err.message : String(err),
+                  message: buildAccessDeniedDiagnosticMessage(definition.service, region, err),
+                  provider: 'aws',
+                  region,
+                  service: definition.service,
+                  source: 'discovery',
+                  status: 'access_denied',
+                }
+              : buildDatasetFailureDiagnostic(definition.service, region, err),
+          );
+          emitDebugLog(
+            options?.debugLogger,
+            `aws: completed dataset ${definition.datasetKey} in ${region} with 0 resources in ${formatElapsedMs(regionStartedAtMs)}`,
           );
         }
+      }
 
-        return {
-          dataset: [definition.datasetKey, loadedResources as DiscoveryDatasetMap[K]] as [K, DiscoveryDatasetMap[K]],
-          diagnostics,
-        };
-      } catch (err) {
+      if (regionResourceGroups.size > 1 || unavailable) {
         emitDebugLog(
           options?.debugLogger,
-          `aws: dataset ${definition.datasetKey} failed after ${formatElapsedMs(startedAtMs)}: ${err instanceof Error ? err.message : String(err)}`,
+          `aws: completed dataset ${definition.datasetKey} with ${loadedResources.length} resources in ${formatElapsedMs(startedAtMs)}`,
         );
-        throw err;
       }
+
+      return {
+        dataset: [definition.datasetKey, loadedResources as DiscoveryDatasetMap[K]] as [K, DiscoveryDatasetMap[K]],
+        diagnostics,
+        unavailable,
+      };
     })();
 
     datasetLoadPromises.set(
@@ -418,21 +448,32 @@ export const discoverAwsResources = async (
       loadPromise as Promise<{
         dataset: [DiscoveryDatasetKey, DiscoveryDatasetMap[DiscoveryDatasetKey]];
         diagnostics: ScanDiagnostic[];
+        unavailable: boolean;
       }>,
     );
 
-    return loadPromise;
+    return loadPromise as Promise<{
+      dataset: [K, DiscoveryDatasetMap[K]];
+      diagnostics: ScanDiagnostic[];
+      unavailable: boolean;
+    }>;
   };
   const datasetLoads = await Promise.all(datasetKeys.map((datasetKey) => loadDataset(datasetKey)));
   const allDatasetLoads = await Promise.all(datasetLoadPromises.values());
   const resources = new LiveResourceBag(
     Object.fromEntries(datasetLoads.map((loadResult) => loadResult.dataset)) as Partial<DiscoveryDatasetMap>,
   );
+  const unavailableDatasets = new Map(
+    allDatasetLoads
+      .filter((loadResult) => loadResult.unavailable)
+      .map((loadResult) => [loadResult.dataset[0], loadResult.diagnostics] as const),
+  );
 
   return {
     catalog,
     diagnostics: allDatasetLoads.flatMap((loadResult) => loadResult.diagnostics),
     resources,
+    unavailableDatasets,
   };
 };
 

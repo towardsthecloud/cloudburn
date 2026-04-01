@@ -2495,6 +2495,54 @@ describe('discoverAwsResources', () => {
     ]);
   });
 
+  it('records a non-fatal throttling diagnostic instead of aborting the run when a dataset exhausts retries', async () => {
+    mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
+      indexType: 'LOCAL',
+      resources: [catalog.resources[7]],
+      searchRegion: 'eu-central-1',
+    });
+    mockedHydrateAwsCloudWatchLogMetricFilterCoverage.mockRejectedValue(
+      Object.assign(
+        new Error(
+          'Amazon CloudWatch Logs DescribeMetricFilters failed in eu-central-1 with ThrottlingException: Rate exceeded Request ID: req-metric-filters.',
+        ),
+        {
+          code: 'ThrottlingException',
+          name: 'ThrottlingException',
+          $metadata: {
+            httpStatusCode: 400,
+            requestId: 'req-metric-filters',
+          },
+        },
+      ),
+    );
+
+    const result = await discoverAwsResources(
+      [
+        createRule({
+          discoveryDependencies: ['aws-cloudwatch-log-metric-filter-coverage'],
+          service: 'cloudwatch',
+        }),
+      ],
+      { mode: 'regions', regions: ['eu-central-1'] },
+    );
+
+    expect(result.resources.get('aws-cloudwatch-log-metric-filter-coverage')).toEqual([]);
+    expect(result.diagnostics).toEqual([
+      {
+        code: 'ThrottlingException',
+        details:
+          'Amazon CloudWatch Logs DescribeMetricFilters failed in eu-central-1 with ThrottlingException: Rate exceeded Request ID: req-metric-filters.',
+        message: 'Skipped cloudwatch discovery in us-east-1 because AWS throttled the required dataset after retrying.',
+        provider: 'aws',
+        region: 'us-east-1',
+        service: 'cloudwatch',
+        source: 'discovery',
+        status: 'throttled',
+      },
+    ]);
+  });
+
   it('merges very large dataset loads without overflowing the call stack', async () => {
     mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
       indexType: 'LOCAL',
@@ -2644,7 +2692,7 @@ describe('discoverAwsResources', () => {
     ).toBe(true);
   });
 
-  it('emits dataset failure timing before surfacing non-access-denied errors', async () => {
+  it('emits dataset failure timing when a dataset is downgraded into a non-fatal diagnostic', async () => {
     mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
       indexType: 'LOCAL',
       resources: [catalog.resources[1]],
@@ -2653,28 +2701,38 @@ describe('discoverAwsResources', () => {
     mockedHydrateAwsEc2Instances.mockRejectedValue(new Error('boom'));
     const debugLines: string[] = [];
 
-    await expect(
-      discoverAwsResources(
-        [
-          createRule({
-            discoveryDependencies: ['aws-ec2-instances'],
-          }),
-        ],
-        { mode: 'regions', regions: ['us-east-1'] },
-        {
-          debugLogger: (message) => debugLines.push(message),
-        },
-      ),
-    ).rejects.toThrow('boom');
+    const result = await discoverAwsResources(
+      [
+        createRule({
+          discoveryDependencies: ['aws-ec2-instances'],
+        }),
+      ],
+      { mode: 'regions', regions: ['us-east-1'] },
+      {
+        debugLogger: (message) => debugLines.push(message),
+      },
+    );
 
     expect(debugLines).toContain('aws: loading dataset aws-ec2-instances');
     expect(debugLines).toContain('aws: loading dataset aws-ec2-instances in us-east-1 from 1 resources');
     expect(
       debugLines.some((line) => /^aws: dataset aws-ec2-instances failed in us-east-1 after \d+ms: boom$/.test(line)),
     ).toBe(true);
-    expect(debugLines.some((line) => /^aws: dataset aws-ec2-instances failed after \d+ms: boom$/.test(line))).toBe(
-      true,
-    );
+    expect(
+      debugLines.some((line) => /^aws: completed dataset aws-ec2-instances with 0 resources in \d+ms$/.test(line)),
+    ).toBe(true);
+    expect(result.resources.get('aws-ec2-instances')).toEqual([]);
+    expect(result.diagnostics).toEqual([
+      {
+        details: 'boom',
+        message: 'Skipped ec2 discovery in us-east-1 because a required dataset failed to load.',
+        provider: 'aws',
+        region: 'us-east-1',
+        service: 'ec2',
+        source: 'discovery',
+        status: 'error',
+      },
+    ]);
   });
 
   it('fails fast when a discovery rule has an evaluator but no discoveryDependencies metadata', async () => {

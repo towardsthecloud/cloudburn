@@ -51,6 +51,36 @@ const resultWithLocation = {
   ],
 };
 
+const resultWithSkippedRuleDiagnostic = {
+  diagnostics: [
+    {
+      details:
+        'Amazon CloudWatch Logs DescribeMetricFilters failed in us-east-1 with ThrottlingException: Rate exceeded.',
+      message: 'Skipped rule CLDBRN-AWS-CLOUDWATCH-3 because required discovery datasets were unavailable.',
+      provider: 'aws' as const,
+      ruleId: 'CLDBRN-AWS-CLOUDWATCH-3',
+      service: 'cloudwatch',
+      source: 'discovery' as const,
+      status: 'skipped' as const,
+    },
+  ],
+  providers: [],
+};
+
+const resultWithFindingAndDiagnostic = {
+  diagnostics: [
+    {
+      message: 'Skipped lambda discovery in us-east-1 because access is denied by AWS permissions.',
+      provider: 'aws' as const,
+      region: 'us-east-1',
+      service: 'lambda',
+      source: 'discovery' as const,
+      status: 'access_denied' as const,
+    },
+  ],
+  providers: resultWithoutLocation.providers,
+};
+
 const withStdoutColumns = (columns: number, run: () => void): void => {
   const descriptor = Object.getOwnPropertyDescriptor(process.stdout, 'columns');
 
@@ -83,6 +113,27 @@ describe('renderResponse', () => {
       | aws      | CLDBRN-AWS-EBS-1 | discovery | ebs     | vol-123    | 123456789012 | us-east-1 | EBS volumes should use current-generation storage. |
       +----------+------------------+-----------+---------+------------+--------------+-----------+----------------------------------------------------+"
     `);
+  });
+
+  it('renders skipped-rule diagnostics with their rule id in table mode', () => {
+    const output = renderResponse({ kind: 'scan-result', result: resultWithSkippedRuleDiagnostic }, 'table');
+
+    expect(output).toContain('Diagnostics');
+    expect(output).toContain('Status');
+    expect(output).toContain('CLDBRN-AWS-CLOUDWATCH-3');
+    expect(output).toContain('Skipped rule CLDBRN-AWS-CLOUDWATCH-3');
+    expect(output).not.toContain('ResourceId');
+    expect(output).not.toContain('AccountId');
+  });
+
+  it('renders diagnostics in a separate table when findings also exist', () => {
+    const output = renderResponse({ kind: 'scan-result', result: resultWithFindingAndDiagnostic }, 'table');
+
+    expect(output).toContain('CLDBRN-AWS-EBS-1');
+    expect(output).toContain('vol-123');
+    expect(output).toContain('Diagnostics');
+    expect(output).toContain('access_denied');
+    expect(output).toContain('Skipped lambda discovery in us-east-1');
   });
 
   it('wraps long status values to the available terminal width in table mode', () => {

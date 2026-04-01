@@ -12,6 +12,12 @@ const sleep = async (delayMs: number): Promise<void> =>
     setTimeout(resolve, delayMs);
   });
 
+const calculateThrottleDelayMs = (initialDelayMs: number, attempt: number): number => {
+  const baseDelayMs = initialDelayMs * 2 ** (attempt - 1);
+
+  return Math.round(baseDelayMs * (1 + Math.random()));
+};
+
 /**
  * Splits an array into fixed-size chunks for batched AWS API calls.
  *
@@ -79,8 +85,8 @@ export const withAwsServiceErrorContext = async <T>(
   execute: () => Promise<T>,
   options: AwsServiceErrorContextOptions = {},
 ): Promise<T> => {
-  const maxAttempts = options.maxAttempts ?? 4;
-  const initialDelayMs = options.initialDelayMs ?? 200;
+  const maxAttempts = options.maxAttempts ?? 6;
+  const initialDelayMs = options.initialDelayMs ?? 500;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
@@ -91,7 +97,7 @@ export const withAwsServiceErrorContext = async <T>(
       }
 
       if (attempt < maxAttempts && isAwsThrottlingError(err)) {
-        const delayMs = initialDelayMs * 2 ** (attempt - 1);
+        const delayMs = calculateThrottleDelayMs(initialDelayMs, attempt);
         options.onRetry?.({ attempt, delayMs, error: err, maxAttempts });
         await sleep(delayMs);
         continue;

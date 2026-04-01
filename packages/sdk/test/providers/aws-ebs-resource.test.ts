@@ -79,20 +79,22 @@ describe('hydrateAwsEbsVolumes', () => {
   });
 
   it('preserves EC2 API context when volume hydration is throttled', async () => {
-    mockedCreateEc2Client.mockReturnValue({
-      send: vi.fn().mockRejectedValue(
-        Object.assign(new Error('Rate exceeded'), {
-          name: 'RequestLimitExceeded',
-          $metadata: {
-            httpStatusCode: 503,
-            requestId: 'request-456',
-          },
-        }),
-      ),
-    } as never);
+    vi.useFakeTimers();
 
-    await expect(
-      hydrateAwsEbsVolumes([
+    try {
+      mockedCreateEc2Client.mockReturnValue({
+        send: vi.fn().mockRejectedValue(
+          Object.assign(new Error('Rate exceeded'), {
+            name: 'RequestLimitExceeded',
+            $metadata: {
+              httpStatusCode: 503,
+              requestId: 'request-456',
+            },
+          }),
+        ),
+      } as never);
+
+      const resultPromise = hydrateAwsEbsVolumes([
         {
           accountId: '123456789012',
           arn: 'arn:aws:ec2:eu-central-1:123456789012:volume/vol-123',
@@ -101,10 +103,16 @@ describe('hydrateAwsEbsVolumes', () => {
           resourceType: 'ec2:volume',
           service: 'ec2',
         },
-      ]),
-    ).rejects.toThrow(
-      'Amazon EC2 DescribeVolumes failed in eu-central-1 with RequestLimitExceeded: Rate exceeded Request ID: request-456.',
-    );
+      ]);
+
+      const assertion = expect(resultPromise).rejects.toThrow(
+        'Amazon EC2 DescribeVolumes failed in eu-central-1 with RequestLimitExceeded: Rate exceeded Request ID: request-456.',
+      );
+      await vi.runAllTimersAsync();
+      await assertion;
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('preserves EC2 error identity when volume hydration is access denied', async () => {
