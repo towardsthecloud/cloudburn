@@ -1,5 +1,11 @@
 # @cloudburn/rules
 
+## 0.21.1
+
+### Patch Changes
+
+- [#55](https://github.com/towardsthecloud/cloudburn/pull/55) [`becbfa3`](https://github.com/towardsthecloud/cloudburn/commit/becbfa39f352be0f1ad33585af199ad55e2ebe69) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Redesign `CLDBRN-AWS-CLOUDWATCH-2` to flag inactive CloudWatch log groups from latest stream activity summaries instead of enumerating every log stream.
+
 ## 0.21.0
 
 ### Minor Changes

@@ -1,6 +1,6 @@
 {
   "name": "cloudburn",
-  "version": "0.9.8",
+  "version": "0.9.9",
   "description": "Cloudburn CLI for cloud cost optimization",
   "homepage": "https://cloudburn.io/docs",
   "bugs": {

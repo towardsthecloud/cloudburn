@@ -1,5 +1,14 @@
 # @cloudburn/sdk
 
+## 0.21.1
+
+### Patch Changes
+
+- [#55](https://github.com/towardsthecloud/cloudburn/pull/55) [`becbfa3`](https://github.com/towardsthecloud/cloudburn/commit/becbfa39f352be0f1ad33585af199ad55e2ebe69) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Reduce live discovery fan-out with batched Resource Explorer queries, add throttling-aware retries and debug tracing, and add log-group-level CloudWatch activity hydration to avoid full log-stream enumeration for stale log group checks.
+
+- Updated dependencies [[`becbfa3`](https://github.com/towardsthecloud/cloudburn/commit/becbfa39f352be0f1ad33585af199ad55e2ebe69)]:
+  - @cloudburn/rules@0.21.1
+
 ## 0.21.0
 
 ### Minor Changes
