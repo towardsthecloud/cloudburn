@@ -1,5 +1,14 @@
 # cloudburn
 
+## 0.9.9
+
+### Patch Changes
+
+- [#55](https://github.com/towardsthecloud/cloudburn/pull/55) [`becbfa3`](https://github.com/towardsthecloud/cloudburn/commit/becbfa39f352be0f1ad33585af199ad55e2ebe69) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Restore `cloudburn discover --region` as a single-region CLI flag while keeping SDK-backed debug output streamed from the SDK and provider layers.
+
+- Updated dependencies [[`becbfa3`](https://github.com/towardsthecloud/cloudburn/commit/becbfa39f352be0f1ad33585af199ad55e2ebe69)]:
+  - @cloudburn/sdk@0.21.1
+
 ## 0.9.8
 
 ### Patch Changes
