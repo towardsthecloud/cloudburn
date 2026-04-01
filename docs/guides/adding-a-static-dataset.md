@@ -2,18 +2,7 @@
 
 Use this guide when a new static IaC rule needs normalized Terraform or CloudFormation inputs from the SDK.
 
-The static scan model is dataset-driven:
-
-1. Rules declare `staticDependencies` dataset keys.
-2. SDK static registry maps dataset keys to required IaC `sourceKinds`, source-native resource types, and dataset loaders.
-3. `loadAwsStaticResources` parses only the required source kinds and loads only the requested datasets.
-4. Rules read normalized datasets from `StaticResourceBag` with `resources.get('<dataset-key>')`.
-
-Before creating a new dataset, check whether the service already has one you can extend.
-
-- Reuse the existing dataset when your new rule fits the current normalized shape.
-- Extend the existing dataset when the service is already modeled but needs additional normalized fields.
-- If the same conceptual dataset should support both static IaC and discovery, keep one shared dataset key across `StaticDatasetMap` and `DiscoveryDatasetMap` and share the common analysis flags or value objects in `@cloudburn/rules`.
+See [`docs/architecture/sdk.md`](../architecture/sdk.md) for the full static scan engine flow. Before creating a new dataset, check whether the service already has one you can reuse or extend (see step 2 in [`adding-a-rule.md`](adding-a-rule.md)).
 
 ## 1. Pick a Dataset Key
 

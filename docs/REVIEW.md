@@ -6,19 +6,13 @@ Non-obvious conventions and constraints that reviewers must enforce. If a rule h
 
 ## Architecture Boundaries
 
-Dependency direction is **`cli -> sdk -> rules`**. No reverse imports.
+See [`docs/ARCHITECTURE.md`](ARCHITECTURE.md) for the full package responsibility matrix.
 
-| Package            | Owns                                                 | Must NOT contain                                 |
-| ------------------ | ---------------------------------------------------- | ------------------------------------------------ |
-| `cloudburn` (cli)  | Commands, formatters, exit codes                     | Scan logic, rule definitions, config loading     |
-| `@cloudburn/sdk`   | Scanner facade, config, engine, parsers, providers   | Rule definitions, CLI concerns                   |
-| `@cloudburn/rules` | Rule declarations, finding types, helpers, presets   | I/O, AWS SDK calls, engine logic, config loading |
-
-`@cloudburn/rules` must stay pure — no I/O, no AWS SDK, no engine imports.
+Dependency direction is **`cli -> sdk -> rules`**. No reverse imports. `@cloudburn/rules` must stay pure — no I/O, no AWS SDK, no engine imports.
 
 ## Finding Shape Gotchas
 
-Output is a three-level hierarchy: `providers -> rules -> findings`.
+Output is a three-level hierarchy: `providers -> rules -> findings`. See [`docs/reference/finding-shape.md`](reference/finding-shape.md) for full type contracts.
 
 - `source` (`'discovery' | 'iac'`) and `message` live on the rule group (`Finding`), not on `FindingMatch` or `ScanResult`.
 - Evaluators return one grouped `Finding` or `null` — never a flat array, never an empty `findings: []`.
@@ -28,39 +22,32 @@ Output is a three-level hierarchy: `providers -> rules -> findings`.
 
 ## Rule Conventions
 
+See [`docs/guides/adding-a-rule.md`](guides/adding-a-rule.md) for the full authoring guide and [`docs/reference/rule-ids.md`](reference/rule-ids.md) for ID conventions.
+
+Key reviewer checks:
+
 - All rules must use `createRule()`.
-- Rule IDs follow `CLDBRN-{PROVIDER}-{SERVICE}-{N}`. No zero-padding.
-- IDs are permanent — never renumber, even if a rule is removed.
 - Rule names describe the policy, not the remediation.
-- The canonical `message` is set once on the `Rule` object and must work for both `discovery` and `iac`.
 - Only implement evaluators for modes declared in `supports`.
-- Static-capable rules with `evaluateStatic` must declare `staticDependencies`.
-- Discovery-capable rules with `evaluateLive` must declare `discoveryDependencies`.
 - Rules must not declare Terraform type strings, CloudFormation type strings, Resource Explorer `resourceTypes`, or loader wiring directly.
-- Static evaluators should read from `StaticEvaluationContext.resources.get('<dataset-key>')`.
-- Discovery evaluators should read from `LiveEvaluationContext.resources.get('<dataset-key>')`.
 
 ## Testing Layers
 
-Vitest across all three packages. When adding or modifying a rule, all three test layers must be updated:
+See [`docs/TESTING.md`](TESTING.md) for the full test strategy and mock boundaries.
+
+When adding or modifying a rule, all three `@cloudburn/rules` test layers must be updated:
 
 1. `exports.test.ts`
 2. `rule-metadata.test.ts`
 3. `{rule-name}.test.ts`
 
-Mock boundaries:
-
-| Package            | What to mock                                                                                                     |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------- |
-| `@cloudburn/rules` | Nothing — pure unit tests                                                                                        |
-| `@cloudburn/sdk`   | Static dataset loaders/orchestration seams, Resource Explorer catalog helpers, discovery hydrators, `loadConfig` |
-| `cloudburn` (cli)  | `CloudBurnClient.scanStatic()` / `.discover()`                                                                   |
-
 ## Build Pipeline
 
-`pnpm verify` = `pnpm lint && pnpm typecheck && pnpm test`. This is the gate before committing.
+`pnpm verify` is the gate before committing.
 
 ## Formatter and Exit Code Contract
+
+See [`docs/architecture/cli.md`](architecture/cli.md) for the full exit-code table and formatter pipeline.
 
 All stdout-producing commands should build a typed `CliResponse` and render it through the shared `renderResponse(response, format)` pipeline.
 
@@ -69,14 +56,6 @@ Supported stdout formats are `json` and `table` only.
 - `--format` is a global CLI option, with command-local compatibility aliases allowed only to preserve post-command placement.
 - `table` output should remain stable ASCII tables, including `rules list`.
 - Runtime errors should continue to emit the JSON `stderr` envelope rather than following the selected stdout format.
-
-Exit codes:
-
-- `0` — clean scan, or `--exit-code` not passed
-- `1` — findings exist and `--exit-code` was passed
-- `2` — runtime error
-
-`--exit-code` counts nested matches across all providers and rules.
 
 ## Config System
 

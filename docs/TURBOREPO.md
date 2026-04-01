@@ -13,9 +13,7 @@ packages/
 
 ## Dependency Graph
 
-```text
-cloudburn -> @cloudburn/sdk -> @cloudburn/rules
-```
+See [`docs/ARCHITECTURE.md`](ARCHITECTURE.md) for the full package graph and responsibility matrix.
 
 ## Root Scripts
 

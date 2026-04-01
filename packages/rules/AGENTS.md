@@ -2,17 +2,13 @@
 
 ## Rule Authoring
 
+See [`docs/guides/adding-a-rule.md`](../../docs/guides/adding-a-rule.md) for the full end-to-end guide and [`docs/reference/rule-ids.md`](../../docs/reference/rule-ids.md) for ID conventions.
+
+Package-specific constraints:
+
 - `createRule` is mandatory for built-in rule declarations.
-- Rule IDs must use `CLDBRN-{PROVIDER}-{SERVICE}-{N}` in uppercase with no zero-padding. Keep numbering contiguous within each provider/service sequence; if a rule is removed or reordered, renumber later IDs and update references in the same change.
-- Rule evaluators return lean rule-level groups that include `ruleId`, `service`, `source`, `message`, and nested `FindingMatch[]`.
 - Rule names must describe the policy being enforced, not the migration or fix action.
-- Rule-level `message` is the canonical public policy text for scan output.
-- Declare `supports` accurately and only implement evaluators for the supported scan modes.
-- Static-capable rules should declare `staticDependencies` dataset keys.
-- Discovery-capable rules should declare `discoveryDependencies` dataset keys.
 - Rules should never declare Terraform type strings, CloudFormation type strings, Resource Explorer `resourceTypes`, or loader wiring directly; the SDK registries own that mapping.
-- Static evaluators read datasets from `StaticEvaluationContext.resources` via `resources.get('<dataset-key>')`.
-- Discovery evaluators read datasets from `LiveEvaluationContext.resources` via `resources.get('<dataset-key>')`.
 - Omit `accountId` and `region` when they are not available. Do not emit empty-string placeholders.
 
 ## Type Contracts

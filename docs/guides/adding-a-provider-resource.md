@@ -2,18 +2,7 @@
 
 Use this guide when a new AWS service needs live discovery support. For static IaC datasets, use [adding-a-static-dataset.md](./adding-a-static-dataset.md).
 
-The current model is dataset-driven:
-
-1. Rules declare `discoveryDependencies` dataset keys.
-2. SDK discovery registry maps dataset keys to Resource Explorer `resourceTypes` and dataset loaders.
-3. `discoverAwsResources` builds one catalog and loads only required datasets.
-4. Rules read normalized datasets from `LiveResourceBag` with `resources.get('<dataset-key>')`.
-
-Before creating a new discovery dataset, check whether the service already exposes one.
-
-- Reuse an existing dataset when the current normalized shape already supports the new rule.
-- Extend the existing dataset when a service is already modeled but needs additional live metadata.
-- If the same conceptual dataset should back both `iac` and `discovery`, keep the dataset key aligned across both maps and share the common normalized fields in `@cloudburn/rules`.
+See [`docs/architecture/sdk.md`](../architecture/sdk.md) for the full live scan engine flow. Before creating a new dataset, check whether the service already has one you can reuse or extend (see step 2 in [`adding-a-rule.md`](adding-a-rule.md)).
 
 ## 1. Pick a Dataset Key
 
