@@ -688,6 +688,10 @@ export const buildAwsDiscoveryCatalog = async (
     } else {
       searchPlan = await resolveAggregatorSearchPlan(target.regions);
     }
+  } else if (target.mode === 'region') {
+    searchPlan = await resolveRegionalSearchPlan(assertValidAwsRegion(target.region));
+  } else if (target.mode === 'all') {
+    searchPlan = await resolveAggregatorSearchPlan();
   } else {
     searchPlan = await resolveRegionalSearchPlan(currentRegion);
   }

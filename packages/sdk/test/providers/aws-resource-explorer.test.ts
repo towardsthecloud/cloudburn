@@ -414,6 +414,86 @@ describe('resource explorer discovery', () => {
     expect(createResourceExplorerClient).toHaveBeenCalled();
   });
 
+  it('accepts the deprecated single-region discovery target shape', async () => {
+    vi.spyOn(clientModule, 'resolveCurrentAwsRegion').mockResolvedValue('us-east-1');
+    vi.spyOn(clientModule, 'listEnabledAwsRegions').mockResolvedValue(['eu-central-1']);
+
+    const euCentralClient = {
+      send: vi
+        .fn()
+        .mockImplementationOnce(async (command) => {
+          expect(command.input.Regions).toEqual(['eu-central-1']);
+
+          return {
+            Indexes: [
+              {
+                Region: 'eu-central-1',
+                Type: 'LOCAL',
+              },
+            ],
+          };
+        })
+        .mockImplementationOnce(async (command) => {
+          expect(command.input.Regions).toEqual(['eu-central-1']);
+
+          return {
+            Indexes: [
+              {
+                Region: 'eu-central-1',
+                Type: 'LOCAL',
+              },
+            ],
+          };
+        })
+        .mockResolvedValueOnce({
+          ViewArn: 'arn:aws:resource-explorer-2:eu-central-1:123456789012:view/default',
+        })
+        .mockResolvedValueOnce({
+          View: {
+            Filters: {
+              FilterString: '',
+            },
+            ViewArn: 'arn:aws:resource-explorer-2:eu-central-1:123456789012:view/default',
+          },
+        })
+        .mockResolvedValueOnce({
+          Resources: [
+            {
+              Arn: 'arn:aws:ec2:eu-central-1:123456789012:volume/vol-123',
+              OwningAccountId: '123456789012',
+              Region: 'eu-central-1',
+              ResourceType: 'ec2:volume',
+              Service: 'ec2',
+              Properties: [],
+            },
+          ],
+        }),
+    } as never;
+
+    vi.spyOn(clientModule, 'createResourceExplorerClient').mockImplementation(({ region }) => {
+      expect(region).toBe('eu-central-1');
+      return euCentralClient;
+    });
+
+    await expect(buildAwsDiscoveryCatalog({ mode: 'region', region: 'eu-central-1' }, ['ec2:volume'])).resolves.toEqual(
+      {
+        resources: [
+          {
+            arn: 'arn:aws:ec2:eu-central-1:123456789012:volume/vol-123',
+            accountId: '123456789012',
+            region: 'eu-central-1',
+            resourceType: 'ec2:volume',
+            service: 'ec2',
+            properties: [],
+          },
+        ],
+        searchRegion: 'eu-central-1',
+        indexType: 'LOCAL',
+        viewArn: 'arn:aws:resource-explorer-2:eu-central-1:123456789012:view/default',
+      },
+    );
+  });
+
   it('uses the aggregator control plane for an explicit local region when the aggregator lives elsewhere', async () => {
     vi.spyOn(clientModule, 'resolveCurrentAwsRegion').mockResolvedValue('us-east-1');
     vi.spyOn(clientModule, 'listEnabledAwsRegions').mockResolvedValue(['eu-west-1', 'eu-central-1']);
@@ -726,6 +806,112 @@ describe('resource explorer discovery', () => {
     expect(apSouthClient.send).toHaveBeenCalledTimes(1);
     expect(euWestClient.send).toHaveBeenCalledTimes(1);
     expect(euCentralClient.send).toHaveBeenCalledTimes(4);
+  });
+
+  it('accepts the deprecated all-regions discovery target shape', async () => {
+    vi.spyOn(clientModule, 'listEnabledAwsRegions').mockResolvedValue(['eu-central-1', 'eu-west-1']);
+
+    const euCentralClient = {
+      send: vi
+        .fn()
+        .mockImplementationOnce(async (command) => {
+          expect(command.input.Regions).toEqual(['eu-central-1']);
+
+          return {
+            Indexes: [
+              {
+                Region: 'eu-central-1',
+                Type: 'AGGREGATOR',
+              },
+            ],
+          };
+        })
+        .mockResolvedValueOnce({
+          ViewArn: 'arn:aws:resource-explorer-2:eu-central-1:123456789012:view/default',
+        })
+        .mockResolvedValueOnce({
+          View: {
+            Filters: {
+              FilterString: '',
+            },
+            ViewArn: 'arn:aws:resource-explorer-2:eu-central-1:123456789012:view/default',
+          },
+        })
+        .mockImplementationOnce(async (command) => {
+          expect(command.input.Filters?.FilterString).toBe('resourcetype:ec2:volume region:eu-central-1,eu-west-1');
+
+          return {
+            Resources: [
+              {
+                Arn: 'arn:aws:ec2:eu-central-1:123456789012:volume/vol-123',
+                OwningAccountId: '123456789012',
+                Region: 'eu-central-1',
+                ResourceType: 'ec2:volume',
+                Service: 'ec2',
+                Properties: [],
+              },
+              {
+                Arn: 'arn:aws:ec2:eu-west-1:123456789012:volume/vol-456',
+                OwningAccountId: '123456789012',
+                Region: 'eu-west-1',
+                ResourceType: 'ec2:volume',
+                Service: 'ec2',
+                Properties: [],
+              },
+            ],
+          };
+        }),
+    } as never;
+    const euWestClient = {
+      send: vi.fn().mockImplementationOnce(async (command) => {
+        expect(command.input.Regions).toEqual(['eu-west-1']);
+
+        return {
+          Indexes: [
+            {
+              Region: 'eu-west-1',
+              Type: 'LOCAL',
+            },
+          ],
+        };
+      }),
+    } as never;
+
+    vi.spyOn(clientModule, 'createResourceExplorerClient').mockImplementation(({ region }) => {
+      if (region === 'eu-central-1') {
+        return euCentralClient;
+      }
+
+      if (region === 'eu-west-1') {
+        return euWestClient;
+      }
+
+      throw new Error(`Unexpected client region ${region}`);
+    });
+
+    await expect(buildAwsDiscoveryCatalog({ mode: 'all' }, ['ec2:volume'])).resolves.toEqual({
+      resources: [
+        {
+          arn: 'arn:aws:ec2:eu-central-1:123456789012:volume/vol-123',
+          accountId: '123456789012',
+          region: 'eu-central-1',
+          resourceType: 'ec2:volume',
+          service: 'ec2',
+          properties: [],
+        },
+        {
+          arn: 'arn:aws:ec2:eu-west-1:123456789012:volume/vol-456',
+          accountId: '123456789012',
+          region: 'eu-west-1',
+          resourceType: 'ec2:volume',
+          service: 'ec2',
+          properties: [],
+        },
+      ],
+      searchRegion: 'eu-central-1',
+      indexType: 'AGGREGATOR',
+      viewArn: 'arn:aws:resource-explorer-2:eu-central-1:123456789012:view/default',
+    });
   });
 
   it('fails multi-region discovery when denied regions are skipped and no accessible aggregator exists', async () => {

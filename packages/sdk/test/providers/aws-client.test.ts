@@ -53,11 +53,19 @@ describe('resolveCurrentAwsRegion', { timeout: 30_000 }, () => {
     });
   });
 
+  it('accepts valid AWS region strings outside the commercial allowlist at runtime', async () => {
+    const clientModule = await importClientModule();
+
+    expect(clientModule.assertValidAwsRegion('us-gov-west-1')).toBe('us-gov-west-1');
+  });
+
   it('lists supported regions when region validation fails', async () => {
     const clientModule = await importClientModule();
 
-    expect(() => clientModule.assertValidAwsRegion('bla')).toThrowError("Invalid AWS region 'bla'. Supported regions:");
-    expect(() => clientModule.assertValidAwsRegion('bla')).toThrowError('eu-central-1');
-    expect(() => clientModule.assertValidAwsRegion('bla')).toThrowError('us-east-1');
+    expect(() => clientModule.assertSupportedAwsRegion('bla')).toThrowError(
+      "Invalid AWS region 'bla'. Supported regions:",
+    );
+    expect(() => clientModule.assertSupportedAwsRegion('bla')).toThrowError('eu-central-1');
+    expect(() => clientModule.assertSupportedAwsRegion('bla')).toThrowError('us-east-1');
   });
 });

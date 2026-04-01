@@ -88,6 +88,11 @@ export type BuiltInRuleMetadata = Pick<Rule, 'id' | 'name' | 'description' | 'pr
 /** Selects how a live AWS discovery resolves its search region or index scope. */
 export type AwsDiscoveryTarget =
   | { mode: 'current' }
+  | { mode: 'all' }
+  | {
+      mode: 'region';
+      region: string;
+    }
   | {
       mode: 'regions';
       regions: AwsRegion[];

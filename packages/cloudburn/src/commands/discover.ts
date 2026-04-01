@@ -1,4 +1,4 @@
-import { type AwsDiscoveryTarget, type AwsRegion, assertValidAwsRegion, CloudBurnClient } from '@cloudburn/sdk';
+import { type AwsDiscoveryTarget, type AwsRegion, assertSupportedAwsRegion, CloudBurnClient } from '@cloudburn/sdk';
 import { type Command, InvalidArgumentError } from 'commander';
 import { resolveCliDebugLogger } from '../debug.js';
 import { EXIT_CODE_OK, EXIT_CODE_POLICY_VIOLATION, EXIT_CODE_RUNTIME_ERROR } from '../exit-codes.js';
@@ -130,7 +130,7 @@ const buildInitializationStatusData = (
 
 const parseAwsRegion = (value: string): AwsRegion => {
   try {
-    return assertValidAwsRegion(value);
+    return assertSupportedAwsRegion(value);
   } catch (err) {
     throw new InvalidArgumentError(err instanceof Error ? err.message : 'Invalid AWS region.');
   }
