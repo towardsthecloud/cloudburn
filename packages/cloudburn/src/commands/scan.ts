@@ -6,6 +6,7 @@ import { formatError } from '../formatters/error.js';
 import { renderResponse, resolveOutputFormat } from '../formatters/output.js';
 import { countScanResultFindings } from '../formatters/shared.js';
 import { setCommandExamples } from '../help.js';
+import { createAsciiProgressTracker } from '../progress.js';
 import { parseRuleIdList, parseServiceList, validateServiceList } from './config-options.js';
 
 type ScanOptions = {
@@ -17,6 +18,8 @@ type ScanOptions = {
 };
 
 const parseIaCServiceList = (value: string): string[] => validateServiceList('iac', parseServiceList(value)) ?? [];
+
+const scanProgressSteps = ['Load config', 'Scan IaC', 'Evaluate rules', 'Render output'] as const;
 
 const toScanConfigOverride = (options: ScanOptions) => {
   if (options.enabledRules === undefined && options.disabledRules === undefined && options.service === undefined) {
@@ -54,11 +57,14 @@ export const registerScanCommand = (program: Command): void => {
       .option('--service <services>', 'Comma-separated services to include in the scan rule set.', parseIaCServiceList)
       .option('--exit-code', 'Exit with code 1 when findings exist')
       .action(async (path: string | undefined, options: ScanOptions, command: Command) => {
+        const progress = createAsciiProgressTracker(scanProgressSteps);
+
         try {
           const debugLogger = resolveCliDebugLogger(command);
           const scanner = new CloudBurnClient({ debugLogger });
           const configOverride = toScanConfigOverride(options);
           const loadedConfig = await scanner.loadConfig(options.config);
+          progress.advance();
           const scanPath = path ?? process.cwd();
           const result =
             configOverride === undefined && options.config === undefined
@@ -67,9 +73,12 @@ export const registerScanCommand = (program: Command): void => {
                 ? await scanner.scanStatic(scanPath, configOverride)
                 : await scanner.scanStatic(scanPath, configOverride, { configPath: options.config });
 
+          progress.advance();
           const format = resolveOutputFormat(command, undefined, loadedConfig.iac.format ?? 'table');
           const output = renderResponse({ kind: 'scan-result', result }, format);
 
+          progress.advance();
+          progress.finishSuccess();
           process.stdout.write(`${output}\n`);
 
           if (options.exitCode && countScanResultFindings(result) > 0) {
@@ -79,6 +88,7 @@ export const registerScanCommand = (program: Command): void => {
 
           process.exitCode = EXIT_CODE_OK;
         } catch (err) {
+          progress.finishError();
           process.stderr.write(`${formatError(err)}\n`);
           process.exitCode = EXIT_CODE_RUNTIME_ERROR;
         }

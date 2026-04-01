@@ -29,6 +29,24 @@ const staticScanResult = {
   ],
 };
 
+const setStderrIsTTY = (value: boolean): (() => void) => {
+  const descriptor = Object.getOwnPropertyDescriptor(process.stderr, 'isTTY');
+
+  Object.defineProperty(process.stderr, 'isTTY', {
+    configurable: true,
+    value,
+  });
+
+  return () => {
+    if (descriptor) {
+      Object.defineProperty(process.stderr, 'isTTY', descriptor);
+      return;
+    }
+
+    delete (process.stderr as NodeJS.WriteStream & { isTTY?: boolean }).isTTY;
+  };
+};
+
 describe('scan command e2e', () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -43,6 +61,99 @@ describe('scan command e2e', () => {
     await createProgram().parseAsync(['scan', fixturePath, '--format', 'json'], { from: 'user' });
 
     expect(scanStatic).toHaveBeenCalledWith(fixturePath);
+    expect(stdout).toHaveBeenCalledWith(`{
+  "providers": [
+    {
+      "provider": "aws",
+      "rules": [
+        {
+          "ruleId": "CLDBRN-AWS-EBS-1",
+          "service": "ebs",
+          "source": "iac",
+          "message": "EBS volumes should use current-generation storage.",
+          "findings": [
+            {
+              "resourceId": "aws_ebs_volume.gp2_logs",
+              "location": {
+                "path": "main.tf",
+                "line": 4,
+                "column": 3
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}\n`);
+    expect(process.exitCode).toBe(0);
+  });
+
+  it('writes scan progress to stderr during interactive runs without changing stdout output', async () => {
+    const restoreTTY = setStderrIsTTY(true);
+    const fixturePath = fileURLToPath(new URL('../../sdk/test/fixtures/terraform/scan-dir', import.meta.url));
+    const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    const scanStatic = vi.spyOn(CloudBurnClient.prototype, 'scanStatic').mockResolvedValue(staticScanResult);
+
+    try {
+      await createProgram().parseAsync(['scan', fixturePath, '--format', 'json'], { from: 'user' });
+    } finally {
+      restoreTTY();
+    }
+
+    const progressOutput = stderr.mock.calls.map(([chunk]) => String(chunk)).join('');
+
+    expect(scanStatic).toHaveBeenCalledWith(fixturePath);
+    expect(progressOutput).toContain('Load config');
+    expect(progressOutput).toContain('Scan IaC');
+    expect(progressOutput).toContain('Evaluate rules');
+    expect(progressOutput).toContain('Render output');
+    expect(progressOutput).toContain('\r');
+    expect(progressOutput.endsWith('\n')).toBe(true);
+    expect(stdout).toHaveBeenCalledWith(`{
+  "providers": [
+    {
+      "provider": "aws",
+      "rules": [
+        {
+          "ruleId": "CLDBRN-AWS-EBS-1",
+          "service": "ebs",
+          "source": "iac",
+          "message": "EBS volumes should use current-generation storage.",
+          "findings": [
+            {
+              "resourceId": "aws_ebs_volume.gp2_logs",
+              "location": {
+                "path": "main.tf",
+                "line": 4,
+                "column": 3
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}\n`);
+    expect(process.exitCode).toBe(0);
+  });
+
+  it('does not write scan progress when stderr is not a tty', async () => {
+    const restoreTTY = setStderrIsTTY(false);
+    const fixturePath = fileURLToPath(new URL('../../sdk/test/fixtures/terraform/scan-dir', import.meta.url));
+    const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    const scanStatic = vi.spyOn(CloudBurnClient.prototype, 'scanStatic').mockResolvedValue(staticScanResult);
+
+    try {
+      await createProgram().parseAsync(['scan', fixturePath, '--format', 'json'], { from: 'user' });
+    } finally {
+      restoreTTY();
+    }
+
+    expect(scanStatic).toHaveBeenCalledWith(fixturePath);
+    expect(stderr).not.toHaveBeenCalled();
     expect(stdout).toHaveBeenCalledWith(`{
   "providers": [
     {
@@ -285,6 +396,29 @@ describe('scan command e2e', () => {
     const parsed = JSON.parse(output) as { error: { code: string; message: string } };
     expect(parsed.error.code).toBe('RUNTIME_ERROR');
     expect(parsed.error.message).toBe('YAML parse error in template.yaml at line 12, column 4');
+  });
+
+  it('cleans up the progress line before writing runtime errors to stderr', async () => {
+    const restoreTTY = setStderrIsTTY(true);
+    const fixturePath = fileURLToPath(new URL('../../sdk/test/fixtures/terraform/scan-dir', import.meta.url));
+    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    vi.spyOn(CloudBurnClient.prototype, 'scanStatic').mockRejectedValue(
+      new Error('YAML parse error in template.yaml at line 12, column 4'),
+    );
+
+    try {
+      await createProgram().parseAsync(['scan', fixturePath], { from: 'user' });
+    } finally {
+      restoreTTY();
+    }
+
+    const output = stderr.mock.calls.map(([chunk]) => String(chunk)).join('');
+    const finalChunk = String(stderr.mock.calls.at(-1)?.[0] ?? '');
+
+    expect(process.exitCode).toBe(2);
+    expect(output).toContain('Scan IaC');
+    expect(output).toContain('\n{');
+    expect(finalChunk).toContain('"code": "RUNTIME_ERROR"');
   });
 
   it('describes static autodetection in scan help output', () => {

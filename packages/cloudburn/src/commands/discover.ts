@@ -6,6 +6,7 @@ import { formatError } from '../formatters/error.js';
 import { type CliResponse, type OutputFormat, renderResponse, resolveOutputFormat } from '../formatters/output.js';
 import { countScanResultFindings } from '../formatters/shared.js';
 import { setCommandExamples } from '../help.js';
+import { createAsciiProgressTracker } from '../progress.js';
 import { parseRuleIdList, parseServiceList, validateServiceList } from './config-options.js';
 
 type DiscoverOptions = {
@@ -19,6 +20,8 @@ type DiscoverOptions = {
 
 const parseDiscoveryServiceList = (value: string): string[] =>
   validateServiceList('discovery', parseServiceList(value)) ?? [];
+
+const discoverProgressSteps = ['Load config', 'Discover resources', 'Evaluate rules', 'Render output'] as const;
 
 type DiscoverListOptions = Record<string, never>;
 
@@ -171,10 +174,14 @@ const toDiscoveryConfigOverride = (options: DiscoverOptions) => {
   };
 };
 
-const runCommand = async (action: () => Promise<number | undefined>): Promise<void> => {
+const runCommand = async (
+  action: () => Promise<number | undefined>,
+  options?: { onError?: () => void },
+): Promise<void> => {
   try {
     process.exitCode = (await action()) ?? EXIT_CODE_OK;
   } catch (err) {
+    options?.onError?.();
     process.stderr.write(`${formatError(err)}\n`);
     process.exitCode = EXIT_CODE_RUNTIME_ERROR;
   }
@@ -214,39 +221,48 @@ export const registerDiscoverCommand = (program: Command): void => {
       )
       .option('--exit-code', 'Exit with code 1 when findings exist')
       .action(async (options: DiscoverOptions, command: Command) => {
-        await runCommand(async () => {
-          const debugLogger = resolveCliDebugLogger(command);
-          const scanner = new CloudBurnClient({ debugLogger });
-          const configOverride = toDiscoveryConfigOverride(options);
-          const loadedConfig = await scanner.loadConfig(options.config);
-          const discoveryOptions: {
-            target: AwsDiscoveryTarget;
-            config?: ReturnType<typeof toDiscoveryConfigOverride>;
-            configPath?: string;
-          } = {
-            target: resolveDiscoveryTarget(options.region),
-          };
+        const progress = createAsciiProgressTracker(discoverProgressSteps);
 
-          if (configOverride !== undefined) {
-            discoveryOptions.config = configOverride;
-          }
+        await runCommand(
+          async () => {
+            const debugLogger = resolveCliDebugLogger(command);
+            const scanner = new CloudBurnClient({ debugLogger });
+            const configOverride = toDiscoveryConfigOverride(options);
+            const loadedConfig = await scanner.loadConfig(options.config);
+            progress.advance();
+            const discoveryOptions: {
+              target: AwsDiscoveryTarget;
+              config?: ReturnType<typeof toDiscoveryConfigOverride>;
+              configPath?: string;
+            } = {
+              target: resolveDiscoveryTarget(options.region),
+            };
 
-          if (options.config !== undefined) {
-            discoveryOptions.configPath = options.config;
-          }
+            if (configOverride !== undefined) {
+              discoveryOptions.config = configOverride;
+            }
 
-          const result = await scanner.discover(discoveryOptions);
-          const format = resolveOutputFormat(command, undefined, loadedConfig.discovery.format ?? 'table');
-          const output = renderResponse({ kind: 'scan-result', result }, format);
+            if (options.config !== undefined) {
+              discoveryOptions.configPath = options.config;
+            }
 
-          process.stdout.write(`${output}\n`);
+            const result = await scanner.discover(discoveryOptions);
+            progress.advance();
+            const format = resolveOutputFormat(command, undefined, loadedConfig.discovery.format ?? 'table');
+            const output = renderResponse({ kind: 'scan-result', result }, format);
 
-          if (options.exitCode && countScanResultFindings(result) > 0) {
-            return EXIT_CODE_POLICY_VIOLATION;
-          }
+            progress.advance();
+            progress.finishSuccess();
+            process.stdout.write(`${output}\n`);
 
-          return EXIT_CODE_OK;
-        });
+            if (options.exitCode && countScanResultFindings(result) > 0) {
+              return EXIT_CODE_POLICY_VIOLATION;
+            }
+
+            return EXIT_CODE_OK;
+          },
+          { onError: () => progress.finishError() },
+        );
       }),
     [
       'cloudburn discover',

@@ -62,6 +62,7 @@ All stdout-producing commands return a typed `CliResponse` and share the same fo
 - `--debug` is a global flag that relays SDK and provider execution tracing to `stderr` without changing normal command output on `stdout`.
 - `--format` is documented as a global option and defaults to `table`, except `config --print` and `config --print-template`, which preserve raw YAML by default for redirection workflows.
 - `scan` and `discover` can also source their default format from `.cloudburn.yml`; explicit `--format` still wins.
+- Interactive `scan` and `discover` runs emit a transient ASCII progress bar to `stderr` when `stderr` is a TTY. `stdout` output remains unchanged for table and JSON modes.
 - The hidden `__complete` command exists only as the runtime hook for generated shell scripts.
 - `--exit-code` counts nested matches across all provider and rule groups.
 - Runtime errors still write a structured JSON envelope to `stderr`.

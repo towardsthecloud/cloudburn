@@ -102,6 +102,24 @@ const observedLocalStatus = {
     'Discovery coverage is limited. 16 of 17 regions could not be inspected, which may be intentional if SCPs restrict regional Resource Explorer access.',
 };
 
+const setStderrIsTTY = (value: boolean): (() => void) => {
+  const descriptor = Object.getOwnPropertyDescriptor(process.stderr, 'isTTY');
+
+  Object.defineProperty(process.stderr, 'isTTY', {
+    configurable: true,
+    value,
+  });
+
+  return () => {
+    if (descriptor) {
+      Object.defineProperty(process.stderr, 'isTTY', descriptor);
+      return;
+    }
+
+    delete (process.stderr as NodeJS.WriteStream & { isTTY?: boolean }).isTTY;
+  };
+};
+
 describe('discover command e2e', () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -118,6 +136,51 @@ describe('discover command e2e', () => {
     await createProgram().parseAsync(['discover', '--format', 'json'], { from: 'user' });
 
     expect(discover).toHaveBeenCalledWith({ target: { mode: 'current' } });
+    expect(stdout).toHaveBeenCalledWith(`{
+  "providers": [
+    {
+      "provider": "aws",
+      "rules": [
+        {
+          "ruleId": "CLDBRN-AWS-EBS-1",
+          "service": "ebs",
+          "source": "discovery",
+          "message": "EBS volumes should use current-generation storage.",
+          "findings": [
+            {
+              "resourceId": "vol-123",
+              "region": "us-east-1"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}\n`);
+    expect(process.exitCode).toBe(0);
+  });
+
+  it('writes discover progress to stderr during interactive runs without changing stdout output', async () => {
+    const restoreTTY = setStderrIsTTY(true);
+    const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    const discover = vi.spyOn(CloudBurnClient.prototype, 'discover').mockResolvedValue(liveScanResult);
+
+    try {
+      await createProgram().parseAsync(['discover', '--format', 'json'], { from: 'user' });
+    } finally {
+      restoreTTY();
+    }
+
+    const progressOutput = stderr.mock.calls.map(([chunk]) => String(chunk)).join('');
+
+    expect(discover).toHaveBeenCalledWith({ target: { mode: 'current' } });
+    expect(progressOutput).toContain('Load config');
+    expect(progressOutput).toContain('Discover resources');
+    expect(progressOutput).toContain('Evaluate rules');
+    expect(progressOutput).toContain('Render output');
+    expect(progressOutput).toContain('\r');
+    expect(progressOutput.endsWith('\n')).toBe(true);
     expect(stdout).toHaveBeenCalledWith(`{
   "providers": [
     {
