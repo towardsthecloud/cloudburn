@@ -1,7 +1,8 @@
 type AsciiProgressTracker = {
-  advance: () => void;
+  advance: (nextLabel?: string) => void;
   finishError: () => void;
   finishSuccess: () => void;
+  setLabel: (label: string) => void;
 };
 
 const PROGRESS_BAR_WIDTH = 10;
@@ -26,9 +27,13 @@ export const createAsciiProgressTracker = (
   steps: readonly [string, ...string[]],
   stream: NodeJS.WriteStream = process.stderr,
 ): AsciiProgressTracker => {
+  const [firstStep, ...remainingSteps] = steps;
   const isEnabled = stream.isTTY === true;
+  const lastStep = remainingSteps.at(-1) ?? firstStep;
   let currentStepIndex = 0;
+  let currentLabel = firstStep;
   let hasRendered = false;
+  let previousLineLength = 0;
 
   const render = (): void => {
     if (!isEnabled) {
@@ -36,9 +41,12 @@ export const createAsciiProgressTracker = (
     }
 
     const completedSteps = Math.min(currentStepIndex + 1, steps.length);
-    const label = steps[Math.min(currentStepIndex, steps.length - 1)];
-    stream.write(`\r[${renderBar(completedSteps, steps.length)}] ${label}`);
+    const line = `[${renderBar(completedSteps, steps.length)}] ${currentLabel}`;
+    const padding = previousLineLength > line.length ? ' '.repeat(previousLineLength - line.length) : '';
+
+    stream.write(`\r${line}${padding}`);
     hasRendered = true;
+    previousLineLength = line.length;
   };
 
   const finish = (): void => {
@@ -48,20 +56,30 @@ export const createAsciiProgressTracker = (
 
     stream.write('\n');
     hasRendered = false;
+    previousLineLength = 0;
   };
 
   render();
 
   return {
-    advance: () => {
+    advance: (nextLabel) => {
       if (!isEnabled) {
         return;
       }
 
       currentStepIndex = Math.min(currentStepIndex + 1, steps.length - 1);
+      currentLabel = nextLabel ?? steps[currentStepIndex] ?? lastStep;
       render();
     },
     finishError: finish,
     finishSuccess: finish,
+    setLabel: (label) => {
+      if (!isEnabled) {
+        return;
+      }
+
+      currentLabel = label;
+      render();
+    },
   };
 };

@@ -15,6 +15,7 @@ export const runLiveScan = async (
     options?.debugLogger === undefined
       ? await discoverAwsResources(registry.activeRules, target)
       : await discoverAwsResources(registry.activeRules, target, { debugLogger: options.debugLogger });
+  emitDebugLog(options?.debugLogger, 'sdk: evaluating discovery rules');
   const findings = groupFindingsByProvider(
     registry.activeRules.map((rule) => {
       if (!rule.supports.includes('discovery') || !rule.evaluateLive) {

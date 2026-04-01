@@ -21,7 +21,7 @@ type DiscoverOptions = {
 const parseDiscoveryServiceList = (value: string): string[] =>
   validateServiceList('discovery', parseServiceList(value)) ?? [];
 
-const discoverProgressSteps = ['Load config', 'Discover resources', 'Evaluate rules', 'Render output'] as const;
+const discoverProgressSteps = ['Load config', 'Resource Explorer', 'Evaluate rules', 'Render output'] as const;
 
 type DiscoverListOptions = Record<string, never>;
 
@@ -187,6 +187,53 @@ const runCommand = async (
   }
 };
 
+const mapDiscoverProgressLabel = (message: string): string | undefined => {
+  if (
+    message.startsWith('aws: Resource Explorer using ') ||
+    message.startsWith('aws: planned ') ||
+    message.startsWith('aws: Resource Explorer catalog collected ')
+  ) {
+    return 'Resource Explorer';
+  }
+
+  const queryMatch = /^aws: Resource Explorer query (\d+\/\d+) page \d+ /.exec(message);
+
+  if (queryMatch) {
+    return `Resource Explorer ${queryMatch[1]}`;
+  }
+
+  const datasetMatch = /^aws: loading dataset ([^ ]+)(?: in ([^ ]+))?/.exec(message);
+
+  if (datasetMatch) {
+    const [, datasetKey, region] = datasetMatch;
+
+    return region ? `Load ${datasetKey} (${region})` : `Load ${datasetKey}`;
+  }
+
+  return undefined;
+};
+
+const resolveDiscoverProgressLogger = (
+  progress: ReturnType<typeof createAsciiProgressTracker>,
+  command: Command,
+): ((message: string) => void) => {
+  const debugLogger = resolveCliDebugLogger(command);
+  let hasEnteredEvaluation = false;
+
+  return (message: string) => {
+    const progressLabel = mapDiscoverProgressLabel(message);
+
+    if (progressLabel) {
+      progress.setLabel(progressLabel);
+    } else if (message === 'sdk: evaluating discovery rules' && !hasEnteredEvaluation) {
+      progress.advance('Evaluate rules');
+      hasEnteredEvaluation = true;
+    }
+
+    debugLogger?.(message);
+  };
+};
+
 /**
  * Registers the live AWS discovery command tree.
  *
@@ -225,11 +272,11 @@ export const registerDiscoverCommand = (program: Command): void => {
 
         await runCommand(
           async () => {
-            const debugLogger = resolveCliDebugLogger(command);
+            const debugLogger = resolveDiscoverProgressLogger(progress, command);
             const scanner = new CloudBurnClient({ debugLogger });
             const configOverride = toDiscoveryConfigOverride(options);
             const loadedConfig = await scanner.loadConfig(options.config);
-            progress.advance();
+            progress.advance('Resource Explorer');
             const discoveryOptions: {
               target: AwsDiscoveryTarget;
               config?: ReturnType<typeof toDiscoveryConfigOverride>;
@@ -247,11 +294,10 @@ export const registerDiscoverCommand = (program: Command): void => {
             }
 
             const result = await scanner.discover(discoveryOptions);
-            progress.advance();
             const format = resolveOutputFormat(command, undefined, loadedConfig.discovery.format ?? 'table');
             const output = renderResponse({ kind: 'scan-result', result }, format);
 
-            progress.advance();
+            progress.advance('Render output');
             progress.finishSuccess();
             process.stdout.write(`${output}\n`);
 

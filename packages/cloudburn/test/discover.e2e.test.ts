@@ -164,7 +164,22 @@ describe('discover command e2e', () => {
     const restoreTTY = setStderrIsTTY(true);
     const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
     const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
-    const discover = vi.spyOn(CloudBurnClient.prototype, 'discover').mockResolvedValue(liveScanResult);
+    const discover = vi.spyOn(CloudBurnClient.prototype, 'discover').mockImplementation(async function () {
+      (this as { options?: { debugLogger?: (message: string) => void } }).options?.debugLogger?.(
+        'aws: Resource Explorer using aggregator control plane us-east-1',
+      );
+      (this as { options?: { debugLogger?: (message: string) => void } }).options?.debugLogger?.(
+        'aws: Resource Explorer query 1/2 page 1 filter="service:ebs"',
+      );
+      (this as { options?: { debugLogger?: (message: string) => void } }).options?.debugLogger?.(
+        'aws: loading dataset aws-ebs-volumes',
+      );
+      (this as { options?: { debugLogger?: (message: string) => void } }).options?.debugLogger?.(
+        'sdk: evaluating discovery rules',
+      );
+
+      return liveScanResult;
+    });
 
     try {
       await createProgram().parseAsync(['discover', '--format', 'json'], { from: 'user' });
@@ -176,7 +191,9 @@ describe('discover command e2e', () => {
 
     expect(discover).toHaveBeenCalledWith({ target: { mode: 'current' } });
     expect(progressOutput).toContain('Load config');
-    expect(progressOutput).toContain('Discover resources');
+    expect(progressOutput).toContain('Resource Explorer');
+    expect(progressOutput).toContain('Resource Explorer 1/2');
+    expect(progressOutput).toContain('Load aws-ebs-volumes');
     expect(progressOutput).toContain('Evaluate rules');
     expect(progressOutput).toContain('Render output');
     expect(progressOutput).toContain('\r');
