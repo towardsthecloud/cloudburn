@@ -104,7 +104,17 @@ export const awsRules = [...ec2Rules, ...ebsRules, ...rdsRules, ...s3Rules, ...l
 
 `awsCorePreset` in `packages/rules/src/presets/aws-core.ts` uses `toRuleIds(awsRules)`, so new rules are automatically included when added to `awsRules`. No manual preset change is needed.
 
-## 7. Write Tests
+## 7. Update rule-ids.md
+
+Add a row to the Rule Table in [`rule-ids.md`](../reference/rule-ids.md) for the new rule:
+
+```md
+| `CLDBRN-AWS-EBS-1` | Flags previous-generation EBS volume types ... | ebs | discovery, iac |
+```
+
+Columns: `ID`, `Description`, `Service`, `Supports`. The description should explain what the rule flags, including thresholds and skip conditions.
+
+## 8. Write Tests
 
 All tests live in `packages/rules/test/`.
 
@@ -208,7 +218,7 @@ For IaC-capable rules, do not stop at one source kind:
 - Add evaluator coverage for CloudFormation-shaped static resources.
 - Add or extend SDK static dataset/scanner tests when needed so both source kinds are exercised through the loading pipeline.
 
-## 8. Verify
+## 9. Verify
 
 ```bash
 pnpm verify

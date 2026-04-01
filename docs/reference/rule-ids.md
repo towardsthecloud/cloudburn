@@ -14,200 +14,83 @@ Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
 
 ## Rule Table
 
-| ID                            | Name                                                    | Service        | Supports       | Status      |
-| ----------------------------- | ------------------------------------------------------- | -------------- | -------------- | ----------- |
-| `CLDBRN-AWS-APIGATEWAY-1`     | API Gateway Stage Caching Disabled                      | apigateway     | discovery, iac | Implemented |
-| `CLDBRN-AWS-CLOUDFRONT-1`     | CloudFront Distribution Price Class All                 | cloudfront     | discovery, iac | Implemented |
-| `CLDBRN-AWS-CLOUDFRONT-2`     | CloudFront Distribution Unused                          | cloudfront     | discovery      | Implemented |
-| `CLDBRN-AWS-CLOUDTRAIL-1`     | CloudTrail Redundant Global Trails                      | cloudtrail     | discovery      | Implemented |
-| `CLDBRN-AWS-CLOUDTRAIL-2`     | CloudTrail Redundant Regional Trails                    | cloudtrail     | discovery      | Implemented |
-| `CLDBRN-AWS-CLOUDWATCH-1`     | CloudWatch Log Group Missing Retention                  | cloudwatch     | discovery, iac | Implemented |
-| `CLDBRN-AWS-CLOUDWATCH-2`     | CloudWatch Log Group Inactive                           | cloudwatch     | discovery      | Implemented |
-| `CLDBRN-AWS-CLOUDWATCH-3`     | CloudWatch Log Group No Metric Filters                  | cloudwatch     | discovery      | Implemented |
-| `CLDBRN-AWS-COSTGUARDRAILS-1` | AWS Budgets Missing                                     | costguardrails | discovery      | Implemented |
-| `CLDBRN-AWS-COSTGUARDRAILS-2` | Cost Anomaly Detection Missing                          | costguardrails | discovery      | Implemented |
-| `CLDBRN-AWS-COSTEXPLORER-1`   | Cost Explorer Full Month Cost Changes                   | costexplorer   | discovery      | Implemented |
-| `CLDBRN-AWS-DYNAMODB-1`       | DynamoDB Table Stale Data                               | dynamodb       | discovery      | Implemented |
-| `CLDBRN-AWS-DYNAMODB-2`       | DynamoDB Table Without Autoscaling                      | dynamodb       | discovery, iac | Implemented |
-| `CLDBRN-AWS-DYNAMODB-3`       | DynamoDB Table Unused                                   | dynamodb       | discovery      | Implemented |
-| `CLDBRN-AWS-DYNAMODB-4`       | DynamoDB Autoscaling Range Fixed                        | dynamodb       | iac            | Implemented |
-| `CLDBRN-AWS-EC2-1`            | EC2 Instance Type Not Preferred                         | ec2            | iac, discovery | Implemented |
-| `CLDBRN-AWS-EC2-2`            | S3 Interface VPC Endpoint Used                          | ec2            | iac            | Implemented |
-| `CLDBRN-AWS-EC2-3`            | Elastic IP Address Unassociated                         | ec2            | discovery, iac | Implemented |
-| `CLDBRN-AWS-EC2-4`            | VPC Interface Endpoint Inactive                         | ec2            | discovery      | Implemented |
-| `CLDBRN-AWS-EC2-5`            | EC2 Instance Low Utilization                            | ec2            | discovery      | Implemented |
-| `CLDBRN-AWS-EC2-6`            | EC2 Instance Without Graviton                           | ec2            | discovery, iac | Implemented |
-| `CLDBRN-AWS-EC2-7`            | EC2 Reserved Instance Expiring                          | ec2            | discovery      | Implemented |
-| `CLDBRN-AWS-EC2-8`            | EC2 Instance Large Size                                 | ec2            | discovery, iac | Implemented |
-| `CLDBRN-AWS-EC2-9`            | EC2 Instance Long Running                               | ec2            | discovery      | Implemented |
-| `CLDBRN-AWS-EC2-10`           | EC2 Instance Detailed Monitoring Enabled                | ec2            | iac            | Implemented |
-| `CLDBRN-AWS-EC2-11`           | NAT Gateway Idle                                        | ec2            | discovery      | Implemented |
-| `CLDBRN-AWS-ECS-1`            | ECS Container Instance Without Graviton                 | ecs            | discovery      | Implemented |
-| `CLDBRN-AWS-ECS-2`            | ECS Cluster Low CPU Utilization                         | ecs            | discovery      | Implemented |
-| `CLDBRN-AWS-ECS-3`            | ECS Service Missing Autoscaling Policy                  | ecs            | discovery, iac | Implemented |
-| `CLDBRN-AWS-EBS-1`            | EBS Volume Type Not Current Generation                  | ebs            | discovery, iac | Implemented |
-| `CLDBRN-AWS-EBS-2`            | EBS Volume Unattached                                   | ebs            | discovery      | Implemented |
-| `CLDBRN-AWS-EBS-3`            | EBS Volume Attached To Stopped Instances                | ebs            | discovery      | Implemented |
-| `CLDBRN-AWS-EBS-4`            | EBS Volume Large Size                                   | ebs            | discovery, iac | Implemented |
-| `CLDBRN-AWS-EBS-5`            | EBS Volume High Provisioned IOPS                        | ebs            | discovery, iac | Implemented |
-| `CLDBRN-AWS-EBS-6`            | EBS Volume Low Provisioned IOPS On io1/io2              | ebs            | discovery, iac | Implemented |
-| `CLDBRN-AWS-EBS-7`            | EBS Snapshot Max Age Exceeded                           | ebs            | discovery      | Implemented |
-| `CLDBRN-AWS-EBS-8`            | EBS gp3 Volume Extra Throughput Provisioned             | ebs            | iac            | Implemented |
-| `CLDBRN-AWS-EBS-9`            | EBS gp3 Volume Extra IOPS Provisioned                   | ebs            | iac            | Implemented |
-| `CLDBRN-AWS-ECR-1`            | ECR Repository Missing Lifecycle Policy                 | ecr            | iac, discovery | Implemented |
-| `CLDBRN-AWS-ECR-2`            | ECR Lifecycle Policy Missing Untagged Image Expiry      | ecr            | iac            | Implemented |
-| `CLDBRN-AWS-ECR-3`            | ECR Lifecycle Policy Missing Tagged Image Retention Cap | ecr            | iac            | Implemented |
-| `CLDBRN-AWS-EKS-1`            | EKS Node Group Without Graviton                         | eks            | discovery, iac | Implemented |
-| `CLDBRN-AWS-ELASTICACHE-1`    | ElastiCache Cluster Missing Reserved Coverage           | elasticache    | discovery      | Implemented |
-| `CLDBRN-AWS-ELASTICACHE-2`    | ElastiCache Cluster Idle                                | elasticache    | discovery      | Implemented |
-| `CLDBRN-AWS-ELB-1`            | Application Load Balancer Without Targets               | elb            | discovery      | Implemented |
-| `CLDBRN-AWS-ELB-2`            | Classic Load Balancer Without Instances                 | elb            | discovery      | Implemented |
-| `CLDBRN-AWS-ELB-3`            | Gateway Load Balancer Without Targets                   | elb            | discovery      | Implemented |
-| `CLDBRN-AWS-ELB-4`            | Network Load Balancer Without Targets                   | elb            | discovery      | Implemented |
-| `CLDBRN-AWS-ELB-5`            | Load Balancer Idle                                      | elb            | discovery      | Implemented |
-| `CLDBRN-AWS-EMR-1`            | EMR Cluster Previous Generation Instance Types          | emr            | discovery, iac | Implemented |
-| `CLDBRN-AWS-EMR-2`            | EMR Cluster Idle                                        | emr            | discovery      | Implemented |
-| `CLDBRN-AWS-RDS-1`            | RDS Instance Class Not Preferred                        | rds            | iac, discovery | Implemented |
-| `CLDBRN-AWS-RDS-2`            | RDS DB Instance Idle                                    | rds            | discovery      | Implemented |
-| `CLDBRN-AWS-RDS-3`            | RDS DB Instance Missing Reserved Coverage               | rds            | discovery      | Implemented |
-| `CLDBRN-AWS-RDS-4`            | RDS DB Instance Without Graviton                        | rds            | discovery, iac | Implemented |
-| `CLDBRN-AWS-RDS-5`            | RDS DB Instance Low CPU Utilization                     | rds            | discovery      | Implemented |
-| `CLDBRN-AWS-RDS-6`            | RDS DB Instance Unsupported Engine Version              | rds            | discovery, iac | Implemented |
-| `CLDBRN-AWS-RDS-7`            | RDS Snapshot Without Source DB Instance                 | rds            | discovery      | Implemented |
-| `CLDBRN-AWS-RDS-8`            | RDS Performance Insights Extended Retention             | rds            | iac            | Implemented |
-| `CLDBRN-AWS-REDSHIFT-1`       | Redshift Cluster Low CPU Utilization                    | redshift       | discovery      | Implemented |
-| `CLDBRN-AWS-REDSHIFT-2`       | Redshift Cluster Missing Reserved Coverage              | redshift       | discovery      | Implemented |
-| `CLDBRN-AWS-REDSHIFT-3`       | Redshift Cluster Pause Resume Not Enabled               | redshift       | discovery, iac | Implemented |
-| `CLDBRN-AWS-ROUTE53-1`        | Route 53 Record Higher TTL                              | route53        | discovery, iac | Implemented |
-| `CLDBRN-AWS-ROUTE53-2`        | Route 53 Health Check Unused                            | route53        | discovery, iac | Implemented |
-| `CLDBRN-AWS-S3-1`             | S3 Missing Lifecycle Configuration                      | s3             | iac, discovery | Implemented |
-| `CLDBRN-AWS-S3-2`             | S3 Bucket Storage Class Not Optimized                   | s3             | iac, discovery | Implemented |
-| `CLDBRN-AWS-S3-3`             | S3 Incomplete Multipart Upload Abort Configuration      | s3             | iac, discovery | Implemented |
-| `CLDBRN-AWS-S3-4`             | S3 Versioned Bucket Missing Noncurrent Version Cleanup  | s3             | iac            | Implemented |
-| `CLDBRN-AWS-SAGEMAKER-1`      | SageMaker Notebook Instance Running                     | sagemaker      | discovery      | Implemented |
-| `CLDBRN-AWS-SECRETSMANAGER-1` | Secrets Manager Secret Unused                           | secretsmanager | discovery      | Implemented |
-| `CLDBRN-AWS-LAMBDA-1`         | Lambda Cost Optimal Architecture                        | lambda         | iac, discovery | Implemented |
-| `CLDBRN-AWS-LAMBDA-2`         | Lambda Function High Error Rate                         | lambda         | discovery      | Implemented |
-| `CLDBRN-AWS-LAMBDA-3`         | Lambda Function Excessive Timeout                       | lambda         | discovery      | Implemented |
-| `CLDBRN-AWS-LAMBDA-4`         | Lambda Function Memory Overprovisioned                  | lambda         | discovery      | Implemented |
-| `CLDBRN-AWS-LAMBDA-5`         | Lambda Provisioned Concurrency Configured               | lambda         | iac            | Implemented |
-
-`CLDBRN-AWS-APIGATEWAY-1` flags REST API stages when `cacheClusterEnabled` is not explicitly `true`.
-
-`CLDBRN-AWS-CLOUDFRONT-1` reviews only distributions using `PriceClass_All`.
-
-`CLDBRN-AWS-CLOUDFRONT-2` requires a complete 30-day `Requests` history and flags only distributions whose total request count stays below `100`.
-
-`CLDBRN-AWS-EBS-1` flags previous-generation EBS volume types (`gp2`, `io1`, and `standard`) and does not flag current-generation HDD families such as `st1` or `sc1`.
-
-`CLDBRN-AWS-EBS-4` treats volumes above `100 GiB` as oversized enough to warrant explicit review.
-
-`CLDBRN-AWS-EBS-5` flags only `io1` and `io2` volumes whose provisioned IOPS exceed `32000`.
-
-`CLDBRN-AWS-EBS-6` flags only `io1` and `io2` volumes at `16000` IOPS or below, using an IOPS-only gp3 eligibility heuristic without throughput checks.
-
-`CLDBRN-AWS-EBS-7` flags only `completed` snapshots with a parsed `StartTime` older than `90` days.
-
-`CLDBRN-AWS-CLOUDWATCH-2` flags log groups whose most recent observed stream activity is missing or older than 90 days. Delivery-managed log groups remain exempt.
-
-`CLDBRN-AWS-CLOUDWATCH-3` reviews only log groups storing at least `1 GiB` and flags them when no metric filters are configured.
-
-`CLDBRN-AWS-COSTGUARDRAILS-1` flags accounts whose AWS Budgets summary reports zero configured budgets.
-
-`CLDBRN-AWS-COSTGUARDRAILS-2` flags accounts whose Cost Anomaly Detection summary reports zero anomaly monitors.
-
-`CLDBRN-AWS-COSTEXPLORER-1` compares the last two full months and flags only services with an existing prior-month baseline and a cost increase greater than `10` cost units.
-
-`CLDBRN-AWS-DYNAMODB-1` flags only tables whose parsed `latestStreamLabel` is older than `90` days. Tables without a stream label are skipped.
-
-`CLDBRN-AWS-DYNAMODB-2` reviews only provisioned-capacity tables and flags them when no table-level read or write autoscaling targets are configured.
-
-`CLDBRN-AWS-DYNAMODB-3` reviews only provisioned-capacity tables and flags them when 30 days of consumed read and write capacity both sum to zero.
-
-`CLDBRN-AWS-DYNAMODB-4` reviews only provisioned-capacity tables and flags them when statically resolved read or write autoscaling ranges have identical min and max capacity values.
-
-`CLDBRN-AWS-EC2-6` flags only families with a curated Graviton-equivalent path. Instances without architecture metadata or outside the curated family set are skipped.
-
-`CLDBRN-AWS-EC2-7` reviews only active reserved instances with an `endTime` inside the next 60 days.
-
-`CLDBRN-AWS-EC2-8` treats `2xlarge` and above, plus `metal`, as the large-instance review threshold.
-
-`CLDBRN-AWS-EC2-9` flags only instances with a parsed launch timestamp at least 180 days old.
-
-`CLDBRN-AWS-EC2-10` flags IaC-defined instances only when detailed monitoring is explicitly enabled.
-
-`CLDBRN-AWS-EC2-11` flags only NAT gateways in the `available` state and requires complete 7-day `BytesInFromDestination` and `BytesOutToDestination` coverage, with both totals equal to `0`.
-
-`CLDBRN-AWS-ECS-1` flags only EC2-backed container instances whose instance families have a curated Graviton-equivalent path. Fargate and unclassified backing instances are skipped.
-
-`CLDBRN-AWS-ECS-2` flags only ECS clusters with a complete 14-day `AWS/ECS` CPU history and an average below `10%`.
-
-`CLDBRN-AWS-ECS-3` flags only active `REPLICA` ECS services and requires both a scalable target and at least one scaling policy.
-
-`CLDBRN-AWS-EBS-8` flags only `gp3` volumes whose provisioned throughput is above the included `125 MiB/s` baseline.
-
-`CLDBRN-AWS-EBS-9` flags only `gp3` volumes whose provisioned or defaulted IOPS exceed the included `3000` baseline.
-
-`CLDBRN-AWS-ECR-2` reviews only repositories with a lifecycle policy and flags them when the statically parsed policy does not expire untagged images.
-
-`CLDBRN-AWS-ECR-3` reviews only repositories with a lifecycle policy and flags them when the statically parsed policy does not cap tagged image retention.
-
-`CLDBRN-AWS-EKS-1` flags only managed node groups with classifiable non-Arm instance families. Arm AMIs and unclassified node groups are skipped.
-
-`CLDBRN-AWS-ELASTICACHE-1` reviews only `available` clusters with a parsed create time at least 180 days old and requires active reserved-node capacity on the same node type, preferring exact engine matches when ElastiCache reports them.
-
-`CLDBRN-AWS-ELASTICACHE-2` currently supports Redis and Valkey clusters, requires a complete 14-day metric history, and flags only `available` clusters whose computed hit rate stays below `5%` while average current connections stay below `2`.
-
-`CLDBRN-AWS-ELB-1`, `CLDBRN-AWS-ELB-3`, and `CLDBRN-AWS-ELB-4` flag load balancers with no attached target groups or no registered targets across attached target groups.
-
-`CLDBRN-AWS-ELB-5` requires a complete 14-day `RequestCount` history, treats fewer than `10` requests per day as idle, and skips load balancers already covered by the stricter empty-target cleanup rules.
-
-`CLDBRN-AWS-EMR-1` reuses the built-in EC2 family policy. EMR clusters are flagged when any discovered cluster instance type falls into the current non-preferred, previous-generation family set.
-
-`CLDBRN-AWS-EMR-2` flags only active clusters whose `IsIdle` metric stays true for six consecutive 5-minute periods, which is a 30-minute idle window.
-
-`CLDBRN-AWS-LAMBDA-2` uses 7-day CloudWatch totals and flags only functions whose observed `Errors / Invocations` ratio is greater than `10%`.
-
-`CLDBRN-AWS-LAMBDA-3` reviews only functions with configured timeouts of at least `30` seconds and flags when the timeout is at least `5x` the observed 7-day average duration.
-
-`CLDBRN-AWS-LAMBDA-4` reviews only functions configured above `256 MB`, requires invocation history, and flags them when the observed 7-day average duration uses less than `30%` of the configured timeout.
-
-`CLDBRN-AWS-LAMBDA-5` flags explicit provisioned concurrency configuration when provisioned concurrent executions are greater than zero.
-
-`CLDBRN-AWS-RDS-3` reviews only `available` DB instances with a parsed create time at least 180 days old and requires active reserved-instance coverage on the same instance class, deployment mode, and normalized engine when AWS reports it.
-
-`CLDBRN-AWS-RDS-4` flags only curated non-Graviton RDS families with a clear Graviton migration path. Existing Graviton classes and unclassified families are skipped.
-
-`CLDBRN-AWS-RDS-5` reviews only `available` DB instances and treats a complete 30-day average `CPUUtilization` of `10%` or lower as low utilization.
-
-`CLDBRN-AWS-RDS-6` flags only RDS MySQL `5.7.x` and PostgreSQL `11.x` DB instances for extended-support review.
-
-`CLDBRN-AWS-RDS-7` flags only snapshots whose source DB instance no longer exists and whose parsed create time is at least `30` days old.
-
-`CLDBRN-AWS-RDS-8` flags only DB instances with Performance Insights enabled and a retention period above the included 7-day baseline.
-
-`CLDBRN-AWS-REDSHIFT-1` reviews only `available` clusters and treats a 14-day average `CPUUtilization` of 10% or lower as low utilization.
-
-`CLDBRN-AWS-REDSHIFT-2` reviews only `available` clusters with a parsed create time at least 180 days old and requires active reserved-node coverage for the same node type.
-
-`CLDBRN-AWS-REDSHIFT-3` flags only `available`, VPC-backed clusters with automated snapshots enabled, no HSM, and no Multi-AZ deployment when either the pause or resume schedule is missing.
-
-`CLDBRN-AWS-ROUTE53-1` reviews only non-alias records and treats `3600` seconds as the low-TTL floor.
-
-`CLDBRN-AWS-ROUTE53-2` flags only Route 53 health checks that are not referenced by any in-scope record set.
-
-`CLDBRN-AWS-S3-3` flags buckets when no enabled lifecycle rule aborts incomplete multipart uploads within 7 days.
-
-`CLDBRN-AWS-S3-4` flags only versioned buckets and requires either noncurrent-version expiration or transition cleanup to avoid unbounded version growth.
-
-`CLDBRN-AWS-SAGEMAKER-1` flags only notebook instances whose normalized status remains `InService`.
-
-`CLDBRN-AWS-SECRETSMANAGER-1` flags secrets with no `lastAccessedDate` and secrets whose parsed last access is at least `90` days old.
-
-**Status key:**
-
-- **Implemented** — has evaluator coverage for every scan mode listed in `supports`
-- **Scaffold** — metadata defined, no evaluator implementations yet
+| ID                            | Description                                                                                                                                                                                                                  | Service        | Supports       |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- | -------------- |
+| `CLDBRN-AWS-APIGATEWAY-1`     | Flags REST API stages when `cacheClusterEnabled` is not explicitly `true`.                                                                                                                                                   | apigateway     | discovery, iac |
+| `CLDBRN-AWS-CLOUDFRONT-1`     | Reviews only distributions using `PriceClass_All`.                                                                                                                                                                           | cloudfront     | discovery, iac |
+| `CLDBRN-AWS-CLOUDFRONT-2`     | Requires a complete 30-day `Requests` history and flags only distributions whose total request count stays below `100`.                                                                                                      | cloudfront     | discovery      |
+| `CLDBRN-AWS-CLOUDTRAIL-1`     | Flag redundant multi-region CloudTrail trails when more than one trail covers the same account.                                                                                                                              | cloudtrail     | discovery      |
+| `CLDBRN-AWS-CLOUDTRAIL-2`     | Flag redundant single-region CloudTrail trails when more than one trail covers the same region.                                                                                                                              | cloudtrail     | discovery      |
+| `CLDBRN-AWS-CLOUDWATCH-1`     | Flag CloudWatch log groups that do not define retention and are not delivery-managed.                                                                                                                                        | cloudwatch     | discovery, iac |
+| `CLDBRN-AWS-CLOUDWATCH-2`     | Flags log groups whose most recent observed stream activity is missing or older than 90 days. Delivery-managed log groups remain exempt.                                                                                     | cloudwatch     | discovery      |
+| `CLDBRN-AWS-CLOUDWATCH-3`     | Reviews only log groups storing at least `1 GiB` and flags them when no metric filters are configured.                                                                                                                       | cloudwatch     | discovery      |
+| `CLDBRN-AWS-COSTGUARDRAILS-1` | Flags accounts whose AWS Budgets summary reports zero configured budgets.                                                                                                                                                    | costguardrails | discovery      |
+| `CLDBRN-AWS-COSTGUARDRAILS-2` | Flags accounts whose Cost Anomaly Detection summary reports zero anomaly monitors.                                                                                                                                           | costguardrails | discovery      |
+| `CLDBRN-AWS-COSTEXPLORER-1`   | Compares the last two full months and flags only services with an existing prior-month baseline and a cost increase greater than `10` cost units.                                                                            | costexplorer   | discovery      |
+| `CLDBRN-AWS-DYNAMODB-1`       | Flags only tables whose parsed `latestStreamLabel` is older than `90` days. Tables without a stream label are skipped.                                                                                                       | dynamodb       | discovery      |
+| `CLDBRN-AWS-DYNAMODB-2`       | Reviews only provisioned-capacity tables and flags them when no table-level read or write autoscaling targets are configured.                                                                                                | dynamodb       | discovery, iac |
+| `CLDBRN-AWS-DYNAMODB-3`       | Reviews only provisioned-capacity tables and flags them when 30 days of consumed read and write capacity both sum to zero.                                                                                                   | dynamodb       | discovery      |
+| `CLDBRN-AWS-DYNAMODB-4`       | Reviews only provisioned-capacity tables and flags them when statically resolved read or write autoscaling ranges have identical min and max capacity values.                                                                | dynamodb       | iac            |
+| `CLDBRN-AWS-EC2-1`            | Flag direct EC2 instances that do not use curated preferred instance types.                                                                                                                                                  | ec2            | iac, discovery |
+| `CLDBRN-AWS-EC2-2`            | Flag S3 interface endpoints when a gateway endpoint is the cheaper in-VPC option.                                                                                                                                            | ec2            | iac            |
+| `CLDBRN-AWS-EC2-3`            | Flag Elastic IP allocations that are not associated with an EC2 resource.                                                                                                                                                    | ec2            | discovery, iac |
+| `CLDBRN-AWS-EC2-4`            | Flag interface VPC endpoints that have processed no traffic in the last 30 days.                                                                                                                                             | ec2            | discovery      |
+| `CLDBRN-AWS-EC2-5`            | Flag EC2 instances whose CPU and network usage stay below the low-utilization threshold for at least 4 of the previous 14 days.                                                                                              | ec2            | discovery      |
+| `CLDBRN-AWS-EC2-6`            | Flags only families with a curated Graviton-equivalent path. Instances without architecture metadata or outside the curated family set are skipped.                                                                          | ec2            | discovery, iac |
+| `CLDBRN-AWS-EC2-7`            | Reviews only active reserved instances with an `endTime` inside the next 60 days.                                                                                                                                            | ec2            | discovery      |
+| `CLDBRN-AWS-EC2-8`            | Treats `2xlarge` and above, plus `metal`, as the large-instance review threshold.                                                                                                                                            | ec2            | discovery, iac |
+| `CLDBRN-AWS-EC2-9`            | Flags only instances with a parsed launch timestamp at least 180 days old.                                                                                                                                                   | ec2            | discovery      |
+| `CLDBRN-AWS-EC2-10`           | Flags IaC-defined instances only when detailed monitoring is explicitly enabled.                                                                                                                                             | ec2            | iac            |
+| `CLDBRN-AWS-EC2-11`           | Flags only NAT gateways in the `available` state and requires complete 7-day `BytesInFromDestination` and `BytesOutToDestination` coverage, with both totals equal to `0`.                                                   | ec2            | discovery      |
+| `CLDBRN-AWS-ECS-1`            | Flags only EC2-backed container instances whose instance families have a curated Graviton-equivalent path. Fargate and unclassified backing instances are skipped.                                                           | ecs            | discovery      |
+| `CLDBRN-AWS-ECS-2`            | Flags only ECS clusters with a complete 14-day `AWS/ECS` CPU history and an average below `10%`.                                                                                                                             | ecs            | discovery      |
+| `CLDBRN-AWS-ECS-3`            | Flags only active `REPLICA` ECS services and requires both a scalable target and at least one scaling policy.                                                                                                                | ecs            | discovery, iac |
+| `CLDBRN-AWS-EBS-1`            | Flags previous-generation EBS volume types (`gp2`, `io1`, and `standard`) and does not flag current-generation HDD families such as `st1` or `sc1`.                                                                          | ebs            | discovery, iac |
+| `CLDBRN-AWS-EBS-2`            | Flag EBS volumes that are not attached to any EC2 instance.                                                                                                                                                                  | ebs            | discovery      |
+| `CLDBRN-AWS-EBS-3`            | Flag EBS volumes whose attached EC2 instances are all in the stopped state.                                                                                                                                                  | ebs            | discovery      |
+| `CLDBRN-AWS-EBS-4`            | Treats volumes above `100 GiB` as oversized enough to warrant explicit review.                                                                                                                                               | ebs            | discovery, iac |
+| `CLDBRN-AWS-EBS-5`            | Flags only `io1` and `io2` volumes whose provisioned IOPS exceed `32000`.                                                                                                                                                    | ebs            | discovery, iac |
+| `CLDBRN-AWS-EBS-6`            | Flags only `io1` and `io2` volumes at `16000` IOPS or below, using an IOPS-only gp3 eligibility heuristic without throughput checks.                                                                                         | ebs            | discovery, iac |
+| `CLDBRN-AWS-EBS-7`            | Flags only `completed` snapshots with a parsed `StartTime` older than `90` days.                                                                                                                                             | ebs            | discovery      |
+| `CLDBRN-AWS-EBS-8`            | Flags only `gp3` volumes whose provisioned throughput is above the included `125 MiB/s` baseline.                                                                                                                            | ebs            | iac            |
+| `CLDBRN-AWS-EBS-9`            | Flags only `gp3` volumes whose provisioned or defaulted IOPS exceed the included `3000` baseline.                                                                                                                            | ebs            | iac            |
+| `CLDBRN-AWS-ECR-1`            | Flag ECR repositories that do not define a lifecycle policy.                                                                                                                                                                 | ecr            | iac, discovery |
+| `CLDBRN-AWS-ECR-2`            | Reviews only repositories with a lifecycle policy and flags them when the statically parsed policy does not expire untagged images.                                                                                          | ecr            | iac            |
+| `CLDBRN-AWS-ECR-3`            | Reviews only repositories with a lifecycle policy and flags them when the statically parsed policy does not cap tagged image retention.                                                                                      | ecr            | iac            |
+| `CLDBRN-AWS-EKS-1`            | Flags only managed node groups with classifiable non-Arm instance families. Arm AMIs and unclassified node groups are skipped.                                                                                               | eks            | discovery, iac |
+| `CLDBRN-AWS-ELASTICACHE-1`    | Reviews only `available` clusters with a parsed create time at least 180 days old and requires active reserved-node capacity on the same node type, preferring exact engine matches when ElastiCache reports them.           | elasticache    | discovery      |
+| `CLDBRN-AWS-ELASTICACHE-2`    | Currently supports Redis and Valkey clusters, requires a complete 14-day metric history, and flags only `available` clusters whose computed hit rate stays below `5%` while average current connections stay below `2`.      | elasticache    | discovery      |
+| `CLDBRN-AWS-ELB-1`            | Flags load balancers with no attached target groups or no registered targets across attached target groups.                                                                                                                  | elb            | discovery      |
+| `CLDBRN-AWS-ELB-2`            | Flag Classic Load Balancers that have zero attached instances.                                                                                                                                                               | elb            | discovery      |
+| `CLDBRN-AWS-ELB-3`            | Flags load balancers with no attached target groups or no registered targets across attached target groups.                                                                                                                  | elb            | discovery      |
+| `CLDBRN-AWS-ELB-4`            | Flags load balancers with no attached target groups or no registered targets across attached target groups.                                                                                                                  | elb            | discovery      |
+| `CLDBRN-AWS-ELB-5`            | Requires a complete 14-day `RequestCount` history, treats fewer than `10` requests per day as idle, and skips load balancers already covered by the stricter empty-target cleanup rules.                                     | elb            | discovery      |
+| `CLDBRN-AWS-EMR-1`            | Reuses the built-in EC2 family policy. EMR clusters are flagged when any discovered cluster instance type falls into the current non-preferred, previous-generation family set.                                              | emr            | discovery, iac |
+| `CLDBRN-AWS-EMR-2`            | Flags only active clusters whose `IsIdle` metric stays true for six consecutive 5-minute periods, which is a 30-minute idle window.                                                                                          | emr            | discovery      |
+| `CLDBRN-AWS-RDS-1`            | Flag RDS DB instances that do not use curated preferred instance classes.                                                                                                                                                    | rds            | iac, discovery |
+| `CLDBRN-AWS-RDS-2`            | Flag RDS DB instances that have no database connections in the last 7 days.                                                                                                                                                  | rds            | discovery      |
+| `CLDBRN-AWS-RDS-3`            | Reviews only `available` DB instances with a parsed create time at least 180 days old and requires active reserved-instance coverage on the same instance class, deployment mode, and normalized engine when AWS reports it. | rds            | discovery      |
+| `CLDBRN-AWS-RDS-4`            | Flags only curated non-Graviton RDS families with a clear Graviton migration path. Existing Graviton classes and unclassified families are skipped.                                                                          | rds            | discovery, iac |
+| `CLDBRN-AWS-RDS-5`            | Reviews only `available` DB instances and treats a complete 30-day average `CPUUtilization` of `10%` or lower as low utilization.                                                                                            | rds            | discovery      |
+| `CLDBRN-AWS-RDS-6`            | Flags only RDS MySQL `5.7.x` and PostgreSQL `11.x` DB instances for extended-support review.                                                                                                                                 | rds            | discovery, iac |
+| `CLDBRN-AWS-RDS-7`            | Flags only snapshots whose source DB instance no longer exists and whose parsed create time is at least `30` days old.                                                                                                       | rds            | discovery      |
+| `CLDBRN-AWS-RDS-8`            | Flags only DB instances with Performance Insights enabled and a retention period above the included 7-day baseline.                                                                                                          | rds            | iac            |
+| `CLDBRN-AWS-REDSHIFT-1`       | Reviews only `available` clusters and treats a 14-day average `CPUUtilization` of 10% or lower as low utilization.                                                                                                           | redshift       | discovery      |
+| `CLDBRN-AWS-REDSHIFT-2`       | Reviews only `available` clusters with a parsed create time at least 180 days old and requires active reserved-node coverage for the same node type.                                                                         | redshift       | discovery      |
+| `CLDBRN-AWS-REDSHIFT-3`       | Flags only `available`, VPC-backed clusters with automated snapshots enabled, no HSM, and no Multi-AZ deployment when either the pause or resume schedule is missing.                                                        | redshift       | discovery, iac |
+| `CLDBRN-AWS-ROUTE53-1`        | Reviews only non-alias records and treats `3600` seconds as the low-TTL floor.                                                                                                                                               | route53        | discovery, iac |
+| `CLDBRN-AWS-ROUTE53-2`        | Flags only Route 53 health checks that are not referenced by any in-scope record set.                                                                                                                                        | route53        | discovery, iac |
+| `CLDBRN-AWS-S3-1`             | Ensure S3 buckets define lifecycle management policies.                                                                                                                                                                      | s3             | iac, discovery |
+| `CLDBRN-AWS-S3-2`             | Recommend Intelligent-Tiering or another explicit storage-class transition for lifecycle-managed buckets.                                                                                                                    | s3             | iac, discovery |
+| `CLDBRN-AWS-S3-3`             | Flags buckets when no enabled lifecycle rule aborts incomplete multipart uploads within 7 days.                                                                                                                              | s3             | iac, discovery |
+| `CLDBRN-AWS-S3-4`             | Flags only versioned buckets and requires either noncurrent-version expiration or transition cleanup to avoid unbounded version growth.                                                                                      | s3             | iac            |
+| `CLDBRN-AWS-SAGEMAKER-1`      | Flags only notebook instances whose normalized status remains `InService`.                                                                                                                                                   | sagemaker      | discovery      |
+| `CLDBRN-AWS-SECRETSMANAGER-1` | Flags secrets with no `lastAccessedDate` and secrets whose parsed last access is at least `90` days old.                                                                                                                     | secretsmanager | discovery      |
+| `CLDBRN-AWS-LAMBDA-1`         | Recommend arm64 architecture when compatible.                                                                                                                                                                                | lambda         | iac, discovery |
+| `CLDBRN-AWS-LAMBDA-2`         | Uses 7-day CloudWatch totals and flags only functions whose observed `Errors / Invocations` ratio is greater than `10%`.                                                                                                     | lambda         | discovery      |
+| `CLDBRN-AWS-LAMBDA-3`         | Reviews only functions with configured timeouts of at least `30` seconds and flags when the timeout is at least `5x` the observed 7-day average duration.                                                                    | lambda         | discovery      |
+| `CLDBRN-AWS-LAMBDA-4`         | Reviews only functions configured above `256 MB`, requires invocation history, and flags them when the observed 7-day average duration uses less than `30%` of the configured timeout.                                       | lambda         | discovery      |
+| `CLDBRN-AWS-LAMBDA-5`         | Flags explicit provisioned concurrency configuration when provisioned concurrent executions are greater than zero.                                                                                                           | lambda         | iac            |
 
 ## Presets
 
