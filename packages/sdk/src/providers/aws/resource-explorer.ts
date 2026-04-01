@@ -678,7 +678,6 @@ export const buildAwsDiscoveryCatalog = async (
   resourceTypes: string[],
   options?: { debugLogger?: (message: string) => void },
 ): Promise<AwsDiscoveryCatalog> => {
-  const currentRegion = await resolveCurrentAwsRegion();
   let searchPlan: SearchPlan;
 
   if (target.mode === 'regions') {
@@ -693,7 +692,7 @@ export const buildAwsDiscoveryCatalog = async (
   } else if (target.mode === 'all') {
     searchPlan = await resolveAggregatorSearchPlan();
   } else {
-    searchPlan = await resolveRegionalSearchPlan(currentRegion);
+    searchPlan = await resolveRegionalSearchPlan(await resolveCurrentAwsRegion());
   }
   emitDebugLog(
     options?.debugLogger,
