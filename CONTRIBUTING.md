@@ -24,18 +24,16 @@ pnpm prepare
 ## Verify Before Opening a PR
 
 ```bash
-pnpm lint
-pnpm typecheck
-pnpm test
-pnpm build
 pnpm verify
 ```
 
+This runs lint, typecheck, and test across the monorepo.
+
 ## Project Boundaries
 
-- `cloudburn` (cli): commands, formatting, exit code behavior.
-- `@cloudburn/sdk`: scanner API, engine orchestration, config, parsers, provider adapters.
-- `@cloudburn/rules`: rules and presets only (no parser/provider/engine logic).
+See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full package graph and responsibility matrix.
+
+The dependency direction is `cli -> sdk -> rules`. No reverse imports.
 
 ## Code Style
 
@@ -43,47 +41,13 @@ pnpm verify
 
 ## Adding a New Rule
 
-1. Choose provider and service path under `packages/rules/src`.
-
-- AWS example: `packages/rules/src/aws/ec2/`
-
-2. Create a rule file using `createRule(...)` from `shared/helpers.ts`.
-3. Include mandatory metadata:
-
-- `id`, `name`, `description`, `message`, `provider`, `service`, `supports`
-
-Keep provider discovery, parsers, and cloud SDK calls in `@cloudburn/sdk`. Rule files in
-`@cloudburn/rules` should stay pure and expose evaluators over normalized inputs.
-
-4. Export it from service `index.ts` and provider `index.ts`.
-5. Ensure preset inclusion when appropriate (`presets/aws-core.ts`).
-6. Add or update tests in `packages/rules/test`.
-
-## Rule Metadata Expectations
-
-- IDs use the `CLDBRN-{PROVIDER}-{SERVICE}-{N}` format (uppercase, no zero-padding, sequential per service).
-- Keep descriptions user-facing and actionable.
-- Keep `message` as the generic public policy text for grouped scan output.
-- Prefer `supports: ['iac', 'discovery']` only when both are implemented.
-- Use `supports: ['discovery']` or `supports: ['iac']` when a rule only has one real evaluator.
-- `CLDBRN-AWS-EBS-1` (`volume-type-current-gen`) is the reference example for a rule supporting both discovery and IaC evaluation.
-
-## Testing Guidance for Rules
-
-- Add metadata/export coverage.
-- Add focused unit tests for rule behavior once rule logic is implemented.
-- Keep fixtures small and deterministic.
+See [`docs/guides/adding-a-rule.md`](docs/guides/adding-a-rule.md) for the full end-to-end walkthrough covering file placement, `createRule`, dataset dependencies, tests, and registration.
 
 ## Changesets
 
-Use Changesets for user-facing package changes:
+Write `.changeset/<slug>.md` files directly for user-facing package changes. Published packages: `cloudburn` (cli), `@cloudburn/sdk`, `@cloudburn/rules`.
 
-```bash
-pnpm changeset
-```
-
-Add the generated `.changeset/*.md` file to your PR when it changes a published package
-(`cloudburn` (cli), `@cloudburn/sdk`, or `@cloudburn/rules`).
+One changeset file per package — never list multiple packages in one file.
 
 Do not run the versioning step in feature PRs. Versioning happens in the automated
 release PR on `main`.

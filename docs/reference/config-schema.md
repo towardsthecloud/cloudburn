@@ -87,10 +87,4 @@ discovery:
 
 ## Live Discovery Semantics
 
-- `cloudburn discover` defaults to the current region.
-- Current region resolution order is `AWS_REGION`, `AWS_DEFAULT_REGION`, `aws_region`, then the AWS SDK region provider chain.
-- Passing `--region <region>` overrides the current region for the CLI discover command.
-- `discover({ target })` is the SDK live-discovery entrypoint.
-- `discover({ target: { mode: 'regions', regions: [...] } })` is the SDK shape for explicit discovery regions.
-- Multi-region SDK discovery requires an aggregator index and an unfiltered default Resource Explorer view in the aggregator region.
-- `cloudburn discover init` defaults to the current region, accepts `--region <region>` as an override, and falls back to local-only setup in that region when cross-region aggregator setup is denied.
+See [`docs/architecture/cli.md`](../architecture/cli.md) for the full `discover` command behavior, region resolution order, and `discover init` semantics.

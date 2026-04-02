@@ -17,7 +17,7 @@ CloudBurn runs deterministic cost rules against your Terraform and CloudFormatio
 
 ## Features
 
-- **One rules engine, two modes.** Same rules for IaC and live AWS. See the [rule list](docs/reference/rule-ids.md).
+- **One rules engine, two modes.** 75 deterministic cost rules for IaC and live AWS. See the [rule list](docs/reference/rule-ids.md).
 - **Scan in CI.** Checks Terraform and CloudFormation in pull requests, CI jobs, and release pipelines.
 - **Discover in production.** Inspects deployed resources and shows what needs fixing.
 - **Programmable.** The [SDK](packages/sdk/README.md) lets you run CloudBurn inside your own tooling.

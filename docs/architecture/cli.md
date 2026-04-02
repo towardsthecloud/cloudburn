@@ -12,6 +12,7 @@ graph TD
   Root --> Completion["completion"]
   Rules --> RulesList["list"]
   Discover --> DiscoverInit["init"]
+  Discover --> DiscoverStatus["status"]
   Discover --> DiscoverTypes["supported-resource-types"]
   Completion --> CompletionBash["bash"]
   Completion --> CompletionFish["fish"]
@@ -51,6 +52,7 @@ All stdout-producing commands return a typed `CliResponse` and share the same fo
 - `discover --region <region>` overrides the current AWS region resolved from `AWS_REGION`, `AWS_DEFAULT_REGION`, `aws_region`, then the AWS SDK region provider chain.
 - The CLI targets one explicit AWS region per discover run.
 - Multi-region discovery remains an SDK capability through `target: { mode: 'regions', regions: [...] }` and requires a Resource Explorer aggregator index.
+- `discover status` reports the current Resource Explorer index state and uses the shared `json|table` renderer.
 - `discover supported-resource-types` uses the shared `json|table` renderer.
 - `discover init` bootstraps Resource Explorer through the SDK, defaults to the current AWS region, accepts `--region <region>` as an override, and falls back to local-only setup when cross-region bootstrap is denied.
 - `discover init` status output includes the resolved setup `indexType` so users can distinguish local-only setup from aggregator setup.

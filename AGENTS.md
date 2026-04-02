@@ -17,7 +17,7 @@
 | **Reference**              |                                                                                          |                                                                                           |
 | Config schema              | [`docs/reference/config-schema.md`](docs/reference/config-schema.md)                     | Every `CloudBurnConfig` field, defaults, merge behavior                                   |
 | Rule IDs                   | [`docs/reference/rule-ids.md`](docs/reference/rule-ids.md)                               | ID table, naming convention, presets                                                      |
-| Finding shape              | [`docs/reference/finding-shape.md`](docs/reference/finding-shape.md)                     | `Finding`, `ResourceLocation`, `ScanResult` type contracts                                |
+| Finding shape              | [`docs/reference/finding-shape.md`](docs/reference/finding-shape.md)                     | `Finding`, `SourceLocation`, `ScanResult` type contracts                                  |
 | **Infrastructure**         |                                                                                          |                                                                                           |
 | Testing                    | [`docs/TESTING.md`](docs/TESTING.md)                                                     | Three-package test strategy, fixtures, TDD flow                                           |
 | Turborepo                  | [`docs/TURBOREPO.md`](docs/TURBOREPO.md)                                                 | Task pipeline, boundaries, filtering                                                      |

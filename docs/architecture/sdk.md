@@ -8,6 +8,7 @@
     +scanStatic(path: string, config?: Partial~CloudBurnConfig~, options?: { configPath?: string }) Promise~ScanResult~
     +discover(options?: { target?: AwsDiscoveryTarget, config?: Partial~CloudBurnConfig~, configPath?: string }) Promise~ScanResult~
     +initializeDiscovery(options?: { region?: string }) Promise~AwsDiscoveryInitialization~
+    +getDiscoveryStatus(options?: { region?: string }) Promise~AwsDiscoveryStatus~
     +listSupportedDiscoveryResourceTypes() Promise~AwsSupportedResourceType[]~
     +loadConfig(path?: string) Promise~CloudBurnConfig~
   }
@@ -70,7 +71,7 @@ Current live-discovery behavior:
 
 - `discover` is the live entrypoint for both the CLI and direct SDK callers.
 - `discoverAwsResources` in `src/providers/aws/discovery.ts` is the AWS live orchestration entrypoint.
-- Default discovery target is the current region, resolved from `AWS_REGION`, then `AWS_DEFAULT_REGION`, then `aws_region`, then the AWS SDK region provider chain.
+- Default discovery target is the current region (see [`docs/architecture/cli.md`](cli.md) for the full resolution order).
 - Explicit discovery uses `target: { mode: 'regions', regions: [...] }`.
 - Explicit single-region discovery uses the selected region as the Resource Explorer control plane instead of the ambient current region.
 - Explicit multi-region discovery requires an aggregator index and fails fast when one is not enabled.
@@ -86,24 +87,7 @@ Current live-discovery behavior:
 
 ## Public Result Shape
 
-```ts
-type ScanResult = {
-  providers: Array<{
-    provider: 'aws' | 'azure' | 'gcp';
-    rules: Array<{
-      ruleId: string;
-      service: string;
-      source: Source;
-      message: string;
-      findings: FindingMatch[];
-    }>;
-  }>;
-};
-```
-
-- Empty scans return `{ providers: [] }`.
-- `source`, `service`, and `message` are carried on each rule group, not on `ScanResult`.
-- IaC matches may include `location`.
+See [`docs/reference/finding-shape.md`](../reference/finding-shape.md) for the full `ScanResult`, `Finding`, and `FindingMatch` type contracts.
 
 ## Parser Layer
 
@@ -125,12 +109,7 @@ graph LR
 
 `buildRuleRegistry(config, mode)` decides which rules are active for the requested mode.
 
-Config behavior:
-
-- `loadConfig(path?)` loads an explicit path when provided, otherwise searches upward for `.cloudburn.yml` or `.cloudburn.yaml`; when `CI` is truthy it skips implicit discovery and returns defaults unless the path was explicit
-- `CloudBurnConfig` now owns per-mode `iac` and `discovery` sections
-- each mode can set `enabledRules`, `disabledRules`, and `format`
-- registry filtering is mode-aware and only activates rules that support the requested source
+Config behavior: see [`docs/reference/config-schema.md`](../reference/config-schema.md) for full field definitions, merge behavior, and config loading semantics. Registry filtering is mode-aware and only activates rules that support the requested source.
 
 Static AWS rules declare `staticDependencies` dataset keys in `@cloudburn/rules`, and the SDK static registry resolves each key into:
 
