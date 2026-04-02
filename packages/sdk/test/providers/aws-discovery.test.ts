@@ -2495,10 +2495,107 @@ describe('discoverAwsResources', () => {
     ]);
   });
 
+  it('continues loading accessible regions when one region is access denied during dataset hydration', async () => {
+    mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
+      indexType: 'LOCAL',
+      resources: [
+        {
+          accountId: '123456789012',
+          arn: 'arn:aws:logs:us-east-1:123456789012:log-group:/aws/lambda/app-us-east-1',
+          properties: [],
+          region: 'us-east-1',
+          resourceType: 'logs:log-group',
+          service: 'logs',
+        },
+        {
+          accountId: '123456789012',
+          arn: 'arn:aws:logs:eu-west-1:123456789012:log-group:/aws/lambda/app-eu-west-1',
+          properties: [],
+          region: 'eu-west-1',
+          resourceType: 'logs:log-group',
+          service: 'logs',
+        },
+      ],
+      searchRegion: 'us-east-1',
+    });
+    mockedHydrateAwsCloudWatchLogMetricFilterCoverage.mockImplementation(async (resources) => {
+      const region = resources[0]?.region;
+      if (region === 'eu-west-1') {
+        const accessDeniedCause = Object.assign(new Error('Access denied by SCP.'), {
+          name: 'AccessDeniedException',
+          $metadata: {
+            httpStatusCode: 403,
+            requestId: 'req-log-groups',
+          },
+        });
+
+        throw new Error(
+          'Amazon CloudWatch Logs DescribeMetricFilters failed in eu-west-1 with AccessDeniedException: Access denied by SCP. Request ID: req-log-groups.',
+          {
+            cause: accessDeniedCause,
+          },
+        );
+      }
+
+      return [
+        {
+          accountId: '123456789012',
+          hasMetricFilters: true,
+          logGroupArn: 'arn:aws:logs:us-east-1:123456789012:log-group:/aws/lambda/app-us-east-1',
+          logGroupName: '/aws/lambda/app-us-east-1',
+          region: 'us-east-1',
+        },
+      ];
+    });
+
+    const result = await discoverAwsResources(
+      [
+        createRule({
+          discoveryDependencies: ['aws-cloudwatch-log-metric-filter-coverage'],
+          service: 'cloudwatch',
+        }),
+      ],
+      { mode: 'regions', regions: ['us-east-1', 'eu-west-1'] },
+    );
+
+    expect(result.resources.get('aws-cloudwatch-log-metric-filter-coverage')).toEqual([
+      {
+        accountId: '123456789012',
+        hasMetricFilters: true,
+        logGroupArn: 'arn:aws:logs:us-east-1:123456789012:log-group:/aws/lambda/app-us-east-1',
+        logGroupName: '/aws/lambda/app-us-east-1',
+        region: 'us-east-1',
+      },
+    ]);
+    expect(result.diagnostics).toEqual([
+      {
+        code: 'AccessDeniedException',
+        details:
+          'Amazon CloudWatch Logs DescribeMetricFilters failed in eu-west-1 with AccessDeniedException: Access denied by SCP. Request ID: req-log-groups.',
+        message:
+          'Skipped cloudwatch discovery in eu-west-1 because access is denied by a service control policy (SCP).',
+        provider: 'aws',
+        region: 'eu-west-1',
+        service: 'cloudwatch',
+        source: 'discovery',
+        status: 'access_denied',
+      },
+    ]);
+  });
+
   it('records a non-fatal throttling diagnostic instead of aborting the run when a dataset exhausts retries', async () => {
     mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
       indexType: 'LOCAL',
-      resources: [catalog.resources[7]],
+      resources: [
+        {
+          accountId: '123456789012',
+          arn: 'arn:aws:logs:eu-central-1:123456789012:log-group:/aws/lambda/app',
+          properties: [],
+          region: 'eu-central-1',
+          resourceType: 'logs:log-group',
+          service: 'logs',
+        },
+      ],
       searchRegion: 'eu-central-1',
     });
     mockedHydrateAwsCloudWatchLogMetricFilterCoverage.mockRejectedValue(
@@ -2533,10 +2630,48 @@ describe('discoverAwsResources', () => {
         code: 'ThrottlingException',
         details:
           'Amazon CloudWatch Logs DescribeMetricFilters failed in eu-central-1 with ThrottlingException: Rate exceeded Request ID: req-metric-filters.',
-        message: 'Skipped cloudwatch discovery in us-east-1 because AWS throttled the required dataset after retrying.',
+        message:
+          'Skipped cloudwatch discovery in eu-central-1 because AWS throttled the required dataset after retrying.',
         provider: 'aws',
-        region: 'us-east-1',
+        region: 'eu-central-1',
         service: 'cloudwatch',
+        source: 'discovery',
+        status: 'throttled',
+      },
+    ]);
+  });
+
+  it('omits the region from account-scoped dataset diagnostics when the loader fails', async () => {
+    mockedResolveCurrentAwsRegion.mockResolvedValue('eu-west-1');
+    mockedHydrateAwsCostUsage.mockRejectedValue(
+      Object.assign(new Error('AWS Cost Explorer GetCostAndUsage failed with ThrottlingException: Rate exceeded.'), {
+        code: 'ThrottlingException',
+        name: 'ThrottlingException',
+        $metadata: {
+          httpStatusCode: 400,
+          requestId: 'req-cost',
+        },
+      }),
+    );
+
+    const result = await discoverAwsResources(
+      [
+        createRule({
+          service: 'costexplorer',
+          discoveryDependencies: ['aws-cost-usage'],
+        }),
+      ],
+      { mode: 'regions', regions: ['eu-west-1'] },
+    );
+
+    expect(result.resources.get('aws-cost-usage')).toEqual([]);
+    expect(result.diagnostics).toEqual([
+      {
+        code: 'ThrottlingException',
+        details: 'AWS Cost Explorer GetCostAndUsage failed with ThrottlingException: Rate exceeded.',
+        message: 'Skipped costexplorer discovery because AWS throttled the required dataset after retrying.',
+        provider: 'aws',
+        service: 'costexplorer',
         source: 'discovery',
         status: 'throttled',
       },

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { withAwsServiceErrorContext } from '../../src/providers/aws/resources/utils.js';
 
 const createThrottlingError = (): Error =>
@@ -12,6 +12,11 @@ const createThrottlingError = (): Error =>
   });
 
 describe('withAwsServiceErrorContext', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
   it('retries throttled AWS calls with exponential backoff and jitter before succeeding', async () => {
     vi.useFakeTimers();
     vi.spyOn(Math, 'random').mockReturnValue(0.5);

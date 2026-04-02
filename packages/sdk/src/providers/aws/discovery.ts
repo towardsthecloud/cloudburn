@@ -367,7 +367,7 @@ export const discoverAwsResources = async (
 
           return {
             dataset: [definition.datasetKey, [] as DiscoveryDatasetMap[K]] as [K, DiscoveryDatasetMap[K]],
-            diagnostics: [buildDatasetFailureDiagnostic(definition.service, catalog.searchRegion, err)],
+            diagnostics: [buildDatasetFailureDiagnostic(definition.service, undefined, err)],
             unavailable: true,
           };
         }
@@ -407,9 +407,12 @@ export const discoverAwsResources = async (
             options?.debugLogger,
             `aws: dataset ${definition.datasetKey} failed in ${region} after ${formatElapsedMs(regionStartedAtMs)}: ${err instanceof Error ? err.message : String(err)}`,
           );
-          unavailable = true;
+          const isAccessDenied = isAwsAccessDeniedError(err);
+          if (!isAccessDenied) {
+            unavailable = true;
+          }
           diagnostics.push(
-            isAwsAccessDeniedError(err)
+            isAccessDenied
               ? {
                   code: getAwsErrorCode(err),
                   details: err instanceof Error ? err.message : String(err),
