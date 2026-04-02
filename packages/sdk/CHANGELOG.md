@@ -1,5 +1,14 @@
 # @cloudburn/sdk
 
+## 0.21.2
+
+### Patch Changes
+
+- [#58](https://github.com/towardsthecloud/cloudburn/pull/58) [`67c3b85`](https://github.com/towardsthecloud/cloudburn/commit/67c3b850e90902e51f480ee2112a0a75544dab5c) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Gracefully degrade AWS discovery when required datasets are throttled or otherwise unavailable by retrying longer and surfacing skipped-rule diagnostics instead of aborting the run.
+
+- Updated dependencies [[`e1d241f`](https://github.com/towardsthecloud/cloudburn/commit/e1d241f0d50b4a3acc3e1facf5b633005e13415d)]:
+  - @cloudburn/rules@0.22.0
+
 ## 0.21.1
 
 ### Patch Changes

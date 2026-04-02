@@ -1,5 +1,14 @@
 # cloudburn
 
+## 0.9.10
+
+### Patch Changes
+
+- [#58](https://github.com/towardsthecloud/cloudburn/pull/58) [`67c3b85`](https://github.com/towardsthecloud/cloudburn/commit/67c3b850e90902e51f480ee2112a0a75544dab5c) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Improve discover table output by separating diagnostics into a dedicated table so skipped rules and access-denied discovery results stay readable.
+
+- Updated dependencies [[`67c3b85`](https://github.com/towardsthecloud/cloudburn/commit/67c3b850e90902e51f480ee2112a0a75544dab5c)]:
+  - @cloudburn/sdk@0.21.2
+
 ## 0.9.9
 
 ### Patch Changes
