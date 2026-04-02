@@ -736,6 +736,22 @@ describe('rule metadata', () => {
     });
   });
 
+  it('defines the expected EC2 reserved-instance-recently-expired rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-EC2-12');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-EC2-12',
+      name: 'EC2 Reserved Instance Recently Expired',
+      description: 'Flag EC2 reserved instances whose end date fell within the last 30 days.',
+      message: 'EC2 reserved instances that expired within the last 30 days should be reviewed.',
+      provider: 'aws',
+      service: 'ec2',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-ec2-reserved-instances'],
+    });
+  });
+
   it('defines the expected ELB ALB-without-targets rule metadata', () => {
     const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-ELB-1');
 

@@ -2,4 +2,4 @@
 "@cloudburn/rules": minor
 ---
 
-Add a discovery rule that flags stopped Amazon RDS DB instances for cleanup review.
+Add discovery rules that flag stopped Amazon RDS DB instances and recently expired EC2 reserved instances for review.

@@ -7,6 +7,7 @@ import { ec2LongRunningInstanceRule } from './long-running-instance.js';
 import { ec2LowUtilizationRule } from './low-utilization.js';
 import { ec2PreferredInstanceTypeRule } from './preferred-instance-types.js';
 import { ec2ReservedInstanceExpiringRule } from './reserved-instance-expiring.js';
+import { ec2ReservedInstanceRecentlyExpiredRule } from './reserved-instance-recently-expired.js';
 import { ec2S3InterfaceEndpointRule } from './s3-interface-endpoint.js';
 import { ec2UnassociatedElasticIpRule } from './unassociated-elastic-ip.js';
 
@@ -23,4 +24,5 @@ export const ec2Rules = [
   ec2LongRunningInstanceRule,
   ec2DetailedMonitoringEnabledRule,
   ec2IdleNatGatewayRule,
+  ec2ReservedInstanceRecentlyExpiredRule,
 ];

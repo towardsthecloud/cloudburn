@@ -80,6 +80,7 @@ describe('rule exports', () => {
         'CLDBRN-AWS-EC2-9',
         'CLDBRN-AWS-EC2-10',
         'CLDBRN-AWS-EC2-11',
+        'CLDBRN-AWS-EC2-12',
         'CLDBRN-AWS-ECS-1',
         'CLDBRN-AWS-ECS-2',
         'CLDBRN-AWS-ECS-3',
