@@ -1,5 +1,11 @@
 # @cloudburn/rules
 
+## 0.22.0
+
+### Minor Changes
+
+- [#60](https://github.com/towardsthecloud/cloudburn/pull/60) [`e1d241f`](https://github.com/towardsthecloud/cloudburn/commit/e1d241f0d50b4a3acc3e1facf5b633005e13415d) Thanks [@axonstone](https://github.com/axonstone)! - Add discovery rules that flag stopped Amazon RDS DB instances and recently expired EC2 reserved instances for review.
+
 ## 0.21.1
 
 ### Patch Changes
