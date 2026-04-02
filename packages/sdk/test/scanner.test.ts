@@ -249,6 +249,101 @@ describe('CloudBurnClient', () => {
     });
   });
 
+  it('skips rules whose required discovery datasets were unavailable', async () => {
+    mockedDiscoverAwsResources.mockResolvedValue({
+      catalog: discoveryCatalog,
+      diagnostics: [
+        {
+          code: 'ThrottlingException',
+          details:
+            'Amazon CloudWatch Logs DescribeMetricFilters failed in us-east-1 with ThrottlingException: Rate exceeded Request ID: req-metric-filters.',
+          message:
+            'Skipped cloudwatch discovery in us-east-1 because AWS throttled the required dataset after retrying.',
+          provider: 'aws',
+          region: 'us-east-1',
+          service: 'cloudwatch',
+          source: 'discovery',
+          status: 'throttled' as const,
+        },
+      ],
+      resources: new LiveResourceBag({
+        'aws-cloudwatch-log-groups': [
+          {
+            accountId: '123456789012',
+            logGroupArn: 'arn:aws:logs:us-east-1:123456789012:log-group:/aws/lambda/app',
+            logGroupClass: 'STANDARD',
+            logGroupName: '/aws/lambda/app',
+            region: 'us-east-1',
+            storedBytes: 1_073_741_824,
+          },
+        ],
+      } as never),
+      unavailableDatasets: new Map([
+        [
+          'aws-cloudwatch-log-metric-filter-coverage',
+          [
+            {
+              code: 'ThrottlingException',
+              details:
+                'Amazon CloudWatch Logs DescribeMetricFilters failed in us-east-1 with ThrottlingException: Rate exceeded Request ID: req-metric-filters.',
+              message:
+                'Skipped cloudwatch discovery in us-east-1 because AWS throttled the required dataset after retrying.',
+              provider: 'aws' as const,
+              region: 'us-east-1',
+              service: 'cloudwatch',
+              source: 'discovery' as const,
+              status: 'throttled' as const,
+            },
+          ],
+        ],
+      ]),
+    });
+
+    const scanner = new CloudBurnClient();
+
+    const result = await scanner.discover({
+      config: {
+        discovery: {
+          enabledRules: ['CLDBRN-AWS-CLOUDWATCH-3'],
+        },
+        iac: {},
+      },
+      target: {
+        mode: 'regions',
+        regions: ['us-east-1'],
+      },
+    });
+
+    expect(result).toEqual({
+      diagnostics: [
+        {
+          code: 'ThrottlingException',
+          details:
+            'Amazon CloudWatch Logs DescribeMetricFilters failed in us-east-1 with ThrottlingException: Rate exceeded Request ID: req-metric-filters.',
+          message:
+            'Skipped cloudwatch discovery in us-east-1 because AWS throttled the required dataset after retrying.',
+          provider: 'aws',
+          region: 'us-east-1',
+          service: 'cloudwatch',
+          source: 'discovery',
+          status: 'throttled',
+        },
+        {
+          details:
+            'Amazon CloudWatch Logs DescribeMetricFilters failed in us-east-1 with ThrottlingException: Rate exceeded Request ID: req-metric-filters.',
+          message:
+            'Skipped rule CLDBRN-AWS-CLOUDWATCH-3 because required discovery datasets were unavailable: aws-cloudwatch-log-metric-filter-coverage.',
+          provider: 'aws',
+          ruleId: 'CLDBRN-AWS-CLOUDWATCH-3',
+          service: 'cloudwatch',
+          source: 'discovery',
+          status: 'skipped',
+        },
+      ],
+      providers: [],
+    });
+  });
+
   it('defaults discover to the current region target when none is provided', async () => {
     mockedDiscoverAwsResources.mockResolvedValue({
       catalog: discoveryCatalog,

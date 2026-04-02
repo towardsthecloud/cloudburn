@@ -178,84 +178,94 @@ describe('resource explorer discovery', () => {
   });
 
   it('preserves Resource Explorer operation context when list resources is throttled', async () => {
-    vi.spyOn(clientModule, 'resolveCurrentAwsRegion').mockResolvedValue('eu-central-1');
-    vi.spyOn(clientModule, 'createResourceExplorerClient').mockReturnValue({
-      send: vi
-        .fn()
-        .mockImplementationOnce(async (command) => {
-          expect(command.input.Regions).toEqual(['eu-central-1']);
+    vi.useFakeTimers();
 
-          return {
-            Indexes: [
-              {
-                Region: 'eu-central-1',
-                Type: 'AGGREGATOR',
-              },
-            ],
-          };
-        })
-        .mockResolvedValueOnce({
-          ViewArn: 'arn:aws:resource-explorer-2:eu-central-1:123456789012:view/default',
-        })
-        .mockResolvedValueOnce({
-          View: {
-            Filters: {
-              FilterString: '',
-            },
+    try {
+      vi.spyOn(clientModule, 'resolveCurrentAwsRegion').mockResolvedValue('eu-central-1');
+      vi.spyOn(clientModule, 'createResourceExplorerClient').mockReturnValue({
+        send: vi
+          .fn()
+          .mockImplementationOnce(async (command) => {
+            expect(command.input.Regions).toEqual(['eu-central-1']);
+
+            return {
+              Indexes: [
+                {
+                  Region: 'eu-central-1',
+                  Type: 'AGGREGATOR',
+                },
+              ],
+            };
+          })
+          .mockResolvedValueOnce({
             ViewArn: 'arn:aws:resource-explorer-2:eu-central-1:123456789012:view/default',
-          },
-        })
-        .mockRejectedValueOnce(
-          Object.assign(new Error('Rate exceeded'), {
-            name: 'ThrottlingException',
-            $metadata: {
-              httpStatusCode: 429,
-              requestId: 'request-123',
+          })
+          .mockResolvedValueOnce({
+            View: {
+              Filters: {
+                FilterString: '',
+              },
+              ViewArn: 'arn:aws:resource-explorer-2:eu-central-1:123456789012:view/default',
             },
-          }),
-        )
-        .mockRejectedValueOnce(
-          Object.assign(new Error('Rate exceeded'), {
-            name: 'ThrottlingException',
-            $metadata: {
-              httpStatusCode: 429,
-              requestId: 'request-123',
-            },
-          }),
-        )
-        .mockRejectedValueOnce(
-          Object.assign(new Error('Rate exceeded'), {
-            name: 'ThrottlingException',
-            $metadata: {
-              httpStatusCode: 429,
-              requestId: 'request-123',
-            },
-          }),
-        )
-        .mockRejectedValueOnce(
-          Object.assign(new Error('Rate exceeded'), {
-            name: 'ThrottlingException',
-            $metadata: {
-              httpStatusCode: 429,
-              requestId: 'request-123',
-            },
-          }),
-        )
-        .mockRejectedValueOnce(
-          Object.assign(new Error('Rate exceeded'), {
-            name: 'ThrottlingException',
-            $metadata: {
-              httpStatusCode: 429,
-              requestId: 'request-123',
-            },
-          }),
-        ),
-    } as never);
+          })
+          .mockRejectedValueOnce(
+            Object.assign(new Error('Rate exceeded'), {
+              name: 'ThrottlingException',
+              $metadata: {
+                httpStatusCode: 429,
+                requestId: 'request-123',
+              },
+            }),
+          )
+          .mockRejectedValueOnce(
+            Object.assign(new Error('Rate exceeded'), {
+              name: 'ThrottlingException',
+              $metadata: {
+                httpStatusCode: 429,
+                requestId: 'request-123',
+              },
+            }),
+          )
+          .mockRejectedValueOnce(
+            Object.assign(new Error('Rate exceeded'), {
+              name: 'ThrottlingException',
+              $metadata: {
+                httpStatusCode: 429,
+                requestId: 'request-123',
+              },
+            }),
+          )
+          .mockRejectedValueOnce(
+            Object.assign(new Error('Rate exceeded'), {
+              name: 'ThrottlingException',
+              $metadata: {
+                httpStatusCode: 429,
+                requestId: 'request-123',
+              },
+            }),
+          )
+          .mockRejectedValueOnce(
+            Object.assign(new Error('Rate exceeded'), {
+              name: 'ThrottlingException',
+              $metadata: {
+                httpStatusCode: 429,
+                requestId: 'request-123',
+              },
+            }),
+          ),
+      } as never);
 
-    await expect(buildAwsDiscoveryCatalog({ mode: 'current' }, ['ec2:volume'])).rejects.toMatchObject({
-      message:
-        'AWS Resource Explorer ListResources failed in eu-central-1 with ThrottlingException: Rate exceeded Request ID: request-123.',
-    });
+      const resultPromise = buildAwsDiscoveryCatalog({ mode: 'current' }, ['ec2:volume']);
+
+      const assertion = expect(resultPromise).rejects.toMatchObject({
+        message:
+          'AWS Resource Explorer ListResources failed in eu-central-1 with ThrottlingException: Rate exceeded Request ID: request-123.',
+      });
+      await vi.runAllTimersAsync();
+      await assertion;
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('retries throttled list resources calls before succeeding', async () => {

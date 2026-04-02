@@ -74,6 +74,16 @@ const scanColumns: ColumnSpec[] = [
   { key: 'message', header: 'Message' },
 ];
 
+const diagnosticColumns: ColumnSpec[] = [
+  { key: 'provider', header: 'Provider' },
+  { key: 'status', header: 'Status' },
+  { key: 'ruleId', header: 'RuleId' },
+  { key: 'source', header: 'Source' },
+  { key: 'service', header: 'Service' },
+  { key: 'region', header: 'Region' },
+  { key: 'message', header: 'Message' },
+];
+
 const ruleListColumns: ColumnSpec[] = [
   { key: 'ruleId', header: 'RuleId' },
   { key: 'provider', header: 'Provider' },
@@ -176,8 +186,22 @@ const renderTable = (response: CliResponse): string => {
     case 'rule-list':
       return renderRuleTable(response.rules, response.emptyMessage);
     case 'scan-result': {
-      const rows = projectScanRows(response.result);
-      return rows.length === 0 ? 'No findings.' : renderAsciiTable(rows, scanColumns);
+      const findingRows = projectFindingRows(response.result);
+      const diagnosticRows = projectDiagnosticRows(response.result);
+
+      if (findingRows.length === 0 && diagnosticRows.length === 0) {
+        return 'No findings.';
+      }
+
+      if (findingRows.length === 0) {
+        return `Diagnostics\n${renderAsciiTable(diagnosticRows, diagnosticColumns)}`;
+      }
+
+      if (diagnosticRows.length === 0) {
+        return renderAsciiTable(findingRows, scanColumns);
+      }
+
+      return `${renderAsciiTable(findingRows, scanColumns)}\n\nDiagnostics\n${renderAsciiTable(diagnosticRows, diagnosticColumns)}`;
     }
     case 'status':
       return renderAsciiTable(
@@ -197,8 +221,8 @@ const renderTable = (response: CliResponse): string => {
   }
 };
 
-const projectScanRows = (result: ScanResult): RecordRow[] => [
-  ...flattenScanResult(result).map(({ finding, message, provider, ruleId, service, source }) => ({
+const projectFindingRows = (result: ScanResult): RecordRow[] =>
+  flattenScanResult(result).map(({ finding, message, provider, ruleId, service, source }) => ({
     accountId: finding.accountId ?? '',
     message,
     path: finding.location?.path ?? '',
@@ -210,21 +234,18 @@ const projectScanRows = (result: ScanResult): RecordRow[] => [
     source,
     column: finding.location?.column ?? '',
     line: finding.location?.line ?? '',
-  })),
-  ...getScanDiagnostics(result).map((diagnostic) => ({
-    accountId: '',
-    column: '',
-    line: '',
+  }));
+
+const projectDiagnosticRows = (result: ScanResult): RecordRow[] =>
+  getScanDiagnostics(result).map((diagnostic) => ({
     message: diagnostic.message,
-    path: '',
     provider: diagnostic.provider,
     region: diagnostic.region ?? '',
-    resourceId: '',
-    ruleId: '',
+    ruleId: diagnostic.ruleId ?? '',
     service: diagnostic.service,
     source: diagnostic.source,
-  })),
-];
+    status: diagnostic.status,
+  }));
 
 const inferColumns = (rows: RecordRow[]): ColumnSpec[] => {
   const keys = Array.from(new Set(rows.flatMap((row) => Object.keys(row)))).sort((left, right) =>

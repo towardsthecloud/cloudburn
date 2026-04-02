@@ -166,11 +166,12 @@ export type ScanDiagnostic = {
   provider: CloudProvider;
   service: string;
   source: Source;
-  status: 'access_denied';
+  status: 'access_denied' | 'error' | 'skipped' | 'throttled';
   message: string;
   code?: string;
   details?: string;
   region?: string;
+  ruleId?: string;
 };
 
 /** Result of a scan execution containing provider-grouped lean rule findings. */

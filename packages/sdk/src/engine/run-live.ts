@@ -11,13 +11,52 @@ export const runLiveScan = async (
 ): Promise<ScanResult> => {
   const registry = buildRuleRegistry(config, 'discovery');
   emitDebugLog(options?.debugLogger, `sdk: resolved ${registry.activeRules.length} active discovery rules`);
-  const { diagnostics = [], ...liveContext } =
-    options?.debugLogger === undefined
-      ? await discoverAwsResources(registry.activeRules, target)
-      : await discoverAwsResources(registry.activeRules, target, { debugLogger: options.debugLogger });
+  const {
+    diagnostics = [],
+    unavailableDatasets = new Map(),
+    ...liveContext
+  } = options?.debugLogger === undefined
+    ? await discoverAwsResources(registry.activeRules, target)
+    : await discoverAwsResources(registry.activeRules, target, { debugLogger: options.debugLogger });
+  const unresolvedUnavailableDatasets: unknown = unavailableDatasets;
+  const unavailableDatasetDiagnostics =
+    unresolvedUnavailableDatasets instanceof Map
+      ? unresolvedUnavailableDatasets
+      : new Map(
+          unresolvedUnavailableDatasets instanceof Set
+            ? [...unresolvedUnavailableDatasets].map((datasetKey) => [datasetKey, []] as const)
+            : [],
+        );
+  const scanDiagnostics = [...diagnostics];
   const findings = groupFindingsByProvider(
     registry.activeRules.map((rule) => {
       if (!rule.supports.includes('discovery') || !rule.evaluateLive) {
+        return {
+          provider: rule.provider,
+          finding: null,
+        };
+      }
+
+      const unavailableDependencies = (rule.discoveryDependencies ?? []).filter((dependency) =>
+        unavailableDatasetDiagnostics.has(dependency),
+      );
+
+      if (unavailableDependencies.length > 0) {
+        scanDiagnostics.push({
+          details: unavailableDependencies
+            .flatMap((dependency) => unavailableDatasetDiagnostics.get(dependency) ?? [])
+            .map((diagnostic) => diagnostic.details)
+            .filter((detail): detail is string => detail !== undefined)
+            .filter((detail, index, details) => details.indexOf(detail) === index)
+            .join('\n'),
+          message: `Skipped rule ${rule.id} because required discovery datasets were unavailable: ${unavailableDependencies.join(', ')}.`,
+          provider: rule.provider,
+          ruleId: rule.id,
+          service: rule.service,
+          source: 'discovery',
+          status: 'skipped',
+        });
+
         return {
           provider: rule.provider,
           finding: null,
@@ -32,7 +71,7 @@ export const runLiveScan = async (
   );
 
   return {
-    ...(diagnostics.length > 0 ? { diagnostics } : {}),
+    ...(scanDiagnostics.length > 0 ? { diagnostics: scanDiagnostics } : {}),
     providers: findings,
   };
 };
