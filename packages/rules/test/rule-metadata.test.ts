@@ -1002,6 +1002,22 @@ describe('rule metadata', () => {
     });
   });
 
+  it('defines the expected RDS stopped-instance rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-RDS-9');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-RDS-9',
+      name: 'RDS DB Instance Stopped',
+      description: 'Flag RDS DB instances that are currently in the stopped state for cleanup review.',
+      message: 'Stopped RDS DB instances should be reviewed for cleanup.',
+      provider: 'aws',
+      service: 'rds',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-rds-instances'],
+    });
+  });
+
   it('defines the expected Redshift low-cpu rule metadata', () => {
     const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-REDSHIFT-1');
 

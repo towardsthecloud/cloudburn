@@ -4,6 +4,7 @@ import { rdsLowCpuUtilizationRule } from './low-cpu-utilization.js';
 import { rdsPerformanceInsightsExtendedRetentionRule } from './performance-insights-extended-retention.js';
 import { rdsPreferredInstanceClassRule } from './preferred-instance-classes.js';
 import { rdsReservedCoverageRule } from './reserved-coverage.js';
+import { rdsStoppedInstanceRule } from './stopped-instance.js';
 import { rdsUnsupportedEngineVersionRule } from './unsupported-engine-version.js';
 import { rdsUnusedSnapshotsRule } from './unused-snapshots.js';
 
@@ -18,4 +19,5 @@ export const rdsRules = [
   rdsUnsupportedEngineVersionRule,
   rdsUnusedSnapshotsRule,
   rdsPerformanceInsightsExtendedRetentionRule,
+  rdsStoppedInstanceRule,
 ];

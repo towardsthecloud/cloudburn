@@ -115,6 +115,7 @@ describe('rule exports', () => {
         'CLDBRN-AWS-RDS-6',
         'CLDBRN-AWS-RDS-7',
         'CLDBRN-AWS-RDS-8',
+        'CLDBRN-AWS-RDS-9',
         'CLDBRN-AWS-REDSHIFT-1',
         'CLDBRN-AWS-REDSHIFT-2',
         'CLDBRN-AWS-REDSHIFT-3',
