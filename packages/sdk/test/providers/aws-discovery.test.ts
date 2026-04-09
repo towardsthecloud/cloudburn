@@ -89,7 +89,10 @@ import {
   hydrateAwsRoute53Zones,
 } from '../../src/providers/aws/resources/route53.js';
 import { hydrateAwsS3BucketAnalyses } from '../../src/providers/aws/resources/s3.js';
-import { hydrateAwsSageMakerNotebookInstances } from '../../src/providers/aws/resources/sagemaker.js';
+import {
+  hydrateAwsSageMakerEndpointActivity,
+  hydrateAwsSageMakerNotebookInstances,
+} from '../../src/providers/aws/resources/sagemaker.js';
 import { hydrateAwsSecretsManagerSecrets } from '../../src/providers/aws/resources/secretsmanager.js';
 
 vi.mock('../../src/providers/aws/client.js', async (importOriginal) => {
@@ -241,6 +244,7 @@ vi.mock('../../src/providers/aws/resources/s3.js', () => ({
 }));
 
 vi.mock('../../src/providers/aws/resources/sagemaker.js', () => ({
+  hydrateAwsSageMakerEndpointActivity: vi.fn(),
   hydrateAwsSageMakerNotebookInstances: vi.fn(),
 }));
 
@@ -311,6 +315,7 @@ const mockedHydrateAwsRoute53HealthChecks = vi.mocked(hydrateAwsRoute53HealthChe
 const mockedHydrateAwsRoute53Records = vi.mocked(hydrateAwsRoute53Records);
 const mockedHydrateAwsRoute53Zones = vi.mocked(hydrateAwsRoute53Zones);
 const mockedHydrateAwsS3BucketAnalyses = vi.mocked(hydrateAwsS3BucketAnalyses);
+const mockedHydrateAwsSageMakerEndpointActivity = vi.mocked(hydrateAwsSageMakerEndpointActivity);
 const mockedHydrateAwsSageMakerNotebookInstances = vi.mocked(hydrateAwsSageMakerNotebookInstances);
 const mockedHydrateAwsSecretsManagerSecrets = vi.mocked(hydrateAwsSecretsManagerSecrets);
 const loadContextMatcher = expect.objectContaining({ loadDataset: expect.any(Function) });
@@ -2243,6 +2248,76 @@ describe('discoverAwsResources', () => {
         notebookInstanceName: 'analytics-notebook',
         notebookInstanceStatus: 'InService',
         region: 'eu-west-1',
+      },
+    ]);
+  });
+
+  it('hydrates SageMaker endpoint activity when an active rule requires endpoint data', async () => {
+    mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
+      indexType: 'LOCAL',
+      resources: [
+        {
+          accountId: '123456789012',
+          arn: 'arn:aws:sagemaker:eu-west-1:123456789012:endpoint/orders-endpoint',
+          properties: [],
+          region: 'eu-west-1',
+          resourceType: 'sagemaker:endpoint',
+          service: 'sagemaker',
+        },
+      ],
+      searchRegion: 'eu-west-1',
+    });
+    mockedHydrateAwsSageMakerEndpointActivity.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        creationTime: '2025-12-01T00:00:00.000Z',
+        endpointArn: 'arn:aws:sagemaker:eu-west-1:123456789012:endpoint/orders-endpoint',
+        endpointConfigName: 'orders-endpoint-config',
+        endpointName: 'orders-endpoint',
+        endpointStatus: 'InService',
+        lastModifiedTime: '2025-12-15T00:00:00.000Z',
+        region: 'eu-west-1',
+        totalInvocationsLast14Days: 0,
+      },
+    ]);
+
+    const result = await discoverAwsResources(
+      [
+        createRule({
+          discoveryDependencies: ['aws-sagemaker-endpoint-activity'],
+          service: 'sagemaker',
+        }),
+      ],
+      { mode: 'regions', regions: ['eu-west-1'] },
+    );
+
+    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith({ mode: 'regions', regions: ['eu-west-1'] }, [
+      'sagemaker:endpoint',
+    ]);
+    expect(mockedHydrateAwsSageMakerEndpointActivity).toHaveBeenCalledWith(
+      [
+        {
+          accountId: '123456789012',
+          arn: 'arn:aws:sagemaker:eu-west-1:123456789012:endpoint/orders-endpoint',
+          properties: [],
+          region: 'eu-west-1',
+          resourceType: 'sagemaker:endpoint',
+          service: 'sagemaker',
+        },
+      ],
+      loadContextMatcher,
+    );
+    expect(result.resources.get('aws-sagemaker-endpoint-activity')).toEqual([
+      {
+        accountId: '123456789012',
+        creationTime: '2025-12-01T00:00:00.000Z',
+        endpointArn: 'arn:aws:sagemaker:eu-west-1:123456789012:endpoint/orders-endpoint',
+        endpointConfigName: 'orders-endpoint-config',
+        endpointName: 'orders-endpoint',
+        endpointStatus: 'InService',
+        lastModifiedTime: '2025-12-15T00:00:00.000Z',
+        region: 'eu-west-1',
+        totalInvocationsLast14Days: 0,
       },
     ]);
   });
