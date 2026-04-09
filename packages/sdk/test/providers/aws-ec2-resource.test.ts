@@ -35,6 +35,12 @@ describe('hydrateAwsEc2Instances', () => {
                     : instanceId === 'i-west'
                       ? new Date('2025-12-31T00:00:00.000Z')
                       : new Date('2025-09-01T00:00:00.000Z'),
+                StateTransitionReason:
+                  instanceId === 'i-current'
+                    ? undefined
+                    : instanceId === 'i-west'
+                      ? 'User initiated (2025-12-15 10:30:00 UTC)'
+                      : 'User initiated (2025-10-01 08:00:00 UTC)',
                 State: {
                   Name: instanceId === 'i-current' ? 'running' : 'stopped',
                 },
@@ -94,6 +100,7 @@ describe('hydrateAwsEc2Instances', () => {
         launchTime: '2025-09-01T00:00:00.000Z',
         region: 'us-east-1',
         state: 'stopped',
+        stoppedAt: '2025-10-01T08:00:00.000Z',
       },
       {
         accountId: '123456789012',
@@ -102,6 +109,55 @@ describe('hydrateAwsEc2Instances', () => {
         instanceType: 'c6i.large',
         launchTime: '2025-12-31T00:00:00.000Z',
         region: 'us-west-2',
+        state: 'stopped',
+        stoppedAt: '2025-12-15T10:30:00.000Z',
+      },
+    ]);
+  });
+
+  it('leaves stoppedAt unset when the stop reason cannot be parsed', async () => {
+    mockedCreateEc2Client.mockImplementation(({ region }) => {
+      const send = vi.fn(async () => ({
+        Reservations: [
+          {
+            Instances: [
+              {
+                Architecture: 'x86_64',
+                InstanceId: 'i-unparseable',
+                InstanceType: 'm7i.large',
+                LaunchTime: new Date('2025-03-01T00:00:00.000Z'),
+                State: {
+                  Name: 'stopped',
+                },
+                StateTransitionReason: 'User initiated',
+              },
+            ],
+          },
+        ],
+      }));
+
+      return { send, region } as never;
+    });
+
+    await expect(
+      hydrateAwsEc2Instances([
+        {
+          accountId: '123456789012',
+          arn: 'arn:aws:ec2:us-east-1:123456789012:instance/i-unparseable',
+          properties: [],
+          region: 'us-east-1',
+          resourceType: 'ec2:instance',
+          service: 'ec2',
+        },
+      ]),
+    ).resolves.toEqual([
+      {
+        accountId: '123456789012',
+        architecture: 'x86_64',
+        instanceId: 'i-unparseable',
+        instanceType: 'm7i.large',
+        launchTime: '2025-03-01T00:00:00.000Z',
+        region: 'us-east-1',
         state: 'stopped',
       },
     ]);

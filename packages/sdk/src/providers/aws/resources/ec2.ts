@@ -5,6 +5,7 @@ import { chunkItems, withAwsServiceErrorContext } from './utils.js';
 
 const EC2_INSTANCE_ARN_PREFIX = 'instance/';
 const EC2_DESCRIBE_BATCH_SIZE = 100;
+const STOPPED_STATE_TRANSITION_REASON_PATTERN = /\((\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) UTC\)$/u;
 
 const extractInstanceId = (arn: string): string | null => {
   const arnSegments = arn.split(':');
@@ -15,6 +16,22 @@ const extractInstanceId = (arn: string): string | null => {
   }
 
   return resourceSegment.slice(EC2_INSTANCE_ARN_PREFIX.length);
+};
+
+const parseStoppedAt = (state: string | undefined, stateTransitionReason: string | undefined): string | undefined => {
+  if (state !== 'stopped' || !stateTransitionReason) {
+    return undefined;
+  }
+
+  const match = STOPPED_STATE_TRANSITION_REASON_PATTERN.exec(stateTransitionReason);
+
+  if (!match?.[1]) {
+    return undefined;
+  }
+
+  const stoppedAt = Date.parse(`${match[1].replace(' ', 'T')}Z`);
+
+  return Number.isFinite(stoppedAt) ? new Date(stoppedAt).toISOString() : undefined;
 };
 
 /**
@@ -75,6 +92,7 @@ export const hydrateAwsEc2Instances = async (resources: AwsDiscoveredResource[])
               launchTime: instance.LaunchTime?.toISOString(),
               region,
               state: instance.State?.Name,
+              stoppedAt: parseStoppedAt(instance.State?.Name, instance.StateTransitionReason),
             });
           }
         }

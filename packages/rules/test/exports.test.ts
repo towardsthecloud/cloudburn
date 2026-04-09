@@ -31,6 +31,7 @@ import type {
   AwsRoute53HealthCheck,
   AwsRoute53Record,
   AwsRoute53Zone,
+  AwsSageMakerEndpointActivity,
   AwsSageMakerNotebookInstance,
   AwsSecretsManagerSecret,
   AwsStaticRdsInstance,
@@ -81,6 +82,7 @@ describe('rule exports', () => {
         'CLDBRN-AWS-EC2-10',
         'CLDBRN-AWS-EC2-11',
         'CLDBRN-AWS-EC2-12',
+        'CLDBRN-AWS-EC2-13',
         'CLDBRN-AWS-ECS-1',
         'CLDBRN-AWS-ECS-2',
         'CLDBRN-AWS-ECS-3',
@@ -117,6 +119,7 @@ describe('rule exports', () => {
         'CLDBRN-AWS-RDS-7',
         'CLDBRN-AWS-RDS-8',
         'CLDBRN-AWS-RDS-9',
+        'CLDBRN-AWS-RDS-10',
         'CLDBRN-AWS-REDSHIFT-1',
         'CLDBRN-AWS-REDSHIFT-2',
         'CLDBRN-AWS-REDSHIFT-3',
@@ -127,6 +130,7 @@ describe('rule exports', () => {
         'CLDBRN-AWS-S3-3',
         'CLDBRN-AWS-S3-4',
         'CLDBRN-AWS-SAGEMAKER-1',
+        'CLDBRN-AWS-SAGEMAKER-2',
         'CLDBRN-AWS-SECRETSMANAGER-1',
       ]),
     );
@@ -155,12 +159,14 @@ describe('rule exports', () => {
       launchTime: '2026-03-01T00:00:00.000Z',
       region: 'us-east-1',
       state: 'running',
+      stoppedAt: '2026-03-15T00:00:00.000Z',
     };
 
     expect(instance.instanceType).toBe('m8azn.large');
     expect(instance.state).toBe('running');
     expect(instance.architecture).toBe('x86_64');
     expect(instance.launchTime).toBe('2026-03-01T00:00:00.000Z');
+    expect(instance.stoppedAt).toBe('2026-03-15T00:00:00.000Z');
     expect(apiGatewayStage.stageName).toBe('prod');
     expect(apiGatewayStage.cacheClusterEnabled).toBe(false);
 
@@ -437,6 +443,17 @@ describe('rule exports', () => {
       notebookInstanceStatus: 'InService',
       region: 'eu-west-1',
     };
+    const endpointActivity: AwsSageMakerEndpointActivity = {
+      accountId: '123456789012',
+      creationTime: '2026-02-01T00:00:00.000Z',
+      endpointArn: 'arn:aws:sagemaker:eu-west-1:123456789012:endpoint/orders-endpoint',
+      endpointConfigName: 'orders-endpoint-config',
+      endpointName: 'orders-endpoint',
+      endpointStatus: 'InService',
+      lastModifiedTime: '2026-03-01T00:00:00.000Z',
+      region: 'eu-west-1',
+      totalInvocationsLast14Days: 0,
+    };
 
     const apiGatewayDatasetKey: DiscoveryDatasetKey = 'aws-apigateway-stages';
     const cloudFrontDatasetKey: DiscoveryDatasetKey = 'aws-cloudfront-distributions';
@@ -464,6 +481,7 @@ describe('rule exports', () => {
     const route53HealthCheckDatasetKey: DiscoveryDatasetKey = 'aws-route53-health-checks';
     const route53RecordDatasetKey: DiscoveryDatasetKey = 'aws-route53-records';
     const route53ZoneDatasetKey: DiscoveryDatasetKey = 'aws-route53-zones';
+    const sagemakerEndpointDatasetKey: DiscoveryDatasetKey = 'aws-sagemaker-endpoint-activity';
     const sagemakerDatasetKey: DiscoveryDatasetKey = 'aws-sagemaker-notebook-instances';
     const secretsManagerDatasetKey: DiscoveryDatasetKey = 'aws-secretsmanager-secrets';
     const targetGroupDatasetKey: DiscoveryDatasetKey = 'aws-ec2-target-groups';
@@ -495,6 +513,7 @@ describe('rule exports', () => {
     expect(route53HealthCheckDatasetKey).toBe('aws-route53-health-checks');
     expect(route53RecordDatasetKey).toBe('aws-route53-records');
     expect(route53ZoneDatasetKey).toBe('aws-route53-zones');
+    expect(sagemakerEndpointDatasetKey).toBe('aws-sagemaker-endpoint-activity');
     expect(sagemakerDatasetKey).toBe('aws-sagemaker-notebook-instances');
     expect(secretsManagerDatasetKey).toBe('aws-secretsmanager-secrets');
     expect(cloudFrontDistribution.priceClass).toBe('PriceClass_All');
@@ -508,6 +527,7 @@ describe('rule exports', () => {
     expect(route53Zone.zoneName).toBe('example.com.');
     expect(route53Record.ttl).toBe(300);
     expect(route53HealthCheck.healthCheckId).toBe('abcd1234');
+    expect(endpointActivity.totalInvocationsLast14Days).toBe(0);
     expect(notebookInstance.notebookInstanceStatus).toBe('InService');
     expect(secret.secretName).toBe('db-password');
     expect(cacheCluster.cacheClusterStatus).toBe('available');

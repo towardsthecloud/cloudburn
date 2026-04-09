@@ -21,6 +21,8 @@ import {
   type AwsRoute53HealthCheck,
   type AwsRoute53Record,
   type AwsRoute53Zone,
+  type AwsSageMakerEndpointActivity,
+  type AwsSageMakerNotebookInstance,
   type AwsSecretsManagerSecret,
   builtInRuleMetadata,
   parseIaC,
@@ -251,6 +253,25 @@ describe('sdk exports', () => {
       secretArn: 'arn:aws:secretsmanager:us-east-1:123456789012:secret:db-password-AbCdEf',
       secretName: 'db-password',
     };
+    const notebookInstance: AwsSageMakerNotebookInstance = {
+      accountId: '123456789012',
+      instanceType: 'ml.t3.medium',
+      lastModifiedTime: '2026-03-01T00:00:00.000Z',
+      notebookInstanceName: 'analytics-notebook',
+      notebookInstanceStatus: 'InService',
+      region: 'eu-west-1',
+    };
+    const endpointActivity: AwsSageMakerEndpointActivity = {
+      accountId: '123456789012',
+      creationTime: '2026-02-01T00:00:00.000Z',
+      endpointArn: 'arn:aws:sagemaker:eu-west-1:123456789012:endpoint/orders-endpoint',
+      endpointConfigName: 'orders-endpoint-config',
+      endpointName: 'orders-endpoint',
+      endpointStatus: 'InService',
+      lastModifiedTime: '2026-03-01T00:00:00.000Z',
+      region: 'eu-west-1',
+      totalInvocationsLast14Days: 0,
+    };
 
     expect(apiGatewayStage.stageName).toBe('prod');
     expect(trail.trailName).toBe('org-trail');
@@ -272,6 +293,8 @@ describe('sdk exports', () => {
     expect(route53Record.ttl).toBe(300);
     expect(route53HealthCheck.healthCheckId).toBe('abcd1234');
     expect(secret.secretName).toBe('db-password');
+    expect(notebookInstance.notebookInstanceStatus).toBe('InService');
+    expect(endpointActivity.totalInvocationsLast14Days).toBe(0);
   });
 
   it('clones supports arrays so metadata consumers cannot mutate source rule definitions', () => {

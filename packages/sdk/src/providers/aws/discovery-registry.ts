@@ -55,7 +55,7 @@ import {
   hydrateAwsRoute53Zones,
 } from './resources/route53.js';
 import { hydrateAwsS3BucketAnalyses } from './resources/s3.js';
-import { hydrateAwsSageMakerNotebookInstances } from './resources/sagemaker.js';
+import { hydrateAwsSageMakerEndpointActivity, hydrateAwsSageMakerNotebookInstances } from './resources/sagemaker.js';
 import { hydrateAwsSecretsManagerSecrets } from './resources/secretsmanager.js';
 import { hydrateAwsEc2VpcEndpointActivity } from './resources/vpc-endpoints.js';
 
@@ -434,6 +434,12 @@ const awsDiscoveryDatasetRegistry: {
     resourceTypes: ['s3:bucket'],
     service: 's3',
     load: hydrateAwsS3BucketAnalyses,
+  },
+  'aws-sagemaker-endpoint-activity': {
+    datasetKey: 'aws-sagemaker-endpoint-activity',
+    resourceTypes: ['sagemaker:endpoint'],
+    service: 'sagemaker',
+    load: hydrateAwsSageMakerEndpointActivity,
   },
   'aws-sagemaker-notebook-instances': {
     datasetKey: 'aws-sagemaker-notebook-instances',

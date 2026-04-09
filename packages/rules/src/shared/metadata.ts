@@ -168,6 +168,7 @@ export type AwsEc2Instance = {
   architecture?: string;
   launchTime?: string;
   state?: string;
+  stoppedAt?: string;
   region: string;
   accountId: string;
 };
@@ -307,6 +308,20 @@ export type AwsSageMakerNotebookInstance = {
   notebookInstanceStatus: string;
   instanceType: string;
   lastModifiedTime?: string;
+  region: string;
+  accountId: string;
+};
+
+/** Discovered SageMaker endpoint with 14-day invocation totals for idle checks. */
+export type AwsSageMakerEndpointActivity = {
+  endpointArn: string;
+  endpointName: string;
+  endpointStatus: string;
+  endpointConfigName: string;
+  creationTime?: string;
+  lastModifiedTime?: string;
+  /** `null` means CloudWatch did not return complete invocation coverage for the 14-day window. */
+  totalInvocationsLast14Days: number | null;
   region: string;
   accountId: string;
 };
@@ -704,6 +719,7 @@ export type DiscoveryDatasetKey =
   | 'aws-route53-records'
   | 'aws-route53-zones'
   | 'aws-s3-bucket-analyses'
+  | 'aws-sagemaker-endpoint-activity'
   | 'aws-sagemaker-notebook-instances'
   | 'aws-secretsmanager-secrets';
 
@@ -760,6 +776,7 @@ export type DiscoveryDatasetMap = {
   'aws-route53-records': AwsRoute53Record[];
   'aws-route53-zones': AwsRoute53Zone[];
   'aws-s3-bucket-analyses': AwsS3BucketAnalysis[];
+  'aws-sagemaker-endpoint-activity': AwsSageMakerEndpointActivity[];
   'aws-sagemaker-notebook-instances': AwsSageMakerNotebookInstance[];
   'aws-secretsmanager-secrets': AwsSecretsManagerSecret[];
 };

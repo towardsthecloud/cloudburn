@@ -68,6 +68,7 @@ export type {
   AwsRoute53Zone,
   AwsS3BucketAnalysis,
   AwsS3BucketAnalysisFlags,
+  AwsSageMakerEndpointActivity,
   AwsSageMakerNotebookInstance,
   AwsSecretsManagerSecret,
   AwsStaticApiGatewayStage,

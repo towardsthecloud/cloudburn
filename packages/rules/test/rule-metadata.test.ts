@@ -752,6 +752,22 @@ describe('rule metadata', () => {
     });
   });
 
+  it('defines the expected EC2 stopped-instance rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-EC2-13');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-EC2-13',
+      name: 'EC2 Instance Stopped',
+      description: 'Flag stopped EC2 instances whose parsed stop time is at least 30 days old.',
+      message: 'Stopped EC2 instances with a parsed stop time older than 30 days should be reviewed for cleanup.',
+      provider: 'aws',
+      service: 'ec2',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-ec2-instances'],
+    });
+  });
+
   it('defines the expected ELB ALB-without-targets rule metadata', () => {
     const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-ELB-1');
 
@@ -1034,6 +1050,22 @@ describe('rule metadata', () => {
     });
   });
 
+  it('defines the expected RDS manual-snapshot-max-age rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-RDS-10');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-RDS-10',
+      name: 'RDS Manual Snapshot Max Age Exceeded',
+      description: 'Flag manual RDS snapshots older than 90 days.',
+      message: 'Manual RDS snapshots older than 90 days should be reviewed for cleanup.',
+      provider: 'aws',
+      service: 'rds',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-rds-snapshots'],
+    });
+  });
+
   it('defines the expected Redshift low-cpu rule metadata', () => {
     const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-REDSHIFT-1');
 
@@ -1113,6 +1145,22 @@ describe('rule metadata', () => {
       service: 'sagemaker',
       supports: ['discovery'],
       discoveryDependencies: ['aws-sagemaker-notebook-instances'],
+    });
+  });
+
+  it('defines the expected SageMaker idle-endpoint rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-SAGEMAKER-2');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-SAGEMAKER-2',
+      name: 'SageMaker Endpoint Idle',
+      description: 'Flag SageMaker endpoints in service whose 14-day invocation total is zero.',
+      message: 'SageMaker endpoints in service with zero invocations over 14 days should be reviewed for cleanup.',
+      provider: 'aws',
+      service: 'sagemaker',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-sagemaker-endpoint-activity'],
     });
   });
 

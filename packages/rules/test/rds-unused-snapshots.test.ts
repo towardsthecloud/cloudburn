@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { rdsUnusedSnapshotsRule } from '../src/aws/rds/unused-snapshots.js';
 import type { AwsRdsInstance, AwsRdsSnapshot } from '../src/index.js';
 import { LiveResourceBag } from '../src/index.js';
@@ -27,6 +27,15 @@ const createSnapshot = (overrides: Partial<AwsRdsSnapshot> = {}): AwsRdsSnapshot
 });
 
 describe('rdsUnusedSnapshotsRule', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-01-31T00:00:00.000Z'));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('flags orphaned RDS snapshots older than the grace period', () => {
     const finding = rdsUnusedSnapshotsRule.evaluateLive?.({
       catalog: {
@@ -74,7 +83,7 @@ describe('rdsUnusedSnapshotsRule', () => {
       },
       resources: new LiveResourceBag({
         'aws-rds-instances': [createInstance()],
-        'aws-rds-snapshots': [createSnapshot({ snapshotCreateTime: '2026-03-10T00:00:00.000Z' })],
+        'aws-rds-snapshots': [createSnapshot({ snapshotCreateTime: '2026-01-15T00:00:00.000Z' })],
       }),
     });
 

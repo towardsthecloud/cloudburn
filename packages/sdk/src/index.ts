@@ -52,6 +52,8 @@ export type {
   AwsRoute53HealthCheck,
   AwsRoute53Record,
   AwsRoute53Zone,
+  AwsSageMakerEndpointActivity,
+  AwsSageMakerNotebookInstance,
   AwsSecretsManagerSecret,
   AwsSupportedResourceType,
   BuiltInRuleMetadata,
