@@ -163,6 +163,55 @@ describe('hydrateAwsEc2Instances', () => {
     ]);
   });
 
+  it('parses stoppedAt when the stop reason uses the GMT suffix', async () => {
+    mockedCreateEc2Client.mockImplementation(({ region }) => {
+      const send = vi.fn(async () => ({
+        Reservations: [
+          {
+            Instances: [
+              {
+                Architecture: 'x86_64',
+                InstanceId: 'i-gmt',
+                InstanceType: 'm7i.large',
+                LaunchTime: new Date('2025-03-01T00:00:00.000Z'),
+                State: {
+                  Name: 'stopped',
+                },
+                StateTransitionReason: 'User initiated (2025-03-15 10:30:00 GMT)',
+              },
+            ],
+          },
+        ],
+      }));
+
+      return { send, region } as never;
+    });
+
+    await expect(
+      hydrateAwsEc2Instances([
+        {
+          accountId: '123456789012',
+          arn: 'arn:aws:ec2:us-east-1:123456789012:instance/i-gmt',
+          properties: [],
+          region: 'us-east-1',
+          resourceType: 'ec2:instance',
+          service: 'ec2',
+        },
+      ]),
+    ).resolves.toEqual([
+      {
+        accountId: '123456789012',
+        architecture: 'x86_64',
+        instanceId: 'i-gmt',
+        instanceType: 'm7i.large',
+        launchTime: '2025-03-01T00:00:00.000Z',
+        region: 'us-east-1',
+        state: 'stopped',
+        stoppedAt: '2025-03-15T10:30:00.000Z',
+      },
+    ]);
+  });
+
   it('skips resources with invalid EC2 instance arns', async () => {
     const instances = await hydrateAwsEc2Instances([
       {

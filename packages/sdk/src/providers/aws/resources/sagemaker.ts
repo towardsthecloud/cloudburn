@@ -57,7 +57,9 @@ const isEndpointConfigMissingError = (error: unknown): boolean => {
   return (
     candidates.some((value) => value.includes('resourcenotfound')) ||
     candidates.some((value) => value.includes('could not find endpoint config')) ||
-    candidates.some((value) => value.includes('endpoint config') && value.includes('not found'))
+    candidates.some((value) => value.includes('could not find the endpoint configuration')) ||
+    candidates.some((value) => value.includes('endpoint config') && value.includes('not found')) ||
+    candidates.some((value) => value.includes('endpoint configuration') && value.includes('not found'))
   );
 };
 
@@ -271,11 +273,11 @@ export const hydrateAwsSageMakerEndpointActivity = async (
           ...completeEndpoints.map((endpoint, endpointIndex) => {
             const totalInvocationsLast14Days =
               endpoint.productionVariantNames.length > 0 &&
-              endpoint.productionVariantNames.every(
-                (_variantName, variantIndex) =>
-                  (metricData.get(`endpoint${endpointIndex}variant${variantIndex}`) ?? []).length >=
-                  REQUIRED_ENDPOINT_DAILY_POINTS,
-              )
+              endpoint.productionVariantNames.every((_variantName, variantIndex) => {
+                const points = metricData.get(`endpoint${endpointIndex}variant${variantIndex}`) ?? [];
+
+                return points.length === 0 || points.length >= REQUIRED_ENDPOINT_DAILY_POINTS;
+              })
                 ? endpoint.productionVariantNames.reduce((sum, _variantName, variantIndex) => {
                     const points = metricData.get(`endpoint${endpointIndex}variant${variantIndex}`) ?? [];
 

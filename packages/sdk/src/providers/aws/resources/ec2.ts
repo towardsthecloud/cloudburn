@@ -5,7 +5,7 @@ import { chunkItems, withAwsServiceErrorContext } from './utils.js';
 
 const EC2_INSTANCE_ARN_PREFIX = 'instance/';
 const EC2_DESCRIBE_BATCH_SIZE = 100;
-const STOPPED_STATE_TRANSITION_REASON_PATTERN = /\((\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) UTC\)$/u;
+const STOPPED_STATE_TRANSITION_REASON_PATTERN = /\((\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) (?:UTC|GMT)\)$/u;
 
 const extractInstanceId = (arn: string): string | null => {
   const arnSegments = arn.split(':');
