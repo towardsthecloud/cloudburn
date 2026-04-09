@@ -1,5 +1,11 @@
 # @cloudburn/rules
 
+## 0.23.0
+
+### Minor Changes
+
+- [#62](https://github.com/towardsthecloud/cloudburn/pull/62) [`4d25e80`](https://github.com/towardsthecloud/cloudburn/commit/4d25e80b65edbff1eb556896973b1032a9319255) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Add AWS discovery rules for stopped EC2 instances, old manual RDS snapshots, and idle SageMaker endpoints.
+
 ## 0.22.0
 
 ### Minor Changes

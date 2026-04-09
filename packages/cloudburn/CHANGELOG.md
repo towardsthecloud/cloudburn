@@ -1,5 +1,12 @@
 # cloudburn
 
+## 0.9.11
+
+### Patch Changes
+
+- Updated dependencies [[`4d25e80`](https://github.com/towardsthecloud/cloudburn/commit/4d25e80b65edbff1eb556896973b1032a9319255)]:
+  - @cloudburn/sdk@0.22.0
+
 ## 0.9.10
 
 ### Patch Changes
