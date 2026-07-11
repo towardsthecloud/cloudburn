@@ -32,6 +32,22 @@ export type AwsClientConfig = {
 
 const AWS_REGION_PATTERN = /^[a-z]{2}(?:-[a-z0-9]+)+-\d+$/;
 const AWS_GLOBAL_CONTROL_REGION = 'us-east-1';
+const AWS_CLIENT_MAX_ATTEMPTS = 3;
+const AWS_CLIENT_CONNECTION_TIMEOUT_MS = 5_000;
+const AWS_CLIENT_REQUEST_TIMEOUT_MS = 30_000;
+
+// Adaptive retry mode rate-limits the client proactively when AWS throttles;
+// retries beyond these attempts are owned by withAwsServiceErrorContext. Node
+// sockets have no default timeout, so without explicit request timeouts a hung
+// connection would stall a discovery run indefinitely.
+const baseAwsClientConfig = () => ({
+  maxAttempts: AWS_CLIENT_MAX_ATTEMPTS,
+  requestHandler: {
+    connectionTimeout: AWS_CLIENT_CONNECTION_TIMEOUT_MS,
+    requestTimeout: AWS_CLIENT_REQUEST_TIMEOUT_MS,
+  },
+  retryMode: 'adaptive',
+});
 export const AWS_REGIONS = [
   'af-south-1',
   'ap-east-1',
@@ -112,150 +128,175 @@ export const assertSupportedAwsRegion = (region: string | undefined): AwsRegion 
 /** Creates an AWS EC2 client for a specific region. */
 export const createEc2Client = (config: AwsClientConfig): EC2Client =>
   new EC2Client({
+    ...baseAwsClientConfig(),
     region: config.region,
   });
 
 /** Creates an AWS ECS client for a specific region. */
 export const createEcsClient = (config: AwsClientConfig): ECSClient =>
   new ECSClient({
+    ...baseAwsClientConfig(),
     region: config.region,
   });
 
 /** Creates an AWS EKS client for a specific region. */
 export const createEksClient = (config: AwsClientConfig): EKSClient =>
   new EKSClient({
+    ...baseAwsClientConfig(),
     region: config.region,
   });
 
 /** Creates an AWS ECR client for a specific region. */
 export const createEcrClient = (config: AwsClientConfig): ECRClient =>
   new ECRClient({
+    ...baseAwsClientConfig(),
     region: config.region,
   });
 
 /** Creates an AWS Application Auto Scaling client for a specific region. */
 export const createApplicationAutoScalingClient = (config: AwsClientConfig): ApplicationAutoScalingClient =>
   new ApplicationAutoScalingClient({
+    ...baseAwsClientConfig(),
     region: config.region,
   });
 
 /** Creates an AWS API Gateway REST API client for a specific region. */
 export const createApiGatewayClient = (config: AwsClientConfig): APIGatewayClient =>
   new APIGatewayClient({
+    ...baseAwsClientConfig(),
     region: config.region,
   });
 
 /** Creates an AWS Budgets client against the global billing control plane. */
 export const createBudgetsClient = (): BudgetsClient =>
   new BudgetsClient({
+    ...baseAwsClientConfig(),
     region: AWS_GLOBAL_CONTROL_REGION,
   });
 
 /** Creates an AWS ElastiCache client for a specific region. */
 export const createElastiCacheClient = (config: AwsClientConfig): ElastiCacheClient =>
   new ElastiCacheClient({
+    ...baseAwsClientConfig(),
     region: config.region,
   });
 
 /** Creates an AWS Classic ELB client for a specific region. */
 export const createElasticLoadBalancingClient = (config: AwsClientConfig): ElasticLoadBalancingClient =>
   new ElasticLoadBalancingClient({
+    ...baseAwsClientConfig(),
     region: config.region,
   });
 
 /** Creates an AWS ELBv2 client for a specific region. */
 export const createElasticLoadBalancingV2Client = (config: AwsClientConfig): ElasticLoadBalancingV2Client =>
   new ElasticLoadBalancingV2Client({
+    ...baseAwsClientConfig(),
     region: config.region,
   });
 
 /** Creates an AWS CloudWatch client for a specific region. */
 export const createCloudWatchClient = (config: AwsClientConfig): CloudWatchClient =>
   new CloudWatchClient({
+    ...baseAwsClientConfig(),
     region: config.region,
   });
 
 /** Creates an AWS CloudTrail client for a specific region. */
 export const createCloudTrailClient = (config: AwsClientConfig): CloudTrailClient =>
   new CloudTrailClient({
+    ...baseAwsClientConfig(),
     region: config.region,
   });
 
 /** Creates an AWS CloudFront client against the global control plane. */
 export const createCloudFrontClient = (): CloudFrontClient =>
   new CloudFrontClient({
+    ...baseAwsClientConfig(),
     region: AWS_GLOBAL_CONTROL_REGION,
   });
 
 /** Creates an AWS CloudWatch Logs client for a specific region. */
 export const createCloudWatchLogsClient = (config: AwsClientConfig): CloudWatchLogsClient =>
   new CloudWatchLogsClient({
+    ...baseAwsClientConfig(),
     region: config.region,
   });
 
 /** Creates an AWS Cost Explorer client against the global billing control plane. */
 export const createCostExplorerClient = (): CostExplorerClient =>
   new CostExplorerClient({
+    ...baseAwsClientConfig(),
     region: AWS_GLOBAL_CONTROL_REGION,
   });
 
 /** Creates an AWS DynamoDB client for a specific region. */
 export const createDynamoDbClient = (config: AwsClientConfig): DynamoDBClient =>
   new DynamoDBClient({
+    ...baseAwsClientConfig(),
     region: config.region,
   });
 
 /** Creates an AWS Lambda client for a specific region. */
 export const createLambdaClient = (config: AwsClientConfig): LambdaClient =>
   new LambdaClient({
+    ...baseAwsClientConfig(),
     region: config.region,
   });
 
 /** Creates an AWS EMR client for a specific region. */
 export const createEmrClient = (config: AwsClientConfig): EMRClient =>
   new EMRClient({
+    ...baseAwsClientConfig(),
     region: config.region,
   });
 
 /** Creates an AWS RDS client for a specific region. */
 export const createRdsClient = (config: AwsClientConfig): RDSClient =>
   new RDSClient({
+    ...baseAwsClientConfig(),
     region: config.region,
   });
 
 /** Creates an AWS Redshift client for a specific region. */
 export const createRedshiftClient = (config: AwsClientConfig): RedshiftClient =>
   new RedshiftClient({
+    ...baseAwsClientConfig(),
     region: config.region,
   });
 
 /** Creates an AWS Route 53 client against the global control plane. */
 export const createRoute53Client = (): Route53Client =>
   new Route53Client({
+    ...baseAwsClientConfig(),
     region: AWS_GLOBAL_CONTROL_REGION,
   });
 
 /** Creates an AWS S3 client for a specific region. */
 export const createS3Client = (config: AwsClientConfig): S3Client =>
   new S3Client({
+    ...baseAwsClientConfig(),
     region: config.region,
   });
 
 /** Creates an AWS SageMaker client for a specific region. */
 export const createSageMakerClient = (config: AwsClientConfig): SageMakerClient =>
   new SageMakerClient({
+    ...baseAwsClientConfig(),
     region: config.region,
   });
 
 /** Creates an AWS Secrets Manager client for a specific region. */
 export const createSecretsManagerClient = (config: AwsClientConfig): SecretsManagerClient =>
   new SecretsManagerClient({
+    ...baseAwsClientConfig(),
     region: config.region,
   });
 
 /** Creates an AWS Resource Explorer client for a specific region. */
 export const createResourceExplorerClient = (config: AwsClientConfig): ResourceExplorer2Client =>
   new ResourceExplorer2Client({
+    ...baseAwsClientConfig(),
     region: config.region,
   });
 
@@ -282,7 +323,7 @@ export const resolveCurrentAwsRegion = async (): Promise<AwsRegion> => {
  * @returns The caller account ID.
  */
 export const resolveAwsAccountId = async (): Promise<string> => {
-  const client = new STSClient({});
+  const client = new STSClient(baseAwsClientConfig());
   const { Account } = await client.send(new GetCallerIdentityCommand({}));
 
   if (!Account) {
