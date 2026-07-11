@@ -152,7 +152,18 @@ const toIaCResources = async (path: string, scanRoot: string): Promise<IaCResour
   const contents = await readFile(path, 'utf8');
   const relativePath = toRelativePath(path, scanRoot);
   const locations = locateResourceBlocks(contents, relativePath);
-  const parsed = await parseHcl(path, contents);
+
+  // Parse failures are treated as "not a valid Terraform file" rather than
+  // aborting the scan, matching the CloudFormation parser's behavior for
+  // malformed templates.
+  let parsed: Awaited<ReturnType<typeof parseHcl>>;
+
+  try {
+    parsed = await parseHcl(path, contents);
+  } catch {
+    return [];
+  }
+
   const parsedResources = parsed.resource;
 
   if (!parsedResources || typeof parsedResources !== 'object') {
