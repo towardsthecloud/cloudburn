@@ -150,8 +150,6 @@ const toIaCResources = async (path: string, scanRoot: string): Promise<IaCResour
   }
 
   const contents = await readFile(path, 'utf8');
-  const relativePath = toRelativePath(path, scanRoot);
-  const locations = locateResourceBlocks(contents, relativePath);
 
   // Parse failures are treated as "not a valid Terraform file" rather than
   // aborting the scan, matching the CloudFormation parser's behavior for
@@ -169,6 +167,9 @@ const toIaCResources = async (path: string, scanRoot: string): Promise<IaCResour
   if (!parsedResources || typeof parsedResources !== 'object') {
     return [];
   }
+
+  const relativePath = toRelativePath(path, scanRoot);
+  const locations = locateResourceBlocks(contents, relativePath);
 
   const resources = Object.entries(parsedResources).flatMap(([resourceType, namedResources]) => {
     if (!resourceType.startsWith('aws_') || typeof namedResources !== 'object' || namedResources === null) {

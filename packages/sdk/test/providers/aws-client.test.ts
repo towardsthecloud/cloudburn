@@ -20,14 +20,21 @@ describe('aws client resilience defaults', () => {
           retryMode: string;
         };
       };
-
-      expect(client.config.retryMode, `${factoryName} retryMode`).toBe('adaptive');
-      await expect(client.config.maxAttempts(), `${factoryName} maxAttempts`).resolves.toBe(3);
-
       const handlerConfig = await client.config.requestHandler.configProvider;
 
-      expect(handlerConfig.connectionTimeout, `${factoryName} connectionTimeout`).toBe(5_000);
-      expect(handlerConfig.requestTimeout, `${factoryName} requestTimeout`).toBe(30_000);
+      expect({
+        factoryName,
+        retryMode: client.config.retryMode,
+        maxAttempts: await client.config.maxAttempts(),
+        connectionTimeout: handlerConfig.connectionTimeout,
+        requestTimeout: handlerConfig.requestTimeout,
+      }).toEqual({
+        factoryName,
+        retryMode: 'adaptive',
+        maxAttempts: 3,
+        connectionTimeout: 5_000,
+        requestTimeout: 30_000,
+      });
     }
   });
 });

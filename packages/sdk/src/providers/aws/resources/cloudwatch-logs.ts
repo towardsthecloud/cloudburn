@@ -14,8 +14,7 @@ import { createCloudWatchLogsClient } from '../client.js';
 import { chunkItems, withAwsServiceErrorContext } from './utils.js';
 
 const CLOUDWATCH_LOG_GROUP_ARN_PATTERN = /^arn:[^:]+:logs:[^:]+:[^:]+:log-group:(.+)$/u;
-const CLOUDWATCH_LOG_STREAM_ACTIVITY_CONCURRENCY = 10;
-const CLOUDWATCH_METRIC_FILTER_CONCURRENCY = 10;
+const CLOUDWATCH_LOG_GROUP_HYDRATION_CONCURRENCY = 10;
 
 const extractAccountIdFromArn = (arn: string): string | null => {
   const arnSegments = arn.split(':');
@@ -234,7 +233,7 @@ export const hydrateAwsCloudWatchLogGroupRecentStreamActivity = async (
       );
       const activity: AwsCloudWatchLogGroupRecentStreamActivity[] = [];
 
-      for (const batch of chunkItems([...desiredLogGroups.entries()], CLOUDWATCH_LOG_STREAM_ACTIVITY_CONCURRENCY)) {
+      for (const batch of chunkItems([...desiredLogGroups.entries()], CLOUDWATCH_LOG_GROUP_HYDRATION_CONCURRENCY)) {
         const hydratedBatch = await Promise.all(
           batch.map(async ([logGroupName, discoveredAccountId]) => {
             const response = await withAwsServiceErrorContext(
@@ -311,7 +310,7 @@ export const hydrateAwsCloudWatchLogMetricFilterCoverage = async (
 
       const coverage: AwsCloudWatchLogMetricFilterCoverage[] = [];
 
-      for (const batch of chunkItems([...desiredLogGroups.entries()], CLOUDWATCH_METRIC_FILTER_CONCURRENCY)) {
+      for (const batch of chunkItems([...desiredLogGroups.entries()], CLOUDWATCH_LOG_GROUP_HYDRATION_CONCURRENCY)) {
         const hydratedBatch = await Promise.all(
           batch.map(async ([logGroupName, accountId]) => {
             let nextToken: string | undefined;
