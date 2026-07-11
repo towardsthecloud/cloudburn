@@ -69,6 +69,7 @@
     "@aws-sdk/client-sagemaker": "^3.1019.0",
     "@aws-sdk/client-secrets-manager": "^3.1015.0",
     "@aws-sdk/client-sts": "^3.1003.0",
+    "@aws-sdk/types": "^3.973.6",
     "@cdktf/hcl2json": "^0.21.0",
     "@cloudburn/rules": "workspace:*",
     "yaml": "^2.8.2"

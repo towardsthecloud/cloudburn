@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { listBuiltInRuleMetadata } from '../src/built-in-rules.js';
 import {
   type AwsApiGatewayStage,
+  type AwsClientCredentials,
   type AwsCloudFrontDistribution,
   type AwsCloudTrailTrail,
   type AwsCloudWatchLogGroup,
@@ -27,6 +28,7 @@ import {
   builtInRuleMetadata,
   parseIaC,
   type Rule,
+  withAwsClientCredentials,
 } from '../src/index.js';
 
 const createRuleFixture = (id: string): Rule => ({
@@ -71,6 +73,16 @@ const sortRulesForMetadata = <TRule extends Pick<Rule, 'id' | 'provider' | 'serv
 describe('sdk exports', () => {
   it('exports the autodetect parser from the package root', () => {
     expect(parseIaC).toBeTypeOf('function');
+  });
+
+  it('exports the aws credential scoping helper from the package root', () => {
+    const staticCredentials: AwsClientCredentials = {
+      accessKeyId: 'AKIAEXPORT',
+      secretAccessKey: 'export-secret',
+    };
+
+    expect(withAwsClientCredentials).toBeTypeOf('function');
+    expect(staticCredentials.accessKeyId).toBe('AKIAEXPORT');
   });
 
   it('exports built-in rule metadata in stable provider/service/id order', () => {

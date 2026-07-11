@@ -3,7 +3,12 @@
 export { awsCorePreset } from '@cloudburn/rules';
 export { builtInRuleMetadata } from './built-in-rules.js';
 export { parseIaC } from './parsers/index.js';
-export { assertSupportedAwsRegion, assertValidAwsRegion } from './providers/aws/client.js';
+export {
+  type AwsClientCredentials,
+  assertSupportedAwsRegion,
+  assertValidAwsRegion,
+  withAwsClientCredentials,
+} from './providers/aws/client.js';
 export { isAwsDiscoveryErrorCode } from './providers/aws/errors.js';
 export { CloudBurnClient } from './scanner.js';
 export type {
