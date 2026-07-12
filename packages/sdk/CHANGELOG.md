@@ -1,5 +1,11 @@
 # @cloudburn/sdk
 
+## 0.23.1
+
+### Patch Changes
+
+- [#67](https://github.com/towardsthecloud/cloudburn/pull/67) [`06bb5de`](https://github.com/towardsthecloud/cloudburn/commit/06bb5de0fe5f2c02dc679afe61767e282109d015) Thanks [@axonstone](https://github.com/axonstone)! - Harden live discovery and static scanning: CloudWatch Logs metric-filter hydration now bounds concurrent DescribeMetricFilters calls, every AWS client uses adaptive retry mode with explicit connection/request timeouts, and malformed Terraform files are skipped instead of aborting the entire static scan.
+
 ## 0.23.0
 
 ### Minor Changes
