@@ -11,9 +11,11 @@ import {
 import {
   buildAwsDiscoveryCatalog,
   createAwsResourceExplorerSetup,
+  ensureAwsResourceExplorerDefaultViewIncludesTags,
   getAwsDiscoveryRegionStatus,
   listAwsDiscoveryIndexes,
   listAwsDiscoverySupportedResourceTypes,
+  listAwsResourcesByFilter,
   updateAwsResourceExplorerIndexType,
   waitForAwsResourceExplorerIndex,
   waitForAwsResourceExplorerSetup,
@@ -109,9 +111,11 @@ vi.mock('../../src/providers/aws/client.js', async (importOriginal) => {
 vi.mock('../../src/providers/aws/resource-explorer.js', () => ({
   buildAwsDiscoveryCatalog: vi.fn(),
   createAwsResourceExplorerSetup: vi.fn(),
+  ensureAwsResourceExplorerDefaultViewIncludesTags: vi.fn(),
   getAwsDiscoveryRegionStatus: vi.fn(),
   listAwsDiscoveryIndexes: vi.fn(),
   listAwsDiscoverySupportedResourceTypes: vi.fn(),
+  listAwsResourcesByFilter: vi.fn(),
   updateAwsResourceExplorerIndexType: vi.fn(),
   waitForAwsResourceExplorerIndex: vi.fn(),
   waitForAwsResourceExplorerSetup: vi.fn(),
@@ -258,9 +262,13 @@ const mockedResolveAwsAccountId = vi.mocked(resolveAwsAccountId);
 const mockedListEnabledAwsRegions = vi.mocked(listEnabledAwsRegions);
 const mockedBuildAwsDiscoveryCatalog = vi.mocked(buildAwsDiscoveryCatalog);
 const mockedCreateAwsResourceExplorerSetup = vi.mocked(createAwsResourceExplorerSetup);
+const mockedEnsureAwsResourceExplorerDefaultViewIncludesTags = vi.mocked(
+  ensureAwsResourceExplorerDefaultViewIncludesTags,
+);
 const mockedGetAwsDiscoveryRegionStatus = vi.mocked(getAwsDiscoveryRegionStatus);
 const mockedListAwsDiscoveryIndexes = vi.mocked(listAwsDiscoveryIndexes);
 const mockedListAwsDiscoverySupportedResourceTypes = vi.mocked(listAwsDiscoverySupportedResourceTypes);
+const mockedListAwsResourcesByFilter = vi.mocked(listAwsResourcesByFilter);
 const mockedUpdateAwsResourceExplorerIndexType = vi.mocked(updateAwsResourceExplorerIndexType);
 const mockedWaitForAwsResourceExplorerIndex = vi.mocked(waitForAwsResourceExplorerIndex);
 const mockedWaitForAwsResourceExplorerSetup = vi.mocked(waitForAwsResourceExplorerSetup);
@@ -982,6 +990,47 @@ describe('discoverAwsResources', () => {
       {
         accountId: '123456789012',
         monitorCount: 0,
+      },
+    ]);
+  });
+
+  it('loads the global untagged-resource dataset without service-specific catalog hydration', async () => {
+    mockedResolveCurrentAwsRegion.mockResolvedValue('eu-west-1');
+    mockedListAwsResourcesByFilter.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        arn: 'arn:aws:ec2:eu-west-1:123456789012:instance/i-123',
+        properties: [],
+        region: 'eu-west-1',
+        resourceType: 'ec2:instance',
+        service: 'ec2',
+      },
+    ]);
+
+    const result = await discoverAwsResources(
+      [
+        createRule({
+          id: 'CLDBRN-AWS-TEST-TAGGING',
+          service: 'tagging',
+          discoveryDependencies: ['aws-resource-explorer-untagged-resources'],
+        }),
+      ],
+      { mode: 'regions', regions: ['eu-west-1'] },
+    );
+
+    expect(mockedBuildAwsDiscoveryCatalog).not.toHaveBeenCalled();
+    expect(mockedListAwsResourcesByFilter).toHaveBeenCalledWith(
+      { mode: 'regions', regions: ['eu-west-1'] },
+      'resourcetype.supports:tags tag:none',
+      { requiredViewProperties: ['tags'], scope: 'account' },
+    );
+    expect(result.resources.get('aws-resource-explorer-untagged-resources')).toEqual([
+      {
+        accountId: '123456789012',
+        arn: 'arn:aws:ec2:eu-west-1:123456789012:instance/i-123',
+        region: 'eu-west-1',
+        resourceType: 'ec2:instance',
+        service: 'ec2',
       },
     ]);
   });
@@ -3310,6 +3359,7 @@ describe('discovery support commands', () => {
       verificationStatus: 'verified',
     });
     expect(mockedCreateAwsResourceExplorerSetup).not.toHaveBeenCalled();
+    expect(mockedEnsureAwsResourceExplorerDefaultViewIncludesTags).toHaveBeenCalledWith('us-east-1');
   });
 
   it('promotes an existing local setup to an aggregator when permissions allow it', async () => {
@@ -3465,6 +3515,7 @@ describe('discovery support commands', () => {
       region: 'eu-central-1',
       regions: ['eu-central-1', 'eu-west-1'],
     });
+    expect(mockedEnsureAwsResourceExplorerDefaultViewIncludesTags).toHaveBeenCalledWith('eu-central-1');
   });
 
   it('keeps setup status as CREATED when a new setup task starts but verification times out before indexes appear', async () => {
@@ -3526,6 +3577,7 @@ describe('discovery support commands', () => {
       taskId: 'task-timeout',
       verificationStatus: 'timed_out',
     });
+    expect(mockedEnsureAwsResourceExplorerDefaultViewIncludesTags).not.toHaveBeenCalled();
   });
 
   it('does not fall back to local-only setup when access is denied after setup creation succeeds', async () => {

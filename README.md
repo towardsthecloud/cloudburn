@@ -135,7 +135,7 @@ Generate a starter config with `cloudburn config --init`. Full details in the [c
 
 ## AWS Permissions
 
-CloudBurn needs Resource Explorer read/write access plus read-only permissions for the services behind the rules you enable (EC2, EBS, RDS, S3, Lambda, CloudTrail, CloudWatch, etc.). Which permissions you need depends on which rules you're running.
+CloudBurn needs Resource Explorer read/write access plus read-only permissions for the services behind the rules you enable (EC2, EBS, RDS, S3, Lambda, CloudTrail, CloudWatch, etc.). `discover init` uses `resource-explorer-2:UpdateView` to enable tag visibility for global tagging rules. Which permissions you need depends on which rules you're running.
 
 ## Contributing
 

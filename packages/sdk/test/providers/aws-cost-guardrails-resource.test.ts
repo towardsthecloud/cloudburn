@@ -36,6 +36,20 @@ describe('Cost guardrail discovery resources', () => {
           Budgets: [
             {
               BudgetName: 'monthly-spend',
+              BudgetLimit: {
+                Amount: '100',
+                Unit: 'USD',
+              },
+              CalculatedSpend: {
+                ActualSpend: {
+                  Amount: '125.50',
+                  Unit: 'USD',
+                },
+                ForecastedSpend: {
+                  Amount: '150',
+                  Unit: 'USD',
+                },
+              },
             },
           ],
         };
@@ -46,6 +60,54 @@ describe('Cost guardrail discovery resources', () => {
       {
         accountId: '123456789012',
         budgetCount: 1,
+        budgets: [
+          {
+            actualSpend: 125.5,
+            budgetLimit: 100,
+            budgetName: 'monthly-spend',
+            forecastedSpend: 150,
+            spendUnit: 'USD',
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('counts named budgets across pages while skipping invalid spend details', async () => {
+    mockedResolveAwsAccountId.mockResolvedValue('123456789012');
+    mockedCreateBudgetsClient.mockReturnValue({
+      send: vi.fn(async (command: DescribeBudgetsCommand) =>
+        command.input.NextToken
+          ? {
+              Budgets: [
+                {
+                  BudgetName: 'unit-mismatch',
+                  BudgetLimit: { Amount: '100', Unit: 'USD' },
+                  CalculatedSpend: {
+                    ActualSpend: { Amount: '125', Unit: 'EUR' },
+                  },
+                },
+              ],
+            }
+          : {
+              Budgets: [
+                {
+                  BudgetName: 'missing-limit',
+                  CalculatedSpend: {
+                    ActualSpend: { Amount: '125', Unit: 'USD' },
+                  },
+                },
+              ],
+              NextToken: 'next-page',
+            },
+      ),
+    } as never);
+
+    await expect(hydrateAwsCostGuardrailBudgets([])).resolves.toEqual([
+      {
+        accountId: '123456789012',
+        budgetCount: 2,
+        budgets: [],
       },
     ]);
   });

@@ -20,6 +20,7 @@ import { route53Rules } from './route53/index.js';
 import { s3Rules } from './s3/index.js';
 import { sagemakerRules } from './sagemaker/index.js';
 import { secretsmanagerRules } from './secretsmanager/index.js';
+import { taggingRules } from './tagging/index.js';
 
 // Intent: aggregate all AWS rules into a single provider collection.
 // TODO(cloudburn): keep this list synchronized as new AWS rules are added.
@@ -45,5 +46,6 @@ export const awsRules = [
   ...s3Rules,
   ...sagemakerRules,
   ...secretsmanagerRules,
+  ...taggingRules,
   ...lambdaRules,
 ];

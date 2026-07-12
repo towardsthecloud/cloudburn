@@ -3,7 +3,9 @@ import * as clientModule from '../../src/providers/aws/client.js';
 import {
   buildAwsDiscoveryCatalog,
   createAwsResourceExplorerSetup,
+  ensureAwsResourceExplorerDefaultViewIncludesTags,
   listAwsDiscoveryIndexes,
+  listAwsResourcesByFilter,
 } from '../../src/providers/aws/resource-explorer.js';
 
 describe('resource explorer discovery', () => {
@@ -41,7 +43,7 @@ describe('resource explorer discovery', () => {
       }))
       .mockImplementationOnce(async (command) => {
         expect(command.input.Filters?.FilterString).toBe('resourcetype:ec2:volume,lambda:function region:eu-central-1');
-        expect(command.input.MaxResults).toBe(1000);
+        expect(command.input.MaxResults).toBe(999);
         expect(command.input.ViewArn).toBe('arn:aws:resource-explorer-2:eu-central-1:123456789012:view/default');
 
         return {
@@ -93,6 +95,116 @@ describe('resource explorer discovery', () => {
       searchRegion: 'eu-central-1',
       indexType: 'AGGREGATOR',
       viewArn: 'arn:aws:resource-explorer-2:eu-central-1:123456789012:view/default',
+    });
+  });
+
+  it('lists globally untagged resources through a tag-enabled view across every page', async () => {
+    vi.spyOn(clientModule, 'listEnabledAwsRegions').mockResolvedValue(['eu-central-1']);
+    const send = vi
+      .fn()
+      .mockResolvedValueOnce({
+        Indexes: [{ Region: 'eu-central-1', Type: 'AGGREGATOR' }],
+      })
+      .mockResolvedValueOnce({
+        ViewArn: 'arn:aws:resource-explorer-2:eu-central-1:123456789012:view/default',
+      })
+      .mockResolvedValueOnce({
+        View: {
+          Filters: { FilterString: '' },
+          IncludedProperties: [{ Name: 'tags' }],
+        },
+      })
+      .mockImplementationOnce(async (command) => {
+        expect(command.input.Filters?.FilterString).toBe('resourcetype.supports:tags tag:none');
+        expect(command.input.MaxResults).toBe(999);
+        expect(command.input.NextToken).toBeUndefined();
+
+        return {
+          NextToken: 'next-page',
+          Resources: [
+            {
+              Arn: 'arn:aws:s3:::untagged-bucket',
+              OwningAccountId: '123456789012',
+              Region: 'global',
+              ResourceType: 's3:bucket',
+              Service: 's3',
+            },
+          ],
+        };
+      })
+      .mockImplementationOnce(async (command) => {
+        expect(command.input.NextToken).toBe('next-page');
+
+        return {
+          Resources: [
+            {
+              Arn: 'arn:aws:ec2:eu-central-1:123456789012:instance/i-123',
+              OwningAccountId: '123456789012',
+              Region: 'eu-central-1',
+              ResourceType: 'ec2:instance',
+              Service: 'ec2',
+            },
+            {
+              Arn: 'arn:aws:s3:::untagged-bucket',
+              OwningAccountId: '123456789012',
+              Region: 'global',
+              ResourceType: 's3:bucket',
+              Service: 's3',
+            },
+          ],
+        };
+      });
+
+    vi.spyOn(clientModule, 'createResourceExplorerClient').mockReturnValue({ send } as never);
+
+    await expect(
+      listAwsResourcesByFilter({ mode: 'regions', regions: ['eu-central-1'] }, 'resourcetype.supports:tags tag:none', {
+        requiredViewProperties: ['tags'],
+        scope: 'account',
+      }),
+    ).resolves.toEqual([
+      {
+        accountId: '123456789012',
+        arn: 'arn:aws:ec2:eu-central-1:123456789012:instance/i-123',
+        properties: [],
+        region: 'eu-central-1',
+        resourceType: 'ec2:instance',
+        service: 'ec2',
+      },
+      {
+        accountId: '123456789012',
+        arn: 'arn:aws:s3:::untagged-bucket',
+        properties: [],
+        region: 'global',
+        resourceType: 's3:bucket',
+        service: 's3',
+      },
+    ]);
+  });
+
+  it('fails filtered tagging discovery when the default view does not expose tags', async () => {
+    vi.spyOn(clientModule, 'resolveCurrentAwsRegion').mockResolvedValue('eu-central-1');
+    vi.spyOn(clientModule, 'createResourceExplorerClient').mockReturnValue({
+      send: vi
+        .fn()
+        .mockResolvedValueOnce({ Indexes: [{ Region: 'eu-central-1', Type: 'AGGREGATOR' }] })
+        .mockResolvedValueOnce({
+          ViewArn: 'arn:aws:resource-explorer-2:eu-central-1:123456789012:view/default',
+        })
+        .mockResolvedValueOnce({
+          View: {
+            Filters: { FilterString: '' },
+            IncludedProperties: [],
+          },
+        }),
+    } as never);
+
+    await expect(
+      listAwsResourcesByFilter({ mode: 'current' }, 'resourcetype.supports:tags tag:none', {
+        requiredViewProperties: ['tags'],
+      }),
+    ).rejects.toMatchObject({
+      code: 'RESOURCE_EXPLORER_TAGS_VIEW_REQUIRED',
     });
   });
 
@@ -652,7 +764,7 @@ describe('resource explorer discovery', () => {
         })
         .mockImplementationOnce(async (command) => {
           expect(command.input.Filters?.FilterString).toBe('resourcetype:ec2:volume region:eu-west-1');
-          expect(command.input.MaxResults).toBe(1000);
+          expect(command.input.MaxResults).toBe(999);
 
           return {
             Resources: [
@@ -821,7 +933,7 @@ describe('resource explorer discovery', () => {
         })
         .mockImplementationOnce(async (command) => {
           expect(command.input.Filters?.FilterString).toBe('resourcetype:ec2:volume region:eu-central-1,eu-west-1');
-          expect(command.input.MaxResults).toBe(1000);
+          expect(command.input.MaxResults).toBe(999);
 
           return {
             Resources: [
@@ -1218,5 +1330,30 @@ describe('resource explorer discovery', () => {
         },
       }),
     );
+  });
+
+  it('adds tag visibility to an existing default Resource Explorer view', async () => {
+    const send = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ViewArn: 'arn:aws:resource-explorer-2:eu-central-1:123456789012:view/default',
+      })
+      .mockResolvedValueOnce({
+        View: {
+          IncludedProperties: [],
+          ViewArn: 'arn:aws:resource-explorer-2:eu-central-1:123456789012:view/default',
+        },
+      })
+      .mockImplementationOnce(async (command) => {
+        expect(command.input).toEqual({
+          IncludedProperties: [{ Name: 'tags' }],
+          ViewArn: 'arn:aws:resource-explorer-2:eu-central-1:123456789012:view/default',
+        });
+
+        return {};
+      });
+    vi.spyOn(clientModule, 'createResourceExplorerClient').mockReturnValue({ send } as never);
+
+    await expect(ensureAwsResourceExplorerDefaultViewIncludesTags('eu-central-1')).resolves.toBeUndefined();
   });
 });

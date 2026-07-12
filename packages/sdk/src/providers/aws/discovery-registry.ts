@@ -57,6 +57,7 @@ import {
 import { hydrateAwsS3BucketAnalyses } from './resources/s3.js';
 import { hydrateAwsSageMakerEndpointActivity, hydrateAwsSageMakerNotebookInstances } from './resources/sagemaker.js';
 import { hydrateAwsSecretsManagerSecrets } from './resources/secretsmanager.js';
+import { hydrateAwsUntaggedResources } from './resources/tagging.js';
 import { hydrateAwsEc2VpcEndpointActivity } from './resources/vpc-endpoints.js';
 
 /**
@@ -77,6 +78,10 @@ export type AwsDiscoveryDatasetLoadResult<K extends DiscoveryDatasetKey = Discov
 /** Resolves discovery datasets already loading within the current run. */
 export type AwsDiscoveryDatasetResolver = {
   loadDataset: <K extends DiscoveryDatasetKey>(datasetKey: K) => Promise<DiscoveryDatasetMap[K]>;
+  listResourcesByFilter: (
+    filterString: string,
+    options?: { requiredViewProperties?: string[]; scope?: 'target' | 'account' },
+  ) => Promise<AwsDiscoveredResource[]>;
 };
 
 /** Resolves the caller account ID through the current discovery run's cache. */
@@ -113,7 +118,8 @@ export type AwsDiscoveryDatasetDefinition<K extends DiscoveryDatasetKey = Discov
     | 'route53'
     | 's3'
     | 'sagemaker'
-    | 'secretsmanager';
+    | 'secretsmanager'
+    | 'tagging';
   load: (
     resources: AwsDiscoveredResource[],
     context: AwsDiscoveryDatasetLoadContext,
@@ -455,6 +461,12 @@ const awsDiscoveryDatasetRegistry: {
     resourceTypes: ['sagemaker:notebook-instance'],
     service: 'sagemaker',
     load: hydrateAwsSageMakerNotebookInstances,
+  },
+  'aws-resource-explorer-untagged-resources': {
+    datasetKey: 'aws-resource-explorer-untagged-resources',
+    resourceTypes: [],
+    service: 'tagging',
+    load: hydrateAwsUntaggedResources,
   },
   'aws-secretsmanager-secrets': {
     datasetKey: 'aws-secretsmanager-secrets',
