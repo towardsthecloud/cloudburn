@@ -14,7 +14,7 @@ import { createCloudWatchLogsClient } from '../client.js';
 import { chunkItems, withAwsServiceErrorContext } from './utils.js';
 
 const CLOUDWATCH_LOG_GROUP_ARN_PATTERN = /^arn:[^:]+:logs:[^:]+:[^:]+:log-group:(.+)$/u;
-const CLOUDWATCH_LOG_STREAM_ACTIVITY_CONCURRENCY = 10;
+const CLOUDWATCH_LOG_GROUP_HYDRATION_CONCURRENCY = 10;
 
 const extractAccountIdFromArn = (arn: string): string | null => {
   const arnSegments = arn.split(':');
@@ -233,7 +233,7 @@ export const hydrateAwsCloudWatchLogGroupRecentStreamActivity = async (
       );
       const activity: AwsCloudWatchLogGroupRecentStreamActivity[] = [];
 
-      for (const batch of chunkItems([...desiredLogGroups.entries()], CLOUDWATCH_LOG_STREAM_ACTIVITY_CONCURRENCY)) {
+      for (const batch of chunkItems([...desiredLogGroups.entries()], CLOUDWATCH_LOG_GROUP_HYDRATION_CONCURRENCY)) {
         const hydratedBatch = await Promise.all(
           batch.map(async ([logGroupName, discoveredAccountId]) => {
             const response = await withAwsServiceErrorContext(
@@ -308,37 +308,43 @@ export const hydrateAwsCloudWatchLogMetricFilterCoverage = async (
         }),
       );
 
-      const coverage = await Promise.all(
-        [...desiredLogGroups.entries()].map(async ([logGroupName, accountId]) => {
-          let nextToken: string | undefined;
-          let metricFilterCount = 0;
+      const coverage: AwsCloudWatchLogMetricFilterCoverage[] = [];
 
-          do {
-            const response = await withAwsServiceErrorContext(
-              'Amazon CloudWatch Logs',
-              'DescribeMetricFilters',
+      for (const batch of chunkItems([...desiredLogGroups.entries()], CLOUDWATCH_LOG_GROUP_HYDRATION_CONCURRENCY)) {
+        const hydratedBatch = await Promise.all(
+          batch.map(async ([logGroupName, accountId]) => {
+            let nextToken: string | undefined;
+            let metricFilterCount = 0;
+
+            do {
+              const response = await withAwsServiceErrorContext(
+                'Amazon CloudWatch Logs',
+                'DescribeMetricFilters',
+                region,
+                () =>
+                  client.send(
+                    new DescribeMetricFiltersCommand({
+                      logGroupName,
+                      nextToken,
+                    }),
+                  ),
+              );
+
+              metricFilterCount += (response.metricFilters ?? []).length;
+              nextToken = response.nextToken;
+            } while (nextToken);
+
+            return {
+              accountId,
+              logGroupName,
+              metricFilterCount,
               region,
-              () =>
-                client.send(
-                  new DescribeMetricFiltersCommand({
-                    logGroupName,
-                    nextToken,
-                  }),
-                ),
-            );
+            } satisfies AwsCloudWatchLogMetricFilterCoverage;
+          }),
+        );
 
-            metricFilterCount += (response.metricFilters ?? []).length;
-            nextToken = response.nextToken;
-          } while (nextToken);
-
-          return {
-            accountId,
-            logGroupName,
-            metricFilterCount,
-            region,
-          } satisfies AwsCloudWatchLogMetricFilterCoverage;
-        }),
-      );
+        coverage.push(...hydratedBatch);
+      }
 
       return coverage;
     }),

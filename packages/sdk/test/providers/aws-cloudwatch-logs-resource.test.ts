@@ -476,6 +476,38 @@ describe('hydrateAwsCloudWatchLogMetricFilterCoverage', () => {
     ]);
   });
 
+  it('bounds concurrent DescribeMetricFilters calls within a region', async () => {
+    let inFlight = 0;
+    let maxInFlight = 0;
+    const send = vi.fn(async (_command: DescribeMetricFiltersCommand) => {
+      inFlight += 1;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      await new Promise((resolve) => {
+        setTimeout(resolve, 1);
+      });
+      inFlight -= 1;
+
+      return { metricFilters: [{ filterName: 'errors' }] };
+    });
+
+    mockedCreateCloudWatchLogsClient.mockReturnValue({ send } as never);
+
+    const coverage = await hydrateAwsCloudWatchLogMetricFilterCoverage(
+      Array.from({ length: 25 }, (_, index) => ({
+        accountId: '123456789012',
+        arn: `arn:aws:logs:us-east-1:123456789012:log-group:/aws/lambda/app-${index}`,
+        properties: [],
+        region: 'us-east-1',
+        resourceType: 'logs:log-group',
+        service: 'logs',
+      })),
+    );
+
+    expect(coverage).toHaveLength(25);
+    expect(send).toHaveBeenCalledTimes(25);
+    expect(maxInFlight).toBeLessThanOrEqual(10);
+  });
+
   it('preserves CloudWatch Logs error identity when metric-filter hydration is access denied', async () => {
     mockedCreateCloudWatchLogsClient.mockReturnValue({
       send: vi.fn().mockRejectedValue(

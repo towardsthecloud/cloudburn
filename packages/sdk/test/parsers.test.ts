@@ -333,6 +333,53 @@ describe('parsers', () => {
     expect(resources).toEqual([]);
   });
 
+  it('returns no terraform resources for files with invalid hcl syntax', async () => {
+    const resourcePath = fileURLToPath(new URL('./fixtures/terraform/invalid-syntax/broken.tf', import.meta.url));
+    const resources = await parseTerraform(resourcePath);
+
+    expect(resources).toEqual([]);
+  });
+
+  it('keeps valid terraform resources when a sibling terraform file has invalid syntax', async () => {
+    const resourcePath = fileURLToPath(new URL('./fixtures/terraform/invalid-syntax', import.meta.url));
+    const resources = await parseTerraform(resourcePath);
+
+    expect(resources).toEqual([
+      {
+        provider: 'aws',
+        type: 'aws_ebs_volume',
+        name: 'gp2_sibling',
+        location: {
+          path: 'valid.tf',
+          line: 1,
+          column: 1,
+        },
+        attributeLocations: {
+          availability_zone: {
+            path: 'valid.tf',
+            line: 2,
+            column: 3,
+          },
+          size: {
+            path: 'valid.tf',
+            line: 3,
+            column: 3,
+          },
+          type: {
+            path: 'valid.tf',
+            line: 4,
+            column: 3,
+          },
+        },
+        attributes: {
+          availability_zone: 'eu-west-1a',
+          size: 25,
+          type: 'gp2',
+        },
+      },
+    ]);
+  });
+
   it('returns no terraform resources when files contain only non-aws resources', async () => {
     const resourcePath = fileURLToPath(new URL('./fixtures/terraform/no-resources', import.meta.url));
     const resources = await parseTerraform(resourcePath);

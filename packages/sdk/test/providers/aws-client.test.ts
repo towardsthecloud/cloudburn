@@ -2,6 +2,43 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const importClientModule = async () => import('../../src/providers/aws/client.js');
 
+describe('aws client resilience defaults', () => {
+  it('configures adaptive retries, explicit max attempts, and request timeouts on every client factory', async () => {
+    const clientModule = await importClientModule();
+    const factories = Object.entries(clientModule).filter(
+      (entry): entry is [string, (config: { region?: string }) => unknown] =>
+        entry[0].startsWith('create') && typeof entry[1] === 'function',
+    );
+
+    expect(factories.length).toBeGreaterThan(0);
+
+    for (const [factoryName, factory] of factories) {
+      const client = factory({ region: 'us-east-1' }) as {
+        config: {
+          maxAttempts: () => Promise<number>;
+          requestHandler: { configProvider: Promise<{ connectionTimeout?: number; requestTimeout?: number }> };
+          retryMode: string;
+        };
+      };
+      const handlerConfig = await client.config.requestHandler.configProvider;
+
+      expect({
+        factoryName,
+        retryMode: client.config.retryMode,
+        maxAttempts: await client.config.maxAttempts(),
+        connectionTimeout: handlerConfig.connectionTimeout,
+        requestTimeout: handlerConfig.requestTimeout,
+      }).toEqual({
+        factoryName,
+        retryMode: 'adaptive',
+        maxAttempts: 3,
+        connectionTimeout: 5_000,
+        requestTimeout: 30_000,
+      });
+    }
+  });
+});
+
 describe('resolveCurrentAwsRegion', { timeout: 30_000 }, () => {
   afterEach(() => {
     vi.resetModules();
