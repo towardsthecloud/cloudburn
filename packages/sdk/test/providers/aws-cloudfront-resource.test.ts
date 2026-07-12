@@ -26,7 +26,7 @@ describe('hydrateAwsCloudFrontDistributions', () => {
   });
 
   it('falls back to listing distributions when Resource Explorer seeds are unavailable', async () => {
-    mockedResolveAwsAccountId.mockResolvedValue('123456789012');
+    const resolveAccountId = vi.fn().mockResolvedValue('123456789012');
     mockedCreateCloudFrontClient.mockReturnValue({
       send: vi.fn(async (command: ListDistributionsCommand | GetDistributionCommand) => {
         if (command.constructor.name === 'ListDistributionsCommand') {
@@ -53,7 +53,11 @@ describe('hydrateAwsCloudFrontDistributions', () => {
       }),
     } as never);
 
-    await expect(hydrateAwsCloudFrontDistributions([])).resolves.toEqual([
+    await expect(
+      hydrateAwsCloudFrontDistributions([], {
+        resolveAccountId,
+      }),
+    ).resolves.toEqual([
       {
         accountId: '123456789012',
         distributionArn: 'arn:aws:cloudfront::123456789012:distribution/E1234567890ABC',
@@ -62,6 +66,8 @@ describe('hydrateAwsCloudFrontDistributions', () => {
         region: 'global',
       },
     ]);
+    expect(resolveAccountId).toHaveBeenCalledTimes(1);
+    expect(mockedResolveAwsAccountId).not.toHaveBeenCalled();
   });
 
   it('hydrates 30-day CloudFront request activity from CloudWatch metrics', async () => {

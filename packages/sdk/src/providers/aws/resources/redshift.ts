@@ -11,7 +11,7 @@ import type {
 } from '@cloudburn/rules';
 import type { ScanDiagnostic } from '../../../types.js';
 import { createRedshiftClient } from '../client.js';
-import type { AwsDiscoveryDatasetLoadContext } from '../discovery-registry.js';
+import type { AwsDiscoveryDatasetResolver } from '../discovery-registry.js';
 import { getAwsErrorCode, isAwsAccessDeniedError } from '../errors.js';
 import { fetchCloudWatchSignals } from './cloudwatch.js';
 import { chunkItems, extractTerminalResourceIdentifier, withAwsServiceErrorContext } from './utils.js';
@@ -134,7 +134,7 @@ export const hydrateAwsRedshiftClusters = async (
  */
 export const hydrateAwsRedshiftClusterMetrics = async (
   resources: AwsDiscoveredResource[],
-  context?: AwsDiscoveryDatasetLoadContext,
+  context?: AwsDiscoveryDatasetResolver,
 ): Promise<AwsRedshiftClusterMetric[]> => {
   const clusters = context
     ? await context.loadDataset('aws-redshift-clusters')

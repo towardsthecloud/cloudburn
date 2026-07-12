@@ -1,5 +1,5 @@
 import type { AwsDiscoveredResource, AwsRdsInstanceActivity, AwsRdsInstanceCpuMetric } from '@cloudburn/rules';
-import type { AwsDiscoveryDatasetLoadContext } from '../discovery-registry.js';
+import type { AwsDiscoveryDatasetResolver } from '../discovery-registry.js';
 import { fetchCloudWatchSignals } from './cloudwatch.js';
 import { hydrateAwsRdsInstances } from './rds.js';
 
@@ -19,7 +19,7 @@ const REQUIRED_RDS_DAILY_CPU_POINTS = THIRTY_DAYS_IN_SECONDS / DAILY_PERIOD_IN_S
  */
 export const hydrateAwsRdsInstanceActivity = async (
   resources: AwsDiscoveredResource[],
-  context?: AwsDiscoveryDatasetLoadContext,
+  context?: AwsDiscoveryDatasetResolver,
 ): Promise<AwsRdsInstanceActivity[]> => {
   const instances = context ? await context.loadDataset('aws-rds-instances') : await hydrateAwsRdsInstances(resources);
   const instancesByRegion = new Map<string, typeof instances>();
@@ -76,7 +76,7 @@ export const hydrateAwsRdsInstanceActivity = async (
  */
 export const hydrateAwsRdsInstanceCpuMetrics = async (
   resources: AwsDiscoveredResource[],
-  context?: AwsDiscoveryDatasetLoadContext,
+  context?: AwsDiscoveryDatasetResolver,
 ): Promise<AwsRdsInstanceCpuMetric[]> => {
   const instances = context ? await context.loadDataset('aws-rds-instances') : await hydrateAwsRdsInstances(resources);
   const instancesByRegion = new Map<string, typeof instances>();

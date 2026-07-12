@@ -77,4 +77,23 @@ describe('Cost guardrail discovery resources', () => {
       },
     ]);
   });
+
+  it('uses the discovery run account id resolver for both guardrail datasets', async () => {
+    const resolveAccountId = vi.fn().mockResolvedValue('123456789012');
+    const context = {
+      resolveAccountId,
+    };
+    mockedCreateBudgetsClient.mockReturnValue({
+      send: vi.fn().mockResolvedValue({ Budgets: [] }),
+    } as never);
+    mockedCreateCostExplorerClient.mockReturnValue({
+      send: vi.fn().mockResolvedValue({ AnomalyMonitors: [] }),
+    } as never);
+
+    await hydrateAwsCostGuardrailBudgets([], context);
+    await hydrateAwsCostAnomalyMonitors([], context);
+
+    expect(resolveAccountId).toHaveBeenCalledTimes(2);
+    expect(mockedResolveAwsAccountId).not.toHaveBeenCalled();
+  });
 });

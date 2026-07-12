@@ -80,6 +80,7 @@ Current live-discovery behavior:
 - Catalog collection uses Resource Explorer `ListResources` with filter strings instead of `Search`, which avoids the 1,000-result ceiling on filter-only queries.
 - Resource Explorer catalog seeding batches `resourcetype:` and `region:` filters into the smallest possible query set, raises `MaxResults` to `1000`, and retries throttled `ListResources` calls before failing.
 - Account-scoped or fallback-backed datasets can bypass Resource Explorer seeding entirely by declaring no `resourceTypes`; the loader then receives `[]` and owns the account-level API call.
+- Account-scoped loaders share one lazy STS account-ID resolution per discovery run; the cache is discarded between runs so ambient credential contexts cannot leak identity.
 - Resource Explorer catalog failures are fatal because discovery cannot identify the requested resources without the catalog.
 - Dataset loader failures are non-fatal: the SDK records diagnostics, marks the affected datasets unavailable, skips rules that require them, and returns findings from datasets that loaded successfully.
 - Missing Lambda `Architectures` values from AWS are normalized to `['x86_64']`, matching the AWS default architecture.

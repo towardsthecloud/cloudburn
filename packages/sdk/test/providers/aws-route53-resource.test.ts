@@ -25,7 +25,10 @@ describe('Route 53 discovery resources', () => {
   });
 
   it('falls back to listing hosted zones and record sets when catalog resources are unavailable', async () => {
-    mockedResolveAwsAccountId.mockResolvedValue('123456789012');
+    const resolveAccountId = vi.fn().mockResolvedValue('123456789012');
+    const context = {
+      resolveAccountId,
+    };
     mockedCreateRoute53Client.mockReturnValue({
       send: vi.fn(async (command: ListHostedZonesCommand | ListResourceRecordSetsCommand) => {
         if (command.constructor.name === 'ListHostedZonesCommand') {
@@ -52,7 +55,7 @@ describe('Route 53 discovery resources', () => {
       }),
     } as never);
 
-    await expect(hydrateAwsRoute53Zones([])).resolves.toEqual([
+    await expect(hydrateAwsRoute53Zones([], context)).resolves.toEqual([
       {
         accountId: '123456789012',
         hostedZoneArn: 'arn:aws:route53:::hostedzone/Z1234567890',
@@ -61,7 +64,7 @@ describe('Route 53 discovery resources', () => {
         zoneName: 'example.com.',
       },
     ]);
-    await expect(hydrateAwsRoute53Records([])).resolves.toEqual([
+    await expect(hydrateAwsRoute53Records([], context)).resolves.toEqual([
       {
         accountId: '123456789012',
         hostedZoneId: 'Z1234567890',
@@ -73,6 +76,8 @@ describe('Route 53 discovery resources', () => {
         ttl: 300,
       },
     ]);
+    expect(resolveAccountId).toHaveBeenCalledTimes(2);
+    expect(mockedResolveAwsAccountId).not.toHaveBeenCalled();
   });
 
   it('falls back to listing health checks when catalog resources are unavailable', async () => {

@@ -5,8 +5,9 @@ import {
   type RRType,
 } from '@aws-sdk/client-route-53';
 import type { AwsDiscoveredResource, AwsRoute53HealthCheck, AwsRoute53Record, AwsRoute53Zone } from '@cloudburn/rules';
-import { createRoute53Client, resolveAwsAccountId } from '../client.js';
-import { withAwsServiceErrorContext } from './utils.js';
+import { createRoute53Client } from '../client.js';
+import type { AwsAccountIdResolver } from '../discovery-registry.js';
+import { resolveAwsAccountIdForLoad, withAwsServiceErrorContext } from './utils.js';
 
 const ROUTE53_CONTROL_REGION = 'us-east-1';
 
@@ -68,9 +69,9 @@ const buildRoute53RecordId = (
   return `arn:${zone.partition}:route53:::hostedzone/${zone.hostedZoneId}/recordset/${record.Name ?? 'unknown'}/${record.Type ?? 'unknown'}${suffix}`;
 };
 
-const listHostedZoneResources = async (): Promise<AwsDiscoveredResource[]> => {
+const listHostedZoneResources = async (context?: AwsAccountIdResolver): Promise<AwsDiscoveredResource[]> => {
   const client = createRoute53Client();
-  const accountId = await resolveAwsAccountId();
+  const accountId = await resolveAwsAccountIdForLoad(context);
   const resources: AwsDiscoveredResource[] = [];
   let marker: string | undefined;
 
@@ -114,10 +115,14 @@ const listHostedZoneResources = async (): Promise<AwsDiscoveredResource[]> => {
  * Hydrates Route 53 hosted zones for rule evaluation.
  *
  * @param resources - Optional catalog resources filtered to Route 53 hosted zones.
+ * @param context - Optional discovery-run context for shared account identity resolution.
  * @returns Normalized hosted zones for downstream rule evaluation.
  */
-export const hydrateAwsRoute53Zones = async (resources: AwsDiscoveredResource[]): Promise<AwsRoute53Zone[]> =>
-  (resources.length > 0 ? resources : await listHostedZoneResources())
+export const hydrateAwsRoute53Zones = async (
+  resources: AwsDiscoveredResource[],
+  context?: AwsAccountIdResolver,
+): Promise<AwsRoute53Zone[]> =>
+  (resources.length > 0 ? resources : await listHostedZoneResources(context))
     .flatMap((resource) => {
       const parsed = parseHostedZoneArn(resource.arn);
 
@@ -139,10 +144,14 @@ export const hydrateAwsRoute53Zones = async (resources: AwsDiscoveredResource[])
  * Hydrates Route 53 hosted zones with their record sets.
  *
  * @param resources - Optional catalog resources filtered to Route 53 hosted zones.
+ * @param context - Optional discovery-run context for shared account identity resolution.
  * @returns Normalized Route 53 record sets for TTL and health-check rules.
  */
-export const hydrateAwsRoute53Records = async (resources: AwsDiscoveredResource[]): Promise<AwsRoute53Record[]> => {
-  const zoneResources = resources.length > 0 ? resources : await listHostedZoneResources();
+export const hydrateAwsRoute53Records = async (
+  resources: AwsDiscoveredResource[],
+  context?: AwsAccountIdResolver,
+): Promise<AwsRoute53Record[]> => {
+  const zoneResources = resources.length > 0 ? resources : await listHostedZoneResources(context);
   const client = createRoute53Client();
   const records: AwsRoute53Record[] = [];
 
@@ -205,10 +214,12 @@ export const hydrateAwsRoute53Records = async (resources: AwsDiscoveredResource[
  * Hydrates Route 53 health checks for rule evaluation.
  *
  * @param resources - Optional catalog resources filtered to Route 53 health checks.
+ * @param context - Optional discovery-run context for shared account identity resolution.
  * @returns Normalized Route 53 health checks for rule evaluation.
  */
 export const hydrateAwsRoute53HealthChecks = async (
   resources: AwsDiscoveredResource[],
+  context?: AwsAccountIdResolver,
 ): Promise<AwsRoute53HealthCheck[]> => {
   const desiredHealthChecks = new Map(
     resources.flatMap((resource) => {
@@ -218,7 +229,7 @@ export const hydrateAwsRoute53HealthChecks = async (
     }),
   );
   const client = createRoute53Client();
-  const accountId = desiredHealthChecks.size > 0 ? undefined : await resolveAwsAccountId();
+  const accountId = desiredHealthChecks.size > 0 ? undefined : await resolveAwsAccountIdForLoad(context);
   const healthChecks: AwsRoute53HealthCheck[] = [];
   let marker: string | undefined;
 

@@ -1,7 +1,7 @@
 import type { AwsDiscoveryCatalog, Rule } from '@cloudburn/rules';
 import { LiveResourceBag } from '@cloudburn/rules';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { listEnabledAwsRegions, resolveCurrentAwsRegion } from '../../src/providers/aws/client.js';
+import { listEnabledAwsRegions, resolveAwsAccountId, resolveCurrentAwsRegion } from '../../src/providers/aws/client.js';
 import {
   discoverAwsResources,
   getAwsDiscoveryStatus,
@@ -101,6 +101,7 @@ vi.mock('../../src/providers/aws/client.js', async (importOriginal) => {
   return {
     ...actual,
     listEnabledAwsRegions: vi.fn(),
+    resolveAwsAccountId: vi.fn(),
     resolveCurrentAwsRegion: vi.fn(),
   };
 });
@@ -253,6 +254,7 @@ vi.mock('../../src/providers/aws/resources/secretsmanager.js', () => ({
 }));
 
 const mockedResolveCurrentAwsRegion = vi.mocked(resolveCurrentAwsRegion);
+const mockedResolveAwsAccountId = vi.mocked(resolveAwsAccountId);
 const mockedListEnabledAwsRegions = vi.mocked(listEnabledAwsRegions);
 const mockedBuildAwsDiscoveryCatalog = vi.mocked(buildAwsDiscoveryCatalog);
 const mockedCreateAwsResourceExplorerSetup = vi.mocked(createAwsResourceExplorerSetup);
@@ -318,7 +320,10 @@ const mockedHydrateAwsS3BucketAnalyses = vi.mocked(hydrateAwsS3BucketAnalyses);
 const mockedHydrateAwsSageMakerEndpointActivity = vi.mocked(hydrateAwsSageMakerEndpointActivity);
 const mockedHydrateAwsSageMakerNotebookInstances = vi.mocked(hydrateAwsSageMakerNotebookInstances);
 const mockedHydrateAwsSecretsManagerSecrets = vi.mocked(hydrateAwsSecretsManagerSecrets);
-const loadContextMatcher = expect.objectContaining({ loadDataset: expect.any(Function) });
+const loadContextMatcher = expect.objectContaining({
+  loadDataset: expect.any(Function),
+  resolveAccountId: expect.any(Function),
+});
 
 const catalog: AwsDiscoveryCatalog = {
   indexType: 'LOCAL',
@@ -1136,6 +1141,42 @@ describe('discoverAwsResources', () => {
         totalInvocationsLast7Days: 100,
       },
     ]);
+  });
+
+  it('resolves the aws account id once per discovery run across concurrent datasets', async () => {
+    mockedResolveCurrentAwsRegion.mockResolvedValue('us-east-1');
+    mockedResolveAwsAccountId.mockResolvedValue('123456789012');
+    const resolveFromContext = (context: unknown): Promise<string> =>
+      (context as { resolveAccountId: () => Promise<string> }).resolveAccountId();
+
+    mockedHydrateAwsCostUsage.mockImplementation(async (_resources, context?: unknown) => {
+      await resolveFromContext(context);
+      return [];
+    });
+    mockedHydrateAwsCostGuardrailBudgets.mockImplementation(async (_resources, context?: unknown) => {
+      await resolveFromContext(context);
+      return [];
+    });
+
+    const rules = [
+      createRule({
+        discoveryDependencies: ['aws-cost-usage'],
+        service: 'costexplorer',
+      }),
+      createRule({
+        id: 'CLDBRN-AWS-TEST-2',
+        discoveryDependencies: ['aws-cost-guardrail-budgets'],
+        service: 'costguardrails',
+      }),
+    ];
+
+    await discoverAwsResources(rules, { mode: 'current' });
+
+    expect(mockedResolveAwsAccountId).toHaveBeenCalledTimes(1);
+
+    await discoverAwsResources(rules, { mode: 'current' });
+
+    expect(mockedResolveAwsAccountId).toHaveBeenCalledTimes(2);
   });
 
   it('emits dataset completion timing in debug mode so slow hydrators are visible', async () => {
