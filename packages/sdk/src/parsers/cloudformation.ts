@@ -191,7 +191,6 @@ const toIaCResources = async (path: string, relativePath: string): Promise<IaCPa
   if (document.errors.length > 0) {
     return createSkippedIaCParseResult({
       code: 'CLOUDFORMATION_PARSE_ERROR',
-      details: document.errors.map((error) => error.message).join('\n'),
       message: `Skipped CloudFormation file ${relativePath} because it could not be parsed.`,
       service: 'cloudformation',
     });

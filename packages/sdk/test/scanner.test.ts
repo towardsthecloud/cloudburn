@@ -576,7 +576,6 @@ describe('CloudBurnClient', () => {
       diagnostics: [
         {
           code: 'CLOUDFORMATION_PARSE_ERROR',
-          details: expect.any(String),
           message: 'Skipped CloudFormation file invalid-template.yaml because it could not be parsed.',
           provider: 'aws',
           service: 'cloudformation',

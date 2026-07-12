@@ -766,7 +766,6 @@ describe('parsers', () => {
       diagnostics: [
         {
           code: 'CLOUDFORMATION_PARSE_ERROR',
-          details: expect.any(String),
           message: 'Skipped CloudFormation file invalid-template.yaml because it could not be parsed.',
           provider: 'aws',
           service: 'cloudformation',
@@ -776,6 +775,23 @@ describe('parsers', () => {
       ],
       resources: [],
     });
+  });
+
+  it('does not expose malformed cloudformation source content in diagnostics', async () => {
+    const tempDirectory = await mkdtemp(join(tmpdir(), 'cloudburn-cloudformation-secret-'));
+    const templatePath = join(tempDirectory, 'secret-template.yaml');
+    const secret = 'super-secret-cloudformation-value';
+
+    try {
+      await writeFile(templatePath, `Resources:\n  Broken:\n    Type: AWS::EC2::Volume\n    Properties: [${secret}\n`);
+
+      const result = await parseCloudFormation(templatePath);
+
+      expect(JSON.stringify(result.diagnostics)).not.toContain(secret);
+      expect(result.diagnostics[0]).not.toHaveProperty('details');
+    } finally {
+      await rm(tempDirectory, { force: true, recursive: true });
+    }
   });
 
   it('parses explicit cloudformation symlink file roots', async () => {
@@ -965,7 +981,6 @@ describe('parsers', () => {
       diagnostics: [
         {
           code: 'CLOUDFORMATION_PARSE_ERROR',
-          details: expect.any(String),
           message: 'Skipped CloudFormation file invalid-template.yaml because it could not be parsed.',
           provider: 'aws',
           service: 'cloudformation',
