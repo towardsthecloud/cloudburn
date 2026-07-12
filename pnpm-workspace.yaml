@@ -5,9 +5,9 @@ allowBuilds:
   esbuild: true
 
 catalog:
-  '@biomejs/biome': ^2.4.6
+  '@biomejs/biome': ^2.5.3
   '@types/node': ^24
   '@vitest/coverage-v8': ^4.0.18
   tsup: ^8.5.1
-  typescript: ^5.9.3
+  typescript: ^7.0.2
   vitest: ^4.0.18

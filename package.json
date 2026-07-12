@@ -18,14 +18,14 @@
   },
   "devDependencies": {
     "@biomejs/biome": "catalog:",
-    "@changesets/changelog-github": "^0.6.0",
-    "@changesets/cli": "^2.30.0",
+    "@changesets/changelog-github": "^0.7.0",
+    "@changesets/cli": "^2.31.0",
     "husky": "^9.1.7",
-    "turbo": "^2.8.15",
+    "turbo": "^2.10.4",
     "typescript": "catalog:"
   },
   "engines": {
     "node": ">=24.0.0"
   },
-  "packageManager": "pnpm@10.32.0+sha512.9b2634bb3fed5601c33633f2d92593f506270a3963b8c51d2b2d6a828da615ce4e9deebef9614ccebbc13ac8d3c0f9c9ccceb583c69c8578436fa477dbb20d70"
+  "packageManager": "pnpm@11.12.0+sha512.820a6fbd0d9f04c226638002aead1e45340a9139dd5dc077c1d83ef44aa2481c8eb6637b4c9aa696a3c7e35ba818e49cf27213e5f2b91138d09b7a3e26e898ba"
 }
