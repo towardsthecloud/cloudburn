@@ -509,6 +509,30 @@ describe('CloudBurnClient', () => {
     });
   });
 
+  it('returns static findings and diagnostics when a terraform sibling is malformed', async () => {
+    const scanner = new CloudBurnClient();
+    const fixturePath = fileURLToPath(new URL('./fixtures/terraform/invalid-syntax', import.meta.url));
+
+    const result = await scanner.scanStatic(fixturePath);
+
+    expect(result.diagnostics).toEqual([
+      {
+        code: 'TERRAFORM_PARSE_ERROR',
+        details: expect.any(String),
+        message: 'Skipped Terraform file broken.tf because it could not be parsed.',
+        provider: 'aws',
+        service: 'terraform',
+        source: 'iac',
+        status: 'skipped',
+      },
+    ]);
+    expect(
+      result.providers.flatMap((provider) =>
+        provider.rules.flatMap((rule) => rule.findings.map((finding) => finding.resourceId)),
+      ),
+    ).toContain('aws_ebs_volume.gp2_sibling');
+  });
+
   it('returns a static EC2 finding from a CloudFormation template', async () => {
     const scanner = new CloudBurnClient();
     const fixturePath = fileURLToPath(new URL('./fixtures/cloudformation/ec2-instance.yaml', import.meta.url));
@@ -539,6 +563,28 @@ describe('CloudBurnClient', () => {
           ],
         },
       ],
+    });
+  });
+
+  it('returns diagnostics instead of aborting for a malformed cloudformation template', async () => {
+    const scanner = new CloudBurnClient();
+    const fixturePath = fileURLToPath(new URL('./fixtures/cloudformation/invalid-template.yaml', import.meta.url));
+
+    const result = await scanner.scanStatic(fixturePath);
+
+    expect(result).toEqual({
+      diagnostics: [
+        {
+          code: 'CLOUDFORMATION_PARSE_ERROR',
+          details: expect.any(String),
+          message: 'Skipped CloudFormation file invalid-template.yaml because it could not be parsed.',
+          provider: 'aws',
+          service: 'cloudformation',
+          source: 'iac',
+          status: 'skipped',
+        },
+      ],
+      providers: [],
     });
   });
 

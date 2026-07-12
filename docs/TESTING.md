@@ -27,7 +27,7 @@ Mock at the provider/parser boundary — do not call real AWS APIs or read real 
 | Boundary         | Mock strategy                                                                     |
 | ---------------- | --------------------------------------------------------------------------------- |
 | AWS providers    | Mock Resource Explorer catalog helpers and hydrators to return fixture data       |
-| Terraform parser | Mock `parseTerraform` to return `IaCResource[]` fixtures                          |
+| Terraform parser | Mock `parseTerraform` to return `{ resources, diagnostics }` fixtures             |
 | Config loader    | Mock `loadConfig` or pass config directly via `CloudBurnClient` runtime overrides |
 
 **Test focus areas:**

@@ -80,7 +80,8 @@ Current live-discovery behavior:
 - Catalog collection uses Resource Explorer `ListResources` with filter strings instead of `Search`, which avoids the 1,000-result ceiling on filter-only queries.
 - Resource Explorer catalog seeding batches `resourcetype:` and `region:` filters into the smallest possible query set, raises `MaxResults` to `1000`, and retries throttled `ListResources` calls before failing.
 - Account-scoped or fallback-backed datasets can bypass Resource Explorer seeding entirely by declaring no `resourceTypes`; the loader then receives `[]` and owns the account-level API call.
-- Resource Explorer inventory failures and dataset loader failures are fatal. The SDK does not degrade to partial live results.
+- Resource Explorer catalog failures are fatal because discovery cannot identify the requested resources without the catalog.
+- Dataset loader failures are non-fatal: the SDK records diagnostics, marks the affected datasets unavailable, skips rules that require them, and returns findings from datasets that loaded successfully.
 - Missing Lambda `Architectures` values from AWS are normalized to `['x86_64']`, matching the AWS default architecture.
 - Lambda hydrators limit in-flight `GetFunctionConfiguration` calls per region to avoid API throttling in large accounts.
 - Live scans require Resource Explorer access plus narrow hydrator permissions such as `apigateway:GetStage`, `application-autoscaling:DescribeScalableTargets`, `application-autoscaling:DescribeScalingPolicies`, `ce:GetCostAndUsage`, `cloudfront:GetDistribution`, `cloudfront:ListDistributions`, `cloudtrail:DescribeTrails`, `cloudwatch:GetMetricData`, `dynamodb:DescribeTable`, `ecs:DescribeContainerInstances`, `ecs:DescribeServices`, `ec2:DescribeInstances`, `ec2:DescribeNatGateways`, `ec2:DescribeVolumes`, `eks:ListNodegroups`, `eks:DescribeNodegroup`, `lambda:GetFunctionConfiguration`, `rds:DescribeDBInstances`, `route53:ListHealthChecks`, `route53:ListHostedZones`, `route53:ListResourceRecordSets`, `s3:GetLifecycleConfiguration`, `s3:GetIntelligentTieringConfiguration`, `sagemaker:DescribeEndpoint`, `sagemaker:DescribeEndpointConfig`, `sagemaker:DescribeNotebookInstance`, and `secretsmanager:DescribeSecret`.
@@ -100,10 +101,10 @@ graph LR
   CFN --> Walk
   Walk --> HCL["@cdktf/hcl2json / YAML+JSON parse"]
   HCL --> Extract["extract AWS Terraform blocks\nand AWS:: CloudFormation resources"]
-  Extract --> IaC["IaCResource[]"]
+  Extract --> IaC["resources + diagnostics"]
 ```
 
-`parseIaC(path, { sourceKinds? })` accepts a Terraform file, CloudFormation template, or directory. It can limit parsing to the source kinds required by active static datasets, ignores unsupported files, and preserves stable ordering for mixed directories.
+`parseIaC(path, { sourceKinds? })` accepts a Terraform file, CloudFormation template, or directory and returns `{ resources, diagnostics }`. It can limit parsing to the source kinds required by active static datasets, ignores unsupported files, reports malformed or oversized supported inputs as skipped, and preserves stable ordering for mixed directories.
 
 ## Provider Layer
 

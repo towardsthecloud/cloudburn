@@ -8,7 +8,7 @@ import { parseCloudFormation, parseIaC, parseTerraform } from '../src/parsers/in
 describe('parsers', () => {
   it('parses a literal aws_ebs_volume terraform resource', async () => {
     const resourcePath = fileURLToPath(new URL('./fixtures/terraform/ebs-gp2.tf', import.meta.url));
-    const resources = await parseTerraform(resourcePath);
+    const { resources } = await parseTerraform(resourcePath);
 
     expect(resources).toEqual([
       {
@@ -48,7 +48,7 @@ describe('parsers', () => {
 
   it('captures the top-level type attribute location when nested maps also define type keys', async () => {
     const resourcePath = fileURLToPath(new URL('./fixtures/terraform/ebs-nested-type.tf', import.meta.url));
-    const resources = await parseTerraform(resourcePath);
+    const { resources } = await parseTerraform(resourcePath);
 
     expect(resources).toEqual([
       {
@@ -96,7 +96,7 @@ describe('parsers', () => {
 
   it('parses terraform directories recursively and preserves unresolved expressions', async () => {
     const resourcePath = fileURLToPath(new URL('./fixtures/terraform/scan-dir', import.meta.url));
-    const resources = await parseTerraform(resourcePath);
+    const { resources } = await parseTerraform(resourcePath);
 
     expect(resources).toEqual([
       {
@@ -226,7 +226,7 @@ describe('parsers', () => {
 
   it('parses arbitrary aws resource types and ignores non-aws resources in the same file', async () => {
     const resourcePath = fileURLToPath(new URL('./fixtures/terraform/aws-mixed.tf', import.meta.url));
-    const resources = await parseTerraform(resourcePath);
+    const { resources } = await parseTerraform(resourcePath);
 
     expect(resources).toEqual([
       {
@@ -288,7 +288,7 @@ describe('parsers', () => {
 
   it('auto-detects terraform resources from a .tf file', async () => {
     const resourcePath = fileURLToPath(new URL('./fixtures/terraform/ebs-gp2.tf', import.meta.url));
-    const resources = await parseIaC(resourcePath);
+    const { resources } = await parseIaC(resourcePath);
 
     expect(resources).toEqual([
       {
@@ -328,75 +328,101 @@ describe('parsers', () => {
 
   it('returns no terraform resources for unsupported file extensions', async () => {
     const resourcePath = fileURLToPath(new URL('./fixtures/terraform/scan-dir/notes.txt', import.meta.url));
-    const resources = await parseTerraform(resourcePath);
+    const { resources } = await parseTerraform(resourcePath);
 
     expect(resources).toEqual([]);
   });
 
-  it('returns no terraform resources for files with invalid hcl syntax', async () => {
+  it('reports terraform files with invalid hcl syntax as skipped', async () => {
     const resourcePath = fileURLToPath(new URL('./fixtures/terraform/invalid-syntax/broken.tf', import.meta.url));
-    const resources = await parseTerraform(resourcePath);
+    const result = await parseTerraform(resourcePath);
 
-    expect(resources).toEqual([]);
+    expect(result).toEqual({
+      diagnostics: [
+        {
+          code: 'TERRAFORM_PARSE_ERROR',
+          details: expect.any(String),
+          message: 'Skipped Terraform file broken.tf because it could not be parsed.',
+          provider: 'aws',
+          service: 'terraform',
+          source: 'iac',
+          status: 'skipped',
+        },
+      ],
+      resources: [],
+    });
   });
 
   it('keeps valid terraform resources when a sibling terraform file has invalid syntax', async () => {
     const resourcePath = fileURLToPath(new URL('./fixtures/terraform/invalid-syntax', import.meta.url));
-    const resources = await parseTerraform(resourcePath);
+    const result = await parseTerraform(resourcePath);
 
-    expect(resources).toEqual([
-      {
-        provider: 'aws',
-        type: 'aws_ebs_volume',
-        name: 'gp2_sibling',
-        location: {
-          path: 'valid.tf',
-          line: 1,
-          column: 1,
+    expect(result).toEqual({
+      diagnostics: [
+        {
+          code: 'TERRAFORM_PARSE_ERROR',
+          details: expect.any(String),
+          message: 'Skipped Terraform file broken.tf because it could not be parsed.',
+          provider: 'aws',
+          service: 'terraform',
+          source: 'iac',
+          status: 'skipped',
         },
-        attributeLocations: {
-          availability_zone: {
+      ],
+      resources: [
+        {
+          provider: 'aws',
+          type: 'aws_ebs_volume',
+          name: 'gp2_sibling',
+          location: {
             path: 'valid.tf',
-            line: 2,
-            column: 3,
+            line: 1,
+            column: 1,
           },
-          size: {
-            path: 'valid.tf',
-            line: 3,
-            column: 3,
+          attributeLocations: {
+            availability_zone: {
+              path: 'valid.tf',
+              line: 2,
+              column: 3,
+            },
+            size: {
+              path: 'valid.tf',
+              line: 3,
+              column: 3,
+            },
+            type: {
+              path: 'valid.tf',
+              line: 4,
+              column: 3,
+            },
           },
-          type: {
-            path: 'valid.tf',
-            line: 4,
-            column: 3,
+          attributes: {
+            availability_zone: 'eu-west-1a',
+            size: 25,
+            type: 'gp2',
           },
         },
-        attributes: {
-          availability_zone: 'eu-west-1a',
-          size: 25,
-          type: 'gp2',
-        },
-      },
-    ]);
+      ],
+    });
   });
 
   it('returns no terraform resources when files contain only non-aws resources', async () => {
     const resourcePath = fileURLToPath(new URL('./fixtures/terraform/no-resources', import.meta.url));
-    const resources = await parseTerraform(resourcePath);
+    const { resources } = await parseTerraform(resourcePath);
 
     expect(resources).toEqual([]);
   });
 
   it('returns no autodetected resources for unsupported file extensions', async () => {
     const resourcePath = fileURLToPath(new URL('./fixtures/terraform/scan-dir/notes.txt', import.meta.url));
-    const resources = await parseIaC(resourcePath);
+    const { resources } = await parseIaC(resourcePath);
 
     expect(resources).toEqual([]);
   });
 
   it('parses a cloudformation yaml resource and preserves raw intrinsic functions', async () => {
     const resourcePath = fileURLToPath(new URL('./fixtures/cloudformation/ebs-volume.yaml', import.meta.url));
-    const resources = await parseCloudFormation(resourcePath);
+    const { resources } = await parseCloudFormation(resourcePath);
 
     expect(resources).toEqual([
       {
@@ -456,7 +482,7 @@ describe('parsers', () => {
 
   it('parses a cloudformation EC2 instance resource', async () => {
     const resourcePath = fileURLToPath(new URL('./fixtures/cloudformation/ec2-instance.yaml', import.meta.url));
-    const resources = await parseCloudFormation(resourcePath);
+    const { resources } = await parseCloudFormation(resourcePath);
 
     expect(resources).toEqual([
       {
@@ -502,7 +528,7 @@ describe('parsers', () => {
 
   it('parses a cloudformation json resource', async () => {
     const resourcePath = fileURLToPath(new URL('./fixtures/cloudformation/ebs-volume.json', import.meta.url));
-    const resources = await parseCloudFormation(resourcePath);
+    const { resources } = await parseCloudFormation(resourcePath);
 
     expect(resources).toEqual([
       {
@@ -556,7 +582,7 @@ describe('parsers', () => {
 
   it('auto-detects cloudformation resources from a template file', async () => {
     const resourcePath = fileURLToPath(new URL('./fixtures/cloudformation/ebs-volume.yaml', import.meta.url));
-    const resources = await parseIaC(resourcePath);
+    const { resources } = await parseIaC(resourcePath);
 
     expect(resources).toEqual([
       {
@@ -616,14 +642,14 @@ describe('parsers', () => {
 
   it('returns no cloudformation resources for yaml files without a Resources section', async () => {
     const resourcePath = fileURLToPath(new URL('./fixtures/cloudformation/not-template.yaml', import.meta.url));
-    const resources = await parseCloudFormation(resourcePath);
+    const { resources } = await parseCloudFormation(resourcePath);
 
     expect(resources).toEqual([]);
   });
 
   it('preserves additional cloudformation short-form intrinsics as raw canonical objects', async () => {
     const resourcePath = fileURLToPath(new URL('./fixtures/cloudformation/intrinsics.yaml', import.meta.url));
-    const resources = await parseCloudFormation(resourcePath);
+    const { resources } = await parseCloudFormation(resourcePath);
 
     expect(resources).toEqual([
       {
@@ -732,11 +758,24 @@ describe('parsers', () => {
     ]);
   });
 
-  it('returns no cloudformation resources for invalid yaml templates', async () => {
+  it('reports invalid cloudformation templates as skipped', async () => {
     const resourcePath = fileURLToPath(new URL('./fixtures/cloudformation/invalid-template.yaml', import.meta.url));
-    const resources = await parseCloudFormation(resourcePath);
+    const result = await parseCloudFormation(resourcePath);
 
-    expect(resources).toEqual([]);
+    expect(result).toEqual({
+      diagnostics: [
+        {
+          code: 'CLOUDFORMATION_PARSE_ERROR',
+          details: expect.any(String),
+          message: 'Skipped CloudFormation file invalid-template.yaml because it could not be parsed.',
+          provider: 'aws',
+          service: 'cloudformation',
+          source: 'iac',
+          status: 'skipped',
+        },
+      ],
+      resources: [],
+    });
   });
 
   it('parses explicit cloudformation symlink file roots', async () => {
@@ -748,7 +787,7 @@ describe('parsers', () => {
 
       await symlink(fixturePath, symlinkPath);
 
-      const resources = await parseCloudFormation(symlinkPath);
+      const { resources } = await parseCloudFormation(symlinkPath);
 
       expect(resources).toEqual([
         {
@@ -823,7 +862,7 @@ describe('parsers', () => {
 
       await symlink(targetDirectory, symlinkPath);
 
-      const resources = await parseCloudFormation(symlinkPath);
+      const { resources } = await parseCloudFormation(symlinkPath);
 
       expect(resources).toEqual([
         {
@@ -860,7 +899,7 @@ describe('parsers', () => {
 
       await symlink(fixturePath, symlinkPath);
 
-      const resources = await parseCloudFormation(tempDirectory);
+      const { resources } = await parseCloudFormation(tempDirectory);
 
       expect(resources).toEqual([]);
     } finally {
@@ -887,9 +926,22 @@ describe('parsers', () => {
         ].join('\n'),
       );
 
-      const resources = await parseCloudFormation(templatePath);
+      const result = await parseCloudFormation(templatePath);
 
-      expect(resources).toEqual([]);
+      expect(result).toEqual({
+        diagnostics: [
+          {
+            code: 'CLOUDFORMATION_TEMPLATE_TOO_LARGE',
+            details: expect.any(String),
+            message: 'Skipped CloudFormation file large-template.yaml because it exceeds the 5 MiB size limit.',
+            provider: 'aws',
+            service: 'cloudformation',
+            source: 'iac',
+            status: 'skipped',
+          },
+        ],
+        resources: [],
+      });
     } finally {
       await rm(tempDirectory, { force: true, recursive: true });
     }
@@ -897,7 +949,7 @@ describe('parsers', () => {
 
   it('auto-detects mixed terraform and cloudformation directories in stable order', async () => {
     const resourcePath = fileURLToPath(new URL('./fixtures/iac-mixed', import.meta.url));
-    const resources = await parseIaC(resourcePath);
+    const { resources } = await parseIaC(resourcePath);
 
     expect(resources.map((resource) => `${resource.location?.path}:${resource.type}.${resource.name}`)).toEqual([
       'main.tf:aws_ebs_volume.gp2_logs',
@@ -907,47 +959,60 @@ describe('parsers', () => {
 
   it('keeps terraform resources when a sibling cloudformation template is invalid', async () => {
     const resourcePath = fileURLToPath(new URL('./fixtures/iac-invalid-cloudformation', import.meta.url));
-    const resources = await parseIaC(resourcePath);
+    const result = await parseIaC(resourcePath);
 
-    expect(resources).toEqual([
-      {
-        provider: 'aws',
-        type: 'aws_ebs_volume',
-        name: 'gp2_logs',
-        location: {
-          path: 'main.tf',
-          line: 1,
-          column: 1,
+    expect(result).toEqual({
+      diagnostics: [
+        {
+          code: 'CLOUDFORMATION_PARSE_ERROR',
+          details: expect.any(String),
+          message: 'Skipped CloudFormation file invalid-template.yaml because it could not be parsed.',
+          provider: 'aws',
+          service: 'cloudformation',
+          source: 'iac',
+          status: 'skipped',
         },
-        attributeLocations: {
-          availability_zone: {
+      ],
+      resources: [
+        {
+          provider: 'aws',
+          type: 'aws_ebs_volume',
+          name: 'gp2_logs',
+          location: {
             path: 'main.tf',
-            line: 2,
-            column: 3,
+            line: 1,
+            column: 1,
           },
-          size: {
-            path: 'main.tf',
-            line: 3,
-            column: 3,
+          attributeLocations: {
+            availability_zone: {
+              path: 'main.tf',
+              line: 2,
+              column: 3,
+            },
+            size: {
+              path: 'main.tf',
+              line: 3,
+              column: 3,
+            },
+            type: {
+              path: 'main.tf',
+              line: 4,
+              column: 3,
+            },
           },
-          type: {
-            path: 'main.tf',
-            line: 4,
-            column: 3,
+          attributes: {
+            availability_zone: 'eu-west-1a',
+            size: 50,
+            type: 'gp2',
           },
         },
-        attributes: {
-          availability_zone: 'eu-west-1a',
-          size: 50,
-          type: 'gp2',
-        },
-      },
-    ]);
+      ],
+    });
   });
 
   it('parses only the requested source kinds for dataset-driven static scans', async () => {
     const resourcePath = fileURLToPath(new URL('./fixtures/iac-mixed', import.meta.url));
-    const resources = await parseIaC(resourcePath, {
+    const { resources } = await parseIaC(resourcePath, {
       sourceKinds: ['terraform'],
     });
 

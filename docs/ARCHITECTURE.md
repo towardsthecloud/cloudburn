@@ -33,7 +33,7 @@ sequenceDiagram
   Registry-->>Engine: activeRules[]
   Engine->>Engine: collect staticDependencies
   Engine->>Parser: parseIaC(path, required sourceKinds)
-  Parser-->>Engine: IaCResource[]
+  Parser-->>Engine: resources + skipped-file diagnostics
   Engine->>Engine: build StaticResourceBag
   loop Each rule where supports includes 'iac'
     Engine->>Engine: rule.evaluateStatic(context)

@@ -2,7 +2,8 @@ import { lstat, readdir, readFile, realpath, stat } from 'node:fs/promises';
 import { basename, extname, join, relative, sep } from 'node:path';
 import type { SourceLocation } from '@cloudburn/rules';
 import { isMap, isScalar, isSeq, LineCounter, parseDocument } from 'yaml';
-import type { IaCResource } from './types.js';
+import { createEmptyIaCParseResult, createSkippedIaCParseResult } from './result.js';
+import type { IaCParseResult } from './types.js';
 
 const SKIPPED_DIRECTORIES = new Set(['.git', '.terraform', 'node_modules']);
 const SUPPORTED_EXTENSIONS = new Set(['.json', '.yaml', '.yml']);
@@ -160,15 +161,20 @@ const toAttributeLocations = (
   return Object.keys(attributeLocations).length > 0 ? attributeLocations : undefined;
 };
 
-const toIaCResources = async (path: string, relativePath: string): Promise<IaCResource[]> => {
+const toIaCResources = async (path: string, relativePath: string): Promise<IaCParseResult> => {
   if (!hasSupportedExtension(path)) {
-    return [];
+    return createEmptyIaCParseResult();
   }
 
   const pathStats = await stat(path);
 
   if (pathStats.size > MAX_TEMPLATE_SIZE_BYTES) {
-    return [];
+    return createSkippedIaCParseResult({
+      code: 'CLOUDFORMATION_TEMPLATE_TOO_LARGE',
+      details: `Template size ${pathStats.size} bytes exceeds the ${MAX_TEMPLATE_SIZE_BYTES}-byte limit.`,
+      message: `Skipped CloudFormation file ${relativePath} because it exceeds the 5 MiB size limit.`,
+      service: 'cloudformation',
+    });
   }
 
   const contents = await readFile(path, 'utf8');
@@ -181,61 +187,69 @@ const toIaCResources = async (path: string, relativePath: string): Promise<IaCRe
   });
 
   // YAML/JSON extensions are ambiguous in mixed repos, so parse failures are
-  // treated as "not a CloudFormation template" rather than aborting the scan.
+  // reported as skipped files rather than aborting the scan.
   if (document.errors.length > 0) {
-    return [];
+    return createSkippedIaCParseResult({
+      code: 'CLOUDFORMATION_PARSE_ERROR',
+      details: document.errors.map((error) => error.message).join('\n'),
+      message: `Skipped CloudFormation file ${relativePath} because it could not be parsed.`,
+      service: 'cloudformation',
+    });
   }
 
   const resourcesNode = document.get('Resources', true);
 
   if (!isMap(resourcesNode)) {
-    return [];
+    return createEmptyIaCParseResult();
   }
 
-  return resourcesNode.items.flatMap((item) => {
-    const pair = item as PairLike;
+  return {
+    diagnostics: [],
+    resources: resourcesNode.items.flatMap((item) => {
+      const pair = item as PairLike;
 
-    if (!isScalar(pair.key) || typeof pair.key.value !== 'string' || !isMap(pair.value)) {
-      return [];
-    }
+      if (!isScalar(pair.key) || typeof pair.key.value !== 'string' || !isMap(pair.value)) {
+        return [];
+      }
 
-    const resourceTypeNode = pair.value.get('Type', true);
+      const resourceTypeNode = pair.value.get('Type', true);
 
-    if (!isScalar(resourceTypeNode) || typeof resourceTypeNode.value !== 'string') {
-      return [];
-    }
+      if (!isScalar(resourceTypeNode) || typeof resourceTypeNode.value !== 'string') {
+        return [];
+      }
 
-    if (!resourceTypeNode.value.startsWith('AWS::')) {
-      return [];
-    }
+      if (!resourceTypeNode.value.startsWith('AWS::')) {
+        return [];
+      }
 
-    const attributes = Object.fromEntries(
-      pair.value.items.flatMap((resourceItem) => {
-        const resourcePair = resourceItem as PairLike;
+      const attributes = Object.fromEntries(
+        pair.value.items.flatMap((resourceItem) => {
+          const resourcePair = resourceItem as PairLike;
 
-        if (!isScalar(resourcePair.key) || typeof resourcePair.key.value !== 'string') {
-          return [];
-        }
+          if (!isScalar(resourcePair.key) || typeof resourcePair.key.value !== 'string') {
+            return [];
+          }
 
-        if (resourcePair.key.value === 'Type') {
-          return [];
-        }
+          if (resourcePair.key.value === 'Type') {
+            return [];
+          }
 
-        return [[resourcePair.key.value, toRawValue(resourcePair.value)]];
-      }),
-    );
+          return [[resourcePair.key.value, toRawValue(resourcePair.value)]];
+        }),
+      );
 
-    return [
-      {
-        provider: 'aws' as const,
-        type: resourceTypeNode.value,
-        name: pair.key.value,
-        location: toSourceLocation(pair.key, lineCounter, relativePath),
-        attributeLocations: toAttributeLocations(pair.value, lineCounter, relativePath),
-        attributes,
-      },
-    ];
-  });
+      return [
+        {
+          provider: 'aws' as const,
+          type: resourceTypeNode.value,
+          name: pair.key.value,
+          location: toSourceLocation(pair.key, lineCounter, relativePath),
+          attributeLocations: toAttributeLocations(pair.value, lineCounter, relativePath),
+          attributes,
+        },
+      ];
+    }),
+  };
 };
 
 const parseCloudFormationPath = async (
@@ -243,12 +257,12 @@ const parseCloudFormationPath = async (
   scanRoot: string,
   filesystemPath: string = path,
   allowSymbolicLinkTarget = false,
-): Promise<IaCResource[]> => {
+): Promise<IaCParseResult> => {
   const linkStats = await lstat(filesystemPath);
 
   if (linkStats.isSymbolicLink()) {
     if (!allowSymbolicLinkTarget) {
-      return [];
+      return createEmptyIaCParseResult();
     }
 
     filesystemPath = await realpath(filesystemPath);
@@ -261,13 +275,13 @@ const parseCloudFormationPath = async (
   }
 
   if (!pathStats.isDirectory()) {
-    return [];
+    return createEmptyIaCParseResult();
   }
 
   const entries = (await readdir(filesystemPath, { withFileTypes: true })).sort((left, right) =>
     left.name.localeCompare(right.name),
   );
-  const resources = await Promise.all(
+  const results = await Promise.all(
     entries.flatMap((entry) => {
       if (entry.isDirectory() && SKIPPED_DIRECTORIES.has(entry.name)) {
         return [];
@@ -281,32 +295,42 @@ const parseCloudFormationPath = async (
     }),
   );
 
-  return resources.flat().sort((left, right) => {
-    const leftPath = left.location?.path ?? '';
-    const rightPath = right.location?.path ?? '';
+  const resources = results.flatMap((result) => result.resources);
 
-    if (leftPath !== rightPath) {
-      return leftPath.localeCompare(rightPath);
-    }
+  return {
+    diagnostics: results.flatMap((result) => result.diagnostics),
+    resources: resources.sort((left, right) => {
+      const leftPath = left.location?.path ?? '';
+      const rightPath = right.location?.path ?? '';
 
-    const leftLine = left.location?.line ?? 0;
-    const rightLine = right.location?.line ?? 0;
+      if (leftPath !== rightPath) {
+        return leftPath.localeCompare(rightPath);
+      }
 
-    if (leftLine !== rightLine) {
-      return leftLine - rightLine;
-    }
+      const leftLine = left.location?.line ?? 0;
+      const rightLine = right.location?.line ?? 0;
 
-    const leftColumn = left.location?.column ?? 0;
-    const rightColumn = right.location?.column ?? 0;
+      if (leftLine !== rightLine) {
+        return leftLine - rightLine;
+      }
 
-    if (leftColumn !== rightColumn) {
-      return leftColumn - rightColumn;
-    }
+      const leftColumn = left.location?.column ?? 0;
+      const rightColumn = right.location?.column ?? 0;
 
-    return `${left.type}.${left.name}`.localeCompare(`${right.type}.${right.name}`);
-  });
+      if (leftColumn !== rightColumn) {
+        return leftColumn - rightColumn;
+      }
+
+      return `${left.type}.${left.name}`.localeCompare(`${right.type}.${right.name}`);
+    }),
+  };
 };
 
-// Intent: parse CloudFormation templates into normalized IaCResource entries.
-export const parseCloudFormation = async (path: string): Promise<IaCResource[]> =>
+/**
+ * Parses CloudFormation templates into normalized IaC resources and skipped-file diagnostics.
+ *
+ * @param path - CloudFormation template or directory to parse.
+ * @returns Parsed resources plus non-fatal diagnostics.
+ */
+export const parseCloudFormation = async (path: string): Promise<IaCParseResult> =>
   parseCloudFormationPath(path, path, path, true);

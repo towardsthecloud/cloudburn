@@ -60,7 +60,7 @@ const multipleRegions = await client.discover({
 
 If you need more control, the SDK also exposes a lower-level parser:
 
-- `parseIaC(path)` as a standalone export when you want normalized Terraform and CloudFormation resources without running rules
+- `parseIaC(path)` as a standalone export when you want normalized Terraform and CloudFormation resources plus skipped-file diagnostics without running rules
 
 The `CloudBurnClient` also exposes helper methods:
 

@@ -26,6 +26,7 @@ import {
   type AwsSageMakerNotebookInstance,
   type AwsSecretsManagerSecret,
   builtInRuleMetadata,
+  type IaCParseResult,
   parseIaC,
   type Rule,
   withAwsClientCredentials,
@@ -72,7 +73,13 @@ const sortRulesForMetadata = <TRule extends Pick<Rule, 'id' | 'provider' | 'serv
 
 describe('sdk exports', () => {
   it('exports the autodetect parser from the package root', () => {
+    const result: IaCParseResult = {
+      diagnostics: [],
+      resources: [],
+    };
+
     expect(parseIaC).toBeTypeOf('function');
+    expect(result).toEqual({ diagnostics: [], resources: [] });
   });
 
   it('exports the aws credential scoping helper from the package root', () => {
