@@ -32,7 +32,7 @@ sequenceDiagram
   Engine->>Registry: buildRuleRegistry(config, 'iac')
   Registry-->>Engine: activeRules[]
   Engine->>Engine: collect staticDependencies
-  Engine->>Parser: parseIaC(path, required sourceKinds)
+  Engine->>Parser: parseIaCWithDiagnostics(path, required sourceKinds)
   Parser-->>Engine: resources + skipped-file diagnostics
   Engine->>Engine: build StaticResourceBag
   loop Each rule where supports includes 'iac'

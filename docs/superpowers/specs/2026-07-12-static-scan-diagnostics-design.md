@@ -64,8 +64,8 @@ The file path stays in the message because `ScanDiagnostic` has no path field an
 Raw parser exception messages are not included in `ScanResult`. YAML pretty
 errors and HCL diagnostics can contain source excerpts or absolute filesystem
 paths, which could disclose repository secrets or runner metadata through JSON
-output and CI logs. Full parser errors remain internal; public diagnostics use
-stable codes, scan-relative paths, and source-free summaries only.
+output and CI logs. Raw parser errors are discarded at the parser boundary;
+public diagnostics use stable codes and scan-relative paths only.
 
 `loadAwsStaticResources` returns the static evaluation context together with parser diagnostics. If no active rule requires a static dataset, it returns an empty resource bag and no diagnostics because no parser was requested.
 

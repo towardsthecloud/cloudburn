@@ -95,7 +95,7 @@ See [`docs/reference/finding-shape.md`](../reference/finding-shape.md) for the f
 
 ```mermaid
 graph LR
-  Path["file or directory"] --> PI["parseIaC(path)"]
+  Path["file or directory"] --> PI["parseIaCWithDiagnostics(path)"]
   PI --> TF["parseTerraform(path)"]
   PI --> CFN["parseCloudFormation(path)"]
   TF --> Walk["recursive walk\n(skips .git, .terraform, node_modules)"]
@@ -103,9 +103,19 @@ graph LR
   Walk --> HCL["@cdktf/hcl2json / YAML+JSON parse"]
   HCL --> Extract["extract AWS Terraform blocks\nand AWS:: CloudFormation resources"]
   Extract --> IaC["resources + diagnostics"]
+  Public["public parseIaC(path)"] --> PI
+  Public -->|"unwrap resources"| PublicResult["IaCResource[]"]
 ```
 
-`parseIaC(path, { sourceKinds? })` accepts a Terraform file, CloudFormation template, or directory and returns `{ resources, diagnostics }`. It can limit parsing to the source kinds required by active static datasets, ignores unsupported files, reports malformed or oversized supported inputs as skipped, and preserves stable ordering for mixed directories.
+The package-root `parseIaC(path, { sourceKinds? })` helper preserves its
+`IaCResource[]` return contract. Static orchestration uses the internal
+`parseIaCWithDiagnostics(path, { sourceKinds? })` entrypoint to receive
+`{ resources, diagnostics }`. Both accept a Terraform file, CloudFormation
+template, or directory, can limit parsing to the source kinds required by active
+static datasets, ignore unsupported files, and preserve stable ordering. The
+internal entrypoint reports malformed or oversized supported inputs as skipped;
+raw parser errors are discarded so diagnostics cannot expose source excerpts or
+absolute filesystem paths.
 
 ## Provider Layer
 
