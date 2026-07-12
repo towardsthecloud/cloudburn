@@ -2,7 +2,7 @@
 // TODO(cloudburn): stabilize API before first public release.
 export { awsCorePreset } from '@cloudburn/rules';
 export { builtInRuleMetadata } from './built-in-rules.js';
-export { type IaCParseResult, parseIaC } from './parsers/index.js';
+export { parseIaC } from './parsers/index.js';
 export {
   type AwsClientCredentials,
   assertSupportedAwsRegion,

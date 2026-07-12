@@ -60,7 +60,7 @@ const compareDiagnostics = (
  * @param options - Optional parser selection for dataset-driven static scans.
  * @returns Normalized IaC resources and non-fatal skipped-file diagnostics.
  */
-export const parseIaC = async (path: string, options?: ParseIaCOptions): Promise<IaCParseResult> => {
+export const parseIaCWithDiagnostics = async (path: string, options?: ParseIaCOptions): Promise<IaCParseResult> => {
   const sourceKinds = options?.sourceKinds ?? ['terraform', 'cloudformation'];
   const results = await Promise.all(sourceKinds.map((sourceKind) => PARSER_LOADERS[sourceKind](path)));
 
@@ -69,6 +69,16 @@ export const parseIaC = async (path: string, options?: ParseIaCOptions): Promise
     resources: results.flatMap((result) => result.resources).sort(compareIaCResources),
   };
 };
+
+/**
+ * Parses supported IaC inputs into normalized resources.
+ *
+ * @param path - Terraform file, CloudFormation template, or directory to scan.
+ * @param options - Optional parser selection for dataset-driven static scans.
+ * @returns Normalized IaC resources discovered from supported inputs.
+ */
+export const parseIaC = async (path: string, options?: ParseIaCOptions): Promise<IaCResource[]> =>
+  (await parseIaCWithDiagnostics(path, options)).resources;
 
 // Intent: expose parser entrypoints behind a stable SDK surface.
 export { parseCloudFormation, parseTerraform };

@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { awsRules } from '@cloudburn/rules';
 import { describe, expect, it } from 'vitest';
 import { listBuiltInRuleMetadata } from '../src/built-in-rules.js';
@@ -26,7 +27,6 @@ import {
   type AwsSageMakerNotebookInstance,
   type AwsSecretsManagerSecret,
   builtInRuleMetadata,
-  type IaCParseResult,
   parseIaC,
   type Rule,
   withAwsClientCredentials,
@@ -72,14 +72,14 @@ const sortRulesForMetadata = <TRule extends Pick<Rule, 'id' | 'provider' | 'serv
   });
 
 describe('sdk exports', () => {
-  it('exports the autodetect parser from the package root', () => {
-    const result: IaCParseResult = {
-      diagnostics: [],
-      resources: [],
-    };
+  it('preserves the array-returning autodetect parser contract at the package root', async () => {
+    const resourcePath = fileURLToPath(new URL('./fixtures/terraform/ebs-gp2.tf', import.meta.url));
+    const resources = await parseIaC(resourcePath);
 
     expect(parseIaC).toBeTypeOf('function');
-    expect(result).toEqual({ diagnostics: [], resources: [] });
+    expect(Array.isArray(resources)).toBe(true);
+    expect(resources).toHaveLength(1);
+    expect(resources[0]?.name).toBe('gp2_data');
   });
 
   it('exports the aws credential scoping helper from the package root', () => {

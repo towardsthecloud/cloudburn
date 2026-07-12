@@ -1,7 +1,7 @@
 import type { IaCResource, Rule } from '@cloudburn/rules';
 import { StaticResourceBag } from '@cloudburn/rules';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { parseIaC } from '../../src/parsers/index.js';
+import { parseIaCWithDiagnostics } from '../../src/parsers/index.js';
 import { loadAwsStaticResources } from '../../src/providers/aws/static.js';
 import { getAwsStaticDatasetDefinition } from '../../src/providers/aws/static-registry.js';
 
@@ -10,11 +10,11 @@ vi.mock('../../src/parsers/index.js', async () => {
 
   return {
     ...actual,
-    parseIaC: vi.fn(),
+    parseIaCWithDiagnostics: vi.fn(),
   };
 });
 
-const mockedParseIaC = vi.mocked(parseIaC);
+const mockedParseIaC = vi.mocked(parseIaCWithDiagnostics);
 
 const mockParsedResources = (resources: IaCResource[]): void => {
   mockedParseIaC.mockResolvedValue({ diagnostics: [], resources });
