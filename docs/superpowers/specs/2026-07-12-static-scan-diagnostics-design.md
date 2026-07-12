@@ -21,20 +21,33 @@ Static IaC scans currently keep going when Terraform or CloudFormation input can
 
 ## Considered Interfaces
 
-1. Return `{ resources, diagnostics }` from every parser. This is the selected approach because it is explicit, composable, and gives static orchestration one consistent contract.
-2. Preserve `parseIaC(): IaCResource[]` and add a second internal diagnostics-aware entrypoint. This avoids a public return-shape change but creates two parser paths that can diverge.
+1. Preserve `parseIaC(): IaCResource[]` and add a thin internal diagnostics-aware
+   entrypoint. This is selected because it preserves the published contract while
+   keeping orchestration explicit; the public function delegates to the internal
+   function so the parsing paths cannot diverge.
+2. Return `{ resources, diagnostics }` from every parser, including public
+   `parseIaC`. This is composable but breaks existing SDK consumers.
 3. Accept an optional diagnostics callback. This preserves the resource-array return type but makes composition and testing less direct.
 
-Backward compatibility is not required for this change, so the direct result object is preferable to parallel APIs or callbacks.
+The package-root `parseIaC(path)` export remains backward-compatible and continues
+to return `IaCResource[]`. Static scan orchestration uses a separate internal
+`parseIaCWithDiagnostics(path, options?)` entrypoint that returns
+`{ resources, diagnostics }`. Keeping the diagnostics-aware entrypoint internal
+avoids expanding the published SDK surface while preserving the existing runtime
+contract for integrators.
 
 ## SDK Design
 
-Add an exported parser result type containing:
+Add an internal parser result type containing:
 
 - `resources: IaCResource[]`
 - `diagnostics: ScanDiagnostic[]`
 
-`parseTerraform`, `parseCloudFormation`, and `parseIaC` all return this shape. `parseIaC` runs only the requested source kinds, concatenates their results, and preserves deterministic resource and diagnostic ordering.
+`parseTerraform`, `parseCloudFormation`, and the internal
+`parseIaCWithDiagnostics` return this shape. Public `parseIaC` unwraps and returns
+only `resources`. The internal entrypoint runs only the requested source kinds,
+concatenates their results, and preserves deterministic resource and diagnostic
+ordering.
 
 Each skipped-file diagnostic uses the existing `ScanDiagnostic` contract:
 
@@ -44,9 +57,15 @@ Each skipped-file diagnostic uses the existing `ScanDiagnostic` contract:
 - `service: 'terraform'` or `service: 'cloudformation'`
 - a stable code distinguishing Terraform parse failure, CloudFormation parse failure, and oversized CloudFormation input
 - a user-facing message containing the scan-relative file path
-- parser error text or the size limit in `details` where useful
+- a bounded, source-free summary in `details` where useful
 
 The file path stays in the message because `ScanDiagnostic` has no path field and changing that shared public type is unnecessary for this task.
+
+Raw parser exception messages are not included in `ScanResult`. YAML pretty
+errors and HCL diagnostics can contain source excerpts or absolute filesystem
+paths, which could disclose repository secrets or runner metadata through JSON
+output and CI logs. Full parser errors remain internal; public diagnostics use
+stable codes, scan-relative paths, and source-free summaries only.
 
 `loadAwsStaticResources` returns the static evaluation context together with parser diagnostics. If no active rule requires a static dataset, it returns an empty resource bag and no diagnostics because no parser was requested.
 
@@ -78,7 +97,9 @@ Work in vertical TDD slices:
 
 1. Update the Terraform invalid-syntax test to require one diagnostic while preserving the valid sibling resource, then implement the Terraform result contract.
 2. Update the CloudFormation invalid-template test to require one diagnostic while preserving non-fatal behavior, then implement the CloudFormation result contract. Cover the existing oversized-template behavior in the same parser concern.
-3. Add `parseIaC` aggregation and deterministic ordering coverage, then thread the result through the static provider.
+3. Add `parseIaCWithDiagnostics` aggregation and deterministic ordering coverage,
+   plus public `parseIaC` compatibility coverage, then thread the internal result
+   through the static provider.
 4. Add a scanner-level test proving `ScanResult.diagnostics` is populated for static scans and omitted when empty.
 5. Update package export coverage for the public parser result type and update the stale live-discovery failure statement in `docs/architecture/sdk.md`.
 6. Run the required simplify review and a fresh `pnpm verify` before each implementation commit and final handoff.
