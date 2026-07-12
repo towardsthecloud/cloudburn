@@ -101,7 +101,9 @@ Work in vertical TDD slices:
    plus public `parseIaC` compatibility coverage, then thread the internal result
    through the static provider.
 4. Add a scanner-level test proving `ScanResult.diagnostics` is populated for static scans and omitted when empty.
-5. Update package export coverage for the public parser result type and update the stale live-discovery failure statement in `docs/architecture/sdk.md`.
+5. Add package-root coverage for the public array-returning `parseIaC` contract
+   and update the stale live-discovery failure statement in
+   `docs/architecture/sdk.md`.
 6. Run the required simplify review and a fresh `pnpm verify` before each implementation commit and final handoff.
 
 ## Release

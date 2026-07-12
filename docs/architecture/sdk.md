@@ -23,12 +23,12 @@ graph TD
   subgraph Static["runStaticScan(path, config)"]
     SR[buildRuleRegistry] --> SD[collect staticDependencies]
     SD --> SRg[resolve static dataset registry entries]
-    SRg --> SP[parseIaC(required sourceKinds)]
+    SRg --> SP[parseIaCWithDiagnostics(required sourceKinds)]
     SP --> SL[load required static datasets]
     SL --> SC[build StaticEvaluationContext]
     SC --> SE["rule.evaluateStatic() => Finding | null"]
     SE --> SG[groupFindingsByProvider]
-    SG --> SOut["ScanResult { providers: ProviderFindingGroup[] }"]
+    SG --> SOut["ScanResult { providers, diagnostics? }"]
   end
 
   subgraph Live["runLiveScan(config, target)"]
@@ -49,11 +49,13 @@ graph TD
 2. Collect unique `staticDependencies` from active static rules.
 3. Resolve those dataset keys through the AWS static dataset registry.
 4. Union required IaC source kinds from the resolved dataset definitions.
-5. Parse only the required Terraform and CloudFormation inputs.
+5. Parse only the required Terraform and CloudFormation inputs through
+   `parseIaCWithDiagnostics` and retain non-fatal skipped-file diagnostics.
 6. Load only the requested normalized static datasets.
 7. Build `StaticEvaluationContext` with `{ resources: StaticResourceBag }`.
 8. Invoke each static evaluator.
-9. Group non-null rule findings under `providers -> rules -> findings`.
+9. Group non-null rule findings under `providers -> rules -> findings` and attach
+   parser diagnostics when present.
 
 ### Live Scan
 
