@@ -341,7 +341,6 @@ describe('parsers', () => {
       diagnostics: [
         {
           code: 'TERRAFORM_PARSE_ERROR',
-          details: expect.any(String),
           message: 'Skipped Terraform file broken.tf because it could not be parsed.',
           provider: 'aws',
           service: 'terraform',
@@ -353,6 +352,24 @@ describe('parsers', () => {
     });
   });
 
+  it('does not expose malformed terraform source content in diagnostics', async () => {
+    const tempDirectory = await mkdtemp(join(tmpdir(), 'cloudburn-terraform-secret-'));
+    const terraformPath = join(tempDirectory, 'secret.tf');
+    const secret = 'super-secret-terraform-value';
+
+    try {
+      await writeFile(terraformPath, `resource "aws_ebs_volume" "broken" {\n  tags = [${secret}\n`);
+
+      const result = await parseTerraform(terraformPath);
+
+      expect(JSON.stringify(result.diagnostics)).not.toContain(secret);
+      expect(JSON.stringify(result.diagnostics)).not.toContain(tempDirectory);
+      expect(result.diagnostics[0]).not.toHaveProperty('details');
+    } finally {
+      await rm(tempDirectory, { force: true, recursive: true });
+    }
+  });
+
   it('keeps valid terraform resources when a sibling terraform file has invalid syntax', async () => {
     const resourcePath = fileURLToPath(new URL('./fixtures/terraform/invalid-syntax', import.meta.url));
     const result = await parseTerraform(resourcePath);
@@ -361,7 +378,6 @@ describe('parsers', () => {
       diagnostics: [
         {
           code: 'TERRAFORM_PARSE_ERROR',
-          details: expect.any(String),
           message: 'Skipped Terraform file broken.tf because it could not be parsed.',
           provider: 'aws',
           service: 'terraform',

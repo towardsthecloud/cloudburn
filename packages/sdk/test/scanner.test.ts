@@ -518,7 +518,6 @@ describe('CloudBurnClient', () => {
     expect(result.diagnostics).toEqual([
       {
         code: 'TERRAFORM_PARSE_ERROR',
-        details: expect.any(String),
         message: 'Skipped Terraform file broken.tf because it could not be parsed.',
         provider: 'aws',
         service: 'terraform',

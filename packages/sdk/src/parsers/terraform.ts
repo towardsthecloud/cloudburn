@@ -160,10 +160,9 @@ const toIaCResources = async (path: string, scanRoot: string): Promise<IaCParseR
 
   try {
     parsed = await parseHcl(path, contents);
-  } catch (error) {
+  } catch {
     return createSkippedIaCParseResult({
       code: 'TERRAFORM_PARSE_ERROR',
-      details: error instanceof Error ? error.message : String(error),
       message: `Skipped Terraform file ${relativePath} because it could not be parsed.`,
       service: 'terraform',
     });
