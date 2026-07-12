@@ -1,5 +1,11 @@
 # @cloudburn/sdk
 
+## 0.23.0
+
+### Minor Changes
+
+- [#66](https://github.com/towardsthecloud/cloudburn/pull/66) [`cb7cf91`](https://github.com/towardsthecloud/cloudburn/commit/cb7cf911c1c18ecf9ae025944614e42ec44c5eb0) Thanks [@axonstone](https://github.com/axonstone)! - Add scoped AWS credentials support for live discovery. `CloudBurnClient.discover()` accepts `aws.credentials` (a static identity or credential provider), and the new `withAwsClientCredentials()` helper scopes credentials to every AWS client created inside a callback. Existing behavior is unchanged when no credentials are supplied.
+
 ## 0.22.0
 
 ### Minor Changes

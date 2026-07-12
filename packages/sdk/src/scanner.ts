@@ -3,6 +3,7 @@ import { mergeConfig } from './config/merge.js';
 import { emitDebugLog } from './debug.js';
 import { runLiveScan } from './engine/run-live.js';
 import { runStaticScan } from './engine/run-static.js';
+import { type AwsClientCredentials, withAwsClientCredentials } from './providers/aws/client.js';
 import {
   getAwsDiscoveryStatus,
   initializeAwsDiscovery,
@@ -66,20 +67,25 @@ export class CloudBurnClient {
   /**
    * Runs a live AWS discovery scan against a specific discovery target.
    *
-   * @param options - Optional discovery target and config overrides.
+   * @param options - Optional discovery target, config overrides, and AWS
+   *   credentials to use instead of the ambient credential provider chain.
    * @returns Grouped live scan findings.
    */
   public async discover(options?: {
     target?: AwsDiscoveryTarget;
     config?: Partial<CloudBurnConfig>;
     configPath?: string;
+    aws?: { credentials?: AwsClientCredentials };
   }): Promise<ScanResult> {
     emitDebugLog(this.options?.debugLogger, 'sdk: starting live discovery scan');
     const effectiveConfig = await this.getEffectiveConfig(options?.config, options?.configPath);
 
-    return runLiveScan(effectiveConfig, options?.target ?? { mode: 'current' }, {
-      debugLogger: this.options?.debugLogger,
-    });
+    const run = () =>
+      runLiveScan(effectiveConfig, options?.target ?? { mode: 'current' }, {
+        debugLogger: this.options?.debugLogger,
+      });
+
+    return options?.aws?.credentials ? withAwsClientCredentials(options.aws.credentials, run) : run();
   }
 
   /**

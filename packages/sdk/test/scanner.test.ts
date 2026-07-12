@@ -1,6 +1,7 @@
 import { fileURLToPath } from 'node:url';
 import { LiveResourceBag } from '@cloudburn/rules';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createEc2Client } from '../src/providers/aws/client.js';
 import { discoverAwsResources } from '../src/providers/aws/discovery.js';
 import { CloudBurnClient } from '../src/scanner.js';
 
@@ -342,6 +343,34 @@ describe('CloudBurnClient', () => {
       ],
       providers: [],
     });
+  });
+
+  it('scopes aws credentials around live discovery so provider clients use them', async () => {
+    const scanCredentials = {
+      accessKeyId: 'AKIASCAN',
+      secretAccessKey: 'scan-secret',
+      sessionToken: 'scan-session',
+    };
+
+    mockedDiscoverAwsResources.mockImplementation(async () => {
+      const client = createEc2Client({ region: 'us-east-1' });
+      const resolved = await (client.config.credentials as () => Promise<Record<string, unknown>>)();
+      expect(resolved).toMatchObject(scanCredentials);
+
+      return {
+        catalog: discoveryCatalog,
+        resources: new LiveResourceBag(),
+      };
+    });
+
+    const scanner = new CloudBurnClient();
+
+    await scanner.discover({
+      target: { mode: 'regions', regions: ['us-east-1'] },
+      aws: { credentials: scanCredentials },
+    });
+
+    expect(mockedDiscoverAwsResources).toHaveBeenCalledOnce();
   });
 
   it('defaults discover to the current region target when none is provided', async () => {
