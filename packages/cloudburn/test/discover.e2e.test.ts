@@ -282,10 +282,6 @@ describe('discover command e2e', () => {
     const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     const discover = vi.spyOn(CloudBurnClient.prototype, 'discover').mockResolvedValue({ providers: [] });
     const program = createProgram();
-    const discoverCommand = program.commands.find((command) => command.name() === 'discover');
-
-    program.exitOverride();
-    discoverCommand?.exitOverride();
 
     await expect(program.parseAsync(['discover', '--service', 'invalid'], { from: 'user' })).rejects.toMatchObject({
       code: 'commander.invalidArgument',

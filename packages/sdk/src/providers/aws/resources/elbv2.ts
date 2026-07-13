@@ -12,7 +12,7 @@ import type {
 } from '@cloudburn/rules';
 import { createElasticLoadBalancingClient, createElasticLoadBalancingV2Client } from '../client.js';
 import { fetchCloudWatchSignals } from './cloudwatch.js';
-import { chunkItems, withAwsServiceErrorContext } from './utils.js';
+import { chunkItems, mapWithConcurrency, withAwsServiceErrorContext } from './utils.js';
 
 const CLASSIC_LOAD_BALANCER_ARN_PREFIX = 'loadbalancer/';
 const TARGET_GROUP_ARN_PREFIX = 'targetgroup/';
@@ -208,47 +208,47 @@ const loadTargetGroupArnsByLoadBalancer = async (
   const client = createElasticLoadBalancingV2Client({ region });
   const targetGroupArnsByLoadBalancer = new Map<string, string[]>();
 
-  // DescribeTargetGroups only accepts one LoadBalancerArn per call, so the
-  // per-load-balancer calls run concurrently within a bounded batch instead.
-  for (const batch of chunkItems(loadBalancerArns, TARGET_GROUP_LOOKUP_CONCURRENCY)) {
-    const batchEntries = await Promise.all(
-      batch.map(async (loadBalancerArn): Promise<readonly [string, string[]] | null> => {
-        try {
-          const response = await withAwsServiceErrorContext(
-            'Elastic Load Balancing v2',
-            'DescribeTargetGroups',
-            region,
-            () =>
-              client.send(
-                new DescribeTargetGroupsCommand({
-                  LoadBalancerArn: loadBalancerArn,
-                }),
-              ),
-            {
-              passthrough: isLoadBalancerMissingError,
-            },
-          );
-
-          return [
-            loadBalancerArn,
-            (response.TargetGroups ?? []).flatMap((targetGroup) =>
-              targetGroup.TargetGroupArn ? [targetGroup.TargetGroupArn] : [],
+  // DescribeTargetGroups only accepts one LoadBalancerArn per call, so a
+  // bounded worker pool keeps independent lookups moving without batch barriers.
+  const entries = await mapWithConcurrency(
+    loadBalancerArns,
+    TARGET_GROUP_LOOKUP_CONCURRENCY,
+    async (loadBalancerArn): Promise<readonly [string, string[]] | null> => {
+      try {
+        const response = await withAwsServiceErrorContext(
+          'Elastic Load Balancing v2',
+          'DescribeTargetGroups',
+          region,
+          () =>
+            client.send(
+              new DescribeTargetGroupsCommand({
+                LoadBalancerArn: loadBalancerArn,
+              }),
             ),
-          ] as const;
-        } catch (error) {
-          if (!isLoadBalancerMissingError(error)) {
-            throw error;
-          }
+          {
+            passthrough: isLoadBalancerMissingError,
+          },
+        );
 
-          return null;
+        return [
+          loadBalancerArn,
+          (response.TargetGroups ?? []).flatMap((targetGroup) =>
+            targetGroup.TargetGroupArn ? [targetGroup.TargetGroupArn] : [],
+          ),
+        ] as const;
+      } catch (error) {
+        if (!isLoadBalancerMissingError(error)) {
+          throw error;
         }
-      }),
-    );
 
-    for (const entry of batchEntries) {
-      if (entry) {
-        targetGroupArnsByLoadBalancer.set(entry[0], entry[1]);
+        return null;
       }
+    },
+  );
+
+  for (const entry of entries) {
+    if (entry) {
+      targetGroupArnsByLoadBalancer.set(entry[0], entry[1]);
     }
   }
 

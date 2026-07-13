@@ -414,7 +414,7 @@ describe('hydrateAwsEc2LoadBalancers', () => {
     ]);
   });
 
-  it('loads per-load-balancer target groups concurrently within a bounded batch', async () => {
+  it('loads per-load-balancer target groups concurrently with a bounded worker pool', async () => {
     let currentInFlight = 0;
     let maxInFlight = 0;
 

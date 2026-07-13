@@ -113,7 +113,7 @@ export type AwsDiscoveryProgressEvent =
   | {
       kind: 'dataset';
       completedDatasets: number;
-      datasetKey: string;
+      datasetKey: DiscoveryDatasetKey;
       totalDatasets: number;
     };
 

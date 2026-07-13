@@ -206,19 +206,25 @@ const buildDatasetFailureDiagnostic = (service: string, region: string | undefin
   status: isAwsThrottlingError(err) ? 'throttled' : 'error',
 });
 
-const buildCatalogFailureDiagnostic = (err: unknown): ScanDiagnostic => ({
-  code: getAwsErrorCode(err),
-  details: err instanceof Error ? err.message : String(err),
-  message: isAwsAccessDeniedError(err)
-    ? 'Skipped catalog-backed discovery because access to the Resource Explorer catalog was denied; only account-scoped datasets were evaluated.'
-    : isAwsThrottlingError(err)
-      ? 'Skipped catalog-backed discovery because AWS throttled the Resource Explorer catalog after retrying; only account-scoped datasets were evaluated.'
-      : 'Skipped catalog-backed discovery because the Resource Explorer catalog failed to load; only account-scoped datasets were evaluated.',
-  provider: 'aws',
-  service: 'resource-explorer',
-  source: 'discovery',
-  status: isAwsAccessDeniedError(err) ? 'access_denied' : isAwsThrottlingError(err) ? 'throttled' : 'error',
-});
+const buildCatalogFailureDiagnostic = (err: unknown): ScanDiagnostic => {
+  const status = isAwsAccessDeniedError(err) ? 'access_denied' : isAwsThrottlingError(err) ? 'throttled' : 'error';
+  const message =
+    status === 'access_denied'
+      ? 'Skipped catalog-backed discovery because access to the Resource Explorer catalog was denied; only account-scoped datasets were evaluated.'
+      : status === 'throttled'
+        ? 'Skipped catalog-backed discovery because AWS throttled the Resource Explorer catalog after retrying; only account-scoped datasets were evaluated.'
+        : 'Skipped catalog-backed discovery because the Resource Explorer catalog failed to load; only account-scoped datasets were evaluated.';
+
+  return {
+    code: getAwsErrorCode(err),
+    details: err instanceof Error ? err.message : String(err),
+    message,
+    provider: 'aws',
+    service: 'resource-explorer',
+    source: 'discovery',
+    status,
+  };
+};
 
 const normalizeDatasetLoadResult = (
   loadResult: unknown[] | { diagnostics?: ScanDiagnostic[]; resources: unknown[] },
@@ -253,6 +259,12 @@ const appendItems = <T>(target: T[], items: Iterable<T>): void => {
   }
 };
 
+const buildEmptyLocalCatalog = async (): Promise<AwsDiscoveryCatalog> => ({
+  indexType: 'LOCAL',
+  resources: [],
+  searchRegion: await resolveCurrentAwsRegion(),
+});
+
 /**
  * Discovers AWS resources for live rule evaluation using Resource Explorer and
  * registry-driven discovery datasets.
@@ -277,11 +289,7 @@ export const discoverAwsResources = async (
 
   if (datasetKeys.length === 0) {
     return {
-      catalog: {
-        resources: [],
-        searchRegion: await resolveCurrentAwsRegion(),
-        indexType: 'LOCAL',
-      },
+      catalog: await buildEmptyLocalCatalog(),
       diagnostics: [],
       resources: new LiveResourceBag(),
     };
@@ -303,11 +311,6 @@ export const discoverAwsResources = async (
     options?.debugLogger,
     `aws: resolved Resource Explorer resource types ${resourceTypes.length === 0 ? 'none' : resourceTypes.join(', ')}`,
   );
-  const buildEmptyLocalCatalog = async (): Promise<AwsDiscoveryCatalog> => ({
-    indexType: 'LOCAL',
-    resources: [],
-    searchRegion: await resolveCurrentAwsRegion(),
-  });
   let catalog: AwsDiscoveryCatalog;
   let catalogFailureDiagnostic: ScanDiagnostic | undefined;
 
@@ -521,7 +524,6 @@ export const discoverAwsResources = async (
   // All datasets load in parallel, so the shared budget caps the combined
   // in-flight AWS calls per service and region for the whole run.
   let completedDatasets = 0;
-  const route53AccountId = catalog.resources.find((resource) => resource.service === 'route53')?.accountId;
   const { allDatasetLoads, datasetLoads } = await withAwsServiceCallBudget(
     async () => {
       const requestedLoads = await Promise.all(
@@ -544,7 +546,10 @@ export const discoverAwsResources = async (
         datasetLoads: requestedLoads,
       };
     },
-    { accountId: route53AccountId },
+    {
+      accountId: catalog.resources[0]?.accountId,
+      resolveAccountId,
+    },
   );
   const resources = new LiveResourceBag(
     Object.fromEntries(datasetLoads.map((loadResult) => loadResult.dataset)) as Partial<DiscoveryDatasetMap>,

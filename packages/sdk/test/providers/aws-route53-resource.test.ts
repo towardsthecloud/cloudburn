@@ -85,7 +85,7 @@ describe('Route 53 discovery resources', () => {
     expect(mockedResolveAwsAccountId).not.toHaveBeenCalled();
   });
 
-  it('lists record sets for multiple zones concurrently within a bounded batch', async () => {
+  it('lists record sets for multiple zones concurrently with a bounded worker pool', async () => {
     let currentInFlight = 0;
     let maxInFlight = 0;
     const send = vi.fn(
