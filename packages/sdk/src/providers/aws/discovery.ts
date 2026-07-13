@@ -521,27 +521,31 @@ export const discoverAwsResources = async (
   // All datasets load in parallel, so the shared budget caps the combined
   // in-flight AWS calls per service and region for the whole run.
   let completedDatasets = 0;
-  const { allDatasetLoads, datasetLoads } = await withAwsServiceCallBudget(async () => {
-    const requestedLoads = await Promise.all(
-      datasetKeys.map(async (datasetKey) => {
-        const loadResult = await loadDataset(datasetKey);
-        completedDatasets += 1;
-        options?.onProgress?.({
-          kind: 'dataset',
-          completedDatasets,
-          datasetKey,
-          totalDatasets: datasetKeys.length,
-        });
+  const route53AccountId = catalog.resources.find((resource) => resource.service === 'route53')?.accountId;
+  const { allDatasetLoads, datasetLoads } = await withAwsServiceCallBudget(
+    async () => {
+      const requestedLoads = await Promise.all(
+        datasetKeys.map(async (datasetKey) => {
+          const loadResult = await loadDataset(datasetKey);
+          completedDatasets += 1;
+          options?.onProgress?.({
+            kind: 'dataset',
+            completedDatasets,
+            datasetKey,
+            totalDatasets: datasetKeys.length,
+          });
 
-        return loadResult;
-      }),
-    );
+          return loadResult;
+        }),
+      );
 
-    return {
-      allDatasetLoads: await Promise.all(datasetLoadPromises.values()),
-      datasetLoads: requestedLoads,
-    };
-  });
+      return {
+        allDatasetLoads: await Promise.all(datasetLoadPromises.values()),
+        datasetLoads: requestedLoads,
+      };
+    },
+    { accountId: route53AccountId },
+  );
   const resources = new LiveResourceBag(
     Object.fromEntries(datasetLoads.map((loadResult) => loadResult.dataset)) as Partial<DiscoveryDatasetMap>,
   );

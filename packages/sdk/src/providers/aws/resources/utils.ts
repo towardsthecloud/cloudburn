@@ -1,4 +1,6 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
+import type { SdkError } from '@aws-sdk/types';
+import { isTransientError } from '@smithy/service-error-classification';
 import { resolveAwsAccountId } from '../client.js';
 import type { AwsAccountIdResolver } from '../discovery-registry.js';
 import { AwsDiscoveryError, isAwsThrottlingError, wrapAwsServiceError } from '../errors.js';
@@ -9,8 +11,13 @@ import { AwsDiscoveryError, isAwsThrottlingError, wrapAwsServiceError } from '..
 // per service and region. The two dials are deliberate layers: per-loader
 // `chunkItems` batches size individual requests and keep memory bounded,
 // while this budget is the cross-dataset ceiling that no combination of
-// loaders can exceed.
+// loaders can exceed. Route 53 adds a process-wide limiter keyed by AWS
+// account because its request-rate quota spans regions and discovery runs.
 const AWS_SERVICE_CALL_CONCURRENCY = 10;
+const ROUTE53_REQUEST_RATE_LIMIT = {
+  maxCalls: 5,
+  windowMs: 1_000,
+} as const;
 
 type AwsServiceCallSlotRelease = () => void;
 
@@ -18,54 +25,117 @@ type AwsServiceCallLimiter = {
   acquire: () => Promise<AwsServiceCallSlotRelease>;
 };
 
-const createAwsServiceCallLimiter = (maxConcurrentCalls: number): AwsServiceCallLimiter => {
+type AwsServiceCallRateLimit = {
+  maxCalls: number;
+  windowMs: number;
+};
+
+const createAwsServiceCallLimiter = (
+  maxConcurrentCalls: number,
+  rateLimit?: AwsServiceCallRateLimit,
+  onIdle?: () => void,
+): AwsServiceCallLimiter => {
   let activeCalls = 0;
-  const waiters: Array<() => void> = [];
+  let wakeTimer: ReturnType<typeof setTimeout> | undefined;
+  const requestStarts: number[] = [];
+  const waiters: Array<(release: AwsServiceCallSlotRelease) => void> = [];
 
-  const release: AwsServiceCallSlotRelease = () => {
-    const nextWaiter = waiters.shift();
+  const discardExpiredRequestStarts = (now: number): void => {
+    if (!rateLimit) {
+      return;
+    }
 
-    if (nextWaiter) {
-      // The slot transfers directly to the waiter, so activeCalls stays put.
-      nextWaiter();
-    } else {
-      activeCalls -= 1;
+    while (requestStarts[0] !== undefined && requestStarts[0] <= now - rateLimit.windowMs) {
+      requestStarts.shift();
     }
   };
 
-  return {
-    acquire: async () => {
-      if (activeCalls < maxConcurrentCalls) {
-        activeCalls += 1;
+  const dispatchWaiters = (): void => {
+    if (wakeTimer) {
+      clearTimeout(wakeTimer);
+      wakeTimer = undefined;
+    }
 
-        return release;
+    const now = Date.now();
+    discardExpiredRequestStarts(now);
+
+    while (
+      activeCalls < maxConcurrentCalls &&
+      waiters.length > 0 &&
+      (!rateLimit || requestStarts.length < rateLimit.maxCalls)
+    ) {
+      activeCalls += 1;
+
+      if (rateLimit) {
+        requestStarts.push(now);
       }
 
-      await new Promise<void>((resolve) => {
-        waiters.push(resolve);
-      });
+      waiters.shift()?.(release);
+    }
 
-      return release;
-    },
+    const oldestRequestStart = requestStarts[0];
+
+    if (rateLimit && waiters.length > 0 && activeCalls < maxConcurrentCalls && oldestRequestStart !== undefined) {
+      wakeTimer = setTimeout(dispatchWaiters, Math.max(0, oldestRequestStart + rateLimit.windowMs - now));
+    } else if (rateLimit && onIdle && waiters.length === 0 && activeCalls === 0 && oldestRequestStart !== undefined) {
+      wakeTimer = setTimeout(dispatchWaiters, Math.max(0, oldestRequestStart + rateLimit.windowMs - now));
+    } else if (onIdle && waiters.length === 0 && activeCalls === 0) {
+      onIdle();
+    }
+  };
+
+  const release: AwsServiceCallSlotRelease = () => {
+    activeCalls -= 1;
+    dispatchWaiters();
+  };
+
+  return {
+    acquire: () =>
+      new Promise<AwsServiceCallSlotRelease>((resolve) => {
+        waiters.push(resolve);
+        dispatchWaiters();
+      }),
   };
 };
 
-const awsServiceCallBudgetContext = new AsyncLocalStorage<Map<string, AwsServiceCallLimiter>>();
+type AwsServiceCallBudget = {
+  accountId?: string;
+  limiters: Map<string, AwsServiceCallLimiter>;
+};
+
+const awsServiceCallBudgetContext = new AsyncLocalStorage<AwsServiceCallBudget>();
+const route53AccountLimiters = new Map<string, AwsServiceCallLimiter>();
 
 // Resolved synchronously so callers outside a budget context keep dispatching
 // their AWS calls without any added microtask deferral.
 const getAwsServiceCallLimiter = (service: string, region: string): AwsServiceCallLimiter | null => {
-  const limiters = awsServiceCallBudgetContext.getStore();
+  const budget = awsServiceCallBudgetContext.getStore();
 
-  if (!limiters) {
+  if (!budget) {
     return null;
   }
 
-  const limiterKey = `${service}:${region}`;
+  const isRoute53 = service === 'Amazon Route 53';
+  const limiters = isRoute53 && budget.accountId ? route53AccountLimiters : budget.limiters;
+  const limiterKey = isRoute53 && budget.accountId ? budget.accountId : isRoute53 ? service : `${service}:${region}`;
   let limiter = limiters.get(limiterKey);
 
   if (!limiter) {
-    limiter = createAwsServiceCallLimiter(AWS_SERVICE_CALL_CONCURRENCY);
+    if (isRoute53 && budget.accountId) {
+      let accountLimiter: AwsServiceCallLimiter;
+      accountLimiter = createAwsServiceCallLimiter(AWS_SERVICE_CALL_CONCURRENCY, ROUTE53_REQUEST_RATE_LIMIT, () => {
+        if (route53AccountLimiters.get(limiterKey) === accountLimiter) {
+          route53AccountLimiters.delete(limiterKey);
+        }
+      });
+      limiter = accountLimiter;
+    } else {
+      limiter = createAwsServiceCallLimiter(
+        AWS_SERVICE_CALL_CONCURRENCY,
+        isRoute53 ? ROUTE53_REQUEST_RATE_LIMIT : undefined,
+      );
+    }
+
     limiters.set(limiterKey, limiter);
   }
 
@@ -75,15 +145,24 @@ const getAwsServiceCallLimiter = (service: string, region: string): AwsServiceCa
 /**
  * Runs a callback with a shared AWS call budget so every `withAwsServiceErrorContext`
  * call inside it is capped per service and region, across all concurrent datasets.
+ * Route 53 budgets with an account ID also share their request rate across
+ * concurrent callbacks in the current process.
  *
  * Calls outside a budget callback stay unbounded, preserving direct hydrator
  * usage outside discovery orchestration.
  *
  * @param fn - Callback whose AWS calls should share one concurrency budget.
+ * @param options - Optional AWS account identity for account-wide service quotas.
  * @returns The callback result.
  */
-export const withAwsServiceCallBudget = <T>(fn: () => Promise<T>): Promise<T> =>
-  awsServiceCallBudgetContext.run(new Map(), fn);
+export const withAwsServiceCallBudget = <T>(fn: () => Promise<T>, options: { accountId?: string } = {}): Promise<T> =>
+  awsServiceCallBudgetContext.run(
+    {
+      accountId: options.accountId,
+      limiters: new Map(),
+    },
+    fn,
+  );
 
 type AwsServiceErrorContextOptions = {
   initialDelayMs?: number;
@@ -200,7 +279,11 @@ export const withAwsServiceErrorContext = async <T>(
         throw err;
       }
 
-      if (attempt < maxAttempts && isAwsThrottlingError(err)) {
+      const shouldRetry =
+        isAwsThrottlingError(err) ||
+        (service === 'Amazon Route 53' && err instanceof Error && isTransientError(err as SdkError));
+
+      if (attempt < maxAttempts && shouldRetry) {
         const delayMs = calculateThrottleDelayMs(initialDelayMs, attempt);
         options.onRetry?.({ attempt, delayMs, error: err, maxAttempts });
         await sleep(delayMs);
