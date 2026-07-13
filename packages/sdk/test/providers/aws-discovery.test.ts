@@ -1231,6 +1231,60 @@ describe('discoverAwsResources', () => {
     expect(maxInFlight).toBeLessThanOrEqual(10);
   });
 
+  it('degrades to account-scoped datasets when the resource catalog fails', async () => {
+    mockedResolveCurrentAwsRegion.mockResolvedValue('us-east-1');
+    mockedBuildAwsDiscoveryCatalog.mockRejectedValue(
+      Object.assign(new Error('User is not authorized to perform resource-explorer-2:ListResources'), {
+        name: 'AccessDeniedException',
+      }),
+    );
+    mockedHydrateAwsCostUsage.mockResolvedValue([]);
+
+    const rules = [
+      createRule({
+        discoveryDependencies: ['aws-ec2-instances'],
+        service: 'ec2',
+      }),
+      createRule({
+        id: 'CLDBRN-AWS-TEST-2',
+        discoveryDependencies: ['aws-cost-usage'],
+        service: 'costexplorer',
+      }),
+    ];
+
+    const result = await discoverAwsResources(rules, { mode: 'current' });
+
+    expect(mockedHydrateAwsCostUsage).toHaveBeenCalledTimes(1);
+    expect(mockedHydrateAwsEc2Instances).not.toHaveBeenCalled();
+    expect(result.catalog.resources).toEqual([]);
+    expect(result.unavailableDatasets?.has('aws-ec2-instances')).toBe(true);
+    expect(result.unavailableDatasets?.has('aws-cost-usage')).toBe(false);
+    expect(result.diagnostics).toEqual([
+      expect.objectContaining({
+        provider: 'aws',
+        service: 'resource-explorer',
+        source: 'discovery',
+        status: 'access_denied',
+      }),
+    ]);
+  });
+
+  it('stays fatal when the catalog fails and every requested dataset needs it', async () => {
+    mockedResolveCurrentAwsRegion.mockResolvedValue('us-east-1');
+    const catalogError = Object.assign(new Error('Rate exceeded'), { name: 'ThrottlingException' });
+    mockedBuildAwsDiscoveryCatalog.mockRejectedValue(catalogError);
+
+    const rules = [
+      createRule({
+        discoveryDependencies: ['aws-ec2-instances'],
+        service: 'ec2',
+      }),
+    ];
+
+    await expect(discoverAwsResources(rules, { mode: 'current' })).rejects.toBe(catalogError);
+    expect(mockedHydrateAwsEc2Instances).not.toHaveBeenCalled();
+  });
+
   it('emits dataset completion timing in debug mode so slow hydrators are visible', async () => {
     mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
       indexType: 'LOCAL',
