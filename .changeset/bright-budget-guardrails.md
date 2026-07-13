@@ -2,4 +2,4 @@
 '@cloudburn/rules': minor
 ---
 
-Add exceeded-budget and global untagged-resource rules with their public discovery dataset contracts.
+Add an exceeded-budget rule and an opt-in global untagged-resource rule with their public discovery dataset contracts.

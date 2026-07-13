@@ -71,6 +71,8 @@ describe('config command e2e', () => {
     const output = stdout.mock.calls.map(([chunk]) => String(chunk)).join('');
 
     expect(output).toContain('# Static IaC scan configuration.');
+    expect(output).toContain('enabled-rules replaces the AWS Core preset');
+    expect(output).toContain('activate opt-in rules');
     expect(output).toContain('iac:');
     expect(output).toContain('discovery:');
   });

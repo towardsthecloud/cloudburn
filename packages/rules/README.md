@@ -14,8 +14,8 @@ npm install @cloudburn/rules
 
 ## What's In The Box
 
-- Built-in rule packs like `awsRules`
-- Presets like `awsCorePreset`
+- Complete built-in rule packs like `awsRules`
+- Default subsets like `awsCorePreset`
 - Rule authoring helpers like `createRule`, `createFinding`, and `createFindingMatch`
 - Shared rule types plus `LiveResourceBag` and `StaticResourceBag` for evaluation and tests
 
@@ -29,6 +29,8 @@ import { awsCorePreset, awsRules } from '@cloudburn/rules';
 console.log(awsCorePreset.id);
 console.log(awsRules.length);
 ```
+
+`awsRules` contains every public AWS rule. `awsCorePreset` is the default subset used by CloudBurn and excludes account-wide opt-in rules such as `CLDBRN-AWS-TAGGING-1`.
 
 Or write your own rule pack on top of the same contracts:
 

@@ -305,13 +305,13 @@ describe('scan command e2e', () => {
     expect(help).toContain('--enabled-rules <ruleIds>');
     expect(help).toContain('When set,');
     expect(help).toContain('CloudBurn checks only these rules');
-    expect(help).toContain('By default, all');
-    expect(help).toContain('rules are enabled');
+    expect(help).toContain('By default, AWS');
+    expect(help).toContain('Core preset rules are enabled');
     expect(help).toContain('--disabled-rules <ruleIds>');
     expect(help).toContain('--service <services>');
     expect(help).toContain('Comma-separated services');
-    expect(help).toContain('use this to exclude');
-    expect(help).toContain('specific rules');
+    expect(help).toContain('disable from the');
+    expect(help).toContain('default AWS Core preset');
     expect(help).not.toContain('--live');
   });
 });

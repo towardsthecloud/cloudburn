@@ -12,11 +12,11 @@
 
 Three test layers, all in `packages/rules/test/`:
 
-| Layer                     | File                    | What it verifies                                                                        |
-| ------------------------- | ----------------------- | --------------------------------------------------------------------------------------- |
-| **1. Export surface**     | `exports.test.ts`       | `awsRules` is non-empty, preset rule count matches, `azureRules`/`gcpRules` are empty   |
-| **2. Metadata contract**  | `rule-metadata.test.ts` | Every rule has non-empty `id`, `name`, `description`, and `supports`                    |
-| **3. Evaluator behavior** | `{rule-name}.test.ts`   | Full finding payloads for both `evaluateLive` and `evaluateStatic`, plus negative cases |
+| Layer                     | File                    | What it verifies                                                                          |
+| ------------------------- | ----------------------- | ----------------------------------------------------------------------------------------- |
+| **1. Export surface**     | `exports.test.ts`       | `awsRules` is non-empty, preset inclusion policy holds, `azureRules`/`gcpRules` are empty |
+| **2. Metadata contract**  | `rule-metadata.test.ts` | Every rule has non-empty `id`, `name`, `description`, and `supports`                      |
+| **3. Evaluator behavior** | `{rule-name}.test.ts`   | Full finding payloads for both `evaluateLive` and `evaluateStatic`, plus negative cases   |
 
 For static IaC rules, evaluator coverage must include both Terraform-shaped and CloudFormation-shaped resources. A passing test suite for only one source kind is incomplete.
 

@@ -54,7 +54,7 @@ const multipleRegions = await client.discover({
 });
 ```
 
-`discover()` defaults to the current AWS region. You can also target one or more explicit AWS regions with `{ target: { mode: 'regions', regions: [...] } }`. Multi-region discovery requires an AWS Resource Explorer aggregator index.
+`discover()` defaults to the current AWS region and the AWS Core preset. You can also target one or more explicit AWS regions with `{ target: { mode: 'regions', regions: [...] } }`. Multi-region discovery requires an AWS Resource Explorer aggregator index. Account-wide rules such as `CLDBRN-AWS-TAGGING-1` are opt-in through `config.discovery.enabledRules` and also require an accessible aggregator.
 
 ### Lower-level helpers
 

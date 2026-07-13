@@ -102,7 +102,7 @@ export const awsRules = [...ec2Rules, ...ebsRules, ...rdsRules, ...s3Rules, ...l
 
 ## 6. Preset Inclusion
 
-`awsCorePreset` in `packages/rules/src/presets/aws-core.ts` uses `toRuleIds(awsRules)`, so new rules are automatically included when added to `awsRules`. No manual preset change is needed.
+`awsCorePreset` in `packages/rules/src/presets/aws-core.ts` normally includes IDs from `awsRules`. Rules that require account-wide infrastructure or other explicit setup can be excluded from the preset and enabled by users through `enabled-rules`. Document any opt-in requirement in [`rule-ids.md`](../reference/rule-ids.md).
 
 ## 7. Update rule-ids.md
 

@@ -71,6 +71,8 @@ graph LR
   Preset --> Export
 ```
 
+`awsRules` is the complete public AWS rule pack. `awsCorePreset` is the runtime default and may exclude opt-in rules whose infrastructure requirements are not guaranteed by a standard setup.
+
 ## Authoring Rules
 
 See [`docs/guides/adding-a-rule.md`](../guides/adding-a-rule.md) for the full end-to-end guide and [`docs/reference/rule-ids.md`](../reference/rule-ids.md) for the ID convention and complete rule table.

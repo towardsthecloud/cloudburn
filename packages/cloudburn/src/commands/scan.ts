@@ -43,12 +43,12 @@ export const registerScanCommand = (program: Command): void => {
       .option('--config <path>', 'Explicit CloudBurn config file to load')
       .option(
         '--enabled-rules <ruleIds>',
-        'Comma-separated rule IDs to enable. When set, CloudBurn checks only these rules. By default, all rules are enabled.',
+        'Comma-separated rule IDs to enable. When set, CloudBurn checks only these rules. By default, AWS Core preset rules are enabled.',
         parseRuleIdList,
       )
       .option(
         '--disabled-rules <ruleIds>',
-        'Comma-separated rule IDs to disable. By default, all rules are enabled; use this to exclude specific rules.',
+        'Comma-separated rule IDs to disable from the default AWS Core preset.',
         parseRuleIdList,
       )
       .option('--service <services>', 'Comma-separated services to include in the scan rule set.', parseIaCServiceList)

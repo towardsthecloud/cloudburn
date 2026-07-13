@@ -8,6 +8,7 @@ import {
   initializeAwsDiscovery,
   listSupportedAwsResourceTypes,
 } from '../../src/providers/aws/discovery.js';
+import { AwsDiscoveryError } from '../../src/providers/aws/errors.js';
 import {
   buildAwsDiscoveryCatalog,
   createAwsResourceExplorerSetup,
@@ -1033,6 +1034,39 @@ describe('discoverAwsResources', () => {
         service: 'ec2',
       },
     ]);
+  });
+
+  it('degrades explicitly enabled tagging discovery when no account aggregator is available', async () => {
+    const remediation =
+      "Account-wide discovery requires an aggregator index. Enable one first with 'cloudburn discover init' or the AWS console.";
+    mockedResolveCurrentAwsRegion.mockResolvedValue('eu-west-1');
+    mockedListAwsResourcesByFilter.mockRejectedValue(
+      new AwsDiscoveryError('RESOURCE_EXPLORER_AGGREGATOR_REQUIRED', remediation),
+    );
+
+    const result = await discoverAwsResources(
+      [
+        createRule({
+          id: 'CLDBRN-AWS-TAGGING-1',
+          service: 'tagging',
+          discoveryDependencies: ['aws-resource-explorer-untagged-resources'],
+        }),
+      ],
+      { mode: 'current' },
+    );
+
+    const expectedDiagnostic = {
+      code: 'RESOURCE_EXPLORER_AGGREGATOR_REQUIRED',
+      details: remediation,
+      message: 'Skipped tagging discovery because a required dataset failed to load.',
+      provider: 'aws',
+      service: 'tagging',
+      source: 'discovery',
+      status: 'error',
+    };
+    expect(result.resources.get('aws-resource-explorer-untagged-resources')).toEqual([]);
+    expect(result.unavailableDatasets?.get('aws-resource-explorer-untagged-resources')).toEqual([expectedDiagnostic]);
+    expect(result.diagnostics).toEqual([expectedDiagnostic]);
   });
 
   it('hydrates CloudTrail trails when an active rule requires the CloudTrail dataset', async () => {

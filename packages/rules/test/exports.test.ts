@@ -56,7 +56,9 @@ import {
 describe('rule exports', () => {
   it('exports non-empty AWS rules and preset IDs', () => {
     expect(awsRules.length).toBeGreaterThan(0);
-    expect(awsCorePreset.ruleIds.length).toBe(awsRules.length);
+    expect(awsCorePreset.ruleIds).toEqual(
+      awsRules.map((rule) => rule.id).filter((ruleId) => ruleId !== 'CLDBRN-AWS-TAGGING-1'),
+    );
     expect(awsRules.map((rule) => rule.id)).toEqual(
       expect.arrayContaining([
         'CLDBRN-AWS-APIGATEWAY-1',

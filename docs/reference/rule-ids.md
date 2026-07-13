@@ -92,7 +92,7 @@ Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
 | `CLDBRN-AWS-SAGEMAKER-1`      | Flags only notebook instances whose normalized status remains `InService`.                                                                                                                                                          | sagemaker      | discovery      |
 | `CLDBRN-AWS-SAGEMAKER-2`      | Flags only endpoints whose normalized status remains `InService`, whose parsed `creationTime` is at least `14` days old, and whose complete 14-day `Invocations` total stays at `0`. Endpoints with incomplete metrics are skipped. | sagemaker      | discovery      |
 | `CLDBRN-AWS-SECRETSMANAGER-1` | Flags secrets with no `lastAccessedDate` and secrets whose parsed last access is at least `90` days old.                                                                                                                            | secretsmanager | discovery      |
-| `CLDBRN-AWS-TAGGING-1`        | Uses an accessible Resource Explorer aggregator and `resourcetype.supports:tags tag:none` to flag taggable resources without user-created tags across the account. AWS-managed tags do not satisfy the rule.                        | tagging        | discovery      |
+| `CLDBRN-AWS-TAGGING-1`        | Opt-in. Uses an accessible Resource Explorer aggregator and `resourcetype.supports:tags tag:none` to flag taggable resources without user-created tags across the account. AWS-managed tags do not satisfy the rule.                | tagging        | discovery      |
 | `CLDBRN-AWS-LAMBDA-1`         | Recommend arm64 architecture when compatible.                                                                                                                                                                                       | lambda         | iac, discovery |
 | `CLDBRN-AWS-LAMBDA-2`         | Uses 7-day CloudWatch totals and flags only functions whose observed `Errors / Invocations` ratio is greater than `10%`.                                                                                                            | lambda         | discovery      |
 | `CLDBRN-AWS-LAMBDA-3`         | Reviews only functions with configured timeouts of at least `30` seconds and flags when the timeout is at least `5x` the observed 7-day average duration.                                                                           | lambda         | discovery      |
@@ -101,8 +101,8 @@ Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
 
 ## Presets
 
-| Preset ID  | Name     | Rule IDs            |
-| ---------- | -------- | ------------------- |
-| `aws-core` | AWS Core | All AWS rules above |
+| Preset ID  | Name     | Rule IDs                                                 |
+| ---------- | -------- | -------------------------------------------------------- |
+| `aws-core` | AWS Core | All AWS rules above except opt-in `CLDBRN-AWS-TAGGING-1` |
 
 Future presets (planned): `strict`, `startup`, `production`.

@@ -9,8 +9,9 @@ import { setCommandExamples } from '../help.js';
 const CONFIG_FILENAMES = ['.cloudburn.yml', '.cloudburn.yaml'] as const;
 
 const starterConfig = `# Static IaC scan configuration.
-# enabled-rules restricts scans to only the listed rule IDs.
-# disabled-rules removes specific rule IDs from the active set.
+# enabled-rules replaces the AWS Core preset with only the listed rule IDs.
+# It can also activate opt-in rules that are not in AWS Core.
+# disabled-rules removes specific rule IDs from the selected set.
 # services restricts scans to rules for the listed services.
 # format sets the default output format when --format is not passed.
 iac:

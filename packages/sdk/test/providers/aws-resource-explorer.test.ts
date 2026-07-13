@@ -182,6 +182,49 @@ describe('resource explorer discovery', () => {
     ]);
   });
 
+  it('explains that account-wide filtered discovery requires an aggregator', async () => {
+    vi.spyOn(clientModule, 'listEnabledAwsRegions').mockResolvedValue(['eu-central-1']);
+    vi.spyOn(clientModule, 'createResourceExplorerClient').mockReturnValue({
+      send: vi.fn().mockResolvedValue({
+        Indexes: [{ Region: 'eu-central-1', Type: 'LOCAL' }],
+      }),
+    } as never);
+
+    await expect(
+      listAwsResourcesByFilter({ mode: 'current' }, 'resourcetype.supports:tags tag:none', {
+        requiredViewProperties: ['tags'],
+        scope: 'account',
+      }),
+    ).rejects.toMatchObject({
+      code: 'RESOURCE_EXPLORER_AGGREGATOR_REQUIRED',
+      message:
+        "Account-wide discovery requires an aggregator index. Enable one first with 'cloudburn discover init' or the AWS console.",
+    });
+  });
+
+  it('points account-wide filtered discovery at status when aggregator access is denied', async () => {
+    vi.spyOn(clientModule, 'listEnabledAwsRegions').mockResolvedValue(['eu-central-1']);
+    vi.spyOn(clientModule, 'createResourceExplorerClient').mockReturnValue({
+      send: vi.fn().mockRejectedValue(
+        Object.assign(new Error('explicit deny'), {
+          name: 'AccessDeniedException',
+          $metadata: { httpStatusCode: 403 },
+        }),
+      ),
+    } as never);
+
+    await expect(
+      listAwsResourcesByFilter({ mode: 'current' }, 'resourcetype.supports:tags tag:none', {
+        requiredViewProperties: ['tags'],
+        scope: 'account',
+      }),
+    ).rejects.toMatchObject({
+      code: 'RESOURCE_EXPLORER_AGGREGATOR_REQUIRED',
+      message:
+        "Account-wide discovery requires an accessible aggregator index. Run 'cloudburn discover status' to inspect indexed regions and access restrictions.",
+    });
+  });
+
   it('fails filtered tagging discovery when the default view does not expose tags', async () => {
     vi.spyOn(clientModule, 'resolveCurrentAwsRegion').mockResolvedValue('eu-central-1');
     vi.spyOn(clientModule, 'createResourceExplorerClient').mockReturnValue({
