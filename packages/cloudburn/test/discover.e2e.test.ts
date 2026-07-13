@@ -199,7 +199,7 @@ describe('discover command e2e', () => {
 
     await expect(
       createProgram().parseAsync(['discover', '--region', 'totally-fake-1'], { from: 'user' }),
-    ).rejects.toThrow('process.exit unexpectedly called with "1"');
+    ).rejects.toMatchObject({ code: 'commander.invalidArgument' });
 
     expect(discover).not.toHaveBeenCalled();
     expect(stderr).toHaveBeenCalledWith(expect.stringContaining("Invalid AWS region 'totally-fake-1'."));
@@ -230,9 +230,7 @@ describe('discover command e2e', () => {
     const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     const discover = vi.spyOn(CloudBurnClient.prototype, 'discover').mockResolvedValue({ providers: [] });
 
-    await expect(createProgram().parseAsync(['discover', '--region', 'all'], { from: 'user' })).rejects.toThrow(
-      'process.exit unexpectedly called with "1"',
-    );
+    await expect(createProgram().parseAsync(['discover', '--region', 'all'], { from: 'user' })).rejects.toMatchObject({ code: 'commander.invalidArgument' });
 
     expect(discover).not.toHaveBeenCalled();
     expect(stderr).toHaveBeenCalledWith(expect.stringContaining("Invalid AWS region 'all'."));
@@ -244,7 +242,7 @@ describe('discover command e2e', () => {
 
     await expect(
       createProgram().parseAsync(['discover', '--region', 'eu-central-1,us-east-1'], { from: 'user' }),
-    ).rejects.toThrow('process.exit unexpectedly called with "1"');
+    ).rejects.toMatchObject({ code: 'commander.invalidArgument' });
 
     expect(discover).not.toHaveBeenCalled();
     expect(stderr).toHaveBeenCalledWith(expect.stringContaining("Invalid AWS region 'eu-central-1,us-east-1'."));
@@ -554,7 +552,7 @@ describe('discover command e2e', () => {
 
     await expect(
       createProgram().parseAsync(['discover', 'init', '--region', 'eu-central-1 tag:Owner=alice'], { from: 'user' }),
-    ).rejects.toThrow('process.exit unexpectedly called with "1"');
+    ).rejects.toMatchObject({ code: 'commander.invalidArgument' });
 
     expect(initializeDiscovery).not.toHaveBeenCalled();
     expect(stderr).toHaveBeenCalledWith(expect.stringContaining("Invalid AWS region 'eu-central-1 tag:Owner=alice'."));

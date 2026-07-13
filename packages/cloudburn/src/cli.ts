@@ -1,13 +1,14 @@
 import { realpathSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { Command } from 'commander';
+import { type Command, CommanderError } from 'commander';
 import { registerCompletionCommand } from './commands/completion.js';
 import { registerConfigCommand } from './commands/config.js';
 import { registerDiscoverCommand } from './commands/discover.js';
 import { registerEstimateCommand } from './commands/estimate.js';
 import { registerRulesListCommand } from './commands/rules-list.js';
 import { registerScanCommand } from './commands/scan.js';
+import { EXIT_CODE_OK, EXIT_CODE_RUNTIME_ERROR } from './exit-codes.js';
 import { OUTPUT_FORMAT_OPTION_DESCRIPTION, parseOutputFormat } from './formatters/output.js';
 import { configureCliHelp, createCliCommand } from './help.js';
 
@@ -36,6 +37,14 @@ export const isCliEntrypoint = (moduleUrl: string, argvEntry: string | undefined
   return resolveEntrypointPath(fileURLToPath(moduleUrl)) === resolveEntrypointPath(argvEntry);
 };
 
+const applyExitOverride = (command: Command): void => {
+  command.exitOverride();
+
+  for (const subcommand of command.commands) {
+    applyExitOverride(subcommand);
+  }
+};
+
 // Intent: construct the CloudBurn CLI command tree.
 // TODO(cloudburn): add global flags for profile, config path, and debug logging.
 export const createProgram = (): Command => {
@@ -56,11 +65,27 @@ export const createProgram = (): Command => {
   registerRulesListCommand(program);
   registerEstimateCommand(program);
 
+  // Commander exits with code 1 on parse and validation failures by default,
+  // which collides with EXIT_CODE_POLICY_VIOLATION. Overriding lets runCli map
+  // usage errors onto the documented exit-code contract instead.
+  applyExitOverride(program);
+
   return program;
 };
 
 export const runCli = async (): Promise<void> => {
-  await createProgram().parseAsync(process.argv);
+  try {
+    await createProgram().parseAsync(process.argv);
+  } catch (err) {
+    if (err instanceof CommanderError) {
+      // Help and version rendering surface as zero-exit CommanderErrors;
+      // genuine usage errors are runtime failures, never policy violations.
+      process.exitCode = err.exitCode === 0 ? EXIT_CODE_OK : EXIT_CODE_RUNTIME_ERROR;
+      return;
+    }
+
+    throw err;
+  }
 };
 
 if (isCliEntrypoint(import.meta.url)) {

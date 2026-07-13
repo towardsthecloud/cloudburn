@@ -96,8 +96,14 @@ cloudburn --format json scan ./iac
 
 ## Exit-Code Contract
 
-| Constant                     | Value | Meaning                                                         |
-| ---------------------------- | ----- | --------------------------------------------------------------- |
-| `EXIT_CODE_OK`               | `0`   | Clean run, no findings, or `--exit-code` not set                |
-| `EXIT_CODE_POLICY_VIOLATION` | `1`   | At least one nested finding exists and `--exit-code` was passed |
-| `EXIT_CODE_RUNTIME_ERROR`    | `2`   | Reserved for runtime failures                                   |
+| Constant                     | Value | Meaning                                                          |
+| ---------------------------- | ----- | ---------------------------------------------------------------- |
+| `EXIT_CODE_OK`               | `0`   | Clean run, no findings, or `--exit-code` not set                 |
+| `EXIT_CODE_POLICY_VIOLATION` | `1`   | At least one nested finding exists and `--exit-code` was passed  |
+| `EXIT_CODE_RUNTIME_ERROR`    | `2`   | Runtime failures and usage errors (invalid options or arguments) |
+
+Usage errors — unknown options or invalid option arguments such as an unknown
+`--service` value or a malformed `--region` — exit with `2`, not Commander's
+default `1`. Exit code `1` stays reserved for policy violations so CI pipelines
+can distinguish "findings exist" from "the command was invoked incorrectly".
+Help and version output exit with `0`.
