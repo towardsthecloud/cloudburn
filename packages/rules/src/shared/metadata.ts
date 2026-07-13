@@ -140,10 +140,21 @@ export type AwsCostUsage = {
   accountId: string;
 };
 
+/** Normalized spend details for one configured AWS Budget. */
+export type AwsCostGuardrailBudgetSpend = {
+  budgetName: string;
+  actualSpend: number;
+  budgetLimit: number;
+  spendUnit: string;
+  forecastedSpend?: number;
+};
+
 /** Account-scoped AWS Budget summary used by cost guardrail rules. */
 export type AwsCostGuardrailBudget = {
   budgetCount: number;
   accountId: string;
+  /** Normalized details are optional for compatibility with custom dataset authors. */
+  budgets?: AwsCostGuardrailBudgetSpend[];
 };
 
 /** Account-scoped Cost Anomaly Detection monitor summary used by guardrail rules. */
@@ -636,6 +647,12 @@ export type AwsDiscoveredResource = {
   properties: AwsResourceProperty[];
 };
 
+/** Taggable AWS resource that Resource Explorer reports without user-created tags. */
+export type AwsUntaggedResource = Pick<
+  AwsDiscoveredResource,
+  'accountId' | 'arn' | 'region' | 'resourceType' | 'service'
+>;
+
 /** Resource Explorer-backed discovery catalog used as the live scan seed. */
 export type AwsDiscoveryCatalog = {
   resources: AwsDiscoveredResource[];
@@ -721,6 +738,7 @@ export type DiscoveryDatasetKey =
   | 'aws-s3-bucket-analyses'
   | 'aws-sagemaker-endpoint-activity'
   | 'aws-sagemaker-notebook-instances'
+  | 'aws-resource-explorer-untagged-resources'
   | 'aws-secretsmanager-secrets';
 
 /** Normalized live discovery datasets available to rule evaluators. */
@@ -778,6 +796,7 @@ export type DiscoveryDatasetMap = {
   'aws-s3-bucket-analyses': AwsS3BucketAnalysis[];
   'aws-sagemaker-endpoint-activity': AwsSageMakerEndpointActivity[];
   'aws-sagemaker-notebook-instances': AwsSageMakerNotebookInstance[];
+  'aws-resource-explorer-untagged-resources': AwsUntaggedResource[];
   'aws-secretsmanager-secrets': AwsSecretsManagerSecret[];
 };
 

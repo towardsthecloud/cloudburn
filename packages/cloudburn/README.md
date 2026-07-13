@@ -23,7 +23,7 @@ npx cloudburn scan ./main.tf
 
 ### Config
 
-Config is optional. By default, CloudBurn runs all checks for the mode you use.
+Config is optional. By default, CloudBurn runs the AWS Core preset for the mode you use. Account-wide rules such as `CLDBRN-AWS-TAGGING-1` are opt-in through `enabled-rules` because they require an accessible Resource Explorer aggregator.
 
 Create a starter config with:
 
@@ -67,6 +67,7 @@ cloudburn discover init
 cloudburn discover
 cloudburn discover --region eu-central-1
 cloudburn discover --config .cloudburn.yml --enabled-rules CLDBRN-AWS-EBS-1
+cloudburn discover --enabled-rules CLDBRN-AWS-TAGGING-1
 cloudburn discover --service ec2,s3
 cloudburn --debug discover --region eu-central-1
 cloudburn rules list
@@ -74,6 +75,7 @@ cloudburn rules list --service ec2 --source discovery
 ```
 
 The CLI targets one region per run. Multi-region discovery remains available through the SDK and still needs an AWS Resource Explorer aggregator plus an unfiltered default view in the aggregator region.
+`CLDBRN-AWS-TAGGING-1` is opt-in and requires an accessible aggregator; a local-only setup cannot run account-wide tagging discovery.
 Use `--debug` to print SDK and provider execution tracing to `stderr` without changing the normal `stdout` format.
 
 ## Shell Completion

@@ -1246,6 +1246,38 @@ describe('rule metadata', () => {
     });
   });
 
+  it('defines the expected exceeded-budget rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-COSTGUARDRAILS-3');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-COSTGUARDRAILS-3',
+      name: 'AWS Budget Limit Exceeded',
+      description: 'Flag AWS Budgets whose actual spend is greater than their configured limit.',
+      message: 'AWS Budgets whose actual spend exceeds their configured limit should be reviewed.',
+      provider: 'aws',
+      service: 'costguardrails',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-cost-guardrail-budgets'],
+    });
+  });
+
+  it('defines the expected global untagged-resource rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-TAGGING-1');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-TAGGING-1',
+      name: 'AWS Resource Untagged',
+      description: 'Flag taggable AWS resources that have no user-created tags.',
+      message: 'Taggable AWS resources should have at least one user-created tag.',
+      provider: 'aws',
+      service: 'tagging',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-resource-explorer-untagged-resources'],
+    });
+  });
+
   it('defines the expected DynamoDB stale-data rule metadata', () => {
     const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-DYNAMODB-1');
 

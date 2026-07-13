@@ -11,12 +11,12 @@ Source of truth: `packages/sdk/src/types.ts` (type), `packages/sdk/src/config/de
 
 Each mode uses the same fields:
 
-| Field            | Type                | Default | Description                                                              |
-| ---------------- | ------------------- | ------- | ------------------------------------------------------------------------ |
-| `enabled-rules`  | `string[]`          | unset   | If present, only the listed rule IDs remain active for that mode.        |
-| `disabled-rules` | `string[]`          | unset   | Rule IDs to remove from the active set after `enabled-rules` is applied. |
-| `services`       | `string[]`          | unset   | Service allowlist applied before `enabled-rules` and `disabled-rules`.   |
-| `format`         | `'json' \| 'table'` | unset   | Default CLI output format for that mode when `--format` is not passed.   |
+| Field            | Type                | Default | Description                                                                     |
+| ---------------- | ------------------- | ------- | ------------------------------------------------------------------------------- |
+| `enabled-rules`  | `string[]`          | unset   | If present, only the listed rule IDs remain active; otherwise AWS Core is used. |
+| `disabled-rules` | `string[]`          | unset   | Rule IDs to remove from the active set after `enabled-rules` is applied.        |
+| `services`       | `string[]`          | unset   | Service allowlist applied before `enabled-rules` and `disabled-rules`.          |
+| `format`         | `'json' \| 'table'` | unset   | Default CLI output format for that mode when `--format` is not passed.          |
 
 ## Merge Behavior
 
@@ -58,8 +58,9 @@ Printed by `cloudburn config --print-template` (from `packages/cloudburn/src/com
 
 ```yaml
 # Static IaC scan configuration.
-# enabled-rules restricts scans to only the listed rule IDs.
-# disabled-rules removes specific rule IDs from the active set.
+# enabled-rules replaces the AWS Core preset with only the listed rule IDs.
+# It can also activate opt-in rules that are not in AWS Core.
+# disabled-rules removes specific rule IDs from the selected set.
 # services restricts scans to rules for the listed services.
 # format sets the default output format when --format is not passed.
 iac:

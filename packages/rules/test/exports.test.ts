@@ -5,6 +5,8 @@ import type {
   AwsCloudFrontDistributionRequestActivity,
   AwsCloudTrailTrail,
   AwsCloudWatchLogGroup,
+  AwsCostGuardrailBudget,
+  AwsCostGuardrailBudgetSpend,
   AwsCostUsage,
   AwsDynamoDbAutoscaling,
   AwsDynamoDbTable,
@@ -35,6 +37,7 @@ import type {
   AwsSageMakerNotebookInstance,
   AwsSecretsManagerSecret,
   AwsStaticRdsInstance,
+  AwsUntaggedResource,
   DiscoveryDatasetKey,
   StaticDatasetKey,
 } from '../src/index.js';
@@ -53,7 +56,9 @@ import {
 describe('rule exports', () => {
   it('exports non-empty AWS rules and preset IDs', () => {
     expect(awsRules.length).toBeGreaterThan(0);
-    expect(awsCorePreset.ruleIds.length).toBe(awsRules.length);
+    expect(awsCorePreset.ruleIds).toEqual(
+      awsRules.map((rule) => rule.id).filter((ruleId) => ruleId !== 'CLDBRN-AWS-TAGGING-1'),
+    );
     expect(awsRules.map((rule) => rule.id)).toEqual(
       expect.arrayContaining([
         'CLDBRN-AWS-APIGATEWAY-1',
@@ -66,6 +71,7 @@ describe('rule exports', () => {
         'CLDBRN-AWS-CLOUDWATCH-3',
         'CLDBRN-AWS-COSTGUARDRAILS-1',
         'CLDBRN-AWS-COSTGUARDRAILS-2',
+        'CLDBRN-AWS-COSTGUARDRAILS-3',
         'CLDBRN-AWS-COSTEXPLORER-1',
         'CLDBRN-AWS-DYNAMODB-1',
         'CLDBRN-AWS-DYNAMODB-2',
@@ -103,6 +109,7 @@ describe('rule exports', () => {
         'CLDBRN-AWS-ELB-1',
         'CLDBRN-AWS-ELB-2',
         'CLDBRN-AWS-ELB-3',
+        'CLDBRN-AWS-TAGGING-1',
         'CLDBRN-AWS-ELB-4',
         'CLDBRN-AWS-ELB-5',
         'CLDBRN-AWS-EMR-1',
@@ -208,6 +215,25 @@ describe('rule exports', () => {
       previousMonthCost: 10,
       serviceName: 'Amazon DynamoDB',
       serviceSlug: 'amazon-dynamodb',
+    };
+    const budgetSpend: AwsCostGuardrailBudgetSpend = {
+      actualSpend: 125,
+      budgetLimit: 100,
+      budgetName: 'monthly-spend',
+      forecastedSpend: 150,
+      spendUnit: 'USD',
+    };
+    const budgetSummary: AwsCostGuardrailBudget = {
+      accountId: '123456789012',
+      budgetCount: 1,
+      budgets: [budgetSpend],
+    };
+    const untaggedResource: AwsUntaggedResource = {
+      accountId: '123456789012',
+      arn: 'arn:aws:ec2:us-east-1:123456789012:instance/i-123',
+      region: 'us-east-1',
+      resourceType: 'ec2:instance',
+      service: 'ec2',
     };
     const dynamoDbTable: AwsDynamoDbTable = {
       accountId: '123456789012',
@@ -463,6 +489,7 @@ describe('rule exports', () => {
     const cloudWatchRecentActivityDatasetKey: DiscoveryDatasetKey = 'aws-cloudwatch-log-group-recent-stream-activity';
     const cloudWatchLogStreamDatasetKey: DiscoveryDatasetKey = 'aws-cloudwatch-log-streams';
     const costUsageDatasetKey: DiscoveryDatasetKey = 'aws-cost-usage';
+    const untaggedResourcesDatasetKey: DiscoveryDatasetKey = 'aws-resource-explorer-untagged-resources';
     const dynamoDbAutoscalingDatasetKey: DiscoveryDatasetKey = 'aws-dynamodb-autoscaling';
     const dynamoDbTableDatasetKey: DiscoveryDatasetKey = 'aws-dynamodb-tables';
     const ecsAutoscalingDatasetKey: DiscoveryDatasetKey = 'aws-ecs-autoscaling';
@@ -495,6 +522,7 @@ describe('rule exports', () => {
     expect(cloudWatchRecentActivityDatasetKey).toBe('aws-cloudwatch-log-group-recent-stream-activity');
     expect(cloudWatchLogStreamDatasetKey).toBe('aws-cloudwatch-log-streams');
     expect(costUsageDatasetKey).toBe('aws-cost-usage');
+    expect(untaggedResourcesDatasetKey).toBe('aws-resource-explorer-untagged-resources');
     expect(dynamoDbAutoscalingDatasetKey).toBe('aws-dynamodb-autoscaling');
     expect(dynamoDbTableDatasetKey).toBe('aws-dynamodb-tables');
     expect(ecsAutoscalingDatasetKey).toBe('aws-ecs-autoscaling');
@@ -518,6 +546,8 @@ describe('rule exports', () => {
     expect(secretsManagerDatasetKey).toBe('aws-secretsmanager-secrets');
     expect(cloudFrontDistribution.priceClass).toBe('PriceClass_All');
     expect(costUsage.costIncrease).toBe(15);
+    expect(budgetSummary.budgets?.[0]).toBe(budgetSpend);
+    expect(untaggedResource.resourceType).toBe('ec2:instance');
     expect(dynamoDbTable.tableName).toBe('orders');
     expect(dynamoDbAutoscaling.hasReadTarget).toBe(true);
     expect(targetGroupDatasetKey).toBe('aws-ec2-target-groups');

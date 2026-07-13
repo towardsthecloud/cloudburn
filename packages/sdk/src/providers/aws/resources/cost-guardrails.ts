@@ -1,12 +1,26 @@
 import { DescribeBudgetsCommand } from '@aws-sdk/client-budgets';
 import { GetAnomalyMonitorsCommand } from '@aws-sdk/client-cost-explorer';
-import type { AwsCostAnomalyMonitor, AwsCostGuardrailBudget, AwsDiscoveredResource } from '@cloudburn/rules';
+import type {
+  AwsCostAnomalyMonitor,
+  AwsCostGuardrailBudget,
+  AwsCostGuardrailBudgetSpend,
+  AwsDiscoveredResource,
+} from '@cloudburn/rules';
 import { createBudgetsClient, createCostExplorerClient } from '../client.js';
 import type { AwsAccountIdResolver } from '../discovery-registry.js';
 import { resolveAwsAccountIdForLoad, withAwsServiceErrorContext } from './utils.js';
 
 const COST_CONTROL_REGION = 'us-east-1';
 const PAGE_SIZE = 100;
+
+const parseFiniteAmount = (amount: string | undefined): number | null => {
+  if (!amount?.trim()) {
+    return null;
+  }
+
+  const parsed = Number(amount);
+  return Number.isFinite(parsed) ? parsed : null;
+};
 
 /**
  * Hydrates account-scoped AWS Budgets summaries.
@@ -22,6 +36,7 @@ export const hydrateAwsCostGuardrailBudgets = async (
   const accountId = await resolveAwsAccountIdForLoad(context);
   const client = createBudgetsClient();
   let budgetCount = 0;
+  const budgets: AwsCostGuardrailBudgetSpend[] = [];
   let nextToken: string | undefined;
 
   do {
@@ -35,7 +50,31 @@ export const hydrateAwsCostGuardrailBudgets = async (
       ),
     );
 
-    budgetCount += (response.Budgets ?? []).filter((budget) => budget.BudgetName).length;
+    for (const budget of response.Budgets ?? []) {
+      if (!budget.BudgetName) {
+        continue;
+      }
+
+      budgetCount += 1;
+      const actualSpend = parseFiniteAmount(budget.CalculatedSpend?.ActualSpend?.Amount);
+      const budgetLimit = parseFiniteAmount(budget.BudgetLimit?.Amount);
+      const actualUnit = budget.CalculatedSpend?.ActualSpend?.Unit?.trim();
+      const limitUnit = budget.BudgetLimit?.Unit?.trim();
+
+      if (actualSpend === null || budgetLimit === null || !actualUnit || actualUnit !== limitUnit) {
+        continue;
+      }
+
+      const forecastUnit = budget.CalculatedSpend?.ForecastedSpend?.Unit?.trim();
+      const forecastedAmount = parseFiniteAmount(budget.CalculatedSpend?.ForecastedSpend?.Amount);
+      budgets.push({
+        actualSpend,
+        budgetLimit,
+        budgetName: budget.BudgetName,
+        ...(forecastUnit === actualUnit && forecastedAmount !== null ? { forecastedSpend: forecastedAmount } : {}),
+        spendUnit: actualUnit,
+      });
+    }
     nextToken = response.NextToken;
   } while (nextToken);
 
@@ -43,6 +82,7 @@ export const hydrateAwsCostGuardrailBudgets = async (
     {
       accountId,
       budgetCount,
+      budgets,
     } satisfies AwsCostGuardrailBudget,
   ];
 };

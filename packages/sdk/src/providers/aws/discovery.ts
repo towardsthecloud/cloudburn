@@ -22,9 +22,11 @@ import { AwsDiscoveryError, getAwsErrorCode, isAwsAccessDeniedError, isAwsThrott
 import {
   buildAwsDiscoveryCatalog,
   createAwsResourceExplorerSetup,
+  ensureAwsResourceExplorerDefaultViewIncludesTags,
   getAwsDiscoveryRegionStatus,
   listAwsDiscoveryIndexes,
   listAwsDiscoverySupportedResourceTypes,
+  listAwsResourcesByFilter,
   updateAwsResourceExplorerIndexType,
   waitForAwsResourceExplorerIndex,
   waitForAwsResourceExplorerSetup,
@@ -97,7 +99,7 @@ const combineVerificationStatus = (
 ): AwsDiscoveryInitialization['verificationStatus'] =>
   left === 'timed_out' || right === 'timed_out' ? 'timed_out' : 'verified';
 
-const buildInitializationResult = (options: {
+type InitializationResultOptions = {
   aggregatorAction: AwsDiscoveryInitialization['aggregatorAction'];
   aggregatorRegion: string;
   beforeIndexedRegions: Set<string>;
@@ -108,12 +110,16 @@ const buildInitializationResult = (options: {
   taskId?: string;
   verificationStatus: AwsDiscoveryInitialization['verificationStatus'];
   warning?: string;
-}): AwsDiscoveryInitialization => {
+};
+
+const finalizeInitializationResult = async (
+  options: InitializationResultOptions,
+): Promise<AwsDiscoveryInitialization> => {
   const indexedRegions = getIndexedRegions(options.observedStatus);
   const createdIndexCount = indexedRegions.filter((region) => !options.beforeIndexedRegions.has(region)).length;
   const reusedIndexCount = indexedRegions.length - createdIndexCount;
 
-  return {
+  const result: AwsDiscoveryInitialization = {
     aggregatorAction: options.aggregatorAction,
     aggregatorRegion: options.aggregatorRegion,
     coverage: options.coverage,
@@ -127,6 +133,12 @@ const buildInitializationResult = (options: {
     verificationStatus: options.verificationStatus,
     warning: options.warning,
   };
+
+  if (result.verificationStatus === 'verified') {
+    await ensureAwsResourceExplorerDefaultViewIncludesTags(result.aggregatorRegion);
+  }
+
+  return result;
 };
 
 const RESOURCE_EXPLORER_RESOURCE_TYPE_PATTERN = /^[a-z0-9-]+:[a-z0-9-]+(?:\/[a-z0-9-]+)?$/;
@@ -519,6 +531,12 @@ export const discoverAwsResources = async (
   const loadContext: AwsDiscoveryDatasetLoadContext = {
     loadDataset: async <K extends DiscoveryDatasetKey>(datasetKey: K): Promise<DiscoveryDatasetMap[K]> =>
       (await loadDataset(datasetKey)).dataset[1],
+    listResourcesByFilter: (filterString, filterOptions) =>
+      listAwsResourcesByFilter(
+        target,
+        filterString,
+        options?.debugLogger ? { ...filterOptions, debugLogger: options.debugLogger } : filterOptions,
+      ),
     resolveAccountId,
   };
   // All datasets load in parallel, so the shared budget caps the combined
@@ -645,7 +663,7 @@ export const initializeAwsDiscovery = async (
       );
     }
 
-    return buildInitializationResult({
+    return finalizeInitializationResult({
       aggregatorAction: 'unchanged',
       aggregatorRegion: observedStatus.aggregatorRegion ?? aggregator.region,
       beforeIndexedRegions,
@@ -669,7 +687,7 @@ export const initializeAwsDiscovery = async (
         promotion.state === 'ACTIVE' ? 'verified' : await waitForAwsResourceExplorerIndex(selectedRegion);
       const updatedStatus = await getAwsDiscoveryStatus(selectedRegion, debugLogger);
 
-      return buildInitializationResult({
+      return finalizeInitializationResult({
         aggregatorAction: 'promoted',
         aggregatorRegion: updatedStatus.aggregatorRegion ?? selectedRegion,
         beforeIndexedRegions,
@@ -687,7 +705,7 @@ export const initializeAwsDiscovery = async (
 
       const updatedStatus = await getAwsDiscoveryStatus(selectedRegion, debugLogger);
 
-      return buildInitializationResult({
+      return finalizeInitializationResult({
         aggregatorAction: 'none',
         aggregatorRegion: selectedRegion,
         beforeIndexedRegions,
@@ -719,7 +737,7 @@ export const initializeAwsDiscovery = async (
     if (existingLocal) {
       const updatedStatus = await getAwsDiscoveryStatus(selectedRegion, debugLogger);
 
-      return buildInitializationResult({
+      return finalizeInitializationResult({
         aggregatorAction: 'none',
         aggregatorRegion: selectedRegion,
         beforeIndexedRegions,
@@ -746,7 +764,7 @@ export const initializeAwsDiscovery = async (
       updatedStatus.regions.find((status) => status.region === selectedRegion && status.status === 'indexed')?.region ??
       selectedRegion;
 
-    return buildInitializationResult({
+    return finalizeInitializationResult({
       aggregatorAction: 'none',
       aggregatorRegion: localRegion,
       beforeIndexedRegions,
@@ -786,7 +804,7 @@ export const initializeAwsDiscovery = async (
           throw err;
         }
 
-        return buildInitializationResult({
+        return finalizeInitializationResult({
           aggregatorAction: 'none',
           aggregatorRegion: selectedRegion,
           beforeIndexedRegions,
@@ -819,7 +837,7 @@ export const initializeAwsDiscovery = async (
       : 'created'
     : 'none';
 
-  return buildInitializationResult({
+  return finalizeInitializationResult({
     aggregatorAction,
     aggregatorRegion:
       updatedStatus.aggregatorRegion ??

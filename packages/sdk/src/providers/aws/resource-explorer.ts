@@ -12,6 +12,8 @@ import {
   type ResourceProperty,
   type SupportedResourceType,
   UpdateIndexTypeCommand,
+  UpdateViewCommand,
+  type View,
 } from '@aws-sdk/client-resource-explorer-2';
 import type { AwsDiscoveredResource, AwsDiscoveryCatalog } from '@cloudburn/rules';
 import { emitDebugLog } from '../../debug.js';
@@ -41,7 +43,7 @@ const TERMINAL_OPERATION_STATUSES = new Set(['FAILED', 'SKIPPED', 'SUCCEEDED']);
 const RESOURCE_EXPLORER_FILTER_STRING_MAX_LENGTH = 2048;
 const RESOURCE_EXPLORER_LIST_RESOURCES_INITIAL_DELAY_MS = 250;
 const RESOURCE_EXPLORER_LIST_RESOURCES_MAX_ATTEMPTS = 5;
-const RESOURCE_EXPLORER_LIST_RESOURCES_MAX_RESULTS = 1000;
+const RESOURCE_EXPLORER_LIST_RESOURCES_MAX_RESULTS = 999;
 
 type SearchPlan = {
   searchRegion: string;
@@ -335,43 +337,64 @@ const findAccessibleAggregatorRegion = async (): Promise<AccessibleAggregatorLoo
   };
 };
 
-const sortUniqueStrings = <T extends string>(values: T[]): T[] =>
-  [...new Set(values)].sort((left, right) => left.localeCompare(right)) as T[];
+const requireAccessibleAggregator = async (messages: {
+  denied: string;
+  missing: string;
+}): Promise<AccessibleAggregatorLookup & { aggregatorRegion: string }> => {
+  const lookup = await findAccessibleAggregatorRegion();
 
-const resolveAggregatorSearchPlan = async (requestedRegions?: AwsRegion[]): Promise<SearchPlan> => {
-  const { accessibleIndexedRegions, aggregatorRegion, sawDeniedRegion } = await findAccessibleAggregatorRegion();
-  const selectedRegions: AwsRegion[] = requestedRegions
-    ? sortUniqueStrings(requestedRegions)
-    : (accessibleIndexedRegions as AwsRegion[]);
-
-  if (aggregatorRegion) {
-    const missingRegions = selectedRegions.filter((region) => !accessibleIndexedRegions.includes(region));
-
-    if (missingRegions.length > 0) {
-      throw new AwsDiscoveryError(
-        'RESOURCE_EXPLORER_REGION_NOT_ENABLED',
-        `AWS Resource Explorer is not enabled in ${missingRegions[0]}. Enable it first: ${RESOURCE_EXPLORER_SETUP_DOCS_URL} or run 'cloudburn discover init'.`,
-      );
-    }
-
-    return {
-      searchRegion: aggregatorRegion,
-      indexType: 'AGGREGATOR',
-      regionFilters: selectedRegions,
-    };
-  }
-
-  if (sawDeniedRegion) {
-    throw new AwsDiscoveryError(
-      'RESOURCE_EXPLORER_AGGREGATOR_REQUIRED',
-      "Cross-region discovery requires an accessible aggregator index. CloudBurn only searches regions that are indexed and permitted in AWS Resource Explorer. Run 'cloudburn discover status' to inspect indexed regions and access restrictions.",
-    );
+  if (lookup.aggregatorRegion) {
+    return { ...lookup, aggregatorRegion: lookup.aggregatorRegion };
   }
 
   throw new AwsDiscoveryError(
     'RESOURCE_EXPLORER_AGGREGATOR_REQUIRED',
-    "Cross-region discovery requires an aggregator index. Enable one first with 'cloudburn discover init' or the AWS console.",
+    lookup.sawDeniedRegion ? messages.denied : messages.missing,
   );
+};
+
+const sortUniqueStrings = <T extends string>(values: T[]): T[] =>
+  [...new Set(values)].sort((left, right) => left.localeCompare(right)) as T[];
+
+const resolveAggregatorSearchPlan = async (requestedRegions?: AwsRegion[]): Promise<SearchPlan> => {
+  const { accessibleIndexedRegions, aggregatorRegion } = await requireAccessibleAggregator({
+    denied:
+      "Cross-region discovery requires an accessible aggregator index. CloudBurn only searches regions that are indexed and permitted in AWS Resource Explorer. Run 'cloudburn discover status' to inspect indexed regions and access restrictions.",
+    missing:
+      "Cross-region discovery requires an aggregator index. Enable one first with 'cloudburn discover init' or the AWS console.",
+  });
+  const selectedRegions: AwsRegion[] = requestedRegions
+    ? sortUniqueStrings(requestedRegions)
+    : (accessibleIndexedRegions as AwsRegion[]);
+
+  const missingRegions = selectedRegions.filter((region) => !accessibleIndexedRegions.includes(region));
+
+  if (missingRegions.length > 0) {
+    throw new AwsDiscoveryError(
+      'RESOURCE_EXPLORER_REGION_NOT_ENABLED',
+      `AWS Resource Explorer is not enabled in ${missingRegions[0]}. Enable it first: ${RESOURCE_EXPLORER_SETUP_DOCS_URL} or run 'cloudburn discover init'.`,
+    );
+  }
+
+  return {
+    searchRegion: aggregatorRegion,
+    indexType: 'AGGREGATOR',
+    regionFilters: selectedRegions,
+  };
+};
+
+const resolveAccountSearchPlan = async (): Promise<SearchPlan> => {
+  const { aggregatorRegion } = await requireAccessibleAggregator({
+    denied:
+      "Account-wide discovery requires an accessible aggregator index. Run 'cloudburn discover status' to inspect indexed regions and access restrictions.",
+    missing:
+      "Account-wide discovery requires an aggregator index. Enable one first with 'cloudburn discover init' or the AWS console.",
+  });
+
+  return {
+    searchRegion: aggregatorRegion,
+    indexType: 'AGGREGATOR',
+  };
 };
 
 const buildFilterString = (resourceTypes: string[], regionFilters?: AwsRegion[]): string => {
@@ -458,7 +481,13 @@ const planListResourcesQueries = (resourceTypes: string[], regionFilters?: AwsRe
   });
 };
 
-const resolveSearchViewArn = async (searchRegion: string): Promise<string> => {
+const getDefaultResourceExplorerView = async (
+  searchRegion: string,
+): Promise<{
+  client: ReturnType<typeof createResourceExplorerClient>;
+  view: View | undefined;
+  viewArn: string;
+}> => {
   const client = createResourceExplorerClient({ region: searchRegion });
   const defaultViewResponse = await client
     .send(new GetDefaultViewCommand({}))
@@ -479,7 +508,16 @@ const resolveSearchViewArn = async (searchRegion: string): Promise<string> => {
       }),
     )
     .catch((err: unknown) => throwResourceExplorerOperationError(err, 'GetView', searchRegion));
-  const filterString = viewResponse.View?.Filters?.FilterString?.trim();
+
+  return { client, view: viewResponse.View, viewArn };
+};
+
+const getIncludedPropertyNames = (view: View | undefined): Set<string> =>
+  new Set((view?.IncludedProperties ?? []).flatMap((property) => (property.Name ? [property.Name] : [])));
+
+const resolveSearchViewArn = async (searchRegion: string, requiredProperties: string[] = []): Promise<string> => {
+  const { view, viewArn } = await getDefaultResourceExplorerView(searchRegion);
+  const filterString = view?.Filters?.FilterString?.trim();
 
   if (filterString) {
     throw new AwsDiscoveryError(
@@ -488,7 +526,72 @@ const resolveSearchViewArn = async (searchRegion: string): Promise<string> => {
     );
   }
 
+  const includedProperties = getIncludedPropertyNames(view);
+  const missingProperty = requiredProperties.find((property) => !includedProperties.has(property));
+
+  if (missingProperty) {
+    throw new AwsDiscoveryError(
+      'RESOURCE_EXPLORER_TAGS_VIEW_REQUIRED',
+      `The default AWS Resource Explorer view in ${searchRegion} does not include the '${missingProperty}' property required for tagging discovery. Run 'cloudburn discover init' to update the view.`,
+    );
+  }
+
   return viewArn;
+};
+
+const resolveSearchPlan = async (target: AwsDiscoveryTarget): Promise<SearchPlan> => {
+  if (target.mode === 'regions') {
+    if (target.regions.length === 1) {
+      const [requestedRegion] = target.regions;
+      return resolveRegionalSearchPlan(assertValidAwsRegion(requestedRegion));
+    }
+
+    return resolveAggregatorSearchPlan(target.regions);
+  }
+
+  if (target.mode === 'region') {
+    return resolveRegionalSearchPlan(assertValidAwsRegion(target.region));
+  }
+
+  if (target.mode === 'all') {
+    return resolveAggregatorSearchPlan();
+  }
+
+  return resolveRegionalSearchPlan(await resolveCurrentAwsRegion());
+};
+
+const buildScopedFilterString = (filterString: string, regionFilters?: AwsRegion[]): string => {
+  const normalizedFilter = filterString.trim();
+
+  if (!normalizedFilter) {
+    throw new Error('A Resource Explorer filter string is required.');
+  }
+
+  const segments = [normalizedFilter];
+
+  if (regionFilters && regionFilters.length > 0) {
+    segments.push(`region:${sortUniqueStrings(regionFilters).map(assertValidAwsRegion).join(',')}`);
+  }
+
+  const scopedFilter = segments.join(' ');
+
+  if (scopedFilter.length > RESOURCE_EXPLORER_FILTER_STRING_MAX_LENGTH) {
+    throw new Error('Resource Explorer filter string exceeds the maximum filter length.');
+  }
+
+  return scopedFilter;
+};
+
+const planScopedFilters = (filterString: string, regionFilters?: AwsRegion[]): string[] => {
+  const normalizedRegions = regionFilters ? (sortUniqueStrings(regionFilters) as AwsRegion[]) : [];
+
+  if (normalizedRegions.length === 0) {
+    return [buildScopedFilterString(filterString)];
+  }
+
+  return chunkValuesByFilterLength(normalizedRegions, (regionBatch) =>
+    buildScopedFilterString(filterString, regionBatch),
+  ).map((regionBatch) => buildScopedFilterString(filterString, regionBatch));
 };
 
 /**
@@ -666,81 +769,46 @@ export const waitForAwsResourceExplorerSetup = async (
   return 'timed_out';
 };
 
-/**
- * Builds the normalized AWS discovery catalog for the requested target.
- *
- * @param target - Discovery target that controls region or aggregator behavior.
- * @param resourceTypes - Resource Explorer resource types required by active rules.
- * @returns Catalog of discovered AWS resources plus search metadata.
- */
-export const buildAwsDiscoveryCatalog = async (
-  target: AwsDiscoveryTarget,
-  resourceTypes: string[],
-  options?: { debugLogger?: (message: string) => void },
-): Promise<AwsDiscoveryCatalog> => {
-  let searchPlan: SearchPlan;
-
-  if (target.mode === 'regions') {
-    if (target.regions.length === 1) {
-      const [requestedRegion] = target.regions;
-      searchPlan = await resolveRegionalSearchPlan(assertValidAwsRegion(requestedRegion));
-    } else {
-      searchPlan = await resolveAggregatorSearchPlan(target.regions);
-    }
-  } else if (target.mode === 'region') {
-    searchPlan = await resolveRegionalSearchPlan(assertValidAwsRegion(target.region));
-  } else if (target.mode === 'all') {
-    searchPlan = await resolveAggregatorSearchPlan();
-  } else {
-    searchPlan = await resolveRegionalSearchPlan(await resolveCurrentAwsRegion());
-  }
-  emitDebugLog(
-    options?.debugLogger,
-    `aws: Resource Explorer using ${searchPlan.indexType.toLowerCase()} control plane ${searchPlan.searchRegion}${
-      searchPlan.regionFilters ? ` for regions ${searchPlan.regionFilters.join(', ')}` : ''
-    }`,
-  );
-  const client = createResourceExplorerClient({ region: searchPlan.searchRegion });
-  const viewArn = await resolveSearchViewArn(searchPlan.searchRegion);
+const listResourceExplorerResources = async (options: {
+  debugLogger?: (message: string) => void;
+  filters: string[];
+  queryLabel?: string;
+  searchRegion: string;
+  viewArn: string;
+}): Promise<AwsDiscoveredResource[]> => {
+  const client = createResourceExplorerClient({ region: options.searchRegion });
   const resourcesByArn = new Map<string, AwsDiscoveredResource>();
-  const queryPlans = planListResourcesQueries(resourceTypes, searchPlan.regionFilters);
-  emitDebugLog(
-    options?.debugLogger,
-    `aws: planned ${queryPlans.length} Resource Explorer quer${queryPlans.length === 1 ? 'y' : 'ies'} for ${resourceTypes.length} resource types`,
-  );
+  const queryLabel = options.queryLabel ? `${options.queryLabel} ` : '';
 
-  for (const [queryIndex, queryPlan] of queryPlans.entries()) {
+  for (const [queryIndex, filterString] of options.filters.entries()) {
     let nextToken: string | undefined;
     let page = 1;
-    const filterString = buildFilterString(queryPlan.resourceTypes, queryPlan.regionFilters);
 
     do {
       emitDebugLog(
-        options?.debugLogger,
-        `aws: Resource Explorer query ${queryIndex + 1}/${queryPlans.length} page ${page} filter="${filterString}"`,
+        options.debugLogger,
+        `aws: Resource Explorer ${queryLabel}query ${queryIndex + 1}/${options.filters.length} page ${page} filter="${filterString}"`,
       );
       const response = await withAwsServiceErrorContext(
         'AWS Resource Explorer',
         'ListResources',
-        searchPlan.searchRegion,
+        options.searchRegion,
         () =>
           client.send(
             new ListResourcesCommand({
-              Filters: {
-                FilterString: filterString,
-              },
+              Filters: { FilterString: filterString },
               MaxResults: RESOURCE_EXPLORER_LIST_RESOURCES_MAX_RESULTS,
               NextToken: nextToken,
-              ViewArn: viewArn,
+              ViewArn: options.viewArn,
             }),
           ),
         {
           initialDelayMs: RESOURCE_EXPLORER_LIST_RESOURCES_INITIAL_DELAY_MS,
           maxAttempts: RESOURCE_EXPLORER_LIST_RESOURCES_MAX_ATTEMPTS,
-          onRetry: ({ attempt, delayMs, maxAttempts: retryMaxAttempts }) => {
+          onRetry: ({ attempt, delayMs, maxAttempts }) => {
             emitDebugLog(
-              options?.debugLogger,
-              `aws: retrying throttled Resource Explorer ListResources attempt ${attempt + 1}/${retryMaxAttempts} after ${delayMs}ms`,
+              options.debugLogger,
+              `aws: retrying throttled Resource Explorer ListResources attempt ${attempt + 1}/${maxAttempts} after ${delayMs}ms`,
             );
           },
         },
@@ -759,17 +827,108 @@ export const buildAwsDiscoveryCatalog = async (
     } while (nextToken);
   }
 
+  return [...resourcesByArn.values()].sort((left, right) => left.arn.localeCompare(right.arn));
+};
+
+/**
+ * Builds the normalized AWS discovery catalog for the requested target.
+ *
+ * @param target - Discovery target that controls region or aggregator behavior.
+ * @param resourceTypes - Resource Explorer resource types required by active rules.
+ * @returns Catalog of discovered AWS resources plus search metadata.
+ */
+export const buildAwsDiscoveryCatalog = async (
+  target: AwsDiscoveryTarget,
+  resourceTypes: string[],
+  options?: { debugLogger?: (message: string) => void },
+): Promise<AwsDiscoveryCatalog> => {
+  const searchPlan = await resolveSearchPlan(target);
   emitDebugLog(
     options?.debugLogger,
-    `aws: Resource Explorer catalog collected ${resourcesByArn.size} unique resources`,
+    `aws: Resource Explorer using ${searchPlan.indexType.toLowerCase()} control plane ${searchPlan.searchRegion}${
+      searchPlan.regionFilters ? ` for regions ${searchPlan.regionFilters.join(', ')}` : ''
+    }`,
+  );
+  const viewArn = await resolveSearchViewArn(searchPlan.searchRegion);
+  const queryPlans = planListResourcesQueries(resourceTypes, searchPlan.regionFilters);
+  emitDebugLog(
+    options?.debugLogger,
+    `aws: planned ${queryPlans.length} Resource Explorer quer${queryPlans.length === 1 ? 'y' : 'ies'} for ${resourceTypes.length} resource types`,
   );
 
+  const resources = await listResourceExplorerResources({
+    debugLogger: options?.debugLogger,
+    filters: queryPlans.map((queryPlan) => buildFilterString(queryPlan.resourceTypes, queryPlan.regionFilters)),
+    searchRegion: searchPlan.searchRegion,
+    viewArn,
+  });
+
+  emitDebugLog(options?.debugLogger, `aws: Resource Explorer catalog collected ${resources.length} unique resources`);
+
   return {
-    resources: [...resourcesByArn.values()].sort((left, right) => left.arn.localeCompare(right.arn)),
+    resources,
     searchRegion: searchPlan.searchRegion,
     indexType: searchPlan.indexType,
     viewArn,
   };
+};
+
+/**
+ * Lists normalized AWS resources that match an arbitrary Resource Explorer filter.
+ *
+ * @param target - Discovery target controlling current-region, explicit-region, or all-region behavior.
+ * @param filterString - Resource Explorer filter expression applied to every query.
+ * @param options - Optional required view properties and debug logger.
+ * @returns Deduplicated resources sorted by ARN.
+ */
+export const listAwsResourcesByFilter = async (
+  target: AwsDiscoveryTarget,
+  filterString: string,
+  options?: {
+    requiredViewProperties?: string[];
+    debugLogger?: (message: string) => void;
+    scope?: 'target' | 'account';
+  },
+): Promise<AwsDiscoveredResource[]> => {
+  const searchPlan = options?.scope === 'account' ? await resolveAccountSearchPlan() : await resolveSearchPlan(target);
+  const viewArn = await resolveSearchViewArn(searchPlan.searchRegion, options?.requiredViewProperties);
+  const scopedFilters = planScopedFilters(filterString, searchPlan.regionFilters);
+
+  return listResourceExplorerResources({
+    debugLogger: options?.debugLogger,
+    filters: scopedFilters,
+    queryLabel: 'filtered',
+    searchRegion: searchPlan.searchRegion,
+    viewArn,
+  });
+};
+
+/**
+ * Ensures the default Resource Explorer view exposes tag data for tag-aware filters.
+ *
+ * @param region - Resource Explorer control region containing the default view.
+ * @returns Nothing after the view is already compliant or has been updated.
+ */
+export const ensureAwsResourceExplorerDefaultViewIncludesTags = async (region: string): Promise<void> => {
+  const validRegion = assertValidAwsRegion(region);
+  const { client, view, viewArn } = await getDefaultResourceExplorerView(validRegion);
+  const includedPropertyNames = getIncludedPropertyNames(view);
+
+  if (includedPropertyNames.has('tags')) {
+    return;
+  }
+
+  includedPropertyNames.add('tags');
+  await client
+    .send(
+      new UpdateViewCommand({
+        IncludedProperties: [...includedPropertyNames]
+          .sort((left, right) => left.localeCompare(right))
+          .map((name) => ({ Name: name })),
+        ViewArn: viewArn,
+      }),
+    )
+    .catch((err: unknown) => throwResourceExplorerOperationError(err, 'UpdateView', validRegion));
 };
 
 /**
