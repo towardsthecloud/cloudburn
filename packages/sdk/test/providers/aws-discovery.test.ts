@@ -1179,6 +1179,58 @@ describe('discoverAwsResources', () => {
     expect(mockedResolveAwsAccountId).toHaveBeenCalledTimes(2);
   });
 
+  it('caps combined in-flight calls per service and region across concurrent datasets', async () => {
+    mockedResolveCurrentAwsRegion.mockResolvedValue('us-east-1');
+    const { withAwsServiceErrorContext } = await import('../../src/providers/aws/resources/utils.js');
+
+    let currentInFlight = 0;
+    let maxInFlight = 0;
+    const trackedCall = (): Promise<string> =>
+      withAwsServiceErrorContext(
+        'Amazon EC2',
+        'DescribeVolumes',
+        'us-east-1',
+        () =>
+          new Promise((resolve) => {
+            currentInFlight += 1;
+            maxInFlight = Math.max(maxInFlight, currentInFlight);
+
+            setTimeout(() => {
+              currentInFlight -= 1;
+              resolve('ok');
+            }, 1);
+          }),
+      );
+
+    // Two datasets each fan out 15 calls to the same service and region, the
+    // way independent EC2-family loaders behave in a real discover run.
+    mockedHydrateAwsCostUsage.mockImplementation(async () => {
+      await Promise.all(Array.from({ length: 15 }, trackedCall));
+      return [];
+    });
+    mockedHydrateAwsCostGuardrailBudgets.mockImplementation(async () => {
+      await Promise.all(Array.from({ length: 15 }, trackedCall));
+      return [];
+    });
+
+    const rules = [
+      createRule({
+        discoveryDependencies: ['aws-cost-usage'],
+        service: 'costexplorer',
+      }),
+      createRule({
+        id: 'CLDBRN-AWS-TEST-2',
+        discoveryDependencies: ['aws-cost-guardrail-budgets'],
+        service: 'costguardrails',
+      }),
+    ];
+
+    await discoverAwsResources(rules, { mode: 'current' });
+
+    expect(maxInFlight).toBeGreaterThan(1);
+    expect(maxInFlight).toBeLessThanOrEqual(10);
+  });
+
   it('emits dataset completion timing in debug mode so slow hydrators are visible', async () => {
     mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
       indexType: 'LOCAL',

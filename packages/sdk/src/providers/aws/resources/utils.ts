@@ -1,6 +1,86 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { resolveAwsAccountId } from '../client.js';
 import type { AwsAccountIdResolver } from '../discovery-registry.js';
 import { AwsDiscoveryError, isAwsThrottlingError, wrapAwsServiceError } from '../errors.js';
+
+// Datasets load in parallel, and several datasets can fan out to the same
+// service in the same region at once. Each loader only bounds its own
+// concurrency, so a shared per-run budget caps the combined in-flight calls
+// per service and region.
+const AWS_SERVICE_CALL_CONCURRENCY = 10;
+
+type AwsServiceCallSlotRelease = () => void;
+
+type AwsServiceCallLimiter = {
+  acquire: () => Promise<AwsServiceCallSlotRelease>;
+};
+
+const createAwsServiceCallLimiter = (maxConcurrentCalls: number): AwsServiceCallLimiter => {
+  let activeCalls = 0;
+  const waiters: Array<() => void> = [];
+
+  const release: AwsServiceCallSlotRelease = () => {
+    const nextWaiter = waiters.shift();
+
+    if (nextWaiter) {
+      // The slot transfers directly to the waiter, so activeCalls stays put.
+      nextWaiter();
+    } else {
+      activeCalls -= 1;
+    }
+  };
+
+  return {
+    acquire: async () => {
+      if (activeCalls < maxConcurrentCalls) {
+        activeCalls += 1;
+
+        return release;
+      }
+
+      await new Promise<void>((resolve) => {
+        waiters.push(resolve);
+      });
+
+      return release;
+    },
+  };
+};
+
+const awsServiceCallBudgetContext = new AsyncLocalStorage<Map<string, AwsServiceCallLimiter>>();
+
+// Resolved synchronously so callers outside a budget context keep dispatching
+// their AWS calls without any added microtask deferral.
+const getAwsServiceCallLimiter = (service: string, region: string): AwsServiceCallLimiter | null => {
+  const limiters = awsServiceCallBudgetContext.getStore();
+
+  if (!limiters) {
+    return null;
+  }
+
+  const limiterKey = `${service}:${region}`;
+  let limiter = limiters.get(limiterKey);
+
+  if (!limiter) {
+    limiter = createAwsServiceCallLimiter(AWS_SERVICE_CALL_CONCURRENCY);
+    limiters.set(limiterKey, limiter);
+  }
+
+  return limiter;
+};
+
+/**
+ * Runs a callback with a shared AWS call budget so every `withAwsServiceErrorContext`
+ * call inside it is capped per service and region, across all concurrent datasets.
+ *
+ * Calls outside a budget callback stay unbounded, preserving direct hydrator
+ * usage outside discovery orchestration.
+ *
+ * @param fn - Callback whose AWS calls should share one concurrency budget.
+ * @returns The callback result.
+ */
+export const withAwsServiceCallBudget = <T>(fn: () => Promise<T>): Promise<T> =>
+  awsServiceCallBudgetContext.run(new Map(), fn);
 
 type AwsServiceErrorContextOptions = {
   initialDelayMs?: number;
@@ -100,9 +180,19 @@ export const withAwsServiceErrorContext = async <T>(
   const initialDelayMs = options.initialDelayMs ?? 500;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    // The slot is acquired per attempt and released before any backoff sleep,
+    // so a call waiting out a throttle never blocks other callers.
+    const limiter = getAwsServiceCallLimiter(service, region);
+    const releaseSlot = limiter ? await limiter.acquire() : null;
+
     try {
-      return await execute();
+      const result = await execute();
+      releaseSlot?.();
+
+      return result;
     } catch (err) {
+      releaseSlot?.();
+
       if (options.passthrough?.(err) || err instanceof AwsDiscoveryError) {
         throw err;
       }

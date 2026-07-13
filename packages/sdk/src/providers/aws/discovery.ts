@@ -27,6 +27,7 @@ import {
   waitForAwsResourceExplorerIndex,
   waitForAwsResourceExplorerSetup,
 } from './resource-explorer.js';
+import { withAwsServiceCallBudget } from './resources/utils.js';
 
 const sortUnique = (values: string[]): string[] =>
   [...new Set(values)].sort((left, right) => left.localeCompare(right));
@@ -456,8 +457,16 @@ export const discoverAwsResources = async (
       (await loadDataset(datasetKey)).dataset[1],
     resolveAccountId,
   };
-  const datasetLoads = await Promise.all(datasetKeys.map((datasetKey) => loadDataset(datasetKey)));
-  const allDatasetLoads = await Promise.all(datasetLoadPromises.values());
+  // All datasets load in parallel, so the shared budget caps the combined
+  // in-flight AWS calls per service and region for the whole run.
+  const { allDatasetLoads, datasetLoads } = await withAwsServiceCallBudget(async () => {
+    const requestedLoads = await Promise.all(datasetKeys.map((datasetKey) => loadDataset(datasetKey)));
+
+    return {
+      allDatasetLoads: await Promise.all(datasetLoadPromises.values()),
+      datasetLoads: requestedLoads,
+    };
+  });
   const resources = new LiveResourceBag(
     Object.fromEntries(datasetLoads.map((loadResult) => loadResult.dataset)) as Partial<DiscoveryDatasetMap>,
   );
