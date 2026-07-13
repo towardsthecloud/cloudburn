@@ -303,15 +303,16 @@ export const discoverAwsResources = async (
     options?.debugLogger,
     `aws: resolved Resource Explorer resource types ${resourceTypes.length === 0 ? 'none' : resourceTypes.join(', ')}`,
   );
+  const buildEmptyLocalCatalog = async (): Promise<AwsDiscoveryCatalog> => ({
+    indexType: 'LOCAL',
+    resources: [],
+    searchRegion: await resolveCurrentAwsRegion(),
+  });
   let catalog: AwsDiscoveryCatalog;
   let catalogFailureDiagnostic: ScanDiagnostic | undefined;
 
   if (resourceTypes.length === 0) {
-    catalog = {
-      indexType: 'LOCAL' as const,
-      resources: [],
-      searchRegion: await resolveCurrentAwsRegion(),
-    };
+    catalog = await buildEmptyLocalCatalog();
   } else {
     try {
       catalog =
@@ -332,11 +333,7 @@ export const discoverAwsResources = async (
         `aws: catalog build failed, degrading to account-scoped datasets: ${err instanceof Error ? err.message : String(err)}`,
       );
       catalogFailureDiagnostic = buildCatalogFailureDiagnostic(err);
-      catalog = {
-        indexType: 'LOCAL' as const,
-        resources: [],
-        searchRegion: await resolveCurrentAwsRegion(),
-      };
+      catalog = await buildEmptyLocalCatalog();
     }
   }
   emitDebugLog(
@@ -558,9 +555,9 @@ export const discoverAwsResources = async (
             // Datasets skipped because the catalog never loaded carry no
             // diagnostics of their own; rule-skip messages inherit the
             // catalog failure details instead.
-            loadResult.diagnostics.length > 0 || !catalogFailureDiagnostic
-              ? loadResult.diagnostics
-              : [catalogFailureDiagnostic],
+            catalogFailureDiagnostic && loadResult.diagnostics.length === 0
+              ? [catalogFailureDiagnostic]
+              : loadResult.diagnostics,
           ] as const,
       ),
   );

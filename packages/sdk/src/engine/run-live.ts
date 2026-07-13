@@ -19,8 +19,8 @@ export const runLiveScan = async (
     unavailableDatasets = new Map(),
     ...liveContext
   } = await discoverAwsResources(registry.activeRules, target, {
-    ...(options?.debugLogger === undefined ? {} : { debugLogger: options.debugLogger }),
-    ...(options?.onProgress === undefined ? {} : { onProgress: options.onProgress }),
+    debugLogger: options?.debugLogger,
+    onProgress: options?.onProgress,
   });
   const unresolvedUnavailableDatasets: unknown = unavailableDatasets;
   const unavailableDatasetDiagnostics =

@@ -6,7 +6,10 @@ import { AwsDiscoveryError, isAwsThrottlingError, wrapAwsServiceError } from '..
 // Datasets load in parallel, and several datasets can fan out to the same
 // service in the same region at once. Each loader only bounds its own
 // concurrency, so a shared per-run budget caps the combined in-flight calls
-// per service and region.
+// per service and region. The two dials are deliberate layers: per-loader
+// `chunkItems` batches size individual requests and keep memory bounded,
+// while this budget is the cross-dataset ceiling that no combination of
+// loaders can exceed.
 const AWS_SERVICE_CALL_CONCURRENCY = 10;
 
 type AwsServiceCallSlotRelease = () => void;

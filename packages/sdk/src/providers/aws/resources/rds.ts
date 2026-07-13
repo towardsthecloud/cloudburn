@@ -78,55 +78,61 @@ export const hydrateAwsRdsInstances = async (resources: AwsDiscoveredResource[])
       const accountIdsByIdentifier = new Map(
         regionResources.map((resource) => [resource.dbInstanceIdentifier, resource.accountId]),
       );
-      const instances: AwsRdsInstance[] = [];
 
-      for (const batch of chunkItems([...accountIdsByIdentifier.keys()], RDS_DESCRIBE_FILTER_BATCH_SIZE)) {
-        let marker: string | undefined;
+      // Batches are independent identifier sets, so they run concurrently;
+      // only marker pagination within one batch is inherently sequential.
+      const batchPages = await Promise.all(
+        chunkItems([...accountIdsByIdentifier.keys()], RDS_DESCRIBE_FILTER_BATCH_SIZE).map(async (batch) => {
+          const instances: AwsRdsInstance[] = [];
+          let marker: string | undefined;
 
-        do {
-          const response = await withAwsServiceErrorContext('Amazon RDS', 'DescribeDBInstances', region, () =>
-            client.send(
-              new DescribeDBInstancesCommand({
-                Filters: [
-                  {
-                    Name: 'db-instance-id',
-                    Values: batch,
-                  },
-                ],
-                Marker: marker,
-              }),
-            ),
-          );
+          do {
+            const response = await withAwsServiceErrorContext('Amazon RDS', 'DescribeDBInstances', region, () =>
+              client.send(
+                new DescribeDBInstancesCommand({
+                  Filters: [
+                    {
+                      Name: 'db-instance-id',
+                      Values: batch,
+                    },
+                  ],
+                  Marker: marker,
+                }),
+              ),
+            );
 
-          for (const instance of response.DBInstances ?? []) {
-            if (!instance.DBInstanceIdentifier || !instance.DBInstanceClass) {
-              continue;
+            for (const instance of response.DBInstances ?? []) {
+              if (!instance.DBInstanceIdentifier || !instance.DBInstanceClass) {
+                continue;
+              }
+
+              const accountId = accountIdsByIdentifier.get(instance.DBInstanceIdentifier);
+
+              if (!accountId) {
+                continue;
+              }
+
+              instances.push({
+                accountId,
+                dbInstanceIdentifier: instance.DBInstanceIdentifier,
+                dbInstanceStatus: instance.DBInstanceStatus,
+                engine: instance.Engine,
+                engineVersion: instance.EngineVersion,
+                instanceClass: instance.DBInstanceClass,
+                instanceCreateTime: instance.InstanceCreateTime?.toISOString(),
+                multiAz: instance.MultiAZ,
+                region,
+              });
             }
 
-            const accountId = accountIdsByIdentifier.get(instance.DBInstanceIdentifier);
+            marker = response.Marker;
+          } while (marker);
 
-            if (!accountId) {
-              continue;
-            }
+          return instances;
+        }),
+      );
 
-            instances.push({
-              accountId,
-              dbInstanceIdentifier: instance.DBInstanceIdentifier,
-              dbInstanceStatus: instance.DBInstanceStatus,
-              engine: instance.Engine,
-              engineVersion: instance.EngineVersion,
-              instanceClass: instance.DBInstanceClass,
-              instanceCreateTime: instance.InstanceCreateTime?.toISOString(),
-              multiAz: instance.MultiAZ,
-              region,
-            });
-          }
-
-          marker = response.Marker;
-        } while (marker);
-      }
-
-      return instances;
+      return batchPages.flat();
     }),
   );
 
@@ -224,55 +230,60 @@ export const hydrateAwsRdsSnapshots = async (resources: AwsDiscoveredResource[])
       const accountIdsByIdentifier = new Map(
         regionResources.map((resource) => [resource.dbSnapshotIdentifier, resource.accountId]),
       );
-      const snapshots: AwsRdsSnapshot[] = [];
 
-      for (const batch of chunkItems([...accountIdsByIdentifier.keys()], RDS_DESCRIBE_FILTER_BATCH_SIZE)) {
-        let marker: string | undefined;
+      // Batches are independent identifier sets, so they run concurrently.
+      // Identifiers for snapshots that no longer exist are silently omitted
+      // by the filter, so stale catalog entries need no per-identifier error
+      // handling.
+      const batchPages = await Promise.all(
+        chunkItems([...accountIdsByIdentifier.keys()], RDS_DESCRIBE_FILTER_BATCH_SIZE).map(async (batch) => {
+          const snapshots: AwsRdsSnapshot[] = [];
+          let marker: string | undefined;
 
-        do {
-          // Identifiers for snapshots that no longer exist are silently
-          // omitted by the filter, so stale catalog entries need no
-          // per-identifier error handling.
-          const response = await withAwsServiceErrorContext('Amazon RDS', 'DescribeDBSnapshots', region, () =>
-            client.send(
-              new DescribeDBSnapshotsCommand({
-                Filters: [
-                  {
-                    Name: 'db-snapshot-id',
-                    Values: batch,
-                  },
-                ],
-                Marker: marker,
-              }),
-            ),
-          );
+          do {
+            const response = await withAwsServiceErrorContext('Amazon RDS', 'DescribeDBSnapshots', region, () =>
+              client.send(
+                new DescribeDBSnapshotsCommand({
+                  Filters: [
+                    {
+                      Name: 'db-snapshot-id',
+                      Values: batch,
+                    },
+                  ],
+                  Marker: marker,
+                }),
+              ),
+            );
 
-          for (const snapshot of response.DBSnapshots ?? []) {
-            if (!snapshot.DBSnapshotIdentifier) {
-              continue;
+            for (const snapshot of response.DBSnapshots ?? []) {
+              if (!snapshot.DBSnapshotIdentifier) {
+                continue;
+              }
+
+              const accountId = accountIdsByIdentifier.get(snapshot.DBSnapshotIdentifier);
+
+              if (!accountId) {
+                continue;
+              }
+
+              snapshots.push({
+                accountId,
+                dbInstanceIdentifier: snapshot.DBInstanceIdentifier,
+                dbSnapshotIdentifier: snapshot.DBSnapshotIdentifier,
+                region,
+                snapshotCreateTime: snapshot.SnapshotCreateTime?.toISOString(),
+                snapshotType: snapshot.SnapshotType,
+              });
             }
 
-            const accountId = accountIdsByIdentifier.get(snapshot.DBSnapshotIdentifier);
+            marker = response.Marker;
+          } while (marker);
 
-            if (!accountId) {
-              continue;
-            }
+          return snapshots;
+        }),
+      );
 
-            snapshots.push({
-              accountId,
-              dbInstanceIdentifier: snapshot.DBInstanceIdentifier,
-              dbSnapshotIdentifier: snapshot.DBSnapshotIdentifier,
-              region,
-              snapshotCreateTime: snapshot.SnapshotCreateTime?.toISOString(),
-              snapshotType: snapshot.SnapshotType,
-            });
-          }
-
-          marker = response.Marker;
-        } while (marker);
-      }
-
-      return snapshots;
+      return batchPages.flat();
     }),
   );
 

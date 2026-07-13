@@ -86,7 +86,7 @@ export class CloudBurnClient {
     const run = () =>
       runLiveScan(effectiveConfig, options?.target ?? { mode: 'current' }, {
         debugLogger: this.options?.debugLogger,
-        ...(options?.onProgress === undefined ? {} : { onProgress: options.onProgress }),
+        onProgress: options?.onProgress,
       });
 
     return options?.aws?.credentials ? withAwsClientCredentials(options.aws.credentials, run) : run();

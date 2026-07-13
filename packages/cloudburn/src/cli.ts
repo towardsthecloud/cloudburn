@@ -37,14 +37,6 @@ export const isCliEntrypoint = (moduleUrl: string, argvEntry: string | undefined
   return resolveEntrypointPath(fileURLToPath(moduleUrl)) === resolveEntrypointPath(argvEntry);
 };
 
-const applyExitOverride = (command: Command): void => {
-  command.exitOverride();
-
-  for (const subcommand of command.commands) {
-    applyExitOverride(subcommand);
-  }
-};
-
 // Intent: construct the CloudBurn CLI command tree.
 // TODO(cloudburn): add global flags for profile, config path, and debug logging.
 export const createProgram = (): Command => {
@@ -58,17 +50,18 @@ export const createProgram = (): Command => {
     .option('--format <format>', OUTPUT_FORMAT_OPTION_DESCRIPTION, parseOutputFormat);
   configureCliHelp(program);
 
+  // Commander exits with code 1 on parse and validation failures by default,
+  // which collides with EXIT_CODE_POLICY_VIOLATION. Overriding before the
+  // subcommands register lets them inherit the override, so runCli can map
+  // usage errors onto the documented exit-code contract instead.
+  program.exitOverride();
+
   registerCompletionCommand(program);
   registerConfigCommand(program);
   registerDiscoverCommand(program);
   registerScanCommand(program);
   registerRulesListCommand(program);
   registerEstimateCommand(program);
-
-  // Commander exits with code 1 on parse and validation failures by default,
-  // which collides with EXIT_CODE_POLICY_VIOLATION. Overriding lets runCli map
-  // usage errors onto the documented exit-code contract instead.
-  applyExitOverride(program);
 
   return program;
 };
