@@ -1,7 +1,7 @@
 import type { IaCResource, Rule } from '@cloudburn/rules';
 import { StaticResourceBag } from '@cloudburn/rules';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { parseIaC } from '../../src/parsers/index.js';
+import { parseIaCWithDiagnostics } from '../../src/parsers/index.js';
 import { loadAwsStaticResources } from '../../src/providers/aws/static.js';
 import { getAwsStaticDatasetDefinition } from '../../src/providers/aws/static-registry.js';
 
@@ -10,11 +10,15 @@ vi.mock('../../src/parsers/index.js', async () => {
 
   return {
     ...actual,
-    parseIaC: vi.fn(),
+    parseIaCWithDiagnostics: vi.fn(),
   };
 });
 
-const mockedParseIaC = vi.mocked(parseIaC);
+const mockedParseIaC = vi.mocked(parseIaCWithDiagnostics);
+
+const mockParsedResources = (resources: IaCResource[]): void => {
+  mockedParseIaC.mockResolvedValue({ diagnostics: [], resources });
+};
 
 const createRule = (overrides: Partial<Rule> = {}): Rule => ({
   description: 'test rule',
@@ -42,38 +46,41 @@ describe('loadAwsStaticResources', () => {
   });
 
   it('loads unique static datasets once and builds a StaticResourceBag', async () => {
-    mockedParseIaC.mockResolvedValue([
-      createIaCResource({
-        type: 'aws_ebs_volume',
-        name: 'logs',
-        attributeLocations: {
-          type: {
-            path: 'main.tf',
-            line: 4,
-            column: 3,
+    mockedParseIaC.mockResolvedValue({
+      diagnostics: [],
+      resources: [
+        createIaCResource({
+          type: 'aws_ebs_volume',
+          name: 'logs',
+          attributeLocations: {
+            type: {
+              path: 'main.tf',
+              line: 4,
+              column: 3,
+            },
           },
-        },
-        attributes: {
-          type: 'gp2',
-        },
-      }),
-      createIaCResource({
-        type: 'AWS::EC2::Instance',
-        name: 'AppServer',
-        attributeLocations: {
-          'Properties.InstanceType': {
-            path: 'template.yaml',
-            line: 8,
-            column: 7,
+          attributes: {
+            type: 'gp2',
           },
-        },
-        attributes: {
-          Properties: {
-            InstanceType: 'c6i.large',
+        }),
+        createIaCResource({
+          type: 'AWS::EC2::Instance',
+          name: 'AppServer',
+          attributeLocations: {
+            'Properties.InstanceType': {
+              path: 'template.yaml',
+              line: 8,
+              column: 7,
+            },
           },
-        },
-      }),
-    ]);
+          attributes: {
+            Properties: {
+              InstanceType: 'c6i.large',
+            },
+          },
+        }),
+      ],
+    });
 
     const result = await loadAwsStaticResources('/tmp/iac', [
       createRule({
@@ -88,6 +95,7 @@ describe('loadAwsStaticResources', () => {
     expect(mockedParseIaC).toHaveBeenCalledWith('/tmp/iac', {
       sourceKinds: ['cloudformation', 'terraform'],
     });
+    expect(result.diagnostics).toEqual([]);
     expect(result.resources).toBeInstanceOf(StaticResourceBag);
     expect(result.resources.get('aws-ebs-volumes')).toEqual([
       {
@@ -118,7 +126,7 @@ describe('loadAwsStaticResources', () => {
   });
 
   it('loads RDS instance datasets for Terraform and CloudFormation resources', async () => {
-    mockedParseIaC.mockResolvedValue([
+    mockParsedResources([
       createIaCResource({
         type: 'aws_db_instance',
         name: 'legacy',
@@ -191,7 +199,7 @@ describe('loadAwsStaticResources', () => {
   });
 
   it('loads EBS volume size and IOPS for Terraform and CloudFormation resources', async () => {
-    mockedParseIaC.mockResolvedValue([
+    mockParsedResources([
       createIaCResource({
         type: 'aws_ebs_volume',
         name: 'logs',
@@ -283,7 +291,7 @@ describe('loadAwsStaticResources', () => {
   });
 
   it('loads RDS engine metadata for Terraform and CloudFormation resources', async () => {
-    mockedParseIaC.mockResolvedValue([
+    mockParsedResources([
       createIaCResource({
         type: 'aws_db_instance',
         name: 'legacy',
@@ -377,7 +385,7 @@ describe('loadAwsStaticResources', () => {
   });
 
   it('loads API Gateway stages for Terraform and CloudFormation resources', async () => {
-    mockedParseIaC.mockResolvedValue([
+    mockParsedResources([
       createIaCResource({
         type: 'aws_api_gateway_stage',
         name: 'prod',
@@ -443,7 +451,7 @@ describe('loadAwsStaticResources', () => {
   });
 
   it('loads CloudFront distributions and applies the default price class when omitted', async () => {
-    mockedParseIaC.mockResolvedValue([
+    mockParsedResources([
       createIaCResource({
         type: 'aws_cloudfront_distribution',
         name: 'cdn',
@@ -505,7 +513,7 @@ describe('loadAwsStaticResources', () => {
   });
 
   it('loads CloudWatch log groups and preserves unresolved retention values as null', async () => {
-    mockedParseIaC.mockResolvedValue([
+    mockParsedResources([
       createIaCResource({
         type: 'aws_cloudwatch_log_group',
         name: 'app',
@@ -600,7 +608,7 @@ describe('loadAwsStaticResources', () => {
   });
 
   it('loads DynamoDB tables and table-level autoscaling state', async () => {
-    mockedParseIaC.mockResolvedValue([
+    mockParsedResources([
       createIaCResource({
         type: 'aws_dynamodb_table',
         name: 'orders',
@@ -687,7 +695,7 @@ describe('loadAwsStaticResources', () => {
   });
 
   it('loads Elastic IP association state from inline and separate resources', async () => {
-    mockedParseIaC.mockResolvedValue([
+    mockParsedResources([
       createIaCResource({
         type: 'aws_eip',
         name: 'inline',
@@ -772,7 +780,7 @@ describe('loadAwsStaticResources', () => {
   });
 
   it('loads EKS node groups and preserves unresolved instance types as empty', async () => {
-    mockedParseIaC.mockResolvedValue([
+    mockParsedResources([
       createIaCResource({
         type: 'aws_eks_node_group',
         name: 'workers',
@@ -848,7 +856,7 @@ describe('loadAwsStaticResources', () => {
   });
 
   it('loads EMR clusters from inline instance-group definitions only', async () => {
-    mockedParseIaC.mockResolvedValue([
+    mockParsedResources([
       createIaCResource({
         type: 'aws_emr_cluster',
         name: 'analytics',
@@ -938,7 +946,7 @@ describe('loadAwsStaticResources', () => {
   });
 
   it('loads Route 53 records and health checks from Terraform and CloudFormation resources', async () => {
-    mockedParseIaC.mockResolvedValue([
+    mockParsedResources([
       createIaCResource({
         type: 'aws_route53_health_check',
         name: 'api',
@@ -1085,7 +1093,7 @@ describe('loadAwsStaticResources', () => {
   });
 
   it('loads ECR repository datasets for Terraform lifecycle resources and CloudFormation inline policies', async () => {
-    mockedParseIaC.mockResolvedValue([
+    mockParsedResources([
       createIaCResource({
         type: 'aws_ecr_repository',
         name: 'app',
@@ -1182,7 +1190,7 @@ describe('loadAwsStaticResources', () => {
   });
 
   it('matches Terraform ECR lifecycle policies that reference repository ids', async () => {
-    mockedParseIaC.mockResolvedValue([
+    mockParsedResources([
       createIaCResource({
         type: 'aws_ecr_repository',
         name: 'app',
@@ -1226,7 +1234,7 @@ describe('loadAwsStaticResources', () => {
   });
 
   it('matches Terraform ECR lifecycle policies that share unresolved repository expressions', async () => {
-    mockedParseIaC.mockResolvedValue([
+    mockParsedResources([
       createIaCResource({
         type: 'aws_ecr_repository',
         name: 'app',

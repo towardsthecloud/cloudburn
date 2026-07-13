@@ -23,12 +23,12 @@ graph TD
   subgraph Static["runStaticScan(path, config)"]
     SR[buildRuleRegistry] --> SD[collect staticDependencies]
     SD --> SRg[resolve static dataset registry entries]
-    SRg --> SP[parseIaC(required sourceKinds)]
+    SRg --> SP[parseIaCWithDiagnostics(required sourceKinds)]
     SP --> SL[load required static datasets]
     SL --> SC[build StaticEvaluationContext]
     SC --> SE["rule.evaluateStatic() => Finding | null"]
     SE --> SG[groupFindingsByProvider]
-    SG --> SOut["ScanResult { providers: ProviderFindingGroup[] }"]
+    SG --> SOut["ScanResult { providers, diagnostics? }"]
   end
 
   subgraph Live["runLiveScan(config, target)"]
@@ -49,11 +49,13 @@ graph TD
 2. Collect unique `staticDependencies` from active static rules.
 3. Resolve those dataset keys through the AWS static dataset registry.
 4. Union required IaC source kinds from the resolved dataset definitions.
-5. Parse only the required Terraform and CloudFormation inputs.
+5. Parse only the required Terraform and CloudFormation inputs through
+   `parseIaCWithDiagnostics` and retain non-fatal skipped-file diagnostics.
 6. Load only the requested normalized static datasets.
 7. Build `StaticEvaluationContext` with `{ resources: StaticResourceBag }`.
 8. Invoke each static evaluator.
-9. Group non-null rule findings under `providers -> rules -> findings`.
+9. Group non-null rule findings under `providers -> rules -> findings` and attach
+   parser diagnostics when present.
 
 ### Live Scan
 
@@ -80,7 +82,9 @@ Current live-discovery behavior:
 - Catalog collection uses Resource Explorer `ListResources` with filter strings instead of `Search`, which avoids the 1,000-result ceiling on filter-only queries.
 - Resource Explorer catalog seeding batches `resourcetype:` and `region:` filters into the smallest possible query set, raises `MaxResults` to `1000`, and retries throttled `ListResources` calls before failing.
 - Account-scoped or fallback-backed datasets can bypass Resource Explorer seeding entirely by declaring no `resourceTypes`; the loader then receives `[]` and owns the account-level API call.
-- Resource Explorer inventory failures and dataset loader failures are fatal. The SDK does not degrade to partial live results.
+- Account-scoped loaders share one lazy STS account-ID resolution per discovery run; the cache is discarded between runs so ambient credential contexts cannot leak identity.
+- Resource Explorer catalog failures are fatal because discovery cannot identify the requested resources without the catalog.
+- Dataset loader failures are non-fatal: the SDK records diagnostics, marks the affected datasets unavailable, skips rules that require them, and returns findings from datasets that loaded successfully.
 - Missing Lambda `Architectures` values from AWS are normalized to `['x86_64']`, matching the AWS default architecture.
 - Lambda hydrators limit in-flight `GetFunctionConfiguration` calls per region to avoid API throttling in large accounts.
 - Live scans require Resource Explorer access plus narrow hydrator permissions such as `apigateway:GetStage`, `application-autoscaling:DescribeScalableTargets`, `application-autoscaling:DescribeScalingPolicies`, `ce:GetCostAndUsage`, `cloudfront:GetDistribution`, `cloudfront:ListDistributions`, `cloudtrail:DescribeTrails`, `cloudwatch:GetMetricData`, `dynamodb:DescribeTable`, `ecs:DescribeContainerInstances`, `ecs:DescribeServices`, `ec2:DescribeInstances`, `ec2:DescribeNatGateways`, `ec2:DescribeVolumes`, `eks:ListNodegroups`, `eks:DescribeNodegroup`, `lambda:GetFunctionConfiguration`, `rds:DescribeDBInstances`, `route53:ListHealthChecks`, `route53:ListHostedZones`, `route53:ListResourceRecordSets`, `s3:GetLifecycleConfiguration`, `s3:GetIntelligentTieringConfiguration`, `sagemaker:DescribeEndpoint`, `sagemaker:DescribeEndpointConfig`, `sagemaker:DescribeNotebookInstance`, and `secretsmanager:DescribeSecret`.
@@ -93,17 +97,27 @@ See [`docs/reference/finding-shape.md`](../reference/finding-shape.md) for the f
 
 ```mermaid
 graph LR
-  Path["file or directory"] --> PI["parseIaC(path)"]
+  Path["file or directory"] --> PI["parseIaCWithDiagnostics(path)"]
   PI --> TF["parseTerraform(path)"]
   PI --> CFN["parseCloudFormation(path)"]
   TF --> Walk["recursive walk\n(skips .git, .terraform, node_modules)"]
   CFN --> Walk
   Walk --> HCL["@cdktf/hcl2json / YAML+JSON parse"]
   HCL --> Extract["extract AWS Terraform blocks\nand AWS:: CloudFormation resources"]
-  Extract --> IaC["IaCResource[]"]
+  Extract --> IaC["resources + diagnostics"]
+  Public["public parseIaC(path)"] --> PI
+  Public -->|"unwrap resources"| PublicResult["IaCResource[]"]
 ```
 
-`parseIaC(path, { sourceKinds? })` accepts a Terraform file, CloudFormation template, or directory. It can limit parsing to the source kinds required by active static datasets, ignores unsupported files, and preserves stable ordering for mixed directories.
+The package-root `parseIaC(path, { sourceKinds? })` helper preserves its
+`IaCResource[]` return contract. Static orchestration uses the internal
+`parseIaCWithDiagnostics(path, { sourceKinds? })` entrypoint to receive
+`{ resources, diagnostics }`. Both accept a Terraform file, CloudFormation
+template, or directory, can limit parsing to the source kinds required by active
+static datasets, ignore unsupported files, and preserve stable ordering. The
+internal entrypoint reports malformed or oversized supported inputs as skipped;
+raw parser errors are discarded so diagnostics cannot expose source excerpts or
+absolute filesystem paths.
 
 ## Provider Layer
 

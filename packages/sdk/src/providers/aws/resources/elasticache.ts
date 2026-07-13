@@ -6,7 +6,7 @@ import type {
   AwsElastiCacheReservedNode,
 } from '@cloudburn/rules';
 import { createElastiCacheClient } from '../client.js';
-import type { AwsDiscoveryDatasetLoadContext } from '../discovery-registry.js';
+import type { AwsDiscoveryDatasetResolver } from '../discovery-registry.js';
 import { fetchCloudWatchSignals } from './cloudwatch.js';
 import { extractTerminalResourceIdentifier, withAwsServiceErrorContext } from './utils.js';
 
@@ -180,7 +180,7 @@ export const hydrateAwsElastiCacheReservedNodes = async (
  */
 export const hydrateAwsElastiCacheClusterActivity = async (
   resources: AwsDiscoveredResource[],
-  context?: AwsDiscoveryDatasetLoadContext,
+  context?: AwsDiscoveryDatasetResolver,
 ): Promise<AwsElastiCacheClusterActivity[]> => {
   const clusters = context
     ? await context.loadDataset('aws-elasticache-clusters')

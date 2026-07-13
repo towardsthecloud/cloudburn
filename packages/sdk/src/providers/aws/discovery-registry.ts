@@ -74,9 +74,18 @@ export type AwsDiscoveryDatasetLoadResult<K extends DiscoveryDatasetKey = Discov
  * Hydrators can use this to reuse already-loading base datasets instead of
  * rehydrating the same resources multiple times in one discover run.
  */
-export type AwsDiscoveryDatasetLoadContext = {
+/** Resolves discovery datasets already loading within the current run. */
+export type AwsDiscoveryDatasetResolver = {
   loadDataset: <K extends DiscoveryDatasetKey>(datasetKey: K) => Promise<DiscoveryDatasetMap[K]>;
 };
+
+/** Resolves the caller account ID through the current discovery run's cache. */
+export type AwsAccountIdResolver = {
+  resolveAccountId: () => Promise<string>;
+};
+
+/** Shared per-run capabilities available to AWS discovery dataset hydrators. */
+export type AwsDiscoveryDatasetLoadContext = AwsDiscoveryDatasetResolver & AwsAccountIdResolver;
 
 /** Declarative definition for one rule-facing AWS discovery dataset. */
 export type AwsDiscoveryDatasetDefinition<K extends DiscoveryDatasetKey = DiscoveryDatasetKey> = {

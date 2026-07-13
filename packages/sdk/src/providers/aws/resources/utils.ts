@@ -1,3 +1,5 @@
+import { resolveAwsAccountId } from '../client.js';
+import type { AwsAccountIdResolver } from '../discovery-registry.js';
 import { AwsDiscoveryError, isAwsThrottlingError, wrapAwsServiceError } from '../errors.js';
 
 type AwsServiceErrorContextOptions = {
@@ -17,6 +19,15 @@ const calculateThrottleDelayMs = (initialDelayMs: number, attempt: number): numb
 
   return Math.round(baseDelayMs * (1 + Math.random()));
 };
+
+/**
+ * Resolves the AWS account ID through a discovery-run cache when available.
+ *
+ * @param context - Optional per-run account ID resolver.
+ * @returns The current caller's AWS account ID.
+ */
+export const resolveAwsAccountIdForLoad = (context?: AwsAccountIdResolver): Promise<string> =>
+  context?.resolveAccountId() ?? resolveAwsAccountId();
 
 /**
  * Splits an array into fixed-size chunks for batched AWS API calls.

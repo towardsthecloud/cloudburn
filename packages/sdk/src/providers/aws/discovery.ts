@@ -14,8 +14,8 @@ import type {
   AwsSupportedResourceType,
   ScanDiagnostic,
 } from '../../types.js';
-import { assertValidAwsRegion, listEnabledAwsRegions, resolveCurrentAwsRegion } from './client.js';
-import { getAwsDiscoveryDatasetDefinition } from './discovery-registry.js';
+import { assertValidAwsRegion, listEnabledAwsRegions, resolveAwsAccountId, resolveCurrentAwsRegion } from './client.js';
+import { type AwsDiscoveryDatasetLoadContext, getAwsDiscoveryDatasetDefinition } from './discovery-registry.js';
 import { AwsDiscoveryError, getAwsErrorCode, isAwsAccessDeniedError, isAwsThrottlingError } from './errors.js';
 import {
   buildAwsDiscoveryCatalog,
@@ -306,6 +306,8 @@ export const discoverAwsResources = async (
       unavailable: boolean;
     }>
   >();
+  let accountIdPromise: Promise<string> | undefined;
+  const resolveAccountId = (): Promise<string> => (accountIdPromise ??= resolveAwsAccountId());
   const loadDataset = <K extends DiscoveryDatasetKey>(
     datasetKey: K,
   ): Promise<{
@@ -335,13 +337,7 @@ export const discoverAwsResources = async (
 
       if (definition.resourceTypes.length === 0) {
         try {
-          const loadResult = normalizeDatasetLoadResult(
-            await definition.load([], {
-              loadDataset: async <T extends DiscoveryDatasetKey>(
-                nestedDatasetKey: T,
-              ): Promise<DiscoveryDatasetMap[T]> => (await loadDataset(nestedDatasetKey)).dataset[1],
-            }),
-          );
+          const loadResult = normalizeDatasetLoadResult(await definition.load([], loadContext));
           emitDebugLog(
             options?.debugLogger,
             `aws: completed dataset ${definition.datasetKey} with ${loadResult.resources.length} resources in ${formatElapsedMs(startedAtMs)}`,
@@ -389,13 +385,7 @@ export const discoverAwsResources = async (
             options?.debugLogger,
             `aws: loading dataset ${definition.datasetKey} in ${region} from ${regionResources.length} resources`,
           );
-          const loadResult = normalizeDatasetLoadResult(
-            await definition.load(regionResources, {
-              loadDataset: async <T extends DiscoveryDatasetKey>(
-                nestedDatasetKey: T,
-              ): Promise<DiscoveryDatasetMap[T]> => (await loadDataset(nestedDatasetKey)).dataset[1],
-            }),
-          );
+          const loadResult = normalizeDatasetLoadResult(await definition.load(regionResources, loadContext));
           appendItems(loadedResources, loadResult.resources);
           appendItems(diagnostics, loadResult.diagnostics);
           emitDebugLog(
@@ -460,6 +450,11 @@ export const discoverAwsResources = async (
       diagnostics: ScanDiagnostic[];
       unavailable: boolean;
     }>;
+  };
+  const loadContext: AwsDiscoveryDatasetLoadContext = {
+    loadDataset: async <K extends DiscoveryDatasetKey>(datasetKey: K): Promise<DiscoveryDatasetMap[K]> =>
+      (await loadDataset(datasetKey)).dataset[1],
+    resolveAccountId,
   };
   const datasetLoads = await Promise.all(datasetKeys.map((datasetKey) => loadDataset(datasetKey)));
   const allDatasetLoads = await Promise.all(datasetLoadPromises.values());

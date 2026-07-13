@@ -87,4 +87,18 @@ describe('hydrateAwsCostUsage', () => {
       },
     ]);
   });
+
+  it('uses the discovery run account id resolver when provided', async () => {
+    const resolveAccountId = vi.fn().mockResolvedValue('123456789012');
+    mockedCreateCostExplorerClient.mockReturnValue({
+      send: vi.fn().mockResolvedValue({ ResultsByTime: [] }),
+    } as never);
+
+    await hydrateAwsCostUsage([], {
+      resolveAccountId,
+    });
+
+    expect(resolveAccountId).toHaveBeenCalledTimes(1);
+    expect(mockedResolveAwsAccountId).not.toHaveBeenCalled();
+  });
 });

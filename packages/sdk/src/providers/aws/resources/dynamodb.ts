@@ -7,7 +7,7 @@ import type {
   AwsDynamoDbTableUtilization,
 } from '@cloudburn/rules';
 import { createApplicationAutoScalingClient, createDynamoDbClient } from '../client.js';
-import type { AwsDiscoveryDatasetLoadContext } from '../discovery-registry.js';
+import type { AwsDiscoveryDatasetResolver } from '../discovery-registry.js';
 import { fetchCloudWatchSignals } from './cloudwatch.js';
 import { chunkItems, extractTerminalArnResourceIdentifier, withAwsServiceErrorContext } from './utils.js';
 
@@ -193,7 +193,7 @@ export const hydrateAwsDynamoDbAutoscaling = async (
  */
 export const hydrateAwsDynamoDbTableUtilization = async (
   resources: AwsDiscoveredResource[],
-  context?: AwsDiscoveryDatasetLoadContext,
+  context?: AwsDiscoveryDatasetResolver,
 ): Promise<AwsDynamoDbTableUtilization[]> => {
   const tables = context ? await context.loadDataset('aws-dynamodb-tables') : await hydrateAwsDynamoDbTables(resources);
   const tablesByRegion = new Map<string, typeof tables>();

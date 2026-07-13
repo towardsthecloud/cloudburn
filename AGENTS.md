@@ -23,6 +23,13 @@
 | Turborepo                  | [`docs/TURBOREPO.md`](docs/TURBOREPO.md)                                                 | Task pipeline, boundaries, filtering                                                      |
 | Code review                | [`docs/REVIEW.md`](docs/REVIEW.md)                                                       | Non-obvious conventions and constraints for PR reviewers                                  |
 
+## Documentation Policy
+
+- Keep documentation focused on the repository's current behavior and architecture.
+- Do not commit planning artifacts, implementation plans, or point-in-time design specs such as `docs/superpowers/`.
+- When architecture changes, update the canonical live documents in `docs/ARCHITECTURE.md` and `docs/architecture/` in the same change.
+- Update guides, references, testing, and review docs when their live contracts or workflows change.
+
 ## Code Style
 
 - Add TSDoc docstrings to all exports. Document purpose, parameters, and return values.

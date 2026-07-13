@@ -4,10 +4,15 @@ import type {
   AwsCloudFrontDistributionRequestActivity,
   AwsDiscoveredResource,
 } from '@cloudburn/rules';
-import { createCloudFrontClient, resolveAwsAccountId } from '../client.js';
-import type { AwsDiscoveryDatasetLoadContext } from '../discovery-registry.js';
+import { createCloudFrontClient } from '../client.js';
+import type { AwsAccountIdResolver, AwsDiscoveryDatasetResolver } from '../discovery-registry.js';
 import { fetchCloudWatchSignals } from './cloudwatch.js';
-import { chunkItems, extractTerminalArnResourceIdentifier, withAwsServiceErrorContext } from './utils.js';
+import {
+  chunkItems,
+  extractTerminalArnResourceIdentifier,
+  resolveAwsAccountIdForLoad,
+  withAwsServiceErrorContext,
+} from './utils.js';
 
 const CLOUDFRONT_DISTRIBUTION_CONCURRENCY = 10;
 const CLOUDFRONT_CONTROL_REGION = 'us-east-1';
@@ -56,10 +61,12 @@ const listDistributionSeeds = async (): Promise<
  * Hydrates discovered CloudFront distributions with price-class metadata.
  *
  * @param resources - Optional catalog resources filtered to CloudFront distributions.
+ * @param context - Optional discovery-run context for shared account identity resolution.
  * @returns Hydrated CloudFront distributions for rule evaluation.
  */
 export const hydrateAwsCloudFrontDistributions = async (
   resources: AwsDiscoveredResource[],
+  context?: AwsAccountIdResolver,
 ): Promise<AwsCloudFrontDistribution[]> => {
   const distributionSeeds =
     resources.length > 0
@@ -83,7 +90,7 @@ export const hydrateAwsCloudFrontDistributions = async (
             distributionArn: distribution.distributionArn,
             distributionId: distribution.distributionId,
             region: 'global',
-          })))(await Promise.all([listDistributionSeeds(), resolveAwsAccountId()]));
+          })))(await Promise.all([listDistributionSeeds(), resolveAwsAccountIdForLoad(context)]));
   const uniqueSeeds = [
     ...new Map(distributionSeeds.map((distribution) => [distribution.distributionId, distribution])).values(),
   ];
@@ -129,7 +136,7 @@ export const hydrateAwsCloudFrontDistributions = async (
  */
 export const hydrateAwsCloudFrontDistributionRequestActivity = async (
   resources: AwsDiscoveredResource[],
-  context?: AwsDiscoveryDatasetLoadContext,
+  context?: AwsDiscoveryDatasetResolver,
 ): Promise<AwsCloudFrontDistributionRequestActivity[]> => {
   const distributions = context
     ? await context.loadDataset('aws-cloudfront-distributions')

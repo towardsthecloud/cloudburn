@@ -1,7 +1,13 @@
 import type { Rule, StaticDatasetKey, StaticEvaluationContext } from '@cloudburn/rules';
 import { StaticResourceBag } from '@cloudburn/rules';
-import { type IaCSourceKind, parseIaC } from '../../parsers/index.js';
+import { type IaCSourceKind, parseIaCWithDiagnostics } from '../../parsers/index.js';
+import type { ScanDiagnostic } from '../../types.js';
 import { getAwsStaticDatasetDefinition } from './static-registry.js';
+
+/** Static evaluation context with non-fatal diagnostics produced during dataset loading. */
+export type AwsStaticResourceLoadResult = StaticEvaluationContext & {
+  diagnostics: ScanDiagnostic[];
+};
 
 const sortUnique = <T extends string>(values: T[]): T[] =>
   [...new Set(values)].sort((left, right) => left.localeCompare(right));
@@ -37,13 +43,14 @@ const collectStaticDependencies = (rules: Rule[]): StaticDatasetKey[] => {
  *
  * @param path - Terraform file, CloudFormation template, or directory to scan.
  * @param rules - Active rules that declare their static dataset requirements.
- * @returns Static evaluation context backed by `StaticResourceBag`.
+ * @returns Static evaluation context plus non-fatal parser diagnostics.
  */
-export const loadAwsStaticResources = async (path: string, rules: Rule[]): Promise<StaticEvaluationContext> => {
+export const loadAwsStaticResources = async (path: string, rules: Rule[]): Promise<AwsStaticResourceLoadResult> => {
   const datasetKeys = collectStaticDependencies(rules);
 
   if (datasetKeys.length === 0) {
     return {
+      diagnostics: [],
       resources: new StaticResourceBag(),
     };
   }
@@ -58,7 +65,7 @@ export const loadAwsStaticResources = async (path: string, rules: Rule[]): Promi
     return definition;
   });
   const sourceKinds = sortUnique(datasetDefinitions.flatMap((definition) => definition.sourceKinds) as IaCSourceKind[]);
-  const iacResources = await parseIaC(path, { sourceKinds });
+  const { diagnostics, resources: iacResources } = await parseIaCWithDiagnostics(path, { sourceKinds });
   const loadedDatasets = datasetDefinitions.map(
     (definition) =>
       [
@@ -68,6 +75,7 @@ export const loadAwsStaticResources = async (path: string, rules: Rule[]): Promi
   );
 
   return {
+    diagnostics,
     resources: new StaticResourceBag(Object.fromEntries(loadedDatasets)),
   };
 };

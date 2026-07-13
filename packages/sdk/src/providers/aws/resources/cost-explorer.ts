@@ -1,7 +1,8 @@
 import { GetCostAndUsageCommand } from '@aws-sdk/client-cost-explorer';
 import type { AwsCostUsage, AwsDiscoveredResource } from '@cloudburn/rules';
-import { createCostExplorerClient, resolveAwsAccountId } from '../client.js';
-import { withAwsServiceErrorContext } from './utils.js';
+import { createCostExplorerClient } from '../client.js';
+import type { AwsAccountIdResolver } from '../discovery-registry.js';
+import { resolveAwsAccountIdForLoad, withAwsServiceErrorContext } from './utils.js';
 
 const COST_EXPLORER_CONTROL_REGION = 'us-east-1';
 
@@ -23,11 +24,15 @@ const slugifyServiceName = (serviceName: string): string =>
  * Hydrates Cost Explorer service spend deltas for the last two full months.
  *
  * @param _resources - Unused because Cost Explorer spend is account-scoped.
+ * @param context - Optional discovery-run context for shared account identity resolution.
  * @returns Aggregated service costs for the previous and current full months.
  */
-export const hydrateAwsCostUsage = async (_resources: AwsDiscoveredResource[]): Promise<AwsCostUsage[]> => {
+export const hydrateAwsCostUsage = async (
+  _resources: AwsDiscoveredResource[],
+  context?: AwsAccountIdResolver,
+): Promise<AwsCostUsage[]> => {
   const client = createCostExplorerClient();
-  const accountId = await resolveAwsAccountId();
+  const accountId = await resolveAwsAccountIdForLoad(context);
   const monthStart = toMonthBoundary(new Date());
   const latestFullMonthStart = addMonths(monthStart, -1);
   const previousFullMonthStart = addMonths(monthStart, -2);

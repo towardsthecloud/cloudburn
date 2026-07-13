@@ -1,7 +1,7 @@
 import { DescribeClusterCommand, ListInstancesCommand } from '@aws-sdk/client-emr';
 import type { AwsDiscoveredResource, AwsEmrCluster, AwsEmrClusterMetric } from '@cloudburn/rules';
 import { createEmrClient } from '../client.js';
-import type { AwsDiscoveryDatasetLoadContext } from '../discovery-registry.js';
+import type { AwsDiscoveryDatasetResolver } from '../discovery-registry.js';
 import { fetchCloudWatchSignals } from './cloudwatch.js';
 import { extractTerminalArnResourceIdentifier, withAwsServiceErrorContext } from './utils.js';
 
@@ -125,7 +125,7 @@ const listEmrClusterInstanceTypes = async (
  */
 export const hydrateAwsEmrClusterMetrics = async (
   resources: AwsDiscoveredResource[],
-  context?: AwsDiscoveryDatasetLoadContext,
+  context?: AwsDiscoveryDatasetResolver,
 ): Promise<AwsEmrClusterMetric[]> => {
   const clusters = context ? await context.loadDataset('aws-emr-clusters') : await hydrateAwsEmrClusters(resources);
   const clustersByRegion = new Map<string, typeof clusters>();
