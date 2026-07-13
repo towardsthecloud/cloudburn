@@ -19,6 +19,7 @@ const TARGET_GROUP_ARN_PREFIX = 'targetgroup/';
 const CLASSIC_LOAD_BALANCER_BATCH_SIZE = 20;
 const V2_LOAD_BALANCER_BATCH_SIZE = 20;
 const TARGET_GROUP_BATCH_SIZE = 20;
+const TARGET_GROUP_LOOKUP_CONCURRENCY = 10;
 const FOURTEEN_DAYS_IN_SECONDS = 14 * 24 * 60 * 60;
 const DAILY_PERIOD_IN_SECONDS = 24 * 60 * 60;
 const REQUIRED_ELB_DAILY_POINTS = FOURTEEN_DAYS_IN_SECONDS / DAILY_PERIOD_IN_SECONDS;
@@ -207,32 +208,46 @@ const loadTargetGroupArnsByLoadBalancer = async (
   const client = createElasticLoadBalancingV2Client({ region });
   const targetGroupArnsByLoadBalancer = new Map<string, string[]>();
 
-  for (const loadBalancerArn of loadBalancerArns) {
-    try {
-      const response = await withAwsServiceErrorContext(
-        'Elastic Load Balancing v2',
-        'DescribeTargetGroups',
-        region,
-        () =>
-          client.send(
-            new DescribeTargetGroupsCommand({
-              LoadBalancerArn: loadBalancerArn,
-            }),
-          ),
-        {
-          passthrough: isLoadBalancerMissingError,
-        },
-      );
+  // DescribeTargetGroups only accepts one LoadBalancerArn per call, so the
+  // per-load-balancer calls run concurrently within a bounded batch instead.
+  for (const batch of chunkItems(loadBalancerArns, TARGET_GROUP_LOOKUP_CONCURRENCY)) {
+    const batchEntries = await Promise.all(
+      batch.map(async (loadBalancerArn): Promise<readonly [string, string[]] | null> => {
+        try {
+          const response = await withAwsServiceErrorContext(
+            'Elastic Load Balancing v2',
+            'DescribeTargetGroups',
+            region,
+            () =>
+              client.send(
+                new DescribeTargetGroupsCommand({
+                  LoadBalancerArn: loadBalancerArn,
+                }),
+              ),
+            {
+              passthrough: isLoadBalancerMissingError,
+            },
+          );
 
-      targetGroupArnsByLoadBalancer.set(
-        loadBalancerArn,
-        (response.TargetGroups ?? []).flatMap((targetGroup) =>
-          targetGroup.TargetGroupArn ? [targetGroup.TargetGroupArn] : [],
-        ),
-      );
-    } catch (error) {
-      if (!isLoadBalancerMissingError(error)) {
-        throw error;
+          return [
+            loadBalancerArn,
+            (response.TargetGroups ?? []).flatMap((targetGroup) =>
+              targetGroup.TargetGroupArn ? [targetGroup.TargetGroupArn] : [],
+            ),
+          ] as const;
+        } catch (error) {
+          if (!isLoadBalancerMissingError(error)) {
+            throw error;
+          }
+
+          return null;
+        }
+      }),
+    );
+
+    for (const entry of batchEntries) {
+      if (entry) {
+        targetGroupArnsByLoadBalancer.set(entry[0], entry[1]);
       }
     }
   }
