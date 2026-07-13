@@ -1,5 +1,11 @@
 # @cloudburn/rules
 
+## 0.24.0
+
+### Minor Changes
+
+- [#71](https://github.com/towardsthecloud/cloudburn/pull/71) [`ec078bc`](https://github.com/towardsthecloud/cloudburn/commit/ec078bc33e208812b6ce5898d7046987cb8da41f) Thanks [@axonstone](https://github.com/axonstone)! - Add an exceeded-budget rule and an opt-in global untagged-resource rule with their public discovery dataset contracts.
+
 ## 0.23.0
 
 ### Minor Changes
