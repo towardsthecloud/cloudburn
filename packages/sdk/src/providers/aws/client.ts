@@ -55,6 +55,7 @@ const resolveAwsClientCredentials = (): AwsClientCredentials | undefined =>
 const AWS_REGION_PATTERN = /^[a-z]{2}(?:-[a-z0-9]+)+-\d+$/;
 const AWS_GLOBAL_CONTROL_REGION = 'us-east-1';
 const AWS_CLIENT_MAX_ATTEMPTS = 3;
+const AWS_ROUTE53_CLIENT_MAX_ATTEMPTS = 1;
 const AWS_CLIENT_CONNECTION_TIMEOUT_MS = 5_000;
 const AWS_CLIENT_REQUEST_TIMEOUT_MS = 30_000;
 
@@ -311,6 +312,9 @@ export const createRedshiftClient = (config: AwsClientConfig): RedshiftClient =>
 export const createRoute53Client = (): Route53Client =>
   new Route53Client({
     ...baseAwsClientConfig(),
+    // Route 53 retries must reacquire the shared five-request-per-second
+    // discovery budget, so the outer service wrapper owns every retry.
+    maxAttempts: AWS_ROUTE53_CLIENT_MAX_ATTEMPTS,
     region: AWS_GLOBAL_CONTROL_REGION,
     credentials: resolveAwsClientCredentials(),
   });

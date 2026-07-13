@@ -7,9 +7,10 @@ import {
 import type { AwsDiscoveredResource, AwsRoute53HealthCheck, AwsRoute53Record, AwsRoute53Zone } from '@cloudburn/rules';
 import { createRoute53Client } from '../client.js';
 import type { AwsAccountIdResolver } from '../discovery-registry.js';
-import { resolveAwsAccountIdForLoad, withAwsServiceErrorContext } from './utils.js';
+import { mapWithConcurrency, resolveAwsAccountIdForLoad, withAwsServiceErrorContext } from './utils.js';
 
 const ROUTE53_CONTROL_REGION = 'us-east-1';
+const ROUTE53_ZONE_CONCURRENCY = 5;
 
 const extractArnPartition = (arn: string): string => arn.split(':')[1] ?? 'aws';
 
@@ -86,6 +87,7 @@ const listHostedZoneResources = async (context?: AwsAccountIdResolver): Promise<
             Marker: marker,
           }),
         ),
+      { callPolicy: 'route53' },
     );
 
     for (const zone of response.HostedZones ?? []) {
@@ -155,13 +157,16 @@ export const hydrateAwsRoute53Records = async (
   const client = createRoute53Client();
   const records: AwsRoute53Record[] = [];
 
-  for (const resource of zoneResources) {
+  // Pagination inside each zone stays sequential while the worker pool keeps
+  // up to five independent zones moving without batch barriers.
+  const zonePages = await mapWithConcurrency(zoneResources, ROUTE53_ZONE_CONCURRENCY, async (resource) => {
     const parsedZone = parseHostedZoneArn(resource.arn);
 
     if (!parsedZone) {
-      continue;
+      return [];
     }
 
+    const zoneRecords: AwsRoute53Record[] = [];
     let nextRecordIdentifier: string | undefined;
     let nextRecordName: string | undefined;
     let nextRecordType: RRType | undefined;
@@ -180,6 +185,7 @@ export const hydrateAwsRoute53Records = async (
               StartRecordType: nextRecordType as never,
             }),
           ),
+        { callPolicy: 'route53' },
       );
 
       for (const recordSet of response.ResourceRecordSets ?? []) {
@@ -187,7 +193,7 @@ export const hydrateAwsRoute53Records = async (
           continue;
         }
 
-        records.push({
+        zoneRecords.push({
           accountId: resource.accountId,
           healthCheckId: recordSet.HealthCheckId,
           hostedZoneId: parsedZone.hostedZoneId,
@@ -205,7 +211,11 @@ export const hydrateAwsRoute53Records = async (
       nextRecordName = response.IsTruncated ? response.NextRecordName : undefined;
       nextRecordType = response.IsTruncated ? response.NextRecordType : undefined;
     } while (nextRecordName && nextRecordType);
-  }
+
+    return zoneRecords;
+  });
+
+  records.push(...zonePages.flat());
 
   return records.sort((left, right) => left.recordId.localeCompare(right.recordId));
 };
@@ -244,6 +254,7 @@ export const hydrateAwsRoute53HealthChecks = async (
             Marker: marker,
           }),
         ),
+      { callPolicy: 'route53' },
     );
 
     for (const healthCheck of response.HealthChecks ?? []) {

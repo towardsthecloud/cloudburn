@@ -193,13 +193,83 @@ describe('discover command e2e', () => {
     expect(stdout).toHaveBeenCalledWith('No findings.\n');
   });
 
+  const withStderrTty = async (isTTY: boolean, run: () => Promise<void>): Promise<void> => {
+    const descriptor = Object.getOwnPropertyDescriptor(process.stderr, 'isTTY');
+    Object.defineProperty(process.stderr, 'isTTY', { configurable: true, value: isTTY });
+
+    try {
+      await run();
+    } finally {
+      if (descriptor) {
+        Object.defineProperty(process.stderr, 'isTTY', descriptor);
+      } else {
+        delete (process.stderr as { isTTY?: boolean }).isTTY;
+      }
+    }
+  };
+
+  it('streams discovery progress to stderr when attached to a terminal', async () => {
+    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    vi.spyOn(CloudBurnClient.prototype, 'discover').mockImplementation(
+      async (options?: { onProgress?: (event: unknown) => void }) => {
+        options?.onProgress?.({ kind: 'catalog', resourceCount: 245, searchRegion: 'eu-central-1' });
+        options?.onProgress?.({
+          kind: 'dataset',
+          completedDatasets: 1,
+          datasetKey: 'aws-ec2-instances',
+          totalDatasets: 2,
+        });
+
+        return { providers: [] };
+      },
+    );
+
+    await withStderrTty(true, async () => {
+      await createProgram().parseAsync(['discover'], { from: 'user' });
+    });
+
+    const progressOutput = stderr.mock.calls.map(([chunk]) => String(chunk)).join('');
+
+    expect(progressOutput).toContain('catalog ready with 245 resources from eu-central-1');
+    expect(progressOutput).toContain('datasets 1/2 loaded (aws-ec2-instances)');
+    expect(stdout).toHaveBeenCalledWith('No findings.\n');
+    expect(process.exitCode).toBe(0);
+  });
+
+  it('keeps stderr quiet when discover output is not attached to a terminal', async () => {
+    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    const discover = vi.spyOn(CloudBurnClient.prototype, 'discover').mockResolvedValue({ providers: [] });
+
+    await withStderrTty(false, async () => {
+      await createProgram().parseAsync(['discover'], { from: 'user' });
+    });
+
+    expect(discover).toHaveBeenCalledWith({ target: { mode: 'current' } });
+    expect(stderr).not.toHaveBeenCalled();
+  });
+
+  it('prefers debug tracing over progress lines when --debug is set', async () => {
+    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    const discover = vi.spyOn(CloudBurnClient.prototype, 'discover').mockResolvedValue({ providers: [] });
+
+    await withStderrTty(true, async () => {
+      await createProgram().parseAsync(['discover', '--debug'], { from: 'user' });
+    });
+
+    expect(discover.mock.calls[0]?.[0]).not.toHaveProperty('onProgress');
+    expect(stderr.mock.calls.map(([chunk]) => String(chunk)).join('')).not.toContain('datasets');
+  });
+
   it('rejects invalid discovery regions before invoking the sdk', async () => {
     const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     const discover = vi.spyOn(CloudBurnClient.prototype, 'discover').mockResolvedValue({ providers: [] });
 
     await expect(
       createProgram().parseAsync(['discover', '--region', 'totally-fake-1'], { from: 'user' }),
-    ).rejects.toThrow('process.exit unexpectedly called with "1"');
+    ).rejects.toMatchObject({ code: 'commander.invalidArgument' });
 
     expect(discover).not.toHaveBeenCalled();
     expect(stderr).toHaveBeenCalledWith(expect.stringContaining("Invalid AWS region 'totally-fake-1'."));
@@ -212,10 +282,6 @@ describe('discover command e2e', () => {
     const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     const discover = vi.spyOn(CloudBurnClient.prototype, 'discover').mockResolvedValue({ providers: [] });
     const program = createProgram();
-    const discoverCommand = program.commands.find((command) => command.name() === 'discover');
-
-    program.exitOverride();
-    discoverCommand?.exitOverride();
 
     await expect(program.parseAsync(['discover', '--service', 'invalid'], { from: 'user' })).rejects.toMatchObject({
       code: 'commander.invalidArgument',
@@ -230,9 +296,9 @@ describe('discover command e2e', () => {
     const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     const discover = vi.spyOn(CloudBurnClient.prototype, 'discover').mockResolvedValue({ providers: [] });
 
-    await expect(createProgram().parseAsync(['discover', '--region', 'all'], { from: 'user' })).rejects.toThrow(
-      'process.exit unexpectedly called with "1"',
-    );
+    await expect(createProgram().parseAsync(['discover', '--region', 'all'], { from: 'user' })).rejects.toMatchObject({
+      code: 'commander.invalidArgument',
+    });
 
     expect(discover).not.toHaveBeenCalled();
     expect(stderr).toHaveBeenCalledWith(expect.stringContaining("Invalid AWS region 'all'."));
@@ -244,7 +310,7 @@ describe('discover command e2e', () => {
 
     await expect(
       createProgram().parseAsync(['discover', '--region', 'eu-central-1,us-east-1'], { from: 'user' }),
-    ).rejects.toThrow('process.exit unexpectedly called with "1"');
+    ).rejects.toMatchObject({ code: 'commander.invalidArgument' });
 
     expect(discover).not.toHaveBeenCalled();
     expect(stderr).toHaveBeenCalledWith(expect.stringContaining("Invalid AWS region 'eu-central-1,us-east-1'."));
@@ -554,7 +620,7 @@ describe('discover command e2e', () => {
 
     await expect(
       createProgram().parseAsync(['discover', 'init', '--region', 'eu-central-1 tag:Owner=alice'], { from: 'user' }),
-    ).rejects.toThrow('process.exit unexpectedly called with "1"');
+    ).rejects.toMatchObject({ code: 'commander.invalidArgument' });
 
     expect(initializeDiscovery).not.toHaveBeenCalled();
     expect(stderr).toHaveBeenCalledWith(expect.stringContaining("Invalid AWS region 'eu-central-1 tag:Owner=alice'."));

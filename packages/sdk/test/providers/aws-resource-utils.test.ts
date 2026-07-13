@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { withAwsServiceErrorContext } from '../../src/providers/aws/resources/utils.js';
+import {
+  mapWithConcurrency,
+  withAwsServiceCallBudget,
+  withAwsServiceErrorContext,
+} from '../../src/providers/aws/resources/utils.js';
 
 const createThrottlingError = (): Error =>
   Object.assign(new Error('Rate exceeded'), {
@@ -10,6 +14,44 @@ const createThrottlingError = (): Error =>
     code: 'ThrottlingException',
     name: 'ThrottlingException',
   });
+
+const createTransientError = (): Error =>
+  Object.assign(new Error('Service unavailable'), {
+    $metadata: {
+      httpStatusCode: 503,
+      requestId: 'req-transient',
+    },
+    name: 'ServiceUnavailable',
+  });
+
+describe('mapWithConcurrency', () => {
+  it('starts the next item as soon as a worker becomes available', async () => {
+    let releaseSlowItem = (): void => undefined;
+    const slowItem = new Promise<void>((resolve) => {
+      releaseSlowItem = resolve;
+    });
+    const startedItems: number[] = [];
+
+    const run = mapWithConcurrency(
+      Array.from({ length: 11 }, (_, index) => index),
+      10,
+      async (item) => {
+        startedItems.push(item);
+
+        if (item === 0) {
+          await slowItem;
+        }
+
+        return item;
+      },
+    );
+
+    await vi.waitFor(() => expect(startedItems).toContain(10));
+    releaseSlowItem();
+
+    await expect(run).resolves.toEqual(Array.from({ length: 11 }, (_, index) => index));
+  });
+});
 
 describe('withAwsServiceErrorContext', () => {
   afterEach(() => {
@@ -64,5 +106,337 @@ describe('withAwsServiceErrorContext', () => {
         maxAttempts: 5,
       }),
     );
+  });
+});
+
+describe('withAwsServiceCallBudget', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  const trackedCall = (tracker: { current: number; max: number }) => () =>
+    new Promise<string>((resolve) => {
+      tracker.current += 1;
+      tracker.max = Math.max(tracker.max, tracker.current);
+
+      setTimeout(() => {
+        tracker.current -= 1;
+        resolve('ok');
+      }, 1);
+    });
+
+  it('caps concurrent calls to the same service and region across independent callers', async () => {
+    const tracker = { current: 0, max: 0 };
+
+    await withAwsServiceCallBudget(async () => {
+      await Promise.all(
+        Array.from({ length: 30 }, () =>
+          withAwsServiceErrorContext('Amazon EC2', 'DescribeVolumes', 'eu-central-1', trackedCall(tracker)),
+        ),
+      );
+    });
+
+    expect(tracker.max).toBeGreaterThan(1);
+    expect(tracker.max).toBeLessThanOrEqual(10);
+  });
+
+  it('budgets services and regions independently', async () => {
+    const ec2Tracker = { current: 0, max: 0 };
+    const rdsTracker = { current: 0, max: 0 };
+    const combinedTracker = { current: 0, max: 0 };
+
+    const trackedCombinedCall = (tracker: { current: number; max: number }) => {
+      const call = trackedCall(tracker);
+      const combined = trackedCall(combinedTracker);
+
+      return async () => {
+        const [result] = await Promise.all([call(), combined()]);
+
+        return result;
+      };
+    };
+
+    await withAwsServiceCallBudget(async () => {
+      await Promise.all([
+        ...Array.from({ length: 15 }, () =>
+          withAwsServiceErrorContext('Amazon EC2', 'DescribeVolumes', 'eu-central-1', trackedCombinedCall(ec2Tracker)),
+        ),
+        ...Array.from({ length: 15 }, () =>
+          withAwsServiceErrorContext(
+            'Amazon RDS',
+            'DescribeDBInstances',
+            'eu-central-1',
+            trackedCombinedCall(rdsTracker),
+          ),
+        ),
+      ]);
+    });
+
+    expect(ec2Tracker.max).toBeLessThanOrEqual(10);
+    expect(rdsTracker.max).toBeLessThanOrEqual(10);
+    expect(combinedTracker.max).toBeGreaterThan(10);
+  });
+
+  it('leaves calls unbounded when no budget context is active', async () => {
+    const tracker = { current: 0, max: 0 };
+
+    await Promise.all(
+      Array.from({ length: 30 }, () =>
+        withAwsServiceErrorContext('Amazon EC2', 'DescribeVolumes', 'eu-central-1', trackedCall(tracker)),
+      ),
+    );
+
+    expect(tracker.max).toBe(30);
+  });
+
+  it('resolves account identity lazily only for account-scoped call policies', async () => {
+    vi.useFakeTimers();
+    const resolveAccountId = vi.fn().mockResolvedValue('123456789012');
+
+    await withAwsServiceCallBudget(
+      async () => {
+        await withAwsServiceErrorContext('Display label', 'RegionalOperation', 'eu-central-1', async () => 'ok');
+        expect(resolveAccountId).not.toHaveBeenCalled();
+
+        await withAwsServiceErrorContext('Another display label', 'GlobalOperation', 'us-east-1', async () => 'ok', {
+          callPolicy: 'route53',
+        });
+      },
+      { resolveAccountId },
+    );
+
+    expect(resolveAccountId).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1_000);
+  });
+
+  it('releases the budget slot while waiting out a throttle backoff', async () => {
+    vi.useFakeTimers();
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+
+    let throttledOnce = false;
+    const started: string[] = [];
+
+    const budgetRun = withAwsServiceCallBudget(async () => {
+      const throttledCall = withAwsServiceErrorContext('Amazon EC2', 'DescribeVolumes', 'eu-central-1', async () => {
+        started.push('throttled');
+
+        if (!throttledOnce) {
+          throttledOnce = true;
+          throw createThrottlingError();
+        }
+
+        return 'throttled-ok';
+      });
+      const followUpCalls = Promise.all(
+        Array.from({ length: 10 }, (_value, index) =>
+          withAwsServiceErrorContext('Amazon EC2', 'DescribeVolumes', 'eu-central-1', async () => {
+            started.push(`follow-up-${index}`);
+
+            return 'ok';
+          }),
+        ),
+      );
+
+      await Promise.all([throttledCall, followUpCalls]);
+    });
+
+    // While the throttled call sleeps out its backoff, all ten follow-up
+    // calls must be able to start — the sleeping call may not hold a slot.
+    await vi.advanceTimersByTimeAsync(0);
+    expect(started.filter((name) => name.startsWith('follow-up'))).toHaveLength(10);
+
+    await vi.advanceTimersByTimeAsync(10_000);
+    await budgetRun;
+
+    expect(started.filter((name) => name === 'throttled')).toHaveLength(2);
+  });
+
+  it('rate limits Route 53 retries alongside concurrent operations', async () => {
+    vi.useFakeTimers();
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+
+    const requestStarts: number[] = [];
+    let shouldThrottle = true;
+    const run = withAwsServiceCallBudget(async () => {
+      const retryingCall = withAwsServiceErrorContext(
+        'Amazon Route 53',
+        'ListHealthChecks',
+        'us-east-1',
+        async () => {
+          requestStarts.push(Date.now());
+
+          if (shouldThrottle) {
+            shouldThrottle = false;
+            throw createThrottlingError();
+          }
+
+          return 'retried';
+        },
+        { callPolicy: 'route53', initialDelayMs: 100, maxAttempts: 2 },
+      );
+      const concurrentCalls = Promise.all(
+        Array.from({ length: 4 }, (_value, index) =>
+          withAwsServiceErrorContext(
+            'Amazon Route 53',
+            `ConcurrentOperation${index}`,
+            'us-east-1',
+            async () => {
+              requestStarts.push(Date.now());
+
+              return 'ok';
+            },
+            { callPolicy: 'route53' },
+          ),
+        ),
+      );
+
+      await Promise.all([retryingCall, concurrentCalls]);
+    });
+
+    await vi.advanceTimersByTimeAsync(0);
+    expect(requestStarts).toHaveLength(5);
+
+    await vi.advanceTimersByTimeAsync(999);
+    expect(requestStarts).toHaveLength(5);
+
+    await vi.advanceTimersByTimeAsync(1);
+    await run;
+
+    expect(requestStarts).toHaveLength(6);
+    expect(requestStarts[5]).toBe((requestStarts[0] ?? Number.NaN) + 1_000);
+  });
+
+  it('shares the Route 53 request rate across concurrent discovery runs for one account', async () => {
+    vi.useFakeTimers();
+
+    const requestStarts: number[] = [];
+    const runDiscovery = (runName: string) =>
+      withAwsServiceCallBudget(
+        async () => {
+          await Promise.all(
+            Array.from({ length: 3 }, (_value, index) =>
+              withAwsServiceErrorContext(
+                'Amazon Route 53',
+                `${runName}-${index}`,
+                'us-east-1',
+                async () => {
+                  requestStarts.push(Date.now());
+
+                  return 'ok';
+                },
+                { callPolicy: 'route53' },
+              ),
+            ),
+          );
+        },
+        { accountId: '123456789012' },
+      );
+    const runs = Promise.all([runDiscovery('first'), runDiscovery('second')]);
+
+    await vi.advanceTimersByTimeAsync(0);
+    expect(requestStarts).toHaveLength(5);
+
+    await vi.advanceTimersByTimeAsync(999);
+    expect(requestStarts).toHaveLength(5);
+
+    await vi.advanceTimersByTimeAsync(1);
+    await runs;
+
+    expect(requestStarts).toHaveLength(6);
+  });
+
+  it('meters Route 53 transient-error retries through the account request rate', async () => {
+    vi.useFakeTimers();
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+
+    const requestStarts: number[] = [];
+    let shouldFail = true;
+    const run = withAwsServiceCallBudget(
+      async () => {
+        const retryingCall = withAwsServiceErrorContext(
+          'Amazon Route 53',
+          'ListHostedZones',
+          'us-east-1',
+          async () => {
+            requestStarts.push(Date.now());
+
+            if (shouldFail) {
+              shouldFail = false;
+              throw createTransientError();
+            }
+
+            return 'retried';
+          },
+          { callPolicy: 'route53', initialDelayMs: 100, maxAttempts: 2 },
+        );
+        const concurrentCalls = Promise.all(
+          Array.from({ length: 4 }, (_value, index) =>
+            withAwsServiceErrorContext(
+              'Amazon Route 53',
+              `ConcurrentOperation${index}`,
+              'us-east-1',
+              async () => {
+                requestStarts.push(Date.now());
+
+                return 'ok';
+              },
+              { callPolicy: 'route53' },
+            ),
+          ),
+        );
+
+        await Promise.all([retryingCall, concurrentCalls]);
+      },
+      { accountId: 'transient-test-account' },
+    );
+    const completion = expect(run).resolves.toBeUndefined();
+
+    await vi.advanceTimersByTimeAsync(0);
+    expect(requestStarts).toHaveLength(5);
+
+    await vi.advanceTimersByTimeAsync(999);
+    expect(requestStarts).toHaveLength(5);
+
+    await vi.advanceTimersByTimeAsync(1);
+    await completion;
+
+    expect(requestStarts).toHaveLength(6);
+  });
+
+  it('releases an idle Route 53 account budget after its rolling window expires', async () => {
+    vi.useFakeTimers();
+
+    const requestStarts: number[] = [];
+    const runCalls = (count: number) =>
+      withAwsServiceCallBudget(
+        async () => {
+          await Promise.all(
+            Array.from({ length: count }, (_value, index) =>
+              withAwsServiceErrorContext(
+                'Amazon Route 53',
+                `Operation${index}`,
+                'us-east-1',
+                async () => {
+                  requestStarts.push(Date.now());
+
+                  return 'ok';
+                },
+                { callPolicy: 'route53' },
+              ),
+            ),
+          );
+        },
+        { accountId: 'idle-cleanup-test-account' },
+      );
+
+    await runCalls(5);
+    expect(vi.getTimerCount()).toBe(1);
+
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(vi.getTimerCount()).toBe(0);
+
+    await runCalls(1);
+    expect(requestStarts).toHaveLength(6);
   });
 });

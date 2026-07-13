@@ -1179,6 +1179,155 @@ describe('discoverAwsResources', () => {
     expect(mockedResolveAwsAccountId).toHaveBeenCalledTimes(2);
   });
 
+  it('caps combined in-flight calls per service and region across concurrent datasets', async () => {
+    mockedResolveCurrentAwsRegion.mockResolvedValue('us-east-1');
+    const { withAwsServiceErrorContext } = await import('../../src/providers/aws/resources/utils.js');
+
+    let currentInFlight = 0;
+    let maxInFlight = 0;
+    const trackedCall = (): Promise<string> =>
+      withAwsServiceErrorContext(
+        'Amazon EC2',
+        'DescribeVolumes',
+        'us-east-1',
+        () =>
+          new Promise((resolve) => {
+            currentInFlight += 1;
+            maxInFlight = Math.max(maxInFlight, currentInFlight);
+
+            setTimeout(() => {
+              currentInFlight -= 1;
+              resolve('ok');
+            }, 1);
+          }),
+      );
+
+    // Two datasets each fan out 15 calls to the same service and region, the
+    // way independent EC2-family loaders behave in a real discover run.
+    mockedHydrateAwsCostUsage.mockImplementation(async () => {
+      await Promise.all(Array.from({ length: 15 }, trackedCall));
+      return [];
+    });
+    mockedHydrateAwsCostGuardrailBudgets.mockImplementation(async () => {
+      await Promise.all(Array.from({ length: 15 }, trackedCall));
+      return [];
+    });
+
+    const rules = [
+      createRule({
+        discoveryDependencies: ['aws-cost-usage'],
+        service: 'costexplorer',
+      }),
+      createRule({
+        id: 'CLDBRN-AWS-TEST-2',
+        discoveryDependencies: ['aws-cost-guardrail-budgets'],
+        service: 'costguardrails',
+      }),
+    ];
+
+    await discoverAwsResources(rules, { mode: 'current' });
+
+    expect(maxInFlight).toBeGreaterThan(1);
+    expect(maxInFlight).toBeLessThanOrEqual(10);
+  });
+
+  it('degrades to account-scoped datasets when the resource catalog fails', async () => {
+    mockedResolveCurrentAwsRegion.mockResolvedValue('us-east-1');
+    mockedBuildAwsDiscoveryCatalog.mockRejectedValue(
+      Object.assign(new Error('User is not authorized to perform resource-explorer-2:ListResources'), {
+        name: 'AccessDeniedException',
+      }),
+    );
+    mockedHydrateAwsCostUsage.mockResolvedValue([]);
+
+    const rules = [
+      createRule({
+        discoveryDependencies: ['aws-ec2-instances'],
+        service: 'ec2',
+      }),
+      createRule({
+        id: 'CLDBRN-AWS-TEST-2',
+        discoveryDependencies: ['aws-cost-usage'],
+        service: 'costexplorer',
+      }),
+    ];
+
+    const result = await discoverAwsResources(rules, { mode: 'current' });
+
+    expect(mockedHydrateAwsCostUsage).toHaveBeenCalledTimes(1);
+    expect(mockedHydrateAwsEc2Instances).not.toHaveBeenCalled();
+    expect(result.catalog.resources).toEqual([]);
+    expect(result.unavailableDatasets?.has('aws-ec2-instances')).toBe(true);
+    expect(result.unavailableDatasets?.has('aws-cost-usage')).toBe(false);
+    expect(result.diagnostics).toEqual([
+      expect.objectContaining({
+        provider: 'aws',
+        service: 'resource-explorer',
+        source: 'discovery',
+        status: 'access_denied',
+      }),
+    ]);
+  });
+
+  it('reports catalog and dataset progress events while discovering', async () => {
+    mockedResolveCurrentAwsRegion.mockResolvedValue('us-east-1');
+    mockedBuildAwsDiscoveryCatalog.mockResolvedValue(catalog);
+    mockedHydrateAwsEc2Instances.mockResolvedValue([]);
+    mockedHydrateAwsCostUsage.mockResolvedValue([]);
+
+    const events: unknown[] = [];
+    const rules = [
+      createRule({
+        discoveryDependencies: ['aws-ec2-instances'],
+        service: 'ec2',
+      }),
+      createRule({
+        id: 'CLDBRN-AWS-TEST-2',
+        discoveryDependencies: ['aws-cost-usage'],
+        service: 'costexplorer',
+      }),
+    ];
+
+    await discoverAwsResources(rules, { mode: 'current' }, { onProgress: (event) => events.push(event) });
+
+    const catalogEvents = events.filter((event) => (event as { kind: string }).kind === 'catalog');
+    const datasetEvents = events.filter((event) => (event as { kind: string }).kind === 'dataset') as Array<{
+      completedDatasets: number;
+      datasetKey: string;
+      totalDatasets: number;
+    }>;
+
+    expect(catalogEvents).toEqual([
+      {
+        kind: 'catalog',
+        resourceCount: catalog.resources.length,
+        searchRegion: catalog.searchRegion,
+      },
+    ]);
+    expect(datasetEvents).toHaveLength(2);
+    expect(datasetEvents.map((event) => event.completedDatasets)).toEqual([1, 2]);
+    expect(datasetEvents.every((event) => event.totalDatasets === 2)).toBe(true);
+    expect(new Set(datasetEvents.map((event) => event.datasetKey))).toEqual(
+      new Set(['aws-cost-usage', 'aws-ec2-instances']),
+    );
+  });
+
+  it('stays fatal when the catalog fails and every requested dataset needs it', async () => {
+    mockedResolveCurrentAwsRegion.mockResolvedValue('us-east-1');
+    const catalogError = Object.assign(new Error('Rate exceeded'), { name: 'ThrottlingException' });
+    mockedBuildAwsDiscoveryCatalog.mockRejectedValue(catalogError);
+
+    const rules = [
+      createRule({
+        discoveryDependencies: ['aws-ec2-instances'],
+        service: 'ec2',
+      }),
+    ];
+
+    await expect(discoverAwsResources(rules, { mode: 'current' })).rejects.toBe(catalogError);
+    expect(mockedHydrateAwsEc2Instances).not.toHaveBeenCalled();
+  });
+
   it('emits dataset completion timing in debug mode so slow hydrators are visible', async () => {
     mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
       indexType: 'LOCAL',

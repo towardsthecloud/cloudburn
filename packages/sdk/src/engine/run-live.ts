@@ -1,13 +1,16 @@
 import { emitDebugLog } from '../debug.js';
 import { discoverAwsResources } from '../providers/aws/discovery.js';
-import type { AwsDiscoveryTarget, CloudBurnConfig, ScanResult } from '../types.js';
+import type { AwsDiscoveryProgressEvent, AwsDiscoveryTarget, CloudBurnConfig, ScanResult } from '../types.js';
 import { groupFindingsByProvider } from './group-findings.js';
 import { buildRuleRegistry } from './registry.js';
 
 export const runLiveScan = async (
   config: CloudBurnConfig,
   target: AwsDiscoveryTarget,
-  options?: { debugLogger?: (message: string) => void },
+  options?: {
+    debugLogger?: (message: string) => void;
+    onProgress?: (event: AwsDiscoveryProgressEvent) => void;
+  },
 ): Promise<ScanResult> => {
   const registry = buildRuleRegistry(config, 'discovery');
   emitDebugLog(options?.debugLogger, `sdk: resolved ${registry.activeRules.length} active discovery rules`);
@@ -15,9 +18,10 @@ export const runLiveScan = async (
     diagnostics = [],
     unavailableDatasets = new Map(),
     ...liveContext
-  } = options?.debugLogger === undefined
-    ? await discoverAwsResources(registry.activeRules, target)
-    : await discoverAwsResources(registry.activeRules, target, { debugLogger: options.debugLogger });
+  } = await discoverAwsResources(registry.activeRules, target, {
+    debugLogger: options?.debugLogger,
+    onProgress: options?.onProgress,
+  });
   const unresolvedUnavailableDatasets: unknown = unavailableDatasets;
   const unavailableDatasetDiagnostics =
     unresolvedUnavailableDatasets instanceof Map

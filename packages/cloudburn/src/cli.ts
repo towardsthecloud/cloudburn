@@ -1,13 +1,14 @@
 import { realpathSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { Command } from 'commander';
+import { type Command, CommanderError } from 'commander';
 import { registerCompletionCommand } from './commands/completion.js';
 import { registerConfigCommand } from './commands/config.js';
 import { registerDiscoverCommand } from './commands/discover.js';
 import { registerEstimateCommand } from './commands/estimate.js';
 import { registerRulesListCommand } from './commands/rules-list.js';
 import { registerScanCommand } from './commands/scan.js';
+import { EXIT_CODE_OK, EXIT_CODE_RUNTIME_ERROR } from './exit-codes.js';
 import { OUTPUT_FORMAT_OPTION_DESCRIPTION, parseOutputFormat } from './formatters/output.js';
 import { configureCliHelp, createCliCommand } from './help.js';
 
@@ -49,6 +50,12 @@ export const createProgram = (): Command => {
     .option('--format <format>', OUTPUT_FORMAT_OPTION_DESCRIPTION, parseOutputFormat);
   configureCliHelp(program);
 
+  // Commander exits with code 1 on parse and validation failures by default,
+  // which collides with EXIT_CODE_POLICY_VIOLATION. Overriding before the
+  // subcommands register lets them inherit the override, so runCli can map
+  // usage errors onto the documented exit-code contract instead.
+  program.exitOverride();
+
   registerCompletionCommand(program);
   registerConfigCommand(program);
   registerDiscoverCommand(program);
@@ -60,7 +67,18 @@ export const createProgram = (): Command => {
 };
 
 export const runCli = async (): Promise<void> => {
-  await createProgram().parseAsync(process.argv);
+  try {
+    await createProgram().parseAsync(process.argv);
+  } catch (err) {
+    if (err instanceof CommanderError) {
+      // Help and version rendering surface as zero-exit CommanderErrors;
+      // genuine usage errors are runtime failures, never policy violations.
+      process.exitCode = err.exitCode === 0 ? EXIT_CODE_OK : EXIT_CODE_RUNTIME_ERROR;
+      return;
+    }
+
+    throw err;
+  }
 };
 
 if (isCliEntrypoint(import.meta.url)) {

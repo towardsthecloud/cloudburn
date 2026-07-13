@@ -1,4 +1,10 @@
-import { type AwsDiscoveryTarget, type AwsRegion, assertSupportedAwsRegion, CloudBurnClient } from '@cloudburn/sdk';
+import {
+  type AwsDiscoveryProgressEvent,
+  type AwsDiscoveryTarget,
+  type AwsRegion,
+  assertSupportedAwsRegion,
+  CloudBurnClient,
+} from '@cloudburn/sdk';
 import { type Command, InvalidArgumentError } from 'commander';
 import { resolveCliDebugLogger } from '../debug.js';
 import { EXIT_CODE_OK, EXIT_CODE_POLICY_VIOLATION, EXIT_CODE_RUNTIME_ERROR } from '../exit-codes.js';
@@ -6,6 +12,7 @@ import { formatError } from '../formatters/error.js';
 import { type CliResponse, type OutputFormat, renderResponse, resolveOutputFormat } from '../formatters/output.js';
 import { countScanResultFindings } from '../formatters/shared.js';
 import { setCommandExamples } from '../help.js';
+import { resolveCliDiscoveryProgressLogger } from '../progress.js';
 import { parseRuleIdList, parseServiceList, validateServiceList } from './config-options.js';
 
 type DiscoverOptions = {
@@ -216,6 +223,7 @@ export const registerDiscoverCommand = (program: Command): void => {
       .action(async (options: DiscoverOptions, command: Command) => {
         await runCommand(async () => {
           const debugLogger = resolveCliDebugLogger(command);
+          const onProgress = resolveCliDiscoveryProgressLogger(command);
           const scanner = new CloudBurnClient({ debugLogger });
           const configOverride = toDiscoveryConfigOverride(options);
           const loadedConfig = await scanner.loadConfig(options.config);
@@ -223,6 +231,7 @@ export const registerDiscoverCommand = (program: Command): void => {
             target: AwsDiscoveryTarget;
             config?: ReturnType<typeof toDiscoveryConfigOverride>;
             configPath?: string;
+            onProgress?: (event: AwsDiscoveryProgressEvent) => void;
           } = {
             target: resolveDiscoveryTarget(options.region),
           };
@@ -233,6 +242,10 @@ export const registerDiscoverCommand = (program: Command): void => {
 
           if (options.config !== undefined) {
             discoveryOptions.configPath = options.config;
+          }
+
+          if (onProgress !== undefined) {
+            discoveryOptions.onProgress = onProgress;
           }
 
           const result = await scanner.discover(discoveryOptions);

@@ -62,6 +62,7 @@ All stdout-producing commands return a typed `CliResponse` and share the same fo
 - `rules list`, `config`, and `estimate` all use the shared formatter system instead of ad hoc string output.
 - `completion` is a structural parent command. `completion bash|fish|zsh` prints shell completion scripts for the selected shell.
 - `--debug` is a global flag that relays SDK and provider execution tracing to `stderr` without changing normal command output on `stdout`.
+- `discover` streams progress lines (catalog ready, datasets completed) to `stderr` while it runs, but only when `stderr` is an interactive terminal and `--debug` is off; piped and scripted invocations keep a quiet `stderr`, and `stdout` stays machine-parseable either way.
 - `--format` is documented as a global option and defaults to `table`, except `config --print` and `config --print-template`, which preserve raw YAML by default for redirection workflows.
 - `scan` and `discover` can also source their default format from `.cloudburn.yml`; explicit `--format` still wins.
 - The hidden `__complete` command exists only as the runtime hook for generated shell scripts.
@@ -96,8 +97,14 @@ cloudburn --format json scan ./iac
 
 ## Exit-Code Contract
 
-| Constant                     | Value | Meaning                                                         |
-| ---------------------------- | ----- | --------------------------------------------------------------- |
-| `EXIT_CODE_OK`               | `0`   | Clean run, no findings, or `--exit-code` not set                |
-| `EXIT_CODE_POLICY_VIOLATION` | `1`   | At least one nested finding exists and `--exit-code` was passed |
-| `EXIT_CODE_RUNTIME_ERROR`    | `2`   | Reserved for runtime failures                                   |
+| Constant                     | Value | Meaning                                                          |
+| ---------------------------- | ----- | ---------------------------------------------------------------- |
+| `EXIT_CODE_OK`               | `0`   | Clean run, no findings, or `--exit-code` not set                 |
+| `EXIT_CODE_POLICY_VIOLATION` | `1`   | At least one nested finding exists and `--exit-code` was passed  |
+| `EXIT_CODE_RUNTIME_ERROR`    | `2`   | Runtime failures and usage errors (invalid options or arguments) |
+
+Usage errors — unknown options or invalid option arguments such as an unknown
+`--service` value or a malformed `--region` — exit with `2`, not Commander's
+default `1`. Exit code `1` stays reserved for policy violations so CI pipelines
+can distinguish "findings exist" from "the command was invoked incorrectly".
+Help and version output exit with `0`.

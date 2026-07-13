@@ -1,6 +1,7 @@
 import {
   DescribeEndpointCommand,
   DescribeEndpointConfigCommand,
+  type DescribeEndpointConfigCommandOutput,
   DescribeNotebookInstanceCommand,
 } from '@aws-sdk/client-sagemaker';
 import type {
@@ -179,6 +180,32 @@ export const hydrateAwsSageMakerEndpointActivity = async (
     [...resourcesByRegion.entries()].map(async ([region, regionResources]) => {
       const client = createSageMakerClient({ region });
       const endpoints: AwsSageMakerEndpointActivity[] = [];
+      // Endpoints frequently share one endpoint config, so config describes
+      // are memoized per config name instead of repeated per endpoint.
+      const endpointConfigPromises = new Map<string, Promise<DescribeEndpointConfigCommandOutput>>();
+      const describeEndpointConfigOnce = (endpointConfigName: string): Promise<DescribeEndpointConfigCommandOutput> => {
+        let configPromise = endpointConfigPromises.get(endpointConfigName);
+
+        if (!configPromise) {
+          configPromise = withAwsServiceErrorContext(
+            'Amazon SageMaker',
+            'DescribeEndpointConfig',
+            region,
+            () =>
+              client.send(
+                new DescribeEndpointConfigCommand({
+                  EndpointConfigName: endpointConfigName,
+                }),
+              ),
+            {
+              passthrough: isEndpointConfigMissingError,
+            },
+          );
+          endpointConfigPromises.set(endpointConfigName, configPromise);
+        }
+
+        return configPromise;
+      };
 
       for (const batch of chunkItems(regionResources, ENDPOINT_BATCH_SIZE)) {
         const hydratedBatch = await Promise.all(
@@ -208,20 +235,7 @@ export const hydrateAwsSageMakerEndpointActivity = async (
                 return null;
               }
 
-              const endpointConfigResponse = await withAwsServiceErrorContext(
-                'Amazon SageMaker',
-                'DescribeEndpointConfig',
-                region,
-                () =>
-                  client.send(
-                    new DescribeEndpointConfigCommand({
-                      EndpointConfigName: endpointResponse.EndpointConfigName,
-                    }),
-                  ),
-                {
-                  passthrough: isEndpointConfigMissingError,
-                },
-              );
+              const endpointConfigResponse = await describeEndpointConfigOnce(endpointResponse.EndpointConfigName);
 
               return {
                 accountId: resource.accountId,

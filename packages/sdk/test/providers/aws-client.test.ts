@@ -31,11 +31,18 @@ describe('aws client resilience defaults', () => {
       }).toEqual({
         factoryName,
         retryMode: 'adaptive',
-        maxAttempts: 3,
+        maxAttempts: factoryName === 'createRoute53Client' ? 1 : 3,
         connectionTimeout: 5_000,
         requestTimeout: 30_000,
       });
     }
+  });
+
+  it('leaves Route 53 retries to the account-wide request budget', async () => {
+    const { createRoute53Client } = await importClientModule();
+    const client = createRoute53Client();
+
+    await expect(client.config.maxAttempts()).resolves.toBe(1);
   });
 });
 

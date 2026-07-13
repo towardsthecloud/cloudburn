@@ -100,6 +100,23 @@ export type AwsDiscoveryTarget =
       regions: AwsRegion[];
     };
 
+/**
+ * Progress event emitted while a live discovery run loads its catalog and
+ * datasets, so callers can render feedback before the final result arrives.
+ */
+export type AwsDiscoveryProgressEvent =
+  | {
+      kind: 'catalog';
+      resourceCount: number;
+      searchRegion: string;
+    }
+  | {
+      kind: 'dataset';
+      completedDatasets: number;
+      datasetKey: DiscoveryDatasetKey;
+      totalDatasets: number;
+    };
+
 /** Describes one enabled Resource Explorer index region. */
 export type AwsDiscoveryRegion = {
   region: string;

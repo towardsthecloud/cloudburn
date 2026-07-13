@@ -413,6 +413,63 @@ describe('hydrateAwsEc2LoadBalancers', () => {
       },
     ]);
   });
+
+  it('loads per-load-balancer target groups concurrently with a bounded worker pool', async () => {
+    let currentInFlight = 0;
+    let maxInFlight = 0;
+
+    mockedCreateElasticLoadBalancingV2Client.mockImplementation(({ region }) => {
+      const send = vi.fn(
+        async (command: DescribeLoadBalancersV2Command | DescribeTargetGroupsCommand) =>
+          new Promise((resolve) => {
+            const input = command.input as { LoadBalancerArn?: string; LoadBalancerArns?: string[] };
+
+            if (input.LoadBalancerArn === undefined) {
+              resolve({
+                LoadBalancers: (input.LoadBalancerArns ?? []).map((loadBalancerArn) => ({
+                  LoadBalancerArn: loadBalancerArn,
+                  LoadBalancerName: loadBalancerArn.split('/')[2],
+                  Type: 'application',
+                })),
+              });
+              return;
+            }
+
+            currentInFlight += 1;
+            maxInFlight = Math.max(maxInFlight, currentInFlight);
+
+            setTimeout(() => {
+              currentInFlight -= 1;
+              resolve({
+                TargetGroups: [
+                  {
+                    TargetGroupArn: `arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/tg-${input.LoadBalancerArn?.split('/')[2]}/1`,
+                  },
+                ],
+              });
+            }, 1);
+          }),
+      );
+
+      return { send, region } as never;
+    });
+
+    const resources = Array.from({ length: 25 }, (_, index) => ({
+      accountId: '123456789012',
+      arn: `arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/app/alb-${index}/id-${index}`,
+      properties: [],
+      region: 'us-east-1',
+      resourceType: 'elasticloadbalancing:loadbalancer/app',
+      service: 'elasticloadbalancing',
+    }));
+
+    const loadBalancers = await hydrateAwsEc2LoadBalancers(resources);
+
+    expect(loadBalancers).toHaveLength(25);
+    expect(loadBalancers.every((loadBalancer) => loadBalancer.attachedTargetGroupArns.length === 1)).toBe(true);
+    expect(maxInFlight).toBeGreaterThan(1);
+    expect(maxInFlight).toBeLessThanOrEqual(10);
+  });
 });
 
 describe('hydrateAwsEc2TargetGroups', () => {

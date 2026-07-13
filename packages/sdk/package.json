@@ -72,6 +72,7 @@
     "@aws-sdk/types": "^3.973.6",
     "@cdktf/hcl2json": "^0.21.0",
     "@cloudburn/rules": "workspace:*",
+    "@smithy/service-error-classification": "^4.2.12",
     "yaml": "^2.8.2"
   },
   "devDependencies": {

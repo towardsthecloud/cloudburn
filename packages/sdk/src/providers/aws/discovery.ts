@@ -8,7 +8,9 @@ import type {
 import { LiveResourceBag } from '@cloudburn/rules';
 import { emitDebugLog } from '../../debug.js';
 import type {
+  AwsDiscoveryCatalog,
   AwsDiscoveryInitialization,
+  AwsDiscoveryProgressEvent,
   AwsDiscoveryStatus,
   AwsDiscoveryTarget,
   AwsSupportedResourceType,
@@ -27,6 +29,7 @@ import {
   waitForAwsResourceExplorerIndex,
   waitForAwsResourceExplorerSetup,
 } from './resource-explorer.js';
+import { withAwsServiceCallBudget } from './resources/utils.js';
 
 const sortUnique = (values: string[]): string[] =>
   [...new Set(values)].sort((left, right) => left.localeCompare(right));
@@ -203,6 +206,26 @@ const buildDatasetFailureDiagnostic = (service: string, region: string | undefin
   status: isAwsThrottlingError(err) ? 'throttled' : 'error',
 });
 
+const buildCatalogFailureDiagnostic = (err: unknown): ScanDiagnostic => {
+  const status = isAwsAccessDeniedError(err) ? 'access_denied' : isAwsThrottlingError(err) ? 'throttled' : 'error';
+  const message =
+    status === 'access_denied'
+      ? 'Skipped catalog-backed discovery because access to the Resource Explorer catalog was denied; only account-scoped datasets were evaluated.'
+      : status === 'throttled'
+        ? 'Skipped catalog-backed discovery because AWS throttled the Resource Explorer catalog after retrying; only account-scoped datasets were evaluated.'
+        : 'Skipped catalog-backed discovery because the Resource Explorer catalog failed to load; only account-scoped datasets were evaluated.';
+
+  return {
+    code: getAwsErrorCode(err),
+    details: err instanceof Error ? err.message : String(err),
+    message,
+    provider: 'aws',
+    service: 'resource-explorer',
+    source: 'discovery',
+    status,
+  };
+};
+
 const normalizeDatasetLoadResult = (
   loadResult: unknown[] | { diagnostics?: ScanDiagnostic[]; resources: unknown[] },
 ): { diagnostics: ScanDiagnostic[]; resources: unknown[] } =>
@@ -236,6 +259,12 @@ const appendItems = <T>(target: T[], items: Iterable<T>): void => {
   }
 };
 
+const buildEmptyLocalCatalog = async (): Promise<AwsDiscoveryCatalog> => ({
+  indexType: 'LOCAL',
+  resources: [],
+  searchRegion: await resolveCurrentAwsRegion(),
+});
+
 /**
  * Discovers AWS resources for live rule evaluation using Resource Explorer and
  * registry-driven discovery datasets.
@@ -247,7 +276,10 @@ const appendItems = <T>(target: T[], items: Iterable<T>): void => {
 export const discoverAwsResources = async (
   rules: Rule[],
   target: AwsDiscoveryTarget,
-  options?: { debugLogger?: (message: string) => void },
+  options?: {
+    debugLogger?: (message: string) => void;
+    onProgress?: (event: AwsDiscoveryProgressEvent) => void;
+  },
 ): Promise<LiveDiscoveryContext> => {
   const datasetKeys = collectDiscoveryDependencies(rules);
   emitDebugLog(
@@ -257,11 +289,7 @@ export const discoverAwsResources = async (
 
   if (datasetKeys.length === 0) {
     return {
-      catalog: {
-        resources: [],
-        searchRegion: await resolveCurrentAwsRegion(),
-        indexType: 'LOCAL',
-      },
+      catalog: await buildEmptyLocalCatalog(),
       diagnostics: [],
       resources: new LiveResourceBag(),
     };
@@ -283,20 +311,46 @@ export const discoverAwsResources = async (
     options?.debugLogger,
     `aws: resolved Resource Explorer resource types ${resourceTypes.length === 0 ? 'none' : resourceTypes.join(', ')}`,
   );
-  const catalog =
-    resourceTypes.length > 0
-      ? options?.debugLogger === undefined
-        ? await buildAwsDiscoveryCatalog(target, resourceTypes)
-        : await buildAwsDiscoveryCatalog(target, resourceTypes, { debugLogger: options.debugLogger })
-      : {
-          indexType: 'LOCAL' as const,
-          resources: [],
-          searchRegion: await resolveCurrentAwsRegion(),
-        };
+  let catalog: AwsDiscoveryCatalog;
+  let catalogFailureDiagnostic: ScanDiagnostic | undefined;
+
+  if (resourceTypes.length === 0) {
+    catalog = await buildEmptyLocalCatalog();
+  } else {
+    try {
+      catalog =
+        options?.debugLogger === undefined
+          ? await buildAwsDiscoveryCatalog(target, resourceTypes)
+          : await buildAwsDiscoveryCatalog(target, resourceTypes, { debugLogger: options.debugLogger });
+    } catch (err) {
+      const hasAccountScopedDatasets = datasetDefinitions.some((definition) => definition.resourceTypes.length === 0);
+
+      // With no account-scoped datasets in the run, nothing can load without
+      // the catalog, so the failure stays fatal and keeps its actionable error.
+      if (!hasAccountScopedDatasets) {
+        throw err;
+      }
+
+      emitDebugLog(
+        options?.debugLogger,
+        `aws: catalog build failed, degrading to account-scoped datasets: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      catalogFailureDiagnostic = buildCatalogFailureDiagnostic(err);
+      catalog = await buildEmptyLocalCatalog();
+    }
+  }
   emitDebugLog(
     options?.debugLogger,
     `aws: catalog ready with ${catalog.resources.length} resources from ${catalog.searchRegion}`,
   );
+
+  if (resourceTypes.length > 0 && !catalogFailureDiagnostic) {
+    options?.onProgress?.({
+      kind: 'catalog',
+      resourceCount: catalog.resources.length,
+      searchRegion: catalog.searchRegion,
+    });
+  }
   const resourcesByType = buildResourcesByTypeIndex(catalog.resources);
   const datasetLoadPromises = new Map<
     DiscoveryDatasetKey,
@@ -367,6 +421,17 @@ export const discoverAwsResources = async (
             unavailable: true,
           };
         }
+      }
+
+      // Catalog-backed datasets cannot distinguish "no resources" from "the
+      // catalog never loaded", so they are marked unavailable rather than
+      // silently evaluated against an empty catalog.
+      if (catalogFailureDiagnostic) {
+        return {
+          dataset: [definition.datasetKey, [] as DiscoveryDatasetMap[K]] as [K, DiscoveryDatasetMap[K]],
+          diagnostics: [],
+          unavailable: true,
+        };
       }
 
       const matchingResources = definition.resourceTypes.flatMap(
@@ -456,20 +521,62 @@ export const discoverAwsResources = async (
       (await loadDataset(datasetKey)).dataset[1],
     resolveAccountId,
   };
-  const datasetLoads = await Promise.all(datasetKeys.map((datasetKey) => loadDataset(datasetKey)));
-  const allDatasetLoads = await Promise.all(datasetLoadPromises.values());
+  // All datasets load in parallel, so the shared budget caps the combined
+  // in-flight AWS calls per service and region for the whole run.
+  let completedDatasets = 0;
+  const { allDatasetLoads, datasetLoads } = await withAwsServiceCallBudget(
+    async () => {
+      const requestedLoads = await Promise.all(
+        datasetKeys.map(async (datasetKey) => {
+          const loadResult = await loadDataset(datasetKey);
+          completedDatasets += 1;
+          options?.onProgress?.({
+            kind: 'dataset',
+            completedDatasets,
+            datasetKey,
+            totalDatasets: datasetKeys.length,
+          });
+
+          return loadResult;
+        }),
+      );
+
+      return {
+        allDatasetLoads: await Promise.all(datasetLoadPromises.values()),
+        datasetLoads: requestedLoads,
+      };
+    },
+    {
+      accountId: catalog.resources[0]?.accountId,
+      resolveAccountId,
+    },
+  );
   const resources = new LiveResourceBag(
     Object.fromEntries(datasetLoads.map((loadResult) => loadResult.dataset)) as Partial<DiscoveryDatasetMap>,
   );
   const unavailableDatasets = new Map(
     allDatasetLoads
       .filter((loadResult) => loadResult.unavailable)
-      .map((loadResult) => [loadResult.dataset[0], loadResult.diagnostics] as const),
+      .map(
+        (loadResult) =>
+          [
+            loadResult.dataset[0],
+            // Datasets skipped because the catalog never loaded carry no
+            // diagnostics of their own; rule-skip messages inherit the
+            // catalog failure details instead.
+            catalogFailureDiagnostic && loadResult.diagnostics.length === 0
+              ? [catalogFailureDiagnostic]
+              : loadResult.diagnostics,
+          ] as const,
+      ),
   );
 
   return {
     catalog,
-    diagnostics: allDatasetLoads.flatMap((loadResult) => loadResult.diagnostics),
+    diagnostics: [
+      ...(catalogFailureDiagnostic ? [catalogFailureDiagnostic] : []),
+      ...allDatasetLoads.flatMap((loadResult) => loadResult.diagnostics),
+    ],
     resources,
     unavailableDatasets,
   };

@@ -21,6 +21,7 @@ export type {
   AwsDiscoveredResource,
   AwsDiscoveryCatalog,
   AwsDiscoveryInitialization,
+  AwsDiscoveryProgressEvent,
   AwsDiscoveryRegion,
   AwsDiscoveryRegionStatus,
   AwsDiscoveryStatus,

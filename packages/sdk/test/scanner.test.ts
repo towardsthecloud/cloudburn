@@ -56,10 +56,11 @@ describe('CloudBurnClient', () => {
       },
     });
 
-    expect(mockedDiscoverAwsResources).toHaveBeenCalledWith(expect.any(Array), {
-      mode: 'regions',
-      regions: ['us-east-1'],
-    });
+    expect(mockedDiscoverAwsResources).toHaveBeenCalledWith(
+      expect.any(Array),
+      { mode: 'regions', regions: ['us-east-1'] },
+      {},
+    );
 
     expect(result).toEqual({
       providers: [
@@ -383,9 +384,7 @@ describe('CloudBurnClient', () => {
 
     await scanner.discover();
 
-    expect(mockedDiscoverAwsResources).toHaveBeenCalledWith(expect.any(Array), {
-      mode: 'current',
-    });
+    expect(mockedDiscoverAwsResources).toHaveBeenCalledWith(expect.any(Array), { mode: 'current' }, {});
   });
 
   it('forwards the configured debug logger into live discovery', async () => {
