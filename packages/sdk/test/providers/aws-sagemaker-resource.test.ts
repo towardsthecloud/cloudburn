@@ -150,6 +150,56 @@ describe('hydrateAwsSageMakerNotebookInstances', () => {
     ]);
   });
 
+  it('describes shared endpoint configs once per region', async () => {
+    const send = vi.fn(async (command: DescribeEndpointCommand | DescribeEndpointConfigCommand) => {
+      const input = command.input as { EndpointConfigName?: string; EndpointName?: string };
+
+      if (input.EndpointName) {
+        return {
+          EndpointArn: `arn:aws:sagemaker:eu-west-1:123456789012:endpoint/${input.EndpointName}`,
+          EndpointConfigName: 'shared-endpoint-config',
+          EndpointName: input.EndpointName,
+          EndpointStatus: 'InService',
+        };
+      }
+
+      return {
+        ProductionVariants: [{ VariantName: 'blue' }],
+      };
+    });
+
+    mockedCreateSageMakerClient.mockReturnValue({ send } as never);
+    mockedFetchCloudWatchSignals.mockResolvedValue(new Map());
+
+    const endpoints = await hydrateAwsSageMakerEndpointActivity([
+      {
+        accountId: '123456789012',
+        arn: 'arn:aws:sagemaker:eu-west-1:123456789012:endpoint/orders-endpoint',
+        properties: [],
+        region: 'eu-west-1',
+        resourceType: 'sagemaker:endpoint',
+        service: 'sagemaker',
+      },
+      {
+        accountId: '123456789012',
+        arn: 'arn:aws:sagemaker:eu-west-1:123456789012:endpoint/billing-endpoint',
+        properties: [],
+        region: 'eu-west-1',
+        resourceType: 'sagemaker:endpoint',
+        service: 'sagemaker',
+      },
+    ]);
+
+    const endpointConfigDescribeCount = send.mock.calls.filter(
+      (call) =>
+        ((call[0] as DescribeEndpointConfigCommand).input as { EndpointConfigName?: string }).EndpointConfigName !==
+        undefined,
+    ).length;
+
+    expect(endpoints).toHaveLength(2);
+    expect(endpointConfigDescribeCount).toBe(1);
+  });
+
   it('preserves null invocation totals when endpoint metrics are incomplete', async () => {
     mockedCreateSageMakerClient.mockReturnValue({
       send: vi.fn(async (command: DescribeEndpointCommand | DescribeEndpointConfigCommand) => {

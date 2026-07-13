@@ -7,9 +7,10 @@ import {
 import type { AwsDiscoveredResource, AwsRoute53HealthCheck, AwsRoute53Record, AwsRoute53Zone } from '@cloudburn/rules';
 import { createRoute53Client } from '../client.js';
 import type { AwsAccountIdResolver } from '../discovery-registry.js';
-import { resolveAwsAccountIdForLoad, withAwsServiceErrorContext } from './utils.js';
+import { chunkItems, resolveAwsAccountIdForLoad, withAwsServiceErrorContext } from './utils.js';
 
 const ROUTE53_CONTROL_REGION = 'us-east-1';
+const ROUTE53_ZONE_CONCURRENCY = 5;
 
 const extractArnPartition = (arn: string): string => arn.split(':')[1] ?? 'aws';
 
@@ -155,56 +156,68 @@ export const hydrateAwsRoute53Records = async (
   const client = createRoute53Client();
   const records: AwsRoute53Record[] = [];
 
-  for (const resource of zoneResources) {
-    const parsedZone = parseHostedZoneArn(resource.arn);
+  // Route 53 caps the account at five requests per second, so zones are
+  // listed concurrently only within a small bounded batch while pagination
+  // inside each zone stays sequential.
+  for (const zoneBatch of chunkItems(zoneResources, ROUTE53_ZONE_CONCURRENCY)) {
+    const zonePages = await Promise.all(
+      zoneBatch.map(async (resource) => {
+        const parsedZone = parseHostedZoneArn(resource.arn);
 
-    if (!parsedZone) {
-      continue;
-    }
-
-    let nextRecordIdentifier: string | undefined;
-    let nextRecordName: string | undefined;
-    let nextRecordType: RRType | undefined;
-
-    do {
-      const response = await withAwsServiceErrorContext(
-        'Amazon Route 53',
-        'ListResourceRecordSets',
-        ROUTE53_CONTROL_REGION,
-        () =>
-          client.send(
-            new ListResourceRecordSetsCommand({
-              HostedZoneId: parsedZone.hostedZoneId,
-              StartRecordIdentifier: nextRecordIdentifier,
-              StartRecordName: nextRecordName,
-              StartRecordType: nextRecordType as never,
-            }),
-          ),
-      );
-
-      for (const recordSet of response.ResourceRecordSets ?? []) {
-        if (!recordSet.Name || !recordSet.Type) {
-          continue;
+        if (!parsedZone) {
+          return [];
         }
 
-        records.push({
-          accountId: resource.accountId,
-          healthCheckId: recordSet.HealthCheckId,
-          hostedZoneId: parsedZone.hostedZoneId,
-          isAlias: recordSet.AliasTarget !== undefined,
-          recordId: buildRoute53RecordId(parsedZone, recordSet),
-          recordName: recordSet.Name,
-          recordSetIdentifier: recordSet.SetIdentifier,
-          recordType: recordSet.Type,
-          region: resource.region,
-          ttl: recordSet.TTL,
-        });
-      }
+        const zoneRecords: AwsRoute53Record[] = [];
+        let nextRecordIdentifier: string | undefined;
+        let nextRecordName: string | undefined;
+        let nextRecordType: RRType | undefined;
 
-      nextRecordIdentifier = response.IsTruncated ? response.NextRecordIdentifier : undefined;
-      nextRecordName = response.IsTruncated ? response.NextRecordName : undefined;
-      nextRecordType = response.IsTruncated ? response.NextRecordType : undefined;
-    } while (nextRecordName && nextRecordType);
+        do {
+          const response = await withAwsServiceErrorContext(
+            'Amazon Route 53',
+            'ListResourceRecordSets',
+            ROUTE53_CONTROL_REGION,
+            () =>
+              client.send(
+                new ListResourceRecordSetsCommand({
+                  HostedZoneId: parsedZone.hostedZoneId,
+                  StartRecordIdentifier: nextRecordIdentifier,
+                  StartRecordName: nextRecordName,
+                  StartRecordType: nextRecordType as never,
+                }),
+              ),
+          );
+
+          for (const recordSet of response.ResourceRecordSets ?? []) {
+            if (!recordSet.Name || !recordSet.Type) {
+              continue;
+            }
+
+            zoneRecords.push({
+              accountId: resource.accountId,
+              healthCheckId: recordSet.HealthCheckId,
+              hostedZoneId: parsedZone.hostedZoneId,
+              isAlias: recordSet.AliasTarget !== undefined,
+              recordId: buildRoute53RecordId(parsedZone, recordSet),
+              recordName: recordSet.Name,
+              recordSetIdentifier: recordSet.SetIdentifier,
+              recordType: recordSet.Type,
+              region: resource.region,
+              ttl: recordSet.TTL,
+            });
+          }
+
+          nextRecordIdentifier = response.IsTruncated ? response.NextRecordIdentifier : undefined;
+          nextRecordName = response.IsTruncated ? response.NextRecordName : undefined;
+          nextRecordType = response.IsTruncated ? response.NextRecordType : undefined;
+        } while (nextRecordName && nextRecordType);
+
+        return zoneRecords;
+      }),
+    );
+
+    records.push(...zonePages.flat());
   }
 
   return records.sort((left, right) => left.recordId.localeCompare(right.recordId));
