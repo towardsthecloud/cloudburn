@@ -1269,6 +1269,49 @@ describe('discoverAwsResources', () => {
     ]);
   });
 
+  it('reports catalog and dataset progress events while discovering', async () => {
+    mockedResolveCurrentAwsRegion.mockResolvedValue('us-east-1');
+    mockedBuildAwsDiscoveryCatalog.mockResolvedValue(catalog);
+    mockedHydrateAwsEc2Instances.mockResolvedValue([]);
+    mockedHydrateAwsCostUsage.mockResolvedValue([]);
+
+    const events: unknown[] = [];
+    const rules = [
+      createRule({
+        discoveryDependencies: ['aws-ec2-instances'],
+        service: 'ec2',
+      }),
+      createRule({
+        id: 'CLDBRN-AWS-TEST-2',
+        discoveryDependencies: ['aws-cost-usage'],
+        service: 'costexplorer',
+      }),
+    ];
+
+    await discoverAwsResources(rules, { mode: 'current' }, { onProgress: (event) => events.push(event) });
+
+    const catalogEvents = events.filter((event) => (event as { kind: string }).kind === 'catalog');
+    const datasetEvents = events.filter((event) => (event as { kind: string }).kind === 'dataset') as Array<{
+      completedDatasets: number;
+      datasetKey: string;
+      totalDatasets: number;
+    }>;
+
+    expect(catalogEvents).toEqual([
+      {
+        kind: 'catalog',
+        resourceCount: catalog.resources.length,
+        searchRegion: catalog.searchRegion,
+      },
+    ]);
+    expect(datasetEvents).toHaveLength(2);
+    expect(datasetEvents.map((event) => event.completedDatasets)).toEqual([1, 2]);
+    expect(datasetEvents.every((event) => event.totalDatasets === 2)).toBe(true);
+    expect(new Set(datasetEvents.map((event) => event.datasetKey))).toEqual(
+      new Set(['aws-cost-usage', 'aws-ec2-instances']),
+    );
+  });
+
   it('stays fatal when the catalog fails and every requested dataset needs it', async () => {
     mockedResolveCurrentAwsRegion.mockResolvedValue('us-east-1');
     const catalogError = Object.assign(new Error('Rate exceeded'), { name: 'ThrottlingException' });

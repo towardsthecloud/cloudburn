@@ -11,6 +11,7 @@ import {
 } from './providers/aws/discovery.js';
 import type {
   AwsDiscoveryInitialization,
+  AwsDiscoveryProgressEvent,
   AwsDiscoveryStatus,
   AwsDiscoveryTarget,
   AwsSupportedResourceType,
@@ -67,8 +68,9 @@ export class CloudBurnClient {
   /**
    * Runs a live AWS discovery scan against a specific discovery target.
    *
-   * @param options - Optional discovery target, config overrides, and AWS
-   *   credentials to use instead of the ambient credential provider chain.
+   * @param options - Optional discovery target, config overrides, progress
+   *   callback, and AWS credentials to use instead of the ambient credential
+   *   provider chain.
    * @returns Grouped live scan findings.
    */
   public async discover(options?: {
@@ -76,6 +78,7 @@ export class CloudBurnClient {
     config?: Partial<CloudBurnConfig>;
     configPath?: string;
     aws?: { credentials?: AwsClientCredentials };
+    onProgress?: (event: AwsDiscoveryProgressEvent) => void;
   }): Promise<ScanResult> {
     emitDebugLog(this.options?.debugLogger, 'sdk: starting live discovery scan');
     const effectiveConfig = await this.getEffectiveConfig(options?.config, options?.configPath);
@@ -83,6 +86,7 @@ export class CloudBurnClient {
     const run = () =>
       runLiveScan(effectiveConfig, options?.target ?? { mode: 'current' }, {
         debugLogger: this.options?.debugLogger,
+        ...(options?.onProgress === undefined ? {} : { onProgress: options.onProgress }),
       });
 
     return options?.aws?.credentials ? withAwsClientCredentials(options.aws.credentials, run) : run();

@@ -10,6 +10,7 @@ import { emitDebugLog } from '../../debug.js';
 import type {
   AwsDiscoveryCatalog,
   AwsDiscoveryInitialization,
+  AwsDiscoveryProgressEvent,
   AwsDiscoveryStatus,
   AwsDiscoveryTarget,
   AwsSupportedResourceType,
@@ -263,7 +264,10 @@ const appendItems = <T>(target: T[], items: Iterable<T>): void => {
 export const discoverAwsResources = async (
   rules: Rule[],
   target: AwsDiscoveryTarget,
-  options?: { debugLogger?: (message: string) => void },
+  options?: {
+    debugLogger?: (message: string) => void;
+    onProgress?: (event: AwsDiscoveryProgressEvent) => void;
+  },
 ): Promise<LiveDiscoveryContext> => {
   const datasetKeys = collectDiscoveryDependencies(rules);
   emitDebugLog(
@@ -339,6 +343,14 @@ export const discoverAwsResources = async (
     options?.debugLogger,
     `aws: catalog ready with ${catalog.resources.length} resources from ${catalog.searchRegion}`,
   );
+
+  if (resourceTypes.length > 0 && !catalogFailureDiagnostic) {
+    options?.onProgress?.({
+      kind: 'catalog',
+      resourceCount: catalog.resources.length,
+      searchRegion: catalog.searchRegion,
+    });
+  }
   const resourcesByType = buildResourcesByTypeIndex(catalog.resources);
   const datasetLoadPromises = new Map<
     DiscoveryDatasetKey,
@@ -511,8 +523,22 @@ export const discoverAwsResources = async (
   };
   // All datasets load in parallel, so the shared budget caps the combined
   // in-flight AWS calls per service and region for the whole run.
+  let completedDatasets = 0;
   const { allDatasetLoads, datasetLoads } = await withAwsServiceCallBudget(async () => {
-    const requestedLoads = await Promise.all(datasetKeys.map((datasetKey) => loadDataset(datasetKey)));
+    const requestedLoads = await Promise.all(
+      datasetKeys.map(async (datasetKey) => {
+        const loadResult = await loadDataset(datasetKey);
+        completedDatasets += 1;
+        options?.onProgress?.({
+          kind: 'dataset',
+          completedDatasets,
+          datasetKey,
+          totalDatasets: datasetKeys.length,
+        });
+
+        return loadResult;
+      }),
+    );
 
     return {
       allDatasetLoads: await Promise.all(datasetLoadPromises.values()),

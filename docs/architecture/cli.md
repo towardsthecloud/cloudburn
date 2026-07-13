@@ -62,6 +62,7 @@ All stdout-producing commands return a typed `CliResponse` and share the same fo
 - `rules list`, `config`, and `estimate` all use the shared formatter system instead of ad hoc string output.
 - `completion` is a structural parent command. `completion bash|fish|zsh` prints shell completion scripts for the selected shell.
 - `--debug` is a global flag that relays SDK and provider execution tracing to `stderr` without changing normal command output on `stdout`.
+- `discover` streams progress lines (catalog ready, datasets completed) to `stderr` while it runs, but only when `stderr` is an interactive terminal and `--debug` is off; piped and scripted invocations keep a quiet `stderr`, and `stdout` stays machine-parseable either way.
 - `--format` is documented as a global option and defaults to `table`, except `config --print` and `config --print-template`, which preserve raw YAML by default for redirection workflows.
 - `scan` and `discover` can also source their default format from `.cloudburn.yml`; explicit `--format` still wins.
 - The hidden `__complete` command exists only as the runtime hook for generated shell scripts.
