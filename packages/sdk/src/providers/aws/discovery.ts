@@ -99,7 +99,7 @@ const combineVerificationStatus = (
 ): AwsDiscoveryInitialization['verificationStatus'] =>
   left === 'timed_out' || right === 'timed_out' ? 'timed_out' : 'verified';
 
-const buildInitializationResult = (options: {
+type InitializationResultOptions = {
   aggregatorAction: AwsDiscoveryInitialization['aggregatorAction'];
   aggregatorRegion: string;
   beforeIndexedRegions: Set<string>;
@@ -110,12 +110,16 @@ const buildInitializationResult = (options: {
   taskId?: string;
   verificationStatus: AwsDiscoveryInitialization['verificationStatus'];
   warning?: string;
-}): AwsDiscoveryInitialization => {
+};
+
+const finalizeInitializationResult = async (
+  options: InitializationResultOptions,
+): Promise<AwsDiscoveryInitialization> => {
   const indexedRegions = getIndexedRegions(options.observedStatus);
   const createdIndexCount = indexedRegions.filter((region) => !options.beforeIndexedRegions.has(region)).length;
   const reusedIndexCount = indexedRegions.length - createdIndexCount;
 
-  return {
+  const result: AwsDiscoveryInitialization = {
     aggregatorAction: options.aggregatorAction,
     aggregatorRegion: options.aggregatorRegion,
     coverage: options.coverage,
@@ -129,6 +133,12 @@ const buildInitializationResult = (options: {
     verificationStatus: options.verificationStatus,
     warning: options.warning,
   };
+
+  if (result.verificationStatus === 'verified') {
+    await ensureAwsResourceExplorerDefaultViewIncludesTags(result.aggregatorRegion);
+  }
+
+  return result;
 };
 
 const RESOURCE_EXPLORER_RESOURCE_TYPE_PATTERN = /^[a-z0-9-]+:[a-z0-9-]+(?:\/[a-z0-9-]+)?$/;
@@ -637,12 +647,6 @@ export const initializeAwsDiscovery = async (
 ): Promise<AwsDiscoveryInitialization> => {
   const explicitRegionRequested = region !== undefined;
   const selectedRegion = region ? assertValidAwsRegion(region) : await resolveCurrentAwsRegion();
-  const finalizeInitialization = async (result: AwsDiscoveryInitialization): Promise<AwsDiscoveryInitialization> => {
-    if (result.verificationStatus === 'verified') {
-      await ensureAwsResourceExplorerDefaultViewIncludesTags(result.aggregatorRegion);
-    }
-    return result;
-  };
   emitDebugLog(debugLogger, `aws: initializing discovery from control region ${selectedRegion}`);
   const observedStatus = await getAwsDiscoveryStatus(selectedRegion, debugLogger);
   const enabledRegions = await listEnabledAwsRegions(selectedRegion);
@@ -659,19 +663,17 @@ export const initializeAwsDiscovery = async (
       );
     }
 
-    return finalizeInitialization(
-      buildInitializationResult({
-        aggregatorAction: 'unchanged',
-        aggregatorRegion: observedStatus.aggregatorRegion ?? aggregator.region,
-        beforeIndexedRegions,
-        coverage: observedStatus.coverage,
-        indexType: 'aggregator',
-        observedStatus,
-        status: 'EXISTING',
-        verificationStatus: 'verified',
-        warning: observedStatus.warning,
-      }),
-    );
+    return finalizeInitializationResult({
+      aggregatorAction: 'unchanged',
+      aggregatorRegion: observedStatus.aggregatorRegion ?? aggregator.region,
+      beforeIndexedRegions,
+      coverage: observedStatus.coverage,
+      indexType: 'aggregator',
+      observedStatus,
+      status: 'EXISTING',
+      verificationStatus: 'verified',
+      warning: observedStatus.warning,
+    });
   }
 
   const existingLocal = observedStatus.regions.find(
@@ -685,19 +687,17 @@ export const initializeAwsDiscovery = async (
         promotion.state === 'ACTIVE' ? 'verified' : await waitForAwsResourceExplorerIndex(selectedRegion);
       const updatedStatus = await getAwsDiscoveryStatus(selectedRegion, debugLogger);
 
-      return finalizeInitialization(
-        buildInitializationResult({
-          aggregatorAction: 'promoted',
-          aggregatorRegion: updatedStatus.aggregatorRegion ?? selectedRegion,
-          beforeIndexedRegions,
-          coverage: updatedStatus.coverage,
-          indexType: updatedStatus.aggregatorRegion ? 'aggregator' : 'local',
-          observedStatus: updatedStatus,
-          status: 'EXISTING',
-          verificationStatus,
-          warning: updatedStatus.warning,
-        }),
-      );
+      return finalizeInitializationResult({
+        aggregatorAction: 'promoted',
+        aggregatorRegion: updatedStatus.aggregatorRegion ?? selectedRegion,
+        beforeIndexedRegions,
+        coverage: updatedStatus.coverage,
+        indexType: updatedStatus.aggregatorRegion ? 'aggregator' : 'local',
+        observedStatus: updatedStatus,
+        status: 'EXISTING',
+        verificationStatus,
+        warning: updatedStatus.warning,
+      });
     } catch (err) {
       if (!isAwsAccessDeniedError(err)) {
         throw err;
@@ -705,21 +705,19 @@ export const initializeAwsDiscovery = async (
 
       const updatedStatus = await getAwsDiscoveryStatus(selectedRegion, debugLogger);
 
-      return finalizeInitialization(
-        buildInitializationResult({
-          aggregatorAction: 'none',
-          aggregatorRegion: selectedRegion,
-          beforeIndexedRegions,
-          coverage: updatedStatus.coverage,
-          indexType: 'local',
-          observedStatus: updatedStatus,
-          status: 'EXISTING',
-          verificationStatus: 'verified',
-          warning:
-            updatedStatus.warning ??
-            `Cross-region Resource Explorer setup could not be promoted in ${selectedRegion}; using the existing local index.`,
-        }),
-      );
+      return finalizeInitializationResult({
+        aggregatorAction: 'none',
+        aggregatorRegion: selectedRegion,
+        beforeIndexedRegions,
+        coverage: updatedStatus.coverage,
+        indexType: 'local',
+        observedStatus: updatedStatus,
+        status: 'EXISTING',
+        verificationStatus: 'verified',
+        warning:
+          updatedStatus.warning ??
+          `Cross-region Resource Explorer setup could not be promoted in ${selectedRegion}; using the existing local index.`,
+      });
     }
   }
 
@@ -739,21 +737,19 @@ export const initializeAwsDiscovery = async (
     if (existingLocal) {
       const updatedStatus = await getAwsDiscoveryStatus(selectedRegion, debugLogger);
 
-      return finalizeInitialization(
-        buildInitializationResult({
-          aggregatorAction: 'none',
-          aggregatorRegion: selectedRegion,
-          beforeIndexedRegions,
-          coverage: updatedStatus.coverage,
-          indexType: 'local',
-          observedStatus: updatedStatus,
-          status: 'EXISTING',
-          verificationStatus: 'verified',
-          warning:
-            updatedStatus.warning ??
-            `Cross-region Resource Explorer setup could not be created; using the existing local index in ${selectedRegion}.`,
-        }),
-      );
+      return finalizeInitializationResult({
+        aggregatorAction: 'none',
+        aggregatorRegion: selectedRegion,
+        beforeIndexedRegions,
+        coverage: updatedStatus.coverage,
+        indexType: 'local',
+        observedStatus: updatedStatus,
+        status: 'EXISTING',
+        verificationStatus: 'verified',
+        warning:
+          updatedStatus.warning ??
+          `Cross-region Resource Explorer setup could not be created; using the existing local index in ${selectedRegion}.`,
+      });
     }
 
     const localSetup = await createAwsResourceExplorerSetup({
@@ -768,22 +764,20 @@ export const initializeAwsDiscovery = async (
       updatedStatus.regions.find((status) => status.region === selectedRegion && status.status === 'indexed')?.region ??
       selectedRegion;
 
-    return finalizeInitialization(
-      buildInitializationResult({
-        aggregatorAction: 'none',
-        aggregatorRegion: localRegion,
-        beforeIndexedRegions,
-        coverage: updatedStatus.coverage,
-        indexType: 'local',
-        observedStatus: updatedStatus,
-        status: localSetup.taskId ? 'CREATED' : 'EXISTING',
-        taskId: localSetup.taskId,
-        verificationStatus,
-        warning:
-          updatedStatus.warning ??
-          `Cross-region Resource Explorer setup could not be created; using a local index in ${selectedRegion}.`,
-      }),
-    );
+    return finalizeInitializationResult({
+      aggregatorAction: 'none',
+      aggregatorRegion: localRegion,
+      beforeIndexedRegions,
+      coverage: updatedStatus.coverage,
+      indexType: 'local',
+      observedStatus: updatedStatus,
+      status: localSetup.taskId ? 'CREATED' : 'EXISTING',
+      taskId: localSetup.taskId,
+      verificationStatus,
+      warning:
+        updatedStatus.warning ??
+        `Cross-region Resource Explorer setup could not be created; using a local index in ${selectedRegion}.`,
+    });
   }
 
   const verificationStatus = createdSetup.taskId
@@ -810,26 +804,24 @@ export const initializeAwsDiscovery = async (
           throw err;
         }
 
-        return finalizeInitialization(
-          buildInitializationResult({
-            aggregatorAction: 'none',
-            aggregatorRegion: selectedRegion,
-            beforeIndexedRegions,
-            coverage: updatedStatus.coverage,
-            indexType: 'local',
-            observedStatus: updatedStatus,
-            status:
-              createdSetup.taskId ||
-              getIndexedRegions(updatedStatus).some((indexedRegion) => !beforeIndexedRegions.has(indexedRegion))
-                ? 'CREATED'
-                : 'EXISTING',
-            taskId: createdSetup.taskId,
-            verificationStatus: finalVerificationStatus,
-            warning:
-              updatedStatus.warning ??
-              `Cross-region Resource Explorer setup could not be promoted in ${selectedRegion}; using a local index.`,
-          }),
-        );
+        return finalizeInitializationResult({
+          aggregatorAction: 'none',
+          aggregatorRegion: selectedRegion,
+          beforeIndexedRegions,
+          coverage: updatedStatus.coverage,
+          indexType: 'local',
+          observedStatus: updatedStatus,
+          status:
+            createdSetup.taskId ||
+            getIndexedRegions(updatedStatus).some((indexedRegion) => !beforeIndexedRegions.has(indexedRegion))
+              ? 'CREATED'
+              : 'EXISTING',
+          taskId: createdSetup.taskId,
+          verificationStatus: finalVerificationStatus,
+          warning:
+            updatedStatus.warning ??
+            `Cross-region Resource Explorer setup could not be promoted in ${selectedRegion}; using a local index.`,
+        });
       }
     }
   }
@@ -845,24 +837,21 @@ export const initializeAwsDiscovery = async (
       : 'created'
     : 'none';
 
-  return finalizeInitialization(
-    buildInitializationResult({
-      aggregatorAction,
-      aggregatorRegion:
-        updatedStatus.aggregatorRegion ??
-        updatedStatus.regions.find((status) => status.region === selectedRegion && status.status === 'indexed')
-          ?.region ??
-        selectedRegion,
-      beforeIndexedRegions,
-      coverage: updatedStatus.coverage,
-      indexType: updatedStatus.aggregatorRegion ? 'aggregator' : createdSetup.indexType,
-      observedStatus: updatedStatus,
-      status,
-      taskId: createdSetup.taskId,
-      verificationStatus: finalVerificationStatus,
-      warning: updatedStatus.warning,
-    }),
-  );
+  return finalizeInitializationResult({
+    aggregatorAction,
+    aggregatorRegion:
+      updatedStatus.aggregatorRegion ??
+      updatedStatus.regions.find((status) => status.region === selectedRegion && status.status === 'indexed')?.region ??
+      selectedRegion,
+    beforeIndexedRegions,
+    coverage: updatedStatus.coverage,
+    indexType: updatedStatus.aggregatorRegion ? 'aggregator' : createdSetup.indexType,
+    observedStatus: updatedStatus,
+    status,
+    taskId: createdSetup.taskId,
+    verificationStatus: finalVerificationStatus,
+    warning: updatedStatus.warning,
+  });
 };
 
 /**

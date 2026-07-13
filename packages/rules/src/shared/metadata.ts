@@ -648,13 +648,10 @@ export type AwsDiscoveredResource = {
 };
 
 /** Taggable AWS resource that Resource Explorer reports without user-created tags. */
-export type AwsUntaggedResource = {
-  arn: string;
-  service: string;
-  resourceType: string;
-  region: string;
-  accountId: string;
-};
+export type AwsUntaggedResource = Pick<
+  AwsDiscoveredResource,
+  'accountId' | 'arn' | 'region' | 'resourceType' | 'service'
+>;
 
 /** Resource Explorer-backed discovery catalog used as the live scan seed. */
 export type AwsDiscoveryCatalog = {
