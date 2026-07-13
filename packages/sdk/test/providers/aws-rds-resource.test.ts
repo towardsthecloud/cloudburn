@@ -2,6 +2,7 @@ import type {
   DescribeDBInstancesCommand,
   DescribeDBSnapshotsCommand,
   DescribeReservedDBInstancesCommand,
+  Filter,
 } from '@aws-sdk/client-rds';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createRdsClient } from '../../src/providers/aws/client.js';
@@ -17,63 +18,64 @@ vi.mock('../../src/providers/aws/client.js', () => ({
 
 const mockedCreateRdsClient = vi.mocked(createRdsClient);
 
+const createRdsDbResource = (region: string, dbInstanceIdentifier: string) => ({
+  accountId: '123456789012',
+  arn: `arn:aws:rds:${region}:123456789012:db:${dbInstanceIdentifier}`,
+  properties: [],
+  region,
+  resourceType: 'rds:db',
+  service: 'rds',
+});
+
 describe('hydrateAwsRdsInstances', () => {
   beforeEach(() => {
     vi.resetAllMocks();
   });
 
-  it('hydrates discovered RDS DB instances with region-specific clients', async () => {
+  it('hydrates RDS DB instances with one filtered describe call per region', async () => {
+    const sendsByRegion = new Map<string, ReturnType<typeof vi.fn>>();
+
     mockedCreateRdsClient.mockImplementation(({ region }) => {
       const send = vi.fn(async (command: DescribeDBInstancesCommand) => {
-        const input = command.input as { DBInstanceIdentifier?: string };
-        const identifier = input.DBInstanceIdentifier ?? 'unknown';
+        const input = command.input as { Filters?: Filter[] };
+        const identifiers = input.Filters?.[0]?.Values ?? [];
 
         return {
-          DBInstances: [
-            {
-              DBInstanceClass: identifier === 'current-db' ? 'db.r8g.large' : 'db.m6i.large',
-              DBInstanceIdentifier: identifier,
-              DBInstanceStatus: 'available',
-              Engine: 'mysql',
-              EngineVersion: '8.0.39',
-              InstanceCreateTime: new Date('2025-01-01T00:00:00.000Z'),
-              MultiAZ: identifier === 'west-db',
-            },
-          ],
+          DBInstances: identifiers.map((identifier) => ({
+            DBInstanceClass: identifier === 'current-db' ? 'db.r8g.large' : 'db.m6i.large',
+            DBInstanceIdentifier: identifier,
+            DBInstanceStatus: 'available',
+            Engine: 'mysql',
+            EngineVersion: '8.0.39',
+            InstanceCreateTime: new Date('2025-01-01T00:00:00.000Z'),
+            MultiAZ: identifier === 'west-db',
+          })),
         };
       });
+
+      sendsByRegion.set(region ?? 'unknown', send);
 
       return { send, region } as never;
     });
 
     const instances = await hydrateAwsRdsInstances([
-      {
-        accountId: '123456789012',
-        arn: 'arn:aws:rds:us-east-1:123456789012:db:legacy-db',
-        properties: [],
-        region: 'us-east-1',
-        resourceType: 'rds:db',
-        service: 'rds',
-      },
-      {
-        accountId: '123456789012',
-        arn: 'arn:aws:rds:us-east-1:123456789012:db:current-db',
-        properties: [],
-        region: 'us-east-1',
-        resourceType: 'rds:db',
-        service: 'rds',
-      },
-      {
-        accountId: '123456789012',
-        arn: 'arn:aws:rds:us-west-2:123456789012:db:west-db',
-        properties: [],
-        region: 'us-west-2',
-        resourceType: 'rds:db',
-        service: 'rds',
-      },
+      createRdsDbResource('us-east-1', 'legacy-db'),
+      createRdsDbResource('us-east-1', 'current-db'),
+      createRdsDbResource('us-west-2', 'west-db'),
     ]);
 
     expect(mockedCreateRdsClient).toHaveBeenCalledTimes(2);
+    expect(sendsByRegion.get('us-east-1')).toHaveBeenCalledTimes(1);
+    expect(sendsByRegion.get('us-west-2')).toHaveBeenCalledTimes(1);
+    expect(sendsByRegion.get('us-east-1')?.mock.calls[0]?.[0]?.input).toEqual({
+      Filters: [
+        {
+          Name: 'db-instance-id',
+          Values: ['legacy-db', 'current-db'],
+        },
+      ],
+      Marker: undefined,
+    });
     expect(instances).toEqual([
       {
         accountId: '123456789012',
@@ -111,46 +113,71 @@ describe('hydrateAwsRdsInstances', () => {
     ]);
   });
 
-  it('caps in-flight RDS describe requests per region', async () => {
-    let currentInFlight = 0;
-    let maxInFlight = 0;
-    const send = vi.fn(
-      async (command: DescribeDBInstancesCommand) =>
-        new Promise<{ DBInstances?: Array<{ DBInstanceClass?: string; DBInstanceIdentifier?: string }> }>((resolve) => {
-          currentInFlight += 1;
-          maxInFlight = Math.max(maxInFlight, currentInFlight);
+  it('follows describe pagination markers within a batch', async () => {
+    const send = vi.fn(async (command: DescribeDBInstancesCommand) => {
+      const input = command.input as { Marker?: string };
 
-          const input = command.input as { DBInstanceIdentifier?: string };
-          const dbInstanceIdentifier = input.DBInstanceIdentifier ?? 'unknown';
+      if (input.Marker === undefined) {
+        return {
+          DBInstances: [
+            {
+              DBInstanceClass: 'db.m6i.large',
+              DBInstanceIdentifier: 'first-db',
+            },
+          ],
+          Marker: 'page-2',
+        };
+      }
 
-          setTimeout(() => {
-            currentInFlight -= 1;
-            resolve({
-              DBInstances: [
-                {
-                  DBInstanceClass: 'db.m6i.large',
-                  DBInstanceIdentifier: dbInstanceIdentifier,
-                },
-              ],
-            });
-          }, 0);
-        }),
-    );
+      return {
+        DBInstances: [
+          {
+            DBInstanceClass: 'db.m6i.large',
+            DBInstanceIdentifier: 'second-db',
+          },
+        ],
+      };
+    });
 
     mockedCreateRdsClient.mockReturnValue({ send } as never);
 
-    const resources = Array.from({ length: 25 }, (_, index) => ({
-      accountId: '123456789012',
-      arn: `arn:aws:rds:us-east-1:123456789012:db:db-${index}`,
-      properties: [],
-      region: 'us-east-1',
-      resourceType: 'rds:db',
-      service: 'rds',
-    }));
+    const instances = await hydrateAwsRdsInstances([
+      createRdsDbResource('us-east-1', 'first-db'),
+      createRdsDbResource('us-east-1', 'second-db'),
+    ]);
 
-    await hydrateAwsRdsInstances(resources);
+    expect(send).toHaveBeenCalledTimes(2);
+    expect(send.mock.calls[1]?.[0]?.input).toMatchObject({ Marker: 'page-2' });
+    expect(instances.map((instance) => instance.dbInstanceIdentifier)).toEqual(['first-db', 'second-db']);
+  });
 
-    expect(maxInFlight).toBeLessThanOrEqual(10);
+  it('chunks identifiers so no describe call filters on more than 100 values', async () => {
+    const send = vi.fn(async (command: DescribeDBInstancesCommand) => {
+      const input = command.input as { Filters?: Filter[] };
+      const identifiers = input.Filters?.[0]?.Values ?? [];
+
+      return {
+        DBInstances: identifiers.map((identifier) => ({
+          DBInstanceClass: 'db.m6i.large',
+          DBInstanceIdentifier: identifier,
+        })),
+      };
+    });
+
+    mockedCreateRdsClient.mockReturnValue({ send } as never);
+
+    const resources = Array.from({ length: 150 }, (_, index) => createRdsDbResource('us-east-1', `db-${index}`));
+
+    const instances = await hydrateAwsRdsInstances(resources);
+
+    expect(send).toHaveBeenCalledTimes(2);
+
+    const requestedValueCounts = send.mock.calls.map(
+      (call) => ((call[0] as DescribeDBInstancesCommand).input as { Filters?: Filter[] }).Filters?.[0]?.Values?.length,
+    );
+
+    expect(Math.max(...requestedValueCounts.map((count) => count ?? 0))).toBeLessThanOrEqual(100);
+    expect(instances).toHaveLength(150);
   });
 });
 
@@ -284,32 +311,21 @@ describe('hydrateAwsRdsSnapshots', () => {
     vi.resetAllMocks();
   });
 
-  it('hydrates RDS snapshots and skips stale snapshot identifiers', async () => {
-    mockedCreateRdsClient.mockImplementation(({ region }) => {
-      const send = vi.fn(async (command: DescribeDBSnapshotsCommand) => {
-        const input = command.input as { DBSnapshotIdentifier?: string };
-        const dbSnapshotIdentifier = input.DBSnapshotIdentifier ?? 'unknown';
+  it('hydrates RDS snapshots with one filtered describe call and skips stale identifiers', async () => {
+    const send = vi.fn(async (_command: DescribeDBSnapshotsCommand) => ({
+      // The db-snapshot-id filter silently omits identifiers that no longer
+      // exist, so only the surviving snapshot comes back.
+      DBSnapshots: [
+        {
+          DBInstanceIdentifier: 'deleted-db',
+          DBSnapshotIdentifier: 'snapshot-123',
+          SnapshotCreateTime: new Date('2026-01-01T00:00:00.000Z'),
+          SnapshotType: 'manual',
+        },
+      ],
+    }));
 
-        if (dbSnapshotIdentifier === 'missing-snapshot') {
-          const error = new Error('Snapshot not found');
-          error.name = 'DBSnapshotNotFound';
-          throw error;
-        }
-
-        return {
-          DBSnapshots: [
-            {
-              DBInstanceIdentifier: 'deleted-db',
-              DBSnapshotIdentifier: dbSnapshotIdentifier,
-              SnapshotCreateTime: new Date('2026-01-01T00:00:00.000Z'),
-              SnapshotType: 'manual',
-            },
-          ],
-        };
-      });
-
-      return { send, region } as never;
-    });
+    mockedCreateRdsClient.mockReturnValue({ send } as never);
 
     const snapshots = await hydrateAwsRdsSnapshots([
       {
@@ -330,6 +346,16 @@ describe('hydrateAwsRdsSnapshots', () => {
       },
     ]);
 
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send.mock.calls[0]?.[0]?.input).toEqual({
+      Filters: [
+        {
+          Name: 'db-snapshot-id',
+          Values: ['snapshot-123', 'missing-snapshot'],
+        },
+      ],
+      Marker: undefined,
+    });
     expect(snapshots).toEqual([
       {
         accountId: '123456789012',
