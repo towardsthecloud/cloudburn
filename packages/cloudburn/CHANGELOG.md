@@ -1,5 +1,18 @@
 # cloudburn
 
+## 0.10.0
+
+### Minor Changes
+
+- [#73](https://github.com/towardsthecloud/cloudburn/pull/73) [`e66ff1f`](https://github.com/towardsthecloud/cloudburn/commit/e66ff1f23eda9f77b7faa76754477c5afc58c91d) Thanks [@axonstone](https://github.com/axonstone)! - The discover command streams progress lines (catalog ready, datasets completed) to stderr on interactive terminals, and usage errors such as unknown options or invalid option arguments now exit with the runtime-error code 2 instead of colliding with the policy-violation exit code 1.
+
+### Patch Changes
+
+- [#71](https://github.com/towardsthecloud/cloudburn/pull/71) [`ec078bc`](https://github.com/towardsthecloud/cloudburn/commit/ec078bc33e208812b6ce5898d7046987cb8da41f) Thanks [@axonstone](https://github.com/axonstone)! - Describe AWS Core defaults and the aggregator requirement for opt-in global tagging discovery in CLI help and starter configuration.
+
+- Updated dependencies [[`ec078bc`](https://github.com/towardsthecloud/cloudburn/commit/ec078bc33e208812b6ce5898d7046987cb8da41f), [`aff07f8`](https://github.com/towardsthecloud/cloudburn/commit/aff07f8377e49fb2f1a215e46de901415a12d71e), [`e66ff1f`](https://github.com/towardsthecloud/cloudburn/commit/e66ff1f23eda9f77b7faa76754477c5afc58c91d)]:
+  - @cloudburn/sdk@0.24.0
+
 ## 0.9.13
 
 ### Patch Changes

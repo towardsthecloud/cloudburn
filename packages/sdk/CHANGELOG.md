@@ -1,5 +1,20 @@
 # @cloudburn/sdk
 
+## 0.24.0
+
+### Minor Changes
+
+- [#71](https://github.com/towardsthecloud/cloudburn/pull/71) [`ec078bc`](https://github.com/towardsthecloud/cloudburn/commit/ec078bc33e208812b6ce5898d7046987cb8da41f) Thanks [@axonstone](https://github.com/axonstone)! - Hydrate normalized AWS Budget spend details and support opt-in global untagged-resource discovery through a Resource Explorer aggregator.
+
+- [#73](https://github.com/towardsthecloud/cloudburn/pull/73) [`e66ff1f`](https://github.com/towardsthecloud/cloudburn/commit/e66ff1f23eda9f77b7faa76754477c5afc58c91d) Thanks [@axonstone](https://github.com/axonstone)! - Harden live discovery throughput and resilience: RDS instances and snapshots are described in filtered batches instead of one call per identifier, ELBv2 target-group lookups run in bounded parallel batches, Route 53 operations share the account-wide five-request-per-second budget across datasets, retries, and concurrent discovery runs, shared SageMaker endpoint configs are described once per region, every discover run caps combined in-flight AWS calls per service and region across concurrent datasets, Resource Explorer catalog failures degrade to account-scoped datasets with diagnostics instead of aborting the run, and `CloudBurnClient.discover` accepts an `onProgress` callback streaming catalog and dataset progress events.
+
+### Patch Changes
+
+- [#70](https://github.com/towardsthecloud/cloudburn/pull/70) [`aff07f8`](https://github.com/towardsthecloud/cloudburn/commit/aff07f8377e49fb2f1a215e46de901415a12d71e) Thanks [@axonstone](https://github.com/axonstone)! - Report malformed and oversized static IaC files as sanitized non-fatal scan diagnostics without changing the public parser return shape, and reuse account identity resolution within each discovery run.
+
+- Updated dependencies [[`ec078bc`](https://github.com/towardsthecloud/cloudburn/commit/ec078bc33e208812b6ce5898d7046987cb8da41f)]:
+  - @cloudburn/rules@0.24.0
+
 ## 0.23.1
 
 ### Patch Changes
