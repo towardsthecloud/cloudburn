@@ -2,7 +2,7 @@ packages:
   - packages/*
 
 verifyDepsBeforeRun: false
-minimumReleaseAge: 7
+minimumReleaseAge: 10080
 
 allowBuilds:
   esbuild: true
@@ -15,7 +15,7 @@ updateConfig:
     - typescript
 
 catalog:
-  '@biomejs/biome': ^2.5.4
+  '@biomejs/biome': ^2.5.3
   '@types/node': ^24
   '@vitest/coverage-v8': ^4.0.18
   tsup: ^8.5.1
