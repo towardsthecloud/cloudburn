@@ -1,5 +1,11 @@
 # @cloudburn/sdk
 
+## 0.24.1
+
+### Patch Changes
+
+- [`1ad8fab`](https://github.com/towardsthecloud/cloudburn/commit/1ad8fab27ee6c2ecce5d0bcfcf93fd5efbe80c3a) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Refresh toolchain dependencies: pin TypeScript to 5.9.3 (guarded against `pnpm update --latest` via `updateConfig.ignoreDependencies`), update Biome to 2.5.4, and rebuild the workspace lockfile so installed versions match the declared catalog.
+
 ## 0.24.0
 
 ### Minor Changes
