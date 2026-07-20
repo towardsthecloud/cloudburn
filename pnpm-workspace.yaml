@@ -1,13 +1,23 @@
 packages:
   - packages/*
 
+verifyDepsBeforeRun: false
+minimumReleaseAge: 7
+
 allowBuilds:
   esbuild: true
 
+# TypeScript is pinned exactly: the tsup/rollup-plugin-dts declaration build does
+# not support TS 7 yet. Without this, `pnpm depupdate` (pnpm update --latest)
+# rewrites the catalog entry past the pin and breaks the build.
+updateConfig:
+  ignoreDependencies:
+    - typescript
+
 catalog:
-  '@biomejs/biome': ^2.5.3
+  '@biomejs/biome': ^2.5.4
   '@types/node': ^24
   '@vitest/coverage-v8': ^4.0.18
   tsup: ^8.5.1
-  typescript: ^7.0.2
+  typescript: 5.9.3
   vitest: ^4.0.18

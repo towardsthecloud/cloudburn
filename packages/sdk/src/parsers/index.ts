@@ -80,6 +80,6 @@ export const parseIaCWithDiagnostics = async (path: string, options?: ParseIaCOp
 export const parseIaC = async (path: string, options?: ParseIaCOptions): Promise<IaCResource[]> =>
   (await parseIaCWithDiagnostics(path, options)).resources;
 
+export type { IaCParseResult, IaCResource } from './types.js';
 // Intent: expose parser entrypoints behind a stable SDK surface.
 export { parseCloudFormation, parseTerraform };
-export type { IaCParseResult, IaCResource } from './types.js';

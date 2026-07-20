@@ -62,6 +62,7 @@ import type {
   StaticResourceBag,
 } from '@cloudburn/rules';
 import type { AwsRegion } from './providers/aws/client.js';
+
 export type { AwsRegion };
 
 // Intent: define SDK-facing contracts for scanner orchestration.
@@ -205,36 +206,36 @@ export type RegisteredRules = {
 
 export type {
   AwsApiGatewayStage,
-  AwsCloudTrailTrail,
   AwsCloudFrontDistribution,
+  AwsCloudTrailTrail,
   AwsCloudWatchLogGroup,
   AwsCloudWatchLogStream,
   AwsCostUsage,
-  AwsDiscoveryCatalog,
   AwsDiscoveredResource,
+  AwsDiscoveryCatalog,
   AwsDynamoDbAutoscaling,
   AwsDynamoDbTable,
   AwsEbsSnapshot,
   AwsEbsVolume,
-  AwsElastiCacheCluster,
-  AwsElastiCacheReservedNode,
+  AwsEc2Instance,
+  AwsEc2LoadBalancer,
+  AwsEc2ReservedInstance,
+  AwsEc2TargetGroup,
   AwsEcsCluster,
   AwsEcsClusterMetric,
   AwsEcsContainerInstance,
   AwsEcsService,
   AwsEcsServiceAutoscaling,
-  AwsEc2Instance,
-  AwsEc2LoadBalancer,
-  AwsEc2ReservedInstance,
-  AwsEc2TargetGroup,
   AwsEksNodegroup,
+  AwsElastiCacheCluster,
+  AwsElastiCacheReservedNode,
   AwsEmrCluster,
   AwsEmrClusterMetric,
   AwsLambdaFunction,
   AwsLambdaFunctionMetric,
   AwsRdsInstance,
-  AwsRdsInstanceCpuMetric,
   AwsRdsInstanceActivity,
+  AwsRdsInstanceCpuMetric,
   AwsRdsReservedInstance,
   AwsRdsSnapshot,
   AwsRedshiftCluster,
