@@ -4,17 +4,20 @@
     "systematic-debugging": {
       "source": "obra/superpowers",
       "sourceType": "github",
-      "computedHash": "72e9ab72627e4fd8ed26a582e82309a98ecdc4f6e1c99418430ac05682c9e91d"
+      "skillPath": "skills/systematic-debugging/SKILL.md",
+      "computedHash": "792a368e074981d7e3138edb439e138489b2ac247cd1e5739fab52af680fb17b"
     },
     "tdd": {
       "source": "mattpocock/skills",
       "sourceType": "github",
-      "computedHash": "ad055544599481182d0079c4198e85da26677cb408a677be2da04915375f0427"
+      "skillPath": "skills/engineering/tdd/SKILL.md",
+      "computedHash": "81eca2a5b53a63f481c0849be7a663a8cd43d5cf53f32b644ec0a2f50cf91aa2"
     },
     "turborepo": {
       "source": "vercel/turborepo",
       "sourceType": "github",
-      "computedHash": "8ae57e36416b6a269c99b46f8f47afb0e2406331848d50fa19d7a57850acad50"
+      "skillPath": "skills/turborepo/SKILL.md",
+      "computedHash": "a004cb647398484ebdc0c4baf0058668d8551a43bfe6ad69ebe6d65f188a4112"
     }
   }
 }

@@ -95,11 +95,38 @@ Package tasks enable Turborepo to:
 
 ```json
 {
-  "$schema": "https://v2-8-15-canary-5.turborepo.dev/schema.json",
+  "$schema": "https://v2-10-6-canary-3.turborepo.dev/schema.json",
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
+      "outputs": ["dist/**", ".next/**", "!.next/cache/**", "!.next/dev/**"]
+    },
+    "lint": {},
+    "test": {
+      "dependsOn": ["build"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    }
+  }
+}
+```
+
+With `futureFlags.globalConfiguration`, global settings move under a `global` key:
+
+```json
+{
+  "$schema": "https://v2-10-6-canary-3.turborepo.dev/schema.json",
+  "futureFlags": { "globalConfiguration": true },
+  "global": {
+    "inputs": ["tsconfig.json"],
+    "env": ["CI"]
+  },
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", ".next/**", "!.next/cache/**", "!.next/dev/**"]
     },
     "lint": {},
     "test": {
@@ -130,7 +157,7 @@ packages:
 
 This allows:
 
-```text
+```
 packages/
 ├── ui/
 ├── utils/
@@ -155,7 +182,7 @@ packages:
 
 ### Minimum Required Files
 
-```text
+```
 packages/ui/
 ├── package.json    # Required: Makes it a package
 ├── src/            # Source code
@@ -183,7 +210,7 @@ packages/ui/
 
 Create a shared TypeScript config package:
 
-```text
+```
 packages/
 └── typescript-config/
     ├── package.json
@@ -229,7 +256,7 @@ You likely don't need a `tsconfig.json` in the workspace root. Each package shou
 
 ### Shared Config Package
 
-```text
+```
 packages/
 └── eslint-config/
     ├── package.json

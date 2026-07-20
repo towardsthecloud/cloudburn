@@ -9,7 +9,7 @@ description: |
   monorepo, shares code between apps, runs changed/affected packages, debugs cache,
   or has apps/packages directories.
 metadata:
-  version: 2.8.15-canary.5
+  version: 2.10.6-canary.3
 ---
 
 # Turborepo Skill
@@ -18,15 +18,15 @@ Build system for JavaScript/TypeScript monorepos. Turborepo caches task outputs 
 
 ## IMPORTANT: Package Tasks, Not Root Tasks
 
-**DO NOT create Root Tasks. ALWAYS create package tasks.**
+**Prefer package tasks over Root Tasks.**
 
-When creating tasks/scripts/pipelines, you MUST:
+When creating tasks/scripts/pipelines, you MUST default to package tasks:
 
 1. Add the script to each relevant package's `package.json`
 2. Register the task in root `turbo.json`
 3. Root `package.json` only delegates via `turbo run <task>`
 
-**DO NOT** put task logic in root `package.json`. This defeats Turborepo's parallelization.
+**DO NOT** put task logic in root `package.json` when it can live in packages. This defeats Turborepo's parallelization.
 
 ```json
 // DO THIS: Scripts in each package
@@ -74,7 +74,7 @@ When creating tasks/scripts/pipelines, you MUST:
 }
 ```
 
-Root Tasks (`//#taskname`) are ONLY for tasks that truly cannot exist in packages (rare).
+Root Tasks (`//#taskname`) are ONLY for tasks that truly cannot exist in packages, such as Vitest Projects' `//#test`, repo-wide release scripts, or tooling that does not invoke `turbo` itself.
 
 ## Secondary Rule: `turbo run` vs `turbo`
 
@@ -100,7 +100,7 @@ Root Tasks (`//#taskname`) are ONLY for tasks that truly cannot exist in package
 
 ### "I need to configure a task"
 
-```text
+```
 Configure a task?
 ├─ Define task dependencies → references/configuration/tasks.md
 ├─ Lint/check-types (parallel + caching) → Use Transit Nodes pattern (see below)
@@ -113,7 +113,7 @@ Configure a task?
 
 ### "My cache isn't working"
 
-```text
+```
 Cache problems?
 ├─ Tasks run but outputs not restored → Missing `outputs` key
 ├─ Cache misses unexpectedly → references/caching/gotchas.md
@@ -125,7 +125,7 @@ Cache problems?
 
 ### "I want to run only changed packages"
 
-```text
+```
 Run only what changed?
 ├─ Changed packages + dependents (RECOMMENDED) → turbo run build --affected
 ├─ Custom base branch → --affected --affected-base=origin/develop
@@ -137,7 +137,7 @@ Run only what changed?
 
 ### "I want to filter packages"
 
-```text
+```
 Filter packages?
 ├─ Only changed packages → --affected (see above)
 ├─ By package name → --filter=web
@@ -149,7 +149,7 @@ Filter packages?
 
 ### "Environment variables aren't working"
 
-```text
+```
 Environment issues?
 ├─ Vars not available at runtime → Strict mode filtering (default)
 ├─ Cache hits with wrong env → Var not in `env` key
@@ -160,7 +160,7 @@ Environment issues?
 
 ### "I need to set up CI"
 
-```text
+```
 CI setup?
 ├─ GitHub Actions → references/ci/github-actions.md
 ├─ Vercel deployment → references/ci/vercel.md
@@ -172,7 +172,7 @@ CI setup?
 
 ### "I want to watch for changes during development"
 
-```text
+```
 Watch mode?
 ├─ Re-run tasks on change → turbo watch (references/watch/RULE.md)
 ├─ Dev servers with dependencies → Use `with` key (references/configuration/tasks.md#with)
@@ -182,7 +182,7 @@ Watch mode?
 
 ### "I need to create/structure a package"
 
-```text
+```
 Package creation/structure?
 ├─ Create an internal package → references/best-practices/packages.md
 ├─ Repository structure → references/best-practices/structure.md
@@ -194,7 +194,7 @@ Package creation/structure?
 
 ### "How should I structure my monorepo?"
 
-```text
+```
 Monorepo structure?
 ├─ Standard layout (apps/, packages/) → references/best-practices/RULE.md
 ├─ Package types (apps vs libraries) → references/best-practices/RULE.md#package-types
@@ -207,7 +207,7 @@ Monorepo structure?
 
 ### "I want to enforce architectural boundaries"
 
-```text
+```
 Enforce boundaries?
 ├─ Check for violations → turbo boundaries
 ├─ Tag packages → references/boundaries/RULE.md#tags
@@ -338,7 +338,7 @@ Scripts like `prebuild` that manually build other packages bypass Turborepo's de
 
 ### Overly Broad `globalDependencies`
 
-`globalDependencies` affects ALL tasks in ALL packages. Be specific.
+`globalDependencies` affects ALL tasks in ALL packages via the **global hash** — tasks cannot opt out of specific files, even with negation globs in `inputs`. Be specific.
 
 ```json
 // WRONG - heavy hammer, affects all hashes
@@ -353,6 +353,24 @@ Scripts like `prebuild` that manually build other packages bypass Turborepo's de
     "build": {
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": ["dist/**"]
+    }
+  }
+}
+```
+
+With `futureFlags.globalConfiguration`, this problem is reduced because `global.inputs` files are folded into each task's inputs (not the global hash). Tasks can exclude specific files:
+
+```json
+// BEST - global.inputs with per-task exclusion
+{
+  "futureFlags": { "globalConfiguration": true },
+  "global": {
+    "inputs": [".env"]
+  },
+  "tasks": {
+    "build": { "outputs": ["dist/**"] },
+    "lint": {
+      "inputs": ["$TURBO_DEFAULT$", "!$TURBO_ROOT$/.env"]
     }
   }
 }
@@ -531,7 +549,7 @@ Don't use relative paths like `../` to reference files outside the package. Use 
 
 Common outputs by framework:
 
-- Next.js: `[".next/**", "!.next/cache/**"]`
+- Next.js: `[".next/**", "!.next/cache/**", "!.next/dev/**"]`
 - Vite/Rollup: `["dist/**"]`
 - tsc: `["dist/**"]` or custom `outDir`
 
@@ -629,7 +647,7 @@ Turbo does NOT load `.env` files - your framework does. But Turbo needs to know 
 
 A `.env` file at the repo root is an anti-pattern — even for small monorepos or starter templates. It creates implicit coupling between packages and makes it unclear which packages depend on which variables.
 
-```text
+```
 // WRONG - root .env affects all packages implicitly
 my-monorepo/
 ├── .env              # Which packages use this?
@@ -674,7 +692,7 @@ Or use `--env-mode=loose` (not recommended for production).
 
 ### Shared Code in Apps (Should Be a Package)
 
-```text
+```
 // WRONG: Shared code inside an app
 apps/
   web/
@@ -722,11 +740,11 @@ import { Button } from "@repo/ui/button";
 
 ```json
 {
-  "$schema": "https://v2-8-15-canary-5.turborepo.dev/schema.json",
+  "$schema": "https://v2-10-6-canary-3.turborepo.dev/schema.json",
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
+      "outputs": ["dist/**", ".next/**", "!.next/cache/**", "!.next/dev/**"]
     },
     "dev": {
       "cache": false,
@@ -835,16 +853,35 @@ The `transit` task creates dependency relationships without matching any actual 
 }
 ```
 
+With `futureFlags.globalConfiguration`, the same config moves global settings under `global` — and `.env` becomes a per-task input instead of a global hash input:
+
+```json
+{
+  "futureFlags": { "globalConfiguration": true },
+  "global": {
+    "env": ["NODE_ENV"],
+    "inputs": [".env"]
+  },
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"],
+      "env": ["API_URL", "DATABASE_URL"]
+    }
+  }
+}
+```
+
 ## Reference Index
 
 ### Configuration
 
-| File                                                                            | Purpose                                                  |
-| ------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| [configuration/RULE.md](./references/configuration/RULE.md)                     | turbo.json overview, Package Configurations              |
-| [configuration/tasks.md](./references/configuration/tasks.md)                   | dependsOn, outputs, inputs, env, cache, persistent       |
-| [configuration/global-options.md](./references/configuration/global-options.md) | globalEnv, globalDependencies, cacheDir, daemon, envMode |
-| [configuration/gotchas.md](./references/configuration/gotchas.md)               | Common configuration mistakes                            |
+| File                                                                            | Purpose                                                                   |
+| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| [configuration/RULE.md](./references/configuration/RULE.md)                     | turbo.json overview, Package Configurations                               |
+| [configuration/tasks.md](./references/configuration/tasks.md)                   | dependsOn, outputs, inputs, env, cache, persistent                        |
+| [configuration/global-options.md](./references/configuration/global-options.md) | globalEnv, globalDependencies, global key, futureFlags, cacheDir, envMode |
+| [configuration/gotchas.md](./references/configuration/gotchas.md)               | Common configuration mistakes                                             |
 
 ### Caching
 

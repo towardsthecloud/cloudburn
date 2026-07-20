@@ -53,7 +53,6 @@ const api = {
 ```
 
 The SDK approach means:
-
 - Each mock returns one specific shape
 - No conditional logic in test setup
 - Easier to see which endpoints a test exercises

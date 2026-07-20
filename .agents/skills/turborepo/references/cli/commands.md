@@ -188,7 +188,7 @@ turbo build --ui=stream  # streaming logs (default in CI)
 
 ---
 
-## turbo-ignore
+# turbo-ignore
 
 Full docs: https://turborepo.dev/docs/reference/turbo-ignore
 
@@ -222,7 +222,7 @@ npx turbo-ignore --task=test
   continue-on-error: true
 
 - name: Build
-  if: steps.turbo-ignore.outcome == 'failure'  # changes detected
+  if: steps.turbo-ignore.outcome == 'failure' # changes detected
   run: pnpm build
 ```
 
@@ -240,7 +240,7 @@ npx turbo-ignore --fallback=main
 
 ---
 
-## Other Commands
+# Other Commands
 
 ## turbo boundaries
 
