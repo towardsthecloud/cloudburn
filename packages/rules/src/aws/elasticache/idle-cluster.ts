@@ -23,7 +23,7 @@ export const elastiCacheIdleClusterRule = createRule({
     const findings = resources.get('aws-elasticache-cluster-activity').flatMap((activity) => {
       const cluster = clustersById.get(activity.cacheClusterId);
 
-      if (!cluster || cluster.cacheClusterStatus !== 'available') {
+      if (cluster?.cacheClusterStatus !== 'available') {
         return [];
       }
 

@@ -18,14 +18,14 @@
   },
   "assist": {
     "actions": {
-      "recommended": true
+      "preset": "recommended"
     },
     "enabled": true
   },
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true
+      "preset": "recommended"
     }
   },
   "vcs": {
