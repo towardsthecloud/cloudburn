@@ -19,6 +19,7 @@
 - Static IaC scanning is dataset-driven. Parse only the source kinds required by active `staticDependencies`, then load the requested datasets into `StaticResourceBag`.
 - Live AWS discovery is Resource Explorer first and dataset-driven. Build one catalog, then load only the datasets required by active rules.
 - Rules must declare `staticDependencies` and `discoveryDependencies` keys only. SDK owns dataset-to-resource-type mapping and dataset loader wiring.
+- Keep mode and service filtering in registry selection so excluded rules cannot trigger dataset loading.
 - Keep AWS static orchestration in `src/providers/aws/static.ts` (`loadAwsStaticResources`). Do not reintroduce hardcoded Terraform/CloudFormation/service branching in orchestration.
 - Keep AWS live orchestration in `src/providers/aws/discovery.ts` (`discoverAwsResources`). Do not reintroduce hardcoded resource/service branching in orchestration.
 - Do not add new account-wide per-service region fan-out discoverers.

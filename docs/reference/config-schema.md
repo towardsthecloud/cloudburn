@@ -18,6 +18,9 @@ Each mode uses the same fields:
 | `services`       | `string[]`          | unset   | Service allowlist applied before `enabled-rules` and `disabled-rules`.          |
 | `format`         | `'json' \| 'table'` | unset   | Default CLI output format for that mode when `--format` is not passed.          |
 
+Custom rule injection is not part of the current configuration schema. The supported rule-selection controls are the
+mode-local `enabled-rules`, `disabled-rules`, and `services` fields above.
+
 ## Merge Behavior
 
 `mergeConfig(partial?)` in `config/merge.ts`:

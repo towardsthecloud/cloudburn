@@ -12,6 +12,18 @@ Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
 - Provider: `AWS`, `AZURE`, `GCP`
 - Service: short name matching the directory (e.g. `EBS`, `EC2`, `RDS`, `S3`, `LAMBDA`)
 
+The metadata test in `packages/rules/test/rule-metadata.test.ts` currently enforces uniqueness and a gap-free numeric
+sequence for every provider/service pair.
+
+## Compatibility Status
+
+Rule IDs are public configuration and result references. The repository currently enforces contiguous service sequences,
+including renumbering later entries when rules are removed or reordered. That policy conflicts with treating each ID as an
+immutable cross-release identifier. The long-term public-stability contract remains a maintainer decision.
+
+Until that decision is resolved, follow the enforced contiguous policy, treat any renumbering as a user-visible migration,
+and update all repository references together. Do not renumber IDs as part of unrelated maintenance.
+
 ## Rule Table
 
 | ID                            | Description                                                                                                                                                                                                                         | Service        | Supports       |
@@ -104,5 +116,3 @@ Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
 | Preset ID  | Name     | Rule IDs                                                 |
 | ---------- | -------- | -------------------------------------------------------- |
 | `aws-core` | AWS Core | All AWS rules above except opt-in `CLDBRN-AWS-TAGGING-1` |
-
-Future presets (planned): `strict`, `startup`, `production`.

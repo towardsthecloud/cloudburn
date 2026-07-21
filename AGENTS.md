@@ -1,100 +1,58 @@
 # AGENTS.md
 
-## Documentation Map
+CloudBurn is a pnpm/Turborepo monorepo for a CLI, SDK, and pure rule package that detect AWS cost issues in IaC and live
+accounts. Treat repository documentation and executable configuration as the system of record.
 
-<!-- Doc Mapping inspired by: https://openai.com/index/harness-engineering/ -->
+## Repository knowledge map
 
-| Area                       | Doc                                                                                      | What it covers                                                                            |
-| -------------------------- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| **Architecture**           | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)                                           | Package graph, static scan flow, live discovery flow                                      |
-| CLI internals              | [`docs/architecture/cli.md`](docs/architecture/cli.md)                                   | `scan` vs `discover`, formatter pipeline, exit-code contract                              |
-| SDK internals              | [`docs/architecture/sdk.md`](docs/architecture/sdk.md)                                   | Scanner facade, config pipeline, dataset-driven live discovery, Resource Explorer catalog |
-| Rules internals            | [`docs/architecture/rules.md`](docs/architecture/rules.md)                               | Type hierarchy, dataset dependencies, rule assembly chain, ID convention                  |
-| **Guides**                 |                                                                                          |                                                                                           |
-| Adding a rule              | [`docs/guides/adding-a-rule.md`](docs/guides/adding-a-rule.md)                           | End-to-end: file placement, createRule, tests, registration                               |
-| Adding a static dataset    | [`docs/guides/adding-a-static-dataset.md`](docs/guides/adding-a-static-dataset.md)       | Static dataset registry entries, parser selection, and rule-facing dataset contracts      |
-| Adding a provider resource | [`docs/guides/adding-a-provider-resource.md`](docs/guides/adding-a-provider-resource.md) | Discovery dataset registry entries, dataset loaders, and rule-facing dataset contracts    |
-| **Reference**              |                                                                                          |                                                                                           |
-| Config schema              | [`docs/reference/config-schema.md`](docs/reference/config-schema.md)                     | Every `CloudBurnConfig` field, defaults, merge behavior                                   |
-| Rule IDs                   | [`docs/reference/rule-ids.md`](docs/reference/rule-ids.md)                               | ID table, naming convention, presets                                                      |
-| Finding shape              | [`docs/reference/finding-shape.md`](docs/reference/finding-shape.md)                     | `Finding`, `SourceLocation`, `ScanResult` type contracts                                  |
-| **Infrastructure**         |                                                                                          |                                                                                           |
-| Testing                    | [`docs/TESTING.md`](docs/TESTING.md)                                                     | Three-package test strategy, fixtures, TDD flow                                           |
-| Turborepo                  | [`docs/TURBOREPO.md`](docs/TURBOREPO.md)                                                 | Task pipeline, boundaries, filtering                                                      |
-| Code review                | [`docs/REVIEW.md`](docs/REVIEW.md)                                                       | Non-obvious conventions and constraints for PR reviewers                                  |
+| Area                | Document                                                                                                  | Use it for                                                  |
+| ------------------- | --------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| Documentation index | [`docs/README.md`](docs/README.md)                                                                        | Complete catalog and documentation policy                   |
+| Architecture        | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)                                                            | Package graph, responsibilities, and scan flows             |
+| Local development   | [`docs/guides/local-development.md`](docs/guides/local-development.md)                                    | Prerequisites, setup, focused work, and validation          |
+| Testing             | [`docs/TESTING.md`](docs/TESTING.md)                                                                      | Test layers, seams, fixtures, and TDD expectations          |
+| Commands            | [`docs/reference/commands.md`](docs/reference/commands.md)                                                | Root commands, Turbo filters, boundaries, and side effects  |
+| Generated files     | [`docs/reference/generated-files.md`](docs/reference/generated-files.md)                                  | Source-to-output ownership and regeneration                 |
+| Rule IDs            | [`docs/reference/rule-ids.md`](docs/reference/rule-ids.md)                                                | Current identifiers, sequence policy, and compatibility gap |
+| CLI package         | [`packages/cloudburn/AGENTS.md`](packages/cloudburn/AGENTS.md) · [`README`](packages/cloudburn/README.md) | CLI boundaries and public usage                             |
+| SDK package         | [`packages/sdk/AGENTS.md`](packages/sdk/AGENTS.md) · [`README`](packages/sdk/README.md)                   | SDK contracts and public usage                              |
+| Rules package       | [`packages/rules/AGENTS.md`](packages/rules/AGENTS.md) · [`README`](packages/rules/README.md)             | Rule authoring constraints and public usage                 |
 
-## Documentation Policy
+## Documentation policy
 
-- Keep documentation focused on the repository's current behavior and architecture.
+- Keep this file a concise map. Put durable explanations, procedures, and reference facts under `docs/`.
+- Update docs in the same change as behavior, architecture, configuration, commands, generated outputs, or operational
+  procedures.
+- Add every durable document to `docs/README.md`; `pnpm docs:check` enforces links, reachability, aliases, and this file's
+  150-line limit.
+- Preserve each relative `CLAUDE.md -> AGENTS.md` symlink. Do not maintain copied instruction files.
 - Do not commit planning artifacts, implementation plans, or point-in-time design specs such as `docs/superpowers/`.
-- When architecture changes, update the canonical live documents in `docs/ARCHITECTURE.md` and `docs/architecture/` in the same change.
-- Update guides, references, testing, and review docs when their live contracts or workflows change.
 
-## Code Style
+## Working in this repository
 
-- Add TSDoc docstrings to all exports. Document purpose, parameters, and return values.
+- Dependency direction is `cloudburn CLI -> @cloudburn/sdk -> @cloudburn/rules`; `pnpm exec turbo boundaries` enforces it.
+- Follow the nearest package `AGENTS.md` when changing files under `packages/`.
+- Add TSDoc purpose, parameters, and return values to exported code.
+- On non-`main` branches, use red-green TDD for behavior changes and work in vertical slices.
+- For IaC rules, cover both Terraform and CloudFormation inputs.
+- Confirm rule IDs and config shapes in code and references. Current IDs are contiguous by service, but their long-term
+  stability policy is unresolved; see the rule ID reference before changing identifiers.
+- If a search is empty or unexpectedly narrow, retry with a broader pattern before concluding.
 
-## Context Management
+## Validation
 
-- Proactively delegate exploration (3+ files), research, and analysis to subagents — only the summary matters in main context.
+- Documentation only: `pnpm docs:check && pnpm docs:test`.
+- Package boundaries: `pnpm exec turbo boundaries`.
+- Behavior, tests, dependencies, or build configuration: `pnpm verify` plus the smallest relevant focused test.
+- Do not claim completion without a fresh successful check from this worktree.
 
-## Build / Test
+## Git and releases
 
-- On branches/worktrees (non main), use the `tdd` skill (red-green-refactor) as the default build flow for features and bug fixes.
-- Work in vertical slices: one test → minimal impl → refactor → commit. Never batch all tests first.
-- For IaC rule work, add test coverage for both Terraform and CloudFormation inputs. Do not ship static-rule behavior validated against only one IaC source kind.
-- When tests are green and you're ready to commit, run `pnpm verify` first (covers lint, typecheck, and test).
-- Include verification tasks in plans, not only build tasks.
-
-## Done Criteria
-
-- Do not mark done without proof (tests, logs, or behavior checks).
-- Review-ready requires a fresh local test run in this session.
-- For multi-step tasks, track all steps and mark any blocked step with what is missing.
-
-## Missing Context
-
-- Do not guess rule IDs, config shapes, types, or provider behavior — look them up first.
-- CloudBurn config is mode-specific under `iac` and `discovery`; rule references use stable public IDs such as `CLDBRN-AWS-EBS-1`.
-- After merging `main`, rebasing, or fixing CI, re-check the current `AGENTS.md`, docs, and tests for policy changes before adjusting implementation or tests. Do not weaken invariant tests to match older branch assumptions unless the same change explicitly updates the governing policy sources.
-- If a search returns empty or narrow results, try at least one fallback (alternate query, broader pattern) before concluding.
-- Label assumptions explicitly when proceeding without full context.
-
-## Git & PRs
-
-- On `main`, never commit or open a PR unless the user explicitly asks.
-- On any branch other than `main`, commit after each meaningful set of edits.
-- Use Conventional Commits (`feat|fix|refactor|build|ci|chore|revert|docs|style|perf|test`).
-- When the change is for a package, include the scope: `feat(cli):`, `fix(sdk):`, `refactor(rules):`.
-- When done on a non-`main` branch, open a PR to `main`:
-  1. PR title matches the Conventional Commits spec
-  2. Apply a label matching the commit type: `enhancement` for `feat`, `bug` for `fix`, `documentation` for `docs`
-  3. If the PR changes a published package, write a changeset (see Changesets section below).
-- The PR must use the the following template (`.github/pull_request_template.md`):
-  1. Summary: Intent of the change and solution that was provided
-  2. Diagram: Add Mermaid diagram to visualize the intended technical changes
-  3. Check off all completed tasks
-  4. Related issues: Search for related issues with `gh issue list` and note any to link
-
-## Changesets
-
-- Published packages: `cloudburn` (cli), `@cloudburn/sdk`, `@cloudburn/rules`.
-- Write `.changeset/<random-kebab-case-slug>.md` directly — do not use the interactive `pnpm changeset` prompt.
-- Changeset files must use full frontmatter delimiters: opening `---`, then the package bump lines, then closing `---`.
-- Use `patch` for fixes and `minor` for new features. Never use `major` changesets.
-- Only include packages directly changed by the PR.
-- **One changeset file per package** — never list multiple packages in one file (the summary gets duplicated to all of them).
-- Do not run `pnpm changeset:version` or `pnpm release` — those happen in the automated release PR.
-
-## Architecture Boundaries
-
-- Dependency direction: `cli → sdk → rules`. No reverse imports.
-- `scan` is static IaC only. `discover` is the live AWS command surface.
-- Static IaC work should follow the dataset-driven model in `providers/aws/static.ts`.
-- Live AWS work should follow the Resource Explorer catalog-first model with dataset-driven orchestration in `providers/aws/discovery.ts`.
-- Rules declare `staticDependencies` and `discoveryDependencies` dataset keys. The SDK owns IaC source-type mapping, Resource Explorer `resourceTypes`, dataset loaders, and hydration wiring.
-- `StaticEvaluationContext` exposes `resources: StaticResourceBag`; static rules read datasets through `resources.get('<dataset-key>')`.
-- `LiveEvaluationContext` exposes `catalog` plus `resources: LiveResourceBag`; discovery rules read datasets through `resources.get('<dataset-key>')`.
-- Do not add new account-wide per-service region fan-out discoverers unless the architecture docs explicitly change.
-- When working inside `packages/cloudburn`, `packages/sdk`, or `packages/rules`, follow that package's local `AGENTS.md`.
-- Before changing a type or export in `rules` or `sdk`, check downstream consumers for required updates.
+- Do not commit or open a pull request on `main` unless explicitly asked. On other branches, commit each meaningful set of
+  edits with a Conventional Commit; use the package scope for package changes.
+- Pull requests target `main`, use the repository template, and apply `enhancement` for `feat`, `bug` for `fix`, or
+  `documentation` for `docs`.
+- Published packages are `cloudburn`, `@cloudburn/sdk`, and `@cloudburn/rules`.
+- User-facing package changes require one directly written changeset per affected package; documentation-only changes do
+  not. Never run versioning or publishing commands in a feature task.
+- See [`docs/guides/releasing.md`](docs/guides/releasing.md) for changeset and automated release behavior.

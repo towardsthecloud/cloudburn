@@ -56,13 +56,13 @@ type Finding = {
 
 This is the rule-level group returned by a rule evaluator. Empty groups are not returned; evaluators return `null` instead.
 
-| Field      | Type             | Description                                                          |
-| ---------- | ---------------- | -------------------------------------------------------------------- |
-| `ruleId`   | `string`         | Stable CloudBurn rule identifier.                                    |
-| `service`  | `string`         | Service name such as `ebs` or `ec2`.                                 |
-| `source`   | `Source`     | Whether the matches came from live discovery or static IaC analysis. |
-| `message`  | `string`         | Generic rule-level policy text shared by every nested match.         |
-| `findings` | `FindingMatch[]` | Nested resource-level matches for the rule.                          |
+| Field      | Type             | Description                                                                                                 |
+| ---------- | ---------------- | ----------------------------------------------------------------------------------------------------------- |
+| `ruleId`   | `string`         | Public CloudBurn rule identifier; see the [rule ID compatibility status](rule-ids.md#compatibility-status). |
+| `service`  | `string`         | Service name such as `ebs` or `ec2`.                                                                        |
+| `source`   | `Source`         | Whether the matches came from live discovery or static IaC analysis.                                        |
+| `message`  | `string`         | Generic rule-level policy text shared by every nested match.                                                |
+| `findings` | `FindingMatch[]` | Nested resource-level matches for the rule.                                                                 |
 
 ## `ProviderFindingGroup`
 

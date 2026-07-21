@@ -3,7 +3,7 @@
 ## Tools
 
 - **Test runner:** Vitest (all packages)
-- **Gate command:** `pnpm verify` (runs lint + typecheck + test across the monorepo)
+- **Gate command:** `pnpm verify` (runs lint, typecheck, package and documentation tests, and the live documentation check)
 - **TDD flow:** red-green-refactor — write a failing test first, implement the minimal code to pass, then refactor
 
 ## Three-Package Test Strategy
@@ -81,6 +81,15 @@ pnpm turbo run test --filter @cloudburn/rules
 # All packages
 pnpm test
 
+# Repository knowledge checker and its public CLI tests
+pnpm docs:check
+pnpm docs:test
+
 # Full verification gate (lint + typecheck + test)
 pnpm verify
 ```
+
+`docs:test` exercises `scripts/check-docs.mjs` through its process exit status and diagnostics with isolated fixtures. The
+live `docs:check` validates required entry points, root and package instruction aliases, repository-contained local links,
+heading fragments, reference-style definitions and uses, code-example exclusion, canonical page reachability, and the root
+`AGENTS.md` line budget.

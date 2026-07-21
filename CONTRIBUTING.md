@@ -5,9 +5,11 @@ Thanks for contributing to CloudBurn.
 ## Prerequisites
 
 - Node.js 24+
-- pnpm 10+
+- pnpm 11 (the exact version is pinned in `package.json`)
 
 ## Local Setup
+
+See the [local development guide](docs/guides/local-development.md) for focused commands and validation options.
 
 ```bash
 pnpm install
@@ -44,6 +46,8 @@ The dependency direction is `cli -> sdk -> rules`. No reverse imports.
 See [`docs/guides/adding-a-rule.md`](docs/guides/adding-a-rule.md) for the full end-to-end walkthrough covering file placement, `createRule`, dataset dependencies, tests, and registration.
 
 ## Changesets
+
+See the [release guide](docs/guides/releasing.md) for the complete contributor and automated release flow.
 
 Write `.changeset/<slug>.md` files directly for user-facing package changes. Published packages: `cloudburn` (cli), `@cloudburn/sdk`, `@cloudburn/rules`.
 
