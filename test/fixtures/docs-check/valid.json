@@ -1,0 +1,15 @@
+{
+  "files": {
+    "AGENTS.md": "# Repository map\n\n- [Documentation](docs/README.md)\n- [Package instructions](packages/example/AGENTS.md)\n",
+    "README.md": "# Example repository\n\nSee the [documentation](docs/README.md).\n",
+    "docs/README.md": "# Documentation\n\n- [Architecture](ARCHITECTURE.md#system-shape)\n- [Setext section](ARCHITECTURE.md#setext-section)\n- [Guide][guide]\n\n[guide]: guides/local-development.md\n\n`[inline example](missing.md)`\n\n```md\n[example](also-missing.md)\n```\n\n````md\n```md\n[nested fence example](still-missing.md)\n```\n[still code](also-still-missing.md)\n````\n\n```text\n```js\n[info-string fence example](missing-too.md)\n```\n",
+    "docs/ARCHITECTURE.md": "# Architecture\n\n## System shape\n\nThe system is intentionally small.\n\nSetext section\n--------------\n\nThis heading also has a fragment.\n",
+    "docs/guides/local-development.md": "# Local development\n\nRun the project locally.\n",
+    "packages/example/AGENTS.md": "# Example package\n\nSee the [package README](README.md).\n",
+    "packages/example/README.md": "# Example package\n"
+  },
+  "symlinks": {
+    "CLAUDE.md": "AGENTS.md",
+    "packages/example/CLAUDE.md": "AGENTS.md"
+  }
+}

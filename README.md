@@ -17,7 +17,7 @@ CloudBurn runs deterministic cost rules against your Terraform and CloudFormatio
 
 ## Features
 
-- **One rules engine, two modes.** 75 deterministic cost rules for IaC and live AWS. See the [rule list](docs/reference/rule-ids.md).
+- **One rules engine, two modes.** 82 deterministic AWS cost rules for IaC and live accounts. See the [rule list](docs/reference/rule-ids.md).
 - **Scan in CI.** Checks Terraform and CloudFormation in pull requests, CI jobs, and release pipelines.
 - **Discover in production.** Inspects deployed resources and shows what needs fixing.
 - **Programmable.** The [SDK](packages/sdk/README.md) lets you run CloudBurn inside your own tooling.
@@ -102,7 +102,7 @@ discovery:
 
 - Use `enabled-rules` when you want a mode to run only a specific set of rules.
 - Use `disabled-rules` when you want to subtract a few rules from the active set.
-- Use stable public rule IDs like `CLDBRN-AWS-EBS-1`.
+- Use public rule IDs like `CLDBRN-AWS-EBS-1`; review the [rule ID compatibility policy](docs/reference/rule-ids.md#compatibility-status) when upgrading pinned configuration.
 - Use `--config <path>` if you want `scan` or `discover` to load a specific config file.
 
 ### Scan

@@ -8,6 +8,7 @@ Package-specific constraints:
 
 - `createRule` is mandatory for built-in rule declarations.
 - Rule names must describe the policy being enforced, not the migration or fix action.
+- Only define evaluators for the modes listed in a rule's `supports` metadata.
 - Rules should never declare Terraform type strings, CloudFormation type strings, Resource Explorer `resourceTypes`, or loader wiring directly; the SDK registries own that mapping.
 - Omit `accountId` and `region` when they are not available. Do not emit empty-string placeholders.
 
