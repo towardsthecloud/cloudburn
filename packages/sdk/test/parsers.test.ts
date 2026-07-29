@@ -1232,6 +1232,36 @@ resource "aws_ebs_volume" "active" {
     }
   });
 
+  it('keeps suppression comments after apostrophes in CloudFormation plain scalars', async () => {
+    const tempDirectory = await mkdtemp(join(tmpdir(), 'cloudburn-cloudformation-suppression-apostrophe-'));
+    const templatePath = join(tempDirectory, 'template.yaml');
+
+    try {
+      await writeFile(
+        templatePath,
+        `Description: It's a legacy stack
+Resources:
+  # cloudburn-ignore CLDBRN-AWS-EBS-1 approved legacy volume
+  SuppressedVolume:
+    Type: AWS::EC2::Volume
+    Properties:
+      AvailabilityZone: eu-west-1a
+      VolumeType: gp2
+`,
+        'utf8',
+      );
+
+      const { resources } = await parseCloudFormation(templatePath);
+
+      expect(resources[0]).toMatchObject({
+        name: 'SuppressedVolume',
+        suppressions: [{ kind: 'rule', reason: 'approved legacy volume', ruleId: 'CLDBRN-AWS-EBS-1' }],
+      });
+    } finally {
+      await rm(tempDirectory, { force: true, recursive: true });
+    }
+  });
+
   it('does not parse CloudFormation multi-line quoted scalar content as a suppression comment', async () => {
     const tempDirectory = await mkdtemp(join(tmpdir(), 'cloudburn-cloudformation-suppression-quoted-'));
     const templatePath = join(tempDirectory, 'template.yaml');

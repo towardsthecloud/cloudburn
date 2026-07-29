@@ -12,6 +12,8 @@ type YamlQuoteState = {
   quote?: '"' | "'";
 };
 
+const YAML_NODE_PROPERTY_PREFIX = /^(?:-\s+)?(?:(?:![^\s]+|&[^\s]+)\s*)*$/u;
+
 const parseSuppression = (text: string, location: SourceLocation): IaCSuppression | undefined => {
   const normalized = text.replace(/\*\/\s*$/u, '').trim();
   const ignoreAllMatch = /(?:^|\s)cloudburn-ignore-all(?:\s+(.+))?$/u.exec(normalized);
@@ -66,7 +68,7 @@ const findYamlLineCommentStart = (line: string, state: YamlQuoteState): number |
       continue;
     }
 
-    if (character === '"' || character === "'") {
+    if ((character === '"' || character === "'") && isYamlQuotedScalarStart(line, index)) {
       state.quote = character;
       continue;
     }
@@ -79,6 +81,27 @@ const findYamlLineCommentStart = (line: string, state: YamlQuoteState): number |
 
   return undefined;
 };
+
+function isYamlQuotedScalarStart(line: string, quoteIndex: number): boolean {
+  const prefix = line.slice(0, quoteIndex);
+  const previousCharacter = prefix.at(-1);
+
+  if (previousCharacter !== undefined && !/\s/u.test(previousCharacter)) {
+    return ':,[{?'.includes(previousCharacter);
+  }
+
+  const trimmedPrefix = prefix.trimEnd();
+  const boundaryIndex = Math.max(
+    trimmedPrefix.lastIndexOf(':'),
+    trimmedPrefix.lastIndexOf(','),
+    trimmedPrefix.lastIndexOf('['),
+    trimmedPrefix.lastIndexOf('{'),
+    trimmedPrefix.lastIndexOf('?'),
+  );
+  const nodePrefix = trimmedPrefix.slice(boundaryIndex + 1).trimStart();
+
+  return YAML_NODE_PROPERTY_PREFIX.test(nodePrefix);
+}
 
 const toYamlCommentSegments = (line: string, state: YamlQuoteState) => {
   const commentStart = findYamlLineCommentStart(line, state);
