@@ -1231,4 +1231,31 @@ resource "aws_ebs_volume" "active" {
       await rm(tempDirectory, { force: true, recursive: true });
     }
   });
+
+  it('does not parse CloudFormation multi-line quoted scalar content as a suppression comment', async () => {
+    const tempDirectory = await mkdtemp(join(tmpdir(), 'cloudburn-cloudformation-suppression-quoted-'));
+    const templatePath = join(tempDirectory, 'template.yaml');
+
+    try {
+      await writeFile(
+        templatePath,
+        `Resources:
+  ActiveInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: c6i.large
+      UserData: "line one
+        # cloudburn-ignore-all this is quoted data, not a YAML comment
+        line three"
+`,
+        'utf8',
+      );
+
+      const { resources } = await parseCloudFormation(templatePath);
+
+      expect(resources[0]).not.toHaveProperty('suppressions');
+    } finally {
+      await rm(tempDirectory, { force: true, recursive: true });
+    }
+  });
 });

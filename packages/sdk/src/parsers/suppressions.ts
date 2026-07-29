@@ -12,6 +12,10 @@ type TerraformHeredoc = {
   delimiter: string;
 };
 
+type YamlQuoteState = {
+  quote?: '"' | "'";
+};
+
 const parseSuppression = (text: string, location: SourceLocation): IaCSuppression | undefined => {
   const normalized = text.replace(/\*\/\s*$/u, '').trim();
   const ignoreAllMatch = /(?:^|\s)cloudburn-ignore-all(?:\s+(.+))?$/u.exec(normalized);
@@ -69,6 +73,46 @@ const findLineCommentStart = (line: string, syntax: CommentSyntax): number | und
     }
 
     if (syntax === 'terraform' && character === '/' && line[index + 1] === '/') {
+      return index;
+    }
+  }
+
+  return undefined;
+};
+
+const findYamlLineCommentStart = (line: string, state: YamlQuoteState): number | undefined => {
+  let escaped = false;
+
+  for (let index = 0; index < line.length; index += 1) {
+    const character = line[index];
+
+    if (state.quote === '"') {
+      if (escaped) {
+        escaped = false;
+      } else if (character === '\\') {
+        escaped = true;
+      } else if (character === '"') {
+        state.quote = undefined;
+      }
+      continue;
+    }
+
+    if (state.quote === "'") {
+      if (character === "'" && line[index + 1] === "'") {
+        index += 1;
+      } else if (character === "'") {
+        state.quote = undefined;
+      }
+      continue;
+    }
+
+    if (character === '"' || character === "'") {
+      state.quote = character;
+      continue;
+    }
+
+    const previous = line[index - 1];
+    if (character === '#' && (index === 0 || /\s/u.test(previous ?? ''))) {
       return index;
     }
   }
@@ -183,6 +227,7 @@ export const extractSuppressionComments = (
   const lines = contents.split(/\r?\n/u);
   let inBlockComment = false;
   let heredoc: TerraformHeredoc | undefined;
+  const yamlQuoteState: YamlQuoteState = {};
 
   for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
     const line = lines[lineIndex] ?? '';
@@ -248,7 +293,7 @@ export const extractSuppressionComments = (
 
       heredoc = heredocStart;
     } else {
-      const commentStart = findLineCommentStart(line, syntax);
+      const commentStart = findYamlLineCommentStart(line, yamlQuoteState);
       if (commentStart !== undefined) {
         segments.push({ column: commentStart + 1, text: line.slice(commentStart + 1) });
       }
