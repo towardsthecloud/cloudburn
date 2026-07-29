@@ -1089,6 +1089,30 @@ resource "aws_ebs_volume" "active" {
     }
   });
 
+  it('does not parse Terraform block-comment syntax inside a quoted string as a suppression', async () => {
+    const tempDirectory = await mkdtemp(join(tmpdir(), 'cloudburn-terraform-suppression-string-'));
+    const terraformPath = join(tempDirectory, 'main.tf');
+
+    try {
+      await writeFile(
+        terraformPath,
+        `resource "aws_ebs_volume" "active" {
+  availability_zone = "eu-west-1a"
+  description       = "/* cloudburn-ignore-all this is data, not a comment */"
+  type              = "gp2"
+}
+`,
+        'utf8',
+      );
+
+      const { resources } = await parseTerraform(terraformPath);
+
+      expect(resources[0]).not.toHaveProperty('suppressions');
+    } finally {
+      await rm(tempDirectory, { force: true, recursive: true });
+    }
+  });
+
   it('associates CloudFormation YAML suppression comments only with their owning resource', async () => {
     const tempDirectory = await mkdtemp(join(tmpdir(), 'cloudburn-cloudformation-suppressions-'));
     const templatePath = join(tempDirectory, 'template.yaml');

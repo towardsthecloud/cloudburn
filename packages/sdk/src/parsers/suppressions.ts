@@ -59,11 +59,46 @@ const findLineCommentStart = (line: string, syntax: CommentSyntax): number | und
     }
 
     const previous = line[index - 1];
-    if (character === '#' && (index === 0 || /\s/u.test(previous ?? ''))) {
+    if (character === '#' && (syntax === 'terraform' || index === 0 || /\s/u.test(previous ?? ''))) {
       return index;
     }
 
     if (syntax === 'terraform' && character === '/' && line[index + 1] === '/') {
+      return index;
+    }
+  }
+
+  return undefined;
+};
+
+const findTerraformBlockCommentStart = (line: string): number | undefined => {
+  let quote: '"' | "'" | undefined;
+  let escaped = false;
+
+  for (let index = 0; index < line.length; index += 1) {
+    const character = line[index];
+
+    if (quote) {
+      if (escaped) {
+        escaped = false;
+      } else if (character === '\\' && quote === '"') {
+        escaped = true;
+      } else if (character === quote) {
+        quote = undefined;
+      }
+      continue;
+    }
+
+    if (character === '"' || character === "'") {
+      quote = character;
+      continue;
+    }
+
+    if (character === '#' || (character === '/' && line[index + 1] === '/')) {
+      return undefined;
+    }
+
+    if (character === '/' && line[index + 1] === '*') {
       return index;
     }
   }
@@ -103,7 +138,8 @@ export const extractSuppressionComments = (
           continue;
         }
 
-        const blockStart = line.indexOf('/*', searchIndex);
+        const relativeBlockStart = findTerraformBlockCommentStart(line.slice(searchIndex));
+        const blockStart = relativeBlockStart === undefined ? -1 : searchIndex + relativeBlockStart;
         const lineCommentStart = findLineCommentStart(line.slice(searchIndex), syntax);
         const absoluteLineCommentStart = lineCommentStart === undefined ? undefined : searchIndex + lineCommentStart;
 
