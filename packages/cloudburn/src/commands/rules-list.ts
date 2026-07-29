@@ -1,11 +1,12 @@
-import { builtInRuleMetadata, type Source } from '@cloudburn/sdk';
+import { builtInRuleMetadata, type Severity, type Source } from '@cloudburn/sdk';
 import { type Command, InvalidArgumentError } from 'commander';
 import { renderResponse, resolveOutputFormat } from '../formatters/output.js';
 import { registerParentCommand } from '../help.js';
-import { parseServiceList, parseSourceList } from './config-options.js';
+import { parseServiceList, parseSeverity, parseSourceList } from './config-options.js';
 
 type RulesListOptions = {
   service?: string[];
+  severity?: Severity;
   source?: Source[];
 };
 
@@ -43,6 +44,10 @@ const filterRules = (options: RulesListOptions) => {
       return false;
     }
 
+    if (options.severity !== undefined && rule.severity !== options.severity) {
+      return false;
+    }
+
     return true;
   });
 };
@@ -56,6 +61,7 @@ export const registerRulesListCommand = (program: Command): void => {
     .command('list')
     .description('List built-in CloudBurn rules')
     .option('--service <services>', 'Comma-separated services to include.', parseRulesListServiceList)
+    .option('--severity <severity>', 'Severity to include (`high`, `medium`, `low`).', parseSeverity)
     .option('--source <sources>', 'Comma-separated sources to include (`iac`, `discovery`).', parseRulesListSourceList)
     .action(function (this: Command, options: RulesListOptions) {
       const output = renderResponse(

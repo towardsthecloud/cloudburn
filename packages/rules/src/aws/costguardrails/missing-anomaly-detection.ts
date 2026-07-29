@@ -6,6 +6,7 @@ const RULE_MESSAGE = 'AWS accounts should enable Cost Anomaly Detection monitors
 
 /** Flag accounts that have not configured any Cost Anomaly Detection monitors. */
 export const costGuardrailMissingAnomalyDetectionRule = createRule({
+  severity: 'low',
   id: RULE_ID,
   name: 'Cost Anomaly Detection Missing',
   description: 'Flag AWS accounts that do not have any Cost Anomaly Detection monitors configured.',
@@ -21,7 +22,7 @@ export const costGuardrailMissingAnomalyDetectionRule = createRule({
       return null;
     }
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', [
+    return createFinding({ id: RULE_ID, service: RULE_SERVICE, severity: 'low', message: RULE_MESSAGE }, 'discovery', [
       createFindingMatch(monitorSummary.accountId, undefined, monitorSummary.accountId),
     ]);
   },

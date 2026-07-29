@@ -7,6 +7,7 @@ const RULE_MESSAGE = 'ECS container instances without a Graviton equivalent in u
 
 /** Flag ECS container instances backed by non-Graviton EC2 families with a clear Arm equivalent. */
 export const ecsGravitonReviewRule = createRule({
+  severity: 'medium',
   id: RULE_ID,
   name: 'ECS Container Instance Without Graviton',
   description:
@@ -26,6 +27,10 @@ export const ecsGravitonReviewRule = createRule({
       )
       .map((instance) => createFindingMatch(instance.containerInstanceArn, instance.region, instance.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
 });

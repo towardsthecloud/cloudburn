@@ -10,6 +10,7 @@ const getInstanceKey = (accountId: string, region: string, dbInstanceIdentifier:
 
 /** Flag available RDS DB instances with sustained low CPU utilization. */
 export const rdsLowCpuUtilizationRule = createRule({
+  severity: 'high',
   id: RULE_ID,
   name: 'RDS DB Instance Low CPU Utilization',
   description: 'Flag available RDS DB instances whose 30-day average CPU stays at or below 10%.',
@@ -49,6 +50,10 @@ export const rdsLowCpuUtilizationRule = createRule({
         return instance ? [createFindingMatch(instance.dbInstanceIdentifier, instance.region, instance.accountId)] : [];
       });
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'high', message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
 });

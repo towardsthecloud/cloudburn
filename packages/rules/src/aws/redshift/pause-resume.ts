@@ -33,6 +33,7 @@ const isStaticPauseResumeEligible = (cluster: {
 
 /** Flag eligible Redshift clusters that do not have both pause and resume schedules. */
 export const redshiftPauseResumeRule = createRule({
+  severity: 'high',
   id: RULE_ID,
   name: 'Redshift Cluster Pause Resume Not Enabled',
   description: 'Flag eligible Redshift clusters that do not have both pause and resume schedules configured.',
@@ -48,7 +49,11 @@ export const redshiftPauseResumeRule = createRule({
       .filter((cluster) => isPauseResumeEligible(cluster) && (!cluster.hasPauseSchedule || !cluster.hasResumeSchedule))
       .map((cluster) => createFindingMatch(cluster.clusterIdentifier, cluster.region, cluster.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'high', message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
   evaluateStatic: ({ resources }) => {
     const findings = resources
@@ -58,6 +63,10 @@ export const redshiftPauseResumeRule = createRule({
       )
       .map((cluster) => createFindingMatch(cluster.resourceId, undefined, undefined, cluster.location));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'iac', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'high', message: RULE_MESSAGE },
+      'iac',
+      findings,
+    );
   },
 });

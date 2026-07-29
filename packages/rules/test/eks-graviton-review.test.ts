@@ -38,6 +38,7 @@ describe('eksGravitonReviewRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-EKS-1',
       service: 'eks',
+      severity: 'medium',
       source: 'discovery',
       message: 'EKS node groups without a Graviton equivalent in use should be reviewed.',
       findings: [
@@ -87,6 +88,7 @@ describe('eksGravitonReviewRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-EKS-1',
       service: 'eks',
+      severity: 'medium',
       source: 'iac',
       message: 'EKS node groups without a Graviton equivalent in use should be reviewed.',
       findings: [

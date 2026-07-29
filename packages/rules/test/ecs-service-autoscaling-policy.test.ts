@@ -72,6 +72,7 @@ describe('ecsServiceAutoscalingPolicyRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-ECS-3',
       service: 'ecs',
+      severity: 'medium',
       source: 'discovery',
       message: 'Active REPLICA ECS services should use an autoscaling policy.',
       findings: [
@@ -127,6 +128,7 @@ describe('ecsServiceAutoscalingPolicyRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-ECS-3',
       service: 'ecs',
+      severity: 'medium',
       source: 'iac',
       message: 'Active REPLICA ECS services should use an autoscaling policy.',
       findings: [
@@ -156,6 +158,7 @@ describe('ecsServiceAutoscalingPolicyRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-ECS-3',
       service: 'ecs',
+      severity: 'medium',
       source: 'iac',
       message: 'Active REPLICA ECS services should use an autoscaling policy.',
       findings: [

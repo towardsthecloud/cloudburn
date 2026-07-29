@@ -39,6 +39,7 @@ describe('lambdaExcessiveTimeoutRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-LAMBDA-3',
       service: 'lambda',
+      severity: 'low',
       source: 'discovery',
       message: 'Lambda functions should not keep timeouts far above their observed average duration.',
       findings: [

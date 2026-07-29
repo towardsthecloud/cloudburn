@@ -38,6 +38,7 @@ describe('rdsManualSnapshotMaxAgeRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-RDS-10',
       service: 'rds',
+      severity: 'medium',
       source: 'discovery',
       message: 'Manual RDS snapshots older than 90 days should be reviewed for cleanup.',
       findings: [

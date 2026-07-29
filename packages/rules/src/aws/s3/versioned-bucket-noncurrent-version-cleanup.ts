@@ -7,6 +7,7 @@ const RULE_MESSAGE = 'Versioned S3 buckets should define noncurrent-version clea
 
 /** Flag versioned S3 buckets that define no noncurrent-version expiration or transition cleanup. */
 export const s3VersionedBucketNoncurrentVersionCleanupRule = createRule({
+  severity: 'medium',
   id: RULE_ID,
   name: 'S3 Versioned Bucket Missing Noncurrent Version Cleanup',
   description:
@@ -22,6 +23,10 @@ export const s3VersionedBucketNoncurrentVersionCleanupRule = createRule({
       .filter((bucket) => hasMissingNoncurrentVersionCleanup(bucket))
       .map((bucket) => createStaticS3BucketFindingMatch(bucket));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'iac', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      'iac',
+      findings,
+    );
   },
 });

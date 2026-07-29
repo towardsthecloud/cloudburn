@@ -30,6 +30,7 @@ describe('ec2LowUtilizationRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-EC2-5',
       service: 'ec2',
+      severity: 'high',
       source: 'discovery',
       message: 'EC2 instances should not remain low utilization for 4 or more of the previous 14 days.',
       findings: [

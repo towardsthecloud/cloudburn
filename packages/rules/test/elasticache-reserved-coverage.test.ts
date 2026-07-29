@@ -53,6 +53,7 @@ describe('elastiCacheReservedCoverageRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-ELASTICACHE-1',
       service: 'elasticache',
+      severity: 'medium',
       source: 'discovery',
       message: 'Long-running ElastiCache clusters should have reserved node coverage.',
       findings: [

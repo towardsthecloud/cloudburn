@@ -70,6 +70,7 @@ describe('CloudBurnClient', () => {
             {
               ruleId: 'CLDBRN-AWS-EBS-1',
               service: 'ebs',
+              severity: 'medium',
               source: 'discovery',
               message: 'EBS volumes should use current-generation storage.',
               findings: [
@@ -114,6 +115,7 @@ describe('CloudBurnClient', () => {
             {
               ruleId: 'CLDBRN-AWS-LAMBDA-1',
               service: 'lambda',
+              severity: 'medium',
               source: 'discovery',
               message: 'Lambda functions should use arm64 architecture when compatible to reduce running costs.',
               findings: [
@@ -168,6 +170,7 @@ describe('CloudBurnClient', () => {
             {
               ruleId: 'CLDBRN-AWS-EC2-1',
               service: 'ec2',
+              severity: 'medium',
               source: 'discovery',
               message: 'EC2 instances should use preferred instance types.',
               findings: [
@@ -222,6 +225,7 @@ describe('CloudBurnClient', () => {
             {
               ruleId: 'CLDBRN-AWS-RDS-1',
               service: 'rds',
+              severity: 'medium',
               source: 'discovery',
               message: 'RDS DB instances should use preferred instance classes.',
               findings: [
@@ -235,6 +239,7 @@ describe('CloudBurnClient', () => {
             {
               ruleId: 'CLDBRN-AWS-RDS-4',
               service: 'rds',
+              severity: 'medium',
               source: 'discovery',
               message: 'RDS DB instances without a Graviton equivalent in use should be reviewed.',
               findings: [
@@ -441,6 +446,7 @@ describe('CloudBurnClient', () => {
             {
               ruleId: 'CLDBRN-AWS-EC2-1',
               service: 'ec2',
+              severity: 'medium',
               source: 'iac',
               message: 'EC2 instances should use preferred instance types.',
               findings: [
@@ -457,6 +463,7 @@ describe('CloudBurnClient', () => {
             {
               ruleId: 'CLDBRN-AWS-EC2-6',
               service: 'ec2',
+              severity: 'medium',
               source: 'iac',
               message: 'EC2 instances without a Graviton equivalent in use should be reviewed.',
               findings: [
@@ -473,6 +480,7 @@ describe('CloudBurnClient', () => {
             {
               ruleId: 'CLDBRN-AWS-EBS-1',
               service: 'ebs',
+              severity: 'medium',
               source: 'iac',
               message: 'EBS volumes should use current-generation storage.',
               findings: [
@@ -489,6 +497,7 @@ describe('CloudBurnClient', () => {
             {
               ruleId: 'CLDBRN-AWS-EBS-4',
               service: 'ebs',
+              severity: 'high',
               source: 'iac',
               message: 'EBS volumes larger than 100 GiB should be reviewed.',
               findings: [
@@ -545,6 +554,7 @@ describe('CloudBurnClient', () => {
             {
               ruleId: 'CLDBRN-AWS-EC2-1',
               service: 'ec2',
+              severity: 'medium',
               source: 'iac',
               message: 'EC2 instances should use preferred instance types.',
               findings: [
@@ -599,6 +609,7 @@ describe('CloudBurnClient', () => {
             {
               ruleId: 'CLDBRN-AWS-EBS-1',
               service: 'ebs',
+              severity: 'medium',
               source: 'iac',
               message: 'EBS volumes should use current-generation storage.',
               findings: [
@@ -640,6 +651,7 @@ describe('CloudBurnClient', () => {
             {
               ruleId: 'CLDBRN-AWS-RDS-1',
               service: 'rds',
+              severity: 'medium',
               source: 'iac',
               message: 'RDS DB instances should use preferred instance classes.',
               findings: [
@@ -656,6 +668,7 @@ describe('CloudBurnClient', () => {
             {
               ruleId: 'CLDBRN-AWS-RDS-4',
               service: 'rds',
+              severity: 'medium',
               source: 'iac',
               message: 'RDS DB instances without a Graviton equivalent in use should be reviewed.',
               findings: [
@@ -689,6 +702,7 @@ describe('CloudBurnClient', () => {
             {
               ruleId: 'CLDBRN-AWS-RDS-1',
               service: 'rds',
+              severity: 'medium',
               source: 'iac',
               message: 'RDS DB instances should use preferred instance classes.',
               findings: [
@@ -713,6 +727,7 @@ describe('CloudBurnClient', () => {
             {
               ruleId: 'CLDBRN-AWS-RDS-4',
               service: 'rds',
+              severity: 'medium',
               source: 'iac',
               message: 'RDS DB instances without a Graviton equivalent in use should be reviewed.',
               findings: [
@@ -746,6 +761,7 @@ describe('CloudBurnClient', () => {
             {
               ruleId: 'CLDBRN-AWS-EC2-2',
               service: 'ec2',
+              severity: 'medium',
               source: 'iac',
               message: 'S3 access inside a VPC should prefer gateway endpoints over interface endpoints when possible.',
               findings: [
@@ -787,6 +803,7 @@ describe('CloudBurnClient', () => {
             {
               ruleId: 'CLDBRN-AWS-LAMBDA-1',
               service: 'lambda',
+              severity: 'medium',
               source: 'iac',
               message: 'Lambda functions should use arm64 architecture when compatible to reduce running costs.',
               findings: [
@@ -828,6 +845,7 @@ describe('CloudBurnClient', () => {
             {
               ruleId: 'CLDBRN-AWS-APIGATEWAY-1',
               service: 'apigateway',
+              severity: 'medium',
               source: 'iac',
               message: 'API Gateway REST API stages should enable caching when stage caching is available.',
               findings: [
@@ -844,6 +862,7 @@ describe('CloudBurnClient', () => {
             {
               ruleId: 'CLDBRN-AWS-CLOUDFRONT-1',
               service: 'cloudfront',
+              severity: 'medium',
               source: 'iac',
               message: 'CloudFront distributions using PriceClass_All should be reviewed for cheaper edge coverage.',
               findings: [
@@ -860,6 +879,7 @@ describe('CloudBurnClient', () => {
             {
               ruleId: 'CLDBRN-AWS-CLOUDWATCH-1',
               service: 'cloudwatch',
+              severity: 'low',
               source: 'iac',
               message:
                 'CloudWatch log groups should define a retention policy unless AWS manages lifecycle automatically.',
@@ -894,6 +914,7 @@ describe('CloudBurnClient', () => {
             {
               ruleId: 'CLDBRN-AWS-DYNAMODB-2',
               service: 'dynamodb',
+              severity: 'medium',
               source: 'iac',
               message: 'Provisioned-capacity DynamoDB tables should use auto-scaling.',
               findings: [
@@ -910,6 +931,7 @@ describe('CloudBurnClient', () => {
             {
               ruleId: 'CLDBRN-AWS-EC2-3',
               service: 'ec2',
+              severity: 'low',
               source: 'iac',
               message: 'Elastic IP addresses should not remain unassociated.',
               findings: [
@@ -943,6 +965,7 @@ describe('CloudBurnClient', () => {
             {
               ruleId: 'CLDBRN-AWS-EKS-1',
               service: 'eks',
+              severity: 'medium',
               source: 'iac',
               message: 'EKS node groups without a Graviton equivalent in use should be reviewed.',
               findings: [
@@ -959,6 +982,7 @@ describe('CloudBurnClient', () => {
             {
               ruleId: 'CLDBRN-AWS-EMR-1',
               service: 'emr',
+              severity: 'medium',
               source: 'iac',
               message: 'EMR clusters using previous-generation instance types should be reviewed.',
               findings: [
@@ -992,6 +1016,7 @@ describe('CloudBurnClient', () => {
             {
               ruleId: 'CLDBRN-AWS-ROUTE53-1',
               service: 'route53',
+              severity: 'low',
               source: 'iac',
               message: 'Route 53 record sets should generally use TTL values of at least 3600 seconds.',
               findings: [
@@ -1008,6 +1033,7 @@ describe('CloudBurnClient', () => {
             {
               ruleId: 'CLDBRN-AWS-ROUTE53-2',
               service: 'route53',
+              severity: 'low',
               source: 'iac',
               message: 'Route 53 health checks not associated with any DNS record should be deleted.',
               findings: [
@@ -1041,6 +1067,7 @@ describe('CloudBurnClient', () => {
             {
               ruleId: 'CLDBRN-AWS-S3-1',
               service: 's3',
+              severity: 'medium',
               source: 'iac',
               message: 'S3 buckets should define lifecycle management policies.',
               findings: [
@@ -1065,6 +1092,7 @@ describe('CloudBurnClient', () => {
             {
               ruleId: 'CLDBRN-AWS-S3-2',
               service: 's3',
+              severity: 'medium',
               source: 'iac',
               message:
                 'S3 buckets with lifecycle management should match object access patterns to the right storage class.',
@@ -1090,6 +1118,7 @@ describe('CloudBurnClient', () => {
             {
               ruleId: 'CLDBRN-AWS-S3-3',
               service: 's3',
+              severity: 'low',
               source: 'iac',
               message: 'S3 buckets should abort incomplete multipart uploads within 7 days.',
               findings: [

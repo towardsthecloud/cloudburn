@@ -54,6 +54,7 @@ describe('s3MissingLifecycleConfigRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-S3-1',
       service: 's3',
+      severity: 'medium',
       source: 'discovery',
       message: 'S3 buckets should define lifecycle management policies.',
       findings: [
@@ -76,6 +77,7 @@ describe('s3MissingLifecycleConfigRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-S3-1',
       service: 's3',
+      severity: 'medium',
       source: 'iac',
       message: 'S3 buckets should define lifecycle management policies.',
       findings: [
@@ -110,6 +112,7 @@ describe('s3MissingLifecycleConfigRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-S3-1',
       service: 's3',
+      severity: 'medium',
       source: 'iac',
       message: 'S3 buckets should define lifecycle management policies.',
       findings: [
@@ -195,6 +198,7 @@ describe('s3MissingLifecycleConfigRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-S3-1',
       service: 's3',
+      severity: 'medium',
       source: 'iac',
       message: 'S3 buckets should define lifecycle management policies.',
       findings: [
@@ -256,6 +260,7 @@ describe('s3MissingLifecycleConfigRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-S3-1',
       service: 's3',
+      severity: 'medium',
       source: 'iac',
       message: 'S3 buckets should define lifecycle management policies.',
       findings: [

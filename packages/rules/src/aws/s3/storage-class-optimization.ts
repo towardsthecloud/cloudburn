@@ -12,6 +12,7 @@ const RULE_MESSAGE =
 
 /** Flag lifecycle-managed S3 buckets that keep data on Standard without explicit storage-class optimization. */
 export const s3StorageClassOptimizationRule = createRule({
+  severity: 'medium',
   id: RULE_ID,
   name: 'S3 Bucket Storage Class Not Optimized',
   description:
@@ -28,7 +29,11 @@ export const s3StorageClassOptimizationRule = createRule({
       .filter((bucket) => hasMissingStorageClassOptimization(bucket))
       .map((bucket) => createLiveS3BucketFindingMatch(bucket));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
   evaluateStatic: ({ resources }) => {
     const findings = resources
@@ -36,6 +41,10 @@ export const s3StorageClassOptimizationRule = createRule({
       .filter((bucket) => hasMissingStorageClassOptimization(bucket))
       .map((bucket) => createStaticS3BucketFindingMatch(bucket));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'iac', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      'iac',
+      findings,
+    );
   },
 });

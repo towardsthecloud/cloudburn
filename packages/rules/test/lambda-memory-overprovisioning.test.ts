@@ -40,6 +40,7 @@ describe('lambdaMemoryOverprovisioningRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-LAMBDA-4',
       service: 'lambda',
+      severity: 'medium',
       source: 'discovery',
       message: 'Lambda functions should not keep memory far above their observed execution needs.',
       findings: [

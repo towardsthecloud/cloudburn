@@ -11,6 +11,7 @@ const RULE_MESSAGE = 'S3 buckets should define lifecycle management policies.';
 
 /** Flag S3 buckets that lack an enabled lifecycle rule with transition or expiration behavior. */
 export const s3MissingLifecycleConfigRule = createRule({
+  severity: 'medium',
   id: RULE_ID,
   name: 'S3 Bucket Missing Lifecycle Configuration',
   description: 'Ensure S3 buckets define lifecycle management policies.',
@@ -26,7 +27,11 @@ export const s3MissingLifecycleConfigRule = createRule({
       .filter((bucket) => hasMissingLifecycleConfiguration(bucket))
       .map((bucket) => createLiveS3BucketFindingMatch(bucket));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
   evaluateStatic: ({ resources }) => {
     const findings = resources
@@ -34,6 +39,10 @@ export const s3MissingLifecycleConfigRule = createRule({
       .filter((bucket) => hasMissingLifecycleConfiguration(bucket))
       .map((bucket) => createStaticS3BucketFindingMatch(bucket));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'iac', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      'iac',
+      findings,
+    );
   },
 });

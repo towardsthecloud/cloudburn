@@ -37,6 +37,7 @@ describe('emrPreviousGenerationInstanceTypeRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-EMR-1',
       service: 'emr',
+      severity: 'medium',
       source: 'discovery',
       message: 'EMR clusters using previous-generation instance types should be reviewed.',
       findings: [
@@ -95,6 +96,7 @@ describe('emrPreviousGenerationInstanceTypeRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-EMR-1',
       service: 'emr',
+      severity: 'medium',
       source: 'iac',
       message: 'EMR clusters using previous-generation instance types should be reviewed.',
       findings: [

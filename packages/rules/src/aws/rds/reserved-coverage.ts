@@ -66,6 +66,7 @@ const consumeCoverage = (
 
 /** Flag long-running RDS DB instances that lack active reserved-instance coverage. */
 export const rdsReservedCoverageRule = createRule({
+  severity: 'high',
   id: RULE_ID,
   name: 'RDS DB Instance Missing Reserved Coverage',
   description: 'Flag long-running RDS DB instances that do not have matching active reserved-instance coverage.',
@@ -118,6 +119,10 @@ export const rdsReservedCoverageRule = createRule({
       })
       .map((instance) => createFindingMatch(instance.dbInstanceIdentifier, instance.region, instance.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'high', message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
 });

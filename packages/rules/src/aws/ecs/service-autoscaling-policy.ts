@@ -8,6 +8,7 @@ const createStaticScopeKey = (clusterName: string, serviceName: string): string 
 
 /** Flag active REPLICA ECS services that are missing autoscaling coverage. */
 export const ecsServiceAutoscalingPolicyRule = createRule({
+  severity: 'medium',
   id: RULE_ID,
   name: 'ECS Service Missing Autoscaling Policy',
   description:
@@ -33,7 +34,11 @@ export const ecsServiceAutoscalingPolicyRule = createRule({
       })
       .map((service) => createFindingMatch(service.serviceArn, service.region, service.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
   evaluateStatic: ({ resources }) => {
     const autoscalingByService = new Map(
@@ -57,6 +62,10 @@ export const ecsServiceAutoscalingPolicyRule = createRule({
       })
       .map((service) => createFindingMatch(service.resourceId, undefined, undefined, service.location));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'iac', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      'iac',
+      findings,
+    );
   },
 });

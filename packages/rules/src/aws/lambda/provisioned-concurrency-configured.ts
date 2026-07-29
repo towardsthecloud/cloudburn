@@ -6,6 +6,7 @@ const RULE_MESSAGE = 'Lambda provisioned concurrency should be reviewed for stea
 
 /** Flag explicit Lambda provisioned concurrency configuration. */
 export const lambdaProvisionedConcurrencyConfiguredRule = createRule({
+  severity: 'high',
   id: RULE_ID,
   name: 'Lambda Provisioned Concurrency Configured',
   description: 'Flag explicit Lambda provisioned concurrency configuration for cost review.',
@@ -20,6 +21,10 @@ export const lambdaProvisionedConcurrencyConfiguredRule = createRule({
       .filter((config) => config.provisionedConcurrentExecutions !== null && config.provisionedConcurrentExecutions > 0)
       .map((config) => createFindingMatch(config.resourceId, undefined, undefined, config.location));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'iac', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'high', message: RULE_MESSAGE },
+      'iac',
+      findings,
+    );
   },
 });

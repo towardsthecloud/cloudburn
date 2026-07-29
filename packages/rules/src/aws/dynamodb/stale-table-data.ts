@@ -9,6 +9,7 @@ const STALE_DATA_DAYS = 90;
 
 /** Flag DynamoDB tables whose latest observed change is older than the stale-data threshold. */
 export const dynamoDbStaleTableDataRule = createRule({
+  severity: 'medium',
   id: RULE_ID,
   name: 'DynamoDB Table Stale Data',
   description: 'Flag DynamoDB tables with no data changes exceeding a threshold (default 90 days).',
@@ -32,6 +33,10 @@ export const dynamoDbStaleTableDataRule = createRule({
       })
       .map((table) => createFindingMatch(table.tableArn, table.region, table.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
 });

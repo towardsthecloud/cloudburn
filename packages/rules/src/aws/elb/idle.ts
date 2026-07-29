@@ -7,6 +7,7 @@ const RULE_MESSAGE = 'Load balancers with consistently low request volume should
 
 /** Flag load balancers with low 14-day request activity unless a stricter empty-target rule already covers them. */
 export const elbIdleRule = createRule({
+  severity: 'medium',
   id: RULE_ID,
   name: 'Load Balancer Idle',
   description: 'Flag load balancers whose 14-day average request count stays below 10 requests per day.',
@@ -44,6 +45,10 @@ export const elbIdleRule = createRule({
           : [createFindingMatch(loadBalancer.loadBalancerArn, loadBalancer.region, loadBalancer.accountId)];
       });
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
 });

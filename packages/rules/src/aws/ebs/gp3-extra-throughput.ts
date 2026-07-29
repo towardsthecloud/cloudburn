@@ -6,6 +6,7 @@ const RULE_MESSAGE = 'EBS gp3 volumes should avoid paid throughput above the inc
 
 /** Flag gp3 volumes that provision throughput above the included 125 MiB/s baseline. */
 export const ebsGp3ExtraThroughputRule = createRule({
+  severity: 'medium',
   id: RULE_ID,
   name: 'EBS gp3 Volume Extra Throughput Provisioned',
   description: 'Flag gp3 volumes that provision throughput above the included 125 MiB/s baseline.',
@@ -23,6 +24,10 @@ export const ebsGp3ExtraThroughputRule = createRule({
       )
       .map((volume) => createFindingMatch(volume.resourceId, undefined, undefined, volume.location));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'iac', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      'iac',
+      findings,
+    );
   },
 });

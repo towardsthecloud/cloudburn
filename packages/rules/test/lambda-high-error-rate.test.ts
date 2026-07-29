@@ -39,6 +39,7 @@ describe('lambdaHighErrorRateRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-LAMBDA-2',
       service: 'lambda',
+      severity: 'low',
       source: 'discovery',
       message: 'Lambda functions should not sustain an error rate above 10% over the last 7 days.',
       findings: [

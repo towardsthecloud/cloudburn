@@ -8,6 +8,7 @@ const LOW_CPU_THRESHOLD = 10;
 
 /** Flag ECS clusters with sustained low average CPU utilization. */
 export const ecsLowCpuUtilizationRule = createRule({
+  severity: 'high',
   id: RULE_ID,
   name: 'ECS Cluster Low CPU Utilization',
   description: 'Flag ECS clusters whose average CPU utilization stays below 10% over the previous 14 days.',
@@ -32,6 +33,10 @@ export const ecsLowCpuUtilizationRule = createRule({
       })
       .map((cluster) => createFindingMatch(cluster.clusterArn, cluster.region, cluster.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'high', message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
 });

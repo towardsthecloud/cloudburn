@@ -34,6 +34,7 @@ describe('ec2LargeInstanceRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-EC2-8',
       service: 'ec2',
+      severity: 'high',
       source: 'discovery',
       message: 'EC2 large instances of 2xlarge or greater should be reviewed.',
       findings: [
@@ -56,6 +57,7 @@ describe('ec2LargeInstanceRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-EC2-8',
       service: 'ec2',
+      severity: 'high',
       source: 'iac',
       message: 'EC2 large instances of 2xlarge or greater should be reviewed.',
       findings: [

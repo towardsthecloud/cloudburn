@@ -124,6 +124,7 @@ const consumeCoverage = (
 
 /** Flag long-running ElastiCache clusters that lack reserved-node coverage. */
 export const elastiCacheReservedCoverageRule = createRule({
+  severity: 'medium',
   id: RULE_ID,
   name: 'ElastiCache Cluster Missing Reserved Coverage',
   description: 'Flag long-running ElastiCache clusters that do not have matching active reserved-node coverage.',
@@ -189,6 +190,10 @@ export const elastiCacheReservedCoverageRule = createRule({
       })
       .map((cluster) => createFindingMatch(cluster.cacheClusterId, cluster.region, cluster.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
 });

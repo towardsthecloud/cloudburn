@@ -35,6 +35,7 @@ describe('ebsSnapshotMaxAgeRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-EBS-7',
       service: 'ebs',
+      severity: 'medium',
       source: 'discovery',
       message: 'EBS snapshots older than 90 days should be reviewed.',
       findings: [

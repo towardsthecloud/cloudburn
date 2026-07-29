@@ -63,6 +63,7 @@ const supportedOutputFormats: readonly OutputFormat[] = ['json', 'table'] as con
 const scanColumns: ColumnSpec[] = [
   { key: 'provider', header: 'Provider' },
   { key: 'ruleId', header: 'RuleId' },
+  { key: 'severity', header: 'Severity' },
   { key: 'source', header: 'Source' },
   { key: 'service', header: 'Service' },
   { key: 'resourceId', header: 'ResourceId' },
@@ -88,6 +89,7 @@ const ruleListColumns: ColumnSpec[] = [
   { key: 'ruleId', header: 'RuleId' },
   { key: 'provider', header: 'Provider' },
   { key: 'service', header: 'Service' },
+  { key: 'severity', header: 'Severity' },
   { key: 'supports', header: 'Supports' },
   { key: 'name', header: 'Name' },
   { key: 'description', header: 'Description' },
@@ -222,7 +224,7 @@ const renderTable = (response: CliResponse): string => {
 };
 
 const projectFindingRows = (result: ScanResult): RecordRow[] =>
-  flattenScanResult(result).map(({ finding, message, provider, ruleId, service, source }) => ({
+  flattenScanResult(result).map(({ finding, message, provider, ruleId, service, severity, source }) => ({
     accountId: finding.accountId ?? '',
     message,
     path: finding.location?.path ?? '',
@@ -231,6 +233,7 @@ const projectFindingRows = (result: ScanResult): RecordRow[] =>
     resourceId: finding.resourceId,
     ruleId,
     service,
+    severity,
     source,
     column: finding.location?.column ?? '',
     line: finding.location?.line ?? '',
@@ -266,6 +269,7 @@ const renderRuleTable = (rules: BuiltInRuleMetadata[], emptyMessage: string): st
       provider: rule.provider,
       ruleId: rule.id,
       service: rule.service,
+      severity: rule.severity,
       supports: rule.supports,
     })),
     ruleListColumns,

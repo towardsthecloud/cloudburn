@@ -11,6 +11,7 @@ const getFunctionKey = (accountId: string, region: string, functionName: string)
 
 /** Flag Lambda functions whose configured memory stays well above observed execution needs. */
 export const lambdaMemoryOverprovisioningRule = createRule({
+  severity: 'medium',
   id: RULE_ID,
   name: 'Lambda Function Memory Overprovisioned',
   description:
@@ -47,6 +48,10 @@ export const lambdaMemoryOverprovisioningRule = createRule({
       })
       .map((fn) => createFindingMatch(fn.functionName, fn.region, fn.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
 });

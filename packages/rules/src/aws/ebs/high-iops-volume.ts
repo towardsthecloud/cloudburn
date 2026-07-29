@@ -17,6 +17,7 @@ const hasHighProvisionedIops = (volumeType: string | null | undefined, iops: num
 
 /** Flag io1 and io2 EBS volumes provisioned above the high-IOPS threshold. */
 export const ebsHighIopsVolumeRule = createRule({
+  severity: 'high',
   id: RULE_ID,
   name: 'EBS Volume High Provisioned IOPS',
   description: 'Flag io1 and io2 EBS volumes with provisioned IOPS above 32000.',
@@ -32,7 +33,11 @@ export const ebsHighIopsVolumeRule = createRule({
       .filter((volume) => hasHighProvisionedIops(volume.volumeType, volume.iops))
       .map((volume) => createFindingMatch(volume.volumeId, volume.region, volume.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'high', message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
   evaluateStatic: ({ resources }) => {
     const findings = resources
@@ -40,6 +45,10 @@ export const ebsHighIopsVolumeRule = createRule({
       .filter((volume) => hasHighProvisionedIops(volume.volumeType, volume.iops))
       .map((volume) => createFindingMatch(volume.resourceId, undefined, undefined, volume.location));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'iac', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'high', message: RULE_MESSAGE },
+      'iac',
+      findings,
+    );
   },
 });

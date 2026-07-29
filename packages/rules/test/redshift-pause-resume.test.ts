@@ -52,6 +52,7 @@ describe('redshiftPauseResumeRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-REDSHIFT-3',
       service: 'redshift',
+      severity: 'high',
       source: 'discovery',
       message: 'Redshift clusters should enable both pause and resume schedules when eligible.',
       findings: [
@@ -97,6 +98,7 @@ describe('redshiftPauseResumeRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-REDSHIFT-3',
       service: 'redshift',
+      severity: 'high',
       source: 'iac',
       message: 'Redshift clusters should enable both pause and resume schedules when eligible.',
       findings: [

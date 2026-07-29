@@ -6,6 +6,7 @@ const RULE_MESSAGE = 'EC2 instances should not remain low utilization for 4 or m
 
 /** Flag EC2 instances that match the low-utilization heuristic. */
 export const ec2LowUtilizationRule = createRule({
+  severity: 'high',
   id: RULE_ID,
   name: 'EC2 Instance Low Utilization',
   description:
@@ -21,6 +22,10 @@ export const ec2LowUtilizationRule = createRule({
       .filter((instance) => instance.lowUtilizationDays >= 4)
       .map((instance) => createFindingMatch(instance.instanceId, instance.region, instance.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'high', message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
 });

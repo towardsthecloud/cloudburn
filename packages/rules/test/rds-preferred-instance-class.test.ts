@@ -57,6 +57,7 @@ describe('rdsPreferredInstanceClassRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-RDS-1',
       service: 'rds',
+      severity: 'medium',
       source: 'discovery',
       message: 'RDS DB instances should use preferred instance classes.',
       findings: [
@@ -86,6 +87,7 @@ describe('rdsPreferredInstanceClassRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-RDS-1',
       service: 'rds',
+      severity: 'medium',
       source: 'iac',
       message: 'RDS DB instances should use preferred instance classes.',
       findings: [
@@ -121,6 +123,7 @@ describe('rdsPreferredInstanceClassRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-RDS-1',
       service: 'rds',
+      severity: 'medium',
       source: 'iac',
       message: 'RDS DB instances should use preferred instance classes.',
       findings: [

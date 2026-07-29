@@ -10,6 +10,7 @@ const UNUSED_SECRET_DAYS = 90;
 
 /** Flag Secrets Manager secrets that have never been used or have gone unused for the default threshold. */
 export const secretsManagerSecretUnusedRule = createRule({
+  severity: 'low',
   id: RULE_ID,
   name: 'Secrets Manager Secret Unused',
   description: 'Flag Secrets Manager secrets not accessed within a threshold (default 90 days).',
@@ -32,6 +33,10 @@ export const secretsManagerSecretUnusedRule = createRule({
       })
       .map((secret) => createFindingMatch(secret.secretArn, secret.region, secret.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'low', message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
 });

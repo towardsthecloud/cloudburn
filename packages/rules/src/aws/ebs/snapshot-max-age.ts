@@ -19,6 +19,7 @@ const isOlderThanMaxAge = (startTime: string | undefined, now: number): boolean 
 
 /** Flag completed EBS snapshots that are older than the max-age threshold. */
 export const ebsSnapshotMaxAgeRule = createRule({
+  severity: 'medium',
   id: RULE_ID,
   name: 'EBS Snapshot Max Age Exceeded',
   description: 'Flag completed EBS snapshots older than 90 days.',
@@ -34,6 +35,10 @@ export const ebsSnapshotMaxAgeRule = createRule({
       .filter((snapshot) => snapshot.state === 'completed' && isOlderThanMaxAge(snapshot.startTime, now))
       .map((snapshot) => createFindingMatch(snapshot.snapshotId, snapshot.region, snapshot.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
 });

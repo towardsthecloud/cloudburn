@@ -55,6 +55,7 @@ import type {
   FindingMatch,
   LiveResourceBag,
   Rule,
+  Severity,
   Source,
   SourceLocation,
   StaticDatasetKey,
@@ -86,7 +87,10 @@ export type RuleConfig = CloudBurnModeConfig;
 export type ScanSource = Source;
 
 /** Serializable metadata surfaced for built-in rules in SDK and CLI inspection commands. */
-export type BuiltInRuleMetadata = Pick<Rule, 'id' | 'name' | 'description' | 'provider' | 'service' | 'supports'>;
+export type BuiltInRuleMetadata = Pick<
+  Rule,
+  'id' | 'name' | 'description' | 'provider' | 'service' | 'severity' | 'supports'
+>;
 
 /** Selects how a live AWS discovery resolves its search region or index scope. */
 export type AwsDiscoveryTarget =
@@ -261,6 +265,7 @@ export type {
   FindingMatch,
   LiveResourceBag,
   Rule,
+  Severity,
   Source,
   SourceLocation,
   StaticDatasetKey,

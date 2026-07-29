@@ -103,6 +103,7 @@ export type {
   LiveEvaluationContext,
   Rule,
   ScanSource,
+  Severity,
   Source,
   SourceLocation,
   StaticDatasetKey,

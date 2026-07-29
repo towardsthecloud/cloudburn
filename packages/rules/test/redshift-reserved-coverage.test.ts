@@ -57,6 +57,7 @@ describe('redshiftReservedCoverageRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-REDSHIFT-2',
       service: 'redshift',
+      severity: 'high',
       source: 'discovery',
       message: 'Long-running Redshift clusters should have reserved node coverage.',
       findings: [

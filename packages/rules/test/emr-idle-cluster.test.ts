@@ -40,6 +40,7 @@ describe('emrIdleClusterRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-EMR-2',
       service: 'emr',
+      severity: 'high',
       source: 'discovery',
       message: 'EMR clusters idle for more than 30 minutes should be reviewed.',
       findings: [

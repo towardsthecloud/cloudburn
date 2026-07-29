@@ -9,6 +9,7 @@ const hasFixedRange = (minCapacity: number | null | undefined, maxCapacity: numb
 
 /** Flag provisioned-capacity DynamoDB tables whose table autoscaling min and max capacity are identical. */
 export const dynamoDbAutoscalingRangeFixedRule = createRule({
+  severity: 'medium',
   id: RULE_ID,
   name: 'DynamoDB Autoscaling Range Fixed',
   description: 'Flag provisioned-capacity DynamoDB tables whose table autoscaling min and max capacity are identical.',
@@ -41,6 +42,10 @@ export const dynamoDbAutoscalingRangeFixedRule = createRule({
       })
       .map((table) => createFindingMatch(table.resourceId, undefined, undefined, table.location));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'iac', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      'iac',
+      findings,
+    );
   },
 });

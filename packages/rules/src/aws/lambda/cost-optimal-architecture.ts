@@ -20,6 +20,7 @@ const getArchitectureState = (architectures: unknown): ArchitectureState => {
 
 /** Flag Lambda functions that are not configured for arm64, as an advisory when compatible. */
 export const lambdaCostOptimalArchitectureRule = createRule({
+  severity: 'medium',
   id: RULE_ID,
   name: 'Lambda Function Not Using Cost-Optimal Architecture',
   description: 'Recommend arm64 architecture when compatible.',
@@ -35,7 +36,11 @@ export const lambdaCostOptimalArchitectureRule = createRule({
       .filter((fn) => !fn.architectures.includes('arm64'))
       .map((fn) => createFindingMatch(fn.functionName, fn.region, fn.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
   evaluateStatic: ({ resources }) => {
     const findings = resources
@@ -43,6 +48,10 @@ export const lambdaCostOptimalArchitectureRule = createRule({
       .filter((fn) => getArchitectureState(fn.architectures) === 'non-arm64')
       .map((fn) => createFindingMatch(fn.resourceId, undefined, undefined, fn.location));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'iac', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      'iac',
+      findings,
+    );
   },
 });

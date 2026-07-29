@@ -6,6 +6,7 @@ const RULE_MESSAGE = 'AWS Budgets whose actual spend exceeds their configured li
 
 /** Flag configured AWS Budgets whose actual spend strictly exceeds their limit. */
 export const costGuardrailExceededBudgetsRule = createRule({
+  severity: 'high',
   id: RULE_ID,
   name: 'AWS Budget Limit Exceeded',
   description: 'Flag AWS Budgets whose actual spend is greater than their configured limit.',
@@ -25,6 +26,10 @@ export const costGuardrailExceededBudgetsRule = createRule({
       .filter((budget) => budget.actualSpend > budget.budgetLimit)
       .map((budget) => createFindingMatch(`budget/${budget.budgetName}`, undefined, budgetSummary.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'high', message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
 });

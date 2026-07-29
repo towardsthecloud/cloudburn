@@ -76,6 +76,7 @@ export type {
   ScanDiagnostic,
   ScanResult,
   ScanSource,
+  Severity,
   Source,
   SourceLocation,
 } from './types.js';

@@ -61,6 +61,7 @@ describe('ebsVolumeTypeCurrentGenRule', () => {
       expect(finding).toEqual({
         ruleId: 'CLDBRN-AWS-EBS-1',
         service: 'ebs',
+        severity: 'medium',
         source: 'discovery',
         message: 'EBS volumes should use current-generation storage.',
         findings: [
@@ -83,6 +84,7 @@ describe('ebsVolumeTypeCurrentGenRule', () => {
       expect(finding).toEqual({
         ruleId: 'CLDBRN-AWS-EBS-1',
         service: 'ebs',
+        severity: 'medium',
         source: 'iac',
         message: 'EBS volumes should use current-generation storage.',
         findings: [
@@ -119,6 +121,7 @@ describe('ebsVolumeTypeCurrentGenRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-EBS-1',
       service: 'ebs',
+      severity: 'medium',
       source: 'iac',
       message: 'EBS volumes should use current-generation storage.',
       findings: [

@@ -9,6 +9,7 @@ const isPreviousGenerationEbsVolumeType = (volumeType: string | null | undefined
   volumeType !== null && volumeType !== undefined && PREVIOUS_GENERATION_EBS_VOLUME_TYPES.has(volumeType);
 
 export const ebsVolumeTypeCurrentGenRule = createRule({
+  severity: 'medium',
   id: RULE_ID,
   name: 'EBS Volume Type Not Current Generation',
   description: 'Flag EBS volumes using previous-generation storage types when a current-generation replacement exists.',
@@ -28,6 +29,7 @@ export const ebsVolumeTypeCurrentGenRule = createRule({
       {
         id: RULE_ID,
         service: RULE_SERVICE,
+        severity: 'medium',
         message: RULE_MESSAGE,
       },
       'discovery',
@@ -44,6 +46,7 @@ export const ebsVolumeTypeCurrentGenRule = createRule({
       {
         id: RULE_ID,
         service: RULE_SERVICE,
+        severity: 'medium',
         message: RULE_MESSAGE,
       },
       'iac',

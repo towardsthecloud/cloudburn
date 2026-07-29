@@ -27,6 +27,7 @@ describe('ebsGp3ExtraIopsRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-EBS-9',
       service: 'ebs',
+      severity: 'medium',
       source: 'iac',
       message: 'EBS gp3 volumes should avoid paid IOPS above the included baseline unless required.',
       findings: [

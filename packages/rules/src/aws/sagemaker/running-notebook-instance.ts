@@ -6,6 +6,7 @@ const RULE_MESSAGE = 'SageMaker notebook instances should not remain running whe
 
 /** Flag SageMaker notebook instances that are currently in service. */
 export const sagemakerRunningNotebookInstanceRule = createRule({
+  severity: 'high',
   id: RULE_ID,
   name: 'SageMaker Notebook Instance Running',
   description: 'Flag SageMaker notebook instances whose status remains InService.',
@@ -20,6 +21,10 @@ export const sagemakerRunningNotebookInstanceRule = createRule({
       .filter((instance) => instance.notebookInstanceStatus === 'InService')
       .map((instance) => createFindingMatch(instance.notebookInstanceName, instance.region, instance.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'high', message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
 });

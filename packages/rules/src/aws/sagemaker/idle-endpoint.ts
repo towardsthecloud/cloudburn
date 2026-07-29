@@ -10,6 +10,7 @@ const ENDPOINT_IDLE_WINDOW_DAYS = 14;
 
 /** Flag SageMaker endpoints that are in service, old enough, and idle for 14 days. */
 export const sagemakerIdleEndpointRule = createRule({
+  severity: 'high',
   id: RULE_ID,
   name: 'SageMaker Endpoint Idle',
   description: 'Flag SageMaker endpoints in service whose 14-day invocation total is zero.',
@@ -37,6 +38,10 @@ export const sagemakerIdleEndpointRule = createRule({
       })
       .map((endpoint) => createFindingMatch(endpoint.endpointName, endpoint.region, endpoint.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'high', message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
 });

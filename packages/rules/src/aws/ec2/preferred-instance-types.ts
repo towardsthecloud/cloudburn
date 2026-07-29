@@ -21,6 +21,7 @@ const getPreferredInstanceState = (instanceType: unknown): 'preferred' | 'non-pr
 
 /** Flag direct EC2 instances that do not use the curated preferred instance families. */
 export const ec2PreferredInstanceTypeRule = createRule({
+  severity: 'medium',
   id: RULE_ID,
   name: 'EC2 Instance Type Not Preferred',
   description: 'Flag direct EC2 instances that do not use curated preferred instance types.',
@@ -36,7 +37,11 @@ export const ec2PreferredInstanceTypeRule = createRule({
       .filter((instance) => getPreferredInstanceState(instance.instanceType) === 'non-preferred')
       .map((instance) => createFindingMatch(instance.instanceId, instance.region, instance.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
   evaluateStatic: ({ resources }) => {
     const findings = resources
@@ -44,6 +49,10 @@ export const ec2PreferredInstanceTypeRule = createRule({
       .filter((instance) => getPreferredInstanceState(instance.instanceType) === 'non-preferred')
       .map((instance) => createFindingMatch(instance.resourceId, undefined, undefined, instance.location));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'iac', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      'iac',
+      findings,
+    );
   },
 });

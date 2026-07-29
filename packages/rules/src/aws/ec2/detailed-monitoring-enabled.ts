@@ -6,6 +6,7 @@ const RULE_MESSAGE = 'EC2 instances should review detailed monitoring because it
 
 /** Flag EC2 instances that explicitly enable detailed monitoring. */
 export const ec2DetailedMonitoringEnabledRule = createRule({
+  severity: 'low',
   id: RULE_ID,
   name: 'EC2 Instance Detailed Monitoring Enabled',
   description: 'Flag EC2 instances that explicitly enable detailed monitoring.',
@@ -20,6 +21,10 @@ export const ec2DetailedMonitoringEnabledRule = createRule({
       .filter((instance) => instance.detailedMonitoringEnabled)
       .map((instance) => createFindingMatch(instance.resourceId, undefined, undefined, instance.location));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'iac', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'low', message: RULE_MESSAGE },
+      'iac',
+      findings,
+    );
   },
 });

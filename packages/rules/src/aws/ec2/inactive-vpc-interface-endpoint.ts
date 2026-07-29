@@ -6,6 +6,7 @@ const RULE_MESSAGE = 'Interface VPC endpoints should process traffic or be remov
 
 /** Flag interface VPC endpoints that have processed no traffic in the last 30 days. */
 export const ec2InactiveVpcInterfaceEndpointRule = createRule({
+  severity: 'medium',
   id: RULE_ID,
   name: 'VPC Interface Endpoint Inactive',
   description: 'Flag interface VPC endpoints that have processed no traffic in the last 30 days.',
@@ -20,6 +21,10 @@ export const ec2InactiveVpcInterfaceEndpointRule = createRule({
       .filter((endpoint) => endpoint.bytesProcessedLast30Days === 0)
       .map((endpoint) => createFindingMatch(endpoint.vpcEndpointId, endpoint.region, endpoint.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
 });

@@ -19,6 +19,7 @@ const isGp3MigrationCandidate = (volumeType: string | null | undefined, iops: nu
 
 /** Flag io1 and io2 EBS volumes that fall within the gp3 migration IOPS heuristic. */
 export const ebsLowIopsVolumeRule = createRule({
+  severity: 'medium',
   id: RULE_ID,
   name: 'EBS Volume Low Provisioned IOPS On io1/io2',
   description: 'Flag io1 and io2 EBS volumes at 16000 IOPS or below as gp3 review candidates.',
@@ -34,7 +35,11 @@ export const ebsLowIopsVolumeRule = createRule({
       .filter((volume) => isGp3MigrationCandidate(volume.volumeType, volume.iops))
       .map((volume) => createFindingMatch(volume.volumeId, volume.region, volume.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
   evaluateStatic: ({ resources }) => {
     const findings = resources
@@ -42,6 +47,10 @@ export const ebsLowIopsVolumeRule = createRule({
       .filter((volume) => isGp3MigrationCandidate(volume.volumeType, volume.iops))
       .map((volume) => createFindingMatch(volume.resourceId, undefined, undefined, volume.location));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'iac', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      'iac',
+      findings,
+    );
   },
 });

@@ -11,6 +11,7 @@ const getFunctionKey = (accountId: string, region: string, functionName: string)
 
 /** Flag Lambda functions whose configured timeout far exceeds observed average execution time. */
 export const lambdaExcessiveTimeoutRule = createRule({
+  severity: 'low',
   id: RULE_ID,
   name: 'Lambda Function Excessive Timeout',
   description:
@@ -42,6 +43,10 @@ export const lambdaExcessiveTimeoutRule = createRule({
       })
       .map((fn) => createFindingMatch(fn.functionName, fn.region, fn.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'low', message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
 });

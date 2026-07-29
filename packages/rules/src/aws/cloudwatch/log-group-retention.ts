@@ -12,6 +12,7 @@ const hasMissingRetention = (
 
 /** Flag CloudWatch log groups that do not define retention and are not delivery-managed. */
 export const cloudWatchLogGroupRetentionRule = createRule({
+  severity: 'low',
   id: RULE_ID,
   name: 'CloudWatch Log Group Missing Retention',
   description: 'Flag CloudWatch log groups that do not define retention and are not delivery-managed.',
@@ -27,7 +28,11 @@ export const cloudWatchLogGroupRetentionRule = createRule({
       .filter((logGroup) => hasMissingRetention(logGroup.retentionInDays, logGroup.logGroupClass))
       .map((logGroup) => createFindingMatch(logGroup.logGroupName, logGroup.region, logGroup.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'low', message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
   evaluateStatic: ({ resources }) => {
     const findings = resources
@@ -35,6 +40,10 @@ export const cloudWatchLogGroupRetentionRule = createRule({
       .filter((logGroup) => hasMissingRetention(logGroup.retentionInDays, logGroup.logGroupClass))
       .map((logGroup) => createFindingMatch(logGroup.resourceId, undefined, undefined, logGroup.location));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'iac', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'low', message: RULE_MESSAGE },
+      'iac',
+      findings,
+    );
   },
 });

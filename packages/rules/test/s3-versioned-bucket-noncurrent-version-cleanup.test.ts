@@ -33,6 +33,7 @@ describe('s3VersionedBucketNoncurrentVersionCleanupRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-S3-4',
       service: 's3',
+      severity: 'medium',
       source: 'iac',
       message: 'Versioned S3 buckets should define noncurrent-version cleanup.',
       findings: [

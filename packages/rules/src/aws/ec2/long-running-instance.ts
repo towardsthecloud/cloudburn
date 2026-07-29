@@ -9,6 +9,7 @@ const LONG_RUNNING_INSTANCE_DAYS = 180;
 
 /** Flag EC2 instances that have been running long enough to warrant a review. */
 export const ec2LongRunningInstanceRule = createRule({
+  severity: 'medium',
   id: RULE_ID,
   name: 'EC2 Instance Long Running',
   description: 'Flag EC2 instances whose launch time is at least 180 days old.',
@@ -30,6 +31,10 @@ export const ec2LongRunningInstanceRule = createRule({
       })
       .map((instance) => createFindingMatch(instance.instanceId, instance.region, instance.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
 });

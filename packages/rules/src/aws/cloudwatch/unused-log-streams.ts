@@ -12,6 +12,7 @@ const toLogGroupScopeKey = (region: string, accountId: string, logGroupName: str
 
 /** Flag CloudWatch log groups whose latest observed stream activity is stale outside delivery-managed log groups. */
 export const cloudWatchUnusedLogStreamsRule = createRule({
+  severity: 'low',
   id: RULE_ID,
   name: 'CloudWatch Log Group Inactive',
   description:
@@ -58,6 +59,10 @@ export const cloudWatchUnusedLogStreamsRule = createRule({
       })
       .map((logGroup) => createFindingMatch(logGroup.logGroupArn, logGroup.region, logGroup.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'low', message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
 });

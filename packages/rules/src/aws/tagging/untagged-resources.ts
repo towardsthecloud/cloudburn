@@ -6,6 +6,7 @@ const RULE_MESSAGE = 'Taggable AWS resources should have at least one user-creat
 
 /** Flag taggable AWS resources that Resource Explorer reports without user-created tags. */
 export const taggingUntaggedResourcesRule = createRule({
+  severity: 'low',
   id: RULE_ID,
   name: 'AWS Resource Untagged',
   description: 'Flag taggable AWS resources that have no user-created tags.',
@@ -19,6 +20,10 @@ export const taggingUntaggedResourcesRule = createRule({
       .get('aws-resource-explorer-untagged-resources')
       .map((resource) => createFindingMatch(resource.arn, resource.region, resource.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'low', message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
 });

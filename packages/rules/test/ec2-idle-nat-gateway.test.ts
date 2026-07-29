@@ -38,6 +38,7 @@ describe('ec2IdleNatGatewayRule', () => {
       message: 'NAT gateways should process traffic or be removed.',
       ruleId: 'CLDBRN-AWS-EC2-11',
       service: 'ec2',
+      severity: 'high',
       source: 'discovery',
     });
   });

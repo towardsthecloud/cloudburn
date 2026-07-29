@@ -9,6 +9,7 @@ const RESERVED_INSTANCE_EXPIRING_WINDOW_DAYS = 60;
 
 /** Flag active reserved instances that are approaching their end date. */
 export const ec2ReservedInstanceExpiringRule = createRule({
+  severity: 'medium',
   id: RULE_ID,
   name: 'EC2 Reserved Instance Expiring',
   description: 'Flag active EC2 reserved instances whose end date is within the next 60 days.',
@@ -34,6 +35,10 @@ export const ec2ReservedInstanceExpiringRule = createRule({
       })
       .map((instance) => createFindingMatch(instance.reservedInstancesId, instance.region, instance.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
 });

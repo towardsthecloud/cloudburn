@@ -11,6 +11,7 @@ const getInstanceKey = (accountId: string, region: string, dbInstanceIdentifier:
 
 /** Flag aged RDS snapshots whose source DB instance no longer exists. */
 export const rdsUnusedSnapshotsRule = createRule({
+  severity: 'medium',
   id: RULE_ID,
   name: 'RDS Snapshot Without Source DB Instance',
   description: 'Flag RDS snapshots older than 30 days whose source DB instance no longer exists.',
@@ -44,6 +45,10 @@ export const rdsUnusedSnapshotsRule = createRule({
       })
       .map((snapshot) => createFindingMatch(snapshot.dbSnapshotIdentifier, snapshot.region, snapshot.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
 });

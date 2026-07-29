@@ -37,6 +37,7 @@ describe('ecsLowCpuUtilizationRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-ECS-2',
       service: 'ecs',
+      severity: 'high',
       source: 'discovery',
       message: 'ECS clusters should be reviewed when average CPU utilization stays below 10% for the previous 14 days.',
       findings: [

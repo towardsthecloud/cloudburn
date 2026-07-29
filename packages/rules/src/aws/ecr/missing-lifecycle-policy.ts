@@ -6,6 +6,7 @@ const RULE_MESSAGE = 'ECR repositories should define lifecycle policies.';
 
 /** Flag private ECR repositories that do not define a lifecycle policy. */
 export const ecrMissingLifecyclePolicyRule = createRule({
+  severity: 'low',
   id: RULE_ID,
   name: 'ECR Repository Missing Lifecycle Policy',
   description: 'Flag ECR repositories that do not define a lifecycle policy.',
@@ -21,7 +22,11 @@ export const ecrMissingLifecyclePolicyRule = createRule({
       .filter((repository) => !repository.hasLifecyclePolicy)
       .map((repository) => createFindingMatch(repository.repositoryName, repository.region, repository.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'low', message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
   evaluateStatic: ({ resources }) => {
     const findings = resources
@@ -29,6 +34,10 @@ export const ecrMissingLifecyclePolicyRule = createRule({
       .filter((repository) => !repository.hasLifecyclePolicy)
       .map((repository) => createFindingMatch(repository.resourceId, undefined, undefined, repository.location));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'iac', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'low', message: RULE_MESSAGE },
+      'iac',
+      findings,
+    );
   },
 });

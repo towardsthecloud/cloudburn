@@ -6,6 +6,7 @@ const RULE_MESSAGE = 'NAT gateways should process traffic or be removed.';
 
 /** Flag available NAT gateways that have processed no traffic in either direction for 7 days. */
 export const ec2IdleNatGatewayRule = createRule({
+  severity: 'high',
   id: RULE_ID,
   name: 'NAT Gateway Idle',
   description: 'Flag available NAT gateways whose inbound and outbound traffic both stay at zero for 7 days.',
@@ -25,6 +26,10 @@ export const ec2IdleNatGatewayRule = createRule({
       )
       .map((natGateway) => createFindingMatch(natGateway.natGatewayId, natGateway.region, natGateway.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'high', message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
 });

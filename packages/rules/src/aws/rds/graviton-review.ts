@@ -7,6 +7,7 @@ const RULE_MESSAGE = 'RDS DB instances without a Graviton equivalent in use shou
 
 /** Flag RDS DB instances still using reviewable non-Graviton families. */
 export const rdsGravitonReviewRule = createRule({
+  severity: 'medium',
   id: RULE_ID,
   name: 'RDS DB Instance Without Graviton',
   description:
@@ -27,7 +28,11 @@ export const rdsGravitonReviewRule = createRule({
       )
       .map((instance) => createFindingMatch(instance.dbInstanceIdentifier, instance.region, instance.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
   evaluateStatic: ({ resources }) => {
     const findings = resources
@@ -40,6 +45,10 @@ export const rdsGravitonReviewRule = createRule({
       )
       .map((instance) => createFindingMatch(instance.resourceId, undefined, undefined, instance.location));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'iac', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      'iac',
+      findings,
+    );
   },
 });

@@ -9,6 +9,7 @@ const STOPPED_INSTANCE_MAX_AGE_DAYS = 30;
 
 /** Flag stopped EC2 instances whose parsed stop time is older than 30 days. */
 export const ec2StoppedInstanceRule = createRule({
+  severity: 'high',
   id: RULE_ID,
   name: 'EC2 Instance Stopped',
   description: 'Flag stopped EC2 instances whose parsed stop time is at least 30 days old.',
@@ -32,6 +33,10 @@ export const ec2StoppedInstanceRule = createRule({
       })
       .map((instance) => createFindingMatch(instance.instanceId, instance.region, instance.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'high', message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
 });

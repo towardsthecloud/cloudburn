@@ -42,6 +42,7 @@ describe('ebsHighIopsVolumeRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-EBS-5',
       service: 'ebs',
+      severity: 'high',
       source: 'discovery',
       message: 'EBS io1 and io2 volumes above 32000 IOPS should be reviewed.',
       findings: [
@@ -79,6 +80,7 @@ describe('ebsHighIopsVolumeRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-EBS-5',
       service: 'ebs',
+      severity: 'high',
       source: 'iac',
       message: 'EBS io1 and io2 volumes above 32000 IOPS should be reviewed.',
       findings: [

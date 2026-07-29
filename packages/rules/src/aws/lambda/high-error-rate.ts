@@ -10,6 +10,7 @@ const getFunctionKey = (accountId: string, region: string, functionName: string)
 
 /** Flag Lambda functions whose recent error rate exceeds the review threshold. */
 export const lambdaHighErrorRateRule = createRule({
+  severity: 'low',
   id: RULE_ID,
   name: 'Lambda Function High Error Rate',
   description: 'Flag Lambda functions whose 7-day error rate is greater than 10%.',
@@ -41,6 +42,10 @@ export const lambdaHighErrorRateRule = createRule({
       })
       .map((fn) => createFindingMatch(fn.functionName, fn.region, fn.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'low', message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
 });

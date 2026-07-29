@@ -8,6 +8,7 @@ const RESERVED_INSTANCE_RECENTLY_EXPIRED_WINDOW_DAYS = 30;
 
 /** Flag EC2 reserved instances whose end date falls within the previous 30 days. */
 export const ec2ReservedInstanceRecentlyExpiredRule = createRule({
+  severity: 'medium',
   id: RULE_ID,
   name: 'EC2 Reserved Instance Recently Expired',
   description: 'Flag EC2 reserved instances whose end date fell within the last 30 days.',
@@ -33,6 +34,10 @@ export const ec2ReservedInstanceRecentlyExpiredRule = createRule({
       })
       .map((instance) => createFindingMatch(instance.reservedInstancesId, instance.region, instance.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
 });

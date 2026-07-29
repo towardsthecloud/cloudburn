@@ -39,6 +39,7 @@ describe('cloudWatchLogGroupNoMetricFiltersRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-CLOUDWATCH-3',
       service: 'cloudwatch',
+      severity: 'low',
       source: 'discovery',
       message:
         'CloudWatch log groups storing at least 1 GB should define metric filters or reduce retention aggressively.',

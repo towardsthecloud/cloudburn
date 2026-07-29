@@ -38,6 +38,7 @@ describe('ec2LongRunningInstanceRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-EC2-9',
       service: 'ec2',
+      severity: 'medium',
       source: 'discovery',
       message: 'EC2 instances running for 180 days or longer should be reviewed.',
       findings: [

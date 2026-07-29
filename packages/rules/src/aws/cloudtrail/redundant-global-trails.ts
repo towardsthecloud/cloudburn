@@ -7,6 +7,7 @@ const RULE_MESSAGE =
 
 /** Flag redundant multi-region CloudTrail trails after keeping one canonical trail per account. */
 export const cloudTrailRedundantGlobalTrailsRule = createRule({
+  severity: 'medium',
   id: RULE_ID,
   name: 'CloudTrail Redundant Global Trails',
   description: 'Flag redundant multi-region CloudTrail trails when more than one trail covers the same account.',
@@ -42,6 +43,10 @@ export const cloudTrailRedundantGlobalTrailsRule = createRule({
       .filter((trail) => trail.isMultiRegionTrail && survivorByAccount.get(trail.accountId) !== trail.trailArn)
       .map((trail) => createFindingMatch(trail.trailArn, trail.region, trail.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
 });

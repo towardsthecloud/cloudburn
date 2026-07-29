@@ -7,6 +7,7 @@ const RULE_MESSAGE = 'Application Load Balancers with no registered targets shou
 
 /** Flag ALBs that have no attached target groups or only empty target groups. */
 export const elbAlbWithoutTargetsRule = createRule({
+  severity: 'medium',
   id: RULE_ID,
   name: 'Application Load Balancer Without Targets',
   description: 'Flag Application Load Balancers that have no attached target groups or no registered targets.',
@@ -25,6 +26,10 @@ export const elbAlbWithoutTargetsRule = createRule({
         createFindingMatch(loadBalancer.loadBalancerArn, loadBalancer.region, loadBalancer.accountId),
       );
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
 });

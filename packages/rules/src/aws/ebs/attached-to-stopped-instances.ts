@@ -6,6 +6,7 @@ const RULE_MESSAGE = 'EBS volumes attached only to stopped EC2 instances should 
 
 /** Flag EBS volumes whose attached EC2 instances are all in the stopped state. */
 export const ebsAttachedToStoppedInstancesRule = createRule({
+  severity: 'high',
   id: RULE_ID,
   name: 'EBS Volume Attached To Stopped Instances',
   description: 'Flag EBS volumes whose attached EC2 instances are all in the stopped state.',
@@ -43,6 +44,10 @@ export const ebsAttachedToStoppedInstancesRule = createRule({
       })
       .map((volume) => createFindingMatch(volume.volumeId, volume.region, volume.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'high', message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
 });

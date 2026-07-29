@@ -29,6 +29,7 @@ describe('rdsPerformanceInsightsExtendedRetentionRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-RDS-8',
       service: 'rds',
+      severity: 'low',
       source: 'iac',
       message: 'RDS Performance Insights should use the included 7-day retention unless longer retention is required.',
       findings: [

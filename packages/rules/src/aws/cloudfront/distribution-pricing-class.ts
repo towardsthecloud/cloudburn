@@ -6,6 +6,7 @@ const RULE_MESSAGE = 'CloudFront distributions using PriceClass_All should be re
 
 /** Flag CloudFront distributions that use the most expensive global price class. */
 export const cloudFrontDistributionPricingClassRule = createRule({
+  severity: 'medium',
   id: RULE_ID,
   name: 'CloudFront Distribution Price Class All',
   description: 'Flag CloudFront distributions using PriceClass_All when a cheaper price class may suffice.',
@@ -23,7 +24,11 @@ export const cloudFrontDistributionPricingClassRule = createRule({
         createFindingMatch(distribution.distributionArn, distribution.region, distribution.accountId),
       );
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
   evaluateStatic: ({ resources }) => {
     const findings = resources
@@ -31,6 +36,10 @@ export const cloudFrontDistributionPricingClassRule = createRule({
       .filter((distribution) => distribution.priceClass === 'PriceClass_All')
       .map((distribution) => createFindingMatch(distribution.resourceId, undefined, undefined, distribution.location));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'iac', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      'iac',
+      findings,
+    );
   },
 });

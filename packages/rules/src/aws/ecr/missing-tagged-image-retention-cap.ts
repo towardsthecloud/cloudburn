@@ -6,6 +6,7 @@ const RULE_MESSAGE = 'ECR repositories should cap tagged image retention.';
 
 /** Flag ECR repositories whose statically parsed lifecycle policy does not cap tagged image retention. */
 export const ecrMissingTaggedImageRetentionCapRule = createRule({
+  severity: 'low',
   id: RULE_ID,
   name: 'ECR Lifecycle Policy Missing Tagged Image Retention Cap',
   description: 'Flag ECR repositories whose lifecycle policy does not cap tagged image retention.',
@@ -20,6 +21,10 @@ export const ecrMissingTaggedImageRetentionCapRule = createRule({
       .filter((repository) => repository.hasLifecyclePolicy && repository.hasTaggedImageRetentionCap === false)
       .map((repository) => createFindingMatch(repository.resourceId, undefined, undefined, repository.location));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'iac', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'low', message: RULE_MESSAGE },
+      'iac',
+      findings,
+    );
   },
 });

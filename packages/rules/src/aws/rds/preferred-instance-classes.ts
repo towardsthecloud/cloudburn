@@ -15,6 +15,7 @@ const getPreferredInstanceState = (instanceClass: string | null): 'preferred' | 
 
 /** Flag RDS DB instances that do not use the curated preferred instance-class families. */
 export const rdsPreferredInstanceClassRule = createRule({
+  severity: 'medium',
   id: RULE_ID,
   name: 'RDS Instance Class Not Preferred',
   description: 'Flag RDS DB instances that do not use curated preferred instance classes.',
@@ -30,7 +31,11 @@ export const rdsPreferredInstanceClassRule = createRule({
       .filter((instance) => getPreferredInstanceState(instance.instanceClass) === 'non-preferred')
       .map((instance) => createFindingMatch(instance.dbInstanceIdentifier, instance.region, instance.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
   evaluateStatic: ({ resources }) => {
     const findings = resources
@@ -38,6 +43,10 @@ export const rdsPreferredInstanceClassRule = createRule({
       .filter((instance) => getPreferredInstanceState(instance.instanceClass) === 'non-preferred')
       .map((instance) => createFindingMatch(instance.resourceId, undefined, undefined, instance.location));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'iac', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      'iac',
+      findings,
+    );
   },
 });

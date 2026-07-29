@@ -7,6 +7,7 @@ const RULE_MESSAGE =
 
 /** Flag redundant single-region CloudTrail trails after keeping one canonical trail per account and region. */
 export const cloudTrailRedundantRegionalTrailsRule = createRule({
+  severity: 'medium',
   id: RULE_ID,
   name: 'CloudTrail Redundant Regional Trails',
   description: 'Flag redundant single-region CloudTrail trails when more than one trail covers the same region.',
@@ -46,6 +47,10 @@ export const cloudTrailRedundantRegionalTrailsRule = createRule({
       })
       .map((trail) => createFindingMatch(trail.trailArn, trail.region, trail.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
 });

@@ -37,6 +37,7 @@ describe('taggingUntaggedResourcesRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-TAGGING-1',
       service: 'tagging',
+      severity: 'low',
       source: 'discovery',
       message: 'Taggable AWS resources should have at least one user-created tag.',
       findings: [

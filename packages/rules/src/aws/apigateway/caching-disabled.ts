@@ -6,6 +6,7 @@ const RULE_MESSAGE = 'API Gateway REST API stages should enable caching when sta
 
 /** Flag API Gateway REST API stages whose cache cluster is disabled. */
 export const apiGatewayCachingDisabledRule = createRule({
+  severity: 'medium',
   id: RULE_ID,
   name: 'API Gateway Stage Caching Disabled',
   description: 'Flag API Gateway REST API stages with caching disabled.',
@@ -21,7 +22,11 @@ export const apiGatewayCachingDisabledRule = createRule({
       .filter((stage) => stage.cacheClusterEnabled !== true)
       .map((stage) => createFindingMatch(stage.stageArn, stage.region, stage.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
   evaluateStatic: ({ resources }) => {
     const findings = resources
@@ -29,6 +34,10 @@ export const apiGatewayCachingDisabledRule = createRule({
       .filter((stage) => stage.cacheClusterEnabled === false)
       .map((stage) => createFindingMatch(stage.resourceId, undefined, undefined, stage.location));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'iac', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      'iac',
+      findings,
+    );
   },
 });

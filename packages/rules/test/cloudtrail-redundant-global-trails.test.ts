@@ -37,6 +37,7 @@ describe('cloudTrailRedundantGlobalTrailsRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-CLOUDTRAIL-1',
       service: 'cloudtrail',
+      severity: 'medium',
       source: 'discovery',
       message: 'AWS accounts should keep only one multi-region CloudTrail trail unless redundancy is intentional.',
       findings: [

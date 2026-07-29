@@ -7,6 +7,7 @@ const RULE_MESSAGE =
 
 /** Flag ElastiCache clusters with very low hit rates and almost no active connections. */
 export const elastiCacheIdleClusterRule = createRule({
+  severity: 'high',
   id: RULE_ID,
   name: 'ElastiCache Cluster Idle',
   description:
@@ -35,6 +36,10 @@ export const elastiCacheIdleClusterRule = createRule({
         : [];
     });
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'high', message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
 });

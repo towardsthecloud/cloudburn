@@ -6,6 +6,7 @@ const RULE_MESSAGE = 'Classic Load Balancers with no attached instances should b
 
 /** Flag Classic Load Balancers that are not serving any instances. */
 export const elbClassicWithoutInstancesRule = createRule({
+  severity: 'medium',
   id: RULE_ID,
   name: 'Classic Load Balancer Without Instances',
   description: 'Flag Classic Load Balancers that have zero attached instances.',
@@ -22,6 +23,10 @@ export const elbClassicWithoutInstancesRule = createRule({
         createFindingMatch(loadBalancer.loadBalancerArn, loadBalancer.region, loadBalancer.accountId),
       );
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
 });

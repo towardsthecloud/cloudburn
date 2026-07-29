@@ -6,6 +6,7 @@ const RULE_MESSAGE = 'CloudFront distributions with almost no request traffic sh
 
 /** Flag CloudFront distributions with very low 30-day request volume. */
 export const cloudFrontUnusedDistributionRule = createRule({
+  severity: 'medium',
   id: RULE_ID,
   name: 'CloudFront Distribution Unused',
   description: 'Flag CloudFront distributions with fewer than 100 requests over the last 30 days.',
@@ -24,6 +25,10 @@ export const cloudFrontUnusedDistributionRule = createRule({
         createFindingMatch(distribution.distributionArn, distribution.region, distribution.accountId),
       );
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
 });

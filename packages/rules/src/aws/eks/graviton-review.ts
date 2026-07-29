@@ -36,6 +36,7 @@ const shouldReviewNodegroupForGraviton = (instanceTypes: string[], amiType?: str
 
 /** Flag EKS managed node groups that still use reviewable non-Graviton EC2 families. */
 export const eksGravitonReviewRule = createRule({
+  severity: 'medium',
   id: RULE_ID,
   name: 'EKS Node Group Without Graviton',
   description:
@@ -52,7 +53,11 @@ export const eksGravitonReviewRule = createRule({
       .filter((nodegroup) => shouldReviewNodegroupForGraviton(nodegroup.instanceTypes, nodegroup.amiType))
       .map((nodegroup) => createFindingMatch(nodegroup.nodegroupArn, nodegroup.region, nodegroup.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
   evaluateStatic: ({ resources }) => {
     const findings = resources
@@ -60,6 +65,10 @@ export const eksGravitonReviewRule = createRule({
       .filter((nodegroup) => shouldReviewNodegroupForGraviton(nodegroup.instanceTypes, nodegroup.amiType ?? undefined))
       .map((nodegroup) => createFindingMatch(nodegroup.resourceId, undefined, undefined, nodegroup.location));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'iac', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      'iac',
+      findings,
+    );
   },
 });

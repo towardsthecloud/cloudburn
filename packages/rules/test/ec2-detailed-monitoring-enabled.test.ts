@@ -26,6 +26,7 @@ describe('ec2DetailedMonitoringEnabledRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-EC2-10',
       service: 'ec2',
+      severity: 'low',
       source: 'iac',
       message: 'EC2 instances should review detailed monitoring because it adds CloudWatch cost.',
       findings: [

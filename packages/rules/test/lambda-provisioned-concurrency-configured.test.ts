@@ -27,6 +27,7 @@ describe('lambdaProvisionedConcurrencyConfiguredRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-LAMBDA-5',
       service: 'lambda',
+      severity: 'high',
       source: 'iac',
       message: 'Lambda provisioned concurrency should be reviewed for steady low-latency demand.',
       findings: [

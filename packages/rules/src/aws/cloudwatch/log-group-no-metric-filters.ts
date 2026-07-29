@@ -10,6 +10,7 @@ const getCoverageKey = (accountId: string, region: string, logGroupName: string)
 
 /** Flag large CloudWatch log groups that have no metric filters configured. */
 export const cloudWatchLogGroupNoMetricFiltersRule = createRule({
+  severity: 'low',
   id: RULE_ID,
   name: 'CloudWatch Log Group No Metric Filters',
   description: 'Flag CloudWatch log groups storing at least 1 GB when they define no metric filters.',
@@ -39,6 +40,10 @@ export const cloudWatchLogGroupNoMetricFiltersRule = createRule({
       })
       .map((logGroup) => createFindingMatch(logGroup.logGroupName, logGroup.region, logGroup.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'low', message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
 });

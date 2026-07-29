@@ -6,6 +6,7 @@ const RULE_MESSAGE = 'Elastic IP addresses should not remain unassociated.';
 
 /** Flag Elastic IP allocations that are not associated with any resource. */
 export const ec2UnassociatedElasticIpRule = createRule({
+  severity: 'low',
   id: RULE_ID,
   name: 'Elastic IP Address Unassociated',
   description: 'Flag Elastic IP allocations that are not associated with an EC2 resource.',
@@ -21,7 +22,11 @@ export const ec2UnassociatedElasticIpRule = createRule({
       .filter((address) => !address.associationId && !address.instanceId && !address.networkInterfaceId)
       .map((address) => createFindingMatch(address.allocationId, address.region, address.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'low', message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
   evaluateStatic: ({ resources }) => {
     const findings = resources
@@ -29,6 +34,10 @@ export const ec2UnassociatedElasticIpRule = createRule({
       .filter((address) => !address.isAssociated)
       .map((address) => createFindingMatch(address.resourceId, undefined, undefined, address.location));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'iac', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'low', message: RULE_MESSAGE },
+      'iac',
+      findings,
+    );
   },
 });

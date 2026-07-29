@@ -10,6 +10,7 @@ const resultWithoutLocation = {
         {
           ruleId: 'CLDBRN-AWS-EBS-1',
           service: 'ebs',
+          severity: 'medium' as const,
           source: 'discovery' as const,
           message: 'EBS volumes should use current-generation storage.',
           findings: [
@@ -33,6 +34,7 @@ const resultWithLocation = {
         {
           ruleId: 'CLDBRN-AWS-EBS-1',
           service: 'ebs',
+          severity: 'medium' as const,
           source: 'iac' as const,
           message: 'EBS volumes should use current-generation storage.',
           findings: [
@@ -106,12 +108,15 @@ describe('renderResponse', () => {
   });
 
   it('renders scan results as an ascii table', () => {
-    expect(renderResponse({ kind: 'scan-result', result: resultWithoutLocation }, 'table')).toMatchInlineSnapshot(`
-      "+----------+------------------+-----------+---------+------------+--------------+-----------+----------------------------------------------------+
-      | Provider | RuleId           | Source    | Service | ResourceId | AccountId    | Region    | Message                                            |
-      +----------+------------------+-----------+---------+------------+--------------+-----------+----------------------------------------------------+
-      | aws      | CLDBRN-AWS-EBS-1 | discovery | ebs     | vol-123    | 123456789012 | us-east-1 | EBS volumes should use current-generation storage. |
-      +----------+------------------+-----------+---------+------------+--------------+-----------+----------------------------------------------------+"
+    const output = renderResponse({ kind: 'scan-result', result: resultWithoutLocation }, 'table');
+
+    expect(output).toContain('Severity');
+    expect(output).toMatchInlineSnapshot(`
+      "+----------+------------------+----------+-----------+---------+------------+--------------+-----------+----------------------------------------------------+
+      | Provider | RuleId           | Severity | Source    | Service | ResourceId | AccountId    | Region    | Message                                            |
+      +----------+------------------+----------+-----------+---------+------------+--------------+-----------+----------------------------------------------------+
+      | aws      | CLDBRN-AWS-EBS-1 | medium   | discovery | ebs     | vol-123    | 123456789012 | us-east-1 | EBS volumes should use current-generation storage. |
+      +----------+------------------+----------+-----------+---------+------------+--------------+-----------+----------------------------------------------------+"
     `);
   });
 

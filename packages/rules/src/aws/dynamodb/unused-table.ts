@@ -8,6 +8,7 @@ const getTableKey = (accountId: string, region: string, tableArn: string): strin
 
 /** Flag provisioned DynamoDB tables that show no consumed capacity over the last 30 days. */
 export const dynamoDbUnusedTableRule = createRule({
+  severity: 'high',
   id: RULE_ID,
   name: 'DynamoDB Table Unused',
   description: 'Flag provisioned DynamoDB tables with no consumed read or write capacity over the last 30 days.',
@@ -36,6 +37,10 @@ export const dynamoDbUnusedTableRule = createRule({
       })
       .map((utilization) => createFindingMatch(utilization.tableArn, utilization.region, utilization.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'high', message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
 });

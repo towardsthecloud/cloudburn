@@ -4,6 +4,13 @@ import { awsRules } from '../src/index.js';
 const RULE_ID_PATTERN = /^CLDBRN-([A-Z0-9]+)-([A-Z0-9]+)-(\d+)$/;
 
 describe('rule metadata', () => {
+  it('assigns a supported severity to every built-in rule', () => {
+    for (const rule of awsRules) {
+      expect(rule).toHaveProperty('severity');
+      expect(['high', 'medium', 'low']).toContain((rule as { severity?: string }).severity);
+    }
+  });
+
   it('ensures every aws rule has mandatory metadata fields', () => {
     for (const rule of awsRules) {
       expect(rule.id.length).toBeGreaterThan(0);

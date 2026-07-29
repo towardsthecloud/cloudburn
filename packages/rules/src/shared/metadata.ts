@@ -10,6 +10,9 @@ export type ScanSource = Source;
 /** Supported cloud providers for built-in and custom rules. */
 export type CloudProvider = 'aws' | 'azure' | 'gcp';
 
+/** Relative cost impact used to prioritize rules and findings. */
+export type Severity = 'high' | 'medium' | 'low';
+
 /** Source coordinates for an IaC declaration that produced a finding. */
 export type SourceLocation = {
   path: string;
@@ -1093,6 +1096,7 @@ export type Finding = {
   ruleId: string;
   service: string;
   source: Source;
+  severity: Severity;
   message: string;
   findings: FindingMatch[];
 };
@@ -1105,6 +1109,7 @@ export type Rule = {
   message: string;
   provider: CloudProvider;
   service: string;
+  severity: Severity;
   supports: Source[];
   discoveryDependencies?: DiscoveryDatasetKey[];
   staticDependencies?: StaticDatasetKey[];

@@ -50,6 +50,7 @@ describe('cloudWatchUnusedLogStreamsRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-CLOUDWATCH-2',
       service: 'cloudwatch',
+      severity: 'low',
       source: 'discovery',
       message:
         'CloudWatch log groups whose most recent stream activity is older than 90 days should be reviewed or removed.',

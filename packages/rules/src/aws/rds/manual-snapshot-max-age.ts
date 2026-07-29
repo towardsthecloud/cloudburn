@@ -9,6 +9,7 @@ const SNAPSHOT_MAX_AGE_DAYS = 90;
 
 /** Flag manual RDS snapshots older than 90 days. */
 export const rdsManualSnapshotMaxAgeRule = createRule({
+  severity: 'medium',
   id: RULE_ID,
   name: 'RDS Manual Snapshot Max Age Exceeded',
   description: 'Flag manual RDS snapshots older than 90 days.',
@@ -32,6 +33,10 @@ export const rdsManualSnapshotMaxAgeRule = createRule({
       })
       .map((snapshot) => createFindingMatch(snapshot.dbSnapshotIdentifier, snapshot.region, snapshot.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
 });

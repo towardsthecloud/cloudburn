@@ -6,6 +6,7 @@ const RULE_MESSAGE = 'Route 53 health checks not associated with any DNS record 
 
 /** Flag Route 53 health checks that are not referenced by any record set. */
 export const route53HealthCheckUnusedRule = createRule({
+  severity: 'low',
   id: RULE_ID,
   name: 'Route 53 Health Check Unused',
   description: 'Flag Route 53 health checks not associated with any DNS record.',
@@ -30,7 +31,11 @@ export const route53HealthCheckUnusedRule = createRule({
         ),
       );
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'low', message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
   evaluateStatic: ({ resources }) => {
     const referencedHealthChecks = new Set(
@@ -43,6 +48,10 @@ export const route53HealthCheckUnusedRule = createRule({
       .filter((healthCheck) => !referencedHealthChecks.has(healthCheck.resourceId))
       .map((healthCheck) => createFindingMatch(healthCheck.resourceId, undefined, undefined, healthCheck.location));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'iac', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'low', message: RULE_MESSAGE },
+      'iac',
+      findings,
+    );
   },
 });
