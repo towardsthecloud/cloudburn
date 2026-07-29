@@ -41,7 +41,7 @@ export const registerScanCommand = (program: Command): void => {
       .command('scan')
       .description('Run an autodetected static IaC scan')
       .argument('[path]', 'Terraform file, CloudFormation template, or directory to scan')
-      .option('--config <path>', 'Explicit CloudBurn config file to load')
+      .option('--config <path>', 'Explicit CloudBurn config file to load (required for config files in CI)')
       .option(
         '--enabled-rules <ruleIds>',
         'Comma-separated rule IDs to enable. When set, CloudBurn checks only these rules. By default, AWS Core preset rules are enabled.',
@@ -76,7 +76,6 @@ export const registerScanCommand = (program: Command): void => {
 
           if (
             hasPolicyViolation(result, {
-              configFailOn: loadedConfig.iac.failOn,
               exitCode: options.exitCode,
               failOn: options.failOn,
             })

@@ -205,7 +205,7 @@ export const registerDiscoverCommand = (program: Command): void => {
         'AWS region to discover. Defaults to the current AWS region from AWS_REGION when omitted.',
         parseAwsRegion,
       )
-      .option('--config <path>', 'Explicit CloudBurn config file to load')
+      .option('--config <path>', 'Explicit CloudBurn config file to load (required for config files in CI)')
       .option(
         '--enabled-rules <ruleIds>',
         'Comma-separated rule IDs to enable. When set, CloudBurn checks only these rules. By default, AWS Core preset rules are enabled.',
@@ -259,7 +259,6 @@ export const registerDiscoverCommand = (program: Command): void => {
 
           if (
             hasPolicyViolation(result, {
-              configFailOn: loadedConfig.discovery.failOn,
               exitCode: options.exitCode,
               failOn: options.failOn,
             })

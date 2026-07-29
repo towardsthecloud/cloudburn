@@ -43,6 +43,14 @@ If you want to inspect the starter template without writing a file:
 cloudburn config --print-template
 ```
 
+CloudBurn does not implicitly trust repository config in CI. Pass the exact file explicitly when you want CI to use
+its rule selection, output defaults, or severity gate:
+
+```bash
+cloudburn scan ./iac --config .cloudburn.yml
+cloudburn discover --config .cloudburn.yml
+```
+
 ### Scan
 
 Use `scan` to check Terraform and CloudFormation before you deploy.
@@ -57,6 +65,7 @@ cloudburn --format json scan ./iac
 
 `--fail-on high|medium|low` exits with code 1 when an active finding meets or exceeds the selected severity. The same
 threshold can be configured as `iac.fail-on`. Plain `--exit-code` continues to gate on any active finding.
+In CI, configured thresholds apply only when the config is passed with `--config` as shown above.
 
 Terraform and CloudFormation YAML support resource-local exceptions. Put one of these comments immediately above or
 inside the resource; text after the directive is retained as an optional reason:

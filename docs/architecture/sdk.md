@@ -14,7 +14,7 @@
   }
 ```
 
-`CloudBurnClient` is the primary public entry point. Static IaC scans go through `scanStatic()`, and live AWS discovery goes through `discover()`. Both methods can accept runtime config overrides plus an explicit `configPath` when callers need to load a specific `.cloudburn.yml` file.
+`CloudBurnClient` is the primary public entry point. Static IaC scans go through `scanStatic()`, and live AWS discovery goes through `discover()`. Both methods can accept runtime config overrides plus an explicit `configPath` when callers need to load a specific `.cloudburn.yml` file. When the effective mode config sets `failOn`, the facade evaluates it after the engine returns and attaches the threshold, qualifying count, and violation status to `ScanResult.policy`.
 
 ## Engine Flow
 

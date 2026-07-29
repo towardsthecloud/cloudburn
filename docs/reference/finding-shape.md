@@ -91,10 +91,25 @@ This is the provider-level group returned by the SDK scan engines.
 ```ts
 type ScanResult = {
   diagnostics?: ScanDiagnostic[];
+  policy?: ScanPolicyResult;
   providers: ProviderFindingGroup[];
   suppressed?: SuppressedFinding[];
 };
 ```
+
+`policy` is present when the effective mode config includes `failOn`. It makes SDK policy behavior observable without
+changing the host process exit code:
+
+```ts
+type ScanPolicyResult = {
+  qualifyingFindingCount: number;
+  threshold?: Severity;
+  violated: boolean;
+};
+```
+
+The package-root `evaluateScanPolicy(result, threshold?)` helper evaluates another threshold against any `ScanResult`.
+An omitted threshold evaluates an any-finding policy.
 
 `suppressed` is present only when an IaC directive matched a finding. Each entry retains the original resource-level
 `finding`, rule metadata, and the parsed suppression directive (including an optional reason) for auditability. These

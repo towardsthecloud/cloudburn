@@ -45,6 +45,10 @@ The `CloudBurnClient` facade also merges runtime overrides through `mergeConfig(
 - stop the upward search at the git root if one exists, otherwise at the filesystem root
 - if no config file is found, return defaults
 
+This CI trust boundary means a repository `fail-on` setting is not active unless the caller passes that file explicitly,
+for example `cloudburn scan ./iac --config .cloudburn.yml`. Pin `--fail-on` directly in the workflow when the threshold
+must not be changeable by repository config.
+
 Validation fails fast for:
 
 - invalid YAML

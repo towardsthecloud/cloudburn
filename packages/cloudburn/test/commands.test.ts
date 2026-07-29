@@ -1,7 +1,7 @@
+import { evaluateScanPolicy } from '@cloudburn/sdk';
 import { describe, expect, it } from 'vitest';
 import { EXIT_CODE_POLICY_VIOLATION } from '../src/exit-codes.js';
 import { renderResponse } from '../src/formatters/output.js';
-import { countScanResultFindings } from '../src/policy.js';
 
 const findings = [
   {
@@ -49,9 +49,9 @@ describe('commands and formatters', () => {
       ],
     };
 
-    expect(countScanResultFindings(result, 'high')).toBe(1);
-    expect(countScanResultFindings(result, 'medium')).toBe(2);
-    expect(countScanResultFindings(result, 'low')).toBe(3);
-    expect(countScanResultFindings(result)).toBe(3);
+    expect(evaluateScanPolicy(result, 'high').qualifyingFindingCount).toBe(1);
+    expect(evaluateScanPolicy(result, 'medium').qualifyingFindingCount).toBe(2);
+    expect(evaluateScanPolicy(result, 'low').qualifyingFindingCount).toBe(3);
+    expect(evaluateScanPolicy(result).qualifyingFindingCount).toBe(3);
   });
 });

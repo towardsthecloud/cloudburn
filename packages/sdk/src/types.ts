@@ -200,9 +200,17 @@ export type ScanDiagnostic = {
   ruleId?: string;
 };
 
+/** Observable result of evaluating active findings against a severity policy. */
+export type ScanPolicyResult = {
+  qualifyingFindingCount: number;
+  threshold?: Severity;
+  violated: boolean;
+};
+
 /** Result of a scan execution containing provider-grouped lean rule findings. */
 export type ScanResult = {
   diagnostics?: ScanDiagnostic[];
+  policy?: ScanPolicyResult;
   providers: ProviderFindingGroup[];
   suppressed?: SuppressedFinding[];
 };

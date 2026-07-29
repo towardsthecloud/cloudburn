@@ -132,6 +132,32 @@ describe('CloudBurnClient', () => {
     });
   });
 
+  it('reports the effective configured policy in discovery results', async () => {
+    mockedDiscoverAwsResources.mockResolvedValue({
+      catalog: discoveryCatalog,
+      resources: new LiveResourceBag({
+        'aws-ebs-volumes': [
+          {
+            accountId: '123456789012',
+            region: 'us-east-1',
+            sizeGiB: 64,
+            volumeId: 'vol-123',
+            volumeType: 'gp2',
+          },
+        ],
+      }),
+    });
+    const scanner = new CloudBurnClient();
+
+    const result = await scanner.discover({ config: { discovery: { failOn: 'medium' } } });
+
+    expect(result.policy).toEqual({
+      qualifyingFindingCount: 1,
+      threshold: 'medium',
+      violated: true,
+    });
+  });
+
   it('returns non-preferred EC2 instance findings discovered during live scans', async () => {
     mockedDiscoverAwsResources.mockResolvedValue({
       catalog: discoveryCatalog,
@@ -538,6 +564,19 @@ describe('CloudBurnClient', () => {
         provider.rules.flatMap((rule) => rule.findings.map((finding) => finding.resourceId)),
       ),
     ).toContain('aws_ebs_volume.gp2_sibling');
+  });
+
+  it('reports the effective configured policy in static scan results', async () => {
+    const scanner = new CloudBurnClient();
+    const fixturePath = fileURLToPath(new URL('./fixtures/terraform/scan-dir', import.meta.url));
+
+    const result = await scanner.scanStatic(fixturePath, { iac: { failOn: 'medium' } });
+
+    expect(result.policy).toEqual({
+      qualifyingFindingCount: 4,
+      threshold: 'medium',
+      violated: true,
+    });
   });
 
   it('returns a static EC2 finding from a CloudFormation template', async () => {
