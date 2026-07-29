@@ -14,13 +14,29 @@ type ResourceLocationMetadata = {
   suppressions: ReturnType<typeof findResourceSuppressions>;
 };
 
+type TerraformBraceState = {
+  heredoc?: {
+    allowIndent: boolean;
+    delimiter: string;
+  };
+  inBlockComment: boolean;
+};
+
 const toRelativePath = (path: string, scanRoot: string): string => {
   const relativePath = relative(scanRoot, path);
 
   return (relativePath === '' ? basename(path) : relativePath).split(sep).join('/');
 };
 
-const countBraceDelta = (line: string): number => {
+const countBraceDelta = (line: string, state: TerraformBraceState): number => {
+  if (state.heredoc) {
+    const candidate = state.heredoc.allowIndent ? line.trimStart() : line;
+    if (candidate.trimEnd() === state.heredoc.delimiter) {
+      state.heredoc = undefined;
+    }
+    return 0;
+  }
+
   let delta = 0;
   let inString = false;
   let isEscaped = false;
@@ -28,6 +44,14 @@ const countBraceDelta = (line: string): number => {
   for (let index = 0; index < line.length; index += 1) {
     const character = line[index];
     const nextCharacter = line[index + 1];
+
+    if (state.inBlockComment) {
+      if (character === '*' && nextCharacter === '/') {
+        state.inBlockComment = false;
+        index += 1;
+      }
+      continue;
+    }
 
     if (inString) {
       if (isEscaped) {
@@ -55,9 +79,26 @@ const countBraceDelta = (line: string): number => {
       break;
     }
 
+    if (character === '/' && nextCharacter === '*') {
+      state.inBlockComment = true;
+      index += 1;
+      continue;
+    }
+
     if (character === '"') {
       inString = true;
       continue;
+    }
+
+    if (character === '<' && nextCharacter === '<') {
+      const heredocMatch = /^<<(-?)([A-Za-z_][A-Za-z0-9_-]*)\s*$/u.exec(line.slice(index));
+      if (heredocMatch?.[2]) {
+        state.heredoc = {
+          allowIndent: heredocMatch[1] === '-',
+          delimiter: heredocMatch[2],
+        };
+        break;
+      }
     }
 
     if (character === '{') {
@@ -106,7 +147,8 @@ const locateResourceBlocks = (contents: string, path: string): Map<string, Resou
       column: leadingWhitespace.length + 1,
     };
     const attributeLocations: Record<string, SourceLocation> = {};
-    let depth = countBraceDelta(line);
+    const braceState: TerraformBraceState = { inBlockComment: false };
+    let depth = countBraceDelta(line, braceState);
     let blockEndLine = lineIndex + 1;
 
     for (let blockLineIndex = lineIndex + 1; blockLineIndex < lines.length && depth > 0; blockLineIndex += 1) {
@@ -116,7 +158,7 @@ const locateResourceBlocks = (contents: string, path: string): Map<string, Resou
         continue;
       }
 
-      if (depth === 1) {
+      if (depth === 1 && !braceState.heredoc && !braceState.inBlockComment) {
         const attributeMatch = /^(\s*)([A-Za-z0-9_]+)\s*=/u.exec(blockLine);
 
         if (attributeMatch) {
@@ -133,7 +175,7 @@ const locateResourceBlocks = (contents: string, path: string): Map<string, Resou
         }
       }
 
-      depth += countBraceDelta(blockLine);
+      depth += countBraceDelta(blockLine, braceState);
 
       if (depth === 0) {
         blockEndLine = blockLineIndex + 1;

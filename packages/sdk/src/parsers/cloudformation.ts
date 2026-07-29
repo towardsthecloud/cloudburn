@@ -85,6 +85,41 @@ const toEndLine = (node: unknown, lineCounter: LineCounter): number | undefined 
   return lineCounter.linePos(Math.max(range[0], range[1] - 1)).line;
 };
 
+const collectBlockScalarContentLines = (
+  node: unknown,
+  lineCounter: LineCounter,
+  lines: Set<number> = new Set(),
+): Set<number> => {
+  if (isScalar(node)) {
+    const scalarType = (node as { type?: string }).type;
+    if ((scalarType === 'BLOCK_LITERAL' || scalarType === 'BLOCK_FOLDED') && node.range) {
+      const startLine = lineCounter.linePos(node.range[0]).line;
+      const endLine = lineCounter.linePos(Math.max(node.range[0], node.range[1] - 1)).line;
+      for (let line = startLine + 1; line <= endLine; line += 1) {
+        lines.add(line);
+      }
+    }
+    return lines;
+  }
+
+  if (isMap(node)) {
+    for (const item of node.items) {
+      const pair = item as PairLike;
+      collectBlockScalarContentLines(pair.key, lineCounter, lines);
+      collectBlockScalarContentLines(pair.value, lineCounter, lines);
+    }
+    return lines;
+  }
+
+  if (isSeq(node)) {
+    for (const item of node.items) {
+      collectBlockScalarContentLines(item, lineCounter, lines);
+    }
+  }
+
+  return lines;
+};
+
 const toNodeTag = (node: unknown): string | undefined => {
   if (typeof node !== 'object' || node === null || !('tag' in node)) {
     return undefined;
@@ -192,7 +227,6 @@ const toIaCResources = async (path: string, relativePath: string): Promise<IaCPa
   }
 
   const contents = await readFile(path, 'utf8');
-  const suppressionComments = extractSuppressionComments(contents, relativePath, 'yaml');
   const lineCounter = new LineCounter();
   const document = parseDocument(contents, {
     keepSourceTokens: true,
@@ -210,6 +244,9 @@ const toIaCResources = async (path: string, relativePath: string): Promise<IaCPa
       service: 'cloudformation',
     });
   }
+
+  const blockScalarContentLines = collectBlockScalarContentLines(document.contents, lineCounter);
+  const suppressionComments = extractSuppressionComments(contents, relativePath, 'yaml', blockScalarContentLines);
 
   const resourcesNode = document.get('Resources', true);
 

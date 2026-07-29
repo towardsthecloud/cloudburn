@@ -7,6 +7,11 @@ type SuppressionComment = {
   suppression: IaCSuppression;
 };
 
+type TerraformHeredoc = {
+  allowIndent: boolean;
+  delimiter: string;
+};
+
 const parseSuppression = (text: string, location: SourceLocation): IaCSuppression | undefined => {
   const normalized = text.replace(/\*\/\s*$/u, '').trim();
   const ignoreAllMatch = /(?:^|\s)cloudburn-ignore-all(?:\s+(.+))?$/u.exec(normalized);
@@ -106,21 +111,98 @@ const findTerraformBlockCommentStart = (line: string): number | undefined => {
   return undefined;
 };
 
+const findTerraformHeredocStart = (line: string, startsInBlockComment: boolean): TerraformHeredoc | undefined => {
+  let inBlockComment = startsInBlockComment;
+  let quote: '"' | "'" | undefined;
+  let escaped = false;
+
+  for (let index = 0; index < line.length; index += 1) {
+    const character = line[index];
+
+    if (inBlockComment) {
+      if (character === '*' && line[index + 1] === '/') {
+        inBlockComment = false;
+        index += 1;
+      }
+      continue;
+    }
+
+    if (quote) {
+      if (escaped) {
+        escaped = false;
+      } else if (character === '\\' && quote === '"') {
+        escaped = true;
+      } else if (character === quote) {
+        quote = undefined;
+      }
+      continue;
+    }
+
+    if (character === '"' || character === "'") {
+      quote = character;
+      continue;
+    }
+
+    if (character === '#' || (character === '/' && line[index + 1] === '/')) {
+      return undefined;
+    }
+
+    if (character === '/' && line[index + 1] === '*') {
+      inBlockComment = true;
+      index += 1;
+      continue;
+    }
+
+    if (character === '<' && line[index + 1] === '<') {
+      const match = /^<<(-?)([A-Za-z_][A-Za-z0-9_-]*)\s*$/u.exec(line.slice(index));
+      if (match?.[2]) {
+        return {
+          allowIndent: match[1] === '-',
+          delimiter: match[2],
+        };
+      }
+    }
+  }
+
+  return undefined;
+};
+
+const isTerraformHeredocEnd = (line: string, heredoc: TerraformHeredoc): boolean => {
+  const candidate = heredoc.allowIndent ? line.trimStart() : line;
+  return candidate.trimEnd() === heredoc.delimiter;
+};
+
 /** Extracts supported inline suppression directives from IaC source comments. */
 export const extractSuppressionComments = (
   contents: string,
   path: string,
   syntax: CommentSyntax,
+  excludedLines: ReadonlySet<number> = new Set(),
 ): SuppressionComment[] => {
   const comments: SuppressionComment[] = [];
   const lines = contents.split(/\r?\n/u);
   let inBlockComment = false;
+  let heredoc: TerraformHeredoc | undefined;
 
   for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
     const line = lines[lineIndex] ?? '';
+    const lineNumber = lineIndex + 1;
+
+    if (excludedLines.has(lineNumber)) {
+      continue;
+    }
+
+    if (syntax === 'terraform' && heredoc) {
+      if (isTerraformHeredocEnd(line, heredoc)) {
+        heredoc = undefined;
+      }
+      continue;
+    }
+
     const segments: Array<{ column: number; text: string }> = [];
 
     if (syntax === 'terraform') {
+      const heredocStart = findTerraformHeredocStart(line, inBlockComment);
       let searchIndex = 0;
       while (searchIndex < line.length) {
         if (inBlockComment) {
@@ -163,6 +245,8 @@ export const extractSuppressionComments = (
         }
         break;
       }
+
+      heredoc = heredocStart;
     } else {
       const commentStart = findLineCommentStart(line, syntax);
       if (commentStart !== undefined) {
@@ -171,10 +255,10 @@ export const extractSuppressionComments = (
     }
 
     for (const segment of segments) {
-      const location = { column: segment.column, line: lineIndex + 1, path };
+      const location = { column: segment.column, line: lineNumber, path };
       const suppression = parseSuppression(segment.text, location);
       if (suppression) {
-        comments.push({ line: lineIndex + 1, suppression });
+        comments.push({ line: lineNumber, suppression });
       }
     }
   }
