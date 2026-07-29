@@ -100,6 +100,7 @@ export type {
   Finding,
   FindingMatch,
   IaCResource,
+  IaCSuppression,
   LiveEvaluationContext,
   Rule,
   ScanSource,

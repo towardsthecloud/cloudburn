@@ -1051,4 +1051,80 @@ describe('parsers', () => {
       'main.tf:aws_ebs_volume.gp2_logs',
     ]);
   });
+
+  it('associates Terraform suppression comments only with their owning resource', async () => {
+    const tempDirectory = await mkdtemp(join(tmpdir(), 'cloudburn-terraform-suppressions-'));
+    const terraformPath = join(tempDirectory, 'main.tf');
+
+    try {
+      await writeFile(
+        terraformPath,
+        `# cloudburn-ignore CLDBRN-AWS-EBS-1 legacy volume type
+resource "aws_ebs_volume" "suppressed" {
+  /* cloudburn-ignore-all approved exception */
+  availability_zone = "eu-west-1a"
+  type              = "gp2"
+}
+
+resource "aws_ebs_volume" "active" {
+  availability_zone = "eu-west-1a"
+  type              = "gp2"
+}
+`,
+        'utf8',
+      );
+
+      const { resources } = await parseTerraform(terraformPath);
+
+      expect(resources[0]).toMatchObject({
+        name: 'suppressed',
+        suppressions: [
+          { kind: 'rule', reason: 'legacy volume type', ruleId: 'CLDBRN-AWS-EBS-1' },
+          { kind: 'all', reason: 'approved exception' },
+        ],
+      });
+      expect(resources[1]).not.toHaveProperty('suppressions');
+    } finally {
+      await rm(tempDirectory, { force: true, recursive: true });
+    }
+  });
+
+  it('associates CloudFormation YAML suppression comments only with their owning resource', async () => {
+    const tempDirectory = await mkdtemp(join(tmpdir(), 'cloudburn-cloudformation-suppressions-'));
+    const templatePath = join(tempDirectory, 'template.yaml');
+
+    try {
+      await writeFile(
+        templatePath,
+        `Resources:
+  # cloudburn-ignore CLDBRN-AWS-EBS-1 legacy volume type
+  SuppressedVolume:
+    Type: AWS::EC2::Volume
+    # cloudburn-ignore-all approved exception
+    Properties:
+      AvailabilityZone: eu-west-1a
+      VolumeType: gp2
+  ActiveVolume:
+    Type: AWS::EC2::Volume
+    Properties:
+      AvailabilityZone: eu-west-1a
+      VolumeType: gp2
+`,
+        'utf8',
+      );
+
+      const { resources } = await parseCloudFormation(templatePath);
+
+      expect(resources[0]).toMatchObject({
+        name: 'SuppressedVolume',
+        suppressions: [
+          { kind: 'rule', reason: 'legacy volume type', ruleId: 'CLDBRN-AWS-EBS-1' },
+          { kind: 'all', reason: 'approved exception' },
+        ],
+      });
+      expect(resources[1]).not.toHaveProperty('suppressions');
+    } finally {
+      await rm(tempDirectory, { force: true, recursive: true });
+    }
+  });
 });

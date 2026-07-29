@@ -637,6 +637,91 @@ describe('CloudBurnClient', () => {
     });
   });
 
+  it('partitions Terraform and CloudFormation suppressions from active static findings', async () => {
+    const scanner = new CloudBurnClient();
+    const fixturePath = fileURLToPath(new URL('./fixtures/iac-suppressions', import.meta.url));
+
+    const result = await scanner.scanStatic(fixturePath, {
+      iac: { enabledRules: ['CLDBRN-AWS-EBS-1'] },
+    });
+
+    expect(result.providers[0]?.rules[0]?.findings.map((finding) => finding.resourceId)).toEqual([
+      'aws_ebs_volume.active',
+      'ActiveVolume',
+    ]);
+    expect(result.suppressed).toMatchObject([
+      {
+        finding: { resourceId: 'aws_ebs_volume.suppressed' },
+        provider: 'aws',
+        ruleId: 'CLDBRN-AWS-EBS-1',
+        service: 'ebs',
+        severity: 'medium',
+        source: 'iac',
+        suppression: {
+          kind: 'rule',
+          reason: 'legacy Terraform volume',
+          ruleId: 'CLDBRN-AWS-EBS-1',
+        },
+      },
+      {
+        finding: { resourceId: 'SuppressedVolume' },
+        provider: 'aws',
+        ruleId: 'CLDBRN-AWS-EBS-1',
+        service: 'ebs',
+        severity: 'medium',
+        source: 'iac',
+        suppression: {
+          kind: 'all',
+          reason: 'approved CloudFormation exception',
+        },
+      },
+    ]);
+  });
+
+  it('applies rule-specific suppressions to one rule and ignore-all suppressions to every rule', async () => {
+    const scanner = new CloudBurnClient();
+    const fixturePath = fileURLToPath(new URL('./fixtures/iac-suppressions', import.meta.url));
+
+    const result = await scanner.scanStatic(fixturePath, {
+      iac: { enabledRules: ['CLDBRN-AWS-EBS-1', 'CLDBRN-AWS-EBS-4'] },
+    });
+
+    expect(
+      result.providers.flatMap((provider) =>
+        provider.rules.flatMap((rule) =>
+          rule.findings.map((finding) => ({ resourceId: finding.resourceId, ruleId: rule.ruleId })),
+        ),
+      ),
+    ).toEqual([
+      { resourceId: 'aws_ebs_volume.active', ruleId: 'CLDBRN-AWS-EBS-1' },
+      { resourceId: 'ActiveVolume', ruleId: 'CLDBRN-AWS-EBS-1' },
+      { resourceId: 'aws_ebs_volume.suppressed', ruleId: 'CLDBRN-AWS-EBS-4' },
+    ]);
+    expect(
+      result.suppressed?.map(({ finding, ruleId, suppression }) => ({
+        kind: suppression.kind,
+        resourceId: finding.resourceId,
+        ruleId,
+      })),
+    ).toEqual([
+      {
+        kind: 'rule',
+        resourceId: 'aws_ebs_volume.suppressed',
+        ruleId: 'CLDBRN-AWS-EBS-1',
+      },
+      {
+        kind: 'all',
+        resourceId: 'SuppressedVolume',
+        ruleId: 'CLDBRN-AWS-EBS-1',
+      },
+      {
+        kind: 'all',
+        resourceId: 'SuppressedVolume',
+        ruleId: 'CLDBRN-AWS-EBS-4',
+      },
+    ]);
+  });
+
   it('returns static RDS findings from Terraform DB instance resources', async () => {
     const scanner = new CloudBurnClient();
     const fixturePath = fileURLToPath(new URL('./fixtures/terraform/rds-scan-dir', import.meta.url));

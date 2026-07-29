@@ -22,6 +22,20 @@ export type SourceLocation = {
   endColumn?: number;
 };
 
+/** A resource-scoped IaC comment that suppresses one rule or every rule. */
+export type IaCSuppression =
+  | {
+      kind: 'all';
+      location: SourceLocation;
+      reason?: string;
+    }
+  | {
+      kind: 'rule';
+      location: SourceLocation;
+      reason?: string;
+      ruleId: string;
+    };
+
 export type AwsEbsVolume = {
   volumeId: string;
   volumeType: string;
@@ -1070,6 +1084,7 @@ export type IaCResource = {
   name: string;
   location?: SourceLocation;
   attributeLocations?: Record<string, SourceLocation>;
+  suppressions?: IaCSuppression[];
   attributes: Record<string, unknown>;
 };
 

@@ -190,20 +190,25 @@ const renderTable = (response: CliResponse): string => {
     case 'scan-result': {
       const findingRows = projectFindingRows(response.result);
       const diagnosticRows = projectDiagnosticRows(response.result);
+      const suppressedCount = response.result.suppressed?.length ?? 0;
+      const withSuppressedCount = (content: string): string =>
+        suppressedCount > 0 ? `${content}\n\nSuppressed: ${suppressedCount}` : content;
 
       if (findingRows.length === 0 && diagnosticRows.length === 0) {
-        return 'No findings.';
+        return withSuppressedCount(suppressedCount > 0 ? 'No active findings.' : 'No findings.');
       }
 
       if (findingRows.length === 0) {
-        return `Diagnostics\n${renderAsciiTable(diagnosticRows, diagnosticColumns)}`;
+        return withSuppressedCount(`Diagnostics\n${renderAsciiTable(diagnosticRows, diagnosticColumns)}`);
       }
 
       if (diagnosticRows.length === 0) {
-        return renderAsciiTable(findingRows, scanColumns);
+        return withSuppressedCount(renderAsciiTable(findingRows, scanColumns));
       }
 
-      return `${renderAsciiTable(findingRows, scanColumns)}\n\nDiagnostics\n${renderAsciiTable(diagnosticRows, diagnosticColumns)}`;
+      return withSuppressedCount(
+        `${renderAsciiTable(findingRows, scanColumns)}\n\nDiagnostics\n${renderAsciiTable(diagnosticRows, diagnosticColumns)}`,
+      );
     }
     case 'status':
       return renderAsciiTable(

@@ -178,6 +178,33 @@ describe('scan command e2e', () => {
     expect(process.exitCode).toBe(1);
   });
 
+  it('does not fail CI gates when every static finding is suppressed', async () => {
+    const fixturePath = fileURLToPath(new URL('../../sdk/test/fixtures/terraform/scan-dir', import.meta.url));
+    vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    vi.spyOn(CloudBurnClient.prototype, 'scanStatic').mockResolvedValue({
+      providers: [],
+      suppressed: [
+        {
+          finding: { resourceId: 'aws_ebs_volume.gp2_logs' },
+          message: 'EBS volumes should use current-generation storage.',
+          provider: 'aws',
+          ruleId: 'CLDBRN-AWS-EBS-1',
+          service: 'ebs',
+          severity: 'medium',
+          source: 'iac',
+          suppression: {
+            kind: 'all',
+            location: { column: 1, line: 1, path: 'main.tf' },
+          },
+        },
+      ],
+    });
+
+    await createProgram().parseAsync(['scan', fixturePath, '--exit-code', '--fail-on', 'low'], { from: 'user' });
+
+    expect(process.exitCode).toBe(0);
+  });
+
   it('passes comma-separated rule overrides and an explicit config path to the sdk', async () => {
     const fixturePath = fileURLToPath(new URL('../../sdk/test/fixtures/terraform/scan-dir', import.meta.url));
     const configPath = '/tmp/cloudburn-explicit.yml';

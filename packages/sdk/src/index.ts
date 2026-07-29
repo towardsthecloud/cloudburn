@@ -79,4 +79,5 @@ export type {
   Severity,
   Source,
   SourceLocation,
+  SuppressedFinding,
 } from './types.js';

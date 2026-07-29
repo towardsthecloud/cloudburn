@@ -53,6 +53,7 @@ import type {
   DiscoveryDatasetMap,
   Finding,
   FindingMatch,
+  IaCSuppression,
   LiveResourceBag,
   Rule,
   Severity,
@@ -203,6 +204,19 @@ export type ScanDiagnostic = {
 export type ScanResult = {
   diagnostics?: ScanDiagnostic[];
   providers: ProviderFindingGroup[];
+  suppressed?: SuppressedFinding[];
+};
+
+/** One resource-level IaC match retained for audit after an inline suppression. */
+export type SuppressedFinding = {
+  finding: FindingMatch;
+  message: string;
+  provider: CloudProvider;
+  ruleId: string;
+  service: string;
+  severity: Severity;
+  source: 'iac';
+  suppression: IaCSuppression;
 };
 
 export type RegisteredRules = {
@@ -264,6 +278,7 @@ export type {
   DiscoveryDatasetMap,
   Finding,
   FindingMatch,
+  IaCSuppression,
   LiveResourceBag,
   Rule,
   Severity,

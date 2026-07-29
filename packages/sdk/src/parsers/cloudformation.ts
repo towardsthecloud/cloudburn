@@ -3,6 +3,7 @@ import { basename, extname, join, relative, sep } from 'node:path';
 import type { SourceLocation } from '@cloudburn/rules';
 import { isMap, isScalar, isSeq, LineCounter, parseDocument } from 'yaml';
 import { createEmptyIaCParseResult, createSkippedIaCParseResult } from './result.js';
+import { extractSuppressionComments, findResourceSuppressions } from './suppressions.js';
 import type { IaCParseResult } from './types.js';
 
 const SKIPPED_DIRECTORIES = new Set(['.git', '.terraform', 'node_modules']);
@@ -69,6 +70,19 @@ const toSourceLocation = (node: unknown, lineCounter: LineCounter, path: string)
     line: position.line,
     column: position.col,
   };
+};
+
+const toEndLine = (node: unknown, lineCounter: LineCounter): number | undefined => {
+  if (typeof node !== 'object' || node === null || !('range' in node)) {
+    return undefined;
+  }
+
+  const { range } = node as LocationCarrier;
+  if (!range) {
+    return undefined;
+  }
+
+  return lineCounter.linePos(Math.max(range[0], range[1] - 1)).line;
 };
 
 const toNodeTag = (node: unknown): string | undefined => {
@@ -178,6 +192,7 @@ const toIaCResources = async (path: string, relativePath: string): Promise<IaCPa
   }
 
   const contents = await readFile(path, 'utf8');
+  const suppressionComments = extractSuppressionComments(contents, relativePath, 'yaml');
   const lineCounter = new LineCounter();
   const document = parseDocument(contents, {
     keepSourceTokens: true,
@@ -236,14 +251,21 @@ const toIaCResources = async (path: string, relativePath: string): Promise<IaCPa
           return [[resourcePair.key.value, toRawValue(resourcePair.value)]];
         }),
       );
+      const resourceLocation = toSourceLocation(pair.key, lineCounter, relativePath);
+      const resourceEndLine = toEndLine(pair.value, lineCounter) ?? resourceLocation?.line;
+      const suppressions =
+        resourceLocation && resourceEndLine
+          ? findResourceSuppressions(suppressionComments, resourceLocation.line, resourceEndLine)
+          : [];
 
       return [
         {
           provider: 'aws' as const,
           type: resourceTypeNode.value,
           name: pair.key.value,
-          location: toSourceLocation(pair.key, lineCounter, relativePath),
+          location: resourceLocation,
           attributeLocations: toAttributeLocations(pair.value, lineCounter, relativePath),
+          ...(suppressions.length > 0 ? { suppressions } : {}),
           attributes,
         },
       ];
