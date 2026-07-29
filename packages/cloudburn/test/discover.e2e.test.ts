@@ -10,6 +10,7 @@ const liveScanResult = {
         {
           ruleId: 'CLDBRN-AWS-EBS-1',
           service: 'ebs',
+          severity: 'medium' as const,
           source: 'discovery' as const,
           message: 'EBS volumes should use current-generation storage.',
           findings: [
@@ -126,6 +127,7 @@ describe('discover command e2e', () => {
         {
           "ruleId": "CLDBRN-AWS-EBS-1",
           "service": "ebs",
+          "severity": "medium",
           "source": "discovery",
           "message": "EBS volumes should use current-generation storage.",
           "findings": [
@@ -322,6 +324,18 @@ describe('discover command e2e', () => {
 
     await createProgram().parseAsync(['discover', '--exit-code'], { from: 'user' });
 
+    expect(process.exitCode).toBe(1);
+  });
+
+  it('fails only when discovery findings meet the --fail-on threshold', async () => {
+    vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    vi.spyOn(CloudBurnClient.prototype, 'discover').mockResolvedValue(liveScanResult);
+
+    await createProgram().parseAsync(['discover', '--fail-on', 'high'], { from: 'user' });
+    expect(process.exitCode).toBe(0);
+
+    process.exitCode = undefined;
+    await createProgram().parseAsync(['discover', '--fail-on', 'medium'], { from: 'user' });
     expect(process.exitCode).toBe(1);
   });
 

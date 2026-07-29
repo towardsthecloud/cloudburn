@@ -11,6 +11,7 @@ const staticScanResult = {
         {
           ruleId: 'CLDBRN-AWS-EBS-1',
           service: 'ebs',
+          severity: 'medium' as const,
           source: 'iac' as const,
           message: 'EBS volumes should use current-generation storage.',
           findings: [
@@ -51,6 +52,7 @@ describe('scan command e2e', () => {
         {
           "ruleId": "CLDBRN-AWS-EBS-1",
           "service": "ebs",
+          "severity": "medium",
           "source": "iac",
           "message": "EBS volumes should use current-generation storage.",
           "findings": [
@@ -98,11 +100,11 @@ describe('scan command e2e', () => {
   it.each([
     {
       format: 'table',
-      expectedOutput: `+----------+------------------+--------+---------+-------------------------+---------+------+--------+----------------------------------------------------+
-| Provider | RuleId           | Source | Service | ResourceId              | Path    | Line | Column | Message                                            |
-+----------+------------------+--------+---------+-------------------------+---------+------+--------+----------------------------------------------------+
-| aws      | CLDBRN-AWS-EBS-1 | iac    | ebs     | aws_ebs_volume.gp2_logs | main.tf | 4    | 3      | EBS volumes should use current-generation storage. |
-+----------+------------------+--------+---------+-------------------------+---------+------+--------+----------------------------------------------------+
+      expectedOutput: `+----------+------------------+----------+--------+---------+-------------------------+---------+------+--------+----------------------------------------------------+
+| Provider | RuleId           | Severity | Source | Service | ResourceId              | Path    | Line | Column | Message                                            |
++----------+------------------+----------+--------+---------+-------------------------+---------+------+--------+----------------------------------------------------+
+| aws      | CLDBRN-AWS-EBS-1 | medium   | iac    | ebs     | aws_ebs_volume.gp2_logs | main.tf | 4    | 3      | EBS volumes should use current-generation storage. |
++----------+------------------+----------+--------+---------+-------------------------+---------+------+--------+----------------------------------------------------+
 `,
     },
   ])('accepts $format output for static scans', async ({ format, expectedOutput }) => {
@@ -144,6 +146,36 @@ describe('scan command e2e', () => {
 
     expect(stdout).toHaveBeenCalledWith(expect.stringContaining('| Provider |'));
     expect(process.exitCode).toBe(0);
+  });
+
+  it('fails only when static findings meet the --fail-on threshold', async () => {
+    const fixturePath = fileURLToPath(new URL('../../sdk/test/fixtures/terraform/scan-dir', import.meta.url));
+    vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    vi.spyOn(CloudBurnClient.prototype, 'scanStatic').mockResolvedValue(staticScanResult);
+
+    await createProgram().parseAsync(['scan', fixturePath, '--fail-on', 'high'], { from: 'user' });
+    expect(process.exitCode).toBe(0);
+
+    process.exitCode = undefined;
+    await createProgram().parseAsync(['scan', fixturePath, '--fail-on', 'medium'], { from: 'user' });
+    expect(process.exitCode).toBe(1);
+  });
+
+  it('uses config fail-on unless plain --exit-code requests any finding', async () => {
+    const fixturePath = fileURLToPath(new URL('../../sdk/test/fixtures/terraform/scan-dir', import.meta.url));
+    vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    vi.spyOn(CloudBurnClient.prototype, 'loadConfig').mockResolvedValue({
+      discovery: {},
+      iac: { failOn: 'high' },
+    });
+    vi.spyOn(CloudBurnClient.prototype, 'scanStatic').mockResolvedValue(staticScanResult);
+
+    await createProgram().parseAsync(['scan', fixturePath], { from: 'user' });
+    expect(process.exitCode).toBe(0);
+
+    process.exitCode = undefined;
+    await createProgram().parseAsync(['scan', fixturePath, '--exit-code'], { from: 'user' });
+    expect(process.exitCode).toBe(1);
   });
 
   it('passes comma-separated rule overrides and an explicit config path to the sdk', async () => {

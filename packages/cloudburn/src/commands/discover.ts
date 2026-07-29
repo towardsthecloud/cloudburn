@@ -4,22 +4,24 @@ import {
   type AwsRegion,
   assertSupportedAwsRegion,
   CloudBurnClient,
+  type Severity,
 } from '@cloudburn/sdk';
 import { type Command, InvalidArgumentError } from 'commander';
 import { resolveCliDebugLogger } from '../debug.js';
 import { EXIT_CODE_OK, EXIT_CODE_POLICY_VIOLATION, EXIT_CODE_RUNTIME_ERROR } from '../exit-codes.js';
 import { formatError } from '../formatters/error.js';
 import { type CliResponse, type OutputFormat, renderResponse, resolveOutputFormat } from '../formatters/output.js';
-import { countScanResultFindings } from '../formatters/shared.js';
+import { hasPolicyViolation } from '../formatters/shared.js';
 import { setCommandExamples } from '../help.js';
 import { resolveCliDiscoveryProgressLogger } from '../progress.js';
-import { parseRuleIdList, parseServiceList, validateServiceList } from './config-options.js';
+import { parseRuleIdList, parseServiceList, parseSeverity, validateServiceList } from './config-options.js';
 
 type DiscoverOptions = {
   config?: string;
   disabledRules?: string[];
   enabledRules?: string[];
   exitCode?: boolean;
+  failOn?: Severity;
   region?: AwsRegion;
   service?: string[];
 };
@@ -220,6 +222,7 @@ export const registerDiscoverCommand = (program: Command): void => {
         parseDiscoveryServiceList,
       )
       .option('--exit-code', 'Exit with code 1 when findings exist')
+      .option('--fail-on <severity>', 'Exit with code 1 for findings at or above this severity.', parseSeverity)
       .action(async (options: DiscoverOptions, command: Command) => {
         await runCommand(async () => {
           const debugLogger = resolveCliDebugLogger(command);
@@ -254,7 +257,13 @@ export const registerDiscoverCommand = (program: Command): void => {
 
           process.stdout.write(`${output}\n`);
 
-          if (options.exitCode && countScanResultFindings(result) > 0) {
+          if (
+            hasPolicyViolation(result, {
+              configFailOn: loadedConfig.discovery.failOn,
+              exitCode: options.exitCode,
+              failOn: options.failOn,
+            })
+          ) {
             return EXIT_CODE_POLICY_VIOLATION;
           }
 

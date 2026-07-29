@@ -76,6 +76,7 @@ export type ConfigOutputFormat = 'json' | 'table';
 export type CloudBurnModeConfig = {
   enabledRules?: string[];
   disabledRules?: string[];
+  failOn?: Severity;
   services?: string[];
   format?: ConfigOutputFormat;
 };
