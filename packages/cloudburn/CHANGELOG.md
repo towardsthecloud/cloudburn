@@ -1,5 +1,16 @@
 # cloudburn
 
+## 0.11.0
+
+### Minor Changes
+
+- [#133](https://github.com/towardsthecloud/cloudburn/pull/133) [`f3b9ab3`](https://github.com/towardsthecloud/cloudburn/commit/f3b9ab37f36d8e4690de2018a57ac291e0d9d82d) Thanks [@axonstone](https://github.com/axonstone)! - Add severity-aware rule listing and CI gates with --fail-on, plus inline IaC suppressions that remain visible in output without failing policy checks.
+
+### Patch Changes
+
+- Updated dependencies [[`f3b9ab3`](https://github.com/towardsthecloud/cloudburn/commit/f3b9ab37f36d8e4690de2018a57ac291e0d9d82d)]:
+  - @cloudburn/sdk@0.25.0
+
 ## 0.10.1
 
 ### Patch Changes

@@ -1,5 +1,11 @@
 # @cloudburn/rules
 
+## 0.25.0
+
+### Minor Changes
+
+- [#133](https://github.com/towardsthecloud/cloudburn/pull/133) [`f3b9ab3`](https://github.com/towardsthecloud/cloudburn/commit/f3b9ab37f36d8e4690de2018a57ac291e0d9d82d) Thanks [@axonstone](https://github.com/axonstone)! - Add required high, medium, or low severity metadata to every rule and finding so consumers can prioritize cost policies consistently.
+
 ## 0.24.0
 
 ### Minor Changes
