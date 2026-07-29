@@ -33,12 +33,13 @@ sequenceDiagram
   Registry-->>Engine: activeRules[]
   Engine->>Engine: collect staticDependencies
   Engine->>Parser: parseIaCWithDiagnostics(path, required sourceKinds)
-  Parser-->>Engine: resources + skipped-file diagnostics
+  Parser-->>Engine: resources + resource suppressions + skipped-file diagnostics
   Engine->>Engine: build StaticResourceBag
   loop Each rule where supports includes 'iac'
     Engine->>Engine: rule.evaluateStatic(context)
   end
-  Engine-->>Scanner: ScanResult { providers: ProviderFindingGroup[] }
+  Engine->>Engine: partition active and suppressed resource matches
+  Engine-->>Scanner: ScanResult { providers, suppressed?, diagnostics? }
   Scanner-->>CLI: ScanResult
 ```
 

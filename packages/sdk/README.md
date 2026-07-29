@@ -27,11 +27,24 @@ for (const providerGroup of result.providers) {
     console.log(
       providerGroup.provider,
       ruleGroup.ruleId,
+      ruleGroup.severity,
       ruleGroup.source,
       ruleGroup.findings.length,
     );
   }
 }
+```
+
+Static scans recognize resource-local `cloudburn-ignore <rule-id> [reason]` and `cloudburn-ignore-all [reason]`
+comments in Terraform and CloudFormation YAML. Matches removed by these directives are retained in
+`result.suppressed`; active findings remain in `result.providers`.
+
+Both modes accept a `failOn` threshold in their config for consumers that want to share severity policy with the CLI:
+
+```ts
+const result = await client.scanStatic('./iac', {
+  iac: { failOn: 'high' },
+});
 ```
 
 ### Live discovery

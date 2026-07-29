@@ -91,6 +91,7 @@ iac:
   disabled-rules:
     - CLDBRN-AWS-EC2-2
   format: table
+  fail-on: high
 
 discovery:
   enabled-rules:
@@ -98,12 +99,14 @@ discovery:
   disabled-rules:
     - CLDBRN-AWS-S3-1
   format: json
+  fail-on: medium
 ```
 
 - Use `enabled-rules` when you want a mode to run only a specific set of rules.
 - Use `disabled-rules` when you want to subtract a few rules from the active set.
 - Use public rule IDs like `CLDBRN-AWS-EBS-1`; review the [rule ID compatibility policy](docs/reference/rule-ids.md#compatibility-status) when upgrading pinned configuration.
 - Use `--config <path>` if you want `scan` or `discover` to load a specific config file.
+- Use `fail-on` to make CI fail for findings at or above `high`, `medium`, or `low` severity.
 
 ### Scan
 
@@ -113,8 +116,23 @@ Point `scan` at your IaC files. It checks Terraform (`.tf`) and CloudFormation (
 cloudburn scan ./main.tf
 cloudburn scan ./template.yaml
 cloudburn scan ./iac --exit-code
+cloudburn scan ./iac --fail-on high
 cloudburn --format json scan ./iac
 ```
+
+Suppress an accepted finding on one Terraform or CloudFormation resource with a comment immediately above or inside
+that resource. Include a reason after the rule ID when useful:
+
+```hcl
+# cloudburn-ignore CLDBRN-AWS-EBS-1 migration scheduled
+resource "aws_ebs_volume" "legacy" {
+  type = "gp2"
+}
+```
+
+Use `cloudburn-ignore-all <reason>` for a resource-wide exception. Suppressed findings remain in JSON output under
+`suppressed` for auditability and never trigger `--exit-code` or `--fail-on`. CloudFormation JSON cannot carry comments,
+so inline suppressions are supported in Terraform and CloudFormation YAML only.
 
 ### Discover
 
@@ -126,6 +144,7 @@ cloudburn discover
 cloudburn discover --region eu-central-1
 cloudburn discover --service ec2,s3
 cloudburn discover --enabled-rules CLDBRN-AWS-TAGGING-1
+cloudburn discover --fail-on high
 cloudburn --debug discover --region eu-central-1
 ```
 

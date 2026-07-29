@@ -9,8 +9,10 @@ classDiagram
     +string name
     +string description
     +string message
+    +Severity severity
     +provider: 'aws' | 'azure' | 'gcp'
     +string service
+    +Severity severity
     +Source[] supports
     +DiscoveryDatasetKey[] discoveryDependencies?
     +StaticDatasetKey[] staticDependencies?

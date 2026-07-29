@@ -10,6 +10,15 @@ type Source = 'discovery' | 'iac';
 
 `source` stays on each rule-level finding group. There is no top-level `source` field on `ScanResult`.
 
+## `Severity`
+
+```ts
+type Severity = 'high' | 'medium' | 'low';
+```
+
+Every rule and finding group has a severity. `high` identifies the largest or most immediate cost risks, `medium`
+identifies meaningful optimization opportunities, and `low` identifies cost hygiene and smaller accumulation risks.
+
 ## `SourceLocation`
 
 ```ts
@@ -48,6 +57,7 @@ type FindingMatch = {
 type Finding = {
   ruleId: string;
   service: string;
+  severity: Severity;
   source: Source;
   message: string;
   findings: FindingMatch[];
@@ -60,6 +70,7 @@ This is the rule-level group returned by a rule evaluator. Empty groups are not 
 | ---------- | ---------------- | ----------------------------------------------------------------------------------------------------------- |
 | `ruleId`   | `string`         | Public CloudBurn rule identifier; see the [rule ID compatibility status](rule-ids.md#compatibility-status). |
 | `service`  | `string`         | Service name such as `ebs` or `ec2`.                                                                        |
+| `severity` | `Severity`       | Relative cost impact used for prioritization and CI thresholds.                                             |
 | `source`   | `Source`         | Whether the matches came from live discovery or static IaC analysis.                                        |
 | `message`  | `string`         | Generic rule-level policy text shared by every nested match.                                                |
 | `findings` | `FindingMatch[]` | Nested resource-level matches for the rule.                                                                 |
@@ -79,7 +90,30 @@ This is the provider-level group returned by the SDK scan engines.
 
 ```ts
 type ScanResult = {
+  diagnostics?: ScanDiagnostic[];
   providers: ProviderFindingGroup[];
+  suppressed?: SuppressedFinding[];
+};
+```
+
+`suppressed` is present only when an IaC directive matched a finding. Each entry retains the original resource-level
+`finding`, rule metadata, and the parsed suppression directive (including an optional reason) for auditability. These
+entries are excluded from `providers` and do not count toward CLI policy gates.
+
+```ts
+type IaCSuppression =
+  | { kind: 'rule'; ruleId: string; reason?: string; location: SourceLocation }
+  | { kind: 'all'; reason?: string; location: SourceLocation };
+
+type SuppressedFinding = {
+  finding: FindingMatch;
+  message: string;
+  provider: CloudProvider;
+  ruleId: string;
+  service: string;
+  severity: Severity;
+  source: 'iac';
+  suppression: IaCSuppression;
 };
 ```
 
@@ -102,6 +136,7 @@ Example non-empty shape:
         {
           "ruleId": "CLDBRN-AWS-EBS-1",
           "service": "ebs",
+          "severity": "medium",
           "source": "iac",
           "message": "EBS volumes should use current-generation storage.",
           "findings": [
@@ -116,6 +151,33 @@ Example non-empty shape:
           ]
         }
       ]
+    }
+  ]
+}
+```
+
+When inline suppressions match, the result can also contain:
+
+```json
+{
+  "suppressed": [
+    {
+      "finding": {
+        "resourceId": "aws_ebs_volume.legacy",
+        "location": { "path": "main.tf", "line": 4, "column": 3 }
+      },
+      "message": "EBS volumes should use current-generation storage.",
+      "provider": "aws",
+      "ruleId": "CLDBRN-AWS-EBS-1",
+      "service": "ebs",
+      "severity": "medium",
+      "source": "iac",
+      "suppression": {
+        "kind": "rule",
+        "ruleId": "CLDBRN-AWS-EBS-1",
+        "reason": "migration scheduled",
+        "location": { "path": "main.tf", "line": 1, "column": 1 }
+      }
     }
   ]
 }
