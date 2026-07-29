@@ -11,12 +11,13 @@ Source of truth: `packages/sdk/src/types.ts` (type), `packages/sdk/src/config/de
 
 Each mode uses the same fields:
 
-| Field            | Type                | Default | Description                                                                     |
-| ---------------- | ------------------- | ------- | ------------------------------------------------------------------------------- |
-| `enabled-rules`  | `string[]`          | unset   | If present, only the listed rule IDs remain active; otherwise AWS Core is used. |
-| `disabled-rules` | `string[]`          | unset   | Rule IDs to remove from the active set after `enabled-rules` is applied.        |
-| `services`       | `string[]`          | unset   | Service allowlist applied before `enabled-rules` and `disabled-rules`.          |
-| `format`         | `'json' \| 'table'` | unset   | Default CLI output format for that mode when `--format` is not passed.          |
+| Field            | Type                          | Default | Description                                                                     |
+| ---------------- | ----------------------------- | ------- | ------------------------------------------------------------------------------- |
+| `enabled-rules`  | `string[]`                    | unset   | If present, only the listed rule IDs remain active; otherwise AWS Core is used. |
+| `disabled-rules` | `string[]`                    | unset   | Rule IDs to remove from the active set after `enabled-rules` is applied.        |
+| `services`       | `string[]`                    | unset   | Service allowlist applied before `enabled-rules` and `disabled-rules`.          |
+| `format`         | `'json' \| 'table'`           | unset   | Default CLI output format for that mode when `--format` is not passed.          |
+| `fail-on`        | `'high' \| 'medium' \| 'low'` | unset   | Exit with code 1 when an active finding meets or exceeds this severity.         |
 
 Custom rule injection is not part of the current configuration schema. The supported rule-selection controls are the
 mode-local `enabled-rules`, `disabled-rules`, and `services` fields above.
@@ -29,7 +30,8 @@ mode-local `enabled-rules`, `disabled-rules`, and `services` fields above.
 2. Merge `iac` and `discovery` independently.
 3. Replace `enabledRules` and `disabledRules` arrays when an override is present.
 4. Replace `services` arrays when an override is present.
-5. Preserve untouched fields in the other mode or on the same mode.
+5. Replace `failOn` when an override is present.
+6. Preserve untouched fields in the other mode or on the same mode.
 
 The `CloudBurnClient` facade also merges runtime overrides through `mergeConfig()`.
 
@@ -43,12 +45,17 @@ The `CloudBurnClient` facade also merges runtime overrides through `mergeConfig(
 - stop the upward search at the git root if one exists, otherwise at the filesystem root
 - if no config file is found, return defaults
 
+This CI trust boundary means a repository `fail-on` setting is not active unless the caller passes that file explicitly,
+for example `cloudburn scan ./iac --config .cloudburn.yml`. Pin `--fail-on` directly in the workflow when the threshold
+must not be changeable by repository config.
+
 Validation fails fast for:
 
 - invalid YAML
 - unknown top-level or section keys
 - invalid field types
 - invalid `format`
+- invalid `fail-on`
 - unknown services
 - unknown rule IDs
 - rule IDs that do not support the targeted mode
@@ -66,6 +73,7 @@ Printed by `cloudburn config --print-template` (from `packages/cloudburn/src/com
 # disabled-rules removes specific rule IDs from the selected set.
 # services restricts scans to rules for the listed services.
 # format sets the default output format when --format is not passed.
+# fail-on gates CI on findings at or above high, medium, or low severity.
 iac:
   enabled-rules:
     - CLDBRN-AWS-EBS-1
@@ -75,6 +83,7 @@ iac:
     - ebs
     - ec2
   format: table
+  # fail-on: high
 
 # Live AWS discovery configuration.
 # Use the same rule controls here to tune discover runs separately from IaC scans.
@@ -87,7 +96,12 @@ discovery:
     - ebs
     - s3
   format: json
+  # fail-on: high
 ```
+
+`fail-on` is inclusive: `high` gates only high-severity findings, `medium` gates high and medium, and `low` gates every
+active finding. Inline-suppressed IaC findings never trigger the gate. On the CLI, an explicit `--fail-on` takes
+precedence over `--exit-code`; `--exit-code` retains its compatibility behavior of gating on any active finding.
 
 ## Live Discovery Semantics
 

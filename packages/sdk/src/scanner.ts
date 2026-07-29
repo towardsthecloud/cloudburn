@@ -3,6 +3,7 @@ import { mergeConfig } from './config/merge.js';
 import { emitDebugLog } from './debug.js';
 import { runLiveScan } from './engine/run-live.js';
 import { runStaticScan } from './engine/run-static.js';
+import { evaluateScanPolicy } from './policy.js';
 import { type AwsClientCredentials, withAwsClientCredentials } from './providers/aws/client.js';
 import {
   getAwsDiscoveryStatus,
@@ -62,7 +63,10 @@ export class CloudBurnClient {
     emitDebugLog(this.options?.debugLogger, `sdk: starting static scan for ${path}`);
     const effectiveConfig = await this.getEffectiveConfig(config, options?.configPath);
 
-    return runStaticScan(path, effectiveConfig);
+    const result = await runStaticScan(path, effectiveConfig);
+    const threshold = effectiveConfig.iac.failOn;
+
+    return threshold === undefined ? result : { ...result, policy: evaluateScanPolicy(result, threshold) };
   }
 
   /**
@@ -83,11 +87,15 @@ export class CloudBurnClient {
     emitDebugLog(this.options?.debugLogger, 'sdk: starting live discovery scan');
     const effectiveConfig = await this.getEffectiveConfig(options?.config, options?.configPath);
 
-    const run = () =>
-      runLiveScan(effectiveConfig, options?.target ?? { mode: 'current' }, {
+    const run = async () => {
+      const result = await runLiveScan(effectiveConfig, options?.target ?? { mode: 'current' }, {
         debugLogger: this.options?.debugLogger,
         onProgress: options?.onProgress,
       });
+      const threshold = effectiveConfig.discovery.failOn;
+
+      return threshold === undefined ? result : { ...result, policy: evaluateScanPolicy(result, threshold) };
+    };
 
     return options?.aws?.credentials ? withAwsClientCredentials(options.aws.credentials, run) : run();
   }

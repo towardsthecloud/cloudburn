@@ -53,8 +53,10 @@ import type {
   DiscoveryDatasetMap,
   Finding,
   FindingMatch,
+  IaCSuppression,
   LiveResourceBag,
   Rule,
+  Severity,
   Source,
   SourceLocation,
   StaticDatasetKey,
@@ -75,6 +77,7 @@ export type ConfigOutputFormat = 'json' | 'table';
 export type CloudBurnModeConfig = {
   enabledRules?: string[];
   disabledRules?: string[];
+  failOn?: Severity;
   services?: string[];
   format?: ConfigOutputFormat;
 };
@@ -86,7 +89,10 @@ export type RuleConfig = CloudBurnModeConfig;
 export type ScanSource = Source;
 
 /** Serializable metadata surfaced for built-in rules in SDK and CLI inspection commands. */
-export type BuiltInRuleMetadata = Pick<Rule, 'id' | 'name' | 'description' | 'provider' | 'service' | 'supports'>;
+export type BuiltInRuleMetadata = Pick<
+  Rule,
+  'id' | 'name' | 'description' | 'provider' | 'service' | 'severity' | 'supports'
+>;
 
 /** Selects how a live AWS discovery resolves its search region or index scope. */
 export type AwsDiscoveryTarget =
@@ -194,10 +200,31 @@ export type ScanDiagnostic = {
   ruleId?: string;
 };
 
+/** Observable result of evaluating active findings against a severity policy. */
+export type ScanPolicyResult = {
+  qualifyingFindingCount: number;
+  threshold?: Severity;
+  violated: boolean;
+};
+
 /** Result of a scan execution containing provider-grouped lean rule findings. */
 export type ScanResult = {
   diagnostics?: ScanDiagnostic[];
+  policy?: ScanPolicyResult;
   providers: ProviderFindingGroup[];
+  suppressed?: SuppressedFinding[];
+};
+
+/** One resource-level IaC match retained for audit after an inline suppression. */
+export type SuppressedFinding = {
+  finding: FindingMatch;
+  message: string;
+  provider: CloudProvider;
+  ruleId: string;
+  service: string;
+  severity: Severity;
+  source: 'iac';
+  suppression: IaCSuppression;
 };
 
 export type RegisteredRules = {
@@ -259,8 +286,10 @@ export type {
   DiscoveryDatasetMap,
   Finding,
   FindingMatch,
+  IaCSuppression,
   LiveResourceBag,
   Rule,
+  Severity,
   Source,
   SourceLocation,
   StaticDatasetKey,

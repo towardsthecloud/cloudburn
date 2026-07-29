@@ -54,6 +54,7 @@ describe('s3IncompleteMultipartUploadAbortRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-S3-3',
       service: 's3',
+      severity: 'low',
       source: 'discovery',
       message: 'S3 buckets should abort incomplete multipart uploads within 7 days.',
       findings: [
@@ -76,6 +77,7 @@ describe('s3IncompleteMultipartUploadAbortRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-S3-3',
       service: 's3',
+      severity: 'low',
       source: 'iac',
       message: 'S3 buckets should abort incomplete multipart uploads within 7 days.',
       findings: [

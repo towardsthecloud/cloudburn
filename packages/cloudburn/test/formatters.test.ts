@@ -10,6 +10,7 @@ const resultWithoutLocation = {
         {
           ruleId: 'CLDBRN-AWS-EBS-1',
           service: 'ebs',
+          severity: 'medium' as const,
           source: 'discovery' as const,
           message: 'EBS volumes should use current-generation storage.',
           findings: [
@@ -33,6 +34,7 @@ const resultWithLocation = {
         {
           ruleId: 'CLDBRN-AWS-EBS-1',
           service: 'ebs',
+          severity: 'medium' as const,
           source: 'iac' as const,
           message: 'EBS volumes should use current-generation storage.',
           findings: [
@@ -81,6 +83,30 @@ const resultWithFindingAndDiagnostic = {
   providers: resultWithoutLocation.providers,
 };
 
+const resultWithSuppressedFinding = {
+  providers: [],
+  suppressed: [
+    {
+      finding: {
+        location: { column: 3, line: 5, path: 'main.tf' },
+        resourceId: 'aws_ebs_volume.legacy',
+      },
+      message: 'EBS volumes should use current-generation storage.',
+      provider: 'aws' as const,
+      ruleId: 'CLDBRN-AWS-EBS-1',
+      service: 'ebs',
+      severity: 'medium' as const,
+      source: 'iac' as const,
+      suppression: {
+        kind: 'rule' as const,
+        location: { column: 1, line: 1, path: 'main.tf' },
+        reason: 'legacy volume',
+        ruleId: 'CLDBRN-AWS-EBS-1',
+      },
+    },
+  ],
+};
+
 const withStdoutColumns = (columns: number, run: () => void): void => {
   const descriptor = Object.getOwnPropertyDescriptor(process.stdout, 'columns');
 
@@ -106,12 +132,15 @@ describe('renderResponse', () => {
   });
 
   it('renders scan results as an ascii table', () => {
-    expect(renderResponse({ kind: 'scan-result', result: resultWithoutLocation }, 'table')).toMatchInlineSnapshot(`
-      "+----------+------------------+-----------+---------+------------+--------------+-----------+----------------------------------------------------+
-      | Provider | RuleId           | Source    | Service | ResourceId | AccountId    | Region    | Message                                            |
-      +----------+------------------+-----------+---------+------------+--------------+-----------+----------------------------------------------------+
-      | aws      | CLDBRN-AWS-EBS-1 | discovery | ebs     | vol-123    | 123456789012 | us-east-1 | EBS volumes should use current-generation storage. |
-      +----------+------------------+-----------+---------+------------+--------------+-----------+----------------------------------------------------+"
+    const output = renderResponse({ kind: 'scan-result', result: resultWithoutLocation }, 'table');
+
+    expect(output).toContain('Severity');
+    expect(output).toMatchInlineSnapshot(`
+      "+----------+------------------+----------+-----------+---------+------------+--------------+-----------+----------------------------------------------------+
+      | Provider | RuleId           | Severity | Source    | Service | ResourceId | AccountId    | Region    | Message                                            |
+      +----------+------------------+----------+-----------+---------+------------+--------------+-----------+----------------------------------------------------+
+      | aws      | CLDBRN-AWS-EBS-1 | medium   | discovery | ebs     | vol-123    | 123456789012 | us-east-1 | EBS volumes should use current-generation storage. |
+      +----------+------------------+----------+-----------+---------+------------+--------------+-----------+----------------------------------------------------+"
     `);
   });
 
@@ -134,6 +163,18 @@ describe('renderResponse', () => {
     expect(output).toContain('Diagnostics');
     expect(output).toContain('access_denied');
     expect(output).toContain('Skipped lambda discovery in us-east-1');
+  });
+
+  it('retains suppressed findings in json and reports their count in table output', () => {
+    const json = JSON.parse(
+      renderResponse({ kind: 'scan-result', result: resultWithSuppressedFinding }, 'json'),
+    ) as typeof resultWithSuppressedFinding;
+
+    expect(json.suppressed).toHaveLength(1);
+    expect(json.suppressed[0]?.suppression.reason).toBe('legacy volume');
+    expect(renderResponse({ kind: 'scan-result', result: resultWithSuppressedFinding }, 'table')).toBe(
+      'No active findings.\n\nSuppressed: 1',
+    );
   });
 
   it('wraps long status values to the available terminal width in table mode', () => {

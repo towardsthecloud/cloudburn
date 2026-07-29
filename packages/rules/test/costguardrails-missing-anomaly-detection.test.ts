@@ -25,6 +25,7 @@ describe('costGuardrailMissingAnomalyDetectionRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-COSTGUARDRAILS-2',
       service: 'costguardrails',
+      severity: 'low',
       source: 'discovery',
       message: 'AWS accounts should enable Cost Anomaly Detection monitors for spend spikes.',
       findings: [

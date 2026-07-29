@@ -38,6 +38,7 @@ describe('ec2ReservedInstanceExpiringRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-EC2-7',
       service: 'ec2',
+      severity: 'medium',
       source: 'discovery',
       message: 'EC2 reserved instances expiring within 60 days should be reviewed.',
       findings: [

@@ -43,6 +43,14 @@ If you want to inspect the starter template without writing a file:
 cloudburn config --print-template
 ```
 
+CloudBurn does not implicitly trust repository config in CI. Pass the exact file explicitly when you want CI to use
+its rule selection, output defaults, or severity gate:
+
+```bash
+cloudburn scan ./iac --config .cloudburn.yml
+cloudburn discover --config .cloudburn.yml
+```
+
 ### Scan
 
 Use `scan` to check Terraform and CloudFormation before you deploy.
@@ -51,8 +59,31 @@ Use `scan` to check Terraform and CloudFormation before you deploy.
 cloudburn scan ./main.tf
 cloudburn scan ./template.yaml
 cloudburn scan ./iac --exit-code
+cloudburn scan ./iac --fail-on high
 cloudburn --format json scan ./iac
 ```
+
+`--fail-on high|medium|low` exits with code 1 when an active finding meets or exceeds the selected severity. The same
+threshold can be configured as `iac.fail-on`. Plain `--exit-code` continues to gate on any active finding.
+In CI, configured thresholds apply only when the config is passed with `--config` as shown above.
+
+Terraform and CloudFormation YAML support resource-local exceptions. Put one of these comments immediately above or
+inside the resource; text after the directive is retained as an optional reason:
+
+```hcl
+# cloudburn-ignore CLDBRN-AWS-EBS-1 migration scheduled
+resource "aws_ebs_volume" "legacy" {
+  type = "gp2"
+}
+
+# cloudburn-ignore-all approved temporary exception
+resource "aws_ebs_volume" "temporary" {
+  type = "gp2"
+}
+```
+
+Suppressed findings remain available in JSON output under `suppressed`, are counted in table output, and never fail CI
+gates. CloudFormation JSON does not support comments and therefore cannot contain inline suppressions.
 
 ### Discover
 
@@ -69,10 +100,13 @@ cloudburn discover --region eu-central-1
 cloudburn discover --config .cloudburn.yml --enabled-rules CLDBRN-AWS-EBS-1
 cloudburn discover --enabled-rules CLDBRN-AWS-TAGGING-1
 cloudburn discover --service ec2,s3
+cloudburn discover --fail-on high
 cloudburn --debug discover --region eu-central-1
 cloudburn rules list
-cloudburn rules list --service ec2 --source discovery
+cloudburn rules list --service ec2 --source discovery --severity high
 ```
+
+The discovery config equivalent is `discovery.fail-on`.
 
 The CLI targets one region per run. Multi-region discovery remains available through the SDK and still needs an AWS Resource Explorer aggregator plus an unfiltered default view in the aggregator region.
 `CLDBRN-AWS-TAGGING-1` is opt-in and requires an accessible aggregator; a local-only setup cannot run account-wide tagging discovery.

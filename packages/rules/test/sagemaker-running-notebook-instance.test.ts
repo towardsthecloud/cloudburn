@@ -39,6 +39,7 @@ describe('sagemakerRunningNotebookInstanceRule', () => {
       message: 'SageMaker notebook instances should not remain running when they are no longer needed.',
       ruleId: 'CLDBRN-AWS-SAGEMAKER-1',
       service: 'sagemaker',
+      severity: 'high',
       source: 'discovery',
     });
   });

@@ -59,6 +59,7 @@ describe('s3StorageClassOptimizationRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-S3-2',
       service: 's3',
+      severity: 'medium',
       source: 'discovery',
       message: 'S3 buckets with lifecycle management should match object access patterns to the right storage class.',
       findings: [
@@ -115,6 +116,7 @@ describe('s3StorageClassOptimizationRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-S3-2',
       service: 's3',
+      severity: 'medium',
       source: 'iac',
       message: 'S3 buckets with lifecycle management should match object access patterns to the right storage class.',
       findings: [
@@ -151,6 +153,7 @@ describe('s3StorageClassOptimizationRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-S3-2',
       service: 's3',
+      severity: 'medium',
       source: 'iac',
       message: 'S3 buckets with lifecycle management should match object access patterns to the right storage class.',
       findings: [
@@ -228,6 +231,7 @@ describe('s3StorageClassOptimizationRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-S3-2',
       service: 's3',
+      severity: 'medium',
       source: 'iac',
       message: 'S3 buckets with lifecycle management should match object access patterns to the right storage class.',
       findings: [
@@ -339,6 +343,7 @@ describe('s3StorageClassOptimizationRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-S3-2',
       service: 's3',
+      severity: 'medium',
       source: 'iac',
       message: 'S3 buckets with lifecycle management should match object access patterns to the right storage class.',
       findings: [

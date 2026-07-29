@@ -28,6 +28,7 @@ describe('rdsIdleInstanceRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-RDS-2',
       service: 'rds',
+      severity: 'high',
       source: 'discovery',
       message: 'RDS DB instances should not remain idle for 7 days.',
       findings: [

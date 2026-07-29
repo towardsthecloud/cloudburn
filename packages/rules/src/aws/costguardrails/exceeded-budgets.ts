@@ -2,10 +2,12 @@ import { createFinding, createFindingMatch, createRule } from '../../shared/help
 
 const RULE_ID = 'CLDBRN-AWS-COSTGUARDRAILS-3';
 const RULE_SERVICE = 'costguardrails';
+const RULE_SEVERITY = 'high' as const;
 const RULE_MESSAGE = 'AWS Budgets whose actual spend exceeds their configured limit should be reviewed.';
 
 /** Flag configured AWS Budgets whose actual spend strictly exceeds their limit. */
 export const costGuardrailExceededBudgetsRule = createRule({
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'AWS Budget Limit Exceeded',
   description: 'Flag AWS Budgets whose actual spend is greater than their configured limit.',
@@ -25,6 +27,10 @@ export const costGuardrailExceededBudgetsRule = createRule({
       .filter((budget) => budget.actualSpend > budget.budgetLimit)
       .map((budget) => createFindingMatch(`budget/${budget.budgetName}`, undefined, budgetSummary.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
 });

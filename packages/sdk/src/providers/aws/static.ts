@@ -1,12 +1,20 @@
-import type { Rule, StaticDatasetKey, StaticEvaluationContext } from '@cloudburn/rules';
+import type { IaCSuppression, Rule, StaticDatasetKey, StaticEvaluationContext } from '@cloudburn/rules';
 import { StaticResourceBag } from '@cloudburn/rules';
 import { type IaCSourceKind, parseIaCWithDiagnostics } from '../../parsers/index.js';
 import type { ScanDiagnostic } from '../../types.js';
-import { getAwsStaticDatasetDefinition } from './static-registry.js';
+import { getAwsStaticDatasetDefinition, toStaticResourceId } from './static-registry.js';
 
 /** Static evaluation context with non-fatal diagnostics produced during dataset loading. */
 export type AwsStaticResourceLoadResult = StaticEvaluationContext & {
   diagnostics: ScanDiagnostic[];
+  suppressionTargets: AwsStaticSuppressionTarget[];
+};
+
+/** Canonical static resource identity and its parsed inline directives. */
+export type AwsStaticSuppressionTarget = {
+  path: string;
+  resourceId: string;
+  suppressions: IaCSuppression[];
 };
 
 const sortUnique = <T extends string>(values: T[]): T[] =>
@@ -52,6 +60,7 @@ export const loadAwsStaticResources = async (path: string, rules: Rule[]): Promi
     return {
       diagnostics: [],
       resources: new StaticResourceBag(),
+      suppressionTargets: [],
     };
   }
 
@@ -66,6 +75,19 @@ export const loadAwsStaticResources = async (path: string, rules: Rule[]): Promi
   });
   const sourceKinds = sortUnique(datasetDefinitions.flatMap((definition) => definition.sourceKinds) as IaCSourceKind[]);
   const { diagnostics, resources: iacResources } = await parseIaCWithDiagnostics(path, { sourceKinds });
+  const suppressionTargets = iacResources.flatMap((resource): AwsStaticSuppressionTarget[] => {
+    if (!resource.location || !resource.suppressions || resource.suppressions.length === 0) {
+      return [];
+    }
+
+    return [
+      {
+        path: resource.location.path,
+        resourceId: toStaticResourceId(resource),
+        suppressions: resource.suppressions,
+      },
+    ];
+  });
   const loadedDatasets = datasetDefinitions.map(
     (definition) =>
       [
@@ -77,5 +99,6 @@ export const loadAwsStaticResources = async (path: string, rules: Rule[]): Promi
   return {
     diagnostics,
     resources: new StaticResourceBag(Object.fromEntries(loadedDatasets)),
+    suppressionTargets,
   };
 };

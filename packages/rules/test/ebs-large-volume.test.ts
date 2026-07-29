@@ -42,6 +42,7 @@ describe('ebsLargeVolumeRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-EBS-4',
       service: 'ebs',
+      severity: 'high',
       source: 'discovery',
       message: 'EBS volumes larger than 100 GiB should be reviewed.',
       findings: [
@@ -79,6 +80,7 @@ describe('ebsLargeVolumeRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-EBS-4',
       service: 'ebs',
+      severity: 'high',
       source: 'iac',
       message: 'EBS volumes larger than 100 GiB should be reviewed.',
       findings: [

@@ -43,6 +43,7 @@ describe('ecrMissingLifecyclePolicyRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-ECR-1',
       service: 'ecr',
+      severity: 'low',
       source: 'discovery',
       message: 'ECR repositories should define lifecycle policies.',
       findings: [
@@ -80,6 +81,7 @@ describe('ecrMissingLifecyclePolicyRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-ECR-1',
       service: 'ecr',
+      severity: 'low',
       source: 'iac',
       message: 'ECR repositories should define lifecycle policies.',
       findings: [

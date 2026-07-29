@@ -27,12 +27,33 @@ for (const providerGroup of result.providers) {
     console.log(
       providerGroup.provider,
       ruleGroup.ruleId,
+      ruleGroup.severity,
       ruleGroup.source,
       ruleGroup.findings.length,
     );
   }
 }
 ```
+
+Static scans recognize resource-local `cloudburn-ignore <rule-id> [reason]` and `cloudburn-ignore-all [reason]`
+comments in Terraform and CloudFormation YAML. Matches removed by these directives are retained in
+`result.suppressed`; active findings remain in `result.providers`.
+
+Both modes accept a `failOn` threshold. When configured, the SDK evaluates it and exposes the effective threshold,
+qualifying finding count, and violation status on `result.policy`:
+
+```ts
+const result = await client.scanStatic('./iac', {
+  iac: { failOn: 'high' },
+});
+
+if (result.policy?.violated) {
+  console.error(`${result.policy.qualifyingFindingCount} high-severity findings`);
+}
+```
+
+Use the exported `evaluateScanPolicy(result, threshold?)` helper to apply a runtime threshold or an any-finding policy
+without rerunning the scan. SDK policy evaluation reports state; it does not change the host process exit code.
 
 ### Live discovery
 

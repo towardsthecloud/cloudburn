@@ -52,6 +52,7 @@ describe('ebsAttachedToStoppedInstancesRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-EBS-3',
       service: 'ebs',
+      severity: 'high',
       source: 'discovery',
       message: 'EBS volumes attached only to stopped EC2 instances should be reviewed.',
       findings: [

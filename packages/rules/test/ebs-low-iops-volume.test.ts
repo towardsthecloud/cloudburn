@@ -42,6 +42,7 @@ describe('ebsLowIopsVolumeRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-EBS-6',
       service: 'ebs',
+      severity: 'medium',
       source: 'discovery',
       message: 'EBS io1 and io2 volumes at 16000 IOPS or below should be reviewed for gp3.',
       findings: [
@@ -79,6 +80,7 @@ describe('ebsLowIopsVolumeRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-EBS-6',
       service: 'ebs',
+      severity: 'medium',
       source: 'iac',
       message: 'EBS io1 and io2 volumes at 16000 IOPS or below should be reviewed for gp3.',
       findings: [

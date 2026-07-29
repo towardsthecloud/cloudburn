@@ -51,6 +51,7 @@ describe('lambdaCostOptimalArchitectureRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-LAMBDA-1',
       service: 'lambda',
+      severity: 'medium',
       source: 'discovery',
       message: 'Lambda functions should use arm64 architecture when compatible to reduce running costs.',
       findings: [
@@ -88,6 +89,7 @@ describe('lambdaCostOptimalArchitectureRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-LAMBDA-1',
       service: 'lambda',
+      severity: 'medium',
       source: 'iac',
       message: 'Lambda functions should use arm64 architecture when compatible to reduce running costs.',
       findings: [
@@ -122,6 +124,7 @@ describe('lambdaCostOptimalArchitectureRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-LAMBDA-1',
       service: 'lambda',
+      severity: 'medium',
       source: 'iac',
       message: 'Lambda functions should use arm64 architecture when compatible to reduce running costs.',
       findings: [
@@ -156,6 +159,7 @@ describe('lambdaCostOptimalArchitectureRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-LAMBDA-1',
       service: 'lambda',
+      severity: 'medium',
       source: 'iac',
       message: 'Lambda functions should use arm64 architecture when compatible to reduce running costs.',
       findings: [
@@ -191,6 +195,7 @@ describe('lambdaCostOptimalArchitectureRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-LAMBDA-1',
       service: 'lambda',
+      severity: 'medium',
       source: 'iac',
       message: 'Lambda functions should use arm64 architecture when compatible to reduce running costs.',
       findings: [

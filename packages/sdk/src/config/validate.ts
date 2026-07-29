@@ -1,7 +1,9 @@
+import { SEVERITIES } from '@cloudburn/rules';
 import { builtInRuleMetadata } from '../built-in-rules.js';
 import type { CloudBurnConfig, CloudBurnModeConfig, ConfigOutputFormat, Source } from '../types.js';
 
 const supportedFormats = new Set<ConfigOutputFormat>(['json', 'table']);
+const supportedSeverities = new Set(SEVERITIES);
 const rulesById = new Map(builtInRuleMetadata.map((rule) => [rule.id, rule]));
 const servicesByMode = {
   discovery: new Set(
@@ -74,6 +76,10 @@ const validateModeConfig = (mode: Source, config: CloudBurnModeConfig): CloudBur
     throw new Error(`Invalid format "${config.format}" in ${mode}.format.`);
   }
 
+  if (config.failOn !== undefined && !supportedSeverities.has(config.failOn)) {
+    throw new Error(`Invalid severity "${String(config.failOn)}" in ${mode}.fail-on.`);
+  }
+
   const enabledRules = normalizeRuleList(config.enabledRules);
   const disabledRules = normalizeRuleList(config.disabledRules);
   const services = normalizeServiceList(config.services);
@@ -90,6 +96,7 @@ const validateModeConfig = (mode: Source, config: CloudBurnModeConfig): CloudBur
   return {
     disabledRules,
     enabledRules,
+    failOn: config.failOn,
     format: config.format,
     services,
   };

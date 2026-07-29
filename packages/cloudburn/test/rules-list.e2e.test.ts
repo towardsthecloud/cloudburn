@@ -40,6 +40,19 @@ describe('rules list e2e', { timeout: 30_000 }, () => {
     expect(output).not.toContain('CLDBRN-AWS-S3-1');
   });
 
+  it('filters built-in rules by severity', async () => {
+    const { createProgram } = await import('../src/cli.js');
+    const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+
+    await createProgram().parseAsync(['rules', 'list', '--service', 'ec2', '--severity', 'high'], { from: 'user' });
+
+    const output = stdout.mock.calls.map(([chunk]) => String(chunk)).join('');
+
+    expect(output).toContain('| Severity');
+    expect(output).toContain('CLDBRN-AWS-EC2-11');
+    expect(output).not.toContain('CLDBRN-AWS-EC2-6');
+  });
+
   it('rejects text output as an invalid format', async () => {
     const { createProgram } = await import('../src/cli.js');
     const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
@@ -74,6 +87,7 @@ describe('rules list e2e', { timeout: 30_000 }, () => {
             name: 'EC2 Test Rule',
             provider: 'aws',
             service: 'ec2',
+            severity: 'medium',
             supports: ['iac'],
           },
         ],

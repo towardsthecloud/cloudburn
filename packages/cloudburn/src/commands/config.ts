@@ -14,6 +14,7 @@ const starterConfig = `# Static IaC scan configuration.
 # disabled-rules removes specific rule IDs from the selected set.
 # services restricts scans to rules for the listed services.
 # format sets the default output format when --format is not passed.
+# fail-on gates CI on findings at or above high, medium, or low severity.
 iac:
   enabled-rules:
     - CLDBRN-AWS-EBS-1
@@ -23,6 +24,7 @@ iac:
     - ebs
     - ec2
   format: table
+  # fail-on: high
 
 # Live AWS discovery configuration.
 # Use the same rule controls here to tune discover runs separately from IaC scans.
@@ -35,6 +37,7 @@ discovery:
     - ebs
     - s3
   format: json
+  # fail-on: high
 `;
 
 type ConfigCommandOptions = {

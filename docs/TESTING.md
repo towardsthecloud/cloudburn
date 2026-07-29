@@ -66,8 +66,10 @@ Mock at the SDK boundary — do not run real scans.
 - Root and command-local `--format` resolve to the expected `json|table` output
 - Config-provided mode formats become the default when `--format` is absent
 - `--config`, `--enabled-rules`, and `--disabled-rules` pass the expected runtime overrides to the SDK
-- `--exit-code` sets `process.exitCode = 1` when findings exist
-- `--exit-code` without findings sets `process.exitCode = 0`
+- `--exit-code` sets `process.exitCode = 1` when active findings exist
+- `--fail-on` and configured `fail-on` apply inclusive severity thresholds with CLI precedence
+- Suppressed IaC findings remain in output but never set `process.exitCode = 1`
+- Gates without qualifying active findings set `process.exitCode = 0`
 - `discover supported-resource-types`, `discover init`, `discover status`, `config`, `rules list`, and `estimate` all go through the shared formatter system
 - `table` output stays human-readable and `json` output stays machine-readable
 - Runtime errors remain structured JSON on `stderr` regardless of stdout format

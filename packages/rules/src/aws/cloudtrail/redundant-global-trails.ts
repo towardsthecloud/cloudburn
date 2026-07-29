@@ -2,11 +2,13 @@ import { createFinding, createFindingMatch, createRule } from '../../shared/help
 
 const RULE_ID = 'CLDBRN-AWS-CLOUDTRAIL-1';
 const RULE_SERVICE = 'cloudtrail';
+const RULE_SEVERITY = 'medium' as const;
 const RULE_MESSAGE =
   'AWS accounts should keep only one multi-region CloudTrail trail unless redundancy is intentional.';
 
 /** Flag redundant multi-region CloudTrail trails after keeping one canonical trail per account. */
 export const cloudTrailRedundantGlobalTrailsRule = createRule({
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'CloudTrail Redundant Global Trails',
   description: 'Flag redundant multi-region CloudTrail trails when more than one trail covers the same account.',
@@ -42,6 +44,10 @@ export const cloudTrailRedundantGlobalTrailsRule = createRule({
       .filter((trail) => trail.isMultiRegionTrail && survivorByAccount.get(trail.accountId) !== trail.trailArn)
       .map((trail) => createFindingMatch(trail.trailArn, trail.region, trail.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
 });

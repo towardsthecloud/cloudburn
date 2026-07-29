@@ -2,6 +2,7 @@ import { createFinding, createFindingMatch, createRule } from '../../shared/help
 
 const RULE_ID = 'CLDBRN-AWS-RDS-3';
 const RULE_SERVICE = 'rds';
+const RULE_SEVERITY = 'high' as const;
 const RULE_MESSAGE = 'Long-running RDS DB instances should have reserved instance coverage.';
 const DAY_MS = 24 * 60 * 60 * 1000;
 // Review steady-state databases twice a year for reservation fit.
@@ -66,6 +67,7 @@ const consumeCoverage = (
 
 /** Flag long-running RDS DB instances that lack active reserved-instance coverage. */
 export const rdsReservedCoverageRule = createRule({
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'RDS DB Instance Missing Reserved Coverage',
   description: 'Flag long-running RDS DB instances that do not have matching active reserved-instance coverage.',
@@ -118,6 +120,10 @@ export const rdsReservedCoverageRule = createRule({
       })
       .map((instance) => createFindingMatch(instance.dbInstanceIdentifier, instance.region, instance.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
 });

@@ -49,6 +49,7 @@ describe('sagemakerIdleEndpointRule', () => {
       message: 'SageMaker endpoints in service with zero invocations over 14 days should be reviewed for cleanup.',
       ruleId: 'CLDBRN-AWS-SAGEMAKER-2',
       service: 'sagemaker',
+      severity: 'high',
       source: 'discovery',
     });
   });

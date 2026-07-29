@@ -2,6 +2,7 @@ import { createFinding, createFindingMatch, createRule } from '../../shared/help
 
 const RULE_ID = 'CLDBRN-AWS-ROUTE53-1';
 const RULE_SERVICE = 'route53';
+const RULE_SEVERITY = 'low' as const;
 const RULE_MESSAGE = 'Route 53 record sets should generally use TTL values of at least 3600 seconds.';
 // Match the upstream Route 53 guidance that treats one hour as the low-TTL review floor.
 const LOW_TTL_SECONDS = 3600;
@@ -11,6 +12,7 @@ const hasLowTtl = (ttl: number | null | undefined): ttl is number =>
 
 /** Flag Route 53 record sets whose TTL is lower than the common one-hour baseline. */
 export const route53RecordHigherTtlRule = createRule({
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'Route 53 Record Higher TTL',
   description: 'Flag Route 53 records with TTL below 3600 seconds.',
@@ -31,7 +33,11 @@ export const route53RecordHigherTtlRule = createRule({
         createFindingMatch(record.recordId, record.region === 'global' ? undefined : record.region, record.accountId),
       );
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
   evaluateStatic: ({ resources }) => {
     const findings = resources
@@ -39,6 +45,10 @@ export const route53RecordHigherTtlRule = createRule({
       .filter((record) => !record.isAlias && hasLowTtl(record.ttl))
       .map((record) => createFindingMatch(record.resourceId, undefined, undefined, record.location));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'iac', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
+      'iac',
+      findings,
+    );
   },
 });

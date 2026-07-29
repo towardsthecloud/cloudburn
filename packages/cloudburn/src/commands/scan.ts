@@ -1,18 +1,19 @@
-import { CloudBurnClient } from '@cloudburn/sdk';
+import { CloudBurnClient, type Severity } from '@cloudburn/sdk';
 import type { Command } from 'commander';
 import { resolveCliDebugLogger } from '../debug.js';
 import { EXIT_CODE_OK, EXIT_CODE_POLICY_VIOLATION, EXIT_CODE_RUNTIME_ERROR } from '../exit-codes.js';
 import { formatError } from '../formatters/error.js';
 import { renderResponse, resolveOutputFormat } from '../formatters/output.js';
-import { countScanResultFindings } from '../formatters/shared.js';
 import { setCommandExamples } from '../help.js';
-import { parseRuleIdList, parseServiceList, validateServiceList } from './config-options.js';
+import { hasPolicyViolation } from '../policy.js';
+import { parseRuleIdList, parseServiceList, parseSeverity, validateServiceList } from './config-options.js';
 
 type ScanOptions = {
   config?: string;
   disabledRules?: string[];
   enabledRules?: string[];
   exitCode?: boolean;
+  failOn?: Severity;
   service?: string[];
 };
 
@@ -40,7 +41,7 @@ export const registerScanCommand = (program: Command): void => {
       .command('scan')
       .description('Run an autodetected static IaC scan')
       .argument('[path]', 'Terraform file, CloudFormation template, or directory to scan')
-      .option('--config <path>', 'Explicit CloudBurn config file to load')
+      .option('--config <path>', 'Explicit CloudBurn config file to load (required for config files in CI)')
       .option(
         '--enabled-rules <ruleIds>',
         'Comma-separated rule IDs to enable. When set, CloudBurn checks only these rules. By default, AWS Core preset rules are enabled.',
@@ -53,6 +54,7 @@ export const registerScanCommand = (program: Command): void => {
       )
       .option('--service <services>', 'Comma-separated services to include in the scan rule set.', parseIaCServiceList)
       .option('--exit-code', 'Exit with code 1 when findings exist')
+      .option('--fail-on <severity>', 'Exit with code 1 for findings at or above this severity.', parseSeverity)
       .action(async (path: string | undefined, options: ScanOptions, command: Command) => {
         try {
           const debugLogger = resolveCliDebugLogger(command);
@@ -72,7 +74,12 @@ export const registerScanCommand = (program: Command): void => {
 
           process.stdout.write(`${output}\n`);
 
-          if (options.exitCode && countScanResultFindings(result) > 0) {
+          if (
+            hasPolicyViolation(result, {
+              exitCode: options.exitCode,
+              failOn: options.failOn,
+            })
+          ) {
             process.exitCode = EXIT_CODE_POLICY_VIOLATION;
             return;
           }

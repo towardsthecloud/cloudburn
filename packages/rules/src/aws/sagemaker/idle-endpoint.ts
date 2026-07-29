@@ -2,6 +2,7 @@ import { createFinding, createFindingMatch, createRule } from '../../shared/help
 
 const RULE_ID = 'CLDBRN-AWS-SAGEMAKER-2';
 const RULE_SERVICE = 'sagemaker';
+const RULE_SEVERITY = 'high' as const;
 const RULE_MESSAGE =
   'SageMaker endpoints in service with zero invocations over 14 days should be reviewed for cleanup.';
 
@@ -10,6 +11,7 @@ const ENDPOINT_IDLE_WINDOW_DAYS = 14;
 
 /** Flag SageMaker endpoints that are in service, old enough, and idle for 14 days. */
 export const sagemakerIdleEndpointRule = createRule({
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'SageMaker Endpoint Idle',
   description: 'Flag SageMaker endpoints in service whose 14-day invocation total is zero.',
@@ -37,6 +39,10 @@ export const sagemakerIdleEndpointRule = createRule({
       })
       .map((endpoint) => createFindingMatch(endpoint.endpointName, endpoint.region, endpoint.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
 });

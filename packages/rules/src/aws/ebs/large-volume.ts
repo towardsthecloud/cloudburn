@@ -2,6 +2,7 @@ import { createFinding, createFindingMatch, createRule } from '../../shared/help
 
 const RULE_ID = 'CLDBRN-AWS-EBS-4';
 const RULE_SERVICE = 'ebs';
+const RULE_SEVERITY = 'high' as const;
 const RULE_MESSAGE = 'EBS volumes larger than 100 GiB should be reviewed.';
 // Treat volumes above 100 GiB as oversized enough to warrant an explicit cost review.
 const LARGE_VOLUME_SIZE_THRESHOLD_GIB = 100;
@@ -11,6 +12,7 @@ const isLargeEbsVolume = (sizeGiB: number | null | undefined): boolean =>
 
 /** Flag EBS volumes that exceed the large-volume review threshold. */
 export const ebsLargeVolumeRule = createRule({
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'EBS Volume Large Size',
   description: 'Flag EBS volumes larger than 100 GiB so their provisioned size can be reviewed intentionally.',
@@ -26,7 +28,11 @@ export const ebsLargeVolumeRule = createRule({
       .filter((volume) => isLargeEbsVolume(volume.sizeGiB))
       .map((volume) => createFindingMatch(volume.volumeId, volume.region, volume.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
   evaluateStatic: ({ resources }) => {
     const findings = resources
@@ -34,6 +40,10 @@ export const ebsLargeVolumeRule = createRule({
       .filter((volume) => isLargeEbsVolume(volume.sizeGiB))
       .map((volume) => createFindingMatch(volume.resourceId, undefined, undefined, volume.location));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'iac', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
+      'iac',
+      findings,
+    );
   },
 });

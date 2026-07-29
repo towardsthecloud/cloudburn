@@ -42,6 +42,7 @@ const RULE_SERVICE = 'ebs';
 const RULE_MESSAGE = 'EBS volumes should use current-generation storage.';
 
 export const ebsVolumeTypeCurrentGenRule = createRule({
+  severity: 'medium',
   id: RULE_ID,
   name: 'EBS Volume Type Not Current Generation',
   description: 'Flag EBS volumes using previous-generation gp2 type instead of gp3.',
@@ -56,7 +57,11 @@ export const ebsVolumeTypeCurrentGenRule = createRule({
       .filter((volume) => volume.volumeType === 'gp2')
       .map((volume) => createFindingMatch(volume.volumeId, volume.region, volume.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
 });
 ```

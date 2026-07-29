@@ -1051,4 +1051,241 @@ describe('parsers', () => {
       'main.tf:aws_ebs_volume.gp2_logs',
     ]);
   });
+
+  it('associates Terraform suppression comments only with their owning resource', async () => {
+    const tempDirectory = await mkdtemp(join(tmpdir(), 'cloudburn-terraform-suppressions-'));
+    const terraformPath = join(tempDirectory, 'main.tf');
+
+    try {
+      await writeFile(
+        terraformPath,
+        `# cloudburn-ignore CLDBRN-AWS-EBS-1 legacy volume type
+resource "aws_ebs_volume" "suppressed" {
+  /* cloudburn-ignore-all approved exception */
+  availability_zone = "eu-west-1a"
+  type              = "gp2"
+}
+
+resource "aws_ebs_volume" "active" {
+  availability_zone = "eu-west-1a"
+  type              = "gp2"
+}
+`,
+        'utf8',
+      );
+
+      const { resources } = await parseTerraform(terraformPath);
+
+      expect(resources[0]).toMatchObject({
+        name: 'suppressed',
+        suppressions: [
+          { kind: 'rule', reason: 'legacy volume type', ruleId: 'CLDBRN-AWS-EBS-1' },
+          { kind: 'all', reason: 'approved exception' },
+        ],
+      });
+      expect(resources[1]).not.toHaveProperty('suppressions');
+    } finally {
+      await rm(tempDirectory, { force: true, recursive: true });
+    }
+  });
+
+  it('does not parse Terraform block-comment syntax inside a quoted string as a suppression', async () => {
+    const tempDirectory = await mkdtemp(join(tmpdir(), 'cloudburn-terraform-suppression-string-'));
+    const terraformPath = join(tempDirectory, 'main.tf');
+
+    try {
+      await writeFile(
+        terraformPath,
+        `resource "aws_ebs_volume" "active" {
+  availability_zone = "eu-west-1a"
+  description       = "/* cloudburn-ignore-all this is data, not a comment */"
+  type              = "gp2"
+}
+`,
+        'utf8',
+      );
+
+      const { resources } = await parseTerraform(terraformPath);
+
+      expect(resources[0]).not.toHaveProperty('suppressions');
+    } finally {
+      await rm(tempDirectory, { force: true, recursive: true });
+    }
+  });
+
+  it('keeps suppression scope intact when a Terraform block comment contains braces', async () => {
+    const tempDirectory = await mkdtemp(join(tmpdir(), 'cloudburn-terraform-suppression-braces-'));
+    const terraformPath = join(tempDirectory, 'main.tf');
+
+    try {
+      await writeFile(
+        terraformPath,
+        `resource "aws_ebs_volume" "suppressed" {
+  /* Documentation with a closing brace: } */
+  # cloudburn-ignore CLDBRN-AWS-EBS-1 approved exception
+  availability_zone = "eu-west-1a"
+  type              = "gp2"
+}
+`,
+        'utf8',
+      );
+
+      const { resources } = await parseTerraform(terraformPath);
+
+      expect(resources[0]).toMatchObject({
+        suppressions: [{ kind: 'rule', reason: 'approved exception', ruleId: 'CLDBRN-AWS-EBS-1' }],
+      });
+    } finally {
+      await rm(tempDirectory, { force: true, recursive: true });
+    }
+  });
+
+  it('does not parse Terraform heredoc content as a suppression comment', async () => {
+    const tempDirectory = await mkdtemp(join(tmpdir(), 'cloudburn-terraform-suppression-heredoc-'));
+    const terraformPath = join(tempDirectory, 'main.tf');
+
+    try {
+      await writeFile(
+        terraformPath,
+        `resource "aws_instance" "active" {
+  instance_type = "c6i.large"
+  user_data = <<-SCRIPT
+    # cloudburn-ignore-all this is shell data, not an IaC comment
+    echo "}"
+  SCRIPT
+}
+`,
+        'utf8',
+      );
+
+      const { resources } = await parseTerraform(terraformPath);
+
+      expect(resources[0]).not.toHaveProperty('suppressions');
+    } finally {
+      await rm(tempDirectory, { force: true, recursive: true });
+    }
+  });
+
+  it('associates CloudFormation YAML suppression comments only with their owning resource', async () => {
+    const tempDirectory = await mkdtemp(join(tmpdir(), 'cloudburn-cloudformation-suppressions-'));
+    const templatePath = join(tempDirectory, 'template.yaml');
+
+    try {
+      await writeFile(
+        templatePath,
+        `Resources:
+  # cloudburn-ignore CLDBRN-AWS-EBS-1 legacy volume type
+  SuppressedVolume:
+    Type: AWS::EC2::Volume
+    # cloudburn-ignore-all approved exception
+    Properties:
+      AvailabilityZone: eu-west-1a
+      VolumeType: gp2
+  ActiveVolume:
+    Type: AWS::EC2::Volume
+    Properties:
+      AvailabilityZone: eu-west-1a
+      VolumeType: gp2
+`,
+        'utf8',
+      );
+
+      const { resources } = await parseCloudFormation(templatePath);
+
+      expect(resources[0]).toMatchObject({
+        name: 'SuppressedVolume',
+        suppressions: [
+          { kind: 'rule', reason: 'legacy volume type', ruleId: 'CLDBRN-AWS-EBS-1' },
+          { kind: 'all', reason: 'approved exception' },
+        ],
+      });
+      expect(resources[1]).not.toHaveProperty('suppressions');
+    } finally {
+      await rm(tempDirectory, { force: true, recursive: true });
+    }
+  });
+
+  it('does not parse CloudFormation YAML block scalar content as a suppression comment', async () => {
+    const tempDirectory = await mkdtemp(join(tmpdir(), 'cloudburn-cloudformation-suppression-scalar-'));
+    const templatePath = join(tempDirectory, 'template.yaml');
+
+    try {
+      await writeFile(
+        templatePath,
+        `Resources:
+  ActiveInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: c6i.large
+      UserData: |
+        # cloudburn-ignore-all this is shell data, not a YAML comment
+        echo ok
+`,
+        'utf8',
+      );
+
+      const { resources } = await parseCloudFormation(templatePath);
+
+      expect(resources[0]).not.toHaveProperty('suppressions');
+    } finally {
+      await rm(tempDirectory, { force: true, recursive: true });
+    }
+  });
+
+  it('keeps suppression comments after apostrophes in CloudFormation plain scalars', async () => {
+    const tempDirectory = await mkdtemp(join(tmpdir(), 'cloudburn-cloudformation-suppression-apostrophe-'));
+    const templatePath = join(tempDirectory, 'template.yaml');
+
+    try {
+      await writeFile(
+        templatePath,
+        `Description: It's a legacy stack
+Resources:
+  # cloudburn-ignore CLDBRN-AWS-EBS-1 approved legacy volume
+  SuppressedVolume:
+    Type: AWS::EC2::Volume
+    Properties:
+      AvailabilityZone: eu-west-1a
+      VolumeType: gp2
+`,
+        'utf8',
+      );
+
+      const { resources } = await parseCloudFormation(templatePath);
+
+      expect(resources[0]).toMatchObject({
+        name: 'SuppressedVolume',
+        suppressions: [{ kind: 'rule', reason: 'approved legacy volume', ruleId: 'CLDBRN-AWS-EBS-1' }],
+      });
+    } finally {
+      await rm(tempDirectory, { force: true, recursive: true });
+    }
+  });
+
+  it('does not parse CloudFormation multi-line quoted scalar content as a suppression comment', async () => {
+    const tempDirectory = await mkdtemp(join(tmpdir(), 'cloudburn-cloudformation-suppression-quoted-'));
+    const templatePath = join(tempDirectory, 'template.yaml');
+
+    try {
+      await writeFile(
+        templatePath,
+        `Resources:
+  ActiveInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: c6i.large
+      UserData: "line one
+        # cloudburn-ignore-all this is quoted data, not a YAML comment
+        line three"
+`,
+        'utf8',
+      );
+
+      const { resources } = await parseCloudFormation(templatePath);
+
+      expect(resources[0]).not.toHaveProperty('suppressions');
+    } finally {
+      await rm(tempDirectory, { force: true, recursive: true });
+    }
+  });
 });

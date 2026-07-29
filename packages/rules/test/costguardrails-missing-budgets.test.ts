@@ -25,6 +25,7 @@ describe('costGuardrailMissingBudgetsRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-COSTGUARDRAILS-1',
       service: 'costguardrails',
+      severity: 'low',
       source: 'discovery',
       message: 'AWS accounts should define at least one AWS Budget for spend guardrails.',
       findings: [

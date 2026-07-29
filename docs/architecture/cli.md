@@ -19,8 +19,8 @@ graph TD
   Completion --> CompletionZsh["zsh"]
 
   Root -.- RootFlags["--debug\n--format json|table"]
-  Scan -.- ScanFlags["--config path\n--enabled-rules ids\n--disabled-rules ids\n--exit-code"]
-  Discover -.- DiscoverFlags["--region region\n--config path\n--enabled-rules ids\n--disabled-rules ids\n--exit-code"]
+  Scan -.- ScanFlags["--config path\n--enabled-rules ids\n--disabled-rules ids\n--exit-code\n--fail-on severity"]
+  Discover -.- DiscoverFlags["--region region\n--config path\n--enabled-rules ids\n--disabled-rules ids\n--exit-code\n--fail-on severity"]
   Estimate -.- EstimateFlags["--server url"]
 ```
 
@@ -67,6 +67,9 @@ All stdout-producing commands return a typed `CliResponse` and share the same fo
 - `scan` and `discover` can also source their default format from `.cloudburn.yml`; explicit `--format` still wins.
 - The hidden `__complete` command exists only as the runtime hook for generated shell scripts.
 - `--exit-code` counts nested matches across all provider and rule groups.
+- `--fail-on high|medium|low` counts only active findings at or above the inclusive threshold. Suppressed findings do
+  not count toward either gate.
+- Gate precedence is explicit `--fail-on`, then explicit `--exit-code`, then the mode's configured `fail-on` value.
 - Runtime errors still write a structured JSON envelope to `stderr`.
 - Root help configuration is shared through `src/help.ts`. New structural parent commands should register through `registerParentCommand(...)` so bare parent invocations print scoped help and future commands inherit the same help layout automatically.
 
@@ -79,17 +82,19 @@ cloudburn scan ./iac
 cloudburn scan ./iac --config .cloudburn.yml
 cloudburn scan ./iac --enabled-rules CLDBRN-AWS-EBS-1,CLDBRN-AWS-EC2-1
 cloudburn scan ./iac --service ec2,s3
+cloudburn scan ./iac --fail-on high
 cloudburn discover
 cloudburn discover --region eu-central-1
 cloudburn discover --config .cloudburn.yml --disabled-rules CLDBRN-AWS-S3-1
 cloudburn discover --service ec2,s3
+cloudburn discover --fail-on medium
 cloudburn discover init
 cloudburn config --init
 cloudburn config --print
 cloudburn config --print-template
 cloudburn rules
 cloudburn rules list
-cloudburn rules list --service ec2 --source discovery
+cloudburn rules list --service ec2 --source discovery --severity high
 cloudburn completion
 cloudburn completion zsh
 cloudburn --format json scan ./iac
@@ -97,11 +102,11 @@ cloudburn --format json scan ./iac
 
 ## Exit-Code Contract
 
-| Constant                     | Value | Meaning                                                          |
-| ---------------------------- | ----- | ---------------------------------------------------------------- |
-| `EXIT_CODE_OK`               | `0`   | Clean run, no findings, or `--exit-code` not set                 |
-| `EXIT_CODE_POLICY_VIOLATION` | `1`   | At least one nested finding exists and `--exit-code` was passed  |
-| `EXIT_CODE_RUNTIME_ERROR`    | `2`   | Runtime failures and usage errors (invalid options or arguments) |
+| Constant                     | Value | Meaning                                                                            |
+| ---------------------------- | ----- | ---------------------------------------------------------------------------------- |
+| `EXIT_CODE_OK`               | `0`   | No active finding meets the selected gate, or no gate is configured                |
+| `EXIT_CODE_POLICY_VIOLATION` | `1`   | An active finding meets `--fail-on`, configured `fail-on`, or the any-finding gate |
+| `EXIT_CODE_RUNTIME_ERROR`    | `2`   | Runtime failures and usage errors (invalid options or arguments)                   |
 
 Usage errors — unknown options or invalid option arguments such as an unknown
 `--service` value or a malformed `--region` — exit with `2`, not Commander's

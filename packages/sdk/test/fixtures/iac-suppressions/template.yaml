@@ -1,0 +1,14 @@
+Resources:
+  # cloudburn-ignore-all approved CloudFormation exception
+  SuppressedVolume:
+    Type: AWS::EC2::Volume
+    Properties:
+      AvailabilityZone: eu-west-1a
+      Size: 150
+      VolumeType: gp2
+  ActiveVolume:
+    Type: AWS::EC2::Volume
+    Properties:
+      AvailabilityZone: eu-west-1a
+      Size: 50
+      VolumeType: gp2

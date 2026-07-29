@@ -26,6 +26,7 @@ describe('ec2S3InterfaceEndpointRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-EC2-2',
       service: 'ec2',
+      severity: 'medium',
       source: 'iac',
       message: 'S3 access inside a VPC should prefer gateway endpoints over interface endpoints when possible.',
       findings: [
@@ -60,6 +61,7 @@ describe('ec2S3InterfaceEndpointRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-EC2-2',
       service: 'ec2',
+      severity: 'medium',
       source: 'iac',
       message: 'S3 access inside a VPC should prefer gateway endpoints over interface endpoints when possible.',
       findings: [

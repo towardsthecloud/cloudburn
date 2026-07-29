@@ -2,11 +2,13 @@ import { createFinding, createFindingMatch, createRule } from '../../shared/help
 
 const RULE_ID = 'CLDBRN-AWS-ELASTICACHE-2';
 const RULE_SERVICE = 'elasticache';
+const RULE_SEVERITY = 'high' as const;
 const RULE_MESSAGE =
   'ElastiCache clusters with almost no cache hits and active connections should be reviewed for cleanup.';
 
 /** Flag ElastiCache clusters with very low hit rates and almost no active connections. */
 export const elastiCacheIdleClusterRule = createRule({
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'ElastiCache Cluster Idle',
   description:
@@ -35,6 +37,10 @@ export const elastiCacheIdleClusterRule = createRule({
         : [];
     });
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
 });

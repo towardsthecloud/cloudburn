@@ -35,6 +35,7 @@ describe('ec2GravitonReviewRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-EC2-6',
       service: 'ec2',
+      severity: 'medium',
       source: 'discovery',
       message: 'EC2 instances without a Graviton equivalent in use should be reviewed.',
       findings: [
@@ -57,6 +58,7 @@ describe('ec2GravitonReviewRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-EC2-6',
       service: 'ec2',
+      severity: 'medium',
       source: 'iac',
       message: 'EC2 instances without a Graviton equivalent in use should be reviewed.',
       findings: [

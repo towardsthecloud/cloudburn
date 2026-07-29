@@ -2,12 +2,14 @@ import { createFinding, createFindingMatch, createRule } from '../../shared/help
 
 const RULE_ID = 'CLDBRN-AWS-EMR-2';
 const RULE_SERVICE = 'emr';
+const RULE_SEVERITY = 'high' as const;
 const RULE_MESSAGE = 'EMR clusters idle for more than 30 minutes should be reviewed.';
 // EMR `IsIdle` publishes every 5 minutes, so six consecutive idle periods equals 30 minutes.
 const IDLE_REVIEW_PERIODS = 6;
 
 /** Flag active EMR clusters whose idle metric stays true for at least 30 minutes. */
 export const emrIdleClusterRule = createRule({
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'EMR Cluster Idle',
   description: 'Flag active EMR clusters whose `IsIdle` metric stays true for at least 30 minutes.',
@@ -43,6 +45,10 @@ export const emrIdleClusterRule = createRule({
         return cluster ? [createFindingMatch(cluster.clusterId, cluster.region, cluster.accountId)] : [];
       });
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
 });

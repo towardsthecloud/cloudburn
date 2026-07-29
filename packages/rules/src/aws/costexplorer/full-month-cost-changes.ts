@@ -2,6 +2,7 @@ import { createFinding, createFindingMatch, createRule } from '../../shared/help
 
 const RULE_ID = 'CLDBRN-AWS-COSTEXPLORER-1';
 const RULE_SERVICE = 'costexplorer';
+const RULE_SEVERITY = 'medium' as const;
 const RULE_MESSAGE =
   'AWS services with cost increases greater than 10 USD between the last two full months should be reviewed.';
 // Match the upstream Thrifty default and only flag material month-over-month increases above ten cost units.
@@ -9,6 +10,7 @@ const COST_INCREASE_THRESHOLD = 10;
 
 /** Flag AWS services whose spend increased materially between the last two full months. */
 export const costExplorerFullMonthCostChangesRule = createRule({
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'Cost Explorer Full Month Cost Changes',
   description: 'Flag services with significant cost increases between the last two full months.',
@@ -23,6 +25,10 @@ export const costExplorerFullMonthCostChangesRule = createRule({
       .filter((service) => service.previousMonthCost > 0 && service.costIncrease > COST_INCREASE_THRESHOLD)
       .map((service) => createFindingMatch(`cost/${service.serviceSlug}`, undefined, service.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
 });

@@ -36,6 +36,7 @@ const RULE_SERVICE = 'ebs';
 const RULE_MESSAGE = 'EBS volumes should use current-generation storage.';
 
 export const ebsVolumeTypeCurrentGenRule = createRule({
+  severity: 'medium',
   id: RULE_ID,
   name: 'EBS Volume Type Not Current Generation',
   description: 'Flag EBS volumes using previous-generation gp2 type instead of gp3.',
@@ -51,7 +52,11 @@ export const ebsVolumeTypeCurrentGenRule = createRule({
       .filter((volume) => volume.volumeType === 'gp2')
       .map((volume) => createFindingMatch(volume.volumeId, volume.region, volume.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
   evaluateStatic: ({ resources }) => {
     const findings = resources
@@ -59,7 +64,11 @@ export const ebsVolumeTypeCurrentGenRule = createRule({
       .filter((volume) => volume.volumeType === 'gp2')
       .map((volume) => createFindingMatch(volume.resourceId, undefined, undefined, volume.location));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'iac', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      'iac',
+      findings,
+    );
   },
 });
 ```
@@ -68,6 +77,8 @@ Key patterns:
 
 - Use `createRule()` for all built-in rules.
 - Add a generic rule-level `message` that works for both discovery and IaC.
+- Assign `high`, `medium`, or `low` severity from the rule's relative cost impact and pass the same value to
+  `createFinding()`.
 - For static IaC rules, declare `staticDependencies` dataset keys.
 - For live AWS rules, declare `discoveryDependencies` dataset keys.
 - Reuse an existing dataset key when the service already exposes the normalized fields you need.
@@ -76,7 +87,7 @@ Key patterns:
 - Read discovery data from `LiveEvaluationContext.resources` with `resources.get('<dataset-key>')`.
 - Do not declare Terraform type strings, CloudFormation type strings, Resource Explorer `resourceTypes`, or loader wiring in rule files.
 - Return one grouped `Finding` or `null`, never a flat `Finding[]`.
-- Keep `ruleId`, `service`, `source`, and `message` on the parent group.
+- Keep `ruleId`, `service`, `severity`, `source`, and `message` on the parent group.
 - Put only varying resource-level data on each `FindingMatch`.
 - Omit unavailable `accountId` and `region` fields instead of emitting empty strings.
 

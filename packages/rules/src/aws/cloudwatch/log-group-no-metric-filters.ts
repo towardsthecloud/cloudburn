@@ -2,6 +2,7 @@ import { createFinding, createFindingMatch, createRule } from '../../shared/help
 
 const RULE_ID = 'CLDBRN-AWS-CLOUDWATCH-3';
 const RULE_SERVICE = 'cloudwatch';
+const RULE_SEVERITY = 'low' as const;
 const RULE_MESSAGE =
   'CloudWatch log groups storing at least 1 GB should define metric filters or reduce retention aggressively.';
 const MIN_STORED_BYTES = 1_073_741_824;
@@ -10,6 +11,7 @@ const getCoverageKey = (accountId: string, region: string, logGroupName: string)
 
 /** Flag large CloudWatch log groups that have no metric filters configured. */
 export const cloudWatchLogGroupNoMetricFiltersRule = createRule({
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'CloudWatch Log Group No Metric Filters',
   description: 'Flag CloudWatch log groups storing at least 1 GB when they define no metric filters.',
@@ -39,6 +41,10 @@ export const cloudWatchLogGroupNoMetricFiltersRule = createRule({
       })
       .map((logGroup) => createFindingMatch(logGroup.logGroupName, logGroup.region, logGroup.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
 });

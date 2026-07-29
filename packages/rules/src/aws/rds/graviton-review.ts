@@ -3,10 +3,12 @@ import { isAwsRdsGravitonFamily, shouldReviewAwsRdsInstanceClassForGraviton } fr
 
 const RULE_ID = 'CLDBRN-AWS-RDS-4';
 const RULE_SERVICE = 'rds';
+const RULE_SEVERITY = 'medium' as const;
 const RULE_MESSAGE = 'RDS DB instances without a Graviton equivalent in use should be reviewed.';
 
 /** Flag RDS DB instances still using reviewable non-Graviton families. */
 export const rdsGravitonReviewRule = createRule({
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'RDS DB Instance Without Graviton',
   description:
@@ -27,7 +29,11 @@ export const rdsGravitonReviewRule = createRule({
       )
       .map((instance) => createFindingMatch(instance.dbInstanceIdentifier, instance.region, instance.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
   evaluateStatic: ({ resources }) => {
     const findings = resources
@@ -40,6 +46,10 @@ export const rdsGravitonReviewRule = createRule({
       )
       .map((instance) => createFindingMatch(instance.resourceId, undefined, undefined, instance.location));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'iac', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
+      'iac',
+      findings,
+    );
   },
 });

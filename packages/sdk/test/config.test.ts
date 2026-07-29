@@ -65,6 +65,7 @@ discovery:
   services:
     - rds
   format: json
+  fail-on: high
 `,
       'utf8',
     );
@@ -72,6 +73,7 @@ discovery:
     await expect(loadConfig(configPath)).resolves.toEqual({
       discovery: {
         disabledRules: ['CLDBRN-AWS-S3-1'],
+        failOn: 'high',
         format: 'json',
         services: ['rds'],
       },
@@ -330,6 +332,16 @@ iac:
         services: ['ec2'],
       },
     });
+  });
+
+  it('rejects unsupported fail-on severities', () => {
+    expect(() =>
+      mergeConfig({
+        iac: {
+          failOn: 'critical' as 'high',
+        },
+      }),
+    ).toThrow('Invalid severity "critical" in iac.fail-on');
   });
 
   it('fails when config format uses the removed text output', async () => {

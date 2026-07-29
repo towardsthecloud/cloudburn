@@ -32,6 +32,7 @@ describe('rdsStoppedInstanceRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-RDS-9',
       service: 'rds',
+      severity: 'high',
       source: 'discovery',
       message: 'Stopped RDS DB instances should be reviewed for cleanup.',
       findings: [

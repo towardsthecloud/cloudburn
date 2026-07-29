@@ -31,6 +31,7 @@ describe('ec2InactiveVpcInterfaceEndpointRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-EC2-4',
       service: 'ec2',
+      severity: 'medium',
       source: 'discovery',
       message: 'Interface VPC endpoints should process traffic or be removed.',
       findings: [

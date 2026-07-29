@@ -2,6 +2,7 @@ import { createFinding, createFindingMatch, createRule } from '../../shared/help
 
 const RULE_ID = 'CLDBRN-AWS-REDSHIFT-2';
 const RULE_SERVICE = 'redshift';
+const RULE_SEVERITY = 'high' as const;
 const RULE_MESSAGE = 'Long-running Redshift clusters should have reserved node coverage.';
 const DAY_MS = 24 * 60 * 60 * 1000;
 // Review steady-state warehouses twice a year for reserved-node fit.
@@ -11,6 +12,7 @@ const createCoverageKey = (region: string, nodeType: string): string => `${regio
 
 /** Flag long-running Redshift clusters that lack reserved-node coverage. */
 export const redshiftReservedCoverageRule = createRule({
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'Redshift Cluster Missing Reserved Coverage',
   description: 'Flag long-running Redshift clusters that do not have matching active reserved-node coverage.',
@@ -59,6 +61,10 @@ export const redshiftReservedCoverageRule = createRule({
       })
       .map((cluster) => createFindingMatch(cluster.clusterIdentifier, cluster.region, cluster.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
 });

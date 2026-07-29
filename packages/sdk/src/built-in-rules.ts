@@ -1,12 +1,21 @@
 import { awsRules, azureRules, gcpRules } from '@cloudburn/rules';
 import type { BuiltInRuleMetadata, Rule } from './types.js';
 
-const toBuiltInRuleMetadata = ({ description, id, name, provider, service, supports }: Rule): BuiltInRuleMetadata => ({
+const toBuiltInRuleMetadata = ({
   description,
   id,
   name,
   provider,
   service,
+  severity,
+  supports,
+}: Rule): BuiltInRuleMetadata => ({
+  description,
+  id,
+  name,
+  provider,
+  service,
+  severity,
   supports: [...supports],
 });
 

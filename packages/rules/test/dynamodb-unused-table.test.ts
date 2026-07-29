@@ -40,6 +40,7 @@ describe('dynamoDbUnusedTableRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-DYNAMODB-3',
       service: 'dynamodb',
+      severity: 'high',
       source: 'discovery',
       message: 'Provisioned DynamoDB tables should not remain unused for 30 days.',
       findings: [

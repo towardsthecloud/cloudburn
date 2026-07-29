@@ -54,6 +54,7 @@ describe('ec2PreferredInstanceTypeRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-EC2-1',
       service: 'ec2',
+      severity: 'medium',
       source: 'discovery',
       message: 'EC2 instances should use preferred instance types.',
       findings: [
@@ -76,6 +77,7 @@ describe('ec2PreferredInstanceTypeRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-EC2-1',
       service: 'ec2',
+      severity: 'medium',
       source: 'iac',
       message: 'EC2 instances should use preferred instance types.',
       findings: [
@@ -106,6 +108,7 @@ describe('ec2PreferredInstanceTypeRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-EC2-1',
       service: 'ec2',
+      severity: 'medium',
       source: 'iac',
       message: 'EC2 instances should use preferred instance types.',
       findings: [
@@ -136,6 +139,7 @@ describe('ec2PreferredInstanceTypeRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-EC2-1',
       service: 'ec2',
+      severity: 'medium',
       source: 'iac',
       message: 'EC2 instances should use preferred instance types.',
       findings: [
@@ -166,6 +170,7 @@ describe('ec2PreferredInstanceTypeRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-EC2-1',
       service: 'ec2',
+      severity: 'medium',
       source: 'discovery',
       message: 'EC2 instances should use preferred instance types.',
       findings: [
@@ -248,6 +253,7 @@ describe('ec2PreferredInstanceTypeRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-EC2-1',
       service: 'ec2',
+      severity: 'medium',
       source: 'iac',
       message: 'EC2 instances should use preferred instance types.',
       findings: [

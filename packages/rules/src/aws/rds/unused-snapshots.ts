@@ -2,6 +2,7 @@ import { createFinding, createFindingMatch, createRule } from '../../shared/help
 
 const RULE_ID = 'CLDBRN-AWS-RDS-7';
 const RULE_SERVICE = 'rds';
+const RULE_SEVERITY = 'medium' as const;
 const RULE_MESSAGE = 'RDS snapshots without a source DB instance should be reviewed for cleanup.';
 const DAY_MS = 24 * 60 * 60 * 1000;
 // Give orphaned snapshots a 30-day grace period before review to avoid flagging recent intentional retention.
@@ -11,6 +12,7 @@ const getInstanceKey = (accountId: string, region: string, dbInstanceIdentifier:
 
 /** Flag aged RDS snapshots whose source DB instance no longer exists. */
 export const rdsUnusedSnapshotsRule = createRule({
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'RDS Snapshot Without Source DB Instance',
   description: 'Flag RDS snapshots older than 30 days whose source DB instance no longer exists.',
@@ -44,6 +46,10 @@ export const rdsUnusedSnapshotsRule = createRule({
       })
       .map((snapshot) => createFindingMatch(snapshot.dbSnapshotIdentifier, snapshot.region, snapshot.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
 });

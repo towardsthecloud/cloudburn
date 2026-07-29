@@ -40,6 +40,7 @@ describe('costGuardrailExceededBudgetsRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-COSTGUARDRAILS-3',
       service: 'costguardrails',
+      severity: 'high',
       source: 'discovery',
       message: 'AWS Budgets whose actual spend exceeds their configured limit should be reviewed.',
       findings: [

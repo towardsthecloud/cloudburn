@@ -3,6 +3,8 @@ import { basename, extname, join, relative, sep } from 'node:path';
 import { parse as parseHcl } from '@cdktf/hcl2json';
 import type { SourceLocation } from '@cloudburn/rules';
 import { createEmptyIaCParseResult, createSkippedIaCParseResult } from './result.js';
+import { extractSuppressionComments, findResourceSuppressions } from './suppressions.js';
+import { createTerraformLexerState, scanTerraformLine } from './terraform-lexer.js';
 import type { IaCParseResult } from './types.js';
 
 const SKIPPED_DIRECTORIES = new Set(['.git', '.terraform', 'node_modules']);
@@ -10,6 +12,7 @@ const SKIPPED_DIRECTORIES = new Set(['.git', '.terraform', 'node_modules']);
 type ResourceLocationMetadata = {
   blockLocation: SourceLocation;
   attributeLocations: Record<string, SourceLocation>;
+  suppressions: ReturnType<typeof findResourceSuppressions>;
 };
 
 const toRelativePath = (path: string, scanRoot: string): string => {
@@ -18,63 +21,12 @@ const toRelativePath = (path: string, scanRoot: string): string => {
   return (relativePath === '' ? basename(path) : relativePath).split(sep).join('/');
 };
 
-const countBraceDelta = (line: string): number => {
-  let delta = 0;
-  let inString = false;
-  let isEscaped = false;
-
-  for (let index = 0; index < line.length; index += 1) {
-    const character = line[index];
-    const nextCharacter = line[index + 1];
-
-    if (inString) {
-      if (isEscaped) {
-        isEscaped = false;
-        continue;
-      }
-
-      if (character === '\\') {
-        isEscaped = true;
-        continue;
-      }
-
-      if (character === '"') {
-        inString = false;
-      }
-
-      continue;
-    }
-
-    if (character === '/' && nextCharacter === '/') {
-      break;
-    }
-
-    if (character === '#') {
-      break;
-    }
-
-    if (character === '"') {
-      inString = true;
-      continue;
-    }
-
-    if (character === '{') {
-      delta += 1;
-    }
-
-    if (character === '}') {
-      delta -= 1;
-    }
-  }
-
-  return delta;
-};
-
 const toResourceLocationKey = (resourceType: string, resourceName: string): string => `${resourceType}.${resourceName}`;
 
 const locateResourceBlocks = (contents: string, path: string): Map<string, ResourceLocationMetadata> => {
   const lines = contents.split(/\r?\n/u);
   const locations = new Map<string, ResourceLocationMetadata>();
+  const suppressionComments = extractSuppressionComments(contents, path, 'terraform');
 
   for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
     const line = lines[lineIndex];
@@ -103,7 +55,9 @@ const locateResourceBlocks = (contents: string, path: string): Map<string, Resou
       column: leadingWhitespace.length + 1,
     };
     const attributeLocations: Record<string, SourceLocation> = {};
-    let depth = countBraceDelta(line);
+    const lexerState = createTerraformLexerState();
+    let depth = scanTerraformLine(line, lexerState).braceDelta;
+    let blockEndLine = lineIndex + 1;
 
     for (let blockLineIndex = lineIndex + 1; blockLineIndex < lines.length && depth > 0; blockLineIndex += 1) {
       const blockLine = lines[blockLineIndex];
@@ -112,7 +66,9 @@ const locateResourceBlocks = (contents: string, path: string): Map<string, Resou
         continue;
       }
 
-      if (depth === 1) {
+      const lineScan = scanTerraformLine(blockLine, lexerState);
+
+      if (depth === 1 && !lineScan.isLiteralLine) {
         const attributeMatch = /^(\s*)([A-Za-z0-9_]+)\s*=/u.exec(blockLine);
 
         if (attributeMatch) {
@@ -129,9 +85,10 @@ const locateResourceBlocks = (contents: string, path: string): Map<string, Resou
         }
       }
 
-      depth += countBraceDelta(blockLine);
+      depth += lineScan.braceDelta;
 
       if (depth === 0) {
+        blockEndLine = blockLineIndex + 1;
         lineIndex = blockLineIndex;
       }
     }
@@ -139,6 +96,7 @@ const locateResourceBlocks = (contents: string, path: string): Map<string, Resou
     locations.set(toResourceLocationKey(resourceType, resourceName), {
       blockLocation,
       attributeLocations,
+      suppressions: findResourceSuppressions(suppressionComments, blockLocation.line, blockEndLine),
     });
   }
 
@@ -202,6 +160,9 @@ const toIaCResources = async (path: string, scanRoot: string): Promise<IaCParseR
               resourceLocations && Object.keys(resourceLocations.attributeLocations).length > 0
                 ? resourceLocations.attributeLocations
                 : undefined,
+            ...(resourceLocations && resourceLocations.suppressions.length > 0
+              ? { suppressions: resourceLocations.suppressions }
+              : {}),
             attributes: definition,
           };
         });

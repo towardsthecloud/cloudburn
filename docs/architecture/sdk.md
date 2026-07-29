@@ -14,7 +14,7 @@
   }
 ```
 
-`CloudBurnClient` is the primary public entry point. Static IaC scans go through `scanStatic()`, and live AWS discovery goes through `discover()`. Both methods can accept runtime config overrides plus an explicit `configPath` when callers need to load a specific `.cloudburn.yml` file.
+`CloudBurnClient` is the primary public entry point. Static IaC scans go through `scanStatic()`, and live AWS discovery goes through `discover()`. Both methods can accept runtime config overrides plus an explicit `configPath` when callers need to load a specific `.cloudburn.yml` file. When the effective mode config sets `failOn`, the facade evaluates it after the engine returns and attaches the threshold, qualifying count, and violation status to `ScanResult.policy`.
 
 ## Engine Flow
 
@@ -24,11 +24,12 @@ graph TD
     SR[buildRuleRegistry] --> SD[collect staticDependencies]
     SD --> SRg[resolve static dataset registry entries]
     SRg --> SP[parseIaCWithDiagnostics(required sourceKinds)]
-    SP --> SL[load required static datasets]
+    SP --> SL[load required static datasets and suppression targets]
     SL --> SC[build StaticEvaluationContext]
     SC --> SE["rule.evaluateStatic() => Finding | null"]
-    SE --> SG[groupFindingsByProvider]
-    SG --> SOut["ScanResult { providers, diagnostics? }"]
+    SE --> SX[partition active and suppressed matches]
+    SX --> SG[groupFindingsByProvider]
+    SG --> SOut["ScanResult { providers, suppressed?, diagnostics? }"]
   end
 
   subgraph Live["runLiveScan(config, target)"]
@@ -54,8 +55,9 @@ graph TD
 6. Load only the requested normalized static datasets.
 7. Build `StaticEvaluationContext` with `{ resources: StaticResourceBag }`.
 8. Invoke each static evaluator.
-9. Group non-null rule findings under `providers -> rules -> findings` and attach
-   parser diagnostics when present.
+9. Match parsed resource-local suppression directives against each resource finding.
+10. Group active rule findings under `providers -> rules -> findings`, retain suppressed matches under `suppressed`,
+    and attach parser diagnostics when present.
 
 ### Live Scan
 
@@ -108,7 +110,8 @@ graph LR
   CFN --> Walk
   Walk --> HCL["@cdktf/hcl2json / YAML+JSON parse"]
   HCL --> Extract["extract AWS Terraform blocks\nand AWS:: CloudFormation resources"]
-  Extract --> IaC["resources + diagnostics"]
+  Extract --> Suppress["bind resource-local suppression comments"]
+  Suppress --> IaC["resources + diagnostics"]
   Public["public parseIaC(path)"] --> PI
   Public -->|"unwrap resources"| PublicResult["IaCResource[]"]
 ```
@@ -122,6 +125,11 @@ static datasets, ignore unsupported files, and preserve stable ordering. The
 internal entrypoint reports malformed or oversized supported inputs as skipped;
 raw parser errors are discarded so diagnostics cannot expose source excerpts or
 absolute filesystem paths.
+
+Terraform line comments (`#` and `//`), Terraform block comments, and CloudFormation YAML comments can carry
+`cloudburn-ignore <rule-id> [reason]` or `cloudburn-ignore-all [reason]`. A directive applies only to the resource it is
+immediately above or contained within. CloudFormation JSON has no comment syntax, so it cannot carry inline directives.
+Unknown rule IDs have no effect.
 
 ## Provider Layer
 

@@ -40,6 +40,7 @@ describe('ec2StoppedInstanceRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-EC2-13',
       service: 'ec2',
+      severity: 'high',
       source: 'discovery',
       message: 'Stopped EC2 instances with a parsed stop time older than 30 days should be reviewed for cleanup.',
       findings: [

@@ -2,10 +2,12 @@ import { createFinding, createFindingMatch, createRule } from '../../shared/help
 
 const RULE_ID = 'CLDBRN-AWS-EBS-2';
 const RULE_SERVICE = 'ebs';
+const RULE_SEVERITY = 'medium' as const;
 const RULE_MESSAGE = 'EBS volumes should not remain unattached.';
 
 /** Flag EBS volumes that are not attached to any EC2 instance. */
 export const ebsUnattachedVolumeRule = createRule({
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'EBS Volume Unattached',
   description: 'Flag EBS volumes that are not attached to any EC2 instance.',
@@ -20,6 +22,10 @@ export const ebsUnattachedVolumeRule = createRule({
       .filter((volume) => volume.attachments?.length === 0)
       .map((volume) => createFindingMatch(volume.volumeId, volume.region, volume.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
 });

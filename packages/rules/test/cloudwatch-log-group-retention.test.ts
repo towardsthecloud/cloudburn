@@ -34,6 +34,7 @@ describe('cloudWatchLogGroupRetentionRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-CLOUDWATCH-1',
       service: 'cloudwatch',
+      severity: 'low',
       source: 'discovery',
       message: 'CloudWatch log groups should define a retention policy unless AWS manages lifecycle automatically.',
       findings: [
@@ -86,6 +87,7 @@ describe('cloudWatchLogGroupRetentionRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-CLOUDWATCH-1',
       service: 'cloudwatch',
+      severity: 'low',
       source: 'iac',
       message: 'CloudWatch log groups should define a retention policy unless AWS manages lifecycle automatically.',
       findings: [

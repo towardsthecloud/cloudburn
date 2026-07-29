@@ -2,6 +2,7 @@ import { createFinding, createFindingMatch, createRule } from '../../shared/help
 
 const RULE_ID = 'CLDBRN-AWS-LAMBDA-2';
 const RULE_SERVICE = 'lambda';
+const RULE_SEVERITY = 'low' as const;
 const RULE_MESSAGE = 'Lambda functions should not sustain an error rate above 10% over the last 7 days.';
 // Error-rate review requires complete 7-day totals and only flags functions above 10%.
 const HIGH_ERROR_RATE_THRESHOLD = 0.1;
@@ -10,6 +11,7 @@ const getFunctionKey = (accountId: string, region: string, functionName: string)
 
 /** Flag Lambda functions whose recent error rate exceeds the review threshold. */
 export const lambdaHighErrorRateRule = createRule({
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'Lambda Function High Error Rate',
   description: 'Flag Lambda functions whose 7-day error rate is greater than 10%.',
@@ -41,6 +43,10 @@ export const lambdaHighErrorRateRule = createRule({
       })
       .map((fn) => createFindingMatch(fn.functionName, fn.region, fn.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
 });

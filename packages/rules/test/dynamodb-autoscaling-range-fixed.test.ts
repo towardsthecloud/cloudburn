@@ -38,6 +38,7 @@ describe('dynamoDbAutoscalingRangeFixedRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-DYNAMODB-4',
       service: 'dynamodb',
+      severity: 'medium',
       source: 'iac',
       message: 'Provisioned DynamoDB autoscaling should allow capacity to change.',
       findings: [

@@ -2,10 +2,12 @@ import { createFinding, createFindingMatch, createRule } from '../../shared/help
 
 const RULE_ID = 'CLDBRN-AWS-RDS-9';
 const RULE_SERVICE = 'rds';
+const RULE_SEVERITY = 'high' as const;
 const RULE_MESSAGE = 'Stopped RDS DB instances should be reviewed for cleanup.';
 
 /** Flag RDS DB instances that remain in the stopped state. */
 export const rdsStoppedInstanceRule = createRule({
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'RDS DB Instance Stopped',
   description: 'Flag RDS DB instances that are currently in the stopped state for cleanup review.',
@@ -20,6 +22,10 @@ export const rdsStoppedInstanceRule = createRule({
       .filter((instance) => instance.dbInstanceStatus === 'stopped')
       .map((instance) => createFindingMatch(instance.dbInstanceIdentifier, instance.region, instance.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
 });

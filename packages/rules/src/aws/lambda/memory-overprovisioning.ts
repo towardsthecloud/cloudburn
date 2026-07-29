@@ -2,6 +2,7 @@ import { createFinding, createFindingMatch, createRule } from '../../shared/help
 
 const RULE_ID = 'CLDBRN-AWS-LAMBDA-4';
 const RULE_SERVICE = 'lambda';
+const RULE_SEVERITY = 'medium' as const;
 const RULE_MESSAGE = 'Lambda functions should not keep memory far above their observed execution needs.';
 const MIN_MEMORY_REVIEW_MB = 256;
 const MAX_DURATION_TO_TIMEOUT_RATIO = 0.3;
@@ -11,6 +12,7 @@ const getFunctionKey = (accountId: string, region: string, functionName: string)
 
 /** Flag Lambda functions whose configured memory stays well above observed execution needs. */
 export const lambdaMemoryOverprovisioningRule = createRule({
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'Lambda Function Memory Overprovisioned',
   description:
@@ -47,6 +49,10 @@ export const lambdaMemoryOverprovisioningRule = createRule({
       })
       .map((fn) => createFindingMatch(fn.functionName, fn.region, fn.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
 });

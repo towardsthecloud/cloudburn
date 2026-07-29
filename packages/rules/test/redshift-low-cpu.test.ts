@@ -45,6 +45,7 @@ describe('redshiftLowCpuRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-REDSHIFT-1',
       service: 'redshift',
+      severity: 'high',
       source: 'discovery',
       message: 'Redshift clusters with low CPU utilization should be reviewed.',
       findings: [

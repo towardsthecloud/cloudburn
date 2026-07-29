@@ -6,7 +6,7 @@ import { mergeConfig } from './merge.js';
 
 const CLOUDBURN_YAML_FILENAMES = ['.cloudburn.yml', '.cloudburn.yaml'] as const;
 const TOP_LEVEL_KEYS = new Set(['discovery', 'iac']);
-const MODE_KEYS = new Set(['disabled-rules', 'enabled-rules', 'format', 'services']);
+const MODE_KEYS = new Set(['disabled-rules', 'enabled-rules', 'fail-on', 'format', 'services']);
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -74,6 +74,7 @@ const normalizeModeConfig = (mode: 'discovery' | 'iac', value: unknown): Partial
   return {
     disabledRules: normalizeRuleList(value['disabled-rules'], `${mode}.disabled-rules`),
     enabledRules: normalizeRuleList(value['enabled-rules'], `${mode}.enabled-rules`),
+    failOn: value['fail-on'] as CloudBurnConfig[typeof mode]['failOn'],
     format: value.format as CloudBurnConfig[typeof mode]['format'],
     services: normalizeServiceList(value.services, `${mode}.services`),
   };

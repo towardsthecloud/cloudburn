@@ -3,6 +3,7 @@ import { basename, extname, join, relative, sep } from 'node:path';
 import type { SourceLocation } from '@cloudburn/rules';
 import { isMap, isScalar, isSeq, LineCounter, parseDocument } from 'yaml';
 import { createEmptyIaCParseResult, createSkippedIaCParseResult } from './result.js';
+import { extractSuppressionComments, findResourceSuppressions } from './suppressions.js';
 import type { IaCParseResult } from './types.js';
 
 const SKIPPED_DIRECTORIES = new Set(['.git', '.terraform', 'node_modules']);
@@ -51,12 +52,16 @@ const toRelativePath = (path: string, scanRoot: string): string => {
 
 const hasSupportedExtension = (path: string): boolean => SUPPORTED_EXTENSIONS.has(extname(path));
 
-const toSourceLocation = (node: unknown, lineCounter: LineCounter, path: string): SourceLocation | undefined => {
+const getNodeRange = (node: unknown): LocationCarrier['range'] => {
   if (typeof node !== 'object' || node === null || !('range' in node)) {
     return undefined;
   }
 
-  const { range } = node as LocationCarrier;
+  return (node as LocationCarrier).range;
+};
+
+const toSourceLocation = (node: unknown, lineCounter: LineCounter, path: string): SourceLocation | undefined => {
+  const range = getNodeRange(node);
 
   if (!range) {
     return undefined;
@@ -69,6 +74,50 @@ const toSourceLocation = (node: unknown, lineCounter: LineCounter, path: string)
     line: position.line,
     column: position.col,
   };
+};
+
+const toEndLine = (node: unknown, lineCounter: LineCounter): number | undefined => {
+  const range = getNodeRange(node);
+  if (!range) {
+    return undefined;
+  }
+
+  return lineCounter.linePos(Math.max(range[0], range[1] - 1)).line;
+};
+
+const collectBlockScalarContentLines = (
+  node: unknown,
+  lineCounter: LineCounter,
+  lines: Set<number> = new Set(),
+): Set<number> => {
+  if (isScalar(node)) {
+    const scalarType = (node as { type?: string }).type;
+    if ((scalarType === 'BLOCK_LITERAL' || scalarType === 'BLOCK_FOLDED') && node.range) {
+      const startLine = lineCounter.linePos(node.range[0]).line;
+      const endLine = lineCounter.linePos(Math.max(node.range[0], node.range[1] - 1)).line;
+      for (let line = startLine + 1; line <= endLine; line += 1) {
+        lines.add(line);
+      }
+    }
+    return lines;
+  }
+
+  if (isMap(node)) {
+    for (const item of node.items) {
+      const pair = item as PairLike;
+      collectBlockScalarContentLines(pair.key, lineCounter, lines);
+      collectBlockScalarContentLines(pair.value, lineCounter, lines);
+    }
+    return lines;
+  }
+
+  if (isSeq(node)) {
+    for (const item of node.items) {
+      collectBlockScalarContentLines(item, lineCounter, lines);
+    }
+  }
+
+  return lines;
 };
 
 const toNodeTag = (node: unknown): string | undefined => {
@@ -196,6 +245,9 @@ const toIaCResources = async (path: string, relativePath: string): Promise<IaCPa
     });
   }
 
+  const blockScalarContentLines = collectBlockScalarContentLines(document.contents, lineCounter);
+  const suppressionComments = extractSuppressionComments(contents, relativePath, 'yaml', blockScalarContentLines);
+
   const resourcesNode = document.get('Resources', true);
 
   if (!isMap(resourcesNode)) {
@@ -236,14 +288,21 @@ const toIaCResources = async (path: string, relativePath: string): Promise<IaCPa
           return [[resourcePair.key.value, toRawValue(resourcePair.value)]];
         }),
       );
+      const resourceLocation = toSourceLocation(pair.key, lineCounter, relativePath);
+      const resourceEndLine = toEndLine(pair.value, lineCounter) ?? resourceLocation?.line;
+      const suppressions =
+        resourceLocation && resourceEndLine
+          ? findResourceSuppressions(suppressionComments, resourceLocation.line, resourceEndLine)
+          : [];
 
       return [
         {
           provider: 'aws' as const,
           type: resourceTypeNode.value,
           name: pair.key.value,
-          location: toSourceLocation(pair.key, lineCounter, relativePath),
+          location: resourceLocation,
           attributeLocations: toAttributeLocations(pair.value, lineCounter, relativePath),
+          ...(suppressions.length > 0 ? { suppressions } : {}),
           attributes,
         },
       ];

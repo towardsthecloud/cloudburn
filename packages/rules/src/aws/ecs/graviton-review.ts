@@ -3,10 +3,12 @@ import { shouldReviewAwsEc2InstanceForGraviton } from '../ec2/preferred-instance
 
 const RULE_ID = 'CLDBRN-AWS-ECS-1';
 const RULE_SERVICE = 'ecs';
+const RULE_SEVERITY = 'medium' as const;
 const RULE_MESSAGE = 'ECS container instances without a Graviton equivalent in use should be reviewed.';
 
 /** Flag ECS container instances backed by non-Graviton EC2 families with a clear Arm equivalent. */
 export const ecsGravitonReviewRule = createRule({
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'ECS Container Instance Without Graviton',
   description:
@@ -26,6 +28,10 @@ export const ecsGravitonReviewRule = createRule({
       )
       .map((instance) => createFindingMatch(instance.containerInstanceArn, instance.region, instance.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
 });

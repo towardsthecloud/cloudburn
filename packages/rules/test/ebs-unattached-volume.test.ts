@@ -42,6 +42,7 @@ describe('ebsUnattachedVolumeRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-EBS-2',
       service: 'ebs',
+      severity: 'medium',
       source: 'discovery',
       message: 'EBS volumes should not remain unattached.',
       findings: [

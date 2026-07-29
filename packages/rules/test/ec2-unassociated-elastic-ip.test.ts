@@ -33,6 +33,7 @@ describe('ec2UnassociatedElasticIpRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-EC2-3',
       service: 'ec2',
+      severity: 'low',
       source: 'discovery',
       message: 'Elastic IP addresses should not remain unassociated.',
       findings: [
@@ -70,6 +71,7 @@ describe('ec2UnassociatedElasticIpRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-EC2-3',
       service: 'ec2',
+      severity: 'low',
       source: 'iac',
       message: 'Elastic IP addresses should not remain unassociated.',
       findings: [

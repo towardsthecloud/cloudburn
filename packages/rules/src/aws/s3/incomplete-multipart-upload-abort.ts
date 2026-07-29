@@ -7,10 +7,12 @@ import {
 
 const RULE_ID = 'CLDBRN-AWS-S3-3';
 const RULE_SERVICE = 's3';
+const RULE_SEVERITY = 'low' as const;
 const RULE_MESSAGE = 'S3 buckets should abort incomplete multipart uploads within 7 days.';
 
 /** Flag S3 buckets that do not define an enabled multipart-abort lifecycle rule within 7 days. */
 export const s3IncompleteMultipartUploadAbortRule = createRule({
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'S3 Incomplete Multipart Upload Abort Configuration',
   description:
@@ -27,7 +29,11 @@ export const s3IncompleteMultipartUploadAbortRule = createRule({
       .filter((bucket) => hasMissingIncompleteMultipartUploadAbort(bucket))
       .map((bucket) => createLiveS3BucketFindingMatch(bucket));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
   evaluateStatic: ({ resources }) => {
     const findings = resources
@@ -35,6 +41,10 @@ export const s3IncompleteMultipartUploadAbortRule = createRule({
       .filter((bucket) => hasMissingIncompleteMultipartUploadAbort(bucket))
       .map((bucket) => createStaticS3BucketFindingMatch(bucket));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'iac', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
+      'iac',
+      findings,
+    );
   },
 });

@@ -38,6 +38,7 @@ describe('cloudTrailRedundantRegionalTrailsRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-CLOUDTRAIL-2',
       service: 'cloudtrail',
+      severity: 'medium',
       source: 'discovery',
       message: 'AWS regions should keep only one single-region CloudTrail trail unless redundancy is intentional.',
       findings: [

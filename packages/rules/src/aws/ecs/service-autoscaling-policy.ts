@@ -2,12 +2,14 @@ import { createFinding, createFindingMatch, createRule } from '../../shared/help
 
 const RULE_ID = 'CLDBRN-AWS-ECS-3';
 const RULE_SERVICE = 'ecs';
+const RULE_SEVERITY = 'medium' as const;
 const RULE_MESSAGE = 'Active REPLICA ECS services should use an autoscaling policy.';
 
 const createStaticScopeKey = (clusterName: string, serviceName: string): string => `${clusterName}/${serviceName}`;
 
 /** Flag active REPLICA ECS services that are missing autoscaling coverage. */
 export const ecsServiceAutoscalingPolicyRule = createRule({
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'ECS Service Missing Autoscaling Policy',
   description:
@@ -33,7 +35,11 @@ export const ecsServiceAutoscalingPolicyRule = createRule({
       })
       .map((service) => createFindingMatch(service.serviceArn, service.region, service.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
   evaluateStatic: ({ resources }) => {
     const autoscalingByService = new Map(
@@ -57,6 +63,10 @@ export const ecsServiceAutoscalingPolicyRule = createRule({
       })
       .map((service) => createFindingMatch(service.resourceId, undefined, undefined, service.location));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'iac', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
+      'iac',
+      findings,
+    );
   },
 });

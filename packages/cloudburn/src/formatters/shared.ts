@@ -5,6 +5,7 @@ export type FlattenedFinding = {
   provider: ProviderFindingGroup['provider'];
   ruleId: string;
   service: Finding['service'];
+  severity: Finding['severity'];
   source: Finding['source'];
   message: Finding['message'];
   finding: FindingMatch;
@@ -18,15 +19,13 @@ export const flattenScanResult = (result: ScanResult): FlattenedFinding[] =>
         provider: providerGroup.provider,
         ruleId: ruleGroup.ruleId,
         service: ruleGroup.service,
+        severity: ruleGroup.severity,
         source: ruleGroup.source,
         message: ruleGroup.message,
         finding,
       })),
     ),
   );
-
-/** Counts nested resource-level findings across the full scan result. */
-export const countScanResultFindings = (result: ScanResult): number => flattenScanResult(result).length;
 
 /** Returns the non-fatal scan diagnostics attached to a result. */
 export const getScanDiagnostics = (result: ScanResult): ScanDiagnostic[] => result.diagnostics ?? [];

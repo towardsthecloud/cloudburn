@@ -3,6 +3,7 @@ import { getAwsEc2PreferredInstanceFamilyState } from '../ec2/preferred-instance
 
 const RULE_ID = 'CLDBRN-AWS-EMR-1';
 const RULE_SERVICE = 'emr';
+const RULE_SEVERITY = 'medium' as const;
 const RULE_MESSAGE = 'EMR clusters using previous-generation instance types should be reviewed.';
 
 const hasPreviousGenerationInstanceType = (instanceTypes: string[]): boolean =>
@@ -10,6 +11,7 @@ const hasPreviousGenerationInstanceType = (instanceTypes: string[]): boolean =>
 
 /** Flag EMR clusters that still rely on previous-generation EC2 instance types. */
 export const emrPreviousGenerationInstanceTypeRule = createRule({
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'EMR Cluster Previous Generation Instance Types',
   description: 'Flag EMR clusters that still use previous-generation EC2 instance types.',
@@ -29,7 +31,11 @@ export const emrPreviousGenerationInstanceTypeRule = createRule({
       )
       .map((cluster) => createFindingMatch(cluster.clusterId, cluster.region, cluster.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
   evaluateStatic: ({ resources }) => {
     const findings = resources
@@ -37,6 +43,10 @@ export const emrPreviousGenerationInstanceTypeRule = createRule({
       .filter((cluster) => hasPreviousGenerationInstanceType(cluster.instanceTypes))
       .map((cluster) => createFindingMatch(cluster.resourceId, undefined, undefined, cluster.location));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'iac', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
+      'iac',
+      findings,
+    );
   },
 });

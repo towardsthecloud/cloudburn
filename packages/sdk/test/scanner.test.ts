@@ -70,6 +70,7 @@ describe('CloudBurnClient', () => {
             {
               ruleId: 'CLDBRN-AWS-EBS-1',
               service: 'ebs',
+              severity: 'medium',
               source: 'discovery',
               message: 'EBS volumes should use current-generation storage.',
               findings: [
@@ -114,6 +115,7 @@ describe('CloudBurnClient', () => {
             {
               ruleId: 'CLDBRN-AWS-LAMBDA-1',
               service: 'lambda',
+              severity: 'medium',
               source: 'discovery',
               message: 'Lambda functions should use arm64 architecture when compatible to reduce running costs.',
               findings: [
@@ -127,6 +129,32 @@ describe('CloudBurnClient', () => {
           ],
         },
       ],
+    });
+  });
+
+  it('reports the effective configured policy in discovery results', async () => {
+    mockedDiscoverAwsResources.mockResolvedValue({
+      catalog: discoveryCatalog,
+      resources: new LiveResourceBag({
+        'aws-ebs-volumes': [
+          {
+            accountId: '123456789012',
+            region: 'us-east-1',
+            sizeGiB: 64,
+            volumeId: 'vol-123',
+            volumeType: 'gp2',
+          },
+        ],
+      }),
+    });
+    const scanner = new CloudBurnClient();
+
+    const result = await scanner.discover({ config: { discovery: { failOn: 'medium' } } });
+
+    expect(result.policy).toEqual({
+      qualifyingFindingCount: 1,
+      threshold: 'medium',
+      violated: true,
     });
   });
 
@@ -168,6 +196,7 @@ describe('CloudBurnClient', () => {
             {
               ruleId: 'CLDBRN-AWS-EC2-1',
               service: 'ec2',
+              severity: 'medium',
               source: 'discovery',
               message: 'EC2 instances should use preferred instance types.',
               findings: [
@@ -222,6 +251,7 @@ describe('CloudBurnClient', () => {
             {
               ruleId: 'CLDBRN-AWS-RDS-1',
               service: 'rds',
+              severity: 'medium',
               source: 'discovery',
               message: 'RDS DB instances should use preferred instance classes.',
               findings: [
@@ -235,6 +265,7 @@ describe('CloudBurnClient', () => {
             {
               ruleId: 'CLDBRN-AWS-RDS-4',
               service: 'rds',
+              severity: 'medium',
               source: 'discovery',
               message: 'RDS DB instances without a Graviton equivalent in use should be reviewed.',
               findings: [
@@ -441,6 +472,7 @@ describe('CloudBurnClient', () => {
             {
               ruleId: 'CLDBRN-AWS-EC2-1',
               service: 'ec2',
+              severity: 'medium',
               source: 'iac',
               message: 'EC2 instances should use preferred instance types.',
               findings: [
@@ -457,6 +489,7 @@ describe('CloudBurnClient', () => {
             {
               ruleId: 'CLDBRN-AWS-EC2-6',
               service: 'ec2',
+              severity: 'medium',
               source: 'iac',
               message: 'EC2 instances without a Graviton equivalent in use should be reviewed.',
               findings: [
@@ -473,6 +506,7 @@ describe('CloudBurnClient', () => {
             {
               ruleId: 'CLDBRN-AWS-EBS-1',
               service: 'ebs',
+              severity: 'medium',
               source: 'iac',
               message: 'EBS volumes should use current-generation storage.',
               findings: [
@@ -489,6 +523,7 @@ describe('CloudBurnClient', () => {
             {
               ruleId: 'CLDBRN-AWS-EBS-4',
               service: 'ebs',
+              severity: 'high',
               source: 'iac',
               message: 'EBS volumes larger than 100 GiB should be reviewed.',
               findings: [
@@ -531,6 +566,19 @@ describe('CloudBurnClient', () => {
     ).toContain('aws_ebs_volume.gp2_sibling');
   });
 
+  it('reports the effective configured policy in static scan results', async () => {
+    const scanner = new CloudBurnClient();
+    const fixturePath = fileURLToPath(new URL('./fixtures/terraform/scan-dir', import.meta.url));
+
+    const result = await scanner.scanStatic(fixturePath, { iac: { failOn: 'medium' } });
+
+    expect(result.policy).toEqual({
+      qualifyingFindingCount: 4,
+      threshold: 'medium',
+      violated: true,
+    });
+  });
+
   it('returns a static EC2 finding from a CloudFormation template', async () => {
     const scanner = new CloudBurnClient();
     const fixturePath = fileURLToPath(new URL('./fixtures/cloudformation/ec2-instance.yaml', import.meta.url));
@@ -545,6 +593,7 @@ describe('CloudBurnClient', () => {
             {
               ruleId: 'CLDBRN-AWS-EC2-1',
               service: 'ec2',
+              severity: 'medium',
               source: 'iac',
               message: 'EC2 instances should use preferred instance types.',
               findings: [
@@ -599,6 +648,7 @@ describe('CloudBurnClient', () => {
             {
               ruleId: 'CLDBRN-AWS-EBS-1',
               service: 'ebs',
+              severity: 'medium',
               source: 'iac',
               message: 'EBS volumes should use current-generation storage.',
               findings: [
@@ -626,6 +676,91 @@ describe('CloudBurnClient', () => {
     });
   });
 
+  it('partitions Terraform and CloudFormation suppressions from active static findings', async () => {
+    const scanner = new CloudBurnClient();
+    const fixturePath = fileURLToPath(new URL('./fixtures/iac-suppressions', import.meta.url));
+
+    const result = await scanner.scanStatic(fixturePath, {
+      iac: { enabledRules: ['CLDBRN-AWS-EBS-1'] },
+    });
+
+    expect(result.providers[0]?.rules[0]?.findings.map((finding) => finding.resourceId)).toEqual([
+      'aws_ebs_volume.active',
+      'ActiveVolume',
+    ]);
+    expect(result.suppressed).toMatchObject([
+      {
+        finding: { resourceId: 'aws_ebs_volume.suppressed' },
+        provider: 'aws',
+        ruleId: 'CLDBRN-AWS-EBS-1',
+        service: 'ebs',
+        severity: 'medium',
+        source: 'iac',
+        suppression: {
+          kind: 'rule',
+          reason: 'legacy Terraform volume',
+          ruleId: 'CLDBRN-AWS-EBS-1',
+        },
+      },
+      {
+        finding: { resourceId: 'SuppressedVolume' },
+        provider: 'aws',
+        ruleId: 'CLDBRN-AWS-EBS-1',
+        service: 'ebs',
+        severity: 'medium',
+        source: 'iac',
+        suppression: {
+          kind: 'all',
+          reason: 'approved CloudFormation exception',
+        },
+      },
+    ]);
+  });
+
+  it('applies rule-specific suppressions to one rule and ignore-all suppressions to every rule', async () => {
+    const scanner = new CloudBurnClient();
+    const fixturePath = fileURLToPath(new URL('./fixtures/iac-suppressions', import.meta.url));
+
+    const result = await scanner.scanStatic(fixturePath, {
+      iac: { enabledRules: ['CLDBRN-AWS-EBS-1', 'CLDBRN-AWS-EBS-4'] },
+    });
+
+    expect(
+      result.providers.flatMap((provider) =>
+        provider.rules.flatMap((rule) =>
+          rule.findings.map((finding) => ({ resourceId: finding.resourceId, ruleId: rule.ruleId })),
+        ),
+      ),
+    ).toEqual([
+      { resourceId: 'aws_ebs_volume.active', ruleId: 'CLDBRN-AWS-EBS-1' },
+      { resourceId: 'ActiveVolume', ruleId: 'CLDBRN-AWS-EBS-1' },
+      { resourceId: 'aws_ebs_volume.suppressed', ruleId: 'CLDBRN-AWS-EBS-4' },
+    ]);
+    expect(
+      result.suppressed?.map(({ finding, ruleId, suppression }) => ({
+        kind: suppression.kind,
+        resourceId: finding.resourceId,
+        ruleId,
+      })),
+    ).toEqual([
+      {
+        kind: 'rule',
+        resourceId: 'aws_ebs_volume.suppressed',
+        ruleId: 'CLDBRN-AWS-EBS-1',
+      },
+      {
+        kind: 'all',
+        resourceId: 'SuppressedVolume',
+        ruleId: 'CLDBRN-AWS-EBS-1',
+      },
+      {
+        kind: 'all',
+        resourceId: 'SuppressedVolume',
+        ruleId: 'CLDBRN-AWS-EBS-4',
+      },
+    ]);
+  });
+
   it('returns static RDS findings from Terraform DB instance resources', async () => {
     const scanner = new CloudBurnClient();
     const fixturePath = fileURLToPath(new URL('./fixtures/terraform/rds-scan-dir', import.meta.url));
@@ -640,6 +775,7 @@ describe('CloudBurnClient', () => {
             {
               ruleId: 'CLDBRN-AWS-RDS-1',
               service: 'rds',
+              severity: 'medium',
               source: 'iac',
               message: 'RDS DB instances should use preferred instance classes.',
               findings: [
@@ -656,6 +792,7 @@ describe('CloudBurnClient', () => {
             {
               ruleId: 'CLDBRN-AWS-RDS-4',
               service: 'rds',
+              severity: 'medium',
               source: 'iac',
               message: 'RDS DB instances without a Graviton equivalent in use should be reviewed.',
               findings: [
@@ -689,6 +826,7 @@ describe('CloudBurnClient', () => {
             {
               ruleId: 'CLDBRN-AWS-RDS-1',
               service: 'rds',
+              severity: 'medium',
               source: 'iac',
               message: 'RDS DB instances should use preferred instance classes.',
               findings: [
@@ -713,6 +851,7 @@ describe('CloudBurnClient', () => {
             {
               ruleId: 'CLDBRN-AWS-RDS-4',
               service: 'rds',
+              severity: 'medium',
               source: 'iac',
               message: 'RDS DB instances without a Graviton equivalent in use should be reviewed.',
               findings: [
@@ -746,6 +885,7 @@ describe('CloudBurnClient', () => {
             {
               ruleId: 'CLDBRN-AWS-EC2-2',
               service: 'ec2',
+              severity: 'medium',
               source: 'iac',
               message: 'S3 access inside a VPC should prefer gateway endpoints over interface endpoints when possible.',
               findings: [
@@ -787,6 +927,7 @@ describe('CloudBurnClient', () => {
             {
               ruleId: 'CLDBRN-AWS-LAMBDA-1',
               service: 'lambda',
+              severity: 'medium',
               source: 'iac',
               message: 'Lambda functions should use arm64 architecture when compatible to reduce running costs.',
               findings: [
@@ -828,6 +969,7 @@ describe('CloudBurnClient', () => {
             {
               ruleId: 'CLDBRN-AWS-APIGATEWAY-1',
               service: 'apigateway',
+              severity: 'medium',
               source: 'iac',
               message: 'API Gateway REST API stages should enable caching when stage caching is available.',
               findings: [
@@ -844,6 +986,7 @@ describe('CloudBurnClient', () => {
             {
               ruleId: 'CLDBRN-AWS-CLOUDFRONT-1',
               service: 'cloudfront',
+              severity: 'medium',
               source: 'iac',
               message: 'CloudFront distributions using PriceClass_All should be reviewed for cheaper edge coverage.',
               findings: [
@@ -860,6 +1003,7 @@ describe('CloudBurnClient', () => {
             {
               ruleId: 'CLDBRN-AWS-CLOUDWATCH-1',
               service: 'cloudwatch',
+              severity: 'low',
               source: 'iac',
               message:
                 'CloudWatch log groups should define a retention policy unless AWS manages lifecycle automatically.',
@@ -894,6 +1038,7 @@ describe('CloudBurnClient', () => {
             {
               ruleId: 'CLDBRN-AWS-DYNAMODB-2',
               service: 'dynamodb',
+              severity: 'medium',
               source: 'iac',
               message: 'Provisioned-capacity DynamoDB tables should use auto-scaling.',
               findings: [
@@ -910,6 +1055,7 @@ describe('CloudBurnClient', () => {
             {
               ruleId: 'CLDBRN-AWS-EC2-3',
               service: 'ec2',
+              severity: 'low',
               source: 'iac',
               message: 'Elastic IP addresses should not remain unassociated.',
               findings: [
@@ -943,6 +1089,7 @@ describe('CloudBurnClient', () => {
             {
               ruleId: 'CLDBRN-AWS-EKS-1',
               service: 'eks',
+              severity: 'medium',
               source: 'iac',
               message: 'EKS node groups without a Graviton equivalent in use should be reviewed.',
               findings: [
@@ -959,6 +1106,7 @@ describe('CloudBurnClient', () => {
             {
               ruleId: 'CLDBRN-AWS-EMR-1',
               service: 'emr',
+              severity: 'medium',
               source: 'iac',
               message: 'EMR clusters using previous-generation instance types should be reviewed.',
               findings: [
@@ -992,6 +1140,7 @@ describe('CloudBurnClient', () => {
             {
               ruleId: 'CLDBRN-AWS-ROUTE53-1',
               service: 'route53',
+              severity: 'low',
               source: 'iac',
               message: 'Route 53 record sets should generally use TTL values of at least 3600 seconds.',
               findings: [
@@ -1008,6 +1157,7 @@ describe('CloudBurnClient', () => {
             {
               ruleId: 'CLDBRN-AWS-ROUTE53-2',
               service: 'route53',
+              severity: 'low',
               source: 'iac',
               message: 'Route 53 health checks not associated with any DNS record should be deleted.',
               findings: [
@@ -1041,6 +1191,7 @@ describe('CloudBurnClient', () => {
             {
               ruleId: 'CLDBRN-AWS-S3-1',
               service: 's3',
+              severity: 'medium',
               source: 'iac',
               message: 'S3 buckets should define lifecycle management policies.',
               findings: [
@@ -1065,6 +1216,7 @@ describe('CloudBurnClient', () => {
             {
               ruleId: 'CLDBRN-AWS-S3-2',
               service: 's3',
+              severity: 'medium',
               source: 'iac',
               message:
                 'S3 buckets with lifecycle management should match object access patterns to the right storage class.',
@@ -1090,6 +1242,7 @@ describe('CloudBurnClient', () => {
             {
               ruleId: 'CLDBRN-AWS-S3-3',
               service: 's3',
+              severity: 'low',
               source: 'iac',
               message: 'S3 buckets should abort incomplete multipart uploads within 7 days.',
               findings: [

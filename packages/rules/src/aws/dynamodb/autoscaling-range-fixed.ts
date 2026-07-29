@@ -2,6 +2,7 @@ import { createFinding, createFindingMatch, createRule } from '../../shared/help
 
 const RULE_ID = 'CLDBRN-AWS-DYNAMODB-4';
 const RULE_SERVICE = 'dynamodb';
+const RULE_SEVERITY = 'medium' as const;
 const RULE_MESSAGE = 'Provisioned DynamoDB autoscaling should allow capacity to change.';
 
 const hasFixedRange = (minCapacity: number | null | undefined, maxCapacity: number | null | undefined): boolean =>
@@ -9,6 +10,7 @@ const hasFixedRange = (minCapacity: number | null | undefined, maxCapacity: numb
 
 /** Flag provisioned-capacity DynamoDB tables whose table autoscaling min and max capacity are identical. */
 export const dynamoDbAutoscalingRangeFixedRule = createRule({
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'DynamoDB Autoscaling Range Fixed',
   description: 'Flag provisioned-capacity DynamoDB tables whose table autoscaling min and max capacity are identical.',
@@ -41,6 +43,10 @@ export const dynamoDbAutoscalingRangeFixedRule = createRule({
       })
       .map((table) => createFindingMatch(table.resourceId, undefined, undefined, table.location));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'iac', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
+      'iac',
+      findings,
+    );
   },
 });

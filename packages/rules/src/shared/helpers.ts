@@ -71,7 +71,7 @@ export const createStaticFindingMatch = (
  * @returns A grouped finding or `null` when there are no nested matches.
  */
 export const createFinding = (
-  rule: Pick<Rule, 'id' | 'service' | 'message'>,
+  rule: Pick<Rule, 'id' | 'service' | 'severity' | 'message'>,
   source: Source,
   findings: FindingMatch[],
 ): Finding | null =>
@@ -80,6 +80,7 @@ export const createFinding = (
         ruleId: rule.id,
         service: rule.service,
         source,
+        severity: rule.severity,
         message: rule.message,
         findings,
       }

@@ -2,10 +2,12 @@ import { createFinding, createFindingMatch, createRule } from '../../shared/help
 
 const RULE_ID = 'CLDBRN-AWS-CLOUDFRONT-2';
 const RULE_SERVICE = 'cloudfront';
+const RULE_SEVERITY = 'medium' as const;
 const RULE_MESSAGE = 'CloudFront distributions with almost no request traffic should be reviewed for cleanup.';
 
 /** Flag CloudFront distributions with very low 30-day request volume. */
 export const cloudFrontUnusedDistributionRule = createRule({
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'CloudFront Distribution Unused',
   description: 'Flag CloudFront distributions with fewer than 100 requests over the last 30 days.',
@@ -24,6 +26,10 @@ export const cloudFrontUnusedDistributionRule = createRule({
         createFindingMatch(distribution.distributionArn, distribution.region, distribution.accountId),
       );
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
 });

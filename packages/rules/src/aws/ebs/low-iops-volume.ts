@@ -2,6 +2,7 @@ import { createFinding, createFindingMatch, createRule } from '../../shared/help
 
 const RULE_ID = 'CLDBRN-AWS-EBS-6';
 const RULE_SERVICE = 'ebs';
+const RULE_SEVERITY = 'medium' as const;
 const RULE_MESSAGE = 'EBS io1 and io2 volumes at 16000 IOPS or below should be reviewed for gp3.';
 // Keep io1 here even though EBS-1 also flags it. EBS-1 covers generation, while EBS-6 highlights
 // the narrower gp3 migration opportunity for low-IOPS workloads.
@@ -19,6 +20,7 @@ const isGp3MigrationCandidate = (volumeType: string | null | undefined, iops: nu
 
 /** Flag io1 and io2 EBS volumes that fall within the gp3 migration IOPS heuristic. */
 export const ebsLowIopsVolumeRule = createRule({
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'EBS Volume Low Provisioned IOPS On io1/io2',
   description: 'Flag io1 and io2 EBS volumes at 16000 IOPS or below as gp3 review candidates.',
@@ -34,7 +36,11 @@ export const ebsLowIopsVolumeRule = createRule({
       .filter((volume) => isGp3MigrationCandidate(volume.volumeType, volume.iops))
       .map((volume) => createFindingMatch(volume.volumeId, volume.region, volume.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
   evaluateStatic: ({ resources }) => {
     const findings = resources
@@ -42,6 +48,10 @@ export const ebsLowIopsVolumeRule = createRule({
       .filter((volume) => isGp3MigrationCandidate(volume.volumeType, volume.iops))
       .map((volume) => createFindingMatch(volume.resourceId, undefined, undefined, volume.location));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'iac', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
+      'iac',
+      findings,
+    );
   },
 });

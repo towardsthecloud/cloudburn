@@ -30,6 +30,7 @@ describe('ecsGravitonReviewRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-ECS-1',
       service: 'ecs',
+      severity: 'medium',
       source: 'discovery',
       message: 'ECS container instances without a Graviton equivalent in use should be reviewed.',
       findings: [

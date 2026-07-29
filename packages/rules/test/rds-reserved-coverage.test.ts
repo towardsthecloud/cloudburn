@@ -45,6 +45,7 @@ describe('rdsReservedCoverageRule', () => {
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-RDS-3',
       service: 'rds',
+      severity: 'high',
       source: 'discovery',
       message: 'Long-running RDS DB instances should have reserved instance coverage.',
       findings: [

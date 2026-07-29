@@ -2,6 +2,7 @@ import { createFinding, createFindingMatch, createRule } from '../../shared/help
 
 const RULE_ID = 'CLDBRN-AWS-DYNAMODB-2';
 const RULE_SERVICE = 'dynamodb';
+const RULE_SEVERITY = 'medium' as const;
 const RULE_MESSAGE = 'Provisioned-capacity DynamoDB tables should use auto-scaling.';
 
 const createScopeKey = (accountId: string, region: string, tableArn: string): string =>
@@ -9,6 +10,7 @@ const createScopeKey = (accountId: string, region: string, tableArn: string): st
 
 /** Flag provisioned-capacity DynamoDB tables that have no table-level autoscaling targets. */
 export const dynamoDbTableWithoutAutoscalingRule = createRule({
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'DynamoDB Table Without Autoscaling',
   description: 'Flag provisioned-capacity DynamoDB tables without auto-scaling configured.',
@@ -35,7 +37,11 @@ export const dynamoDbTableWithoutAutoscalingRule = createRule({
       })
       .map((table) => createFindingMatch(table.tableArn, table.region, table.accountId));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
   evaluateStatic: ({ resources }) => {
     const autoscalingByTable = new Map(
@@ -53,6 +59,10 @@ export const dynamoDbTableWithoutAutoscalingRule = createRule({
       })
       .map((table) => createFindingMatch(table.resourceId, undefined, undefined, table.location));
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'iac', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
+      'iac',
+      findings,
+    );
   },
 });

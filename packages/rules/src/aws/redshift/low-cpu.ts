@@ -2,12 +2,14 @@ import { createFinding, createFindingMatch, createRule } from '../../shared/help
 
 const RULE_ID = 'CLDBRN-AWS-REDSHIFT-1';
 const RULE_SERVICE = 'redshift';
+const RULE_SEVERITY = 'high' as const;
 const RULE_MESSAGE = 'Redshift clusters with low CPU utilization should be reviewed.';
 // Review provisioned warehouses whose 14-day average CPU stays at or below 10%.
 const LOW_CPU_THRESHOLD = 10;
 
 /** Flag available Redshift clusters with sustained low CPU utilization. */
 export const redshiftLowCpuRule = createRule({
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'Redshift Cluster Low CPU Utilization',
   description: 'Flag available Redshift clusters whose 14-day average CPU stays at or below 10%.',
@@ -38,6 +40,10 @@ export const redshiftLowCpuRule = createRule({
         return cluster ? [createFindingMatch(cluster.clusterIdentifier, cluster.region, cluster.accountId)] : [];
       });
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, message: RULE_MESSAGE }, 'discovery', findings);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
   },
 });

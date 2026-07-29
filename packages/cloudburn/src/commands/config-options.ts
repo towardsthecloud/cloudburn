@@ -1,4 +1,4 @@
-import { builtInRuleMetadata, type Source } from '@cloudburn/sdk';
+import { builtInRuleMetadata, SEVERITIES, type Severity, type Source } from '@cloudburn/sdk';
 import { InvalidArgumentError } from 'commander';
 
 const parseCommaSeparatedList = (value: string, itemLabel: string): string[] => {
@@ -12,6 +12,22 @@ const parseCommaSeparatedList = (value: string, itemLabel: string): string[] => 
   }
 
   return items;
+};
+
+/**
+ * Parses and validates one severity value from a CLI flag.
+ *
+ * @param value - Raw CLI flag value.
+ * @returns A normalized severity.
+ */
+export const parseSeverity = (value: string): Severity => {
+  const severity = value.toLowerCase() as Severity;
+
+  if (!SEVERITIES.includes(severity)) {
+    throw new InvalidArgumentError(`Unknown severity "${value}". Allowed severities: ${SEVERITIES.join(', ')}.`);
+  }
+
+  return severity;
 };
 
 /**
