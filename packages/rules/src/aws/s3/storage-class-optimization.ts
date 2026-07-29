@@ -7,12 +7,13 @@ import {
 
 const RULE_ID = 'CLDBRN-AWS-S3-2';
 const RULE_SERVICE = 's3';
+const RULE_SEVERITY = 'medium' as const;
 const RULE_MESSAGE =
   'S3 buckets with lifecycle management should match object access patterns to the right storage class.';
 
 /** Flag lifecycle-managed S3 buckets that keep data on Standard without explicit storage-class optimization. */
 export const s3StorageClassOptimizationRule = createRule({
-  severity: 'medium',
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'S3 Bucket Storage Class Not Optimized',
   description:
@@ -30,7 +31,7 @@ export const s3StorageClassOptimizationRule = createRule({
       .map((bucket) => createLiveS3BucketFindingMatch(bucket));
 
     return createFinding(
-      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
       'discovery',
       findings,
     );
@@ -42,7 +43,7 @@ export const s3StorageClassOptimizationRule = createRule({
       .map((bucket) => createStaticS3BucketFindingMatch(bucket));
 
     return createFinding(
-      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
       'iac',
       findings,
     );

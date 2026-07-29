@@ -2,11 +2,12 @@ import { createFinding, createFindingMatch, createRule } from '../../shared/help
 
 const RULE_ID = 'CLDBRN-AWS-ELB-2';
 const RULE_SERVICE = 'elb';
+const RULE_SEVERITY = 'medium' as const;
 const RULE_MESSAGE = 'Classic Load Balancers with no attached instances should be deleted.';
 
 /** Flag Classic Load Balancers that are not serving any instances. */
 export const elbClassicWithoutInstancesRule = createRule({
-  severity: 'medium',
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'Classic Load Balancer Without Instances',
   description: 'Flag Classic Load Balancers that have zero attached instances.',
@@ -24,7 +25,7 @@ export const elbClassicWithoutInstancesRule = createRule({
       );
 
     return createFinding(
-      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
       'discovery',
       findings,
     );

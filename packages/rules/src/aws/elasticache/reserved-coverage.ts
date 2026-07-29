@@ -2,6 +2,7 @@ import { createFinding, createFindingMatch, createRule } from '../../shared/help
 
 const RULE_ID = 'CLDBRN-AWS-ELASTICACHE-1';
 const RULE_SERVICE = 'elasticache';
+const RULE_SEVERITY = 'medium' as const;
 const RULE_MESSAGE = 'Long-running ElastiCache clusters should have reserved node coverage.';
 const DAY_MS = 24 * 60 * 60 * 1000;
 // Review steady-state cache clusters twice a year for reservation fit.
@@ -124,7 +125,7 @@ const consumeCoverage = (
 
 /** Flag long-running ElastiCache clusters that lack reserved-node coverage. */
 export const elastiCacheReservedCoverageRule = createRule({
-  severity: 'medium',
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'ElastiCache Cluster Missing Reserved Coverage',
   description: 'Flag long-running ElastiCache clusters that do not have matching active reserved-node coverage.',
@@ -191,7 +192,7 @@ export const elastiCacheReservedCoverageRule = createRule({
       .map((cluster) => createFindingMatch(cluster.cacheClusterId, cluster.region, cluster.accountId));
 
     return createFinding(
-      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
       'discovery',
       findings,
     );

@@ -4,6 +4,7 @@ import { parse as parseHcl } from '@cdktf/hcl2json';
 import type { SourceLocation } from '@cloudburn/rules';
 import { createEmptyIaCParseResult, createSkippedIaCParseResult } from './result.js';
 import { extractSuppressionComments, findResourceSuppressions } from './suppressions.js';
+import { createTerraformLexerState, scanTerraformLine } from './terraform-lexer.js';
 import type { IaCParseResult } from './types.js';
 
 const SKIPPED_DIRECTORIES = new Set(['.git', '.terraform', 'node_modules']);
@@ -14,103 +15,10 @@ type ResourceLocationMetadata = {
   suppressions: ReturnType<typeof findResourceSuppressions>;
 };
 
-type TerraformBraceState = {
-  heredoc?: {
-    allowIndent: boolean;
-    delimiter: string;
-  };
-  inBlockComment: boolean;
-};
-
 const toRelativePath = (path: string, scanRoot: string): string => {
   const relativePath = relative(scanRoot, path);
 
   return (relativePath === '' ? basename(path) : relativePath).split(sep).join('/');
-};
-
-const countBraceDelta = (line: string, state: TerraformBraceState): number => {
-  if (state.heredoc) {
-    const candidate = state.heredoc.allowIndent ? line.trimStart() : line;
-    if (candidate.trimEnd() === state.heredoc.delimiter) {
-      state.heredoc = undefined;
-    }
-    return 0;
-  }
-
-  let delta = 0;
-  let inString = false;
-  let isEscaped = false;
-
-  for (let index = 0; index < line.length; index += 1) {
-    const character = line[index];
-    const nextCharacter = line[index + 1];
-
-    if (state.inBlockComment) {
-      if (character === '*' && nextCharacter === '/') {
-        state.inBlockComment = false;
-        index += 1;
-      }
-      continue;
-    }
-
-    if (inString) {
-      if (isEscaped) {
-        isEscaped = false;
-        continue;
-      }
-
-      if (character === '\\') {
-        isEscaped = true;
-        continue;
-      }
-
-      if (character === '"') {
-        inString = false;
-      }
-
-      continue;
-    }
-
-    if (character === '/' && nextCharacter === '/') {
-      break;
-    }
-
-    if (character === '#') {
-      break;
-    }
-
-    if (character === '/' && nextCharacter === '*') {
-      state.inBlockComment = true;
-      index += 1;
-      continue;
-    }
-
-    if (character === '"') {
-      inString = true;
-      continue;
-    }
-
-    if (character === '<' && nextCharacter === '<') {
-      const heredocMatch = /^<<(-?)([A-Za-z_][A-Za-z0-9_-]*)\s*$/u.exec(line.slice(index));
-      if (heredocMatch?.[2]) {
-        state.heredoc = {
-          allowIndent: heredocMatch[1] === '-',
-          delimiter: heredocMatch[2],
-        };
-        break;
-      }
-    }
-
-    if (character === '{') {
-      delta += 1;
-    }
-
-    if (character === '}') {
-      delta -= 1;
-    }
-  }
-
-  return delta;
 };
 
 const toResourceLocationKey = (resourceType: string, resourceName: string): string => `${resourceType}.${resourceName}`;
@@ -147,8 +55,8 @@ const locateResourceBlocks = (contents: string, path: string): Map<string, Resou
       column: leadingWhitespace.length + 1,
     };
     const attributeLocations: Record<string, SourceLocation> = {};
-    const braceState: TerraformBraceState = { inBlockComment: false };
-    let depth = countBraceDelta(line, braceState);
+    const lexerState = createTerraformLexerState();
+    let depth = scanTerraformLine(line, lexerState).braceDelta;
     let blockEndLine = lineIndex + 1;
 
     for (let blockLineIndex = lineIndex + 1; blockLineIndex < lines.length && depth > 0; blockLineIndex += 1) {
@@ -158,7 +66,9 @@ const locateResourceBlocks = (contents: string, path: string): Map<string, Resou
         continue;
       }
 
-      if (depth === 1 && !braceState.heredoc && !braceState.inBlockComment) {
+      const lineScan = scanTerraformLine(blockLine, lexerState);
+
+      if (depth === 1 && !lineScan.isLiteralLine) {
         const attributeMatch = /^(\s*)([A-Za-z0-9_]+)\s*=/u.exec(blockLine);
 
         if (attributeMatch) {
@@ -175,7 +85,7 @@ const locateResourceBlocks = (contents: string, path: string): Map<string, Resou
         }
       }
 
-      depth += countBraceDelta(blockLine, braceState);
+      depth += lineScan.braceDelta;
 
       if (depth === 0) {
         blockEndLine = blockLineIndex + 1;

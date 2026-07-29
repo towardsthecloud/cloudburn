@@ -2,6 +2,7 @@ import { createFinding, createFindingMatch, createRule } from '../../shared/help
 
 const RULE_ID = 'CLDBRN-AWS-EBS-5';
 const RULE_SERVICE = 'ebs';
+const RULE_SEVERITY = 'high' as const;
 const RULE_MESSAGE = 'EBS io1 and io2 volumes above 32000 IOPS should be reviewed.';
 const HIGH_IOPS_VOLUME_TYPES = new Set(['io1', 'io2']);
 // Treat 32k IOPS as the threshold where provisioned io1/io2 volumes merit explicit review.
@@ -17,7 +18,7 @@ const hasHighProvisionedIops = (volumeType: string | null | undefined, iops: num
 
 /** Flag io1 and io2 EBS volumes provisioned above the high-IOPS threshold. */
 export const ebsHighIopsVolumeRule = createRule({
-  severity: 'high',
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'EBS Volume High Provisioned IOPS',
   description: 'Flag io1 and io2 EBS volumes with provisioned IOPS above 32000.',
@@ -34,7 +35,7 @@ export const ebsHighIopsVolumeRule = createRule({
       .map((volume) => createFindingMatch(volume.volumeId, volume.region, volume.accountId));
 
     return createFinding(
-      { id: RULE_ID, service: RULE_SERVICE, severity: 'high', message: RULE_MESSAGE },
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
       'discovery',
       findings,
     );
@@ -46,7 +47,7 @@ export const ebsHighIopsVolumeRule = createRule({
       .map((volume) => createFindingMatch(volume.resourceId, undefined, undefined, volume.location));
 
     return createFinding(
-      { id: RULE_ID, service: RULE_SERVICE, severity: 'high', message: RULE_MESSAGE },
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
       'iac',
       findings,
     );

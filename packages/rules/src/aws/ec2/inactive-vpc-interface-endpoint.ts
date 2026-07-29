@@ -2,11 +2,12 @@ import { createFinding, createFindingMatch, createRule } from '../../shared/help
 
 const RULE_ID = 'CLDBRN-AWS-EC2-4';
 const RULE_SERVICE = 'ec2';
+const RULE_SEVERITY = 'medium' as const;
 const RULE_MESSAGE = 'Interface VPC endpoints should process traffic or be removed.';
 
 /** Flag interface VPC endpoints that have processed no traffic in the last 30 days. */
 export const ec2InactiveVpcInterfaceEndpointRule = createRule({
-  severity: 'medium',
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'VPC Interface Endpoint Inactive',
   description: 'Flag interface VPC endpoints that have processed no traffic in the last 30 days.',
@@ -22,7 +23,7 @@ export const ec2InactiveVpcInterfaceEndpointRule = createRule({
       .map((endpoint) => createFindingMatch(endpoint.vpcEndpointId, endpoint.region, endpoint.accountId));
 
     return createFinding(
-      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
       'discovery',
       findings,
     );

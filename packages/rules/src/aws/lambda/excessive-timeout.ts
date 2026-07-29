@@ -2,6 +2,7 @@ import { createFinding, createFindingMatch, createRule } from '../../shared/help
 
 const RULE_ID = 'CLDBRN-AWS-LAMBDA-3';
 const RULE_SERVICE = 'lambda';
+const RULE_SEVERITY = 'low' as const;
 const RULE_MESSAGE = 'Lambda functions should not keep timeouts far above their observed average duration.';
 // Review only generously configured functions whose timeout is at least 30s and 5x the observed average duration.
 const MIN_TIMEOUT_REVIEW_SECONDS = 30;
@@ -11,7 +12,7 @@ const getFunctionKey = (accountId: string, region: string, functionName: string)
 
 /** Flag Lambda functions whose configured timeout far exceeds observed average execution time. */
 export const lambdaExcessiveTimeoutRule = createRule({
-  severity: 'low',
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'Lambda Function Excessive Timeout',
   description:
@@ -44,7 +45,7 @@ export const lambdaExcessiveTimeoutRule = createRule({
       .map((fn) => createFindingMatch(fn.functionName, fn.region, fn.accountId));
 
     return createFinding(
-      { id: RULE_ID, service: RULE_SERVICE, severity: 'low', message: RULE_MESSAGE },
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
       'discovery',
       findings,
     );

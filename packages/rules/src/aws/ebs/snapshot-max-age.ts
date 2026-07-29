@@ -2,6 +2,7 @@ import { createFinding, createFindingMatch, createRule } from '../../shared/help
 
 const RULE_ID = 'CLDBRN-AWS-EBS-7';
 const RULE_SERVICE = 'ebs';
+const RULE_SEVERITY = 'medium' as const;
 const RULE_MESSAGE = 'EBS snapshots older than 90 days should be reviewed.';
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 // Snapshot age uses a fixed 90-day review window and skips snapshots with unknown or non-completed state.
@@ -19,7 +20,7 @@ const isOlderThanMaxAge = (startTime: string | undefined, now: number): boolean 
 
 /** Flag completed EBS snapshots that are older than the max-age threshold. */
 export const ebsSnapshotMaxAgeRule = createRule({
-  severity: 'medium',
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'EBS Snapshot Max Age Exceeded',
   description: 'Flag completed EBS snapshots older than 90 days.',
@@ -36,7 +37,7 @@ export const ebsSnapshotMaxAgeRule = createRule({
       .map((snapshot) => createFindingMatch(snapshot.snapshotId, snapshot.region, snapshot.accountId));
 
     return createFinding(
-      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
       'discovery',
       findings,
     );

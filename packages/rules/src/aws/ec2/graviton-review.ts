@@ -6,11 +6,12 @@ import {
 
 const RULE_ID = 'CLDBRN-AWS-EC2-6';
 const RULE_SERVICE = 'ec2';
+const RULE_SEVERITY = 'medium' as const;
 const RULE_MESSAGE = 'EC2 instances without a Graviton equivalent in use should be reviewed.';
 
 /** Flag EC2 instances that still run on non-Graviton families with a clear Arm equivalent. */
 export const ec2GravitonReviewRule = createRule({
-  severity: 'medium',
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'EC2 Instance Without Graviton',
   description: 'Flag EC2 instances that still run on non-Graviton families when a clear Arm-based equivalent exists.',
@@ -27,7 +28,7 @@ export const ec2GravitonReviewRule = createRule({
       .map((instance) => createFindingMatch(instance.instanceId, instance.region, instance.accountId));
 
     return createFinding(
-      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
       'discovery',
       findings,
     );
@@ -42,7 +43,7 @@ export const ec2GravitonReviewRule = createRule({
       .map((instance) => createFindingMatch(instance.resourceId, undefined, undefined, instance.location));
 
     return createFinding(
-      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
       'iac',
       findings,
     );

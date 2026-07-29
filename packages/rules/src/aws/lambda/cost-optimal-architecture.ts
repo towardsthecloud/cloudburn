@@ -2,6 +2,7 @@ import { createFinding, createFindingMatch, createRule } from '../../shared/help
 
 const RULE_ID = 'CLDBRN-AWS-LAMBDA-1';
 const RULE_SERVICE = 'lambda';
+const RULE_SEVERITY = 'medium' as const;
 const RULE_MESSAGE = 'Lambda functions should use arm64 architecture when compatible to reduce running costs.';
 
 type ArchitectureState = 'arm64' | 'non-arm64' | 'unknown';
@@ -20,7 +21,7 @@ const getArchitectureState = (architectures: unknown): ArchitectureState => {
 
 /** Flag Lambda functions that are not configured for arm64, as an advisory when compatible. */
 export const lambdaCostOptimalArchitectureRule = createRule({
-  severity: 'medium',
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'Lambda Function Not Using Cost-Optimal Architecture',
   description: 'Recommend arm64 architecture when compatible.',
@@ -37,7 +38,7 @@ export const lambdaCostOptimalArchitectureRule = createRule({
       .map((fn) => createFindingMatch(fn.functionName, fn.region, fn.accountId));
 
     return createFinding(
-      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
       'discovery',
       findings,
     );
@@ -49,7 +50,7 @@ export const lambdaCostOptimalArchitectureRule = createRule({
       .map((fn) => createFindingMatch(fn.resourceId, undefined, undefined, fn.location));
 
     return createFinding(
-      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
       'iac',
       findings,
     );

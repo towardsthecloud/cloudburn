@@ -52,12 +52,16 @@ const toRelativePath = (path: string, scanRoot: string): string => {
 
 const hasSupportedExtension = (path: string): boolean => SUPPORTED_EXTENSIONS.has(extname(path));
 
-const toSourceLocation = (node: unknown, lineCounter: LineCounter, path: string): SourceLocation | undefined => {
+const getNodeRange = (node: unknown): LocationCarrier['range'] => {
   if (typeof node !== 'object' || node === null || !('range' in node)) {
     return undefined;
   }
 
-  const { range } = node as LocationCarrier;
+  return (node as LocationCarrier).range;
+};
+
+const toSourceLocation = (node: unknown, lineCounter: LineCounter, path: string): SourceLocation | undefined => {
+  const range = getNodeRange(node);
 
   if (!range) {
     return undefined;
@@ -73,11 +77,7 @@ const toSourceLocation = (node: unknown, lineCounter: LineCounter, path: string)
 };
 
 const toEndLine = (node: unknown, lineCounter: LineCounter): number | undefined => {
-  if (typeof node !== 'object' || node === null || !('range' in node)) {
-    return undefined;
-  }
-
-  const { range } = node as LocationCarrier;
+  const range = getNodeRange(node);
   if (!range) {
     return undefined;
   }

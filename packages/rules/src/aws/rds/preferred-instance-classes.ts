@@ -3,6 +3,7 @@ import { getAwsRdsPreferredInstanceFamilyState } from './preferred-instance-fami
 
 const RULE_ID = 'CLDBRN-AWS-RDS-1';
 const RULE_SERVICE = 'rds';
+const RULE_SEVERITY = 'medium' as const;
 const RULE_MESSAGE = 'RDS DB instances should use preferred instance classes.';
 
 const getPreferredInstanceState = (instanceClass: string | null): 'preferred' | 'non-preferred' | 'unclassified' => {
@@ -15,7 +16,7 @@ const getPreferredInstanceState = (instanceClass: string | null): 'preferred' | 
 
 /** Flag RDS DB instances that do not use the curated preferred instance-class families. */
 export const rdsPreferredInstanceClassRule = createRule({
-  severity: 'medium',
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'RDS Instance Class Not Preferred',
   description: 'Flag RDS DB instances that do not use curated preferred instance classes.',
@@ -32,7 +33,7 @@ export const rdsPreferredInstanceClassRule = createRule({
       .map((instance) => createFindingMatch(instance.dbInstanceIdentifier, instance.region, instance.accountId));
 
     return createFinding(
-      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
       'discovery',
       findings,
     );
@@ -44,7 +45,7 @@ export const rdsPreferredInstanceClassRule = createRule({
       .map((instance) => createFindingMatch(instance.resourceId, undefined, undefined, instance.location));
 
     return createFinding(
-      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
       'iac',
       findings,
     );

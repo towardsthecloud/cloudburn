@@ -1,8 +1,9 @@
+import { SEVERITIES } from '@cloudburn/rules';
 import { builtInRuleMetadata } from '../built-in-rules.js';
-import type { CloudBurnConfig, CloudBurnModeConfig, ConfigOutputFormat, Severity, Source } from '../types.js';
+import type { CloudBurnConfig, CloudBurnModeConfig, ConfigOutputFormat, Source } from '../types.js';
 
 const supportedFormats = new Set<ConfigOutputFormat>(['json', 'table']);
-const supportedSeverities = new Set<Severity>(['high', 'medium', 'low']);
+const supportedSeverities = new Set(SEVERITIES);
 const rulesById = new Map(builtInRuleMetadata.map((rule) => [rule.id, rule]));
 const servicesByMode = {
   discovery: new Set(

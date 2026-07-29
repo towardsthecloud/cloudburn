@@ -2,11 +2,12 @@ import { createFinding, createFindingMatch, createRule } from '../../shared/help
 
 const RULE_ID = 'CLDBRN-AWS-CLOUDFRONT-1';
 const RULE_SERVICE = 'cloudfront';
+const RULE_SEVERITY = 'medium' as const;
 const RULE_MESSAGE = 'CloudFront distributions using PriceClass_All should be reviewed for cheaper edge coverage.';
 
 /** Flag CloudFront distributions that use the most expensive global price class. */
 export const cloudFrontDistributionPricingClassRule = createRule({
-  severity: 'medium',
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'CloudFront Distribution Price Class All',
   description: 'Flag CloudFront distributions using PriceClass_All when a cheaper price class may suffice.',
@@ -25,7 +26,7 @@ export const cloudFrontDistributionPricingClassRule = createRule({
       );
 
     return createFinding(
-      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
       'discovery',
       findings,
     );
@@ -37,7 +38,7 @@ export const cloudFrontDistributionPricingClassRule = createRule({
       .map((distribution) => createFindingMatch(distribution.resourceId, undefined, undefined, distribution.location));
 
     return createFinding(
-      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
       'iac',
       findings,
     );

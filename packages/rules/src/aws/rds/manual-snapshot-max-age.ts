@@ -2,6 +2,7 @@ import { createFinding, createFindingMatch, createRule } from '../../shared/help
 
 const RULE_ID = 'CLDBRN-AWS-RDS-10';
 const RULE_SERVICE = 'rds';
+const RULE_SEVERITY = 'medium' as const;
 const RULE_MESSAGE = 'Manual RDS snapshots older than 90 days should be reviewed for cleanup.';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -9,7 +10,7 @@ const SNAPSHOT_MAX_AGE_DAYS = 90;
 
 /** Flag manual RDS snapshots older than 90 days. */
 export const rdsManualSnapshotMaxAgeRule = createRule({
-  severity: 'medium',
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'RDS Manual Snapshot Max Age Exceeded',
   description: 'Flag manual RDS snapshots older than 90 days.',
@@ -34,7 +35,7 @@ export const rdsManualSnapshotMaxAgeRule = createRule({
       .map((snapshot) => createFindingMatch(snapshot.dbSnapshotIdentifier, snapshot.region, snapshot.accountId));
 
     return createFinding(
-      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
       'discovery',
       findings,
     );

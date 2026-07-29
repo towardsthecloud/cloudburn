@@ -2,6 +2,7 @@ import { createFinding, createFindingMatch, createRule } from '../../shared/help
 
 const RULE_ID = 'CLDBRN-AWS-DYNAMODB-1';
 const RULE_SERVICE = 'dynamodb';
+const RULE_SEVERITY = 'medium' as const;
 const RULE_MESSAGE = 'DynamoDB tables whose data has not changed for more than 90 days should be reviewed.';
 const DAY_MS = 24 * 60 * 60 * 1000;
 // Match the upstream default by treating a stream label older than 90 days as stale data.
@@ -9,7 +10,7 @@ const STALE_DATA_DAYS = 90;
 
 /** Flag DynamoDB tables whose latest observed change is older than the stale-data threshold. */
 export const dynamoDbStaleTableDataRule = createRule({
-  severity: 'medium',
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'DynamoDB Table Stale Data',
   description: 'Flag DynamoDB tables with no data changes exceeding a threshold (default 90 days).',
@@ -34,7 +35,7 @@ export const dynamoDbStaleTableDataRule = createRule({
       .map((table) => createFindingMatch(table.tableArn, table.region, table.accountId));
 
     return createFinding(
-      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
       'discovery',
       findings,
     );

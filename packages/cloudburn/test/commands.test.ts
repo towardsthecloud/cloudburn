@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { EXIT_CODE_POLICY_VIOLATION } from '../src/exit-codes.js';
 import { renderResponse } from '../src/formatters/output.js';
-import { countScanResultFindings } from '../src/formatters/shared.js';
+import { countScanResultFindings } from '../src/policy.js';
 
 const findings = [
   {

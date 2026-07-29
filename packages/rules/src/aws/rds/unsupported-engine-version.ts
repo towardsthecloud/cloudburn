@@ -2,6 +2,7 @@ import { createFinding, createFindingMatch, createRule } from '../../shared/help
 
 const RULE_ID = 'CLDBRN-AWS-RDS-6';
 const RULE_SERVICE = 'rds';
+const RULE_SEVERITY = 'high' as const;
 const RULE_MESSAGE =
   'RDS MySQL 5.7 and PostgreSQL 11 DB instances should be upgraded to avoid extended support charges.';
 
@@ -20,7 +21,7 @@ const isUnsupportedRdsEngineVersion = (engine?: string | null, engineVersion?: s
 
 /** Flag RDS DB instances on engine versions that incur extended support charges. */
 export const rdsUnsupportedEngineVersionRule = createRule({
-  severity: 'high',
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'RDS DB Instance Unsupported Engine Version',
   description:
@@ -38,7 +39,7 @@ export const rdsUnsupportedEngineVersionRule = createRule({
       .map((instance) => createFindingMatch(instance.dbInstanceIdentifier, instance.region, instance.accountId));
 
     return createFinding(
-      { id: RULE_ID, service: RULE_SERVICE, severity: 'high', message: RULE_MESSAGE },
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
       'discovery',
       findings,
     );
@@ -50,7 +51,7 @@ export const rdsUnsupportedEngineVersionRule = createRule({
       .map((instance) => createFindingMatch(instance.resourceId, undefined, undefined, instance.location));
 
     return createFinding(
-      { id: RULE_ID, service: RULE_SERVICE, severity: 'high', message: RULE_MESSAGE },
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
       'iac',
       findings,
     );

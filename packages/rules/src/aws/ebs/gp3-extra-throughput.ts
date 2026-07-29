@@ -2,11 +2,12 @@ import { createFinding, createFindingMatch, createRule } from '../../shared/help
 
 const RULE_ID = 'CLDBRN-AWS-EBS-8';
 const RULE_SERVICE = 'ebs';
+const RULE_SEVERITY = 'medium' as const;
 const RULE_MESSAGE = 'EBS gp3 volumes should avoid paid throughput above the included baseline unless required.';
 
 /** Flag gp3 volumes that provision throughput above the included 125 MiB/s baseline. */
 export const ebsGp3ExtraThroughputRule = createRule({
-  severity: 'medium',
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'EBS gp3 Volume Extra Throughput Provisioned',
   description: 'Flag gp3 volumes that provision throughput above the included 125 MiB/s baseline.',
@@ -25,7 +26,7 @@ export const ebsGp3ExtraThroughputRule = createRule({
       .map((volume) => createFindingMatch(volume.resourceId, undefined, undefined, volume.location));
 
     return createFinding(
-      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
       'iac',
       findings,
     );

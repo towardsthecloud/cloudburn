@@ -4,8 +4,8 @@ import { resolveCliDebugLogger } from '../debug.js';
 import { EXIT_CODE_OK, EXIT_CODE_POLICY_VIOLATION, EXIT_CODE_RUNTIME_ERROR } from '../exit-codes.js';
 import { formatError } from '../formatters/error.js';
 import { renderResponse, resolveOutputFormat } from '../formatters/output.js';
-import { hasPolicyViolation } from '../formatters/shared.js';
 import { setCommandExamples } from '../help.js';
+import { hasPolicyViolation } from '../policy.js';
 import { parseRuleIdList, parseServiceList, parseSeverity, validateServiceList } from './config-options.js';
 
 type ScanOptions = {

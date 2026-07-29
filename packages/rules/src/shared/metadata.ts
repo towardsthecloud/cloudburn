@@ -10,8 +10,11 @@ export type ScanSource = Source;
 /** Supported cloud providers for built-in and custom rules. */
 export type CloudProvider = 'aws' | 'azure' | 'gcp';
 
+/** Supported severity levels in descending priority order. */
+export const SEVERITIES = ['high', 'medium', 'low'] as const;
+
 /** Relative cost impact used to prioritize rules and findings. */
-export type Severity = 'high' | 'medium' | 'low';
+export type Severity = (typeof SEVERITIES)[number];
 
 /** Source coordinates for an IaC declaration that produced a finding. */
 export type SourceLocation = {

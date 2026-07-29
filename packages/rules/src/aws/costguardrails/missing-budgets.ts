@@ -2,11 +2,12 @@ import { createFinding, createFindingMatch, createRule } from '../../shared/help
 
 const RULE_ID = 'CLDBRN-AWS-COSTGUARDRAILS-1';
 const RULE_SERVICE = 'costguardrails';
+const RULE_SEVERITY = 'low' as const;
 const RULE_MESSAGE = 'AWS accounts should define at least one AWS Budget for spend guardrails.';
 
 /** Flag accounts that have not configured any AWS Budgets. */
 export const costGuardrailMissingBudgetsRule = createRule({
-  severity: 'low',
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'AWS Budgets Missing',
   description: 'Flag AWS accounts that do not have any AWS Budgets configured.',
@@ -22,8 +23,10 @@ export const costGuardrailMissingBudgetsRule = createRule({
       return null;
     }
 
-    return createFinding({ id: RULE_ID, service: RULE_SERVICE, severity: 'low', message: RULE_MESSAGE }, 'discovery', [
-      createFindingMatch(budgetSummary.accountId, undefined, budgetSummary.accountId),
-    ]);
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
+      'discovery',
+      [createFindingMatch(budgetSummary.accountId, undefined, budgetSummary.accountId)],
+    );
   },
 });

@@ -2,6 +2,7 @@ import { createFinding, createFindingMatch, createRule } from '../../shared/help
 
 const RULE_ID = 'CLDBRN-AWS-REDSHIFT-3';
 const RULE_SERVICE = 'redshift';
+const RULE_SEVERITY = 'high' as const;
 const RULE_MESSAGE = 'Redshift clusters should enable both pause and resume schedules when eligible.';
 
 const isPauseResumeEligible = (cluster: {
@@ -33,7 +34,7 @@ const isStaticPauseResumeEligible = (cluster: {
 
 /** Flag eligible Redshift clusters that do not have both pause and resume schedules. */
 export const redshiftPauseResumeRule = createRule({
-  severity: 'high',
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'Redshift Cluster Pause Resume Not Enabled',
   description: 'Flag eligible Redshift clusters that do not have both pause and resume schedules configured.',
@@ -50,7 +51,7 @@ export const redshiftPauseResumeRule = createRule({
       .map((cluster) => createFindingMatch(cluster.clusterIdentifier, cluster.region, cluster.accountId));
 
     return createFinding(
-      { id: RULE_ID, service: RULE_SERVICE, severity: 'high', message: RULE_MESSAGE },
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
       'discovery',
       findings,
     );
@@ -64,7 +65,7 @@ export const redshiftPauseResumeRule = createRule({
       .map((cluster) => createFindingMatch(cluster.resourceId, undefined, undefined, cluster.location));
 
     return createFinding(
-      { id: RULE_ID, service: RULE_SERVICE, severity: 'high', message: RULE_MESSAGE },
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
       'iac',
       findings,
     );

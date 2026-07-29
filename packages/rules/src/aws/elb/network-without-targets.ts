@@ -3,11 +3,12 @@ import { hasNoRegisteredTargets } from './shared.js';
 
 const RULE_ID = 'CLDBRN-AWS-ELB-4';
 const RULE_SERVICE = 'elb';
+const RULE_SEVERITY = 'medium' as const;
 const RULE_MESSAGE = 'Network Load Balancers with no registered targets should be deleted.';
 
 /** Flag NLBs that have no attached target groups or only empty target groups. */
 export const elbNetworkWithoutTargetsRule = createRule({
-  severity: 'medium',
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'Network Load Balancer Without Targets',
   description: 'Flag Network Load Balancers that have no attached target groups or no registered targets.',
@@ -27,7 +28,7 @@ export const elbNetworkWithoutTargetsRule = createRule({
       );
 
     return createFinding(
-      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
       'discovery',
       findings,
     );

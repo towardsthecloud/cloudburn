@@ -2,11 +2,12 @@ import { createFinding, createFindingMatch, createRule } from '../../shared/help
 
 const RULE_ID = 'CLDBRN-AWS-SAGEMAKER-1';
 const RULE_SERVICE = 'sagemaker';
+const RULE_SEVERITY = 'high' as const;
 const RULE_MESSAGE = 'SageMaker notebook instances should not remain running when they are no longer needed.';
 
 /** Flag SageMaker notebook instances that are currently in service. */
 export const sagemakerRunningNotebookInstanceRule = createRule({
-  severity: 'high',
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'SageMaker Notebook Instance Running',
   description: 'Flag SageMaker notebook instances whose status remains InService.',
@@ -22,7 +23,7 @@ export const sagemakerRunningNotebookInstanceRule = createRule({
       .map((instance) => createFindingMatch(instance.notebookInstanceName, instance.region, instance.accountId));
 
     return createFinding(
-      { id: RULE_ID, service: RULE_SERVICE, severity: 'high', message: RULE_MESSAGE },
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
       'discovery',
       findings,
     );

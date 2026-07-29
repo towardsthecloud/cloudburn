@@ -2,6 +2,7 @@ import { createFinding, createFindingMatch, createRule } from '../../shared/help
 
 const RULE_ID = 'CLDBRN-AWS-SECRETSMANAGER-1';
 const RULE_SERVICE = 'secretsmanager';
+const RULE_SEVERITY = 'low' as const;
 const RULE_MESSAGE =
   'Secrets Manager secrets that have not been accessed for more than 90 days should be deleted or reviewed.';
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -10,7 +11,7 @@ const UNUSED_SECRET_DAYS = 90;
 
 /** Flag Secrets Manager secrets that have never been used or have gone unused for the default threshold. */
 export const secretsManagerSecretUnusedRule = createRule({
-  severity: 'low',
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'Secrets Manager Secret Unused',
   description: 'Flag Secrets Manager secrets not accessed within a threshold (default 90 days).',
@@ -34,7 +35,7 @@ export const secretsManagerSecretUnusedRule = createRule({
       .map((secret) => createFindingMatch(secret.secretArn, secret.region, secret.accountId));
 
     return createFinding(
-      { id: RULE_ID, service: RULE_SERVICE, severity: 'low', message: RULE_MESSAGE },
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
       'discovery',
       findings,
     );

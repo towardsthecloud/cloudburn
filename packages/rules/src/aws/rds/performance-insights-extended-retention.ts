@@ -2,6 +2,7 @@ import { createFinding, createFindingMatch, createRule } from '../../shared/help
 
 const RULE_ID = 'CLDBRN-AWS-RDS-8';
 const RULE_SERVICE = 'rds';
+const RULE_SEVERITY = 'low' as const;
 const RULE_MESSAGE =
   'RDS Performance Insights should use the included 7-day retention unless longer retention is required.';
 
@@ -19,7 +20,7 @@ const hasExtendedRetention = (enabled: boolean | null | undefined, retention: nu
 
 /** Flag DB instances that enable Performance Insights retention beyond the included 7-day period. */
 export const rdsPerformanceInsightsExtendedRetentionRule = createRule({
-  severity: 'low',
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'RDS Performance Insights Extended Retention',
   description: 'Flag DB instances that enable Performance Insights retention beyond the included 7-day period.',
@@ -37,7 +38,7 @@ export const rdsPerformanceInsightsExtendedRetentionRule = createRule({
       .map((instance) => createFindingMatch(instance.resourceId, undefined, undefined, instance.location));
 
     return createFinding(
-      { id: RULE_ID, service: RULE_SERVICE, severity: 'low', message: RULE_MESSAGE },
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
       'iac',
       findings,
     );

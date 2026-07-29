@@ -2,13 +2,14 @@ import { createFinding, createFindingMatch, createRule } from '../../shared/help
 
 const RULE_ID = 'CLDBRN-AWS-ECS-2';
 const RULE_SERVICE = 'ecs';
+const RULE_SEVERITY = 'high' as const;
 const RULE_MESSAGE =
   'ECS clusters should be reviewed when average CPU utilization stays below 10% for the previous 14 days.';
 const LOW_CPU_THRESHOLD = 10;
 
 /** Flag ECS clusters with sustained low average CPU utilization. */
 export const ecsLowCpuUtilizationRule = createRule({
-  severity: 'high',
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'ECS Cluster Low CPU Utilization',
   description: 'Flag ECS clusters whose average CPU utilization stays below 10% over the previous 14 days.',
@@ -34,7 +35,7 @@ export const ecsLowCpuUtilizationRule = createRule({
       .map((cluster) => createFindingMatch(cluster.clusterArn, cluster.region, cluster.accountId));
 
     return createFinding(
-      { id: RULE_ID, service: RULE_SERVICE, severity: 'high', message: RULE_MESSAGE },
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
       'discovery',
       findings,
     );

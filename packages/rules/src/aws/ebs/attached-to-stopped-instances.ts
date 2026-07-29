@@ -2,11 +2,12 @@ import { createFinding, createFindingMatch, createRule } from '../../shared/help
 
 const RULE_ID = 'CLDBRN-AWS-EBS-3';
 const RULE_SERVICE = 'ebs';
+const RULE_SEVERITY = 'high' as const;
 const RULE_MESSAGE = 'EBS volumes attached only to stopped EC2 instances should be reviewed.';
 
 /** Flag EBS volumes whose attached EC2 instances are all in the stopped state. */
 export const ebsAttachedToStoppedInstancesRule = createRule({
-  severity: 'high',
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'EBS Volume Attached To Stopped Instances',
   description: 'Flag EBS volumes whose attached EC2 instances are all in the stopped state.',
@@ -45,7 +46,7 @@ export const ebsAttachedToStoppedInstancesRule = createRule({
       .map((volume) => createFindingMatch(volume.volumeId, volume.region, volume.accountId));
 
     return createFinding(
-      { id: RULE_ID, service: RULE_SERVICE, severity: 'high', message: RULE_MESSAGE },
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
       'discovery',
       findings,
     );

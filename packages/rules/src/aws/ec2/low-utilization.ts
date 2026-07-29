@@ -2,11 +2,12 @@ import { createFinding, createFindingMatch, createRule } from '../../shared/help
 
 const RULE_ID = 'CLDBRN-AWS-EC2-5';
 const RULE_SERVICE = 'ec2';
+const RULE_SEVERITY = 'high' as const;
 const RULE_MESSAGE = 'EC2 instances should not remain low utilization for 4 or more of the previous 14 days.';
 
 /** Flag EC2 instances that match the low-utilization heuristic. */
 export const ec2LowUtilizationRule = createRule({
-  severity: 'high',
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'EC2 Instance Low Utilization',
   description:
@@ -23,7 +24,7 @@ export const ec2LowUtilizationRule = createRule({
       .map((instance) => createFindingMatch(instance.instanceId, instance.region, instance.accountId));
 
     return createFinding(
-      { id: RULE_ID, service: RULE_SERVICE, severity: 'high', message: RULE_MESSAGE },
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
       'discovery',
       findings,
     );

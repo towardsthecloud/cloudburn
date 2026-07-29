@@ -2,11 +2,12 @@ import { createFinding, createFindingMatch, createRule } from '../../shared/help
 
 const RULE_ID = 'CLDBRN-AWS-ROUTE53-2';
 const RULE_SERVICE = 'route53';
+const RULE_SEVERITY = 'low' as const;
 const RULE_MESSAGE = 'Route 53 health checks not associated with any DNS record should be deleted.';
 
 /** Flag Route 53 health checks that are not referenced by any record set. */
 export const route53HealthCheckUnusedRule = createRule({
-  severity: 'low',
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'Route 53 Health Check Unused',
   description: 'Flag Route 53 health checks not associated with any DNS record.',
@@ -32,7 +33,7 @@ export const route53HealthCheckUnusedRule = createRule({
       );
 
     return createFinding(
-      { id: RULE_ID, service: RULE_SERVICE, severity: 'low', message: RULE_MESSAGE },
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
       'discovery',
       findings,
     );
@@ -49,7 +50,7 @@ export const route53HealthCheckUnusedRule = createRule({
       .map((healthCheck) => createFindingMatch(healthCheck.resourceId, undefined, undefined, healthCheck.location));
 
     return createFinding(
-      { id: RULE_ID, service: RULE_SERVICE, severity: 'low', message: RULE_MESSAGE },
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
       'iac',
       findings,
     );

@@ -2,11 +2,12 @@ import { createFinding, createFindingMatch, createRule } from '../../shared/help
 
 const RULE_ID = 'CLDBRN-AWS-ECR-3';
 const RULE_SERVICE = 'ecr';
+const RULE_SEVERITY = 'low' as const;
 const RULE_MESSAGE = 'ECR repositories should cap tagged image retention.';
 
 /** Flag ECR repositories whose statically parsed lifecycle policy does not cap tagged image retention. */
 export const ecrMissingTaggedImageRetentionCapRule = createRule({
-  severity: 'low',
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'ECR Lifecycle Policy Missing Tagged Image Retention Cap',
   description: 'Flag ECR repositories whose lifecycle policy does not cap tagged image retention.',
@@ -22,7 +23,7 @@ export const ecrMissingTaggedImageRetentionCapRule = createRule({
       .map((repository) => createFindingMatch(repository.resourceId, undefined, undefined, repository.location));
 
     return createFinding(
-      { id: RULE_ID, service: RULE_SERVICE, severity: 'low', message: RULE_MESSAGE },
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
       'iac',
       findings,
     );

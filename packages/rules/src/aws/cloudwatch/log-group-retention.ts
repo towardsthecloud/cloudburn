@@ -2,6 +2,7 @@ import { createFinding, createFindingMatch, createRule } from '../../shared/help
 
 const RULE_ID = 'CLDBRN-AWS-CLOUDWATCH-1';
 const RULE_SERVICE = 'cloudwatch';
+const RULE_SEVERITY = 'low' as const;
 const RULE_MESSAGE =
   'CloudWatch log groups should define a retention policy unless AWS manages lifecycle automatically.';
 
@@ -12,7 +13,7 @@ const hasMissingRetention = (
 
 /** Flag CloudWatch log groups that do not define retention and are not delivery-managed. */
 export const cloudWatchLogGroupRetentionRule = createRule({
-  severity: 'low',
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'CloudWatch Log Group Missing Retention',
   description: 'Flag CloudWatch log groups that do not define retention and are not delivery-managed.',
@@ -29,7 +30,7 @@ export const cloudWatchLogGroupRetentionRule = createRule({
       .map((logGroup) => createFindingMatch(logGroup.logGroupName, logGroup.region, logGroup.accountId));
 
     return createFinding(
-      { id: RULE_ID, service: RULE_SERVICE, severity: 'low', message: RULE_MESSAGE },
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
       'discovery',
       findings,
     );
@@ -41,7 +42,7 @@ export const cloudWatchLogGroupRetentionRule = createRule({
       .map((logGroup) => createFindingMatch(logGroup.resourceId, undefined, undefined, logGroup.location));
 
     return createFinding(
-      { id: RULE_ID, service: RULE_SERVICE, severity: 'low', message: RULE_MESSAGE },
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
       'iac',
       findings,
     );

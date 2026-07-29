@@ -2,6 +2,7 @@ import { createFinding, createFindingMatch, createRule } from '../../shared/help
 
 const RULE_ID = 'CLDBRN-AWS-EC2-8';
 const RULE_SERVICE = 'ec2';
+const RULE_SEVERITY = 'high' as const;
 const RULE_MESSAGE = 'EC2 large instances of 2xlarge or greater should be reviewed.';
 // Treat 2xlarge and above as the right-sizing review threshold.
 const LARGE_INSTANCE_MIN_XLARGE_MULTIPLIER = 2;
@@ -36,7 +37,7 @@ const isLargeInstanceSize = (instanceType: string | null | undefined): boolean =
 
 /** Flag EC2 instances that cross the large-instance review threshold. */
 export const ec2LargeInstanceRule = createRule({
-  severity: 'high',
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'EC2 Instance Large Size',
   description: 'Flag EC2 instances that are sized at 2xlarge or above so they can be right-sized intentionally.',
@@ -53,7 +54,7 @@ export const ec2LargeInstanceRule = createRule({
       .map((instance) => createFindingMatch(instance.instanceId, instance.region, instance.accountId));
 
     return createFinding(
-      { id: RULE_ID, service: RULE_SERVICE, severity: 'high', message: RULE_MESSAGE },
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
       'discovery',
       findings,
     );
@@ -65,7 +66,7 @@ export const ec2LargeInstanceRule = createRule({
       .map((instance) => createFindingMatch(instance.resourceId, undefined, undefined, instance.location));
 
     return createFinding(
-      { id: RULE_ID, service: RULE_SERVICE, severity: 'high', message: RULE_MESSAGE },
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
       'iac',
       findings,
     );

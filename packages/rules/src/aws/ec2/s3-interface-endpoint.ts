@@ -2,6 +2,7 @@ import { createFinding, createFindingMatch, createRule } from '../../shared/help
 
 const RULE_ID = 'CLDBRN-AWS-EC2-2';
 const RULE_SERVICE = 'ec2';
+const RULE_SEVERITY = 'medium' as const;
 const RULE_MESSAGE = 'S3 access inside a VPC should prefer gateway endpoints over interface endpoints when possible.';
 
 const isS3ServiceName = (value: unknown): boolean => {
@@ -18,7 +19,7 @@ const isInterfaceEndpointType = (value: unknown): boolean => {
 
 /** Flag S3 interface endpoints, which are usually a more expensive choice than gateway endpoints inside a VPC. */
 export const ec2S3InterfaceEndpointRule = createRule({
-  severity: 'medium',
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'S3 Interface VPC Endpoint Used',
   description: 'Flag S3 interface endpoints when a gateway endpoint is the cheaper in-VPC option.',
@@ -34,7 +35,7 @@ export const ec2S3InterfaceEndpointRule = createRule({
       .map((endpoint) => createFindingMatch(endpoint.resourceId, undefined, undefined, endpoint.location));
 
     return createFinding(
-      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
       'iac',
       findings,
     );

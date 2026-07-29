@@ -2,13 +2,14 @@ import { createFinding, createFindingMatch, createRule } from '../../shared/help
 
 const RULE_ID = 'CLDBRN-AWS-DYNAMODB-3';
 const RULE_SERVICE = 'dynamodb';
+const RULE_SEVERITY = 'high' as const;
 const RULE_MESSAGE = 'Provisioned DynamoDB tables should not remain unused for 30 days.';
 const getTableKey = (accountId: string, region: string, tableArn: string): string =>
   `${accountId}:${region}:${tableArn}`;
 
 /** Flag provisioned DynamoDB tables that show no consumed capacity over the last 30 days. */
 export const dynamoDbUnusedTableRule = createRule({
-  severity: 'high',
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'DynamoDB Table Unused',
   description: 'Flag provisioned DynamoDB tables with no consumed read or write capacity over the last 30 days.',
@@ -38,7 +39,7 @@ export const dynamoDbUnusedTableRule = createRule({
       .map((utilization) => createFindingMatch(utilization.tableArn, utilization.region, utilization.accountId));
 
     return createFinding(
-      { id: RULE_ID, service: RULE_SERVICE, severity: 'high', message: RULE_MESSAGE },
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
       'discovery',
       findings,
     );

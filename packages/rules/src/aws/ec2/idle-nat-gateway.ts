@@ -2,11 +2,12 @@ import { createFinding, createFindingMatch, createRule } from '../../shared/help
 
 const RULE_ID = 'CLDBRN-AWS-EC2-11';
 const RULE_SERVICE = 'ec2';
+const RULE_SEVERITY = 'high' as const;
 const RULE_MESSAGE = 'NAT gateways should process traffic or be removed.';
 
 /** Flag available NAT gateways that have processed no traffic in either direction for 7 days. */
 export const ec2IdleNatGatewayRule = createRule({
-  severity: 'high',
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'NAT Gateway Idle',
   description: 'Flag available NAT gateways whose inbound and outbound traffic both stay at zero for 7 days.',
@@ -27,7 +28,7 @@ export const ec2IdleNatGatewayRule = createRule({
       .map((natGateway) => createFindingMatch(natGateway.natGatewayId, natGateway.region, natGateway.accountId));
 
     return createFinding(
-      { id: RULE_ID, service: RULE_SERVICE, severity: 'high', message: RULE_MESSAGE },
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
       'discovery',
       findings,
     );

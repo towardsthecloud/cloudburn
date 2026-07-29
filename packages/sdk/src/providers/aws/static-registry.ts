@@ -100,7 +100,13 @@ const DYNAMODB_TABLE_RESOURCE_ID_PATTERN = /^table\/([^/]+)$/u;
 
 const isCloudFormationResource = (resource: IaCResource): boolean => resource.type.startsWith('AWS::');
 
-const toStaticResourceId = (resource: IaCResource): string =>
+/**
+ * Returns the canonical identity used by normalized static datasets and findings.
+ *
+ * @param resource - Parsed IaC resource to identify.
+ * @returns Its CloudFormation logical ID or Terraform address.
+ */
+export const toStaticResourceId = (resource: IaCResource): string =>
   isCloudFormationResource(resource) ? resource.name : `${resource.type}.${resource.name}`;
 
 const pickLocation = (resource: IaCResource, attributePaths: string[]): SourceLocation | undefined =>

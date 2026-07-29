@@ -2,11 +2,12 @@ import { createFinding, createFindingMatch, createRule } from '../../shared/help
 
 const RULE_ID = 'CLDBRN-AWS-TAGGING-1';
 const RULE_SERVICE = 'tagging';
+const RULE_SEVERITY = 'low' as const;
 const RULE_MESSAGE = 'Taggable AWS resources should have at least one user-created tag.';
 
 /** Flag taggable AWS resources that Resource Explorer reports without user-created tags. */
 export const taggingUntaggedResourcesRule = createRule({
-  severity: 'low',
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'AWS Resource Untagged',
   description: 'Flag taggable AWS resources that have no user-created tags.',
@@ -21,7 +22,7 @@ export const taggingUntaggedResourcesRule = createRule({
       .map((resource) => createFindingMatch(resource.arn, resource.region, resource.accountId));
 
     return createFinding(
-      { id: RULE_ID, service: RULE_SERVICE, severity: 'low', message: RULE_MESSAGE },
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
       'discovery',
       findings,
     );

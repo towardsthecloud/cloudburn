@@ -2,6 +2,7 @@ import { createFinding, createFindingMatch, createRule } from '../../shared/help
 
 const RULE_ID = 'CLDBRN-AWS-EBS-1';
 const RULE_SERVICE = 'ebs';
+const RULE_SEVERITY = 'medium' as const;
 const RULE_MESSAGE = 'EBS volumes should use current-generation storage.';
 const PREVIOUS_GENERATION_EBS_VOLUME_TYPES = new Set(['gp2', 'io1', 'standard']);
 
@@ -9,7 +10,7 @@ const isPreviousGenerationEbsVolumeType = (volumeType: string | null | undefined
   volumeType !== null && volumeType !== undefined && PREVIOUS_GENERATION_EBS_VOLUME_TYPES.has(volumeType);
 
 export const ebsVolumeTypeCurrentGenRule = createRule({
-  severity: 'medium',
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'EBS Volume Type Not Current Generation',
   description: 'Flag EBS volumes using previous-generation storage types when a current-generation replacement exists.',
@@ -29,7 +30,7 @@ export const ebsVolumeTypeCurrentGenRule = createRule({
       {
         id: RULE_ID,
         service: RULE_SERVICE,
-        severity: 'medium',
+        severity: RULE_SEVERITY,
         message: RULE_MESSAGE,
       },
       'discovery',
@@ -46,7 +47,7 @@ export const ebsVolumeTypeCurrentGenRule = createRule({
       {
         id: RULE_ID,
         service: RULE_SERVICE,
-        severity: 'medium',
+        severity: RULE_SEVERITY,
         message: RULE_MESSAGE,
       },
       'iac',

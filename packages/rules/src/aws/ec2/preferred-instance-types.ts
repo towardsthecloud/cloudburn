@@ -3,6 +3,7 @@ import { getAwsEc2PreferredInstanceFamilyState } from './preferred-instance-fami
 
 const RULE_ID = 'CLDBRN-AWS-EC2-1';
 const RULE_SERVICE = 'ec2';
+const RULE_SEVERITY = 'medium' as const;
 const RULE_MESSAGE = 'EC2 instances should use preferred instance types.';
 const INSTANCE_TYPE_PATTERN = /^[a-z0-9-]+\.[a-z0-9-]+$/i;
 
@@ -21,7 +22,7 @@ const getPreferredInstanceState = (instanceType: unknown): 'preferred' | 'non-pr
 
 /** Flag direct EC2 instances that do not use the curated preferred instance families. */
 export const ec2PreferredInstanceTypeRule = createRule({
-  severity: 'medium',
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'EC2 Instance Type Not Preferred',
   description: 'Flag direct EC2 instances that do not use curated preferred instance types.',
@@ -38,7 +39,7 @@ export const ec2PreferredInstanceTypeRule = createRule({
       .map((instance) => createFindingMatch(instance.instanceId, instance.region, instance.accountId));
 
     return createFinding(
-      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
       'discovery',
       findings,
     );
@@ -50,7 +51,7 @@ export const ec2PreferredInstanceTypeRule = createRule({
       .map((instance) => createFindingMatch(instance.resourceId, undefined, undefined, instance.location));
 
     return createFinding(
-      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
       'iac',
       findings,
     );

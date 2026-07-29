@@ -2,6 +2,7 @@ import { createFinding, createFindingMatch, createRule } from '../../shared/help
 
 const RULE_ID = 'CLDBRN-AWS-RDS-5';
 const RULE_SERVICE = 'rds';
+const RULE_SEVERITY = 'high' as const;
 const RULE_MESSAGE = 'RDS DB instances with low CPU utilization should be reviewed.';
 // Review provisioned databases whose 30-day average CPU stays at or below 10%.
 const LOW_CPU_THRESHOLD = 10;
@@ -10,7 +11,7 @@ const getInstanceKey = (accountId: string, region: string, dbInstanceIdentifier:
 
 /** Flag available RDS DB instances with sustained low CPU utilization. */
 export const rdsLowCpuUtilizationRule = createRule({
-  severity: 'high',
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'RDS DB Instance Low CPU Utilization',
   description: 'Flag available RDS DB instances whose 30-day average CPU stays at or below 10%.',
@@ -51,7 +52,7 @@ export const rdsLowCpuUtilizationRule = createRule({
       });
 
     return createFinding(
-      { id: RULE_ID, service: RULE_SERVICE, severity: 'high', message: RULE_MESSAGE },
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
       'discovery',
       findings,
     );

@@ -3,11 +3,12 @@ import { createStaticS3BucketFindingMatch, hasMissingNoncurrentVersionCleanup } 
 
 const RULE_ID = 'CLDBRN-AWS-S3-4';
 const RULE_SERVICE = 's3';
+const RULE_SEVERITY = 'medium' as const;
 const RULE_MESSAGE = 'Versioned S3 buckets should define noncurrent-version cleanup.';
 
 /** Flag versioned S3 buckets that define no noncurrent-version expiration or transition cleanup. */
 export const s3VersionedBucketNoncurrentVersionCleanupRule = createRule({
-  severity: 'medium',
+  severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'S3 Versioned Bucket Missing Noncurrent Version Cleanup',
   description:
@@ -24,7 +25,7 @@ export const s3VersionedBucketNoncurrentVersionCleanupRule = createRule({
       .map((bucket) => createStaticS3BucketFindingMatch(bucket));
 
     return createFinding(
-      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
       'iac',
       findings,
     );

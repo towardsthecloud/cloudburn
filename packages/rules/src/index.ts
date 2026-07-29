@@ -111,4 +111,4 @@ export type {
   StaticDatasetMap,
   StaticEvaluationContext,
 } from './shared/metadata.js';
-export { LiveResourceBag, StaticResourceBag } from './shared/metadata.js';
+export { LiveResourceBag, SEVERITIES, StaticResourceBag } from './shared/metadata.js';

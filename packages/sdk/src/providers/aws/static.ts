@@ -2,7 +2,7 @@ import type { IaCSuppression, Rule, StaticDatasetKey, StaticEvaluationContext } 
 import { StaticResourceBag } from '@cloudburn/rules';
 import { type IaCSourceKind, parseIaCWithDiagnostics } from '../../parsers/index.js';
 import type { ScanDiagnostic } from '../../types.js';
-import { getAwsStaticDatasetDefinition } from './static-registry.js';
+import { getAwsStaticDatasetDefinition, toStaticResourceId } from './static-registry.js';
 
 /** Static evaluation context with non-fatal diagnostics produced during dataset loading. */
 export type AwsStaticResourceLoadResult = StaticEvaluationContext & {
@@ -83,7 +83,7 @@ export const loadAwsStaticResources = async (path: string, rules: Rule[]): Promi
     return [
       {
         path: resource.location.path,
-        resourceId: resource.type.startsWith('AWS::') ? resource.name : `${resource.type}.${resource.name}`,
+        resourceId: toStaticResourceId(resource),
         suppressions: resource.suppressions,
       },
     ];
