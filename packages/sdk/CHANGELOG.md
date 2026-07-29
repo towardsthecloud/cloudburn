@@ -1,5 +1,16 @@
 # @cloudburn/sdk
 
+## 0.25.0
+
+### Minor Changes
+
+- [#133](https://github.com/towardsthecloud/cloudburn/pull/133) [`f3b9ab3`](https://github.com/towardsthecloud/cloudburn/commit/f3b9ab37f36d8e4690de2018a57ac291e0d9d82d) Thanks [@axonstone](https://github.com/axonstone)! - Expose rule severity, observable mode-specific fail-on policy results, and auditable resource-local Terraform and CloudFormation YAML suppressions in static scan results.
+
+### Patch Changes
+
+- Updated dependencies [[`f3b9ab3`](https://github.com/towardsthecloud/cloudburn/commit/f3b9ab37f36d8e4690de2018a57ac291e0d9d82d)]:
+  - @cloudburn/rules@0.25.0
+
 ## 0.24.1
 
 ### Patch Changes
