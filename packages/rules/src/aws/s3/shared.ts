@@ -21,6 +21,15 @@ export const hasMissingStorageClassOptimization = (bucket: AwsS3BucketAnalysisFl
   !bucket.hasIntelligentTieringTransition &&
   !bucket.hasAlternativeStorageClassTransition;
 
+/**
+ * Returns whether an S3 bucket should be flagged for an Intelligent-Tiering recommendation.
+ *
+ * Buckets with any lifecycle signal stay with `CLDBRN-AWS-S3-2`, which reviews the storage-class
+ * choice of lifecycle-managed buckets. This keeps the two storage-class rules disjoint.
+ */
+export const shouldRecommendIntelligentTiering = (bucket: AwsS3BucketAnalysisFlags): boolean =>
+  !bucket.hasLifecycleSignal && !bucket.hasIntelligentTieringConfiguration;
+
 /** Returns whether a versioned S3 bucket should be flagged for missing noncurrent-version cleanup. */
 export const hasMissingNoncurrentVersionCleanup = (
   bucket: Pick<AwsStaticS3BucketAnalysis, 'versioningEnabled' | 'hasNoncurrentVersionCleanup'>,

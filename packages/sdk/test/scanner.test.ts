@@ -1280,6 +1280,32 @@ describe('CloudBurnClient', () => {
                 },
               ],
             },
+            {
+              ruleId: 'CLDBRN-AWS-S3-5',
+              service: 's3',
+              severity: 'low',
+              source: 'iac',
+              message:
+                'S3 buckets without any storage-class transition should enable Intelligent-Tiering when access patterns are unknown.',
+              findings: [
+                {
+                  resourceId: 'aws_s3_bucket.missing_lifecycle',
+                  location: {
+                    path: 'main.tf',
+                    line: 1,
+                    column: 1,
+                  },
+                },
+                {
+                  resourceId: 'MissingLifecycleBucket',
+                  location: {
+                    path: 'template.yaml',
+                    line: 2,
+                    column: 3,
+                  },
+                },
+              ],
+            },
           ],
         },
       ],
