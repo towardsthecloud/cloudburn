@@ -896,6 +896,48 @@ describe('CloudBurnClient', () => {
     });
   });
 
+  it('returns static ElastiCache findings from terraform and cloudformation resources in the same directory', async () => {
+    const scanner = new CloudBurnClient();
+    const fixturePath = fileURLToPath(new URL('./fixtures/iac-elasticache-mixed', import.meta.url));
+
+    const result = await scanner.scanStatic(fixturePath);
+
+    expect(result).toEqual({
+      providers: [
+        {
+          provider: 'aws',
+          rules: [
+            {
+              ruleId: 'CLDBRN-AWS-ELASTICACHE-3',
+              service: 'elasticache',
+              severity: 'medium',
+              source: 'iac',
+              message: 'ElastiCache clusters should use current-generation node types.',
+              findings: [
+                {
+                  resourceId: 'aws_elasticache_cluster.sessions',
+                  location: {
+                    path: 'main.tf',
+                    line: 4,
+                    column: 3,
+                  },
+                },
+                {
+                  resourceId: 'SessionsCache',
+                  location: {
+                    path: 'template.yaml',
+                    line: 6,
+                    column: 7,
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+  });
+
   it('returns static EC2 endpoint findings from terraform and cloudformation resources in the same directory', async () => {
     const scanner = new CloudBurnClient();
     const fixturePath = fileURLToPath(new URL('./fixtures/iac-ec2-endpoint-mixed', import.meta.url));

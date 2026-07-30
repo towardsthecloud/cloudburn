@@ -2465,6 +2465,109 @@ describe('aws static dataset registry', () => {
     ]);
   });
 
+  it('normalizes ElastiCache node types for Terraform and CloudFormation clusters and replication groups', () => {
+    const definition = getAwsStaticDatasetDefinition('aws-elasticache-clusters');
+
+    expect(definition?.resourceTypes).toEqual([
+      'aws_elasticache_cluster',
+      'aws_elasticache_replication_group',
+      'AWS::ElastiCache::CacheCluster',
+      'AWS::ElastiCache::ReplicationGroup',
+    ]);
+    expect(
+      definition?.load([
+        createIaCResource({
+          type: 'aws_elasticache_cluster',
+          name: 'sessions',
+          attributeLocations: {
+            node_type: {
+              path: 'main.tf',
+              line: 2,
+              column: 3,
+            },
+          },
+          attributes: {
+            node_type: 'cache.m4.large',
+          },
+        }),
+        createIaCResource({
+          type: 'aws_elasticache_replication_group',
+          name: 'queue',
+          attributeLocations: {
+            node_type: {
+              path: 'main.tf',
+              line: 8,
+              column: 3,
+            },
+          },
+          attributes: {
+            node_type: 'cache.r7g.large',
+          },
+        }),
+        createIaCResource({
+          type: 'AWS::ElastiCache::CacheCluster',
+          name: 'SessionsCache',
+          attributeLocations: {
+            'Properties.CacheNodeType': {
+              path: 'template.yaml',
+              line: 6,
+              column: 7,
+            },
+          },
+          attributes: {
+            Properties: {
+              CacheNodeType: 'cache.t2.micro',
+            },
+          },
+        }),
+        createIaCResource({
+          type: 'AWS::ElastiCache::ReplicationGroup',
+          name: 'QueueCache',
+          attributes: {
+            Properties: {
+              CacheNodeType: {
+                Ref: 'CacheNodeType',
+              },
+            },
+          },
+        }),
+      ]),
+    ).toEqual([
+      {
+        cacheNodeType: 'cache.m4.large',
+        location: {
+          path: 'main.tf',
+          line: 2,
+          column: 3,
+        },
+        resourceId: 'aws_elasticache_cluster.sessions',
+      },
+      {
+        cacheNodeType: 'cache.r7g.large',
+        location: {
+          path: 'main.tf',
+          line: 8,
+          column: 3,
+        },
+        resourceId: 'aws_elasticache_replication_group.queue',
+      },
+      {
+        cacheNodeType: 'cache.t2.micro',
+        location: {
+          path: 'template.yaml',
+          line: 6,
+          column: 7,
+        },
+        resourceId: 'SessionsCache',
+      },
+      {
+        cacheNodeType: null,
+        location: undefined,
+        resourceId: 'QueueCache',
+      },
+    ]);
+  });
+
   it('correlates ECS services with autoscaling resources for Terraform and CloudFormation', () => {
     const servicesDefinition = getAwsStaticDatasetDefinition('aws-ecs-services');
     const autoscalingDefinition = getAwsStaticDatasetDefinition('aws-ecs-autoscaling');
