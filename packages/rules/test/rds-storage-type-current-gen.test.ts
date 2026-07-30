@@ -181,6 +181,23 @@ describe('rdsStorageTypeCurrentGenRule', () => {
     });
   });
 
+  it('skips static DB instances built without a storage type so existing consumer fixtures stay valid', () => {
+    const withoutStorageType: AwsStaticRdsInstance = {
+      engine: 'postgres',
+      engineVersion: '16.3',
+      instanceClass: 'db.m6g.large',
+      resourceId: 'aws_db_instance.legacy',
+    };
+
+    const finding = rdsStorageTypeCurrentGenRule.evaluateStatic?.({
+      resources: new StaticResourceBag({
+        'aws-rds-instances': [withoutStorageType],
+      }),
+    });
+
+    expect(finding).toBeNull();
+  });
+
   it('skips static DB instances that leave the storage type unresolved', () => {
     const finding = rdsStorageTypeCurrentGenRule.evaluateStatic?.({
       resources: new StaticResourceBag({

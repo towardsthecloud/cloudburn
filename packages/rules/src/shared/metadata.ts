@@ -938,7 +938,7 @@ export type AwsStaticRdsInstance = {
   engineVersion: string | null;
   performanceInsightsEnabled?: boolean | null;
   performanceInsightsRetentionPeriod?: number | null | undefined;
-  storageType: string | null;
+  storageType?: string | null;
   location?: SourceLocation;
 };
 
