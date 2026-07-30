@@ -865,6 +865,31 @@ describe('CloudBurnClient', () => {
                 },
               ],
             },
+            {
+              ruleId: 'CLDBRN-AWS-RDS-11',
+              service: 'rds',
+              severity: 'medium',
+              source: 'iac',
+              message: 'RDS DB instances should use current-generation gp3 storage.',
+              findings: [
+                {
+                  resourceId: 'aws_db_instance.current',
+                  location: {
+                    path: 'main.tf',
+                    line: 10,
+                    column: 3,
+                  },
+                },
+                {
+                  resourceId: 'CurrentDatabase',
+                  location: {
+                    path: 'template.yaml',
+                    line: 13,
+                    column: 7,
+                  },
+                },
+              ],
+            },
           ],
         },
       ],

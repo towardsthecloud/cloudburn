@@ -366,6 +366,7 @@ export type AwsRdsInstance = {
   instanceClass: string;
   instanceCreateTime?: string;
   multiAz?: boolean;
+  storageType?: string;
   region: string;
   accountId: string;
 };
@@ -936,6 +937,7 @@ export type AwsStaticRdsInstance = {
   engineVersion: string | null;
   performanceInsightsEnabled?: boolean | null;
   performanceInsightsRetentionPeriod?: number | null | undefined;
+  storageType: string | null;
   location?: SourceLocation;
 };
 

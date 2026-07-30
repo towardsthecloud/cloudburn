@@ -122,6 +122,7 @@ export const hydrateAwsRdsInstances = async (resources: AwsDiscoveredResource[])
                 instanceCreateTime: instance.InstanceCreateTime?.toISOString(),
                 multiAz: instance.MultiAZ,
                 region,
+                storageType: instance.StorageType,
               });
             }
 

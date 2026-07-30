@@ -11,3 +11,4 @@ Resources:
       Engine: postgres
       AllocatedStorage: 100
       DBInstanceClass: db.r8g.large
+      StorageType: gp2

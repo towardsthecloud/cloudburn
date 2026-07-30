@@ -181,6 +181,7 @@ describe('loadAwsStaticResources', () => {
         performanceInsightsEnabled: false,
         performanceInsightsRetentionPeriod: undefined,
         resourceId: 'aws_db_instance.legacy',
+        storageType: null,
       },
       {
         engine: null,
@@ -194,6 +195,7 @@ describe('loadAwsStaticResources', () => {
         performanceInsightsEnabled: false,
         performanceInsightsRetentionPeriod: undefined,
         resourceId: 'Database',
+        storageType: null,
       },
     ]);
   });
@@ -367,6 +369,7 @@ describe('loadAwsStaticResources', () => {
         performanceInsightsEnabled: false,
         performanceInsightsRetentionPeriod: undefined,
         resourceId: 'aws_db_instance.legacy',
+        storageType: null,
       },
       {
         engine: 'postgres',
@@ -380,6 +383,7 @@ describe('loadAwsStaticResources', () => {
         performanceInsightsEnabled: false,
         performanceInsightsRetentionPeriod: undefined,
         resourceId: 'Database',
+        storageType: null,
       },
     ]);
   });
@@ -1601,6 +1605,7 @@ describe('aws static dataset registry', () => {
         performanceInsightsEnabled: false,
         performanceInsightsRetentionPeriod: undefined,
         resourceId: 'aws_db_instance.legacy',
+        storageType: null,
       },
       {
         engine: null,
@@ -1614,6 +1619,7 @@ describe('aws static dataset registry', () => {
         performanceInsightsEnabled: false,
         performanceInsightsRetentionPeriod: undefined,
         resourceId: 'Database',
+        storageType: null,
       },
     ]);
   });
@@ -2352,6 +2358,7 @@ describe('aws static dataset registry', () => {
         performanceInsightsEnabled: true,
         performanceInsightsRetentionPeriod: 93,
         resourceId: 'aws_db_instance.app',
+        storageType: null,
       },
       {
         engine: null,
@@ -2365,6 +2372,95 @@ describe('aws static dataset registry', () => {
         performanceInsightsEnabled: true,
         performanceInsightsRetentionPeriod: 731,
         resourceId: 'Database',
+        storageType: null,
+      },
+    ]);
+  });
+
+  it('normalizes RDS storage types for Terraform and CloudFormation and preserves null when unresolved', () => {
+    const definition = getAwsStaticDatasetDefinition('aws-rds-instances');
+
+    expect(
+      definition?.load([
+        createIaCResource({
+          type: 'aws_db_instance',
+          name: 'orders',
+          attributeLocations: {
+            storage_type: {
+              path: 'main.tf',
+              line: 6,
+              column: 3,
+            },
+          },
+          attributes: {
+            instance_class: 'db.m6g.large',
+            storage_type: 'gp2',
+          },
+        }),
+        createIaCResource({
+          type: 'AWS::RDS::DBInstance',
+          name: 'OrdersDatabase',
+          attributeLocations: {
+            'Properties.StorageType': {
+              path: 'template.yaml',
+              line: 12,
+              column: 7,
+            },
+          },
+          attributes: {
+            Properties: {
+              DBInstanceClass: 'db.m6g.large',
+              StorageType: 'gp2',
+            },
+          },
+        }),
+        createIaCResource({
+          type: 'aws_db_instance',
+          name: 'reports',
+          attributes: {
+            instance_class: 'db.m6g.large',
+            storage_type: '${' + 'var.storage_type}',
+          },
+        }),
+      ]),
+    ).toEqual([
+      {
+        engine: null,
+        engineVersion: null,
+        instanceClass: 'db.m6g.large',
+        location: {
+          path: 'main.tf',
+          line: 6,
+          column: 3,
+        },
+        performanceInsightsEnabled: false,
+        performanceInsightsRetentionPeriod: undefined,
+        resourceId: 'aws_db_instance.orders',
+        storageType: 'gp2',
+      },
+      {
+        engine: null,
+        engineVersion: null,
+        instanceClass: 'db.m6g.large',
+        location: {
+          path: 'template.yaml',
+          line: 12,
+          column: 7,
+        },
+        performanceInsightsEnabled: false,
+        performanceInsightsRetentionPeriod: undefined,
+        resourceId: 'OrdersDatabase',
+        storageType: 'gp2',
+      },
+      {
+        engine: null,
+        engineVersion: null,
+        instanceClass: 'db.m6g.large',
+        location: undefined,
+        performanceInsightsEnabled: false,
+        performanceInsightsRetentionPeriod: undefined,
+        resourceId: 'aws_db_instance.reports',
+        storageType: null,
       },
     ]);
   });

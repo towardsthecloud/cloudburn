@@ -1133,13 +1133,22 @@ const loadStaticRdsInstances = (resources: IaCResource[]): AwsStaticRdsInstance[
             ? undefined
             : getLiteralNumberish(resource.attributes.Properties.PerformanceInsightsRetentionPeriod)
           : undefined,
+    storageType: getLiteralString(
+      resource.type === TERRAFORM_RDS_INSTANCE_TYPE
+        ? resource.attributes.storage_type
+        : isRecord(resource.attributes.Properties)
+          ? resource.attributes.Properties.StorageType
+          : undefined,
+    ),
     location: pickLocation(resource, [
       'instance_class',
       'performance_insights_enabled',
       'performance_insights_retention_period',
+      'storage_type',
       'Properties.DBInstanceClass',
       'Properties.EnablePerformanceInsights',
       'Properties.PerformanceInsightsRetentionPeriod',
+      'Properties.StorageType',
     ]),
   }));
 
