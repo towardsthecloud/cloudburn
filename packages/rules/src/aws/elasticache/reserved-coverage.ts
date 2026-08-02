@@ -1,4 +1,5 @@
 import { createFinding, createFindingMatch, createRule } from '../../shared/helpers.js';
+import { parseElastiCacheNodeType } from './shared.js';
 
 const RULE_ID = 'CLDBRN-AWS-ELASTICACHE-1';
 const RULE_SERVICE = 'elasticache';
@@ -55,26 +56,16 @@ const createCoverageKey = (region: string, capacityKey: string, engine: string):
   `${region}:${capacityKey}:${engine}`;
 
 const normalizeElastiCacheCapacityShape = (cacheNodeType: string): ElastiCacheCapacityShape => {
-  const match = /^(cache\.[^.]+)\.(.+)$/u.exec(cacheNodeType);
+  const parsed = parseElastiCacheNodeType(cacheNodeType);
 
-  if (!match) {
+  if (!parsed) {
     return {
       key: `type:${cacheNodeType}`,
       normalizedUnits: 1,
     };
   }
 
-  const family = match[1];
-  const size = match[2];
-
-  if (!family || !size) {
-    return {
-      key: `type:${cacheNodeType}`,
-      normalizedUnits: 1,
-    };
-  }
-
-  const normalizedUnits = ELASTICACHE_SIZE_NORMALIZED_UNITS[size.toLowerCase()];
+  const normalizedUnits = ELASTICACHE_SIZE_NORMALIZED_UNITS[parsed.size.toLowerCase()];
 
   // Reserved nodes are size-flexible within a family only when AWS exposes a
   // known normalized size. Unknown sizes fall back to exact-type matching.
@@ -86,7 +77,7 @@ const normalizeElastiCacheCapacityShape = (cacheNodeType: string): ElastiCacheCa
   }
 
   return {
-    key: `family:${family}`,
+    key: `family:${parsed.family}`,
     normalizedUnits,
   };
 };

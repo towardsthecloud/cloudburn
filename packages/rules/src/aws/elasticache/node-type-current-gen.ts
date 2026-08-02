@@ -1,4 +1,5 @@
 import { createFinding, createFindingMatch, createRule } from '../../shared/helpers.js';
+import { parseElastiCacheNodeType } from './shared.js';
 
 const RULE_ID = 'CLDBRN-AWS-ELASTICACHE-3';
 const RULE_SERVICE = 'elasticache';
@@ -24,11 +25,9 @@ const isPreviousGenerationCacheNodeType = (cacheNodeType: string | null | undefi
     return false;
   }
 
-  const [prefix, family] = cacheNodeType.toLowerCase().split('.');
+  const parsed = parseElastiCacheNodeType(cacheNodeType.toLowerCase());
 
-  return (
-    prefix !== undefined && family !== undefined && PREVIOUS_GENERATION_ELASTICACHE_FAMILIES.has(`${prefix}.${family}`)
-  );
+  return parsed !== null && PREVIOUS_GENERATION_ELASTICACHE_FAMILIES.has(parsed.family);
 };
 
 /** Flag ElastiCache clusters that still run on previous-generation node families. */
