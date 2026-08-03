@@ -1,5 +1,11 @@
 # @cloudburn/rules
 
+## 0.26.0
+
+### Minor Changes
+
+- [#135](https://github.com/towardsthecloud/cloudburn/pull/135) [`375f489`](https://github.com/towardsthecloud/cloudburn/commit/375f489a05a22b78373e4c38062f5dd8f8916f66) Thanks [@axonstone](https://github.com/axonstone)! - Add three storage and node generation rules: CLDBRN-AWS-S3-5 recommends Intelligent-Tiering for buckets with no lifecycle configuration, CLDBRN-AWS-RDS-11 flags DB instances on gp2 or magnetic storage, and CLDBRN-AWS-ELASTICACHE-3 flags clusters on previous-generation cache node families.
+
 ## 0.25.0
 
 ### Minor Changes
