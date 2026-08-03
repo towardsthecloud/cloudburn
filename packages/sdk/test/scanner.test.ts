@@ -865,6 +865,73 @@ describe('CloudBurnClient', () => {
                 },
               ],
             },
+            {
+              ruleId: 'CLDBRN-AWS-RDS-11',
+              service: 'rds',
+              severity: 'medium',
+              source: 'iac',
+              message: 'RDS DB instances should use current-generation gp3 storage.',
+              findings: [
+                {
+                  resourceId: 'aws_db_instance.current',
+                  location: {
+                    path: 'main.tf',
+                    line: 10,
+                    column: 3,
+                  },
+                },
+                {
+                  resourceId: 'CurrentDatabase',
+                  location: {
+                    path: 'template.yaml',
+                    line: 13,
+                    column: 7,
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+  });
+
+  it('returns static ElastiCache findings from terraform and cloudformation resources in the same directory', async () => {
+    const scanner = new CloudBurnClient();
+    const fixturePath = fileURLToPath(new URL('./fixtures/iac-elasticache-mixed', import.meta.url));
+
+    const result = await scanner.scanStatic(fixturePath);
+
+    expect(result).toEqual({
+      providers: [
+        {
+          provider: 'aws',
+          rules: [
+            {
+              ruleId: 'CLDBRN-AWS-ELASTICACHE-3',
+              service: 'elasticache',
+              severity: 'medium',
+              source: 'iac',
+              message: 'ElastiCache clusters should use current-generation node types.',
+              findings: [
+                {
+                  resourceId: 'aws_elasticache_cluster.sessions',
+                  location: {
+                    path: 'main.tf',
+                    line: 4,
+                    column: 3,
+                  },
+                },
+                {
+                  resourceId: 'SessionsCache',
+                  location: {
+                    path: 'template.yaml',
+                    line: 6,
+                    column: 7,
+                  },
+                },
+              ],
+            },
           ],
         },
       ],
@@ -1275,6 +1342,32 @@ describe('CloudBurnClient', () => {
                   location: {
                     path: 'template.yaml',
                     line: 4,
+                    column: 3,
+                  },
+                },
+              ],
+            },
+            {
+              ruleId: 'CLDBRN-AWS-S3-5',
+              service: 's3',
+              severity: 'low',
+              source: 'iac',
+              message:
+                'S3 buckets without any storage-class transition should enable Intelligent-Tiering when access patterns are unknown.',
+              findings: [
+                {
+                  resourceId: 'aws_s3_bucket.missing_lifecycle',
+                  location: {
+                    path: 'main.tf',
+                    line: 1,
+                    column: 1,
+                  },
+                },
+                {
+                  resourceId: 'MissingLifecycleBucket',
+                  location: {
+                    path: 'template.yaml',
+                    line: 2,
                     column: 3,
                   },
                 },

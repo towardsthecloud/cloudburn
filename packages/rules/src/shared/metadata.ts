@@ -366,6 +366,7 @@ export type AwsRdsInstance = {
   instanceClass: string;
   instanceCreateTime?: string;
   multiAz?: boolean;
+  storageType?: string;
   region: string;
   accountId: string;
 };
@@ -694,6 +695,7 @@ export type SharedDatasetKey =
   | 'aws-ecr-repositories'
   | 'aws-ec2-elastic-ips'
   | 'aws-ec2-instances'
+  | 'aws-elasticache-clusters'
   | 'aws-eks-nodegroups'
   | 'aws-emr-clusters'
   | 'aws-lambda-functions'
@@ -936,6 +938,7 @@ export type AwsStaticRdsInstance = {
   engineVersion: string | null;
   performanceInsightsEnabled?: boolean | null;
   performanceInsightsRetentionPeriod?: number | null | undefined;
+  storageType?: string | null;
   location?: SourceLocation;
 };
 
@@ -982,6 +985,13 @@ export type AwsStaticRedshiftCluster = {
   location?: SourceLocation;
 };
 
+/** Normalized static ElastiCache cluster dataset entry. */
+export type AwsStaticElastiCacheCluster = {
+  resourceId: string;
+  cacheNodeType: string | null;
+  location?: SourceLocation;
+};
+
 /** Normalized static EC2 VPC endpoint dataset entry with preselected source location. */
 export type AwsStaticEc2VpcEndpoint = {
   resourceId: string;
@@ -1011,6 +1021,7 @@ export type StaticDatasetMap = {
   'aws-ecs-services': AwsStaticEcsService[];
   'aws-ec2-elastic-ips': AwsStaticEc2ElasticIp[];
   'aws-ec2-instances': AwsStaticEc2Instance[];
+  'aws-elasticache-clusters': AwsStaticElastiCacheCluster[];
   'aws-eks-nodegroups': AwsStaticEksNodegroup[];
   'aws-emr-clusters': AwsStaticEmrCluster[];
   'aws-lambda-functions': AwsStaticLambdaFunction[];

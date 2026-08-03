@@ -85,6 +85,7 @@ export type {
   AwsStaticEcsService,
   AwsStaticEcsServiceAutoscaling,
   AwsStaticEksNodegroup,
+  AwsStaticElastiCacheCluster,
   AwsStaticEmrCluster,
   AwsStaticLambdaFunction,
   AwsStaticLambdaProvisionedConcurrency,

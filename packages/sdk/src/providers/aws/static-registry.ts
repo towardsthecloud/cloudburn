@@ -12,6 +12,7 @@ import type {
   AwsStaticEcsService,
   AwsStaticEcsServiceAutoscaling,
   AwsStaticEksNodegroup,
+  AwsStaticElastiCacheCluster,
   AwsStaticEmrCluster,
   AwsStaticLambdaFunction,
   AwsStaticLambdaProvisionedConcurrency,
@@ -61,6 +62,10 @@ const CLOUDFORMATION_EIP_TYPE = 'AWS::EC2::EIP';
 const CLOUDFORMATION_EIP_ASSOCIATION_TYPE = 'AWS::EC2::EIPAssociation';
 const TERRAFORM_INSTANCE_TYPE = 'aws_instance';
 const CLOUDFORMATION_INSTANCE_TYPE = 'AWS::EC2::Instance';
+const TERRAFORM_ELASTICACHE_CLUSTER_TYPE = 'aws_elasticache_cluster';
+const TERRAFORM_ELASTICACHE_REPLICATION_GROUP_TYPE = 'aws_elasticache_replication_group';
+const CLOUDFORMATION_ELASTICACHE_CACHE_CLUSTER_TYPE = 'AWS::ElastiCache::CacheCluster';
+const CLOUDFORMATION_ELASTICACHE_REPLICATION_GROUP_TYPE = 'AWS::ElastiCache::ReplicationGroup';
 const TERRAFORM_EKS_NODE_GROUP_TYPE = 'aws_eks_node_group';
 const CLOUDFORMATION_EKS_NODEGROUP_TYPE = 'AWS::EKS::Nodegroup';
 const TERRAFORM_EMR_CLUSTER_TYPE = 'aws_emr_cluster';
@@ -976,6 +981,23 @@ const loadStaticEc2ElasticIps = (resources: IaCResource[]): AwsStaticEc2ElasticI
   }));
 };
 
+const isTerraformElastiCacheResource = (resource: IaCResource): boolean =>
+  resource.type === TERRAFORM_ELASTICACHE_CLUSTER_TYPE ||
+  resource.type === TERRAFORM_ELASTICACHE_REPLICATION_GROUP_TYPE;
+
+const loadStaticElastiCacheClusters = (resources: IaCResource[]): AwsStaticElastiCacheCluster[] =>
+  resources.map((resource) => ({
+    cacheNodeType: getLiteralString(
+      isTerraformElastiCacheResource(resource)
+        ? resource.attributes.node_type
+        : isRecord(resource.attributes.Properties)
+          ? resource.attributes.Properties.CacheNodeType
+          : undefined,
+    ),
+    location: pickLocation(resource, ['node_type', 'Properties.CacheNodeType']),
+    resourceId: toStaticResourceId(resource),
+  }));
+
 const loadStaticEksNodegroups = (resources: IaCResource[]): AwsStaticEksNodegroup[] =>
   resources.map((resource) => ({
     amiType: getLiteralExactString(
@@ -1133,13 +1155,22 @@ const loadStaticRdsInstances = (resources: IaCResource[]): AwsStaticRdsInstance[
             ? undefined
             : getLiteralNumberish(resource.attributes.Properties.PerformanceInsightsRetentionPeriod)
           : undefined,
+    storageType: getLiteralString(
+      resource.type === TERRAFORM_RDS_INSTANCE_TYPE
+        ? resource.attributes.storage_type
+        : isRecord(resource.attributes.Properties)
+          ? resource.attributes.Properties.StorageType
+          : undefined,
+    ),
     location: pickLocation(resource, [
       'instance_class',
       'performance_insights_enabled',
       'performance_insights_retention_period',
+      'storage_type',
       'Properties.DBInstanceClass',
       'Properties.EnablePerformanceInsights',
       'Properties.PerformanceInsightsRetentionPeriod',
+      'Properties.StorageType',
     ]),
   }));
 
@@ -1549,6 +1580,17 @@ const awsStaticDatasetRegistry: Record<StaticDatasetKey, AwsStaticDatasetDefinit
     sourceKinds: ['terraform', 'cloudformation'],
     resourceTypes: [TERRAFORM_INSTANCE_TYPE, CLOUDFORMATION_INSTANCE_TYPE],
     load: loadStaticEc2Instances,
+  },
+  'aws-elasticache-clusters': {
+    datasetKey: 'aws-elasticache-clusters',
+    sourceKinds: ['terraform', 'cloudformation'],
+    resourceTypes: [
+      TERRAFORM_ELASTICACHE_CLUSTER_TYPE,
+      TERRAFORM_ELASTICACHE_REPLICATION_GROUP_TYPE,
+      CLOUDFORMATION_ELASTICACHE_CACHE_CLUSTER_TYPE,
+      CLOUDFORMATION_ELASTICACHE_REPLICATION_GROUP_TYPE,
+    ],
+    load: loadStaticElastiCacheClusters,
   },
   'aws-eks-nodegroups': {
     datasetKey: 'aws-eks-nodegroups',

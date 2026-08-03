@@ -8,4 +8,5 @@ resource "aws_db_instance" "current" {
   allocated_storage = 100
   engine            = "postgres"
   instance_class    = "db.m8g.large"
+  storage_type      = "gp2"
 }

@@ -49,6 +49,7 @@ describe('hydrateAwsRdsInstances', () => {
             EngineVersion: '8.0.39',
             InstanceCreateTime: new Date('2025-01-01T00:00:00.000Z'),
             MultiAZ: identifier === 'west-db',
+            StorageType: identifier === 'legacy-db' ? 'gp2' : 'gp3',
           })),
         };
       });
@@ -87,6 +88,7 @@ describe('hydrateAwsRdsInstances', () => {
         instanceCreateTime: '2025-01-01T00:00:00.000Z',
         multiAz: false,
         region: 'us-east-1',
+        storageType: 'gp3',
       },
       {
         accountId: '123456789012',
@@ -98,6 +100,7 @@ describe('hydrateAwsRdsInstances', () => {
         instanceCreateTime: '2025-01-01T00:00:00.000Z',
         multiAz: false,
         region: 'us-east-1',
+        storageType: 'gp2',
       },
       {
         accountId: '123456789012',
@@ -109,6 +112,7 @@ describe('hydrateAwsRdsInstances', () => {
         instanceCreateTime: '2025-01-01T00:00:00.000Z',
         multiAz: true,
         region: 'us-west-2',
+        storageType: 'gp3',
       },
     ]);
   });

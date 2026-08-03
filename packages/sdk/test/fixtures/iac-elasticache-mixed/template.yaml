@@ -1,0 +1,12 @@
+Resources:
+  SessionsCache:
+    Type: AWS::ElastiCache::CacheCluster
+    Properties:
+      Engine: redis
+      CacheNodeType: cache.t2.micro
+      NumCacheNodes: 1
+  QueueCache:
+    Type: AWS::ElastiCache::ReplicationGroup
+    Properties:
+      ReplicationGroupDescription: queue
+      CacheNodeType: cache.r7g.large

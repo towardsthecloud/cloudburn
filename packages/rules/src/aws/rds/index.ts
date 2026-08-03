@@ -6,6 +6,7 @@ import { rdsPerformanceInsightsExtendedRetentionRule } from './performance-insig
 import { rdsPreferredInstanceClassRule } from './preferred-instance-classes.js';
 import { rdsReservedCoverageRule } from './reserved-coverage.js';
 import { rdsStoppedInstanceRule } from './stopped-instance.js';
+import { rdsStorageTypeCurrentGenRule } from './storage-type-current-gen.js';
 import { rdsUnsupportedEngineVersionRule } from './unsupported-engine-version.js';
 import { rdsUnusedSnapshotsRule } from './unused-snapshots.js';
 
@@ -22,4 +23,5 @@ export const rdsRules = [
   rdsPerformanceInsightsExtendedRetentionRule,
   rdsStoppedInstanceRule,
   rdsManualSnapshotMaxAgeRule,
+  rdsStorageTypeCurrentGenRule,
 ];
