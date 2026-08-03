@@ -1,5 +1,16 @@
 # @cloudburn/sdk
 
+## 0.26.0
+
+### Minor Changes
+
+- [#135](https://github.com/towardsthecloud/cloudburn/pull/135) [`375f489`](https://github.com/towardsthecloud/cloudburn/commit/375f489a05a22b78373e4c38062f5dd8f8916f66) Thanks [@axonstone](https://github.com/axonstone)! - Carry the RDS storage type in the static and discovery RDS instance datasets, and add a static ElastiCache cluster dataset that normalizes node types from Terraform cache clusters and replication groups plus their CloudFormation equivalents.
+
+### Patch Changes
+
+- Updated dependencies [[`375f489`](https://github.com/towardsthecloud/cloudburn/commit/375f489a05a22b78373e4c38062f5dd8f8916f66)]:
+  - @cloudburn/rules@0.26.0
+
 ## 0.25.0
 
 ### Minor Changes
