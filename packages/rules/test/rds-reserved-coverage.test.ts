@@ -75,6 +75,7 @@ describe('rdsReservedCoverageRule', () => {
   });
 
   it('skips instances that are not yet long-running', () => {
+    const recentlyCreated = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
     const finding = rdsReservedCoverageRule.evaluateLive?.({
       catalog: {
         indexType: 'LOCAL',
@@ -82,7 +83,7 @@ describe('rdsReservedCoverageRule', () => {
         searchRegion: 'us-east-1',
       },
       resources: new LiveResourceBag({
-        'aws-rds-instances': [createInstance({ instanceCreateTime: '2026-02-20T00:00:00.000Z' })],
+        'aws-rds-instances': [createInstance({ instanceCreateTime: recentlyCreated })],
         'aws-rds-reserved-instances': [],
       }),
     });
