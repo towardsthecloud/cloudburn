@@ -21,6 +21,7 @@ export const route53RecordHigherTtlRule = createRule({
   service: RULE_SERVICE,
   supports: ['discovery', 'iac'],
   discoveryDependencies: ['aws-route53-zones', 'aws-route53-records'],
+  evaluationDataset: 'aws-route53-records',
   staticDependencies: ['aws-route53-records'],
   evaluateLive: ({ resources }) => {
     const knownZones = new Set(resources.get('aws-route53-zones').map((zone) => zone.hostedZoneId));

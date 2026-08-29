@@ -1,6 +1,7 @@
 import { fileURLToPath } from 'node:url';
 import { LiveResourceBag } from '@cloudburn/rules';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { buildRuleRegistry } from '../src/engine/registry.js';
 import { createEc2Client } from '../src/providers/aws/client.js';
 import { discoverAwsResources } from '../src/providers/aws/discovery.js';
 import { CloudBurnClient } from '../src/scanner.js';
@@ -85,6 +86,77 @@ describe('CloudBurnClient', () => {
         },
       ],
     });
+  });
+
+  it('returns every resource evaluated by each rule when evaluation resources are requested', async () => {
+    mockedDiscoverAwsResources.mockResolvedValue({
+      catalog: discoveryCatalog,
+      resources: new LiveResourceBag({
+        'aws-ebs-volumes': [
+          {
+            accountId: '123456789012',
+            iops: 3000,
+            region: 'us-east-1',
+            sizeGiB: 64,
+            volumeId: 'vol-triggered',
+            volumeType: 'gp2',
+          },
+          {
+            accountId: '123456789012',
+            iops: 3000,
+            region: 'us-east-1',
+            sizeGiB: 64,
+            volumeId: 'vol-passed',
+            volumeType: 'gp3',
+          },
+        ],
+      }),
+    });
+
+    const scanner = new CloudBurnClient();
+    const result = await scanner.discover({
+      config: {
+        discovery: { enabledRules: ['CLDBRN-AWS-EBS-1'] },
+        iac: {},
+      },
+      includeEvaluationResources: true,
+      target: { mode: 'regions', regions: ['us-east-1'] },
+    });
+
+    expect(result.evaluations).toEqual({
+      resourceSets: [
+        {
+          id: 'aws-ebs-volumes',
+          resources: [
+            { accountId: '123456789012', region: 'us-east-1', resourceId: 'vol-triggered' },
+            { accountId: '123456789012', region: 'us-east-1', resourceId: 'vol-passed' },
+          ],
+        },
+      ],
+      rules: [
+        {
+          provider: 'aws',
+          resourceSetId: 'aws-ebs-volumes',
+          ruleId: 'CLDBRN-AWS-EBS-1',
+          service: 'ebs',
+          source: 'discovery',
+        },
+      ],
+    });
+  });
+
+  it('reports evaluation resources for every rule in the core discovery preset', async () => {
+    mockedDiscoverAwsResources.mockResolvedValue({
+      catalog: discoveryCatalog,
+      resources: new LiveResourceBag(),
+    });
+
+    const scanner = new CloudBurnClient();
+    const result = await scanner.discover({ includeEvaluationResources: true });
+
+    const activeDiscoveryRules = buildRuleRegistry({ discovery: {}, iac: {} }, 'discovery').activeRules;
+    expect(result.evaluations?.rules).toHaveLength(activeDiscoveryRules.length);
+    expect(result.evaluations?.resourceSets.every((resourceSet) => resourceSet.resources.length === 0)).toBe(true);
   });
 
   it('returns lambda architecture findings discovered during live scans', async () => {

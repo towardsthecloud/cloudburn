@@ -207,9 +207,31 @@ export type ScanPolicyResult = {
   violated: boolean;
 };
 
+/** Resources inspected by one rule during a live discovery scan. */
+export type RuleEvaluation = {
+  provider: CloudProvider;
+  resourceSetId: string;
+  ruleId: string;
+  service: string;
+  source: 'discovery';
+};
+
+/** Deduplicated resource identities referenced by one or more live rule evaluations. */
+export type EvaluationResourceSet = {
+  id: string;
+  resources: FindingMatch[];
+};
+
+/** Optional audit evidence produced for completed live rule evaluations. */
+export type ScanEvaluations = {
+  resourceSets: EvaluationResourceSet[];
+  rules: RuleEvaluation[];
+};
+
 /** Result of a scan execution containing provider-grouped lean rule findings. */
 export type ScanResult = {
   diagnostics?: ScanDiagnostic[];
+  evaluations?: ScanEvaluations;
   policy?: ScanPolicyResult;
   providers: ProviderFindingGroup[];
   suppressed?: SuppressedFinding[];

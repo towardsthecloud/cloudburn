@@ -91,11 +91,38 @@ This is the provider-level group returned by the SDK scan engines.
 ```ts
 type ScanResult = {
   diagnostics?: ScanDiagnostic[];
+  evaluations?: ScanEvaluations;
   policy?: ScanPolicyResult;
   providers: ProviderFindingGroup[];
   suppressed?: SuppressedFinding[];
 };
 ```
+
+`evaluations` is opt-in for live discovery through `includeEvaluationResources`. It records the primary input resource
+set supplied to completed rules, including rules that returned no findings. Shared sets are emitted once:
+
+```ts
+type ScanEvaluations = {
+  resourceSets: EvaluationResourceSet[];
+  rules: RuleEvaluation[];
+};
+
+type EvaluationResourceSet = {
+  id: string;
+  resources: FindingMatch[];
+};
+
+type RuleEvaluation = {
+  provider: CloudProvider;
+  resourceSetId: string;
+  ruleId: string;
+  service: string;
+  source: 'discovery';
+};
+```
+
+Skipped rules do not emit an evaluation entry because their required inputs were unavailable; inspect `diagnostics`
+for the corresponding reason.
 
 `policy` is present when the effective mode config includes `failOn`. It makes SDK policy behavior observable without
 changing the host process exit code:
