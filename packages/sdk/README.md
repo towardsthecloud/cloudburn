@@ -75,9 +75,11 @@ const multipleRegions = await client.discover({
 });
 const auditableResult = await client.discover({
   includeEvaluationResources: true,
-});
-const unusedResources = await client.discoverUnusedResources({
-  target: { mode: 'regions', regions: ['eu-central-1'] },
+  config: {
+    discovery: {
+      enabledRules: ['CLDBRN-AWS-CLOUDWATCH-1', 'CLDBRN-AWS-CLOUDWATCH-2'],
+    },
+  },
 });
 ```
 
@@ -85,17 +87,14 @@ const unusedResources = await client.discoverUnusedResources({
 
 Set `includeEvaluationResources` when a caller needs audit evidence for checks that did not produce findings. The
 optional `result.evaluations` value contains normalized identities from the primary resource dataset supplied to each
-completed live rule. Shared resource sets are emitted once and referenced by rule entries. Rules skipped because a
-required dataset was unavailable remain represented by diagnostics instead.
+completed live rule. Shared resource sets are emitted once and referenced by rule entries. Every selected rule is
+represented as `triggered`, `passed`, or `not_applicable`; skipped rules include the reason reported by discovery.
+Rule entries also carry generic rule and service metadata so callers can select checks and build their own product
+views without re-querying AWS or maintaining a second copy of rule descriptions.
 
-Use `discoverUnusedResources()` for a product-ready resource optimization result. The SDK selects the profile and
-returns normalized findings plus every check as `triggered`, `passed`, or `not_applicable`. Passed checks include the
-resources inspected; findings include optional timestamps and structured remediation commands. Consumers should
-persist or render this contract directly instead of maintaining rule metadata, AWS enrichment calls, or rule-ID
-normalization.
-
-Server routes that only validate persisted results can import the lightweight runtime guards from
-`@cloudburn/sdk/unused-resources` without loading the full scanner entrypoint.
+The SDK does not define product profiles, remediation effort, commands, or persistence schemas. Applications select
+the discovery rules that fit their use case through `config.discovery.enabledRules` and transform the generic result
+at their own product boundary.
 
 ### Lower-level helpers
 

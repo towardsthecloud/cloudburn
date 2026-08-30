@@ -1,9 +1,15 @@
+import { toBuiltInRuleMetadata } from '../built-in-rules.js';
 import { emitDebugLog } from '../debug.js';
 import { discoverAwsResources } from '../providers/aws/discovery.js';
 import { getAwsRuleEvaluationResourceSet } from '../providers/aws/discovery-registry.js';
 import type { AwsDiscoveryProgressEvent, AwsDiscoveryTarget, CloudBurnConfig, ScanResult } from '../types.js';
 import { groupFindingsByProvider } from './group-findings.js';
 import { buildRuleRegistry } from './registry.js';
+
+const toRuleEvaluationMetadata = (rule: Parameters<typeof toBuiltInRuleMetadata>[0]) => {
+  const { id: _id, ...metadata } = toBuiltInRuleMetadata(rule);
+  return metadata;
+};
 
 export const runLiveScan = async (
   config: CloudBurnConfig,
@@ -50,7 +56,7 @@ export const runLiveScan = async (
       );
 
       if (unavailableDependencies.length > 0) {
-        scanDiagnostics.push({
+        const skippedRuleDiagnostic = {
           details: unavailableDependencies
             .flatMap((dependency) => unavailableDatasetDiagnostics.get(dependency) ?? [])
             .map((diagnostic) => diagnostic.details)
@@ -61,9 +67,20 @@ export const runLiveScan = async (
           provider: rule.provider,
           ruleId: rule.id,
           service: rule.service,
-          source: 'discovery',
-          status: 'skipped',
-        });
+          source: 'discovery' as const,
+          status: 'skipped' as const,
+        };
+        scanDiagnostics.push(skippedRuleDiagnostic);
+        if (options?.includeEvaluationResources) {
+          evaluationRules.push({
+            ...toRuleEvaluationMetadata(rule),
+            findingCount: 0,
+            reason: skippedRuleDiagnostic.message,
+            ruleId: rule.id,
+            source: 'discovery',
+            status: 'not_applicable',
+          });
+        }
 
         return {
           provider: rule.provider,
@@ -71,23 +88,26 @@ export const runLiveScan = async (
         };
       }
 
+      const finding = rule.evaluateLive(liveContext);
+
       if (options?.includeEvaluationResources) {
         const evaluationResourceSet = getAwsRuleEvaluationResourceSet(rule, liveContext.resources);
         if (!evaluationResourceSets.has(evaluationResourceSet.id)) {
           evaluationResourceSets.set(evaluationResourceSet.id, evaluationResourceSet);
         }
         evaluationRules.push({
-          provider: rule.provider,
+          ...toRuleEvaluationMetadata(rule),
+          findingCount: finding?.findings.length ?? 0,
           resourceSetId: evaluationResourceSet.id,
           ruleId: rule.id,
-          service: rule.service,
           source: 'discovery',
+          status: finding ? 'triggered' : 'passed',
         });
       }
 
       return {
         provider: rule.provider,
-        finding: rule.evaluateLive(liveContext),
+        finding,
       };
     }),
   );

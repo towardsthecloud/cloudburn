@@ -22,16 +22,6 @@
         "types": "./dist/index.d.cts",
         "default": "./dist/index.cjs"
       }
-    },
-    "./unused-resources": {
-      "import": {
-        "types": "./dist/unused-resources.d.ts",
-        "default": "./dist/unused-resources.js"
-      },
-      "require": {
-        "types": "./dist/unused-resources.d.cts",
-        "default": "./dist/unused-resources.cjs"
-      }
     }
   },
   "main": "./dist/index.cjs",

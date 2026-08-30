@@ -7,7 +7,6 @@
   class CloudBurnClient {
     +scanStatic(path: string, config?: Partial~CloudBurnConfig~, options?: { configPath?: string }) Promise~ScanResult~
     +discover(options?: { target?: AwsDiscoveryTarget, config?: Partial~CloudBurnConfig~, configPath?: string }) Promise~ScanResult~
-    +discoverUnusedResources(options?: { target?: AwsDiscoveryTarget }) Promise~UnusedResourcesScanResult~
     +initializeDiscovery(options?: { region?: string }) Promise~AwsDiscoveryInitialization~
     +getDiscoveryStatus(options?: { region?: string }) Promise~AwsDiscoveryStatus~
     +listSupportedDiscoveryResourceTypes() Promise~AwsSupportedResourceType[]~
@@ -15,11 +14,10 @@
   }
 ```
 
-`CloudBurnClient` is the primary public entry point. Static IaC scans go through `scanStatic()`, general live AWS
-discovery goes through `discover()`, and product integrations use `discoverUnusedResources()` when they need the
-SDK-owned unused-resources profile and a persistence-ready result. The dedicated method deliberately does not expose
-rule-selection flags: the SDK owns profile membership, evidence projection, check status, service labels, remediation
-effort, and structured remediation commands as one contract.
+`CloudBurnClient` is the primary public entry point. Static IaC scans go through `scanStatic()` and live AWS scans go
+through `discover()`. Applications select the rules that fit their use case with mode configuration and can request
+generic evaluation evidence with `includeEvaluationResources`. The SDK owns rule execution, normalized findings,
+generic rule metadata, and evaluated-resource projection; applications own product profiles and presentation policy.
 
 `scanStatic()` and `discover()` can accept runtime config overrides plus an explicit `configPath`. When the effective
 mode config sets `failOn`, the facade evaluates it after the engine returns and attaches the threshold, qualifying
@@ -41,15 +39,18 @@ graph TD
     SG --> SOut["ScanResult { providers, suppressed?, diagnostics? }"]
   end
 
-  subgraph Live["runLiveScan(config, target)"]
+  subgraph Live["runLiveScan(config, target, options)"]
     LR[buildRuleRegistry] --> LD[collect discoveryDependencies]
     LD --> LRg[resolve dataset registry entries]
     LRg --> LC[buildAwsDiscoveryCatalog]
     LC --> LL[load required datasets]
     LL --> LX[build LiveEvaluationContext]
     LX --> LE["rule.evaluateLive() => Finding | null"]
-    LE --> LG[groupFindingsByProvider]
-    LG --> LOut["ScanResult { providers: ProviderFindingGroup[] }"]
+    LE --> LA{includeEvaluationResources?}
+    LA -->|yes| LP[project normalized resources and rule status]
+    LA -->|no| LG[groupFindingsByProvider]
+    LP --> LG
+    LG --> LOut["ScanResult { providers, evaluations? }"]
   end
 ```
 
@@ -83,12 +84,13 @@ graph TD
 
 Current live-discovery behavior:
 
-- `discover` is the live entrypoint for both the CLI and direct SDK callers.
-- `discoverUnusedResources` reuses the same live engine with the explicit `aws-unused-resources` profile and always requests
-  evaluation evidence. `src/unused-resources.ts` joins findings to that evidence and returns triggered, passed, and
-  not-applicable checks without requiring a host application to understand rule IDs or AWS services. The same module
-  exports runtime guards for hosts that read this contract back from JSON storage. The
-  `@cloudburn/sdk/unused-resources` subpath exposes that contract without loading the full scanner entrypoint.
+- `discover` is the only live scan entrypoint for both the CLI and direct SDK callers.
+- `CloudBurnClient.discover({ includeEvaluationResources: true })` adds a generic evaluation entry for every selected
+  rule. Completed rules reference normalized resource sets and report `triggered` or `passed`; rules skipped because a
+  required dataset was unavailable report `not_applicable` with a reason.
+- Applications select product-specific checks with `config.discovery.enabledRules` and transform the generic
+  `ScanResult` at their own boundary. The SDK does not define product profiles, remediation policy, or persisted
+  application schemas.
 - `discoverAwsResources` in `src/providers/aws/discovery.ts` is the AWS live orchestration entrypoint.
 - Default discovery target is the current region (see [`docs/architecture/cli.md`](cli.md) for the full resolution order).
 - Explicit discovery uses `target: { mode: 'regions', regions: [...] }`.
@@ -112,8 +114,7 @@ Current live-discovery behavior:
 
 ## Public Result Shape
 
-See [`docs/reference/finding-shape.md`](../reference/finding-shape.md) for the full general scan and unused-resources
-result contracts.
+See [`docs/reference/finding-shape.md`](../reference/finding-shape.md) for the full scan result contract.
 
 ## Parser Layer
 

@@ -144,14 +144,53 @@ describe('CloudBurnClient', () => {
       ],
       rules: [
         {
+          description:
+            'Flag EBS volumes using previous-generation storage types when a current-generation replacement exists.',
+          findingCount: 1,
+          message: 'EBS volumes should use current-generation storage.',
+          name: 'EBS Volume Type Not Current Generation',
           provider: 'aws',
           resourceSetId: 'aws-ebs-volumes',
           ruleId: 'CLDBRN-AWS-EBS-1',
           service: 'ebs',
+          serviceName: 'EBS',
+          severity: 'medium',
           source: 'discovery',
+          status: 'triggered',
+          supports: ['discovery', 'iac'],
         },
       ],
     });
+  });
+
+  it('reports a completed rule with no findings as passed', async () => {
+    mockedDiscoverAwsResources.mockResolvedValue({
+      catalog: discoveryCatalog,
+      resources: new LiveResourceBag({
+        'aws-ebs-volumes': [
+          {
+            accountId: '123456789012',
+            region: 'us-east-1',
+            sizeGiB: 64,
+            volumeId: 'vol-current',
+            volumeType: 'gp3',
+          },
+        ],
+      }),
+    });
+
+    const result = await new CloudBurnClient().discover({
+      config: { discovery: { enabledRules: ['CLDBRN-AWS-EBS-1'] }, iac: {} },
+      includeEvaluationResources: true,
+    });
+
+    expect(result.evaluations?.rules).toEqual([
+      expect.objectContaining({
+        findingCount: 0,
+        ruleId: 'CLDBRN-AWS-EBS-1',
+        status: 'passed',
+      }),
+    ]);
   });
 
   it('uses the same CloudWatch log group identity for findings and evaluation resources', async () => {
@@ -541,6 +580,7 @@ describe('CloudBurnClient', () => {
         },
         iac: {},
       },
+      includeEvaluationResources: true,
       target: {
         mode: 'regions',
         regions: ['us-east-1'],
@@ -573,6 +613,19 @@ describe('CloudBurnClient', () => {
           status: 'skipped',
         },
       ],
+      evaluations: {
+        resourceSets: [],
+        rules: [
+          expect.objectContaining({
+            findingCount: 0,
+            reason:
+              'Skipped rule CLDBRN-AWS-CLOUDWATCH-3 because required discovery datasets were unavailable: aws-cloudwatch-log-metric-filter-coverage.',
+            ruleId: 'CLDBRN-AWS-CLOUDWATCH-3',
+            serviceName: 'CloudWatch',
+            status: 'not_applicable',
+          }),
+        ],
+      },
       providers: [],
     });
   });

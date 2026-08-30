@@ -115,10 +115,10 @@ export const awsRules = [...ec2Rules, ...ebsRules, ...rdsRules, ...s3Rules, ...l
 
 `awsCorePreset` in `packages/rules/src/presets/aws-core.ts` normally includes IDs from `awsRules`. Rules that require account-wide infrastructure or other explicit setup can be excluded from the preset and enabled by users through `enabled-rules`. Document any opt-in requirement in [`rule-ids.md`](../reference/rule-ids.md).
 
-The SDK's `awsUnusedResourcesProfile` is an explicit opt-in profile for resource-level optimization checks. Add a
-descriptor in `packages/sdk/src/unused-resources.ts` when the rule belongs there; that same descriptor owns remediation
-effort and any structured command. There is no default inclusion or fallback, so a rule cannot silently enter the
-product profile without a deliberate SDK change. Host applications must not maintain parallel rule-ID registries.
+The open-source SDK does not own downstream product profiles. Applications can deliberately include a new rule in a
+product by adding its public ID to `config.discovery.enabledRules`. Keep generic rule metadata and normalized resource
+evidence in the rule and SDK dataset registry; keep product-specific selection, remediation policy, and presentation in
+the consuming application.
 
 ## 7. Update rule-ids.md
 

@@ -3,5 +3,5 @@
 '@cloudburn/sdk': minor
 ---
 
-Add the SDK-owned AWS unused-resources discovery profile with normalized resource evidence, structured remediation,
-and complete triggered, passed, and not-applicable check coverage.
+Add optional discovery evaluation evidence with normalized resource identities, complete rule metadata, and explicit
+triggered, passed, or not-applicable outcomes for generic SDK consumers.

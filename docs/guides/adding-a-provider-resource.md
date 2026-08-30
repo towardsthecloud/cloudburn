@@ -62,7 +62,7 @@ Update `packages/sdk/src/providers/aws/discovery-registry.ts` with:
 - `datasetKey`
 - required `resourceTypes`
 - `load` function
-- `toEvaluationResources` when rules use the dataset in auditable or unused-resources results
+- `toEvaluationResources` when callers need auditable discovery results
 
 ```ts
 'aws-ec2-instances': {

@@ -91,8 +91,10 @@ export type ScanSource = Source;
 /** Serializable metadata surfaced for built-in rules in SDK and CLI inspection commands. */
 export type BuiltInRuleMetadata = Pick<
   Rule,
-  'id' | 'name' | 'description' | 'provider' | 'service' | 'severity' | 'supports'
->;
+  'id' | 'name' | 'description' | 'message' | 'provider' | 'service' | 'severity' | 'supports'
+> & {
+  serviceName: string;
+};
 
 /** Selects how a live AWS discovery resolves its search region or index scope. */
 export type AwsDiscoveryTarget =
@@ -207,13 +209,14 @@ export type ScanPolicyResult = {
   violated: boolean;
 };
 
-/** Resources inspected by one rule during a live discovery scan. */
-export type RuleEvaluation = {
-  provider: CloudProvider;
-  resourceSetId: string;
+/** Serializable outcome and metadata for one completed or skipped discovery rule. */
+export type RuleEvaluation = Omit<BuiltInRuleMetadata, 'id'> & {
+  findingCount: number;
+  resourceSetId?: string;
   ruleId: string;
-  service: string;
+  status: 'triggered' | 'passed' | 'not_applicable';
   source: 'discovery';
+  reason?: string;
 };
 
 /** Deduplicated resource identities referenced by one or more live rule evaluations. */
@@ -222,7 +225,7 @@ export type EvaluationResourceSet = {
   resources: EvaluatedResource[];
 };
 
-/** Product-ready identity and optional evidence for a resource inspected by a live rule. */
+/** Normalized identity and optional evidence for a resource inspected by a live rule. */
 export type EvaluatedResource = Omit<FindingMatch, 'region'> & {
   region: string;
   resourceType: string;
@@ -246,59 +249,6 @@ export type ScanResult = {
   policy?: ScanPolicyResult;
   providers: ProviderFindingGroup[];
   suppressed?: SuppressedFinding[];
-};
-
-/** Estimated operator effort required to remediate an unused-resource finding. */
-export type RemediationEffort = 'low' | 'medium' | 'high';
-
-/** Structured command that callers may safely render for copy/paste remediation. */
-export type RemediationCommand = {
-  program: string;
-  args: string[];
-};
-
-/** One resource-level finding returned by the unused-resources discovery profile. */
-export type UnusedResourceFinding = EvaluatedResource & {
-  ruleId: string;
-  ruleName: string;
-  ruleDescription: string;
-  service: string;
-  serviceName: string;
-  remediationEffort: RemediationEffort;
-  remediation?: {
-    command?: RemediationCommand;
-  };
-};
-
-/** Outcome and inspected-resource evidence for one unused-resources rule. */
-export type UnusedResourcesCheckResult = {
-  ruleId: string;
-  ruleName: string;
-  ruleDescription: string;
-  service: string;
-  serviceName: string;
-  status: 'triggered' | 'passed' | 'not_applicable';
-  findingCount: number;
-  evaluatedResourceCount?: number;
-  resources?: EvaluatedResource[];
-  reason?: string;
-};
-
-/** Aggregate counts and check coverage for one unused-resources discovery. */
-export type UnusedResourcesScanSummary = {
-  findingCount: number;
-  resourceCount: number;
-  ruleCount: number;
-  checks: UnusedResourcesCheckResult[];
-  findingsByRule: Array<{ ruleId: string; ruleName: string; service: string; resourceCount: number }>;
-  findingsByService: Array<{ service: string; serviceName: string; ruleCount: number; resourceCount: number }>;
-};
-
-/** Self-contained result returned by the SDK unused-resources discovery profile. */
-export type UnusedResourcesScanResult = {
-  diagnostics?: ScanDiagnostic[];
-  findings: UnusedResourceFinding[];
-  summary: UnusedResourcesScanSummary;
 };
 
 /** One resource-level IaC match retained for audit after an inline suppression. */

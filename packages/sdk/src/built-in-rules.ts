@@ -1,9 +1,36 @@
 import { awsRules, azureRules, gcpRules } from '@cloudburn/rules';
 import type { BuiltInRuleMetadata, Rule } from './types.js';
 
-const toBuiltInRuleMetadata = ({
+const serviceDisplayNames: Record<string, string> = {
+  apigateway: 'API Gateway',
+  cloudfront: 'CloudFront',
+  cloudtrail: 'CloudTrail',
+  cloudwatch: 'CloudWatch',
+  costexplorer: 'Cost Explorer',
+  costguardrails: 'Cost Guardrails',
+  dynamodb: 'DynamoDB',
+  ebs: 'EBS',
+  ec2: 'EC2',
+  ecr: 'ECR',
+  ecs: 'ECS',
+  eks: 'EKS',
+  elasticache: 'ElastiCache',
+  elb: 'Elastic Load Balancing',
+  emr: 'EMR',
+  lambda: 'Lambda',
+  rds: 'RDS',
+  redshift: 'Redshift',
+  route53: 'Route 53',
+  s3: 'S3',
+  sagemaker: 'SageMaker',
+  secretsmanager: 'Secrets Manager',
+  tagging: 'Tagging',
+};
+
+export const toBuiltInRuleMetadata = ({
   description,
   id,
+  message,
   name,
   provider,
   service,
@@ -12,9 +39,11 @@ const toBuiltInRuleMetadata = ({
 }: Rule): BuiltInRuleMetadata => ({
   description,
   id,
+  message,
   name,
   provider,
   service,
+  serviceName: serviceDisplayNames[service] ?? service,
   severity,
   supports: [...supports],
 });

@@ -18,9 +18,9 @@ sequence for every provider/service pair.
 ## Presets
 
 - `aws-core` is the default general discovery preset.
-- `aws-unused-resources` is the SDK-owned resource-level optimization profile used by
-  `CloudBurnClient.discoverUnusedResources()`. Explicit membership and remediation descriptors are defined together in
-  `@cloudburn/sdk`; consumers must not recreate them with local inclusion or exclusion lists.
+- Applications can define product-specific rule selections with `config.discovery.enabledRules`. Such selections are
+  application policy rather than SDK presets; the SDK continues to return the same generic findings and evaluation
+  evidence for any selected discovery rules.
 
 ## Compatibility Status
 
