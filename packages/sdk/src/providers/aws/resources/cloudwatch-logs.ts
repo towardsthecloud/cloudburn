@@ -251,15 +251,14 @@ export const hydrateAwsCloudWatchLogGroupRecentStreamActivity = async (
                 ),
             );
             const latestStream = response.logStreams?.[0];
-            const latestActivityTimestamp =
-              latestStream?.lastEventTimestamp !== undefined || latestStream?.lastIngestionTime !== undefined
-                ? Math.max(latestStream?.lastEventTimestamp ?? 0, latestStream?.lastIngestionTime ?? 0)
-                : undefined;
+            const latestEventTimestamp = latestStream?.lastEventTimestamp;
 
             return {
               accountId:
                 (latestStream?.arn ? extractAccountIdFromArn(latestStream.arn) : null) ?? discoveredResource.accountId,
-              ...(latestActivityTimestamp ? { lastActivityAt: new Date(latestActivityTimestamp).toISOString() } : {}),
+              ...(latestEventTimestamp !== undefined
+                ? { lastActivityAt: new Date(latestEventTimestamp).toISOString() }
+                : {}),
               lastEventTimestamp: latestStream?.lastEventTimestamp,
               lastIngestionTime: latestStream?.lastIngestionTime,
               latestStreamArn: latestStream?.arn,

@@ -171,6 +171,9 @@ type AwsRuleEvaluationOverride = {
 };
 
 const awsRuleEvaluationOverrides: Record<string, AwsRuleEvaluationOverride> = {
+  'CLDBRN-AWS-CLOUDWATCH-2': {
+    datasetKey: 'aws-cloudwatch-log-group-recent-stream-activity',
+  },
   'CLDBRN-AWS-COSTGUARDRAILS-3': {
     datasetKey: 'aws-cost-guardrail-budgets',
     resourceSetId: 'aws-cost-guardrail-budgets:budgets',
@@ -246,8 +249,10 @@ const awsDiscoveryDatasetRegistry: {
     load: hydrateAwsCloudWatchLogGroupRecentStreamActivity,
     toEvaluationResources: (activity) =>
       mapEvaluationResources(
-        activity,
-        (logGroup) => logGroup.logGroupName,
+        activity.filter(
+          (logGroup): logGroup is typeof logGroup & { logGroupArn: string } => logGroup.logGroupArn !== undefined,
+        ),
+        (logGroup) => logGroup.logGroupArn,
         (logGroup) => ({
           arn: logGroup.logGroupArn,
           lastActivityAt: logGroup.lastActivityAt,

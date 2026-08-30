@@ -153,7 +153,6 @@ describe('CloudBurnClient', () => {
           resourceSetId: 'aws-ebs-volumes',
           ruleId: 'CLDBRN-AWS-EBS-1',
           service: 'ebs',
-          serviceName: 'EBS',
           severity: 'medium',
           source: 'discovery',
           status: 'triggered',
@@ -262,13 +261,13 @@ describe('CloudBurnClient', () => {
       includeEvaluationResources: true,
     });
 
-    expect(result.providers[0]?.rules[0]?.findings[0]?.resourceId).toBe('/aws/lambda/app');
+    expect(result.providers[0]?.rules[0]?.findings[0]?.resourceId).toBe(logGroupArn);
     expect(result.evaluations?.resourceSets[0]?.resources[0]).toEqual({
       accountId: '123456789012',
       arn: logGroupArn,
       name: '/aws/lambda/app',
       region: 'us-east-1',
-      resourceId: '/aws/lambda/app',
+      resourceId: logGroupArn,
       resourceType: 'logs:log-group',
     });
   });
@@ -658,7 +657,6 @@ describe('CloudBurnClient', () => {
             reason:
               'Skipped rule CLDBRN-AWS-CLOUDWATCH-3 because required discovery datasets were unavailable: aws-cloudwatch-log-metric-filter-coverage.',
             ruleId: 'CLDBRN-AWS-CLOUDWATCH-3',
-            serviceName: 'CloudWatch',
             status: 'not_applicable',
           }),
         ],

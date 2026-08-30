@@ -131,7 +131,6 @@ type RuleEvaluation = {
   resourceSetId?: string;
   ruleId: string;
   service: string;
-  serviceName: string;
   severity: Severity;
   source: 'discovery';
   status: 'triggered' | 'passed' | 'not_applicable';
@@ -148,8 +147,8 @@ Every selected discovery rule appears exactly once when evaluation evidence is r
   no resource set is referenced.
 
 AWS dataset definitions own evaluated-resource projection. Rule-specific projection overrides belong beside that
-registry, not in host applications. For example, inactive CloudWatch log groups expose the newer latest-event or
-latest-ingestion timestamp as `lastActivityAt`, while missing-retention checks expose no activity timestamp.
+registry, not in host applications. For example, inactive CloudWatch log groups expose the latest event timestamp as
+`lastActivityAt`, while missing-retention checks expose no activity timestamp.
 
 The SDK deliberately stops at this generic boundary. Consumers choose rule IDs for their products and own any product
 schema, remediation effort, structured commands, grouping, persistence guards, and rendering.

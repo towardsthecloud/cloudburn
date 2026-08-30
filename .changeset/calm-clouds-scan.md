@@ -1,6 +1,7 @@
 ---
 '@cloudburn/rules': minor
 '@cloudburn/sdk': minor
+'cloudburn': minor
 ---
 
 Add optional discovery evaluation evidence with normalized resource identities, complete rule metadata, and explicit

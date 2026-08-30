@@ -92,9 +92,7 @@ export type ScanSource = Source;
 export type BuiltInRuleMetadata = Pick<
   Rule,
   'id' | 'name' | 'description' | 'message' | 'provider' | 'service' | 'severity' | 'supports'
-> & {
-  serviceName: string;
-};
+>;
 
 /** Selects how a live AWS discovery resolves its search region or index scope. */
 export type AwsDiscoveryTarget =
