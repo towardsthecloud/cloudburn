@@ -47,20 +47,28 @@ const hasUnusedResourceFindingFields = (value: EvaluatedResource & Record<string
 export const isUnusedResourceFinding = (value: unknown): value is UnusedResourceFinding =>
   isEvaluatedResource(value) && hasUnusedResourceFindingFields(value as EvaluatedResource & Record<string, unknown>);
 
-const isUnusedResourcesCheckResult = (value: unknown): value is UnusedResourcesCheckResult =>
-  isRecord(value) &&
-  typeof value.ruleId === 'string' &&
-  typeof value.ruleName === 'string' &&
-  typeof value.ruleDescription === 'string' &&
-  typeof value.service === 'string' &&
-  typeof value.serviceName === 'string' &&
-  ['triggered', 'passed', 'not_applicable'].includes(value.status as string) &&
-  Number.isInteger(value.findingCount) &&
-  (value.findingCount as number) >= 0 &&
-  (value.evaluatedResourceCount === undefined ||
-    (Number.isInteger(value.evaluatedResourceCount) && (value.evaluatedResourceCount as number) >= 0)) &&
-  (value.resources === undefined || (Array.isArray(value.resources) && value.resources.every(isEvaluatedResource))) &&
-  isOptionalString(value.reason);
+const isUnusedResourcesCheckResult = (value: unknown): value is UnusedResourcesCheckResult => {
+  if (
+    !isRecord(value) ||
+    typeof value.ruleId !== 'string' ||
+    typeof value.ruleName !== 'string' ||
+    typeof value.ruleDescription !== 'string' ||
+    typeof value.service !== 'string' ||
+    typeof value.serviceName !== 'string' ||
+    !['triggered', 'passed', 'not_applicable'].includes(value.status as string) ||
+    !Number.isInteger(value.findingCount) ||
+    (value.findingCount as number) < 0 ||
+    (value.evaluatedResourceCount !== undefined &&
+      (!Number.isInteger(value.evaluatedResourceCount) || (value.evaluatedResourceCount as number) < 0)) ||
+    (value.resources !== undefined && (!Array.isArray(value.resources) || !value.resources.every(isEvaluatedResource)))
+  ) {
+    return false;
+  }
+
+  return value.status === 'not_applicable'
+    ? typeof value.reason === 'string' && value.reason.trim().length > 0
+    : isOptionalString(value.reason);
+};
 
 const isFindingSummary = (value: unknown): boolean =>
   isRecord(value) &&

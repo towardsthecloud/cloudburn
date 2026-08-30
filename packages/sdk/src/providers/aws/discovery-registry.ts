@@ -136,7 +136,14 @@ export type AwsDiscoveryDatasetDefinition<K extends DiscoveryDatasetKey = Discov
 };
 
 type EvaluationResourceProjection = FindingMatch &
-  Partial<Pick<EvaluatedResource, 'arn' | 'createdAt' | 'lastActivityAt' | 'name' | 'tags'>>;
+  Partial<Pick<EvaluatedResource, 'arn' | 'createdAt' | 'lastActivityAt' | 'name' | 'resourceType' | 'tags'>>;
+
+const loadBalancerResourceTypes = {
+  application: 'elasticloadbalancing:loadbalancer/app',
+  classic: 'elasticloadbalancing:loadbalancer',
+  gateway: 'elasticloadbalancing:loadbalancer/gwy',
+  network: 'elasticloadbalancing:loadbalancer/net',
+} as const;
 
 const mapEvaluationResources = <T extends { accountId: string; region?: string }>(
   resources: T[],
@@ -175,6 +182,9 @@ const awsRuleEvaluationOverrides: Record<string, AwsRuleEvaluationOverride> = {
             createFindingMatch(`budget/${budget.budgetName}`, undefined, summary.accountId),
           ),
         ),
+  },
+  'CLDBRN-AWS-ELB-5': {
+    datasetKey: 'aws-ec2-load-balancers',
   },
   'CLDBRN-AWS-ROUTE53-1': {
     datasetKey: 'aws-route53-records',
@@ -432,7 +442,15 @@ const awsDiscoveryDatasetRegistry: {
     service: 'elb',
     load: hydrateAwsEc2LoadBalancers,
     toEvaluationResources: (loadBalancers) =>
-      mapEvaluationResources(loadBalancers, (loadBalancer) => loadBalancer.loadBalancerArn),
+      mapEvaluationResources(
+        loadBalancers,
+        (loadBalancer) => loadBalancer.loadBalancerArn,
+        (loadBalancer) => ({
+          arn: loadBalancer.loadBalancerArn,
+          name: loadBalancer.loadBalancerName,
+          resourceType: loadBalancerResourceTypes[loadBalancer.loadBalancerType],
+        }),
+      ),
   },
   'aws-ec2-load-balancer-request-activity': {
     datasetKey: 'aws-ec2-load-balancer-request-activity',
@@ -626,7 +644,6 @@ const awsDiscoveryDatasetRegistry: {
         instances,
         (instance) => instance.notebookInstanceName,
         (instance) => ({
-          lastActivityAt: instance.lastModifiedTime,
           name: instance.notebookInstanceName,
         }),
       ),
@@ -715,7 +732,7 @@ export const getAwsRuleEvaluationResourceSet = (
     resources: resourcesForRule.map((resource) => ({
       ...resource,
       region: resource.region ?? 'global',
-      resourceType,
+      resourceType: resource.resourceType ?? resourceType,
     })),
   };
 };

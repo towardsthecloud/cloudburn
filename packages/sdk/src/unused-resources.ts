@@ -182,6 +182,9 @@ export const awsUnusedResourceRules = awsUnusedResourcesProfile.ruleIds.map((rul
 const resourceKey = ({ accountId, region, resourceId }: { accountId?: string; region?: string; resourceId: string }) =>
   `${accountId ?? ''}\u0000${region || 'global'}\u0000${resourceId}`;
 
+const affectedResourceKey = ({ accountId, region, resourceId, resourceType }: EvaluatedResource): string =>
+  `${accountId ?? ''}\u0000${region}\u0000${resourceType}\u0000${resourceId}`;
+
 /** Builds the product-ready unused-resources contract from one evidence-enabled live scan. */
 export const buildUnusedResourcesScanResult = (scan: ScanResult): UnusedResourcesScanResult => {
   const findingByRuleId = new Map(
@@ -205,7 +208,7 @@ export const buildUnusedResourcesScanResult = (scan: ScanResult): UnusedResource
   >();
   const findingSummaryByService = new Map<
     string,
-    { resourceCount: number; ruleIds: Set<string>; service: string; serviceName: string }
+    { resourceKeys: Set<string>; ruleIds: Set<string>; service: string; serviceName: string }
   >();
 
   for (const rule of awsUnusedResourceRules) {
@@ -249,12 +252,12 @@ export const buildUnusedResourcesScanResult = (scan: ScanResult): UnusedResource
       findingSummaryByRuleId.set(rule.id, ruleSummary);
 
       const serviceSummary = findingSummaryByService.get(rule.service) ?? {
-        resourceCount: 0,
+        resourceKeys: new Set<string>(),
         ruleIds: new Set<string>(),
         service: rule.service,
         serviceName: getServiceDisplayName(rule.service),
       };
-      serviceSummary.resourceCount += 1;
+      serviceSummary.resourceKeys.add(affectedResourceKey(resource));
       serviceSummary.ruleIds.add(rule.id);
       findingSummaryByService.set(rule.service, serviceSummary);
     }
@@ -289,11 +292,12 @@ export const buildUnusedResourcesScanResult = (scan: ScanResult): UnusedResource
       checks,
       findingCount: findings.length,
       findingsByRule,
-      findingsByService: [...findingSummaryByService.values()].map(({ ruleIds, ...service }) => ({
+      findingsByService: [...findingSummaryByService.values()].map(({ resourceKeys, ruleIds, ...service }) => ({
         ...service,
+        resourceCount: resourceKeys.size,
         ruleCount: ruleIds.size,
       })),
-      resourceCount: findings.length,
+      resourceCount: new Set(findings.map(affectedResourceKey)).size,
       ruleCount: findingsByRule.length,
     },
   };

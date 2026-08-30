@@ -1,8 +1,9 @@
 import { LiveResourceBag } from '@cloudburn/rules';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { discoverAwsResources } from '../src/providers/aws/discovery.js';
+import { getAwsRuleEvaluationResourceSet } from '../src/providers/aws/discovery-registry.js';
 import { CloudBurnClient } from '../src/scanner.js';
-import { awsUnusedResourcesProfile } from '../src/unused-resources.js';
+import { awsUnusedResourcesProfile, buildUnusedResourcesScanResult } from '../src/unused-resources.js';
 import { isUnusedResourceFinding, isUnusedResourcesScanSummary } from '../src/unused-resources-contract.js';
 
 vi.mock('../src/providers/aws/discovery.js', () => ({
@@ -146,5 +147,103 @@ describe('CloudBurnClient.discoverUnusedResources', () => {
     expect(isUnusedResourcesScanSummary(result.summary)).toBe(true);
     expect(isUnusedResourceFinding({ ...result.findings[0], remediationEffort: 'instant' })).toBe(false);
     expect(isUnusedResourcesScanSummary({ ...result.summary, checks: undefined })).toBe(false);
+    expect(
+      isUnusedResourcesScanSummary({
+        ...result.summary,
+        checks: result.summary.checks.map((check) =>
+          check.status === 'not_applicable' ? { ...check, reason: undefined } : check,
+        ),
+      }),
+    ).toBe(false);
+  });
+
+  it('counts unique affected resources independently from rule findings', () => {
+    const resource = {
+      accountId: '123456789012',
+      region: 'eu-west-1',
+      resourceId: 'vol-123',
+      resourceType: 'ec2:volume',
+    };
+    const result = buildUnusedResourcesScanResult({
+      evaluations: {
+        resourceSets: [{ id: 'aws-ebs-volumes', resources: [resource] }],
+        rules: [
+          { provider: 'aws', resourceSetId: 'aws-ebs-volumes', ruleId: 'CLDBRN-AWS-EBS-2', service: 'ebs' },
+          { provider: 'aws', resourceSetId: 'aws-ebs-volumes', ruleId: 'CLDBRN-AWS-EBS-3', service: 'ebs' },
+        ],
+      },
+      providers: [
+        {
+          provider: 'aws',
+          rules: ['CLDBRN-AWS-EBS-2', 'CLDBRN-AWS-EBS-3'].map((ruleId) => ({
+            findings: [{ accountId: resource.accountId, region: resource.region, resourceId: resource.resourceId }],
+            message: 'Unused volume',
+            ruleId,
+            service: 'ebs',
+            severity: 'medium' as const,
+            source: 'discovery' as const,
+          })),
+        },
+      ],
+    });
+
+    expect(result.summary.findingCount).toBe(2);
+    expect(result.summary.resourceCount).toBe(1);
+    expect(result.summary.findingsByService).toEqual([expect.objectContaining({ resourceCount: 1, service: 'ebs' })]);
+  });
+});
+
+describe('unused-resource evaluation evidence', () => {
+  it('preserves each load balancer type, including for the idle check', () => {
+    const resources = new LiveResourceBag({
+      'aws-ec2-load-balancers': [
+        {
+          accountId: '123456789012',
+          attachedTargetGroupArns: [],
+          instanceCount: 0,
+          loadBalancerArn: 'arn:aws:elasticloadbalancing:eu-west-1:123456789012:loadbalancer/net/api/123',
+          loadBalancerName: 'api',
+          loadBalancerType: 'network',
+          region: 'eu-west-1',
+        },
+      ],
+    });
+
+    const result = getAwsRuleEvaluationResourceSet(
+      {
+        discoveryDependencies: ['aws-ec2-load-balancer-request-activity', 'aws-ec2-load-balancers'],
+        id: 'CLDBRN-AWS-ELB-5',
+      },
+      resources,
+    );
+
+    expect(result.resources).toEqual([
+      expect.objectContaining({
+        name: 'api',
+        resourceType: 'elasticloadbalancing:loadbalancer/net',
+      }),
+    ]);
+  });
+
+  it('does not present notebook configuration changes as user activity', () => {
+    const resources = new LiveResourceBag({
+      'aws-sagemaker-notebook-instances': [
+        {
+          accountId: '123456789012',
+          instanceType: 'ml.t3.medium',
+          lastModifiedTime: '2026-03-01T00:00:00.000Z',
+          notebookInstanceName: 'analytics',
+          notebookInstanceStatus: 'InService',
+          region: 'eu-west-1',
+        },
+      ],
+    });
+
+    const result = getAwsRuleEvaluationResourceSet(
+      { discoveryDependencies: ['aws-sagemaker-notebook-instances'], id: 'CLDBRN-AWS-SAGEMAKER-1' },
+      resources,
+    );
+
+    expect(result.resources[0]).not.toHaveProperty('lastActivityAt');
   });
 });
