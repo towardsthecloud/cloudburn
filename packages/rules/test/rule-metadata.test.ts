@@ -1219,6 +1219,22 @@ describe('rule metadata', () => {
     });
   });
 
+  it('defines the expected forecasted-budget-breach rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-COSTGUARDRAILS-4');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-COSTGUARDRAILS-4',
+      name: 'AWS Budget Forecasted Breach',
+      description: 'Flag AWS Budgets whose forecasted spend exceeds their limit before actual spend does.',
+      message: 'AWS Budgets forecast to exceed their configured limit should be reviewed.',
+      provider: 'aws',
+      service: 'costguardrails',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-cost-guardrail-budgets'],
+    });
+  });
+
   it('defines the expected global untagged-resource rule metadata', () => {
     const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-TAGGING-1');
 

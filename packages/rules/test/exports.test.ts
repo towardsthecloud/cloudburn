@@ -56,7 +56,7 @@ const awsRuleIds = awsRules.map((rule) => rule.id);
 
 describe('rule exports', () => {
   it('exports non-empty AWS rules and preset IDs', () => {
-    expect(awsRuleIds).toHaveLength(81);
+    expect(awsRuleIds).toHaveLength(82);
     expect(awsCorePreset.ruleIds).toEqual(awsRuleIds.filter((ruleId) => ruleId !== 'CLDBRN-AWS-TAGGING-1'));
     expect(awsRuleIds).toEqual(
       expect.arrayContaining([
@@ -69,6 +69,7 @@ describe('rule exports', () => {
         'CLDBRN-AWS-COSTGUARDRAILS-1',
         'CLDBRN-AWS-COSTGUARDRAILS-2',
         'CLDBRN-AWS-COSTGUARDRAILS-3',
+        'CLDBRN-AWS-COSTGUARDRAILS-4',
         'CLDBRN-AWS-COSTEXPLORER-1',
         'CLDBRN-AWS-DYNAMODB-1',
         'CLDBRN-AWS-DYNAMODB-2',
