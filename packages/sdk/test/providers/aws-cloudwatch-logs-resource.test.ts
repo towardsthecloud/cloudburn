@@ -386,10 +386,12 @@ describe('hydrateAwsCloudWatchLogGroupRecentStreamActivity', () => {
     ).resolves.toEqual([
       {
         accountId: '123456789012',
+        lastActivityAt: '2026-02-02T02:40:00.000Z',
         lastEventTimestamp: 1_770_000_000_000,
         lastIngestionTime: 1_770_000_100_000,
         latestStreamArn: 'arn:aws:logs:us-east-1:123456789012:log-group:/aws/lambda/app:log-stream:latest',
         latestStreamName: 'latest',
+        logGroupArn: 'arn:aws:logs:us-east-1:123456789012:log-group:/aws/lambda/app',
         logGroupName: '/aws/lambda/app',
         region: 'us-east-1',
       },
@@ -423,6 +425,7 @@ describe('hydrateAwsCloudWatchLogGroupRecentStreamActivity', () => {
         lastIngestionTime: undefined,
         latestStreamArn: undefined,
         latestStreamName: undefined,
+        logGroupArn: 'arn:aws:logs:us-east-1:123456789012:log-group:/aws/lambda/app',
         logGroupName: '/aws/lambda/app',
         region: 'us-east-1',
       },

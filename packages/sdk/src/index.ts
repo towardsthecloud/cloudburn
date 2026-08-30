@@ -68,6 +68,7 @@ export type {
   CloudBurnModeConfig,
   CloudProvider,
   ConfigOutputFormat,
+  EvaluatedResource,
   EvaluationResourceSet,
   Finding,
   FindingMatch,

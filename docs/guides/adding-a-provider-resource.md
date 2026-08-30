@@ -62,14 +62,23 @@ Update `packages/sdk/src/providers/aws/discovery-registry.ts` with:
 - `datasetKey`
 - required `resourceTypes`
 - `load` function
+- `toEvaluationResources` when callers need auditable discovery results
 
 ```ts
 'aws-ec2-instances': {
   datasetKey: 'aws-ec2-instances',
   resourceTypes: ['ec2:instance'],
   load: hydrateAwsEc2Instances,
+  toEvaluationResources: (instances) =>
+    mapEvaluationResources(instances, (instance) => instance.instanceId, (instance) => ({
+      createdAt: instance.launchTime,
+    })),
 }
 ```
+
+The projection owns stable identity, `resourceType`, and available display evidence such as ARN, name, creation time,
+or last activity. Use a rule evaluation override only when a rule evaluates a different identity or joins multiple
+datasets. Do not re-fetch or normalize this evidence in an SDK consumer.
 
 `discoverAwsResources` in `packages/sdk/src/providers/aws/discovery.ts` already:
 

@@ -131,9 +131,9 @@ describe('rule metadata', () => {
       id: 'CLDBRN-AWS-CLOUDWATCH-2',
       name: 'CloudWatch Log Group Inactive',
       description:
-        'Flag CloudWatch log groups whose most recent stream has no observed event history or whose latest stream activity is more than 90 days old outside delivery-managed log groups.',
+        'Flag CloudWatch log groups whose most recent stream has no observed event history or whose latest stream event is more than 90 days old outside delivery-managed log groups.',
       message:
-        'CloudWatch log groups whose most recent stream activity is older than 90 days should be reviewed or removed.',
+        'CloudWatch log groups whose most recent stream event is older than 90 days should be reviewed or removed.',
       provider: 'aws',
       service: 'cloudwatch',
       supports: ['discovery'],

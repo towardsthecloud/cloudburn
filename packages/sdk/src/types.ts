@@ -91,7 +91,7 @@ export type ScanSource = Source;
 /** Serializable metadata surfaced for built-in rules in SDK and CLI inspection commands. */
 export type BuiltInRuleMetadata = Pick<
   Rule,
-  'id' | 'name' | 'description' | 'provider' | 'service' | 'severity' | 'supports'
+  'id' | 'name' | 'description' | 'message' | 'provider' | 'service' | 'severity' | 'supports'
 >;
 
 /** Selects how a live AWS discovery resolves its search region or index scope. */
@@ -207,19 +207,31 @@ export type ScanPolicyResult = {
   violated: boolean;
 };
 
-/** Resources inspected by one rule during a live discovery scan. */
-export type RuleEvaluation = {
-  provider: CloudProvider;
-  resourceSetId: string;
+/** Serializable outcome and metadata for one completed or skipped discovery rule. */
+export type RuleEvaluation = Omit<BuiltInRuleMetadata, 'id'> & {
+  findingCount: number;
+  resourceSetId?: string;
   ruleId: string;
-  service: string;
+  status: 'triggered' | 'passed' | 'not_applicable';
   source: 'discovery';
+  reason?: string;
 };
 
 /** Deduplicated resource identities referenced by one or more live rule evaluations. */
 export type EvaluationResourceSet = {
   id: string;
-  resources: FindingMatch[];
+  resources: EvaluatedResource[];
+};
+
+/** Normalized identity and optional evidence for a resource inspected by a live rule. */
+export type EvaluatedResource = Omit<FindingMatch, 'region'> & {
+  region: string;
+  resourceType: string;
+  arn?: string;
+  name?: string;
+  tags?: Record<string, string>;
+  createdAt?: string;
+  lastActivityAt?: string;
 };
 
 /** Optional audit evidence produced for completed live rule evaluations. */

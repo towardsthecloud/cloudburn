@@ -75,6 +75,11 @@ const multipleRegions = await client.discover({
 });
 const auditableResult = await client.discover({
   includeEvaluationResources: true,
+  config: {
+    discovery: {
+      enabledRules: ['CLDBRN-AWS-CLOUDWATCH-1', 'CLDBRN-AWS-CLOUDWATCH-2'],
+    },
+  },
 });
 ```
 
@@ -82,8 +87,14 @@ const auditableResult = await client.discover({
 
 Set `includeEvaluationResources` when a caller needs audit evidence for checks that did not produce findings. The
 optional `result.evaluations` value contains normalized identities from the primary resource dataset supplied to each
-completed live rule. Shared resource sets are emitted once and referenced by rule entries. Rules skipped because a
-required dataset was unavailable remain represented by diagnostics instead.
+completed live rule. Shared resource sets are emitted once and referenced by rule entries. Every selected rule is
+represented as `triggered`, `passed`, or `not_applicable`; skipped rules include the reason reported by discovery.
+Rule entries also carry generic rule and service metadata so callers can select checks and build their own product
+views without re-querying AWS or maintaining a second copy of rule descriptions.
+
+The SDK does not define product profiles, remediation effort, commands, or persistence schemas. Applications select
+the discovery rules that fit their use case through `config.discovery.enabledRules` and transform the generic result
+at their own product boundary.
 
 ### Lower-level helpers
 

@@ -15,6 +15,13 @@ Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
 The metadata test in `packages/rules/test/rule-metadata.test.ts` currently enforces uniqueness and a gap-free numeric
 sequence for every provider/service pair.
 
+## Presets
+
+- `aws-core` is the default general discovery preset.
+- Applications can define product-specific rule selections with `config.discovery.enabledRules`. Such selections are
+  application policy rather than SDK presets; the SDK continues to return the same generic findings and evaluation
+  evidence for any selected discovery rules.
+
 ## Compatibility Status
 
 Rule IDs are public configuration and result references. The repository currently enforces contiguous service sequences,

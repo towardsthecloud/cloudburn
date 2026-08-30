@@ -115,6 +115,11 @@ export const awsRules = [...ec2Rules, ...ebsRules, ...rdsRules, ...s3Rules, ...l
 
 `awsCorePreset` in `packages/rules/src/presets/aws-core.ts` normally includes IDs from `awsRules`. Rules that require account-wide infrastructure or other explicit setup can be excluded from the preset and enabled by users through `enabled-rules`. Document any opt-in requirement in [`rule-ids.md`](../reference/rule-ids.md).
 
+The open-source SDK does not own downstream product profiles. Applications can deliberately include a new rule in a
+product by adding its public ID to `config.discovery.enabledRules`. Keep generic rule metadata and normalized resource
+evidence in the rule and SDK dataset registry; keep product-specific selection, remediation policy, and presentation in
+the consuming application.
+
 ## 7. Update rule-ids.md
 
 Add a row to the Rule Table in [`rule-ids.md`](../reference/rule-ids.md) for the new rule:

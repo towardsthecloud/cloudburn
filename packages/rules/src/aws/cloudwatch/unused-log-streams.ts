@@ -4,20 +4,20 @@ const RULE_ID = 'CLDBRN-AWS-CLOUDWATCH-2';
 const RULE_SERVICE = 'cloudwatch';
 const RULE_SEVERITY = 'low' as const;
 const RULE_MESSAGE =
-  'CloudWatch log groups whose most recent stream activity is older than 90 days should be reviewed or removed.';
+  'CloudWatch log groups whose most recent stream event is older than 90 days should be reviewed or removed.';
 const DAY_MS = 24 * 60 * 60 * 1000;
 const UNUSED_LOG_STREAM_DAYS = 90;
 
 const toLogGroupScopeKey = (region: string, accountId: string, logGroupName: string): string =>
   `${region}:${accountId}:${logGroupName}`;
 
-/** Flag CloudWatch log groups whose latest observed stream activity is stale outside delivery-managed log groups. */
+/** Flag CloudWatch log groups whose latest observed stream event is stale outside delivery-managed log groups. */
 export const cloudWatchUnusedLogStreamsRule = createRule({
   severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'CloudWatch Log Group Inactive',
   description:
-    'Flag CloudWatch log groups whose most recent stream has no observed event history or whose latest stream activity is more than 90 days old outside delivery-managed log groups.',
+    'Flag CloudWatch log groups whose most recent stream has no observed event history or whose latest stream event is more than 90 days old outside delivery-managed log groups.',
   message: RULE_MESSAGE,
   provider: 'aws',
   service: RULE_SERVICE,
@@ -47,15 +47,12 @@ export const cloudWatchUnusedLogStreamsRule = createRule({
       .filter((logGroup) => {
         const logGroupScopeKey = toLogGroupScopeKey(logGroup.region, logGroup.accountId, logGroup.logGroupName);
         const recentActivity = recentActivityByScopeKey.get(logGroupScopeKey);
-        const latestActivityTimestamp =
-          recentActivity?.lastEventTimestamp !== undefined || recentActivity?.lastIngestionTime !== undefined
-            ? Math.max(recentActivity?.lastEventTimestamp ?? 0, recentActivity?.lastIngestionTime ?? 0)
-            : undefined;
+        const latestEventTimestamp = recentActivity?.lastEventTimestamp;
 
         return (
           logGroupsByScopeKey.has(logGroupScopeKey) &&
           !deliveryManagedLogGroups.has(logGroupScopeKey) &&
-          (latestActivityTimestamp === undefined || latestActivityTimestamp < cutoff)
+          (latestEventTimestamp === undefined || latestEventTimestamp < cutoff)
         );
       })
       .map((logGroup) => createFindingMatch(logGroup.logGroupArn, logGroup.region, logGroup.accountId));

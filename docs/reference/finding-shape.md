@@ -109,20 +109,49 @@ type ScanEvaluations = {
 
 type EvaluationResourceSet = {
   id: string;
-  resources: FindingMatch[];
+  resources: EvaluatedResource[];
+};
+
+type EvaluatedResource = Omit<FindingMatch, 'region'> & {
+  region: string; // `global` for account-scoped or global resources
+  resourceType: string;
+  arn?: string;
+  name?: string;
+  tags?: Record<string, string>;
+  createdAt?: string;
+  lastActivityAt?: string;
 };
 
 type RuleEvaluation = {
+  description: string;
+  findingCount: number;
+  message: string;
+  name: string;
   provider: CloudProvider;
-  resourceSetId: string;
+  resourceSetId?: string;
   ruleId: string;
   service: string;
+  severity: Severity;
   source: 'discovery';
+  status: 'triggered' | 'passed' | 'not_applicable';
+  supports: Source[];
+  reason?: string;
 };
 ```
 
-Skipped rules do not emit an evaluation entry because their required inputs were unavailable; inspect `diagnostics`
-for the corresponding reason.
+Every selected discovery rule appears exactly once when evaluation evidence is requested:
+
+- `triggered` means the rule emitted one or more findings.
+- `passed` means evaluation completed without findings; `resources` contains the compliant resources inspected.
+- `not_applicable` means a required dataset was unavailable; `reason` retains the corresponding diagnostic message and
+  no resource set is referenced.
+
+AWS dataset definitions own evaluated-resource projection. Rule-specific projection overrides belong beside that
+registry, not in host applications. For example, inactive CloudWatch log groups expose the latest event timestamp as
+`lastActivityAt`, while missing-retention checks expose no activity timestamp.
+
+The SDK deliberately stops at this generic boundary. Consumers choose rule IDs for their products and own any product
+schema, remediation effort, structured commands, grouping, persistence guards, and rendering.
 
 `policy` is present when the effective mode config includes `failOn`. It makes SDK policy behavior observable without
 changing the host process exit code:

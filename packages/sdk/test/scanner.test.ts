@@ -127,21 +127,106 @@ describe('CloudBurnClient', () => {
         {
           id: 'aws-ebs-volumes',
           resources: [
-            { accountId: '123456789012', region: 'us-east-1', resourceId: 'vol-triggered' },
-            { accountId: '123456789012', region: 'us-east-1', resourceId: 'vol-passed' },
+            {
+              accountId: '123456789012',
+              region: 'us-east-1',
+              resourceId: 'vol-triggered',
+              resourceType: 'ec2:volume',
+            },
+            {
+              accountId: '123456789012',
+              region: 'us-east-1',
+              resourceId: 'vol-passed',
+              resourceType: 'ec2:volume',
+            },
           ],
         },
       ],
       rules: [
         {
+          description:
+            'Flag EBS volumes using previous-generation storage types when a current-generation replacement exists.',
+          findingCount: 1,
+          message: 'EBS volumes should use current-generation storage.',
+          name: 'EBS Volume Type Not Current Generation',
           provider: 'aws',
           resourceSetId: 'aws-ebs-volumes',
           ruleId: 'CLDBRN-AWS-EBS-1',
           service: 'ebs',
+          severity: 'medium',
           source: 'discovery',
+          status: 'triggered',
+          supports: ['discovery', 'iac'],
         },
       ],
     });
+  });
+
+  it('preserves concrete resource types for mixed account-wide evaluation resources', async () => {
+    mockedDiscoverAwsResources.mockResolvedValue({
+      catalog: discoveryCatalog,
+      resources: new LiveResourceBag({
+        'aws-resource-explorer-untagged-resources': [
+          {
+            accountId: '123456789012',
+            arn: 'arn:aws:ec2:us-east-1:123456789012:instance/i-123',
+            region: 'us-east-1',
+            resourceType: 'ec2:instance',
+            service: 'ec2',
+          },
+          {
+            accountId: '123456789012',
+            arn: 'arn:aws:s3:::example-bucket',
+            region: 'global',
+            resourceType: 's3:bucket',
+            service: 's3',
+          },
+        ],
+      }),
+    });
+
+    const result = await new CloudBurnClient().discover({
+      config: {
+        discovery: { enabledRules: ['CLDBRN-AWS-TAGGING-1'] },
+        iac: {},
+      },
+      includeEvaluationResources: true,
+    });
+
+    expect(result.evaluations?.resourceSets[0]?.resources).toEqual([
+      expect.objectContaining({ resourceType: 'ec2:instance' }),
+      expect.objectContaining({ resourceType: 's3:bucket' }),
+    ]);
+  });
+
+  it('reports a completed rule with no findings as passed', async () => {
+    mockedDiscoverAwsResources.mockResolvedValue({
+      catalog: discoveryCatalog,
+      resources: new LiveResourceBag({
+        'aws-ebs-volumes': [
+          {
+            accountId: '123456789012',
+            region: 'us-east-1',
+            sizeGiB: 64,
+            volumeId: 'vol-current',
+            volumeType: 'gp3',
+          },
+        ],
+      }),
+    });
+
+    const result = await new CloudBurnClient().discover({
+      config: { discovery: { enabledRules: ['CLDBRN-AWS-EBS-1'] }, iac: {} },
+      includeEvaluationResources: true,
+    });
+
+    expect(result.evaluations?.rules).toEqual([
+      expect.objectContaining({
+        findingCount: 0,
+        ruleId: 'CLDBRN-AWS-EBS-1',
+        status: 'passed',
+      }),
+    ]);
   });
 
   it('uses the same CloudWatch log group identity for findings and evaluation resources', async () => {
@@ -157,7 +242,14 @@ describe('CloudBurnClient', () => {
             region: 'us-east-1',
           },
         ],
-        'aws-cloudwatch-log-group-recent-stream-activity': [],
+        'aws-cloudwatch-log-group-recent-stream-activity': [
+          {
+            accountId: '123456789012',
+            logGroupArn,
+            logGroupName: '/aws/lambda/app',
+            region: 'us-east-1',
+          },
+        ],
       }),
     });
 
@@ -170,7 +262,14 @@ describe('CloudBurnClient', () => {
     });
 
     expect(result.providers[0]?.rules[0]?.findings[0]?.resourceId).toBe(logGroupArn);
-    expect(result.evaluations?.resourceSets[0]?.resources[0]?.resourceId).toBe(logGroupArn);
+    expect(result.evaluations?.resourceSets[0]?.resources[0]).toEqual({
+      accountId: '123456789012',
+      arn: logGroupArn,
+      name: '/aws/lambda/app',
+      region: 'us-east-1',
+      resourceId: logGroupArn,
+      resourceType: 'logs:log-group',
+    });
   });
 
   it('reports individual budgets as the resources evaluated by the exceeded-budget rule', async () => {
@@ -199,8 +298,18 @@ describe('CloudBurnClient', () => {
     });
 
     expect(result.evaluations?.resourceSets[0]?.resources).toEqual([
-      { accountId: '123456789012', resourceId: 'budget/production' },
-      { accountId: '123456789012', resourceId: 'budget/sandbox' },
+      {
+        accountId: '123456789012',
+        region: 'global',
+        resourceId: 'budget/production',
+        resourceType: 'costguardrails',
+      },
+      {
+        accountId: '123456789012',
+        region: 'global',
+        resourceId: 'budget/sandbox',
+        resourceType: 'costguardrails',
+      },
     ]);
   });
 
@@ -232,6 +341,7 @@ describe('CloudBurnClient', () => {
       accountId: '123456789012',
       region: 'global',
       resourceId: 'arn:aws:cloudfront::123456789012:distribution/E1234567890ABC',
+      resourceType: 'cloudfront:distribution',
     });
   });
 
@@ -506,6 +616,7 @@ describe('CloudBurnClient', () => {
         },
         iac: {},
       },
+      includeEvaluationResources: true,
       target: {
         mode: 'regions',
         regions: ['us-east-1'],
@@ -538,6 +649,18 @@ describe('CloudBurnClient', () => {
           status: 'skipped',
         },
       ],
+      evaluations: {
+        resourceSets: [],
+        rules: [
+          expect.objectContaining({
+            findingCount: 0,
+            reason:
+              'Skipped rule CLDBRN-AWS-CLOUDWATCH-3 because required discovery datasets were unavailable: aws-cloudwatch-log-metric-filter-coverage.',
+            ruleId: 'CLDBRN-AWS-CLOUDWATCH-3',
+            status: 'not_applicable',
+          }),
+        ],
+      },
       providers: [],
     });
   });
