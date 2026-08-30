@@ -1,5 +1,11 @@
 # @cloudburn/rules
 
+## 0.27.0
+
+### Minor Changes
+
+- [#161](https://github.com/towardsthecloud/cloudburn/pull/161) [`2b7f011`](https://github.com/towardsthecloud/cloudburn/commit/2b7f01139c6fcbc51761370ca5785f0ddebec5ce) Thanks [@axonstone](https://github.com/axonstone)! - Add opt-in live rule evaluation evidence so SDK consumers can report which resources passed each discovery check.
+
 ## 0.26.0
 
 ### Minor Changes
