@@ -564,7 +564,7 @@ describe('CloudBurnClient', () => {
         {
           code: 'ThrottlingException',
           details:
-            'Amazon CloudWatch Logs DescribeMetricFilters failed in us-east-1 with ThrottlingException: Rate exceeded Request ID: req-metric-filters.',
+            'Amazon CloudWatch Logs DescribeLogStreams failed in us-east-1 with ThrottlingException: Rate exceeded Request ID: req-log-streams.',
           message:
             'Skipped cloudwatch discovery in us-east-1 because AWS throttled the required dataset after retrying.',
           provider: 'aws',
@@ -588,12 +588,12 @@ describe('CloudBurnClient', () => {
       } as never),
       unavailableDatasets: new Map([
         [
-          'aws-cloudwatch-log-metric-filter-coverage',
+          'aws-cloudwatch-log-group-recent-stream-activity',
           [
             {
               code: 'ThrottlingException',
               details:
-                'Amazon CloudWatch Logs DescribeMetricFilters failed in us-east-1 with ThrottlingException: Rate exceeded Request ID: req-metric-filters.',
+                'Amazon CloudWatch Logs DescribeLogStreams failed in us-east-1 with ThrottlingException: Rate exceeded Request ID: req-log-streams.',
               message:
                 'Skipped cloudwatch discovery in us-east-1 because AWS throttled the required dataset after retrying.',
               provider: 'aws' as const,
@@ -612,7 +612,7 @@ describe('CloudBurnClient', () => {
     const result = await scanner.discover({
       config: {
         discovery: {
-          enabledRules: ['CLDBRN-AWS-CLOUDWATCH-3'],
+          enabledRules: ['CLDBRN-AWS-CLOUDWATCH-2'],
         },
         iac: {},
       },
@@ -628,7 +628,7 @@ describe('CloudBurnClient', () => {
         {
           code: 'ThrottlingException',
           details:
-            'Amazon CloudWatch Logs DescribeMetricFilters failed in us-east-1 with ThrottlingException: Rate exceeded Request ID: req-metric-filters.',
+            'Amazon CloudWatch Logs DescribeLogStreams failed in us-east-1 with ThrottlingException: Rate exceeded Request ID: req-log-streams.',
           message:
             'Skipped cloudwatch discovery in us-east-1 because AWS throttled the required dataset after retrying.',
           provider: 'aws',
@@ -639,11 +639,11 @@ describe('CloudBurnClient', () => {
         },
         {
           details:
-            'Amazon CloudWatch Logs DescribeMetricFilters failed in us-east-1 with ThrottlingException: Rate exceeded Request ID: req-metric-filters.',
+            'Amazon CloudWatch Logs DescribeLogStreams failed in us-east-1 with ThrottlingException: Rate exceeded Request ID: req-log-streams.',
           message:
-            'Skipped rule CLDBRN-AWS-CLOUDWATCH-3 because required discovery datasets were unavailable: aws-cloudwatch-log-metric-filter-coverage.',
+            'Skipped rule CLDBRN-AWS-CLOUDWATCH-2 because required discovery datasets were unavailable: aws-cloudwatch-log-group-recent-stream-activity.',
           provider: 'aws',
-          ruleId: 'CLDBRN-AWS-CLOUDWATCH-3',
+          ruleId: 'CLDBRN-AWS-CLOUDWATCH-2',
           service: 'cloudwatch',
           source: 'discovery',
           status: 'skipped',
@@ -655,8 +655,8 @@ describe('CloudBurnClient', () => {
           expect.objectContaining({
             findingCount: 0,
             reason:
-              'Skipped rule CLDBRN-AWS-CLOUDWATCH-3 because required discovery datasets were unavailable: aws-cloudwatch-log-metric-filter-coverage.',
-            ruleId: 'CLDBRN-AWS-CLOUDWATCH-3',
+              'Skipped rule CLDBRN-AWS-CLOUDWATCH-2 because required discovery datasets were unavailable: aws-cloudwatch-log-group-recent-stream-activity.',
+            ruleId: 'CLDBRN-AWS-CLOUDWATCH-2',
             status: 'not_applicable',
           }),
         ],
@@ -1310,7 +1310,7 @@ describe('CloudBurnClient', () => {
     });
   });
 
-  it('returns static API Gateway, CloudFront, and CloudWatch findings from mixed IaC resources', async () => {
+  it('returns static CloudFront and CloudWatch findings from mixed IaC resources', async () => {
     const scanner = new CloudBurnClient();
     const fixturePath = fileURLToPath(new URL('./fixtures/iac-config-mixed', import.meta.url));
 
@@ -1321,23 +1321,6 @@ describe('CloudBurnClient', () => {
         {
           provider: 'aws',
           rules: [
-            {
-              ruleId: 'CLDBRN-AWS-APIGATEWAY-1',
-              service: 'apigateway',
-              severity: 'medium',
-              source: 'iac',
-              message: 'API Gateway REST API stages should enable caching when stage caching is available.',
-              findings: [
-                {
-                  resourceId: 'aws_api_gateway_stage.prod',
-                  location: {
-                    path: 'main.tf',
-                    line: 4,
-                    column: 3,
-                  },
-                },
-              ],
-            },
             {
               ruleId: 'CLDBRN-AWS-CLOUDFRONT-1',
               service: 'cloudfront',
@@ -1630,32 +1613,6 @@ describe('CloudBurnClient', () => {
                   location: {
                     path: 'template.yaml',
                     line: 4,
-                    column: 3,
-                  },
-                },
-              ],
-            },
-            {
-              ruleId: 'CLDBRN-AWS-S3-5',
-              service: 's3',
-              severity: 'low',
-              source: 'iac',
-              message:
-                'S3 buckets without any storage-class transition should enable Intelligent-Tiering when access patterns are unknown.',
-              findings: [
-                {
-                  resourceId: 'aws_s3_bucket.missing_lifecycle',
-                  location: {
-                    path: 'main.tf',
-                    line: 1,
-                    column: 1,
-                  },
-                },
-                {
-                  resourceId: 'MissingLifecycleBucket',
-                  location: {
-                    path: 'template.yaml',
-                    line: 2,
                     column: 3,
                   },
                 },

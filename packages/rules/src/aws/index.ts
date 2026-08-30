@@ -1,4 +1,3 @@
-import { apigatewayRules } from './apigateway/index.js';
 import { cloudfrontRules } from './cloudfront/index.js';
 import { cloudtrailRules } from './cloudtrail/index.js';
 import { cloudwatchRules } from './cloudwatch/index.js';
@@ -25,7 +24,6 @@ import { taggingRules } from './tagging/index.js';
 // Intent: aggregate all AWS rules into a single provider collection.
 // TODO(cloudburn): keep this list synchronized as new AWS rules are added.
 export const awsRules = [
-  ...apigatewayRules,
   ...cloudfrontRules,
   ...cloudtrailRules,
   ...cloudwatchRules,

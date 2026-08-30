@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import type {
-  AwsApiGatewayStage,
   AwsCloudFrontDistribution,
   AwsCloudFrontDistributionRequestActivity,
   AwsCloudTrailTrail,
@@ -53,22 +52,20 @@ import {
   StaticResourceBag,
 } from '../src/index.js';
 
+const awsRuleIds = awsRules.map((rule) => rule.id);
+
 describe('rule exports', () => {
   it('exports non-empty AWS rules and preset IDs', () => {
-    expect(awsRules.length).toBeGreaterThan(0);
-    expect(awsCorePreset.ruleIds).toEqual(
-      awsRules.map((rule) => rule.id).filter((ruleId) => ruleId !== 'CLDBRN-AWS-TAGGING-1'),
-    );
-    expect(awsRules.map((rule) => rule.id)).toEqual(
+    expect(awsRuleIds).toHaveLength(81);
+    expect(awsCorePreset.ruleIds).toEqual(awsRuleIds.filter((ruleId) => ruleId !== 'CLDBRN-AWS-TAGGING-1'));
+    expect(awsRuleIds).toEqual(
       expect.arrayContaining([
-        'CLDBRN-AWS-APIGATEWAY-1',
         'CLDBRN-AWS-CLOUDFRONT-1',
         'CLDBRN-AWS-CLOUDFRONT-2',
         'CLDBRN-AWS-CLOUDTRAIL-1',
         'CLDBRN-AWS-CLOUDTRAIL-2',
         'CLDBRN-AWS-CLOUDWATCH-1',
         'CLDBRN-AWS-CLOUDWATCH-2',
-        'CLDBRN-AWS-CLOUDWATCH-3',
         'CLDBRN-AWS-COSTGUARDRAILS-1',
         'CLDBRN-AWS-COSTGUARDRAILS-2',
         'CLDBRN-AWS-COSTGUARDRAILS-3',
@@ -117,7 +114,6 @@ describe('rule exports', () => {
         'CLDBRN-AWS-LAMBDA-2',
         'CLDBRN-AWS-LAMBDA-3',
         'CLDBRN-AWS-LAMBDA-4',
-        'CLDBRN-AWS-LAMBDA-5',
         'CLDBRN-AWS-RDS-2',
         'CLDBRN-AWS-RDS-3',
         'CLDBRN-AWS-RDS-4',
@@ -150,14 +146,6 @@ describe('rule exports', () => {
     expect(LiveResourceBag).toBeTypeOf('function');
     expect(StaticResourceBag).toBeTypeOf('function');
 
-    const apiGatewayStage: AwsApiGatewayStage = {
-      accountId: '123456789012',
-      cacheClusterEnabled: false,
-      region: 'us-east-1',
-      restApiId: 'a1b2c3d4',
-      stageArn: 'arn:aws:apigateway:us-east-1::/restapis/a1b2c3d4/stages/prod',
-      stageName: 'prod',
-    };
     const instance: AwsEc2Instance = {
       accountId: '123456789012',
       architecture: 'x86_64',
@@ -174,9 +162,6 @@ describe('rule exports', () => {
     expect(instance.architecture).toBe('x86_64');
     expect(instance.launchTime).toBe('2026-03-01T00:00:00.000Z');
     expect(instance.stoppedAt).toBe('2026-03-15T00:00:00.000Z');
-    expect(apiGatewayStage.stageName).toBe('prod');
-    expect(apiGatewayStage.cacheClusterEnabled).toBe(false);
-
     const volume: AwsEbsVolume = {
       accountId: '123456789012',
       iops: 12000,
@@ -481,7 +466,6 @@ describe('rule exports', () => {
       totalInvocationsLast14Days: 0,
     };
 
-    const apiGatewayDatasetKey: DiscoveryDatasetKey = 'aws-apigateway-stages';
     const cloudFrontDatasetKey: DiscoveryDatasetKey = 'aws-cloudfront-distributions';
     const cloudFrontRequestActivityDatasetKey: DiscoveryDatasetKey = 'aws-cloudfront-distribution-request-activity';
     const datasetKey: DiscoveryDatasetKey = 'aws-rds-instances';
@@ -514,7 +498,6 @@ describe('rule exports', () => {
     const targetGroupDatasetKey: DiscoveryDatasetKey = 'aws-ec2-target-groups';
     const staticDatasetKey: StaticDatasetKey = 'aws-rds-instances';
 
-    expect(apiGatewayDatasetKey).toBe('aws-apigateway-stages');
     expect(cloudFrontDatasetKey).toBe('aws-cloudfront-distributions');
     expect(cloudFrontRequestActivityDatasetKey).toBe('aws-cloudfront-distribution-request-activity');
     expect(datasetKey).toBe('aws-rds-instances');

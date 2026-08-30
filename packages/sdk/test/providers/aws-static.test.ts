@@ -388,72 +388,6 @@ describe('loadAwsStaticResources', () => {
     ]);
   });
 
-  it('loads API Gateway stages for Terraform and CloudFormation resources', async () => {
-    mockParsedResources([
-      createIaCResource({
-        type: 'aws_api_gateway_stage',
-        name: 'prod',
-        attributeLocations: {
-          cache_cluster_enabled: {
-            path: 'main.tf',
-            line: 6,
-            column: 3,
-          },
-        },
-        attributes: {
-          rest_api_id: 'a1b2c3d4',
-          stage_name: 'prod',
-          cache_cluster_enabled: false,
-        },
-      }),
-      createIaCResource({
-        type: 'AWS::ApiGateway::Stage',
-        name: 'ProdStage',
-        attributeLocations: {
-          'Properties.CacheClusterEnabled': {
-            path: 'template.yaml',
-            line: 9,
-            column: 7,
-          },
-        },
-        attributes: {
-          Properties: {
-            StageName: 'prod',
-            RestApiId: 'a1b2c3d4',
-            CacheClusterEnabled: true,
-          },
-        },
-      }),
-    ]);
-
-    const result = await loadAwsStaticResources('/tmp/iac', [
-      createRule({
-        staticDependencies: ['aws-apigateway-stages'],
-      }),
-    ]);
-
-    expect(result.resources.get('aws-apigateway-stages')).toEqual([
-      {
-        cacheClusterEnabled: false,
-        location: {
-          path: 'main.tf',
-          line: 6,
-          column: 3,
-        },
-        resourceId: 'aws_api_gateway_stage.prod',
-      },
-      {
-        cacheClusterEnabled: true,
-        location: {
-          path: 'template.yaml',
-          line: 9,
-          column: 7,
-        },
-        resourceId: 'ProdStage',
-      },
-    ]);
-  });
-
   it('loads CloudFront distributions and applies the default price class when omitted', async () => {
     mockParsedResources([
       createIaCResource({
@@ -2221,66 +2155,6 @@ describe('aws static dataset registry', () => {
         tableName: 'orders',
         writeMaxCapacity: 200,
         writeMinCapacity: 20,
-      },
-    ]);
-  });
-
-  it('normalizes Lambda provisioned concurrency resources for Terraform and CloudFormation', () => {
-    const definition = getAwsStaticDatasetDefinition('aws-lambda-provisioned-concurrency');
-
-    expect(
-      definition?.load([
-        createIaCResource({
-          type: 'aws_lambda_provisioned_concurrency_config',
-          name: 'worker',
-          attributeLocations: {
-            provisioned_concurrent_executions: {
-              path: 'main.tf',
-              line: 7,
-              column: 3,
-            },
-          },
-          attributes: {
-            provisioned_concurrent_executions: 5,
-          },
-        }),
-        createIaCResource({
-          type: 'AWS::Lambda::Alias',
-          name: 'WorkerAlias',
-          attributeLocations: {
-            'Properties.ProvisionedConcurrencyConfig.ProvisionedConcurrentExecutions': {
-              path: 'template.yaml',
-              line: 14,
-              column: 7,
-            },
-          },
-          attributes: {
-            Properties: {
-              ProvisionedConcurrencyConfig: {
-                ProvisionedConcurrentExecutions: 12,
-              },
-            },
-          },
-        }),
-      ]),
-    ).toEqual([
-      {
-        location: {
-          path: 'main.tf',
-          line: 7,
-          column: 3,
-        },
-        provisionedConcurrentExecutions: 5,
-        resourceId: 'aws_lambda_provisioned_concurrency_config.worker',
-      },
-      {
-        location: {
-          path: 'template.yaml',
-          line: 14,
-          column: 7,
-        },
-        provisionedConcurrentExecutions: 12,
-        resourceId: 'WorkerAlias',
       },
     ]);
   });

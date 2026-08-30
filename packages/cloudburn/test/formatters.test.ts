@@ -56,11 +56,10 @@ const resultWithLocation = {
 const resultWithSkippedRuleDiagnostic = {
   diagnostics: [
     {
-      details:
-        'Amazon CloudWatch Logs DescribeMetricFilters failed in us-east-1 with ThrottlingException: Rate exceeded.',
-      message: 'Skipped rule CLDBRN-AWS-CLOUDWATCH-3 because required discovery datasets were unavailable.',
+      details: 'Amazon CloudWatch Logs DescribeLogStreams failed in us-east-1 with ThrottlingException: Rate exceeded.',
+      message: 'Skipped rule CLDBRN-AWS-CLOUDWATCH-2 because required discovery datasets were unavailable.',
       provider: 'aws' as const,
-      ruleId: 'CLDBRN-AWS-CLOUDWATCH-3',
+      ruleId: 'CLDBRN-AWS-CLOUDWATCH-2',
       service: 'cloudwatch',
       source: 'discovery' as const,
       status: 'skipped' as const,
@@ -149,8 +148,8 @@ describe('renderResponse', () => {
 
     expect(output).toContain('Diagnostics');
     expect(output).toContain('Status');
-    expect(output).toContain('CLDBRN-AWS-CLOUDWATCH-3');
-    expect(output).toContain('Skipped rule CLDBRN-AWS-CLOUDWATCH-3');
+    expect(output).toContain('CLDBRN-AWS-CLOUDWATCH-2');
+    expect(output).toContain('Skipped rule CLDBRN-AWS-CLOUDWATCH-2');
     expect(output).not.toContain('ResourceId');
     expect(output).not.toContain('AccountId');
   });

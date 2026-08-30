@@ -3,7 +3,6 @@ import { awsRules } from '@cloudburn/rules';
 import { describe, expect, it } from 'vitest';
 import { listBuiltInRuleMetadata } from '../src/built-in-rules.js';
 import {
-  type AwsApiGatewayStage,
   type AwsClientCredentials,
   type AwsCloudFrontDistribution,
   type AwsCloudTrailTrail,
@@ -109,14 +108,6 @@ describe('sdk exports', () => {
   });
 
   it('exports live dataset types from the package root', () => {
-    const apiGatewayStage: AwsApiGatewayStage = {
-      accountId: '123456789012',
-      cacheClusterEnabled: false,
-      region: 'us-east-1',
-      restApiId: 'a1b2c3d4',
-      stageArn: 'arn:aws:apigateway:us-east-1::/restapis/a1b2c3d4/stages/prod',
-      stageName: 'prod',
-    };
     const trail: AwsCloudTrailTrail = {
       accountId: '123456789012',
       homeRegion: 'us-east-1',
@@ -292,7 +283,6 @@ describe('sdk exports', () => {
       totalInvocationsLast14Days: 0,
     };
 
-    expect(apiGatewayStage.stageName).toBe('prod');
     expect(trail.trailName).toBe('org-trail');
     expect(logGroup.retentionInDays).toBe(30);
     expect(logStream.logStreamName).toContain('[$LATEST]');

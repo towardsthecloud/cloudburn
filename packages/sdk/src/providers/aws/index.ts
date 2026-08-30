@@ -1,5 +1,4 @@
 export {
-  createApiGatewayClient,
   createCloudFrontClient,
   createCloudTrailClient,
   createCloudWatchClient,

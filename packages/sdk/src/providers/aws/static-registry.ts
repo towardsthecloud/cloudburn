@@ -1,5 +1,4 @@
 import type {
-  AwsStaticApiGatewayStage,
   AwsStaticCloudFrontDistribution,
   AwsStaticCloudWatchLogGroup,
   AwsStaticDynamoDbAutoscaling,
@@ -15,7 +14,6 @@ import type {
   AwsStaticElastiCacheCluster,
   AwsStaticEmrCluster,
   AwsStaticLambdaFunction,
-  AwsStaticLambdaProvisionedConcurrency,
   AwsStaticRdsInstance,
   AwsStaticRedshiftCluster,
   AwsStaticRoute53HealthCheck,
@@ -39,8 +37,6 @@ type AwsStaticDatasetDefinition<K extends StaticDatasetKey = StaticDatasetKey> =
 
 const TERRAFORM_EBS_VOLUME_TYPE = 'aws_ebs_volume';
 const CLOUDFORMATION_EBS_VOLUME_TYPE = 'AWS::EC2::Volume';
-const TERRAFORM_API_GATEWAY_STAGE_TYPE = 'aws_api_gateway_stage';
-const CLOUDFORMATION_API_GATEWAY_STAGE_TYPE = 'AWS::ApiGateway::Stage';
 const TERRAFORM_CLOUDFRONT_DISTRIBUTION_TYPE = 'aws_cloudfront_distribution';
 const CLOUDFORMATION_CLOUDFRONT_DISTRIBUTION_TYPE = 'AWS::CloudFront::Distribution';
 const TERRAFORM_CLOUDWATCH_LOG_GROUP_TYPE = 'aws_cloudwatch_log_group';
@@ -78,8 +74,6 @@ const CLOUDFORMATION_ROUTE53_RECORD_SET_TYPE = 'AWS::Route53::RecordSet';
 const CLOUDFORMATION_ROUTE53_RECORD_SET_GROUP_TYPE = 'AWS::Route53::RecordSetGroup';
 const CLOUDFORMATION_ROUTE53_HEALTH_CHECK_TYPE = 'AWS::Route53::HealthCheck';
 const TERRAFORM_LAMBDA_TYPE = 'aws_lambda_function';
-const TERRAFORM_LAMBDA_PROVISIONED_CONCURRENCY_TYPE = 'aws_lambda_provisioned_concurrency_config';
-const CLOUDFORMATION_LAMBDA_ALIAS_TYPE = 'AWS::Lambda::Alias';
 const CLOUDFORMATION_LAMBDA_TYPE = 'AWS::Lambda::Function';
 const TERRAFORM_REDSHIFT_CLUSTER_TYPE = 'aws_redshift_cluster';
 const TERRAFORM_REDSHIFT_SCHEDULED_ACTION_TYPE = 'aws_redshift_scheduled_action';
@@ -729,22 +723,6 @@ const getCloudFormationEmrInstanceTypes = (resource: IaCResource): string[] => {
   return instanceTypes;
 };
 
-const loadStaticApiGatewayStages = (resources: IaCResource[]): AwsStaticApiGatewayStage[] =>
-  resources.map((resource) => {
-    const rawValue =
-      resource.type === TERRAFORM_API_GATEWAY_STAGE_TYPE
-        ? resource.attributes.cache_cluster_enabled
-        : isRecord(resource.attributes.Properties)
-          ? resource.attributes.Properties.CacheClusterEnabled
-          : undefined;
-
-    return {
-      cacheClusterEnabled: rawValue === undefined ? false : getLiteralBoolean(rawValue),
-      location: pickLocation(resource, ['cache_cluster_enabled', 'Properties.CacheClusterEnabled']),
-      resourceId: toStaticResourceId(resource),
-    };
-  });
-
 const loadStaticCloudFrontDistributions = (resources: IaCResource[]): AwsStaticCloudFrontDistribution[] =>
   resources.map((resource) => {
     const rawValue =
@@ -1187,40 +1165,6 @@ const loadStaticLambdaFunctions = (resources: IaCResource[]): AwsStaticLambdaFun
     location: pickLocation(resource, ['architectures', 'Properties.Architectures']),
   }));
 
-const loadStaticLambdaProvisionedConcurrency = (resources: IaCResource[]): AwsStaticLambdaProvisionedConcurrency[] =>
-  resources.flatMap((resource) => {
-    if (resource.type === TERRAFORM_LAMBDA_PROVISIONED_CONCURRENCY_TYPE) {
-      return [
-        {
-          location: pickLocation(resource, ['provisioned_concurrent_executions']),
-          provisionedConcurrentExecutions: getLiteralNumberish(resource.attributes.provisioned_concurrent_executions),
-          resourceId: toStaticResourceId(resource),
-        },
-      ];
-    }
-
-    if (resource.type === CLOUDFORMATION_LAMBDA_ALIAS_TYPE) {
-      const properties = isRecord(resource.attributes.Properties) ? resource.attributes.Properties : undefined;
-      const concurrencyConfig = isRecord(properties?.ProvisionedConcurrencyConfig)
-        ? properties.ProvisionedConcurrencyConfig
-        : undefined;
-
-      if (!concurrencyConfig) {
-        return [];
-      }
-
-      return [
-        {
-          location: pickLocation(resource, ['Properties.ProvisionedConcurrencyConfig.ProvisionedConcurrentExecutions']),
-          provisionedConcurrentExecutions: getLiteralNumberish(concurrencyConfig.ProvisionedConcurrentExecutions),
-          resourceId: toStaticResourceId(resource),
-        },
-      ];
-    }
-
-    return [];
-  });
-
 const loadStaticEcsServices = (resources: IaCResource[]): AwsStaticEcsService[] =>
   resources.flatMap((resource) => {
     if (resource.type === TERRAFORM_ECS_SERVICE_TYPE) {
@@ -1501,12 +1445,6 @@ const loadStaticS3BucketAnalyses = (resources: IaCResource[]): AwsStaticS3Bucket
 };
 
 const awsStaticDatasetRegistry: Record<StaticDatasetKey, AwsStaticDatasetDefinition> = {
-  'aws-apigateway-stages': {
-    datasetKey: 'aws-apigateway-stages',
-    sourceKinds: ['terraform', 'cloudformation'],
-    resourceTypes: [TERRAFORM_API_GATEWAY_STAGE_TYPE, CLOUDFORMATION_API_GATEWAY_STAGE_TYPE],
-    load: loadStaticApiGatewayStages,
-  },
   'aws-cloudfront-distributions': {
     datasetKey: 'aws-cloudfront-distributions',
     sourceKinds: ['terraform', 'cloudformation'],
@@ -1609,12 +1547,6 @@ const awsStaticDatasetRegistry: Record<StaticDatasetKey, AwsStaticDatasetDefinit
     sourceKinds: ['terraform', 'cloudformation'],
     resourceTypes: [TERRAFORM_LAMBDA_TYPE, CLOUDFORMATION_LAMBDA_TYPE],
     load: loadStaticLambdaFunctions,
-  },
-  'aws-lambda-provisioned-concurrency': {
-    datasetKey: 'aws-lambda-provisioned-concurrency',
-    sourceKinds: ['terraform', 'cloudformation'],
-    resourceTypes: [TERRAFORM_LAMBDA_PROVISIONED_CONCURRENCY_TYPE, CLOUDFORMATION_LAMBDA_ALIAS_TYPE],
-    load: loadStaticLambdaProvisionedConcurrency,
   },
   'aws-rds-instances': {
     datasetKey: 'aws-rds-instances',
