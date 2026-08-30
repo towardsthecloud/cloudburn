@@ -5,7 +5,8 @@ import type {
   UnusedResourcesScanResult,
 } from './types.js';
 
-const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
 
 const isOptionalString = (value: unknown): value is string | undefined =>
   value === undefined || typeof value === 'string';
@@ -43,7 +44,12 @@ const hasUnusedResourceFindingFields = (value: EvaluatedResource & Record<string
     (isRecord(value.remediation) &&
       (value.remediation.command === undefined || isRemediationCommand(value.remediation.command))));
 
-/** Narrows persisted JSON to one SDK unused-resource finding. */
+/**
+ * Narrows persisted JSON to one SDK unused-resource finding.
+ *
+ * @param value - Untrusted persisted value to validate.
+ * @returns Whether the value satisfies the complete unused-resource finding contract.
+ */
 export const isUnusedResourceFinding = (value: unknown): value is UnusedResourceFinding =>
   isEvaluatedResource(value) && hasUnusedResourceFindingFields(value as EvaluatedResource & Record<string, unknown>);
 
@@ -87,7 +93,12 @@ const isServiceSummary = (value: unknown): boolean =>
   Number.isInteger(value.resourceCount) &&
   (value.resourceCount as number) >= 0;
 
-/** Narrows persisted JSON to the SDK unused-resources summary contract. */
+/**
+ * Narrows persisted JSON to the SDK unused-resources summary contract.
+ *
+ * @param value - Untrusted persisted value to validate.
+ * @returns Whether the value satisfies the complete unused-resources scan summary contract.
+ */
 export const isUnusedResourcesScanSummary = (value: unknown): value is UnusedResourcesScanResult['summary'] =>
   isRecord(value) &&
   Number.isInteger(value.findingCount) &&

@@ -490,7 +490,16 @@ const awsDiscoveryDatasetRegistry: {
     resourceTypes: ['eks:cluster'],
     service: 'eks',
     load: hydrateAwsEksNodegroups,
-    toEvaluationResources: (nodegroups) => mapEvaluationResources(nodegroups, (nodegroup) => nodegroup.nodegroupArn),
+    toEvaluationResources: (nodegroups) =>
+      mapEvaluationResources(
+        nodegroups,
+        (nodegroup) => nodegroup.nodegroupArn,
+        (nodegroup) => ({
+          arn: nodegroup.nodegroupArn,
+          name: nodegroup.nodegroupName,
+          resourceType: 'eks:nodegroup',
+        }),
+      ),
   },
   'aws-emr-clusters': {
     datasetKey: 'aws-emr-clusters',
@@ -603,7 +612,15 @@ const awsDiscoveryDatasetRegistry: {
     resourceTypes: ['route53:hostedzone'],
     service: 'route53',
     load: hydrateAwsRoute53Records,
-    toEvaluationResources: (records) => mapEvaluationResources(records, (record) => record.recordId),
+    toEvaluationResources: (records) =>
+      mapEvaluationResources(
+        records,
+        (record) => record.recordId,
+        (record) => ({
+          name: record.recordName,
+          resourceType: 'route53:record',
+        }),
+      ),
   },
   'aws-route53-zones': {
     datasetKey: 'aws-route53-zones',

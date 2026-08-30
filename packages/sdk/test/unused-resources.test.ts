@@ -146,6 +146,8 @@ describe('CloudBurnClient.discoverUnusedResources', () => {
     expect(result.findings.every(isUnusedResourceFinding)).toBe(true);
     expect(isUnusedResourcesScanSummary(result.summary)).toBe(true);
     expect(isUnusedResourceFinding({ ...result.findings[0], remediationEffort: 'instant' })).toBe(false);
+    expect(isUnusedResourceFinding({ ...result.findings[0], remediation: [] })).toBe(false);
+    expect(isUnusedResourceFinding({ ...result.findings[0], tags: ['not', 'a', 'record'] })).toBe(false);
     expect(isUnusedResourcesScanSummary({ ...result.summary, checks: undefined })).toBe(false);
     expect(
       isUnusedResourcesScanSummary({
@@ -245,5 +247,49 @@ describe('unused-resource evaluation evidence', () => {
     );
 
     expect(result.resources[0]).not.toHaveProperty('lastActivityAt');
+  });
+
+  it('distinguishes hydrated child resources from their catalog seed types', () => {
+    const resources = new LiveResourceBag({
+      'aws-eks-nodegroups': [
+        {
+          accountId: '123456789012',
+          clusterArn: 'arn:aws:eks:eu-west-1:123456789012:cluster/production',
+          clusterName: 'production',
+          instanceTypes: ['m6g.large'],
+          nodegroupArn: 'arn:aws:eks:eu-west-1:123456789012:nodegroup/production/workers/abc123',
+          nodegroupName: 'workers',
+          region: 'eu-west-1',
+        },
+      ],
+      'aws-route53-records': [
+        {
+          accountId: '123456789012',
+          hostedZoneId: 'Z123',
+          isAlias: false,
+          recordId: 'Z123/example.com./A',
+          recordName: 'example.com.',
+          recordType: 'A',
+          region: 'global',
+          ttl: 300,
+        },
+      ],
+    });
+
+    const nodegroups = getAwsRuleEvaluationResourceSet(
+      { discoveryDependencies: ['aws-eks-nodegroups'], id: 'CLDBRN-AWS-EKS-1' },
+      resources,
+    );
+    const records = getAwsRuleEvaluationResourceSet(
+      { discoveryDependencies: ['aws-route53-zones', 'aws-route53-records'], id: 'CLDBRN-AWS-ROUTE53-1' },
+      resources,
+    );
+
+    expect(nodegroups.resources[0]).toEqual(
+      expect.objectContaining({ name: 'workers', resourceType: 'eks:nodegroup' }),
+    );
+    expect(records.resources[0]).toEqual(
+      expect.objectContaining({ name: 'example.com.', resourceType: 'route53:record' }),
+    );
   });
 });
