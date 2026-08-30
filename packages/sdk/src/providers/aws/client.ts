@@ -1,5 +1,4 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { APIGatewayClient } from '@aws-sdk/client-api-gateway';
 import { ApplicationAutoScalingClient } from '@aws-sdk/client-application-auto-scaling';
 import { BudgetsClient } from '@aws-sdk/client-budgets';
 import { CloudFrontClient } from '@aws-sdk/client-cloudfront';
@@ -183,14 +182,6 @@ export const createEcrClient = (config: AwsClientConfig): ECRClient =>
 /** Creates an AWS Application Auto Scaling client for a specific region. */
 export const createApplicationAutoScalingClient = (config: AwsClientConfig): ApplicationAutoScalingClient =>
   new ApplicationAutoScalingClient({
-    ...baseAwsClientConfig(),
-    region: config.region,
-    credentials: resolveAwsClientCredentials(),
-  });
-
-/** Creates an AWS API Gateway REST API client for a specific region. */
-export const createApiGatewayClient = (config: AwsClientConfig): APIGatewayClient =>
-  new APIGatewayClient({
     ...baseAwsClientConfig(),
     region: config.region,
     credentials: resolveAwsClientCredentials(),

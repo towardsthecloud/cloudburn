@@ -75,17 +75,6 @@ export type AwsCloudTrailTrail = {
   accountId: string;
 };
 
-/** Discovered API Gateway REST API stage normalized for cache review checks. */
-export type AwsApiGatewayStage = {
-  stageArn: string;
-  restApiId: string;
-  stageName: string;
-  /** REST API stage caching is explicitly configured through the cache cluster flag. */
-  cacheClusterEnabled?: boolean;
-  region: string;
-  accountId: string;
-};
-
 /** Discovered CloudWatch Logs log group normalized for retention checks. */
 export type AwsCloudWatchLogGroup = {
   logGroupArn: string;
@@ -119,14 +108,6 @@ export type AwsCloudWatchLogGroupRecentStreamActivity = {
   lastEventTimestamp?: number;
   lastIngestionTime?: number;
   lastActivityAt?: string;
-  region: string;
-  accountId: string;
-};
-
-/** Discovered CloudWatch Logs metric-filter coverage keyed by log group. */
-export type AwsCloudWatchLogMetricFilterCoverage = {
-  logGroupName: string;
-  metricFilterCount: number;
   region: string;
   accountId: string;
 };
@@ -687,7 +668,6 @@ export type AwsDiscoveryCatalog = {
 
 /** Rule-facing live discovery dataset key exposed through the evaluation context. */
 export type SharedDatasetKey =
-  | 'aws-apigateway-stages'
   | 'aws-cloudfront-distributions'
   | 'aws-cloudwatch-log-groups'
   | 'aws-dynamodb-autoscaling'
@@ -710,13 +690,11 @@ export type SharedDatasetKey =
 
 /** Rule-facing live discovery dataset key exposed through the evaluation context. */
 export type DiscoveryDatasetKey =
-  | 'aws-apigateway-stages'
   | 'aws-cloudtrail-trails'
   | 'aws-cloudfront-distributions'
   | 'aws-cloudfront-distribution-request-activity'
   | 'aws-cloudwatch-log-groups'
   | 'aws-cloudwatch-log-group-recent-stream-activity'
-  | 'aws-cloudwatch-log-metric-filter-coverage'
   | 'aws-cloudwatch-log-streams'
   | 'aws-cost-usage'
   | 'aws-cost-anomaly-monitors'
@@ -768,13 +746,11 @@ export type DiscoveryDatasetKey =
 
 /** Normalized live discovery datasets available to rule evaluators. */
 export type DiscoveryDatasetMap = {
-  'aws-apigateway-stages': AwsApiGatewayStage[];
   'aws-cloudtrail-trails': AwsCloudTrailTrail[];
   'aws-cloudfront-distributions': AwsCloudFrontDistribution[];
   'aws-cloudfront-distribution-request-activity': AwsCloudFrontDistributionRequestActivity[];
   'aws-cloudwatch-log-groups': AwsCloudWatchLogGroup[];
   'aws-cloudwatch-log-group-recent-stream-activity': AwsCloudWatchLogGroupRecentStreamActivity[];
-  'aws-cloudwatch-log-metric-filter-coverage': AwsCloudWatchLogMetricFilterCoverage[];
   'aws-cloudwatch-log-streams': AwsCloudWatchLogStream[];
   'aws-cost-usage': AwsCostUsage[];
   'aws-cost-anomaly-monitors': AwsCostAnomalyMonitor[];
@@ -826,14 +802,7 @@ export type DiscoveryDatasetMap = {
 };
 
 /** Rule-facing static IaC dataset key exposed through the evaluation context. */
-export type StaticDatasetKey = SharedDatasetKey | 'aws-ec2-vpc-endpoints' | 'aws-lambda-provisioned-concurrency';
-
-/** Normalized static API Gateway stage dataset entry. */
-export type AwsStaticApiGatewayStage = {
-  resourceId: string;
-  cacheClusterEnabled: boolean | null;
-  location?: SourceLocation;
-};
+export type StaticDatasetKey = SharedDatasetKey | 'aws-ec2-vpc-endpoints';
 
 /** Normalized static CloudFront distribution dataset entry. */
 export type AwsStaticCloudFrontDistribution = {
@@ -952,13 +921,6 @@ export type AwsStaticLambdaFunction = {
   location?: SourceLocation;
 };
 
-/** Normalized static Lambda provisioned concurrency dataset entry. */
-export type AwsStaticLambdaProvisionedConcurrency = {
-  resourceId: string;
-  provisionedConcurrentExecutions: number | null;
-  location?: SourceLocation;
-};
-
 /** Normalized static ECS service dataset entry. */
 export type AwsStaticEcsService = {
   resourceId: string;
@@ -1013,7 +975,6 @@ export type AwsStaticS3BucketAnalysis = AwsS3BucketAnalysisFlags & {
 
 /** Normalized static datasets available to rule evaluators. */
 export type StaticDatasetMap = {
-  'aws-apigateway-stages': AwsStaticApiGatewayStage[];
   'aws-cloudfront-distributions': AwsStaticCloudFrontDistribution[];
   'aws-cloudwatch-log-groups': AwsStaticCloudWatchLogGroup[];
   'aws-dynamodb-autoscaling': AwsStaticDynamoDbAutoscaling[];
@@ -1028,7 +989,6 @@ export type StaticDatasetMap = {
   'aws-eks-nodegroups': AwsStaticEksNodegroup[];
   'aws-emr-clusters': AwsStaticEmrCluster[];
   'aws-lambda-functions': AwsStaticLambdaFunction[];
-  'aws-lambda-provisioned-concurrency': AwsStaticLambdaProvisionedConcurrency[];
   'aws-ec2-vpc-endpoints': AwsStaticEc2VpcEndpoint[];
   'aws-rds-instances': AwsStaticRdsInstance[];
   'aws-redshift-clusters': AwsStaticRedshiftCluster[];

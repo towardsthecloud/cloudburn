@@ -1,5 +1,4 @@
 import type {
-  AwsApiGatewayStage,
   AwsCloudFrontDistribution,
   AwsCloudTrailTrail,
   AwsCloudWatchLogGroup,
@@ -266,7 +265,6 @@ export type RegisteredRules = {
 };
 
 export type {
-  AwsApiGatewayStage,
   AwsCloudFrontDistribution,
   AwsCloudTrailTrail,
   AwsCloudWatchLogGroup,

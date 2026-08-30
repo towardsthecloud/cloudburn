@@ -21,7 +21,6 @@ import {
   waitForAwsResourceExplorerIndex,
   waitForAwsResourceExplorerSetup,
 } from '../../src/providers/aws/resource-explorer.js';
-import { hydrateAwsApiGatewayStages } from '../../src/providers/aws/resources/apigateway.js';
 import {
   hydrateAwsCloudFrontDistributionRequestActivity,
   hydrateAwsCloudFrontDistributions,
@@ -30,7 +29,6 @@ import { hydrateAwsCloudTrailTrails } from '../../src/providers/aws/resources/cl
 import {
   hydrateAwsCloudWatchLogGroupRecentStreamActivity,
   hydrateAwsCloudWatchLogGroups,
-  hydrateAwsCloudWatchLogMetricFilterCoverage,
   hydrateAwsCloudWatchLogStreams,
 } from '../../src/providers/aws/resources/cloudwatch-logs.js';
 import { hydrateAwsCostUsage } from '../../src/providers/aws/resources/cost-explorer.js';
@@ -151,10 +149,6 @@ vi.mock('../../src/providers/aws/resources/cloudtrail.js', () => ({
   hydrateAwsCloudTrailTrails: vi.fn(),
 }));
 
-vi.mock('../../src/providers/aws/resources/apigateway.js', () => ({
-  hydrateAwsApiGatewayStages: vi.fn(),
-}));
-
 vi.mock('../../src/providers/aws/resources/cloudfront.js', () => ({
   hydrateAwsCloudFrontDistributionRequestActivity: vi.fn(),
   hydrateAwsCloudFrontDistributions: vi.fn(),
@@ -163,7 +157,6 @@ vi.mock('../../src/providers/aws/resources/cloudfront.js', () => ({
 vi.mock('../../src/providers/aws/resources/cloudwatch-logs.js', () => ({
   hydrateAwsCloudWatchLogGroups: vi.fn(),
   hydrateAwsCloudWatchLogGroupRecentStreamActivity: vi.fn(),
-  hydrateAwsCloudWatchLogMetricFilterCoverage: vi.fn(),
   hydrateAwsCloudWatchLogStreams: vi.fn(),
 }));
 
@@ -273,7 +266,6 @@ const mockedListAwsResourcesByFilter = vi.mocked(listAwsResourcesByFilter);
 const mockedUpdateAwsResourceExplorerIndexType = vi.mocked(updateAwsResourceExplorerIndexType);
 const mockedWaitForAwsResourceExplorerIndex = vi.mocked(waitForAwsResourceExplorerIndex);
 const mockedWaitForAwsResourceExplorerSetup = vi.mocked(waitForAwsResourceExplorerSetup);
-const mockedHydrateAwsApiGatewayStages = vi.mocked(hydrateAwsApiGatewayStages);
 const mockedHydrateAwsCloudFrontDistributions = vi.mocked(hydrateAwsCloudFrontDistributions);
 const _mockedHydrateAwsCloudFrontDistributionRequestActivity = vi.mocked(
   hydrateAwsCloudFrontDistributionRequestActivity,
@@ -283,7 +275,6 @@ const mockedHydrateAwsCloudWatchLogGroups = vi.mocked(hydrateAwsCloudWatchLogGro
 const mockedHydrateAwsCloudWatchLogGroupRecentStreamActivity = vi.mocked(
   hydrateAwsCloudWatchLogGroupRecentStreamActivity,
 );
-const mockedHydrateAwsCloudWatchLogMetricFilterCoverage = vi.mocked(hydrateAwsCloudWatchLogMetricFilterCoverage);
 const mockedHydrateAwsCloudWatchLogStreams = vi.mocked(hydrateAwsCloudWatchLogStreams);
 const mockedHydrateAwsCostUsage = vi.mocked(hydrateAwsCostUsage);
 const mockedHydrateAwsCostAnomalyMonitors = vi.mocked(hydrateAwsCostAnomalyMonitors);
@@ -744,16 +735,6 @@ describe('discoverAwsResources', () => {
     };
 
     mockedBuildAwsDiscoveryCatalog.mockResolvedValue(extendedCatalog);
-    mockedHydrateAwsApiGatewayStages.mockResolvedValue([
-      {
-        accountId: '123456789012',
-        cacheClusterEnabled: false,
-        region: 'us-east-1',
-        restApiId: 'a1b2c3',
-        stageArn: 'arn:aws:apigateway:us-east-1::/restapis/a1b2c3/stages/prod',
-        stageName: 'prod',
-      },
-    ]);
     mockedHydrateAwsCloudFrontDistributions.mockResolvedValue([
       {
         accountId: '123456789012',
@@ -846,10 +827,6 @@ describe('discoverAwsResources', () => {
     const result = await discoverAwsResources(
       [
         createRule({
-          service: 'apigateway',
-          discoveryDependencies: ['aws-apigateway-stages'],
-        }),
-        createRule({
           id: 'CLDBRN-AWS-TEST-2',
           service: 'cloudfront',
           discoveryDependencies: ['aws-cloudfront-distributions'],
@@ -879,14 +856,12 @@ describe('discoverAwsResources', () => {
     );
 
     expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith({ mode: 'regions', regions: ['us-east-1'] }, [
-      'apigateway:restapis/stages',
       'cloudfront:distribution',
       'dynamodb:table',
       'route53:healthcheck',
       'route53:hostedzone',
       'secretsmanager:secret',
     ]);
-    expect(mockedHydrateAwsApiGatewayStages).toHaveBeenCalledWith([extendedCatalog.resources[0]], loadContextMatcher);
     expect(mockedHydrateAwsCloudFrontDistributions).toHaveBeenCalledWith(
       [extendedCatalog.resources[1]],
       loadContextMatcher,
@@ -1919,48 +1894,6 @@ describe('discoverAwsResources', () => {
     ]);
   });
 
-  it('hydrates CloudWatch log metric-filter coverage from log-group catalog resources', async () => {
-    mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
-      indexType: 'LOCAL',
-      resources: [catalog.resources[7]],
-      searchRegion: 'us-east-1',
-    });
-    mockedHydrateAwsCloudWatchLogMetricFilterCoverage.mockResolvedValue([
-      {
-        accountId: '123456789012',
-        logGroupName: '/aws/lambda/app',
-        metricFilterCount: 0,
-        region: 'us-east-1',
-      },
-    ]);
-
-    const result = await discoverAwsResources(
-      [
-        createRule({
-          discoveryDependencies: ['aws-cloudwatch-log-metric-filter-coverage'],
-          service: 'cloudwatch',
-        }),
-      ],
-      { mode: 'regions', regions: ['us-east-1'] },
-    );
-
-    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith({ mode: 'regions', regions: ['us-east-1'] }, [
-      'logs:log-group',
-    ]);
-    expect(mockedHydrateAwsCloudWatchLogMetricFilterCoverage).toHaveBeenCalledWith(
-      [catalog.resources[7]],
-      loadContextMatcher,
-    );
-    expect(result.resources.get('aws-cloudwatch-log-metric-filter-coverage')).toEqual([
-      {
-        accountId: '123456789012',
-        logGroupName: '/aws/lambda/app',
-        metricFilterCount: 0,
-        region: 'us-east-1',
-      },
-    ]);
-  });
-
   it('loads only the S3 hydrator when active rules require only S3 bucket analyses', async () => {
     mockedBuildAwsDiscoveryCatalog.mockResolvedValue(catalog);
     mockedHydrateAwsS3BucketAnalyses.mockResolvedValue([
@@ -2866,7 +2799,7 @@ describe('discoverAwsResources', () => {
       ],
       searchRegion: 'us-east-1',
     });
-    mockedHydrateAwsCloudWatchLogMetricFilterCoverage.mockImplementation(async (resources) => {
+    mockedHydrateAwsCloudWatchLogGroupRecentStreamActivity.mockImplementation(async (resources) => {
       const region = resources[0]?.region;
       if (region === 'eu-west-1') {
         const accessDeniedCause = Object.assign(new Error('Access denied by SCP.'), {
@@ -2878,7 +2811,7 @@ describe('discoverAwsResources', () => {
         });
 
         throw new Error(
-          'Amazon CloudWatch Logs DescribeMetricFilters failed in eu-west-1 with AccessDeniedException: Access denied by SCP. Request ID: req-log-groups.',
+          'Amazon CloudWatch Logs DescribeLogStreams failed in eu-west-1 with AccessDeniedException: Access denied by SCP. Request ID: req-log-groups.',
           {
             cause: accessDeniedCause,
           },
@@ -2888,7 +2821,6 @@ describe('discoverAwsResources', () => {
       return [
         {
           accountId: '123456789012',
-          hasMetricFilters: true,
           logGroupArn: 'arn:aws:logs:us-east-1:123456789012:log-group:/aws/lambda/app-us-east-1',
           logGroupName: '/aws/lambda/app-us-east-1',
           region: 'us-east-1',
@@ -2899,17 +2831,16 @@ describe('discoverAwsResources', () => {
     const result = await discoverAwsResources(
       [
         createRule({
-          discoveryDependencies: ['aws-cloudwatch-log-metric-filter-coverage'],
+          discoveryDependencies: ['aws-cloudwatch-log-group-recent-stream-activity'],
           service: 'cloudwatch',
         }),
       ],
       { mode: 'regions', regions: ['us-east-1', 'eu-west-1'] },
     );
 
-    expect(result.resources.get('aws-cloudwatch-log-metric-filter-coverage')).toEqual([
+    expect(result.resources.get('aws-cloudwatch-log-group-recent-stream-activity')).toEqual([
       {
         accountId: '123456789012',
-        hasMetricFilters: true,
         logGroupArn: 'arn:aws:logs:us-east-1:123456789012:log-group:/aws/lambda/app-us-east-1',
         logGroupName: '/aws/lambda/app-us-east-1',
         region: 'us-east-1',
@@ -2919,7 +2850,7 @@ describe('discoverAwsResources', () => {
       {
         code: 'AccessDeniedException',
         details:
-          'Amazon CloudWatch Logs DescribeMetricFilters failed in eu-west-1 with AccessDeniedException: Access denied by SCP. Request ID: req-log-groups.',
+          'Amazon CloudWatch Logs DescribeLogStreams failed in eu-west-1 with AccessDeniedException: Access denied by SCP. Request ID: req-log-groups.',
         message:
           'Skipped cloudwatch discovery in eu-west-1 because access is denied by a service control policy (SCP).',
         provider: 'aws',
@@ -2946,17 +2877,17 @@ describe('discoverAwsResources', () => {
       ],
       searchRegion: 'eu-central-1',
     });
-    mockedHydrateAwsCloudWatchLogMetricFilterCoverage.mockRejectedValue(
+    mockedHydrateAwsCloudWatchLogGroupRecentStreamActivity.mockRejectedValue(
       Object.assign(
         new Error(
-          'Amazon CloudWatch Logs DescribeMetricFilters failed in eu-central-1 with ThrottlingException: Rate exceeded Request ID: req-metric-filters.',
+          'Amazon CloudWatch Logs DescribeLogStreams failed in eu-central-1 with ThrottlingException: Rate exceeded Request ID: req-log-streams.',
         ),
         {
           code: 'ThrottlingException',
           name: 'ThrottlingException',
           $metadata: {
             httpStatusCode: 400,
-            requestId: 'req-metric-filters',
+            requestId: 'req-log-streams',
           },
         },
       ),
@@ -2965,19 +2896,19 @@ describe('discoverAwsResources', () => {
     const result = await discoverAwsResources(
       [
         createRule({
-          discoveryDependencies: ['aws-cloudwatch-log-metric-filter-coverage'],
+          discoveryDependencies: ['aws-cloudwatch-log-group-recent-stream-activity'],
           service: 'cloudwatch',
         }),
       ],
       { mode: 'regions', regions: ['eu-central-1'] },
     );
 
-    expect(result.resources.get('aws-cloudwatch-log-metric-filter-coverage')).toEqual([]);
+    expect(result.resources.get('aws-cloudwatch-log-group-recent-stream-activity')).toEqual([]);
     expect(result.diagnostics).toEqual([
       {
         code: 'ThrottlingException',
         details:
-          'Amazon CloudWatch Logs DescribeMetricFilters failed in eu-central-1 with ThrottlingException: Rate exceeded Request ID: req-metric-filters.',
+          'Amazon CloudWatch Logs DescribeLogStreams failed in eu-central-1 with ThrottlingException: Rate exceeded Request ID: req-log-streams.',
         message:
           'Skipped cloudwatch discovery in eu-central-1 because AWS throttled the required dataset after retrying.',
         provider: 'aws',

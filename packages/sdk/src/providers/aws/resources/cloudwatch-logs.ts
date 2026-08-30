@@ -1,12 +1,7 @@
-import {
-  DescribeLogGroupsCommand,
-  DescribeLogStreamsCommand,
-  DescribeMetricFiltersCommand,
-} from '@aws-sdk/client-cloudwatch-logs';
+import { DescribeLogGroupsCommand, DescribeLogStreamsCommand } from '@aws-sdk/client-cloudwatch-logs';
 import type {
   AwsCloudWatchLogGroup,
   AwsCloudWatchLogGroupRecentStreamActivity,
-  AwsCloudWatchLogMetricFilterCoverage,
   AwsCloudWatchLogStream,
   AwsDiscoveredResource,
 } from '@cloudburn/rules';
@@ -274,85 +269,6 @@ export const hydrateAwsCloudWatchLogGroupRecentStreamActivity = async (
       }
 
       return activity;
-    }),
-  );
-
-  return hydratedPages.flat().sort((left, right) => left.logGroupName.localeCompare(right.logGroupName));
-};
-
-/**
- * Hydrates discovered CloudWatch log groups with their metric-filter counts.
- *
- * @param resources - Catalog resources filtered to CloudWatch Logs log groups.
- * @returns Metric-filter coverage summaries keyed by log group.
- */
-export const hydrateAwsCloudWatchLogMetricFilterCoverage = async (
-  resources: AwsDiscoveredResource[],
-): Promise<AwsCloudWatchLogMetricFilterCoverage[]> => {
-  const resourcesByRegion = new Map<string, AwsDiscoveredResource[]>();
-
-  for (const resource of resources) {
-    const logGroupName = extractLogGroupName(resource.arn);
-
-    if (!logGroupName) {
-      continue;
-    }
-
-    const regionResources = resourcesByRegion.get(resource.region) ?? [];
-    regionResources.push(resource);
-    resourcesByRegion.set(resource.region, regionResources);
-  }
-
-  const hydratedPages = await Promise.all(
-    [...resourcesByRegion.entries()].map(async ([region, regionResources]) => {
-      const client = createCloudWatchLogsClient({ region });
-      const desiredLogGroups = new Map(
-        regionResources.flatMap((resource) => {
-          const logGroupName = extractLogGroupName(resource.arn);
-
-          return logGroupName ? [[logGroupName, resource.accountId] as const] : [];
-        }),
-      );
-
-      const coverage: AwsCloudWatchLogMetricFilterCoverage[] = [];
-
-      for (const batch of chunkItems([...desiredLogGroups.entries()], CLOUDWATCH_LOG_GROUP_HYDRATION_CONCURRENCY)) {
-        const hydratedBatch = await Promise.all(
-          batch.map(async ([logGroupName, accountId]) => {
-            let nextToken: string | undefined;
-            let metricFilterCount = 0;
-
-            do {
-              const response = await withAwsServiceErrorContext(
-                'Amazon CloudWatch Logs',
-                'DescribeMetricFilters',
-                region,
-                () =>
-                  client.send(
-                    new DescribeMetricFiltersCommand({
-                      logGroupName,
-                      nextToken,
-                    }),
-                  ),
-              );
-
-              metricFilterCount += (response.metricFilters ?? []).length;
-              nextToken = response.nextToken;
-            } while (nextToken);
-
-            return {
-              accountId,
-              logGroupName,
-              metricFilterCount,
-              region,
-            } satisfies AwsCloudWatchLogMetricFilterCoverage;
-          }),
-        );
-
-        coverage.push(...hydratedBatch);
-      }
-
-      return coverage;
     }),
   );
 

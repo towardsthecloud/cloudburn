@@ -141,23 +141,6 @@ describe('rule metadata', () => {
     });
   });
 
-  it('defines the expected CloudWatch no-metric-filters rule metadata', () => {
-    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-CLOUDWATCH-3');
-
-    expect(rule).toBeDefined();
-    expect(rule).toMatchObject({
-      id: 'CLDBRN-AWS-CLOUDWATCH-3',
-      name: 'CloudWatch Log Group No Metric Filters',
-      description: 'Flag CloudWatch log groups storing at least 1 GB when they define no metric filters.',
-      message:
-        'CloudWatch log groups storing at least 1 GB should define metric filters or reduce retention aggressively.',
-      provider: 'aws',
-      service: 'cloudwatch',
-      supports: ['discovery'],
-      discoveryDependencies: ['aws-cloudwatch-log-groups', 'aws-cloudwatch-log-metric-filter-coverage'],
-    });
-  });
-
   it('defines the expected S3 lifecycle rule metadata', () => {
     const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-S3-1');
 
@@ -909,22 +892,6 @@ describe('rule metadata', () => {
     });
   });
 
-  it('defines the expected Lambda provisioned-concurrency rule metadata', () => {
-    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-LAMBDA-5');
-
-    expect(rule).toBeDefined();
-    expect(rule).toMatchObject({
-      id: 'CLDBRN-AWS-LAMBDA-5',
-      name: 'Lambda Provisioned Concurrency Configured',
-      description: 'Flag explicit Lambda provisioned concurrency configuration for cost review.',
-      message: 'Lambda provisioned concurrency should be reviewed for steady low-latency demand.',
-      provider: 'aws',
-      service: 'lambda',
-      supports: ['iac'],
-      staticDependencies: ['aws-lambda-provisioned-concurrency'],
-    });
-  });
-
   it('defines the expected RDS idle-instance rule metadata', () => {
     const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-RDS-2');
 
@@ -1119,23 +1086,6 @@ describe('rule metadata', () => {
       supports: ['discovery', 'iac'],
       discoveryDependencies: ['aws-redshift-clusters'],
       staticDependencies: ['aws-redshift-clusters'],
-    });
-  });
-
-  it('defines the expected API Gateway caching-disabled rule metadata', () => {
-    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-APIGATEWAY-1');
-
-    expect(rule).toBeDefined();
-    expect(rule).toMatchObject({
-      id: 'CLDBRN-AWS-APIGATEWAY-1',
-      name: 'API Gateway Stage Caching Disabled',
-      description: 'Flag API Gateway REST API stages with caching disabled.',
-      message: 'API Gateway REST API stages should enable caching when stage caching is available.',
-      provider: 'aws',
-      service: 'apigateway',
-      supports: ['discovery', 'iac'],
-      discoveryDependencies: ['aws-apigateway-stages'],
-      staticDependencies: ['aws-apigateway-stages'],
     });
   });
 

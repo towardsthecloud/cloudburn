@@ -8,7 +8,6 @@ import {
   type Rule,
 } from '@cloudburn/rules';
 import type { EvaluatedResource, ScanDiagnostic } from '../../types.js';
-import { hydrateAwsApiGatewayStages } from './resources/apigateway.js';
 import {
   hydrateAwsCloudFrontDistributionRequestActivity,
   hydrateAwsCloudFrontDistributions,
@@ -17,7 +16,6 @@ import { hydrateAwsCloudTrailTrails } from './resources/cloudtrail.js';
 import {
   hydrateAwsCloudWatchLogGroupRecentStreamActivity,
   hydrateAwsCloudWatchLogGroups,
-  hydrateAwsCloudWatchLogMetricFilterCoverage,
   hydrateAwsCloudWatchLogStreams,
 } from './resources/cloudwatch-logs.js';
 import { hydrateAwsCostUsage } from './resources/cost-explorer.js';
@@ -106,7 +104,6 @@ export type AwsDiscoveryDatasetDefinition<K extends DiscoveryDatasetKey = Discov
   toEvaluationResources?: (resources: DiscoveryDatasetMap[K]) => EvaluationResourceProjection[];
   resourceTypes: string[];
   service:
-    | 'apigateway'
     | 'cloudfront'
     | 'cloudtrail'
     | 'cloudwatch'
@@ -197,13 +194,6 @@ const awsRuleEvaluationOverrides: Record<string, AwsRuleEvaluationOverride> = {
 const awsDiscoveryDatasetRegistry: {
   [K in DiscoveryDatasetKey]: AwsDiscoveryDatasetDefinition<K>;
 } = {
-  'aws-apigateway-stages': {
-    datasetKey: 'aws-apigateway-stages',
-    resourceTypes: ['apigateway:restapis/stages'],
-    service: 'apigateway',
-    load: hydrateAwsApiGatewayStages,
-    toEvaluationResources: (stages) => mapEvaluationResources(stages, (stage) => stage.stageArn),
-  },
   'aws-cloudtrail-trails': {
     datasetKey: 'aws-cloudtrail-trails',
     resourceTypes: ['cloudtrail:trail'],
@@ -259,12 +249,6 @@ const awsDiscoveryDatasetRegistry: {
           name: logGroup.logGroupName,
         }),
       ),
-  },
-  'aws-cloudwatch-log-metric-filter-coverage': {
-    datasetKey: 'aws-cloudwatch-log-metric-filter-coverage',
-    resourceTypes: ['logs:log-group'],
-    service: 'cloudwatch',
-    load: hydrateAwsCloudWatchLogMetricFilterCoverage,
   },
   'aws-cloudwatch-log-streams': {
     datasetKey: 'aws-cloudwatch-log-streams',

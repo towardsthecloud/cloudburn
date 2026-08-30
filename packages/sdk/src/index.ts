@@ -13,7 +13,6 @@ export {
 export { isAwsDiscoveryErrorCode } from './providers/aws/errors.js';
 export { CloudBurnClient } from './scanner.js';
 export type {
-  AwsApiGatewayStage,
   AwsCloudFrontDistribution,
   AwsCloudTrailTrail,
   AwsCloudWatchLogGroup,
