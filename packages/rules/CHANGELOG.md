@@ -1,5 +1,12 @@
 # @cloudburn/rules
 
+## 0.28.0
+
+### Minor Changes
+
+- [#164](https://github.com/towardsthecloud/cloudburn/pull/164) [`5fa14dc`](https://github.com/towardsthecloud/cloudburn/commit/5fa14dc0ffe090c4d2d0ff2ccbb4f73344beb12b) Thanks [@axonstone](https://github.com/axonstone)! - Add optional discovery evaluation evidence with normalized resource identities, complete rule metadata, and explicit
+  triggered, passed, or not-applicable outcomes for generic SDK consumers.
+
 ## 0.27.0
 
 ### Minor Changes
