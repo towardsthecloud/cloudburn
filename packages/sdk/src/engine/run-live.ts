@@ -1,6 +1,6 @@
 import { emitDebugLog } from '../debug.js';
 import { discoverAwsResources } from '../providers/aws/discovery.js';
-import { getAwsEvaluationResources } from '../providers/aws/discovery-registry.js';
+import { getAwsRuleEvaluationResourceSet } from '../providers/aws/discovery-registry.js';
 import type { AwsDiscoveryProgressEvent, AwsDiscoveryTarget, CloudBurnConfig, ScanResult } from '../types.js';
 import { groupFindingsByProvider } from './group-findings.js';
 import { buildRuleRegistry } from './registry.js';
@@ -72,19 +72,13 @@ export const runLiveScan = async (
       }
 
       if (options?.includeEvaluationResources) {
-        const evaluationDataset = rule.evaluationDataset ?? rule.discoveryDependencies?.[0];
-        if (!evaluationDataset) {
-          throw new Error(`Discovery rule ${rule.id} does not declare an evaluation dataset.`);
-        }
-        if (!evaluationResourceSets.has(evaluationDataset)) {
-          evaluationResourceSets.set(evaluationDataset, {
-            id: evaluationDataset,
-            resources: getAwsEvaluationResources(evaluationDataset, liveContext.resources),
-          });
+        const evaluationResourceSet = getAwsRuleEvaluationResourceSet(rule, liveContext.resources);
+        if (!evaluationResourceSets.has(evaluationResourceSet.id)) {
+          evaluationResourceSets.set(evaluationResourceSet.id, evaluationResourceSet);
         }
         evaluationRules.push({
           provider: rule.provider,
-          resourceSetId: evaluationDataset,
+          resourceSetId: evaluationResourceSet.id,
           ruleId: rule.id,
           service: rule.service,
           source: 'discovery',

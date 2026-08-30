@@ -1,7 +1,6 @@
 import { fileURLToPath } from 'node:url';
-import { LiveResourceBag } from '@cloudburn/rules';
+import { awsRules, LiveResourceBag } from '@cloudburn/rules';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { buildRuleRegistry } from '../src/engine/registry.js';
 import { createEc2Client } from '../src/providers/aws/client.js';
 import { discoverAwsResources } from '../src/providers/aws/discovery.js';
 import { CloudBurnClient } from '../src/scanner.js';
@@ -145,17 +144,111 @@ describe('CloudBurnClient', () => {
     });
   });
 
-  it('reports evaluation resources for every rule in the core discovery preset', async () => {
+  it('uses the same CloudWatch log group identity for findings and evaluation resources', async () => {
+    const logGroupArn = 'arn:aws:logs:us-east-1:123456789012:log-group:/aws/lambda/app';
+    mockedDiscoverAwsResources.mockResolvedValue({
+      catalog: discoveryCatalog,
+      resources: new LiveResourceBag({
+        'aws-cloudwatch-log-groups': [
+          {
+            accountId: '123456789012',
+            logGroupArn,
+            logGroupName: '/aws/lambda/app',
+            region: 'us-east-1',
+          },
+        ],
+        'aws-cloudwatch-log-group-recent-stream-activity': [],
+      }),
+    });
+
+    const result = await new CloudBurnClient().discover({
+      config: {
+        discovery: { enabledRules: ['CLDBRN-AWS-CLOUDWATCH-2'] },
+        iac: {},
+      },
+      includeEvaluationResources: true,
+    });
+
+    expect(result.providers[0]?.rules[0]?.findings[0]?.resourceId).toBe(logGroupArn);
+    expect(result.evaluations?.resourceSets[0]?.resources[0]?.resourceId).toBe(logGroupArn);
+  });
+
+  it('reports individual budgets as the resources evaluated by the exceeded-budget rule', async () => {
+    mockedDiscoverAwsResources.mockResolvedValue({
+      catalog: discoveryCatalog,
+      resources: new LiveResourceBag({
+        'aws-cost-guardrail-budgets': [
+          {
+            accountId: '123456789012',
+            budgetCount: 2,
+            budgets: [
+              { actualSpend: 120, budgetLimit: 100, budgetName: 'production', spendUnit: 'USD' },
+              { actualSpend: 40, budgetLimit: 100, budgetName: 'sandbox', spendUnit: 'USD' },
+            ],
+          },
+        ],
+      }),
+    });
+
+    const result = await new CloudBurnClient().discover({
+      config: {
+        discovery: { enabledRules: ['CLDBRN-AWS-COSTGUARDRAILS-3'] },
+        iac: {},
+      },
+      includeEvaluationResources: true,
+    });
+
+    expect(result.evaluations?.resourceSets[0]?.resources).toEqual([
+      { accountId: '123456789012', resourceId: 'budget/production' },
+      { accountId: '123456789012', resourceId: 'budget/sandbox' },
+    ]);
+  });
+
+  it('preserves global regions in evaluation resource identities', async () => {
+    mockedDiscoverAwsResources.mockResolvedValue({
+      catalog: discoveryCatalog,
+      resources: new LiveResourceBag({
+        'aws-cloudfront-distributions': [
+          {
+            accountId: '123456789012',
+            distributionArn: 'arn:aws:cloudfront::123456789012:distribution/E1234567890ABC',
+            distributionId: 'E1234567890ABC',
+            priceClass: 'PriceClass_All',
+            region: 'global',
+          },
+        ],
+      }),
+    });
+
+    const result = await new CloudBurnClient().discover({
+      config: {
+        discovery: { enabledRules: ['CLDBRN-AWS-CLOUDFRONT-1'] },
+        iac: {},
+      },
+      includeEvaluationResources: true,
+    });
+
+    expect(result.evaluations?.resourceSets[0]?.resources[0]).toEqual({
+      accountId: '123456789012',
+      region: 'global',
+      resourceId: 'arn:aws:cloudfront::123456789012:distribution/E1234567890ABC',
+    });
+  });
+
+  it('reports evaluation resources for every built-in discovery rule', async () => {
     mockedDiscoverAwsResources.mockResolvedValue({
       catalog: discoveryCatalog,
       resources: new LiveResourceBag(),
     });
 
     const scanner = new CloudBurnClient();
-    const result = await scanner.discover({ includeEvaluationResources: true });
+    const discoveryRuleIds = awsRules.filter((rule) => rule.supports.includes('discovery')).map((rule) => rule.id);
+    const result = await scanner.discover({
+      config: { discovery: { enabledRules: discoveryRuleIds }, iac: {} },
+      includeEvaluationResources: true,
+    });
 
-    const activeDiscoveryRules = buildRuleRegistry({ discovery: {}, iac: {} }, 'discovery').activeRules;
-    expect(result.evaluations?.rules).toHaveLength(activeDiscoveryRules.length);
+    expect(result.evaluations?.rules).toHaveLength(discoveryRuleIds.length);
     expect(result.evaluations?.resourceSets.every((resourceSet) => resourceSet.resources.length === 0)).toBe(true);
   });
 

@@ -1141,8 +1141,6 @@ export type Rule = {
   severity: Severity;
   supports: Source[];
   discoveryDependencies?: DiscoveryDatasetKey[];
-  /** Overrides the first discovery dependency used as this rule's evaluation resource set. */
-  evaluationDataset?: DiscoveryDatasetKey;
   staticDependencies?: StaticDatasetKey[];
   evaluateLive?: (context: LiveEvaluationContext) => Finding | null;
   evaluateStatic?: (context: StaticEvaluationContext) => Finding | null;

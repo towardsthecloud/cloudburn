@@ -21,7 +21,6 @@ export const route53RecordHigherTtlRule = createRule({
   service: RULE_SERVICE,
   supports: ['discovery', 'iac'],
   discoveryDependencies: ['aws-route53-zones', 'aws-route53-records'],
-  evaluationDataset: 'aws-route53-records',
   staticDependencies: ['aws-route53-records'],
   evaluateLive: ({ resources }) => {
     const knownZones = new Set(resources.get('aws-route53-zones').map((zone) => zone.hostedZoneId));
@@ -30,9 +29,7 @@ export const route53RecordHigherTtlRule = createRule({
       // Alias records inherit TTL from their targets and are intentionally excluded from the review.
       .filter((record) => !record.isAlias && knownZones.has(record.hostedZoneId) && record.ttl !== undefined)
       .filter((record) => (record.ttl ?? LOW_TTL_SECONDS) < LOW_TTL_SECONDS)
-      .map((record) =>
-        createFindingMatch(record.recordId, record.region === 'global' ? undefined : record.region, record.accountId),
-      );
+      .map((record) => createFindingMatch(record.recordId, record.region, record.accountId));
 
     return createFinding(
       { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },

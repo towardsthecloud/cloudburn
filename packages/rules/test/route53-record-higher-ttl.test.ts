@@ -50,6 +50,7 @@ describe('route53RecordHigherTtlRule', () => {
     expect(finding?.findings).toEqual([
       {
         accountId: '123456789012',
+        region: 'global',
         resourceId: 'arn:aws:route53:::hostedzone/Z1234567890ABC/recordset/api.example.com./A',
       },
     ]);

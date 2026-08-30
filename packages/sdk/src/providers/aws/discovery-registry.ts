@@ -5,6 +5,7 @@ import {
   type DiscoveryDatasetMap,
   type FindingMatch,
   type LiveResourceBag,
+  type Rule,
 } from '@cloudburn/rules';
 import type { ScanDiagnostic } from '../../types.js';
 import { hydrateAwsApiGatewayStages } from './resources/apigateway.js';
@@ -138,13 +139,37 @@ const mapEvaluationResources = <T extends { accountId: string; region?: string }
   resources: T[],
   getResourceId: (resource: T) => string,
 ): FindingMatch[] =>
-  resources.map((resource) =>
-    createFindingMatch(
-      getResourceId(resource),
-      resource.region && resource.region !== 'global' ? resource.region : undefined,
-      resource.accountId,
-    ),
-  );
+  resources.map((resource) => createFindingMatch(getResourceId(resource), resource.region, resource.accountId));
+
+type AwsRuleEvaluationOverride = {
+  datasetKey: DiscoveryDatasetKey;
+  resourceSetId?: string;
+  toEvaluationResources?: (resources: LiveResourceBag) => FindingMatch[];
+};
+
+const awsRuleEvaluationOverrides: Record<string, AwsRuleEvaluationOverride> = {
+  'CLDBRN-AWS-CLOUDWATCH-2': {
+    datasetKey: 'aws-cloudwatch-log-groups',
+    resourceSetId: 'aws-cloudwatch-log-groups:arns',
+    toEvaluationResources: (resources) =>
+      mapEvaluationResources(resources.get('aws-cloudwatch-log-groups'), (logGroup) => logGroup.logGroupArn),
+  },
+  'CLDBRN-AWS-COSTGUARDRAILS-3': {
+    datasetKey: 'aws-cost-guardrail-budgets',
+    resourceSetId: 'aws-cost-guardrail-budgets:budgets',
+    toEvaluationResources: (resources) =>
+      resources
+        .get('aws-cost-guardrail-budgets')
+        .flatMap((summary) =>
+          (summary.budgets ?? []).map((budget) =>
+            createFindingMatch(`budget/${budget.budgetName}`, undefined, summary.accountId),
+          ),
+        ),
+  },
+  'CLDBRN-AWS-ROUTE53-1': {
+    datasetKey: 'aws-route53-records',
+  },
+};
 
 const awsDiscoveryDatasetRegistry: {
   [K in DiscoveryDatasetKey]: AwsDiscoveryDatasetDefinition<K>;
@@ -562,16 +587,13 @@ export const getAwsDiscoveryDatasetDefinition = (datasetKey: string): AwsDiscove
 };
 
 /**
- * Returns normalized resource identities for a rule's primary evaluation dataset.
+ * Returns normalized resource identities for one discovery dataset.
  *
  * @param datasetKey - Dataset selected by the rule as its evaluated resource set.
  * @param resources - Loaded live resource bag for the current scan.
  * @returns Every resource identity represented by the selected dataset.
  */
-export const getAwsEvaluationResources = (
-  datasetKey: DiscoveryDatasetKey,
-  resources: LiveResourceBag,
-): FindingMatch[] => {
+const getAwsEvaluationResources = (datasetKey: DiscoveryDatasetKey, resources: LiveResourceBag): FindingMatch[] => {
   const definition = awsDiscoveryDatasetRegistry[datasetKey];
   const toEvaluationResources = definition.toEvaluationResources as
     | ((dataset: DiscoveryDatasetMap[typeof datasetKey]) => FindingMatch[])
@@ -580,4 +602,23 @@ export const getAwsEvaluationResources = (
     throw new Error(`Discovery dataset ${datasetKey} does not expose evaluation resource identities.`);
   }
   return toEvaluationResources(resources.get(datasetKey));
+};
+
+/** Resolves the SDK-owned evaluated resource projection for one discovery rule. */
+export const getAwsRuleEvaluationResourceSet = (
+  rule: Pick<Rule, 'discoveryDependencies' | 'id'>,
+  resources: LiveResourceBag,
+): { id: string; resources: FindingMatch[] } => {
+  const override = awsRuleEvaluationOverrides[rule.id];
+  const datasetKey = override?.datasetKey ?? rule.discoveryDependencies?.[0];
+  if (!datasetKey) {
+    throw new Error(`Discovery rule ${rule.id} does not declare an evaluation dataset.`);
+  }
+
+  return {
+    id: override?.resourceSetId ?? datasetKey,
+    resources: override?.toEvaluationResources
+      ? override.toEvaluationResources(resources)
+      : getAwsEvaluationResources(datasetKey, resources),
+  };
 };

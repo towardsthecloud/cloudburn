@@ -61,6 +61,7 @@ describe('route53HealthCheckUnusedRule', () => {
     expect(finding?.findings).toEqual([
       {
         accountId: '123456789012',
+        region: 'global',
         resourceId: 'arn:aws:route53:::healthcheck/abcdef12-3456-7890-abcd-ef1234567890',
       },
     ]);
