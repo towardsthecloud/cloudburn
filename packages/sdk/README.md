@@ -73,9 +73,17 @@ const explicitRegion = await client.discover({
 const multipleRegions = await client.discover({
   target: { mode: 'regions', regions: ['eu-central-1', 'us-east-1'] },
 });
+const auditableResult = await client.discover({
+  includeEvaluationResources: true,
+});
 ```
 
 `discover()` defaults to the current AWS region and the AWS Core preset. You can also target one or more explicit AWS regions with `{ target: { mode: 'regions', regions: [...] } }`. Multi-region discovery requires an AWS Resource Explorer aggregator index. Account-wide rules such as `CLDBRN-AWS-TAGGING-1` are opt-in through `config.discovery.enabledRules` and also require an accessible aggregator.
+
+Set `includeEvaluationResources` when a caller needs audit evidence for checks that did not produce findings. The
+optional `result.evaluations` value contains normalized identities from the primary resource dataset supplied to each
+completed live rule. Shared resource sets are emitted once and referenced by rule entries. Rules skipped because a
+required dataset was unavailable remain represented by diagnostics instead.
 
 ### Lower-level helpers
 

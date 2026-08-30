@@ -82,6 +82,7 @@ export class CloudBurnClient {
     config?: Partial<CloudBurnConfig>;
     configPath?: string;
     aws?: { credentials?: AwsClientCredentials };
+    includeEvaluationResources?: boolean;
     onProgress?: (event: AwsDiscoveryProgressEvent) => void;
   }): Promise<ScanResult> {
     emitDebugLog(this.options?.debugLogger, 'sdk: starting live discovery scan');
@@ -90,6 +91,7 @@ export class CloudBurnClient {
     const run = async () => {
       const result = await runLiveScan(effectiveConfig, options?.target ?? { mode: 'current' }, {
         debugLogger: this.options?.debugLogger,
+        includeEvaluationResources: options?.includeEvaluationResources,
         onProgress: options?.onProgress,
       });
       const threshold = effectiveConfig.discovery.failOn;

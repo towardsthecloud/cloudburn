@@ -1,5 +1,6 @@
 import { emitDebugLog } from '../debug.js';
 import { discoverAwsResources } from '../providers/aws/discovery.js';
+import { getAwsRuleEvaluationResourceSet } from '../providers/aws/discovery-registry.js';
 import type { AwsDiscoveryProgressEvent, AwsDiscoveryTarget, CloudBurnConfig, ScanResult } from '../types.js';
 import { groupFindingsByProvider } from './group-findings.js';
 import { buildRuleRegistry } from './registry.js';
@@ -9,6 +10,7 @@ export const runLiveScan = async (
   target: AwsDiscoveryTarget,
   options?: {
     debugLogger?: (message: string) => void;
+    includeEvaluationResources?: boolean;
     onProgress?: (event: AwsDiscoveryProgressEvent) => void;
   },
 ): Promise<ScanResult> => {
@@ -32,6 +34,8 @@ export const runLiveScan = async (
             : [],
         );
   const scanDiagnostics = [...diagnostics];
+  const evaluationRules: NonNullable<ScanResult['evaluations']>['rules'] = [];
+  const evaluationResourceSets = new Map<string, NonNullable<ScanResult['evaluations']>['resourceSets'][number]>();
   const findings = groupFindingsByProvider(
     registry.activeRules.map((rule) => {
       if (!rule.supports.includes('discovery') || !rule.evaluateLive) {
@@ -67,6 +71,20 @@ export const runLiveScan = async (
         };
       }
 
+      if (options?.includeEvaluationResources) {
+        const evaluationResourceSet = getAwsRuleEvaluationResourceSet(rule, liveContext.resources);
+        if (!evaluationResourceSets.has(evaluationResourceSet.id)) {
+          evaluationResourceSets.set(evaluationResourceSet.id, evaluationResourceSet);
+        }
+        evaluationRules.push({
+          provider: rule.provider,
+          resourceSetId: evaluationResourceSet.id,
+          ruleId: rule.id,
+          service: rule.service,
+          source: 'discovery',
+        });
+      }
+
       return {
         provider: rule.provider,
         finding: rule.evaluateLive(liveContext),
@@ -76,6 +94,9 @@ export const runLiveScan = async (
 
   return {
     ...(scanDiagnostics.length > 0 ? { diagnostics: scanDiagnostics } : {}),
+    ...(options?.includeEvaluationResources
+      ? { evaluations: { resourceSets: [...evaluationResourceSets.values()], rules: evaluationRules } }
+      : {}),
     providers: findings,
   };
 };

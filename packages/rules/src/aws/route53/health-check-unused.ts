@@ -24,13 +24,7 @@ export const route53HealthCheckUnusedRule = createRule({
     const findings = resources
       .get('aws-route53-health-checks')
       .filter((healthCheck) => !referencedHealthChecks.has(healthCheck.healthCheckId))
-      .map((healthCheck) =>
-        createFindingMatch(
-          healthCheck.healthCheckArn,
-          healthCheck.region === 'global' ? undefined : healthCheck.region,
-          healthCheck.accountId,
-        ),
-      );
+      .map((healthCheck) => createFindingMatch(healthCheck.healthCheckArn, healthCheck.region, healthCheck.accountId));
 
     return createFinding(
       { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },

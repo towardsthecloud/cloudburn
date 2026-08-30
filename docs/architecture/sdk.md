@@ -69,7 +69,8 @@ graph TD
 6. Load only the required datasets (including hydrator-backed loaders when needed).
 7. Build `LiveEvaluationContext` with `{ catalog, resources: LiveResourceBag }`.
 8. Invoke each live evaluator.
-9. Group non-null rule findings under `providers -> rules -> findings`.
+9. When requested, resolve each rule's evaluated resource projection through the SDK-owned AWS evaluation registry.
+10. Group non-null rule findings under `providers -> rules -> findings` and attach evaluation evidence to `evaluations`.
 
 Current live-discovery behavior:
 
