@@ -163,6 +163,43 @@ describe('CloudBurnClient', () => {
     });
   });
 
+  it('preserves concrete resource types for mixed account-wide evaluation resources', async () => {
+    mockedDiscoverAwsResources.mockResolvedValue({
+      catalog: discoveryCatalog,
+      resources: new LiveResourceBag({
+        'aws-resource-explorer-untagged-resources': [
+          {
+            accountId: '123456789012',
+            arn: 'arn:aws:ec2:us-east-1:123456789012:instance/i-123',
+            region: 'us-east-1',
+            resourceType: 'ec2:instance',
+            service: 'ec2',
+          },
+          {
+            accountId: '123456789012',
+            arn: 'arn:aws:s3:::example-bucket',
+            region: 'global',
+            resourceType: 's3:bucket',
+            service: 's3',
+          },
+        ],
+      }),
+    });
+
+    const result = await new CloudBurnClient().discover({
+      config: {
+        discovery: { enabledRules: ['CLDBRN-AWS-TAGGING-1'] },
+        iac: {},
+      },
+      includeEvaluationResources: true,
+    });
+
+    expect(result.evaluations?.resourceSets[0]?.resources).toEqual([
+      expect.objectContaining({ resourceType: 'ec2:instance' }),
+      expect.objectContaining({ resourceType: 's3:bucket' }),
+    ]);
+  });
+
   it('reports a completed rule with no findings as passed', async () => {
     mockedDiscoverAwsResources.mockResolvedValue({
       catalog: discoveryCatalog,

@@ -670,7 +670,12 @@ const awsDiscoveryDatasetRegistry: {
     resourceTypes: [],
     service: 'tagging',
     load: hydrateAwsUntaggedResources,
-    toEvaluationResources: (resources) => mapEvaluationResources(resources, (resource) => resource.arn),
+    toEvaluationResources: (resources) =>
+      mapEvaluationResources(
+        resources,
+        (resource) => resource.arn,
+        (resource) => ({ arn: resource.arn, resourceType: resource.resourceType }),
+      ),
   },
   'aws-secretsmanager-secrets': {
     datasetKey: 'aws-secretsmanager-secrets',
