@@ -1,4 +1,5 @@
 import { costGuardrailExceededBudgetsRule } from './exceeded-budgets.js';
+import { costGuardrailForecastedBudgetBreachRule } from './forecasted-budget-breach.js';
 import { costGuardrailMissingAnomalyDetectionRule } from './missing-anomaly-detection.js';
 import { costGuardrailMissingBudgetsRule } from './missing-budgets.js';
 
@@ -7,4 +8,5 @@ export const costguardrailsRules = [
   costGuardrailMissingBudgetsRule,
   costGuardrailMissingAnomalyDetectionRule,
   costGuardrailExceededBudgetsRule,
+  costGuardrailForecastedBudgetBreachRule,
 ];

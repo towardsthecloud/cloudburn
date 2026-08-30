@@ -167,22 +167,25 @@ type AwsRuleEvaluationOverride = {
   toEvaluationResources?: (resources: LiveResourceBag) => EvaluationResourceProjection[];
 };
 
+const costGuardrailBudgetEvaluationOverride = {
+  datasetKey: 'aws-cost-guardrail-budgets',
+  resourceSetId: 'aws-cost-guardrail-budgets:budgets',
+  toEvaluationResources: (resources) =>
+    resources
+      .get('aws-cost-guardrail-budgets')
+      .flatMap((summary) =>
+        (summary.budgets ?? []).map((budget) =>
+          createFindingMatch(`budget/${budget.budgetName}`, undefined, summary.accountId),
+        ),
+      ),
+} satisfies AwsRuleEvaluationOverride;
+
 const awsRuleEvaluationOverrides: Record<string, AwsRuleEvaluationOverride> = {
   'CLDBRN-AWS-CLOUDWATCH-2': {
     datasetKey: 'aws-cloudwatch-log-group-recent-stream-activity',
   },
-  'CLDBRN-AWS-COSTGUARDRAILS-3': {
-    datasetKey: 'aws-cost-guardrail-budgets',
-    resourceSetId: 'aws-cost-guardrail-budgets:budgets',
-    toEvaluationResources: (resources) =>
-      resources
-        .get('aws-cost-guardrail-budgets')
-        .flatMap((summary) =>
-          (summary.budgets ?? []).map((budget) =>
-            createFindingMatch(`budget/${budget.budgetName}`, undefined, summary.accountId),
-          ),
-        ),
-  },
+  'CLDBRN-AWS-COSTGUARDRAILS-3': costGuardrailBudgetEvaluationOverride,
+  'CLDBRN-AWS-COSTGUARDRAILS-4': costGuardrailBudgetEvaluationOverride,
   'CLDBRN-AWS-ELB-5': {
     datasetKey: 'aws-ec2-load-balancers',
   },

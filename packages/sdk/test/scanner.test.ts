@@ -313,6 +313,65 @@ describe('CloudBurnClient', () => {
     ]);
   });
 
+  it('reports individual budgets as the resources evaluated by the forecasted-breach rule', async () => {
+    mockedDiscoverAwsResources.mockResolvedValue({
+      catalog: discoveryCatalog,
+      resources: new LiveResourceBag({
+        'aws-cost-guardrail-budgets': [
+          {
+            accountId: '123456789012',
+            budgetCount: 2,
+            budgets: [
+              {
+                actualSpend: 75,
+                budgetLimit: 100,
+                budgetName: 'production',
+                forecastedSpend: 125,
+                spendUnit: 'USD',
+              },
+              {
+                actualSpend: 40,
+                budgetLimit: 100,
+                budgetName: 'sandbox',
+                forecastedSpend: 80,
+                spendUnit: 'USD',
+              },
+            ],
+          },
+        ],
+      }),
+    });
+
+    const result = await new CloudBurnClient().discover({
+      config: {
+        discovery: { enabledRules: ['CLDBRN-AWS-COSTGUARDRAILS-4'] },
+        iac: {},
+      },
+      includeEvaluationResources: true,
+    });
+
+    expect(result.providers[0]?.rules[0]?.findings).toEqual([
+      {
+        accountId: '123456789012',
+        resourceId: 'budget/production',
+      },
+    ]);
+    expect(result.evaluations?.resourceSets[0]?.resources).toEqual([
+      {
+        accountId: '123456789012',
+        region: 'global',
+        resourceId: 'budget/production',
+        resourceType: 'costguardrails',
+      },
+      {
+        accountId: '123456789012',
+        region: 'global',
+        resourceId: 'budget/sandbox',
+        resourceType: 'costguardrails',
+      },
+    ]);
+  });
+
   it('preserves global regions in evaluation resource identities', async () => {
     mockedDiscoverAwsResources.mockResolvedValue({
       catalog: discoveryCatalog,
