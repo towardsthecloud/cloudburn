@@ -228,14 +228,14 @@ export const hydrateAwsCloudWatchLogGroupRecentStreamActivity = async (
         regionResources.flatMap((resource) => {
           const logGroupName = extractLogGroupName(resource.arn);
 
-          return logGroupName ? [[logGroupName, resource.accountId] as const] : [];
+          return logGroupName ? [[logGroupName, resource] as const] : [];
         }),
       );
       const activity: AwsCloudWatchLogGroupRecentStreamActivity[] = [];
 
       for (const batch of chunkItems([...desiredLogGroups.entries()], CLOUDWATCH_LOG_GROUP_HYDRATION_CONCURRENCY)) {
         const hydratedBatch = await Promise.all(
-          batch.map(async ([logGroupName, discoveredAccountId]) => {
+          batch.map(async ([logGroupName, discoveredResource]) => {
             const response = await withAwsServiceErrorContext(
               'Amazon CloudWatch Logs',
               'DescribeLogStreams',
@@ -251,13 +251,20 @@ export const hydrateAwsCloudWatchLogGroupRecentStreamActivity = async (
                 ),
             );
             const latestStream = response.logStreams?.[0];
+            const latestActivityTimestamp =
+              latestStream?.lastEventTimestamp !== undefined || latestStream?.lastIngestionTime !== undefined
+                ? Math.max(latestStream?.lastEventTimestamp ?? 0, latestStream?.lastIngestionTime ?? 0)
+                : undefined;
 
             return {
-              accountId: (latestStream?.arn ? extractAccountIdFromArn(latestStream.arn) : null) ?? discoveredAccountId,
+              accountId:
+                (latestStream?.arn ? extractAccountIdFromArn(latestStream.arn) : null) ?? discoveredResource.accountId,
+              ...(latestActivityTimestamp ? { lastActivityAt: new Date(latestActivityTimestamp).toISOString() } : {}),
               lastEventTimestamp: latestStream?.lastEventTimestamp,
               lastIngestionTime: latestStream?.lastIngestionTime,
               latestStreamArn: latestStream?.arn,
               latestStreamName: latestStream?.logStreamName,
+              logGroupArn: discoveredResource.arn,
               logGroupName,
               region,
             } satisfies AwsCloudWatchLogGroupRecentStreamActivity;

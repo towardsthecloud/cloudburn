@@ -18,7 +18,9 @@ import type {
   AwsSupportedResourceType,
   CloudBurnConfig,
   ScanResult,
+  UnusedResourcesScanResult,
 } from './types.js';
+import { awsUnusedResourceRules, buildUnusedResourcesScanResult } from './unused-resources.js';
 
 /**
  * High-level SDK facade for CloudBurn scans and config loading.
@@ -98,6 +100,37 @@ export class CloudBurnClient {
 
       return threshold === undefined ? result : { ...result, policy: evaluateScanPolicy(result, threshold) };
     };
+
+    return options?.aws?.credentials ? withAwsClientCredentials(options.aws.credentials, run) : run();
+  }
+
+  /**
+   * Runs the SDK-owned AWS unused-resources profile and returns findings plus
+   * complete passed/not-applicable check evidence ready for persistence or UI rendering.
+   *
+   * @param options - Optional discovery target, progress callback,
+   *   and AWS credentials to use instead of the ambient credential provider chain.
+   * @returns A self-contained unused-resources scan result.
+   */
+  public async discoverUnusedResources(options?: {
+    target?: AwsDiscoveryTarget;
+    aws?: { credentials?: AwsClientCredentials };
+    onProgress?: (event: AwsDiscoveryProgressEvent) => void;
+  }): Promise<UnusedResourcesScanResult> {
+    emitDebugLog(this.options?.debugLogger, 'sdk: starting unused-resources discovery scan');
+    const config: CloudBurnConfig = {
+      discovery: { enabledRules: awsUnusedResourceRules.map((rule) => rule.id) },
+      iac: {},
+    };
+
+    const run = async () =>
+      buildUnusedResourcesScanResult(
+        await runLiveScan(config, options?.target ?? { mode: 'current' }, {
+          debugLogger: this.options?.debugLogger,
+          includeEvaluationResources: true,
+          onProgress: options?.onProgress,
+        }),
+      );
 
     return options?.aws?.credentials ? withAwsClientCredentials(options.aws.credentials, run) : run();
   }

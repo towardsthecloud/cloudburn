@@ -56,7 +56,7 @@ describe('cloudWatchUnusedLogStreamsRule', () => {
         'CloudWatch log groups whose most recent stream activity is older than 90 days should be reviewed or removed.',
       findings: [
         {
-          resourceId: 'arn:aws:logs:us-east-1:123456789012:log-group:/aws/lambda/app',
+          resourceId: '/aws/lambda/app',
           region: 'us-east-1',
           accountId: '123456789012',
         },
@@ -81,7 +81,7 @@ describe('cloudWatchUnusedLogStreamsRule', () => {
 
     expect(finding?.findings).toEqual([
       {
-        resourceId: 'arn:aws:logs:us-east-1:123456789012:log-group:/aws/lambda/app',
+        resourceId: '/aws/lambda/app',
         region: 'us-east-1',
         accountId: '123456789012',
       },
@@ -202,7 +202,7 @@ describe('cloudWatchUnusedLogStreamsRule', () => {
 
     expect(finding?.findings).toEqual([
       {
-        resourceId: 'arn:aws:logs:us-east-1:123456789012:log-group:/aws/lambda/app',
+        resourceId: '/aws/lambda/app',
         region: 'us-east-1',
         accountId: '123456789012',
       },
@@ -224,7 +224,7 @@ describe('cloudWatchUnusedLogStreamsRule', () => {
 
     expect(finding?.findings).toEqual([
       {
-        resourceId: 'arn:aws:logs:us-east-1:123456789012:log-group:/aws/lambda/app',
+        resourceId: '/aws/lambda/app',
         region: 'us-east-1',
         accountId: '123456789012',
       },

@@ -68,11 +68,14 @@ export type {
   CloudBurnModeConfig,
   CloudProvider,
   ConfigOutputFormat,
+  EvaluatedResource,
   EvaluationResourceSet,
   Finding,
   FindingMatch,
   ProviderFindingGroup,
   RegisteredRules,
+  RemediationCommand,
+  RemediationEffort,
   Rule,
   RuleConfig,
   RuleEvaluation,
@@ -85,4 +88,13 @@ export type {
   Source,
   SourceLocation,
   SuppressedFinding,
+  UnusedResourceFinding,
+  UnusedResourcesCheckResult,
+  UnusedResourcesScanResult,
+  UnusedResourcesScanSummary,
 } from './types.js';
+export { awsUnusedResourcesProfile } from './unused-resources.js';
+export {
+  isUnusedResourceFinding,
+  isUnusedResourcesScanSummary,
+} from './unused-resources-contract.js';

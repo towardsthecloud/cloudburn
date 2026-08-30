@@ -15,6 +15,13 @@ Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
 The metadata test in `packages/rules/test/rule-metadata.test.ts` currently enforces uniqueness and a gap-free numeric
 sequence for every provider/service pair.
 
+## Presets
+
+- `aws-core` is the default general discovery preset.
+- `aws-unused-resources` is the SDK-owned resource-level optimization profile used by
+  `CloudBurnClient.discoverUnusedResources()`. Explicit membership and remediation descriptors are defined together in
+  `@cloudburn/sdk`; consumers must not recreate them with local inclusion or exclusion lists.
+
 ## Compatibility Status
 
 Rule IDs are public configuration and result references. The repository currently enforces contiguous service sequences,

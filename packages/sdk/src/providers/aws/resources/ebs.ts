@@ -76,6 +76,7 @@ export const hydrateAwsEbsVolumes = async (resources: AwsDiscoveredResource[]): 
             attachments: (volume.Attachments ?? []).map((attachment) => ({
               instanceId: attachment.InstanceId,
             })),
+            createTime: volume.CreateTime?.toISOString(),
             iops: volume.Iops,
             region,
             sizeGiB: volume.Size ?? 0,

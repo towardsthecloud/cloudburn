@@ -109,7 +109,17 @@ type ScanEvaluations = {
 
 type EvaluationResourceSet = {
   id: string;
-  resources: FindingMatch[];
+  resources: EvaluatedResource[];
+};
+
+type EvaluatedResource = Omit<FindingMatch, 'region'> & {
+  region: string; // `global` for account-scoped or global resources
+  resourceType: string;
+  arn?: string;
+  name?: string;
+  tags?: Record<string, string>;
+  createdAt?: string;
+  lastActivityAt?: string;
 };
 
 type RuleEvaluation = {
@@ -123,6 +133,45 @@ type RuleEvaluation = {
 
 Skipped rules do not emit an evaluation entry because their required inputs were unavailable; inspect `diagnostics`
 for the corresponding reason.
+
+## `UnusedResourcesScanResult`
+
+`CloudBurnClient.discoverUnusedResources()` returns a self-contained product contract rather than a raw grouped scan:
+
+```ts
+type UnusedResourcesScanResult = {
+  diagnostics?: ScanDiagnostic[];
+  findings: UnusedResourceFinding[];
+  summary: {
+    findingCount: number;
+    resourceCount: number;
+    ruleCount: number;
+    checks: UnusedResourcesCheckResult[];
+    findingsByRule: Array<unknown>;
+    findingsByService: Array<unknown>;
+  };
+};
+```
+
+Every finding includes normalized resource evidence, rule name and description, service slug and display name,
+remediation effort, and an optional structured command `{ program, args }`. Timestamps remain absolute ISO strings;
+callers calculate relative age when rendering so stored results do not become stale.
+
+Each enabled profile rule appears exactly once in `summary.checks`:
+
+- `triggered` means the rule emitted one or more findings.
+- `passed` means evaluation completed without findings; `resources` contains the compliant resources inspected.
+- `not_applicable` requires an explicit skipped-rule diagnostic and retains its message as `reason`.
+
+Hosts that persist this JSON should validate it with the exported `isUnusedResourceFinding()` and
+`isUnusedResourcesScanSummary()` guards when reading it back. Those guards evolve with the public SDK types and avoid
+duplicating the contract in each consuming application. Import them from `@cloudburn/sdk/unused-resources` when the
+consumer does not otherwise need the scanner runtime.
+
+AWS dataset definitions own evaluated-resource projection. Rule-specific projection overrides belong beside that
+registry, not in host applications. For example, inactive CloudWatch log groups use the log-group name as identity,
+retain the ARN, and expose the newer latest-event/latest-ingestion timestamp as `lastActivityAt`; missing-retention
+checks expose no activity timestamp.
 
 `policy` is present when the effective mode config includes `failOn`. It makes SDK policy behavior observable without
 changing the host process exit code:

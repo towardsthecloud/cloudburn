@@ -48,6 +48,7 @@ export type AwsEbsVolume = {
   attachments?: Array<{
     instanceId?: string;
   }>;
+  createTime?: string;
   region: string;
   accountId: string;
 };
@@ -111,11 +112,13 @@ export type AwsCloudWatchLogStream = {
 
 /** Discovered CloudWatch Logs latest-stream activity summary keyed by log group. */
 export type AwsCloudWatchLogGroupRecentStreamActivity = {
+  logGroupArn?: string;
   logGroupName: string;
   latestStreamArn?: string;
   latestStreamName?: string;
   lastEventTimestamp?: number;
   lastIngestionTime?: number;
+  lastActivityAt?: string;
   region: string;
   accountId: string;
 };

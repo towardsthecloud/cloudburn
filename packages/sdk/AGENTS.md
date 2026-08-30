@@ -15,6 +15,10 @@
 ## Boundaries
 
 - SDK owns config loading, IaC parsing, live discovery, rule registry assembly, and scan orchestration.
+- SDK owns the complete `discoverUnusedResources()` integration contract: profile selection, evaluated-resource
+  projection, service labels, remediation metadata, triggered/passed/not-applicable status, and runtime guards for
+  persisted JSON. Downstream applications persist or render that result and must not recreate rule-ID registries,
+  service-specific AWS enrichment, or validation schemas.
 - SDK owns `.cloudburn.yml` / `.cloudburn.yaml` loading, upward config discovery, mode-specific config validation, and rule registry filtering for `iac` and `discovery`.
 - Static IaC scanning is dataset-driven. Parse only the source kinds required by active `staticDependencies`, then load the requested datasets into `StaticResourceBag`.
 - Live AWS discovery is Resource Explorer first and dataset-driven. Build one catalog, then load only the datasets required by active rules.

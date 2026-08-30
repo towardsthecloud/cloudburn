@@ -137,7 +137,7 @@ describe('rule metadata', () => {
       provider: 'aws',
       service: 'cloudwatch',
       supports: ['discovery'],
-      discoveryDependencies: ['aws-cloudwatch-log-groups', 'aws-cloudwatch-log-group-recent-stream-activity'],
+      discoveryDependencies: ['aws-cloudwatch-log-group-recent-stream-activity', 'aws-cloudwatch-log-groups'],
     });
   });
 

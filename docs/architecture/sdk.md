@@ -7,6 +7,7 @@
   class CloudBurnClient {
     +scanStatic(path: string, config?: Partial~CloudBurnConfig~, options?: { configPath?: string }) Promise~ScanResult~
     +discover(options?: { target?: AwsDiscoveryTarget, config?: Partial~CloudBurnConfig~, configPath?: string }) Promise~ScanResult~
+    +discoverUnusedResources(options?: { target?: AwsDiscoveryTarget }) Promise~UnusedResourcesScanResult~
     +initializeDiscovery(options?: { region?: string }) Promise~AwsDiscoveryInitialization~
     +getDiscoveryStatus(options?: { region?: string }) Promise~AwsDiscoveryStatus~
     +listSupportedDiscoveryResourceTypes() Promise~AwsSupportedResourceType[]~
@@ -14,7 +15,15 @@
   }
 ```
 
-`CloudBurnClient` is the primary public entry point. Static IaC scans go through `scanStatic()`, and live AWS discovery goes through `discover()`. Both methods can accept runtime config overrides plus an explicit `configPath` when callers need to load a specific `.cloudburn.yml` file. When the effective mode config sets `failOn`, the facade evaluates it after the engine returns and attaches the threshold, qualifying count, and violation status to `ScanResult.policy`.
+`CloudBurnClient` is the primary public entry point. Static IaC scans go through `scanStatic()`, general live AWS
+discovery goes through `discover()`, and product integrations use `discoverUnusedResources()` when they need the
+SDK-owned unused-resources profile and a persistence-ready result. The dedicated method deliberately does not expose
+rule-selection flags: the SDK owns profile membership, evidence projection, check status, service labels, remediation
+effort, and structured remediation commands as one contract.
+
+`scanStatic()` and `discover()` can accept runtime config overrides plus an explicit `configPath`. When the effective
+mode config sets `failOn`, the facade evaluates it after the engine returns and attaches the threshold, qualifying
+count, and violation status to `ScanResult.policy`.
 
 ## Engine Flow
 
@@ -75,6 +84,11 @@ graph TD
 Current live-discovery behavior:
 
 - `discover` is the live entrypoint for both the CLI and direct SDK callers.
+- `discoverUnusedResources` reuses the same live engine with the explicit `aws-unused-resources` profile and always requests
+  evaluation evidence. `src/unused-resources.ts` joins findings to that evidence and returns triggered, passed, and
+  not-applicable checks without requiring a host application to understand rule IDs or AWS services. The same module
+  exports runtime guards for hosts that read this contract back from JSON storage. The
+  `@cloudburn/sdk/unused-resources` subpath exposes that contract without loading the full scanner entrypoint.
 - `discoverAwsResources` in `src/providers/aws/discovery.ts` is the AWS live orchestration entrypoint.
 - Default discovery target is the current region (see [`docs/architecture/cli.md`](cli.md) for the full resolution order).
 - Explicit discovery uses `target: { mode: 'regions', regions: [...] }`.
@@ -98,7 +112,8 @@ Current live-discovery behavior:
 
 ## Public Result Shape
 
-See [`docs/reference/finding-shape.md`](../reference/finding-shape.md) for the full `ScanResult`, `Finding`, and `FindingMatch` type contracts.
+See [`docs/reference/finding-shape.md`](../reference/finding-shape.md) for the full general scan and unused-resources
+result contracts.
 
 ## Parser Layer
 

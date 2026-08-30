@@ -7,7 +7,7 @@ import {
   type LiveResourceBag,
   type Rule,
 } from '@cloudburn/rules';
-import type { ScanDiagnostic } from '../../types.js';
+import type { EvaluatedResource, ScanDiagnostic } from '../../types.js';
 import { hydrateAwsApiGatewayStages } from './resources/apigateway.js';
 import {
   hydrateAwsCloudFrontDistributionRequestActivity,
@@ -103,7 +103,7 @@ export type AwsDiscoveryDatasetLoadContext = AwsDiscoveryDatasetResolver & AwsAc
 /** Declarative definition for one rule-facing AWS discovery dataset. */
 export type AwsDiscoveryDatasetDefinition<K extends DiscoveryDatasetKey = DiscoveryDatasetKey> = {
   datasetKey: K;
-  toEvaluationResources?: (resources: DiscoveryDatasetMap[K]) => FindingMatch[];
+  toEvaluationResources?: (resources: DiscoveryDatasetMap[K]) => EvaluationResourceProjection[];
   resourceTypes: string[];
   service:
     | 'apigateway'
@@ -135,25 +135,35 @@ export type AwsDiscoveryDatasetDefinition<K extends DiscoveryDatasetKey = Discov
   ) => Promise<DiscoveryDatasetMap[K] | AwsDiscoveryDatasetLoadResult<K>>;
 };
 
+type EvaluationResourceProjection = FindingMatch &
+  Partial<Pick<EvaluatedResource, 'arn' | 'createdAt' | 'lastActivityAt' | 'name' | 'tags'>>;
+
 const mapEvaluationResources = <T extends { accountId: string; region?: string }>(
   resources: T[],
   getResourceId: (resource: T) => string,
-): FindingMatch[] =>
-  resources.map((resource) => createFindingMatch(getResourceId(resource), resource.region, resource.accountId));
+  getDetails?: (resource: T) => Omit<EvaluationResourceProjection, keyof FindingMatch>,
+): EvaluationResourceProjection[] =>
+  resources.map((resource) => {
+    const match = createFindingMatch(getResourceId(resource), resource.region, resource.accountId);
+    if (!getDetails) {
+      return match;
+    }
+    const details = Object.fromEntries(
+      Object.entries(getDetails(resource)).filter(([, value]) => value !== undefined),
+    ) as Omit<EvaluationResourceProjection, keyof FindingMatch>;
+    return {
+      ...match,
+      ...details,
+    };
+  });
 
 type AwsRuleEvaluationOverride = {
   datasetKey: DiscoveryDatasetKey;
   resourceSetId?: string;
-  toEvaluationResources?: (resources: LiveResourceBag) => FindingMatch[];
+  toEvaluationResources?: (resources: LiveResourceBag) => EvaluationResourceProjection[];
 };
 
 const awsRuleEvaluationOverrides: Record<string, AwsRuleEvaluationOverride> = {
-  'CLDBRN-AWS-CLOUDWATCH-2': {
-    datasetKey: 'aws-cloudwatch-log-groups',
-    resourceSetId: 'aws-cloudwatch-log-groups:arns',
-    toEvaluationResources: (resources) =>
-      mapEvaluationResources(resources.get('aws-cloudwatch-log-groups'), (logGroup) => logGroup.logGroupArn),
-  },
   'CLDBRN-AWS-COSTGUARDRAILS-3': {
     datasetKey: 'aws-cost-guardrail-budgets',
     resourceSetId: 'aws-cost-guardrail-budgets:budgets',
@@ -209,13 +219,31 @@ const awsDiscoveryDatasetRegistry: {
     resourceTypes: ['logs:log-group'],
     service: 'cloudwatch',
     load: hydrateAwsCloudWatchLogGroups,
-    toEvaluationResources: (logGroups) => mapEvaluationResources(logGroups, (logGroup) => logGroup.logGroupName),
+    toEvaluationResources: (logGroups) =>
+      mapEvaluationResources(
+        logGroups,
+        (logGroup) => logGroup.logGroupName,
+        (logGroup) => ({
+          arn: logGroup.logGroupArn,
+          name: logGroup.logGroupName,
+        }),
+      ),
   },
   'aws-cloudwatch-log-group-recent-stream-activity': {
     datasetKey: 'aws-cloudwatch-log-group-recent-stream-activity',
     resourceTypes: ['logs:log-group'],
     service: 'cloudwatch',
     load: hydrateAwsCloudWatchLogGroupRecentStreamActivity,
+    toEvaluationResources: (activity) =>
+      mapEvaluationResources(
+        activity,
+        (logGroup) => logGroup.logGroupName,
+        (logGroup) => ({
+          arn: logGroup.logGroupArn,
+          lastActivityAt: logGroup.lastActivityAt,
+          name: logGroup.logGroupName,
+        }),
+      ),
   },
   'aws-cloudwatch-log-metric-filter-coverage': {
     datasetKey: 'aws-cloudwatch-log-metric-filter-coverage',
@@ -274,14 +302,28 @@ const awsDiscoveryDatasetRegistry: {
     resourceTypes: ['ec2:snapshot'],
     service: 'ebs',
     load: hydrateAwsEbsSnapshots,
-    toEvaluationResources: (snapshots) => mapEvaluationResources(snapshots, (snapshot) => snapshot.snapshotId),
+    toEvaluationResources: (snapshots) =>
+      mapEvaluationResources(
+        snapshots,
+        (snapshot) => snapshot.snapshotId,
+        (snapshot) => ({
+          createdAt: snapshot.startTime,
+        }),
+      ),
   },
   'aws-ebs-volumes': {
     datasetKey: 'aws-ebs-volumes',
     resourceTypes: ['ec2:volume'],
     service: 'ebs',
     load: hydrateAwsEbsVolumes,
-    toEvaluationResources: (volumes) => mapEvaluationResources(volumes, (volume) => volume.volumeId),
+    toEvaluationResources: (volumes) =>
+      mapEvaluationResources(
+        volumes,
+        (volume) => volume.volumeId,
+        (volume) => ({
+          createdAt: volume.createTime,
+        }),
+      ),
   },
   'aws-elasticache-clusters': {
     datasetKey: 'aws-elasticache-clusters',
@@ -356,7 +398,14 @@ const awsDiscoveryDatasetRegistry: {
     resourceTypes: ['ec2:instance'],
     service: 'ec2',
     load: hydrateAwsEc2Instances,
-    toEvaluationResources: (instances) => mapEvaluationResources(instances, (instance) => instance.instanceId),
+    toEvaluationResources: (instances) =>
+      mapEvaluationResources(
+        instances,
+        (instance) => instance.instanceId,
+        (instance) => ({
+          createdAt: instance.launchTime,
+        }),
+      ),
   },
   'aws-ec2-instance-utilization': {
     datasetKey: 'aws-ec2-instance-utilization',
@@ -471,7 +520,13 @@ const awsDiscoveryDatasetRegistry: {
     service: 'rds',
     load: hydrateAwsRdsInstances,
     toEvaluationResources: (instances) =>
-      mapEvaluationResources(instances, (instance) => instance.dbInstanceIdentifier),
+      mapEvaluationResources(
+        instances,
+        (instance) => instance.dbInstanceIdentifier,
+        (instance) => ({
+          createdAt: instance.instanceCreateTime,
+        }),
+      ),
   },
   'aws-rds-reserved-instances': {
     datasetKey: 'aws-rds-reserved-instances',
@@ -487,7 +542,13 @@ const awsDiscoveryDatasetRegistry: {
     service: 'rds',
     load: hydrateAwsRdsSnapshots,
     toEvaluationResources: (snapshots) =>
-      mapEvaluationResources(snapshots, (snapshot) => snapshot.dbSnapshotIdentifier),
+      mapEvaluationResources(
+        snapshots,
+        (snapshot) => snapshot.dbSnapshotIdentifier,
+        (snapshot) => ({
+          createdAt: snapshot.snapshotCreateTime,
+        }),
+      ),
   },
   'aws-redshift-clusters': {
     datasetKey: 'aws-redshift-clusters',
@@ -544,7 +605,16 @@ const awsDiscoveryDatasetRegistry: {
     resourceTypes: ['sagemaker:endpoint'],
     service: 'sagemaker',
     load: hydrateAwsSageMakerEndpointActivity,
-    toEvaluationResources: (endpoints) => mapEvaluationResources(endpoints, (endpoint) => endpoint.endpointName),
+    toEvaluationResources: (endpoints) =>
+      mapEvaluationResources(
+        endpoints,
+        (endpoint) => endpoint.endpointName,
+        (endpoint) => ({
+          arn: endpoint.endpointArn,
+          createdAt: endpoint.creationTime,
+          name: endpoint.endpointName,
+        }),
+      ),
   },
   'aws-sagemaker-notebook-instances': {
     datasetKey: 'aws-sagemaker-notebook-instances',
@@ -552,7 +622,14 @@ const awsDiscoveryDatasetRegistry: {
     service: 'sagemaker',
     load: hydrateAwsSageMakerNotebookInstances,
     toEvaluationResources: (instances) =>
-      mapEvaluationResources(instances, (instance) => instance.notebookInstanceName),
+      mapEvaluationResources(
+        instances,
+        (instance) => instance.notebookInstanceName,
+        (instance) => ({
+          lastActivityAt: instance.lastModifiedTime,
+          name: instance.notebookInstanceName,
+        }),
+      ),
   },
   'aws-resource-explorer-untagged-resources': {
     datasetKey: 'aws-resource-explorer-untagged-resources',
@@ -566,7 +643,16 @@ const awsDiscoveryDatasetRegistry: {
     resourceTypes: ['secretsmanager:secret'],
     service: 'secretsmanager',
     load: hydrateAwsSecretsManagerSecrets,
-    toEvaluationResources: (secrets) => mapEvaluationResources(secrets, (secret) => secret.secretArn),
+    toEvaluationResources: (secrets) =>
+      mapEvaluationResources(
+        secrets,
+        (secret) => secret.secretArn,
+        (secret) => ({
+          arn: secret.secretArn,
+          lastActivityAt: secret.lastAccessedDate,
+          name: secret.secretName,
+        }),
+      ),
   },
 };
 
@@ -593,10 +679,13 @@ export const getAwsDiscoveryDatasetDefinition = (datasetKey: string): AwsDiscove
  * @param resources - Loaded live resource bag for the current scan.
  * @returns Every resource identity represented by the selected dataset.
  */
-const getAwsEvaluationResources = (datasetKey: DiscoveryDatasetKey, resources: LiveResourceBag): FindingMatch[] => {
+const getAwsEvaluationResources = (
+  datasetKey: DiscoveryDatasetKey,
+  resources: LiveResourceBag,
+): EvaluationResourceProjection[] => {
   const definition = awsDiscoveryDatasetRegistry[datasetKey];
   const toEvaluationResources = definition.toEvaluationResources as
-    | ((dataset: DiscoveryDatasetMap[typeof datasetKey]) => FindingMatch[])
+    | ((dataset: DiscoveryDatasetMap[typeof datasetKey]) => EvaluationResourceProjection[])
     | undefined;
   if (!toEvaluationResources) {
     throw new Error(`Discovery dataset ${datasetKey} does not expose evaluation resource identities.`);
@@ -608,17 +697,25 @@ const getAwsEvaluationResources = (datasetKey: DiscoveryDatasetKey, resources: L
 export const getAwsRuleEvaluationResourceSet = (
   rule: Pick<Rule, 'discoveryDependencies' | 'id'>,
   resources: LiveResourceBag,
-): { id: string; resources: FindingMatch[] } => {
+): { id: string; resources: EvaluatedResource[] } => {
   const override = awsRuleEvaluationOverrides[rule.id];
   const datasetKey = override?.datasetKey ?? rule.discoveryDependencies?.[0];
   if (!datasetKey) {
     throw new Error(`Discovery rule ${rule.id} does not declare an evaluation dataset.`);
   }
 
+  const definition = awsDiscoveryDatasetRegistry[datasetKey];
+  const resourceType = definition.resourceTypes[0] ?? definition.service;
+  const resourcesForRule = override?.toEvaluationResources
+    ? override.toEvaluationResources(resources)
+    : getAwsEvaluationResources(datasetKey, resources);
+
   return {
     id: override?.resourceSetId ?? datasetKey,
-    resources: override?.toEvaluationResources
-      ? override.toEvaluationResources(resources)
-      : getAwsEvaluationResources(datasetKey, resources),
+    resources: resourcesForRule.map((resource) => ({
+      ...resource,
+      region: resource.region ?? 'global',
+      resourceType,
+    })),
   };
 };

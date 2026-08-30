@@ -219,7 +219,18 @@ export type RuleEvaluation = {
 /** Deduplicated resource identities referenced by one or more live rule evaluations. */
 export type EvaluationResourceSet = {
   id: string;
-  resources: FindingMatch[];
+  resources: EvaluatedResource[];
+};
+
+/** Product-ready identity and optional evidence for a resource inspected by a live rule. */
+export type EvaluatedResource = Omit<FindingMatch, 'region'> & {
+  region: string;
+  resourceType: string;
+  arn?: string;
+  name?: string;
+  tags?: Record<string, string>;
+  createdAt?: string;
+  lastActivityAt?: string;
 };
 
 /** Optional audit evidence produced for completed live rule evaluations. */
@@ -235,6 +246,59 @@ export type ScanResult = {
   policy?: ScanPolicyResult;
   providers: ProviderFindingGroup[];
   suppressed?: SuppressedFinding[];
+};
+
+/** Estimated operator effort required to remediate an unused-resource finding. */
+export type RemediationEffort = 'low' | 'medium' | 'high';
+
+/** Structured command that callers may safely render for copy/paste remediation. */
+export type RemediationCommand = {
+  program: string;
+  args: string[];
+};
+
+/** One resource-level finding returned by the unused-resources discovery profile. */
+export type UnusedResourceFinding = EvaluatedResource & {
+  ruleId: string;
+  ruleName: string;
+  ruleDescription: string;
+  service: string;
+  serviceName: string;
+  remediationEffort: RemediationEffort;
+  remediation?: {
+    command?: RemediationCommand;
+  };
+};
+
+/** Outcome and inspected-resource evidence for one unused-resources rule. */
+export type UnusedResourcesCheckResult = {
+  ruleId: string;
+  ruleName: string;
+  ruleDescription: string;
+  service: string;
+  serviceName: string;
+  status: 'triggered' | 'passed' | 'not_applicable';
+  findingCount: number;
+  evaluatedResourceCount?: number;
+  resources?: EvaluatedResource[];
+  reason?: string;
+};
+
+/** Aggregate counts and check coverage for one unused-resources discovery. */
+export type UnusedResourcesScanSummary = {
+  findingCount: number;
+  resourceCount: number;
+  ruleCount: number;
+  checks: UnusedResourcesCheckResult[];
+  findingsByRule: Array<{ ruleId: string; ruleName: string; service: string; resourceCount: number }>;
+  findingsByService: Array<{ service: string; serviceName: string; ruleCount: number; resourceCount: number }>;
+};
+
+/** Self-contained result returned by the SDK unused-resources discovery profile. */
+export type UnusedResourcesScanResult = {
+  diagnostics?: ScanDiagnostic[];
+  findings: UnusedResourceFinding[];
+  summary: UnusedResourcesScanSummary;
 };
 
 /** One resource-level IaC match retained for audit after an inline suppression. */

@@ -22,7 +22,7 @@ export const cloudWatchUnusedLogStreamsRule = createRule({
   provider: 'aws',
   service: RULE_SERVICE,
   supports: ['discovery'],
-  discoveryDependencies: ['aws-cloudwatch-log-groups', 'aws-cloudwatch-log-group-recent-stream-activity'],
+  discoveryDependencies: ['aws-cloudwatch-log-group-recent-stream-activity', 'aws-cloudwatch-log-groups'],
   evaluateLive: ({ resources }) => {
     const cutoff = Date.now() - UNUSED_LOG_STREAM_DAYS * DAY_MS;
     const logGroups = resources.get('aws-cloudwatch-log-groups');
@@ -58,7 +58,7 @@ export const cloudWatchUnusedLogStreamsRule = createRule({
           (latestActivityTimestamp === undefined || latestActivityTimestamp < cutoff)
         );
       })
-      .map((logGroup) => createFindingMatch(logGroup.logGroupArn, logGroup.region, logGroup.accountId));
+      .map((logGroup) => createFindingMatch(logGroup.logGroupName, logGroup.region, logGroup.accountId));
 
     return createFinding(
       { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },

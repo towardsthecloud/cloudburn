@@ -127,8 +127,18 @@ describe('CloudBurnClient', () => {
         {
           id: 'aws-ebs-volumes',
           resources: [
-            { accountId: '123456789012', region: 'us-east-1', resourceId: 'vol-triggered' },
-            { accountId: '123456789012', region: 'us-east-1', resourceId: 'vol-passed' },
+            {
+              accountId: '123456789012',
+              region: 'us-east-1',
+              resourceId: 'vol-triggered',
+              resourceType: 'ec2:volume',
+            },
+            {
+              accountId: '123456789012',
+              region: 'us-east-1',
+              resourceId: 'vol-passed',
+              resourceType: 'ec2:volume',
+            },
           ],
         },
       ],
@@ -157,7 +167,14 @@ describe('CloudBurnClient', () => {
             region: 'us-east-1',
           },
         ],
-        'aws-cloudwatch-log-group-recent-stream-activity': [],
+        'aws-cloudwatch-log-group-recent-stream-activity': [
+          {
+            accountId: '123456789012',
+            logGroupArn,
+            logGroupName: '/aws/lambda/app',
+            region: 'us-east-1',
+          },
+        ],
       }),
     });
 
@@ -169,8 +186,15 @@ describe('CloudBurnClient', () => {
       includeEvaluationResources: true,
     });
 
-    expect(result.providers[0]?.rules[0]?.findings[0]?.resourceId).toBe(logGroupArn);
-    expect(result.evaluations?.resourceSets[0]?.resources[0]?.resourceId).toBe(logGroupArn);
+    expect(result.providers[0]?.rules[0]?.findings[0]?.resourceId).toBe('/aws/lambda/app');
+    expect(result.evaluations?.resourceSets[0]?.resources[0]).toEqual({
+      accountId: '123456789012',
+      arn: logGroupArn,
+      name: '/aws/lambda/app',
+      region: 'us-east-1',
+      resourceId: '/aws/lambda/app',
+      resourceType: 'logs:log-group',
+    });
   });
 
   it('reports individual budgets as the resources evaluated by the exceeded-budget rule', async () => {
@@ -199,8 +223,18 @@ describe('CloudBurnClient', () => {
     });
 
     expect(result.evaluations?.resourceSets[0]?.resources).toEqual([
-      { accountId: '123456789012', resourceId: 'budget/production' },
-      { accountId: '123456789012', resourceId: 'budget/sandbox' },
+      {
+        accountId: '123456789012',
+        region: 'global',
+        resourceId: 'budget/production',
+        resourceType: 'costguardrails',
+      },
+      {
+        accountId: '123456789012',
+        region: 'global',
+        resourceId: 'budget/sandbox',
+        resourceType: 'costguardrails',
+      },
     ]);
   });
 
@@ -232,6 +266,7 @@ describe('CloudBurnClient', () => {
       accountId: '123456789012',
       region: 'global',
       resourceId: 'arn:aws:cloudfront::123456789012:distribution/E1234567890ABC',
+      resourceType: 'cloudfront:distribution',
     });
   });
 
