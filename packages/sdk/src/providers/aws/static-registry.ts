@@ -26,6 +26,8 @@ import type {
 } from '@cloudburn/rules';
 import { isRecord } from '@cloudburn/rules';
 import type { IaCSourceKind } from '../../parsers/index.js';
+import { getLiteralNumberish, getLiteralString } from './literal-values.js';
+import { getEcrLifecyclePolicyTraits } from './resources/ecr-lifecycle-policy.js';
 import { buildS3BucketAnalysisFlags } from './resources/s3-analysis.js';
 
 type AwsStaticDatasetDefinition<K extends StaticDatasetKey = StaticDatasetKey> = {
@@ -113,24 +115,7 @@ const pickLocation = (resource: IaCResource, attributePaths: string[]): SourceLo
     .map((attributePath) => resource.attributeLocations?.[attributePath])
     .find((location): location is SourceLocation => Boolean(location)) ?? resource.location;
 
-const getLiteralString = (value: unknown): string | null =>
-  typeof value === 'string' && !value.includes('${') ? value.toLowerCase() : null;
-
 const getLiteralNumber = (value: unknown): number | null => (typeof value === 'number' ? value : null);
-
-const getLiteralNumberish = (value: unknown): number | null => {
-  if (typeof value === 'number') {
-    return value;
-  }
-
-  if (typeof value !== 'string' || value.includes('${')) {
-    return null;
-  }
-
-  const parsedValue = Number(value);
-
-  return Number.isFinite(parsedValue) ? parsedValue : null;
-};
 
 const getLiteralExactString = (value: unknown): string | null =>
   typeof value === 'string' && !value.includes('${') ? value : null;
@@ -165,23 +150,6 @@ const getLiteralStringArray = (value: unknown): string[] | null => {
 
 const toRecordArray = (value: unknown): Record<string, unknown>[] =>
   Array.isArray(value) ? value.filter((entry): entry is Record<string, unknown> => isRecord(entry)) : [];
-
-const parseJsonRecord = (value: unknown): Record<string, unknown> | null => {
-  if (isRecord(value)) {
-    return value;
-  }
-
-  if (typeof value !== 'string') {
-    return null;
-  }
-
-  try {
-    const parsed = JSON.parse(value);
-    return isRecord(parsed) ? parsed : null;
-  } catch {
-    return null;
-  }
-};
 
 const getCloudFormationLogicalIdReference = (value: unknown): string | null => {
   if (!isRecord(value)) {
@@ -284,61 +252,6 @@ const getTerraformRedshiftClusterIdentifier = (value: unknown): string | null =>
   }
 
   return getLiteralExactString(value);
-};
-
-const getEcrLifecyclePolicyTraits = (
-  policyText: unknown,
-): { hasTaggedImageRetentionCap: boolean | null; hasUntaggedImageExpiry: boolean | null } => {
-  const policy = parseJsonRecord(policyText);
-
-  if (!policy) {
-    return {
-      hasTaggedImageRetentionCap: null,
-      hasUntaggedImageExpiry: null,
-    };
-  }
-
-  const rules = toRecordArray(policy.rules ?? policy.Rules);
-  let hasTaggedImageRetentionCap = false;
-  let hasUntaggedImageExpiry = false;
-
-  for (const rule of rules) {
-    const selection = isRecord(rule.selection) ? rule.selection : isRecord(rule.Selection) ? rule.Selection : null;
-    const action = isRecord(rule.action) ? rule.action : isRecord(rule.Action) ? rule.Action : null;
-
-    if (!selection || !action) {
-      continue;
-    }
-
-    const tagStatus = getLiteralString(selection.tagStatus ?? selection.TagStatus);
-    const actionType = getLiteralString(action.type ?? action.Type);
-
-    if (actionType !== 'expire') {
-      continue;
-    }
-
-    if (tagStatus === 'untagged' || tagStatus === 'any') {
-      hasUntaggedImageExpiry = true;
-    }
-
-    if (tagStatus === 'tagged' || tagStatus === 'any') {
-      const countType = getLiteralString(selection.countType ?? selection.CountType);
-      const countNumber = getLiteralNumberish(selection.countNumber ?? selection.CountNumber);
-
-      if (
-        (countType === 'imagecountmorethan' || countType === 'sinceimagepushed') &&
-        countNumber !== null &&
-        countNumber > 0
-      ) {
-        hasTaggedImageRetentionCap = true;
-      }
-    }
-  }
-
-  return {
-    hasTaggedImageRetentionCap,
-    hasUntaggedImageExpiry,
-  };
 };
 
 const hasLifecycleRuleNoncurrentVersionCleanup = (rule: Record<string, unknown>): boolean =>

@@ -1,7 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import { ecrMissingTaggedImageRetentionCapRule } from '../src/aws/ecr/missing-tagged-image-retention-cap.js';
-import type { AwsStaticEcrRepository } from '../src/index.js';
-import { StaticResourceBag } from '../src/index.js';
+import type { AwsEcrRepository, AwsStaticEcrRepository } from '../src/index.js';
+import { LiveResourceBag, StaticResourceBag } from '../src/index.js';
+
+const createLiveRepository = (overrides: Partial<AwsEcrRepository> = {}): AwsEcrRepository => ({
+  accountId: '123456789012',
+  arn: 'arn:aws:ecr:us-east-1:123456789012:repository/app',
+  hasLifecyclePolicy: true,
+  hasTaggedImageRetentionCap: false,
+  hasUntaggedImageExpiry: true,
+  region: 'us-east-1',
+  repositoryName: 'app',
+  ...overrides,
+});
 
 const createRepository = (overrides: Partial<AwsStaticEcrRepository> = {}): AwsStaticEcrRepository => ({
   hasLifecyclePolicy: true,
@@ -17,6 +28,53 @@ const createRepository = (overrides: Partial<AwsStaticEcrRepository> = {}): AwsS
 });
 
 describe('ecrMissingTaggedImageRetentionCapRule', () => {
+  it('flags discovery repositories whose lifecycle policy does not cap tagged image retention', () => {
+    const finding = ecrMissingTaggedImageRetentionCapRule.evaluateLive?.({
+      catalog: {
+        indexType: 'LOCAL',
+        resources: [],
+        searchRegion: 'us-east-1',
+      },
+      resources: new LiveResourceBag({
+        'aws-ecr-repositories': [createLiveRepository()],
+      }),
+    });
+
+    expect(finding).toEqual({
+      ruleId: 'CLDBRN-AWS-ECR-3',
+      service: 'ecr',
+      severity: 'low',
+      source: 'discovery',
+      message: 'ECR repositories should cap tagged image retention.',
+      findings: [
+        {
+          accountId: '123456789012',
+          region: 'us-east-1',
+          resourceId: 'app',
+        },
+      ],
+    });
+  });
+
+  it('skips discovery repositories without a usable tagged-image policy signal', () => {
+    const finding = ecrMissingTaggedImageRetentionCapRule.evaluateLive?.({
+      catalog: {
+        indexType: 'LOCAL',
+        resources: [],
+        searchRegion: 'us-east-1',
+      },
+      resources: new LiveResourceBag({
+        'aws-ecr-repositories': [
+          createLiveRepository({ hasLifecyclePolicy: false, hasTaggedImageRetentionCap: null }),
+          createLiveRepository({ hasTaggedImageRetentionCap: null, repositoryName: 'malformed' }),
+          createLiveRepository({ hasTaggedImageRetentionCap: true, repositoryName: 'covered' }),
+        ],
+      }),
+    });
+
+    expect(finding).toBeNull();
+  });
+
   it('flags Terraform repositories whose lifecycle policy does not cap tagged image retention', () => {
     const finding = ecrMissingTaggedImageRetentionCapRule.evaluateStatic?.({
       resources: new StaticResourceBag({

@@ -21,7 +21,18 @@ describe('hydrateAwsEcrRepositories', () => {
 
         if (input.repositoryName === 'app') {
           return {
-            lifecyclePolicyText: '{"rules":[]}',
+            lifecyclePolicyText: JSON.stringify({
+              rules: [
+                {
+                  action: { type: 'expire' },
+                  selection: { countNumber: 30, countType: 'sinceImagePushed', tagStatus: 'untagged' },
+                },
+                {
+                  action: { type: 'expire' },
+                  selection: { countNumber: 20, countType: 'imageCountMoreThan', tagStatus: 'tagged' },
+                },
+              ],
+            }),
           };
         }
 
@@ -62,6 +73,8 @@ describe('hydrateAwsEcrRepositories', () => {
         accountId: '123456789012',
         arn: 'arn:aws:ecr:us-east-1:123456789012:repository/app',
         hasLifecyclePolicy: true,
+        hasTaggedImageRetentionCap: true,
+        hasUntaggedImageExpiry: true,
         region: 'us-east-1',
         repositoryName: 'app',
       },
@@ -69,6 +82,8 @@ describe('hydrateAwsEcrRepositories', () => {
         accountId: '123456789012',
         arn: 'arn:aws:ecr:us-east-1:123456789012:repository/logs',
         hasLifecyclePolicy: false,
+        hasTaggedImageRetentionCap: null,
+        hasUntaggedImageExpiry: null,
         region: 'us-east-1',
         repositoryName: 'logs',
       },
@@ -103,6 +118,38 @@ describe('hydrateAwsEcrRepositories', () => {
     ).rejects.toThrow(
       'Amazon ECR GetLifecyclePolicy failed in eu-central-1 with AccessDeniedException: User is not authorized to perform: ecr:GetLifecyclePolicy Request ID: request-123.',
     );
+  });
+
+  it('preserves unknown lifecycle traits when policy text is malformed', async () => {
+    mockedCreateEcrClient.mockReturnValue({
+      send: vi.fn().mockResolvedValue({
+        lifecyclePolicyText: '{"rules":',
+      }),
+    } as never);
+
+    await expect(
+      hydrateAwsEcrRepositories([
+        {
+          accountId: '123456789012',
+          arn: 'arn:aws:ecr:us-east-1:123456789012:repository/app',
+          name: 'app',
+          properties: [],
+          region: 'us-east-1',
+          resourceType: 'ecr:repository',
+          service: 'ecr',
+        },
+      ]),
+    ).resolves.toEqual([
+      {
+        accountId: '123456789012',
+        arn: 'arn:aws:ecr:us-east-1:123456789012:repository/app',
+        hasLifecyclePolicy: true,
+        hasTaggedImageRetentionCap: null,
+        hasUntaggedImageExpiry: null,
+        region: 'us-east-1',
+        repositoryName: 'app',
+      },
+    ]);
   });
 
   it('skips stale repositories that no longer exist during hydration', async () => {
@@ -153,6 +200,8 @@ describe('hydrateAwsEcrRepositories', () => {
         accountId: '123456789012',
         arn: 'arn:aws:ecr:us-east-1:123456789012:repository/app',
         hasLifecyclePolicy: true,
+        hasTaggedImageRetentionCap: false,
+        hasUntaggedImageExpiry: false,
         region: 'us-east-1',
         repositoryName: 'app',
       },

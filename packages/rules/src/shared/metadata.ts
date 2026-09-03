@@ -172,6 +172,8 @@ export type AwsEcrRepository = {
   repositoryName: string;
   arn: string;
   hasLifecyclePolicy: boolean;
+  hasTaggedImageRetentionCap?: boolean | null;
+  hasUntaggedImageExpiry?: boolean | null;
   region: string;
   accountId: string;
 };
