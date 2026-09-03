@@ -2582,6 +2582,7 @@ describe('discoverAwsResources', () => {
       },
     ]);
     expect(result.resources.get('aws-lambda-functions')).toEqual([]);
+    expect(result.unavailableDatasets?.has('aws-lambda-functions')).toBe(true);
     expect(result.diagnostics).toEqual([
       {
         code: 'AccessDeniedException',
@@ -2693,6 +2694,47 @@ describe('discoverAwsResources', () => {
         status: 'access_denied',
       },
     ]);
+  });
+
+  it('marks a derived dataset unavailable when its base dataset is access denied', async () => {
+    mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
+      indexType: 'LOCAL',
+      resources: [catalog.resources[1]],
+      searchRegion: 'us-east-1',
+    });
+    const accessDeniedCause = Object.assign(new Error('User is not authorized to perform: ec2:DescribeInstances'), {
+      code: 'AccessDeniedException',
+      name: 'AccessDeniedException',
+      $metadata: {
+        httpStatusCode: 403,
+        requestId: 'req-ec2-instances',
+      },
+    });
+    mockedHydrateAwsEc2Instances.mockRejectedValue(
+      new Error(
+        'Amazon EC2 DescribeInstances failed in us-east-1 with AccessDeniedException: User is not authorized to perform: ec2:DescribeInstances Request ID: req-ec2-instances.',
+        {
+          cause: accessDeniedCause,
+        },
+      ),
+    );
+    mockedHydrateAwsEc2InstanceUtilization.mockImplementation(async (_resources, context) => {
+      await context?.loadDataset('aws-ec2-instances');
+      return [];
+    });
+
+    const result = await discoverAwsResources(
+      [
+        createRule({
+          discoveryDependencies: ['aws-ec2-instance-utilization'],
+          service: 'ec2',
+        }),
+      ],
+      { mode: 'regions', regions: ['us-east-1'] },
+    );
+
+    expect(result.unavailableDatasets?.has('aws-ec2-instances')).toBe(true);
+    expect(result.unavailableDatasets?.has('aws-ec2-instance-utilization')).toBe(true);
   });
 
   it('records loader-supplied diagnostics without dropping the loaded dataset', async () => {
@@ -2846,6 +2888,7 @@ describe('discoverAwsResources', () => {
         region: 'us-east-1',
       },
     ]);
+    expect(result.unavailableDatasets?.has('aws-cloudwatch-log-group-recent-stream-activity')).toBe(false);
     expect(result.diagnostics).toEqual([
       {
         code: 'AccessDeniedException',
