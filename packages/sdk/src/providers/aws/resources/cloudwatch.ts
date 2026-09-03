@@ -48,6 +48,7 @@ export const fetchCloudWatchSignals = async (options: {
   const results = new Map<string, CloudWatchMetricPoint[]>();
 
   for (const batch of chunkItems(options.queries, CLOUDWATCH_METRIC_QUERY_BATCH_SIZE)) {
+    const finalStatuses = new Map<string, string>();
     let nextToken: string | undefined;
 
     do {
@@ -80,6 +81,10 @@ export const fetchCloudWatchSignals = async (options: {
           continue;
         }
 
+        if (result.StatusCode) {
+          finalStatuses.set(result.Id, result.StatusCode);
+        }
+
         const points = results.get(result.Id) ?? [];
         const timestamps = result.Timestamps ?? [];
         const values = result.Values ?? [];
@@ -103,6 +108,12 @@ export const fetchCloudWatchSignals = async (options: {
 
       nextToken = response.NextToken;
     } while (nextToken);
+
+    for (const [resultId, status] of finalStatuses) {
+      if (status !== 'Complete') {
+        results.delete(resultId);
+      }
+    }
   }
 
   return results;

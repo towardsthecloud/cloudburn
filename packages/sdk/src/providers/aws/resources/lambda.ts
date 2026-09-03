@@ -1,6 +1,12 @@
+import { GetLambdaFunctionRecommendationsCommand } from '@aws-sdk/client-compute-optimizer';
 import { ListFunctionsCommand } from '@aws-sdk/client-lambda';
-import type { AwsDiscoveredResource, AwsLambdaFunction, AwsLambdaFunctionMetric } from '@cloudburn/rules';
-import { createLambdaClient } from '../client.js';
+import type {
+  AwsDiscoveredResource,
+  AwsLambdaFunction,
+  AwsLambdaFunctionMetric,
+  AwsLambdaMemoryRecommendation,
+} from '@cloudburn/rules';
+import { createComputeOptimizerClient, createLambdaClient } from '../client.js';
 import type { AwsDiscoveryDatasetResolver } from '../discovery-registry.js';
 import { fetchCloudWatchSignals } from './cloudwatch.js';
 import { extractTerminalArnResourceIdentifier, withAwsServiceErrorContext } from './utils.js';
@@ -15,13 +21,19 @@ const getSum = (values: Array<{ value: number }>): number => values.reduce((sum,
 const getAverage = (values: Array<{ value: number }>): number | null =>
   values.length === 0 ? null : getSum(values) / values.length;
 
-/**
- * Hydrates discovered Lambda functions with their architecture metadata.
- *
- * @param resources - Catalog resources filtered to Lambda function resource types.
- * @returns Hydrated Lambda function models for rule evaluation.
- */
-export const hydrateAwsLambdaFunctions = async (resources: AwsDiscoveredResource[]): Promise<AwsLambdaFunction[]> => {
+const getUnqualifiedLambdaFunctionArn = (functionArn: string): string => {
+  const functionMarker = ':function:';
+  const functionMarkerIndex = functionArn.indexOf(functionMarker);
+
+  if (functionMarkerIndex < 0) {
+    return functionArn;
+  }
+
+  const qualifierIndex = functionArn.indexOf(':', functionMarkerIndex + functionMarker.length);
+  return qualifierIndex < 0 ? functionArn : functionArn.slice(0, qualifierIndex);
+};
+
+const groupLambdaResourcesByRegion = (resources: AwsDiscoveredResource[]): Map<string, AwsDiscoveredResource[]> => {
   const resourcesByRegion = new Map<string, AwsDiscoveredResource[]>();
 
   for (const resource of resources) {
@@ -33,6 +45,18 @@ export const hydrateAwsLambdaFunctions = async (resources: AwsDiscoveredResource
     regionResources.push(resource);
     resourcesByRegion.set(resource.region, regionResources);
   }
+
+  return resourcesByRegion;
+};
+
+/**
+ * Hydrates discovered Lambda functions with their architecture metadata.
+ *
+ * @param resources - Catalog resources filtered to Lambda function resource types.
+ * @returns Hydrated Lambda function models for rule evaluation.
+ */
+export const hydrateAwsLambdaFunctions = async (resources: AwsDiscoveredResource[]): Promise<AwsLambdaFunction[]> => {
+  const resourcesByRegion = groupLambdaResourcesByRegion(resources);
 
   const hydratedPages = await Promise.all(
     [...resourcesByRegion.entries()].map(async ([region, regionResources]) => {
@@ -60,6 +84,7 @@ export const hydrateAwsLambdaFunctions = async (resources: AwsDiscoveredResource
           functions.push({
             accountId: resource.accountId,
             architectures: listedFunction.Architectures?.map(String) ?? [...DEFAULT_LAMBDA_ARCHITECTURES],
+            functionArn: listedFunction.FunctionArn,
             functionName,
             memorySizeMb: listedFunction.MemorySize ?? DEFAULT_LAMBDA_MEMORY_MB,
             region,
@@ -75,6 +100,70 @@ export const hydrateAwsLambdaFunctions = async (resources: AwsDiscoveredResource
   );
 
   return hydratedPages.flat().sort((left, right) => left.functionName.localeCompare(right.functionName));
+};
+
+/**
+ * Loads AWS Compute Optimizer recommendations for memory-overprovisioned Lambda functions.
+ *
+ * @param resources - Catalog resources filtered to Lambda functions.
+ * @returns Memory recommendations for selected functions that Compute Optimizer marks overprovisioned.
+ */
+export const hydrateAwsLambdaMemoryRecommendations = async (
+  resources: AwsDiscoveredResource[],
+): Promise<AwsLambdaMemoryRecommendation[]> => {
+  const resourcesByRegion = groupLambdaResourcesByRegion(resources);
+
+  const recommendationPages = await Promise.all(
+    [...resourcesByRegion.entries()].map(async ([region, regionResources]) => {
+      const client = createComputeOptimizerClient({ region });
+      const resourcesByArn = new Map(regionResources.map((resource) => [resource.arn, resource]));
+      const recommendations: AwsLambdaMemoryRecommendation[] = [];
+      let nextToken: string | undefined;
+
+      do {
+        const page = await withAwsServiceErrorContext(
+          'AWS Compute Optimizer',
+          'GetLambdaFunctionRecommendations',
+          region,
+          () =>
+            client.send(
+              new GetLambdaFunctionRecommendationsCommand({
+                filters: [
+                  {
+                    name: 'FindingReasonCode',
+                    values: ['MemoryOverprovisioned'],
+                  },
+                ],
+                nextToken,
+              }),
+            ),
+        );
+
+        for (const recommendation of page.lambdaFunctionRecommendations ?? []) {
+          const functionArn = recommendation.functionArn
+            ? getUnqualifiedLambdaFunctionArn(recommendation.functionArn)
+            : undefined;
+          const resource = functionArn ? resourcesByArn.get(functionArn) : undefined;
+
+          if (!functionArn || !resource || !recommendation.findingReasonCodes?.includes('MemoryOverprovisioned')) {
+            continue;
+          }
+
+          recommendations.push({
+            accountId: recommendation.accountId ?? resource.accountId,
+            functionArn,
+            region,
+          });
+        }
+
+        nextToken = page.nextToken;
+      } while (nextToken);
+
+      return recommendations;
+    }),
+  );
+
+  return recommendationPages.flat().sort((left, right) => left.functionArn.localeCompare(right.functionArn));
 };
 
 /**

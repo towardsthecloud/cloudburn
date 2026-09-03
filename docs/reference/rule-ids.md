@@ -18,6 +18,8 @@ sequence for every provider/service pair.
 ## Presets
 
 - `aws-core` is the default general discovery preset.
+- `CLDBRN-AWS-LAMBDA-4` is opt-in because AWS Compute Optimizer requires account enrollment. Enable it with `cloudburn discover --enabled-rules CLDBRN-AWS-LAMBDA-4` or `config.discovery.enabledRules` in the SDK.
+- `CLDBRN-AWS-TAGGING-1` is opt-in because account-wide tagging needs an accessible Resource Explorer aggregator.
 - Applications can define product-specific rule selections with `config.discovery.enabledRules`. Such selections are
   application policy rather than SDK presets; the SDK continues to return the same generic findings and evaluation
   evidence for any selected discovery rules.
@@ -50,7 +52,7 @@ meaningful optimization opportunities, and `low` covers hygiene and smaller accu
 | `CLDBRN-AWS-COSTGUARDRAILS-3` | high     | Flags configured AWS Budgets only when normalized actual spend is strictly greater than the same-unit budget limit. Malformed and unit-mismatched spend details are skipped.                                                        | costguardrails | discovery      |
 | `CLDBRN-AWS-COSTGUARDRAILS-4` | medium   | Flags configured AWS Budgets when normalized forecasted spend strictly exceeds the same-unit budget limit while actual spend has not exceeded it. Missing, malformed, and unit-mismatched forecasts are skipped.                    | costguardrails | discovery      |
 | `CLDBRN-AWS-COSTEXPLORER-1`   | medium   | Compares the last two full months and flags only services with an existing prior-month baseline and a cost increase greater than `10` cost units.                                                                                   | costexplorer   | discovery      |
-| `CLDBRN-AWS-DYNAMODB-1`       | medium   | Flags only tables whose parsed `latestStreamLabel` is older than `90` days. Tables without a stream label are skipped.                                                                                                              | dynamodb       | discovery      |
+| `CLDBRN-AWS-DYNAMODB-1`       | medium   | Flags tables old enough for a complete `90`-day observation window when consumed write capacity remains `0` throughout that window.                                                                                                 | dynamodb       | discovery      |
 | `CLDBRN-AWS-DYNAMODB-2`       | medium   | Reviews only provisioned-capacity tables and flags them when no table-level read or write autoscaling targets are configured.                                                                                                       | dynamodb       | discovery, iac |
 | `CLDBRN-AWS-DYNAMODB-3`       | high     | Reviews only provisioned-capacity tables and flags them when 30 days of consumed read and write capacity both sum to zero.                                                                                                          | dynamodb       | discovery      |
 | `CLDBRN-AWS-DYNAMODB-4`       | medium   | Reviews only provisioned-capacity tables and flags them when statically resolved read or write autoscaling ranges have identical min and max capacity values.                                                                       | dynamodb       | iac            |
@@ -120,10 +122,10 @@ meaningful optimization opportunities, and `low` covers hygiene and smaller accu
 | `CLDBRN-AWS-LAMBDA-1`         | medium   | Recommend arm64 architecture when compatible.                                                                                                                                                                                       | lambda         | iac, discovery |
 | `CLDBRN-AWS-LAMBDA-2`         | low      | Uses 7-day CloudWatch totals and flags only functions whose observed `Errors / Invocations` ratio is greater than `10%`.                                                                                                            | lambda         | discovery      |
 | `CLDBRN-AWS-LAMBDA-3`         | low      | Reviews only functions with configured timeouts of at least `30` seconds and flags when the timeout is at least `5x` the observed 7-day average duration.                                                                           | lambda         | discovery      |
-| `CLDBRN-AWS-LAMBDA-4`         | medium   | Reviews only functions configured above `256 MB`, requires invocation history, and flags them when the observed 7-day average duration uses less than `30%` of the configured timeout.                                              | lambda         | discovery      |
+| `CLDBRN-AWS-LAMBDA-4`         | medium   | Flags functions only when AWS Compute Optimizer returns a `MemoryOverprovisioned` recommendation.                                                                                                                                   | lambda         | discovery      |
 
 ## Presets
 
-| Preset ID  | Name     | Rule IDs                                                 |
-| ---------- | -------- | -------------------------------------------------------- |
-| `aws-core` | AWS Core | All AWS rules above except opt-in `CLDBRN-AWS-TAGGING-1` |
+| Preset ID  | Name     | Rule IDs                                                                           |
+| ---------- | -------- | ---------------------------------------------------------------------------------- |
+| `aws-core` | AWS Core | All AWS rules above except opt-in `CLDBRN-AWS-LAMBDA-4` and `CLDBRN-AWS-TAGGING-1` |

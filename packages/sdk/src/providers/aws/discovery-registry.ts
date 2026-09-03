@@ -47,7 +47,11 @@ import {
   hydrateAwsEc2TargetGroups,
 } from './resources/elbv2.js';
 import { hydrateAwsEmrClusterMetrics, hydrateAwsEmrClusters } from './resources/emr.js';
-import { hydrateAwsLambdaFunctionMetrics, hydrateAwsLambdaFunctions } from './resources/lambda.js';
+import {
+  hydrateAwsLambdaFunctionMetrics,
+  hydrateAwsLambdaFunctions,
+  hydrateAwsLambdaMemoryRecommendations,
+} from './resources/lambda.js';
 import { hydrateAwsRdsInstances, hydrateAwsRdsReservedInstances, hydrateAwsRdsSnapshots } from './resources/rds.js';
 import { hydrateAwsRdsInstanceActivity, hydrateAwsRdsInstanceCpuMetrics } from './resources/rds-activity.js';
 import {
@@ -189,6 +193,20 @@ const awsRuleEvaluationOverrides: Record<string, AwsRuleEvaluationOverride> = {
   'CLDBRN-AWS-ELB-5': {
     datasetKey: 'aws-ec2-load-balancers',
   },
+  'CLDBRN-AWS-LAMBDA-4': {
+    datasetKey: 'aws-lambda-functions',
+    toEvaluationResources: (resources) =>
+      mapEvaluationResources(
+        resources
+          .get('aws-lambda-functions')
+          .filter((fn): fn is typeof fn & { functionArn: string } => fn.functionArn !== undefined),
+        (fn) => fn.functionArn,
+        (fn) => ({
+          arn: fn.functionArn,
+          name: fn.functionName,
+        }),
+      ),
+  },
   'CLDBRN-AWS-ROUTE53-1': {
     datasetKey: 'aws-route53-records',
   },
@@ -291,6 +309,7 @@ const awsDiscoveryDatasetRegistry: {
     resourceTypes: ['dynamodb:table'],
     service: 'dynamodb',
     load: hydrateAwsDynamoDbTableUtilization,
+    toEvaluationResources: (tables) => mapEvaluationResources(tables, (table) => table.tableArn),
   },
   'aws-dynamodb-tables': {
     datasetKey: 'aws-dynamodb-tables',
@@ -518,6 +537,14 @@ const awsDiscoveryDatasetRegistry: {
     resourceTypes: ['lambda:function'],
     service: 'lambda',
     load: hydrateAwsLambdaFunctionMetrics,
+  },
+  'aws-lambda-memory-recommendations': {
+    datasetKey: 'aws-lambda-memory-recommendations',
+    resourceTypes: ['lambda:function'],
+    service: 'lambda',
+    load: hydrateAwsLambdaMemoryRecommendations,
+    toEvaluationResources: (recommendations) =>
+      mapEvaluationResources(recommendations, (recommendation) => recommendation.functionArn),
   },
   'aws-rds-instance-activity': {
     datasetKey: 'aws-rds-instance-activity',

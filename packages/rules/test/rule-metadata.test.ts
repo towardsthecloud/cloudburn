@@ -884,13 +884,12 @@ describe('rule metadata', () => {
     expect(rule).toMatchObject({
       id: 'CLDBRN-AWS-LAMBDA-4',
       name: 'Lambda Function Memory Overprovisioned',
-      description:
-        'Flag Lambda functions above 256 MB whose observed 7-day average duration uses less than 30% of the configured timeout.',
+      description: 'Flag Lambda functions that AWS Compute Optimizer identifies as memory-overprovisioned.',
       message: 'Lambda functions should not keep memory far above their observed execution needs.',
       provider: 'aws',
       service: 'lambda',
       supports: ['discovery'],
-      discoveryDependencies: ['aws-lambda-functions', 'aws-lambda-function-metrics'],
+      discoveryDependencies: ['aws-lambda-functions', 'aws-lambda-memory-recommendations'],
     });
   });
 
@@ -1259,13 +1258,13 @@ describe('rule metadata', () => {
     expect(rule).toBeDefined();
     expect(rule).toMatchObject({
       id: 'CLDBRN-AWS-DYNAMODB-1',
-      name: 'DynamoDB Table Stale Data',
-      description: 'Flag DynamoDB tables with no data changes exceeding a threshold (default 90 days).',
-      message: 'DynamoDB tables whose data has not changed for more than 90 days should be reviewed.',
+      name: 'DynamoDB Table Inactive',
+      description: 'Flag DynamoDB tables with no consumed write capacity over a complete 90-day window.',
+      message: 'DynamoDB tables with no write activity for 90 days should be reviewed.',
       provider: 'aws',
       service: 'dynamodb',
       supports: ['discovery'],
-      discoveryDependencies: ['aws-dynamodb-tables'],
+      discoveryDependencies: ['aws-dynamodb-table-utilization'],
     });
   });
 

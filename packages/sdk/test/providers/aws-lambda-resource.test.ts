@@ -1,13 +1,16 @@
+import { GetLambdaFunctionRecommendationsCommand } from '@aws-sdk/client-compute-optimizer';
 import { ListFunctionsCommand } from '@aws-sdk/client-lambda';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createLambdaClient } from '../../src/providers/aws/client.js';
+import { createComputeOptimizerClient, createLambdaClient } from '../../src/providers/aws/client.js';
 import { fetchCloudWatchSignals } from '../../src/providers/aws/resources/cloudwatch.js';
 import {
   hydrateAwsLambdaFunctionMetrics,
   hydrateAwsLambdaFunctions,
+  hydrateAwsLambdaMemoryRecommendations,
 } from '../../src/providers/aws/resources/lambda.js';
 
 vi.mock('../../src/providers/aws/client.js', () => ({
+  createComputeOptimizerClient: vi.fn(),
   createLambdaClient: vi.fn(),
 }));
 
@@ -15,6 +18,7 @@ vi.mock('../../src/providers/aws/resources/cloudwatch.js', () => ({
   fetchCloudWatchSignals: vi.fn(),
 }));
 
+const mockedCreateComputeOptimizerClient = vi.mocked(createComputeOptimizerClient);
 const mockedCreateLambdaClient = vi.mocked(createLambdaClient);
 const mockedFetchCloudWatchSignals = vi.mocked(fetchCloudWatchSignals);
 
@@ -84,6 +88,7 @@ describe('hydrateAwsLambdaFunctions', () => {
       {
         accountId: '123456789012',
         architectures: ['x86_64'],
+        functionArn: 'arn:aws:lambda:us-east-1:123456789012:function:first-function',
         functionName: 'first-function',
         memorySizeMb: 128,
         region: 'us-east-1',
@@ -92,6 +97,7 @@ describe('hydrateAwsLambdaFunctions', () => {
       {
         accountId: '123456789012',
         architectures: ['arm64'],
+        functionArn: 'arn:aws:lambda:us-east-1:123456789012:function:second-function',
         functionName: 'second-function',
         memorySizeMb: 512,
         region: 'us-east-1',
@@ -138,6 +144,7 @@ describe('hydrateAwsLambdaFunctions', () => {
       {
         accountId: '123456789012',
         architectures: ['x86_64'],
+        functionArn: 'arn:aws:lambda:eu-central-1:123456789012:function:eu-central-1-function',
         functionName: 'eu-central-1-function',
         memorySizeMb: 128,
         region: 'eu-central-1',
@@ -146,6 +153,7 @@ describe('hydrateAwsLambdaFunctions', () => {
       {
         accountId: '123456789012',
         architectures: ['x86_64'],
+        functionArn: 'arn:aws:lambda:us-east-1:123456789012:function:us-east-1-function',
         functionName: 'us-east-1-function',
         memorySizeMb: 128,
         region: 'us-east-1',
@@ -220,6 +228,7 @@ describe('hydrateAwsLambdaFunctions', () => {
       {
         accountId: '123456789012',
         architectures: ['x86_64'],
+        functionArn: 'arn:aws:lambda:eu-central-1:123456789012:function:first-function',
         functionName: 'first-function',
         memorySizeMb: 128,
         region: 'eu-central-1',
@@ -228,6 +237,7 @@ describe('hydrateAwsLambdaFunctions', () => {
       {
         accountId: '123456789012',
         architectures: ['arm64'],
+        functionArn: 'arn:aws:lambda:eu-central-1:123456789012:function:second-function',
         functionName: 'second-function',
         memorySizeMb: 128,
         region: 'eu-central-1',
@@ -236,6 +246,82 @@ describe('hydrateAwsLambdaFunctions', () => {
     ]);
 
     expect(send).toHaveBeenCalledTimes(3);
+  });
+});
+
+describe('hydrateAwsLambdaMemoryRecommendations', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
+  it('paginates Compute Optimizer memory-overprovisioning recommendations for selected functions', async () => {
+    const selectedFunctionArn = 'arn:aws:lambda:us-east-1:123456789012:function:selected';
+    const send = vi.fn(async (command: GetLambdaFunctionRecommendationsCommand) => {
+      expect(command).toBeInstanceOf(GetLambdaFunctionRecommendationsCommand);
+      expect(command.input.filters).toEqual([
+        {
+          name: 'FindingReasonCode',
+          values: ['MemoryOverprovisioned'],
+        },
+      ]);
+
+      if (!command.input.nextToken) {
+        return {
+          lambdaFunctionRecommendations: [
+            {
+              accountId: '123456789012',
+              currentMemorySize: 512,
+              findingReasonCodes: ['MemoryOverprovisioned'],
+              functionArn: `${selectedFunctionArn}:$LATEST`,
+              lastRefreshTimestamp: new Date('2026-03-23T00:00:00.000Z'),
+              memorySizeRecommendationOptions: [
+                {
+                  memorySize: 256,
+                  rank: 1,
+                  savingsOpportunity: {
+                    estimatedMonthlySavings: { currency: 'USD', value: 4.25 },
+                    savingsOpportunityPercentage: 32,
+                  },
+                },
+              ],
+            },
+          ],
+          nextToken: 'page-2',
+        };
+      }
+
+      return {
+        lambdaFunctionRecommendations: [
+          {
+            accountId: '123456789012',
+            currentMemorySize: 1024,
+            findingReasonCodes: ['MemoryOverprovisioned'],
+            functionArn: 'arn:aws:lambda:us-east-1:123456789012:function:not-selected',
+          },
+        ],
+      };
+    });
+    mockedCreateComputeOptimizerClient.mockReturnValue({ send } as never);
+
+    await expect(
+      hydrateAwsLambdaMemoryRecommendations([
+        {
+          accountId: '123456789012',
+          arn: selectedFunctionArn,
+          properties: [],
+          region: 'us-east-1',
+          resourceType: 'lambda:function',
+          service: 'lambda',
+        },
+      ]),
+    ).resolves.toEqual([
+      {
+        accountId: '123456789012',
+        functionArn: selectedFunctionArn,
+        region: 'us-east-1',
+      },
+    ]);
+    expect(send).toHaveBeenCalledTimes(2);
   });
 });
 
