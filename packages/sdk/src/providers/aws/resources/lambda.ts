@@ -1,31 +1,19 @@
-import { GetFunctionConfigurationCommand } from '@aws-sdk/client-lambda';
+import { ListFunctionsCommand } from '@aws-sdk/client-lambda';
 import type { AwsDiscoveredResource, AwsLambdaFunction, AwsLambdaFunctionMetric } from '@cloudburn/rules';
 import { createLambdaClient } from '../client.js';
 import type { AwsDiscoveryDatasetResolver } from '../discovery-registry.js';
 import { fetchCloudWatchSignals } from './cloudwatch.js';
-import { chunkItems, withAwsServiceErrorContext } from './utils.js';
+import { extractTerminalArnResourceIdentifier, withAwsServiceErrorContext } from './utils.js';
 
 const DEFAULT_LAMBDA_ARCHITECTURES = ['x86_64'];
 const DEFAULT_LAMBDA_MEMORY_MB = 128;
 const DEFAULT_LAMBDA_TIMEOUT_SECONDS = 3;
-const LAMBDA_CONFIGURATION_CONCURRENCY = 5;
 const SEVEN_DAYS_IN_SECONDS = 7 * 24 * 60 * 60;
 
 const getSum = (values: Array<{ value: number }>): number => values.reduce((sum, point) => sum + point.value, 0);
 
 const getAverage = (values: Array<{ value: number }>): number | null =>
   values.length === 0 ? null : getSum(values) / values.length;
-
-const inferFunctionName = (arn: string): string | null => {
-  const arnSegments = arn.split(':');
-  const resourceType = arnSegments[5];
-
-  if (resourceType !== 'function') {
-    return null;
-  }
-
-  return arnSegments[6] ?? null;
-};
 
 /**
  * Hydrates discovered Lambda functions with their architecture metadata.
@@ -50,37 +38,37 @@ export const hydrateAwsLambdaFunctions = async (resources: AwsDiscoveredResource
     [...resourcesByRegion.entries()].map(async ([region, regionResources]) => {
       const client = createLambdaClient({ region });
       const functions: AwsLambdaFunction[] = [];
+      const resourcesByArn = new Map(regionResources.map((resource) => [resource.arn, resource]));
 
-      for (const batch of chunkItems(regionResources, LAMBDA_CONFIGURATION_CONCURRENCY)) {
-        const hydratedBatch = await Promise.all(
-          batch.map(async (resource) => {
-            const response = await withAwsServiceErrorContext('AWS Lambda', 'GetFunctionConfiguration', region, () =>
-              client.send(
-                new GetFunctionConfigurationCommand({
-                  FunctionName: resource.arn,
-                }),
-              ),
-            );
+      await withAwsServiceErrorContext('AWS Lambda', 'ListFunctions', region, async () => {
+        let marker: string | undefined;
 
-            const functionName = response.FunctionName ?? inferFunctionName(resource.arn);
+        do {
+          const page = await client.send(new ListFunctionsCommand({ Marker: marker }));
 
-            if (!functionName) {
-              return null;
+          for (const listedFunction of page.Functions ?? []) {
+            const functionName =
+              listedFunction.FunctionName ??
+              (listedFunction.FunctionArn ? extractTerminalArnResourceIdentifier(listedFunction.FunctionArn) : null);
+            const resource = listedFunction.FunctionArn ? resourcesByArn.get(listedFunction.FunctionArn) : undefined;
+
+            if (!functionName || !resource) {
+              continue;
             }
 
-            return {
+            functions.push({
               accountId: resource.accountId,
-              architectures: response.Architectures?.map(String) ?? [...DEFAULT_LAMBDA_ARCHITECTURES],
+              architectures: listedFunction.Architectures?.map(String) ?? [...DEFAULT_LAMBDA_ARCHITECTURES],
               functionName,
-              memorySizeMb: response.MemorySize ?? DEFAULT_LAMBDA_MEMORY_MB,
+              memorySizeMb: listedFunction.MemorySize ?? DEFAULT_LAMBDA_MEMORY_MB,
               region,
-              timeoutSeconds: response.Timeout ?? DEFAULT_LAMBDA_TIMEOUT_SECONDS,
-            } satisfies AwsLambdaFunction;
-          }),
-        );
+              timeoutSeconds: listedFunction.Timeout ?? DEFAULT_LAMBDA_TIMEOUT_SECONDS,
+            });
+          }
 
-        functions.push(...hydratedBatch.flatMap((fn): AwsLambdaFunction[] => (fn ? [fn] : [])));
-      }
+          marker = page.NextMarker;
+        } while (marker);
+      });
 
       return functions;
     }),

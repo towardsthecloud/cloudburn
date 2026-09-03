@@ -31,7 +31,7 @@ const liveScanResultWithDiagnostic = {
     {
       code: 'AccessDeniedException',
       details:
-        'AWS Lambda GetFunctionConfiguration failed in us-east-1 with AccessDeniedException: Access denied by SCP. Request ID: req-123.',
+        'AWS Lambda ListFunctions failed in us-east-1 with AccessDeniedException: Access denied by SCP. Request ID: req-123.',
       message: 'Skipped lambda discovery in us-east-1 because access is denied by a service control policy (SCP).',
       provider: 'aws' as const,
       region: 'us-east-1',

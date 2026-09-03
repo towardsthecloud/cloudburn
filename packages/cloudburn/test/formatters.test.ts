@@ -404,7 +404,7 @@ describe('formatError', () => {
 
   it('categorizes preserved AccessDeniedException codes as ACCESS_DENIED', () => {
     const err = Object.assign(
-      new Error('AWS Lambda GetFunctionConfiguration failed in us-east-1 with AccessDeniedException: denied.'),
+      new Error('AWS Lambda ListFunctions failed in us-east-1 with AccessDeniedException: denied.'),
       {
         code: 'AccessDeniedException',
       },
