@@ -239,7 +239,7 @@ const buildCatalogFailureDiagnostic = (err: unknown): ScanDiagnostic => {
   const status = isAwsAccessDeniedError(err) ? 'access_denied' : isAwsThrottlingError(err) ? 'throttled' : 'error';
   const message =
     status === 'access_denied'
-      ? 'Skipped catalog-backed discovery because access to the Resource Explorer catalog was denied; only account-scoped datasets were evaluated.'
+      ? `Skipped catalog-backed discovery because access to the Resource Explorer catalog is denied by ${formatAwsAccessDeniedReason(err)}; only account-scoped datasets were evaluated.`
       : status === 'throttled'
         ? 'Skipped catalog-backed discovery because AWS throttled the Resource Explorer catalog after retrying; only account-scoped datasets were evaluated.'
         : 'Skipped catalog-backed discovery because the Resource Explorer catalog failed to load; only account-scoped datasets were evaluated.';

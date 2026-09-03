@@ -1292,9 +1292,14 @@ describe('discoverAwsResources', () => {
   it('degrades to account-scoped datasets when the resource catalog fails', async () => {
     mockedResolveCurrentAwsRegion.mockResolvedValue('us-east-1');
     mockedBuildAwsDiscoveryCatalog.mockRejectedValue(
-      Object.assign(new Error('User is not authorized to perform resource-explorer-2:ListResources'), {
-        name: 'AccessDeniedException',
-      }),
+      Object.assign(
+        new Error(
+          'User is not authorized to perform resource-explorer-2:ListResources with an explicit deny in a resource-based policy',
+        ),
+        {
+          name: 'AccessDeniedException',
+        },
+      ),
     );
     mockedHydrateAwsCostUsage.mockResolvedValue([]);
 
@@ -1319,6 +1324,8 @@ describe('discoverAwsResources', () => {
     expect(result.unavailableDatasets?.has('aws-cost-usage')).toBe(false);
     expect(result.diagnostics).toEqual([
       expect.objectContaining({
+        message:
+          'Skipped catalog-backed discovery because access to the Resource Explorer catalog is denied by a resource-based policy; only account-scoped datasets were evaluated.',
         provider: 'aws',
         service: 'resource-explorer',
         source: 'discovery',
