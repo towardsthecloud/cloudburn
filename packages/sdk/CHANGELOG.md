@@ -1,5 +1,20 @@
 # @cloudburn/sdk
 
+## 0.30.0
+
+### Minor Changes
+
+- [#195](https://github.com/towardsthecloud/cloudburn/pull/195) [`af4c97d`](https://github.com/towardsthecloud/cloudburn/commit/af4c97d64426c3172f63be984162d72b7815fe81) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Run the ECR lifecycle policy content rules during live discovery by normalizing tagged and untagged retention coverage from each repository policy.
+
+### Patch Changes
+
+- [#193](https://github.com/towardsthecloud/cloudburn/pull/193) [`31f66e6`](https://github.com/towardsthecloud/cloudburn/commit/31f66e63002484cf5bac9a954c04872c9291a4a6) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Load Secrets Manager last-access metadata through paginated `ListSecrets` calls so read-only roles can evaluate unused-secret rules without `DescribeSecret` access.
+
+- [#196](https://github.com/towardsthecloud/cloudburn/pull/196) [`51ee56c`](https://github.com/towardsthecloud/cloudburn/commit/51ee56ce86d72cc13258d57fa44584bb4d5a6435) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Report whether AWS discovery was blocked by a service control policy or resource-based policy when the AWS error identifies the denial source.
+
+- Updated dependencies [[`af4c97d`](https://github.com/towardsthecloud/cloudburn/commit/af4c97d64426c3172f63be984162d72b7815fe81)]:
+  - @cloudburn/rules@0.30.0
+
 ## 0.29.0
 
 ### Minor Changes
