@@ -1,5 +1,11 @@
 # @cloudburn/rules
 
+## 0.30.0
+
+### Minor Changes
+
+- [#195](https://github.com/towardsthecloud/cloudburn/pull/195) [`af4c97d`](https://github.com/towardsthecloud/cloudburn/commit/af4c97d64426c3172f63be984162d72b7815fe81) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Run the ECR lifecycle policy content rules during live discovery by normalizing tagged and untagged retention coverage from each repository policy.
+
 ## 0.29.0
 
 ### Minor Changes
