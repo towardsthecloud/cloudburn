@@ -290,6 +290,62 @@ describe('CloudBurnClient', () => {
     ]);
   });
 
+  it('exposes AWS Config recording evidence for each targeted daily override', async () => {
+    const review = {
+      accountId: '123456789012',
+      allSupported: true,
+      configurationItemsRecorded: 2_000,
+      configuredResourceTypes: [],
+      continuousRecordingUnitPriceUsd: 0.003,
+      currentRecordingFrequency: 'CONTINUOUS' as const,
+      dailyRecordingUnitPriceUsd: 0.012,
+      defaultRecordingFrequency: 'CONTINUOUS' as const,
+      estimatedMonthlyConfigurationItemReduction: 4_136,
+      estimatedMonthlyRecordingCostReductionUsd: 11.06,
+      excludedResourceTypes: [],
+      firewallManagerDependent: false,
+      includeGlobalResourceTypes: false,
+      observationWindowDays: 14,
+      paidServiceLinkedRecorderDependent: false,
+      recorderArn: 'arn:aws:config:eu-central-1:123456789012:configuration-recorder/default/abc',
+      recorderName: 'default',
+      recordedResourceCount: 5,
+      recordingModeOverrides: [],
+      recordingScope: 'PAID',
+      recordingStrategy: 'ALL_SUPPORTED_RESOURCE_TYPES',
+      region: 'eu-central-1',
+      resourceType: 'AWS::Lambda::Function',
+    };
+    mockedDiscoverAwsResources.mockResolvedValue({
+      catalog: discoveryCatalog,
+      resources: new LiveResourceBag({
+        'aws-config-recording-frequency-reviews': [review],
+      }),
+    });
+
+    const result = await new CloudBurnClient().discover({
+      config: { discovery: { enabledRules: ['CLDBRN-AWS-CONFIG-1'] }, iac: {} },
+      includeEvaluationResources: true,
+    });
+
+    expect(result.evaluations?.resourceSets).toEqual([
+      {
+        id: 'aws-config-recording-frequency-reviews',
+        resources: [
+          {
+            accountId: '123456789012',
+            arn: review.recorderArn,
+            data: review,
+            name: 'default: AWS::Lambda::Function',
+            region: 'eu-central-1',
+            resourceId: `${review.recorderArn}#AWS::Lambda::Function`,
+            resourceType: 'config:configuration-recorder',
+          },
+        ],
+      },
+    ]);
+  });
+
   it('uses the same CloudWatch log group identity for findings and evaluation resources', async () => {
     const logGroupArn = 'arn:aws:logs:us-east-1:123456789012:log-group:/aws/lambda/app';
     mockedDiscoverAwsResources.mockResolvedValue({

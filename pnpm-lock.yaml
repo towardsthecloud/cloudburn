@@ -120,6 +120,9 @@ importers:
       '@aws-sdk/client-compute-optimizer':
         specifier: ^3.1085.0
         version: 3.1085.0
+      '@aws-sdk/client-config-service':
+        specifier: ^3.1120.0
+        version: 3.1120.0
       '@aws-sdk/client-cost-explorer':
         specifier: ^3.1015.0
         version: 3.1085.0
@@ -244,6 +247,10 @@ packages:
 
   '@aws-sdk/client-compute-optimizer@3.1085.0':
     resolution: {integrity: sha512-hPsIdKkgA4tznsoDi6/Sp1vN+rMGlzI5R8GrIEoXbY32AwGCw+1YTRttFj1HQHdX1jnm6SqoL1Z5gDk+b5gIoA==}
+    engines: {node: '>=20.0.0'}
+
+  '@aws-sdk/client-config-service@3.1120.0':
+    resolution: {integrity: sha512-npYf38EAF664t3Wvdta+dReodBgFzhA6xDffCJHNpsiAZl2XhwFpcnlTYZJH7HyGFWJBa2fIjKAu4FOMNDRFyQ==}
     engines: {node: '>=20.0.0'}
 
   '@aws-sdk/client-cost-explorer@3.1085.0':
@@ -2108,6 +2115,17 @@ snapshots:
       '@smithy/types': 4.17.2
       tslib: 2.8.1
 
+  '@aws-sdk/client-config-service@3.1120.0':
+    dependencies:
+      '@aws-sdk/core': 3.977.9
+      '@aws-sdk/credential-provider-node': 3.972.81
+      '@aws-sdk/types': 3.974.5
+      '@smithy/core': 3.33.3
+      '@smithy/fetch-http-handler': 5.7.2
+      '@smithy/node-http-handler': 4.11.3
+      '@smithy/types': 4.17.2
+      tslib: 2.8.1
+
   '@aws-sdk/client-cost-explorer@3.1085.0':
     dependencies:
       '@aws-sdk/core': 3.975.1
@@ -2387,16 +2405,16 @@ snapshots:
   '@aws-sdk/credential-provider-ini@3.973.1':
     dependencies:
       '@aws-sdk/core': 3.977.9
-      '@aws-sdk/credential-provider-env': 3.972.57
-      '@aws-sdk/credential-provider-http': 3.972.59
+      '@aws-sdk/credential-provider-env': 3.972.70
+      '@aws-sdk/credential-provider-http': 3.972.72
       '@aws-sdk/credential-provider-login': 3.972.63
-      '@aws-sdk/credential-provider-process': 3.972.57
-      '@aws-sdk/credential-provider-sso': 3.973.1
-      '@aws-sdk/credential-provider-web-identity': 3.972.63
+      '@aws-sdk/credential-provider-process': 3.972.70
+      '@aws-sdk/credential-provider-sso': 3.973.14
+      '@aws-sdk/credential-provider-web-identity': 3.972.76
       '@aws-sdk/nested-clients': 3.997.31
       '@aws-sdk/types': 3.974.5
       '@smithy/core': 3.33.3
-      '@smithy/credential-provider-imds': 4.4.8
+      '@smithy/credential-provider-imds': 4.5.2
       '@smithy/types': 4.17.2
       tslib: 2.8.1
 

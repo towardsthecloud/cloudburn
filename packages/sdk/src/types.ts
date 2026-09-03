@@ -3,6 +3,8 @@ import type {
   AwsCloudTrailTrail,
   AwsCloudWatchLogGroup,
   AwsCloudWatchLogStream,
+  AwsConfigRecordingFrequencyReview,
+  AwsConfigRecordingModeOverride,
   AwsCostUsage,
   AwsDiscoveredResource,
   AwsDiscoveryCatalog,
@@ -227,6 +229,8 @@ export type EvaluatedResource = Omit<FindingMatch, 'region'> & {
   region: string;
   resourceType: string;
   arn?: string;
+  /** Provider-normalized evidence used to evaluate this resource. */
+  data?: unknown;
   name?: string;
   tags?: Record<string, string>;
   createdAt?: string;
@@ -269,6 +273,8 @@ export type {
   AwsCloudTrailTrail,
   AwsCloudWatchLogGroup,
   AwsCloudWatchLogStream,
+  AwsConfigRecordingFrequencyReview,
+  AwsConfigRecordingModeOverride,
   AwsCostUsage,
   AwsDiscoveredResource,
   AwsDiscoveryCatalog,

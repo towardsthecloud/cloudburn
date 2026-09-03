@@ -101,7 +101,7 @@ Current live-discovery behavior:
 - Discovery setup returns existing local indexes without forcing aggregator creation, and `discover init` retries as local-only setup when cross-region aggregator creation is denied.
 - Catalog collection uses Resource Explorer `ListResources` with filter strings instead of `Search`, which avoids the 1,000-result ceiling on filter-only queries.
 - Resource Explorer catalog seeding batches `resourcetype:` and `region:` filters into the smallest possible query set, uses `MaxResults: 999` so AWS reliably returns pagination tokens, and retries throttled `ListResources` calls before failing.
-- Account-scoped or fallback-backed datasets can bypass Resource Explorer seeding entirely by declaring no `resourceTypes`; the loader then receives `[]` and owns the account-level API call.
+- Account-scoped or fallback-backed datasets can bypass Resource Explorer seeding entirely by declaring no `resourceTypes`; the loader then receives `[]` and owns the account-level API call. A dataset can also declare itself `regional`, which runs that account-scoped loader once per selected target region and combines its resources and diagnostics.
 - Account-scoped loaders share one lazy STS account-ID resolution per discovery run; the cache is discarded between runs so ambient credential contexts cannot leak identity.
 - Each discovery run shares one AWS call budget: concurrent datasets fanning out to the same service in the same region are capped at a combined in-flight limit, on top of each loader's own bounded batches. Route 53 operations additionally share an account-wide sliding-window limit of five request starts per second across hosted zones, record sets, health checks, pagination, retries, and simultaneous discovery runs in the same process. Hydrators called directly outside a discover run stay unbounded.
 - `CloudBurnClient.discover({ onProgress })` streams `AwsDiscoveryProgressEvent` values (catalog ready, per-dataset completion counts) while the run executes, so callers can render live feedback without waiting for the final result.
@@ -170,6 +170,7 @@ Live AWS rules declare `discoveryDependencies` dataset keys in `@cloudburn/rules
 - Resource Explorer `resourceTypes` needed to seed the dataset
 - dataset loader behavior (projection-only or hydrator-backed)
 - normalized dataset output exposed through `LiveResourceBag`
+- an optional normalized evaluation projection, including provider evidence in `EvaluatedResource.data`
 
 This keeps Terraform, CloudFormation, and Resource Explorer specifics out of rule files while allowing new static or live datasets without changing core orchestration flow.
 

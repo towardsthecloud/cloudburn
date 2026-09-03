@@ -47,6 +47,7 @@ meaningful optimization opportunities, and `low` covers hygiene and smaller accu
 | `CLDBRN-AWS-CLOUDTRAIL-2`     | medium   | Flag redundant single-region CloudTrail trails when more than one trail covers the same region.                                                                                                                                     | cloudtrail     | discovery      |
 | `CLDBRN-AWS-CLOUDWATCH-1`     | low      | Flag CloudWatch log groups that do not define retention and are not delivery-managed.                                                                                                                                               | cloudwatch     | discovery, iac |
 | `CLDBRN-AWS-CLOUDWATCH-2`     | low      | Flags log groups whose most recent observed stream activity is missing or older than 90 days. Delivery-managed log groups remain exempt.                                                                                            | cloudwatch     | discovery      |
+| `CLDBRN-AWS-CONFIG-1`         | medium   | Flags continuously recorded resource types when a targeted daily override is estimated to save more than `$10` monthly and no continuous dependency applies.                                                                        | config         | discovery      |
 | `CLDBRN-AWS-COSTGUARDRAILS-1` | low      | Flags accounts whose AWS Budgets summary reports zero configured budgets.                                                                                                                                                           | costguardrails | discovery      |
 | `CLDBRN-AWS-COSTGUARDRAILS-2` | low      | Flags accounts whose Cost Anomaly Detection summary reports zero anomaly monitors.                                                                                                                                                  | costguardrails | discovery      |
 | `CLDBRN-AWS-COSTGUARDRAILS-3` | high     | Flags configured AWS Budgets only when normalized actual spend is strictly greater than the same-unit budget limit. Malformed and unit-mismatched spend details are skipped.                                                        | costguardrails | discovery      |
@@ -123,6 +124,13 @@ meaningful optimization opportunities, and `low` covers hygiene and smaller accu
 | `CLDBRN-AWS-LAMBDA-2`         | low      | Uses 7-day CloudWatch totals and flags only functions whose observed `Errors / Invocations` ratio is greater than `10%`.                                                                                                            | lambda         | discovery      |
 | `CLDBRN-AWS-LAMBDA-3`         | low      | Reviews only functions with configured timeouts of at least `30` seconds and flags when the timeout is at least `5x` the observed 7-day average duration.                                                                           | lambda         | discovery      |
 | `CLDBRN-AWS-LAMBDA-4`         | medium   | Flags functions only when AWS Compute Optimizer returns a `MemoryOverprovisioned` recommendation.                                                                                                                                   | lambda         | discovery      |
+
+`CLDBRN-AWS-CONFIG-1` reviews a 14-day window and uses the
+[published AWS Config configuration-item prices](https://aws.amazon.com/config/pricing/): `$0.003` for continuous and
+`$0.012` for daily recording. It treats one daily item per currently recorded resource per day as the projected upper
+bound. Its estimate covers recording charges only; AWS Config rule and conformance-pack evaluations are separate
+charges. Types unsupported by daily recording, protected by Firewall Manager, or covered by a paid continuous
+service-linked recorder remain continuous.
 
 ## Presets
 

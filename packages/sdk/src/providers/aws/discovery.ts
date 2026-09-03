@@ -37,7 +37,9 @@ import {
   waitForAwsResourceExplorerIndex,
   waitForAwsResourceExplorerSetup,
 } from './resource-explorer.js';
-import { withAwsServiceCallBudget } from './resources/utils.js';
+import { mapWithConcurrency, withAwsServiceCallBudget } from './resources/utils.js';
+
+const DATASET_REGION_CONCURRENCY = 10;
 
 const sortUnique = (values: string[]): string[] =>
   [...new Set(values)].sort((left, right) => left.localeCompare(right));
@@ -296,6 +298,22 @@ const buildEmptyLocalCatalog = async (): Promise<AwsDiscoveryCatalog> => ({
   searchRegion: await resolveCurrentAwsRegion(),
 });
 
+const resolveRegionalDatasetRegions = async (target: AwsDiscoveryTarget): Promise<string[]> => {
+  if (target.mode === 'region') {
+    return [assertValidAwsRegion(target.region)];
+  }
+
+  if (target.mode === 'regions') {
+    return sortUnique(target.regions.map(assertValidAwsRegion));
+  }
+
+  if (target.mode === 'all') {
+    return listEnabledAwsRegions();
+  }
+
+  return [await resolveCurrentAwsRegion()];
+};
+
 /**
  * Discovers AWS resources for live rule evaluation using Resource Explorer and
  * registry-driven discovery datasets.
@@ -403,7 +421,7 @@ export const discoverAwsResources = async (
     const loadPromise = (async () => {
       emitDebugLog(options?.debugLogger, `aws: loading dataset ${definition.datasetKey}`);
 
-      if (definition.resourceTypes.length === 0) {
+      if (definition.resourceTypes.length === 0 && !definition.regional) {
         try {
           const loadResult = normalizeDatasetLoadResult(await definition.load([], loadContext));
           emitDebugLog(
@@ -440,7 +458,7 @@ export const discoverAwsResources = async (
       // Catalog-backed datasets cannot distinguish "no resources" from "the
       // catalog never loaded", so they are marked unavailable rather than
       // silently evaluated against an empty catalog.
-      if (catalogFailureDiagnostic) {
+      if (catalogFailureDiagnostic && !definition.regional) {
         return {
           dataset: [definition.datasetKey, [] as DiscoveryDatasetMap[K]] as [K, DiscoveryDatasetMap[K]],
           diagnostics: [],
@@ -448,67 +466,105 @@ export const discoverAwsResources = async (
         };
       }
 
-      const matchingResources = definition.resourceTypes.flatMap(
-        (resourceType) => resourcesByType.get(resourceType) ?? [],
-      );
-      const regionResourceGroups = groupResourcesByRegion(matchingResources);
+      const isRegionalAccountDataset = definition.regional && definition.resourceTypes.length === 0;
+      const regionResourceGroups: Map<string, AwsDiscoveredResource[]> = isRegionalAccountDataset
+        ? new Map((await resolveRegionalDatasetRegions(target)).map((region) => [region, []]))
+        : groupResourcesByRegion(
+            definition.resourceTypes.flatMap((resourceType) => resourcesByType.get(resourceType) ?? []),
+          );
       const loadedResources: unknown[] = [];
       const diagnostics: ScanDiagnostic[] = [];
       const unavailableDiagnostics = new Set<ScanDiagnostic>();
       let unavailable = false;
       let accessDeniedRegionCount = 0;
 
-      for (const [region, regionResources] of regionResourceGroups) {
-        const regionStartedAtMs = Date.now();
+      const regionalLoads = await mapWithConcurrency(
+        [...regionResourceGroups],
+        DATASET_REGION_CONCURRENCY,
+        async ([region, regionResources]) => {
+          const regionStartedAtMs = Date.now();
 
-        try {
-          emitDebugLog(
-            options?.debugLogger,
-            `aws: loading dataset ${definition.datasetKey} in ${region} from ${regionResources.length} resources`,
-          );
-          const loadResult = normalizeDatasetLoadResult(await definition.load(regionResources, loadContext));
-          appendItems(loadedResources, loadResult.resources);
-          appendItems(diagnostics, loadResult.diagnostics);
-          emitDebugLog(
-            options?.debugLogger,
-            `aws: completed dataset ${definition.datasetKey} in ${region} with ${loadResult.resources.length} resources in ${formatElapsedMs(regionStartedAtMs)}`,
-          );
-        } catch (err) {
-          emitDebugLog(
-            options?.debugLogger,
-            `aws: dataset ${definition.datasetKey} failed in ${region} after ${formatElapsedMs(regionStartedAtMs)}: ${err instanceof Error ? err.message : String(err)}`,
-          );
-          if (err instanceof UnavailableDiscoveryDatasetError) {
-            unavailable = true;
-            for (const diagnostic of err.diagnostics) {
-              unavailableDiagnostics.add(diagnostic);
-            }
-          } else {
-            const isAccessDenied = isAwsAccessDeniedError(err);
-            if (isAccessDenied) {
-              accessDeniedRegionCount += 1;
-            } else {
-              unavailable = true;
-            }
-            diagnostics.push(
-              isAccessDenied
-                ? {
-                    code: getAwsErrorCode(err),
-                    details: err instanceof Error ? err.message : String(err),
-                    message: buildAccessDeniedDiagnosticMessage(definition.service, region, err),
-                    provider: 'aws',
-                    region,
-                    service: definition.service,
-                    source: 'discovery',
-                    status: 'access_denied',
-                  }
-                : buildDatasetFailureDiagnostic(definition.service, region, err),
+          try {
+            emitDebugLog(
+              options?.debugLogger,
+              isRegionalAccountDataset
+                ? `aws: loading dataset ${definition.datasetKey} in ${region}`
+                : `aws: loading dataset ${definition.datasetKey} in ${region} from ${regionResources.length} resources`,
             );
+            const loadResult = normalizeDatasetLoadResult(
+              await definition.load(
+                regionResources,
+                isRegionalAccountDataset
+                  ? {
+                      ...loadContext,
+                      region,
+                    }
+                  : loadContext,
+              ),
+            );
+            emitDebugLog(
+              options?.debugLogger,
+              `aws: completed dataset ${definition.datasetKey} in ${region} with ${loadResult.resources.length} resources in ${formatElapsedMs(regionStartedAtMs)}`,
+            );
+
+            return {
+              accessDenied: false,
+              diagnostics: loadResult.diagnostics,
+              resources: loadResult.resources,
+              unavailable: false,
+              unavailableDiagnostics: [] as ScanDiagnostic[],
+            };
+          } catch (err) {
+            emitDebugLog(
+              options?.debugLogger,
+              `aws: dataset ${definition.datasetKey} failed in ${region} after ${formatElapsedMs(regionStartedAtMs)}: ${err instanceof Error ? err.message : String(err)}`,
+            );
+            emitDebugLog(
+              options?.debugLogger,
+              `aws: completed dataset ${definition.datasetKey} in ${region} with 0 resources in ${formatElapsedMs(regionStartedAtMs)}`,
+            );
+            if (err instanceof UnavailableDiscoveryDatasetError) {
+              return {
+                accessDenied: false,
+                diagnostics: [] as ScanDiagnostic[],
+                resources: [] as unknown[],
+                unavailable: true,
+                unavailableDiagnostics: err.diagnostics,
+              };
+            }
+
+            const isAccessDenied = isAwsAccessDeniedError(err);
+            return {
+              accessDenied: isAccessDenied,
+              diagnostics: [
+                isAccessDenied
+                  ? {
+                      code: getAwsErrorCode(err),
+                      details: err instanceof Error ? err.message : String(err),
+                      message: buildAccessDeniedDiagnosticMessage(definition.service, region, err),
+                      provider: 'aws' as const,
+                      region,
+                      service: definition.service,
+                      source: 'discovery' as const,
+                      status: 'access_denied' as const,
+                    }
+                  : buildDatasetFailureDiagnostic(definition.service, region, err),
+              ],
+              resources: [] as unknown[],
+              unavailable: !isAccessDenied,
+              unavailableDiagnostics: [] as ScanDiagnostic[],
+            };
           }
-          emitDebugLog(
-            options?.debugLogger,
-            `aws: completed dataset ${definition.datasetKey} in ${region} with 0 resources in ${formatElapsedMs(regionStartedAtMs)}`,
-          );
+        },
+      );
+
+      for (const loadResult of regionalLoads) {
+        appendItems(loadedResources, loadResult.resources);
+        appendItems(diagnostics, loadResult.diagnostics);
+        unavailable ||= loadResult.unavailable;
+        accessDeniedRegionCount += Number(loadResult.accessDenied);
+        for (const diagnostic of loadResult.unavailableDiagnostics) {
+          unavailableDiagnostics.add(diagnostic);
         }
       }
 

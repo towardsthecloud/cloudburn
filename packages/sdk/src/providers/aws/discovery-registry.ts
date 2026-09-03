@@ -18,6 +18,7 @@ import {
   hydrateAwsCloudWatchLogGroups,
   hydrateAwsCloudWatchLogStreams,
 } from './resources/cloudwatch-logs.js';
+import { hydrateAwsConfigRecordingFrequencyReviews } from './resources/config.js';
 import { hydrateAwsCostUsage } from './resources/cost-explorer.js';
 import { hydrateAwsCostAnomalyMonitors, hydrateAwsCostGuardrailBudgets } from './resources/cost-guardrails.js';
 import {
@@ -100,17 +101,22 @@ export type AwsAccountIdResolver = {
 };
 
 /** Shared per-run capabilities available to AWS discovery dataset hydrators. */
-export type AwsDiscoveryDatasetLoadContext = AwsDiscoveryDatasetResolver & AwsAccountIdResolver;
+export type AwsDiscoveryDatasetLoadContext = AwsDiscoveryDatasetResolver &
+  AwsAccountIdResolver & {
+    region?: string;
+  };
 
 /** Declarative definition for one rule-facing AWS discovery dataset. */
 export type AwsDiscoveryDatasetDefinition<K extends DiscoveryDatasetKey = DiscoveryDatasetKey> = {
   datasetKey: K;
+  regional?: boolean;
   toEvaluationResources?: (resources: DiscoveryDatasetMap[K]) => EvaluationResourceProjection[];
   resourceTypes: string[];
   service:
     | 'cloudfront'
     | 'cloudtrail'
     | 'cloudwatch'
+    | 'config'
     | 'costguardrails'
     | 'costexplorer'
     | 'dynamodb'
@@ -137,7 +143,7 @@ export type AwsDiscoveryDatasetDefinition<K extends DiscoveryDatasetKey = Discov
 };
 
 type EvaluationResourceProjection = FindingMatch &
-  Partial<Pick<EvaluatedResource, 'arn' | 'createdAt' | 'lastActivityAt' | 'name' | 'resourceType' | 'tags'>>;
+  Partial<Pick<EvaluatedResource, 'arn' | 'createdAt' | 'data' | 'lastActivityAt' | 'name' | 'resourceType' | 'tags'>>;
 
 const loadBalancerResourceTypes = {
   application: 'elasticloadbalancing:loadbalancer/app',
@@ -276,6 +282,24 @@ const awsDiscoveryDatasetRegistry: {
     resourceTypes: ['logs:log-group'],
     service: 'cloudwatch',
     load: hydrateAwsCloudWatchLogStreams,
+  },
+  'aws-config-recording-frequency-reviews': {
+    datasetKey: 'aws-config-recording-frequency-reviews',
+    regional: true,
+    resourceTypes: [],
+    service: 'config',
+    load: hydrateAwsConfigRecordingFrequencyReviews,
+    toEvaluationResources: (reviews) =>
+      mapEvaluationResources(
+        reviews,
+        (review) => `${review.recorderArn}#${review.resourceType}`,
+        (review) => ({
+          arn: review.recorderArn,
+          data: review,
+          name: `${review.recorderName}: ${review.resourceType}`,
+          resourceType: 'config:configuration-recorder',
+        }),
+      ),
   },
   'aws-cost-usage': {
     datasetKey: 'aws-cost-usage',

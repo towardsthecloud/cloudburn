@@ -19,6 +19,8 @@ export type {
   AwsCloudWatchLogGroup,
   AwsCloudWatchLogGroupRecentStreamActivity,
   AwsCloudWatchLogStream,
+  AwsConfigRecordingFrequencyReview,
+  AwsConfigRecordingModeOverride,
   AwsCostAnomalyMonitor,
   AwsCostGuardrailBudget,
   AwsCostGuardrailBudgetSpend,

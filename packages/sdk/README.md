@@ -92,6 +92,11 @@ represented as `triggered`, `passed`, or `not_applicable`; skipped rules include
 Rule entries also carry generic rule and service metadata so callers can select checks and build their own product
 views without re-querying AWS or maintaining a second copy of rule descriptions.
 
+Evaluation resources can include provider-normalized `data` when a check needs auditable evidence beyond identity and
+timestamps. For example, `CLDBRN-AWS-CONFIG-1` reports the affected resource type, current recording frequency,
+observation window, configuration-item volume, inventory count, estimated monthly reduction, recorder scope and
+overrides, public continuous and daily unit prices, and any Firewall Manager or paid service-linked recorder dependency.
+
 The SDK does not define product profiles, remediation effort, commands, or persistence schemas. Applications select
 the discovery rules that fit their use case through `config.discovery.enabledRules` and transform the generic result
 at their own product boundary.

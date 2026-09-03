@@ -1252,6 +1252,24 @@ describe('rule metadata', () => {
     });
   });
 
+  it('defines the expected AWS Config recording-frequency rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-CONFIG-1');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-CONFIG-1',
+      name: 'AWS Config Cost-Inefficient Continuous Recording',
+      description:
+        'Flag continuously recorded AWS Config resource types when a targeted daily override is estimated to save more than $10 per month.',
+      message:
+        'Cost-inefficient AWS Config resource types should use targeted daily recording when no continuous-recording dependency applies.',
+      provider: 'aws',
+      service: 'config',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-config-recording-frequency-reviews'],
+    });
+  });
+
   it('defines the expected DynamoDB stale-data rule metadata', () => {
     const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-DYNAMODB-1');
 

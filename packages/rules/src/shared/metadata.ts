@@ -75,6 +75,40 @@ export type AwsCloudTrailTrail = {
   accountId: string;
 };
 
+/** Effective AWS Config recording-mode override for one or more resource types. */
+export type AwsConfigRecordingModeOverride = {
+  description?: string;
+  recordingFrequency: 'CONTINUOUS' | 'DAILY';
+  resourceTypes: string[];
+};
+
+/** Evidence for reviewing one high-volume AWS Config resource type. */
+export type AwsConfigRecordingFrequencyReview = {
+  accountId: string;
+  allSupported: boolean;
+  configurationItemsRecorded: number;
+  configuredResourceTypes: string[];
+  continuousRecordingUnitPriceUsd: number;
+  currentRecordingFrequency: 'CONTINUOUS';
+  dailyRecordingUnitPriceUsd: number;
+  defaultRecordingFrequency: 'CONTINUOUS' | 'DAILY';
+  estimatedMonthlyConfigurationItemReduction: number;
+  estimatedMonthlyRecordingCostReductionUsd: number;
+  excludedResourceTypes: string[];
+  firewallManagerDependent: boolean;
+  includeGlobalResourceTypes: boolean;
+  observationWindowDays: number;
+  paidServiceLinkedRecorderDependent: boolean;
+  recorderArn: string;
+  recorderName: string;
+  recordedResourceCount: number;
+  recordingModeOverrides: AwsConfigRecordingModeOverride[];
+  recordingScope?: string;
+  recordingStrategy: string;
+  region: string;
+  resourceType: string;
+};
+
 /** Discovered CloudWatch Logs log group normalized for retention checks. */
 export type AwsCloudWatchLogGroup = {
   logGroupArn: string;
@@ -709,6 +743,7 @@ export type DiscoveryDatasetKey =
   | 'aws-cloudwatch-log-groups'
   | 'aws-cloudwatch-log-group-recent-stream-activity'
   | 'aws-cloudwatch-log-streams'
+  | 'aws-config-recording-frequency-reviews'
   | 'aws-cost-usage'
   | 'aws-cost-anomaly-monitors'
   | 'aws-cost-guardrail-budgets'
@@ -766,6 +801,7 @@ export type DiscoveryDatasetMap = {
   'aws-cloudwatch-log-groups': AwsCloudWatchLogGroup[];
   'aws-cloudwatch-log-group-recent-stream-activity': AwsCloudWatchLogGroupRecentStreamActivity[];
   'aws-cloudwatch-log-streams': AwsCloudWatchLogStream[];
+  'aws-config-recording-frequency-reviews': AwsConfigRecordingFrequencyReview[];
   'aws-cost-usage': AwsCostUsage[];
   'aws-cost-anomaly-monitors': AwsCostAnomalyMonitor[];
   'aws-cost-guardrail-budgets': AwsCostGuardrailBudget[];
