@@ -1,5 +1,13 @@
 # @cloudburn/rules
 
+## 0.29.0
+
+### Minor Changes
+
+- [#166](https://github.com/towardsthecloud/cloudburn/pull/166) [`783e67c`](https://github.com/towardsthecloud/cloudburn/commit/783e67cb0e1da3a6938f6667a6f54c10d4ba9763) Thanks [@axonstone](https://github.com/axonstone)! - Remove four heuristic AWS rules that could flag valid cost choices without usage evidence: disabled API Gateway caching, missing CloudWatch metric filters, configured Lambda provisioned concurrency, and ungated S3 Intelligent-Tiering. Default scans no longer report those findings, and the unused provider datasets are no longer loaded or exported.
+
+- [#179](https://github.com/towardsthecloud/cloudburn/pull/179) [`442bf8b`](https://github.com/towardsthecloud/cloudburn/commit/442bf8b120b9cbe8788b7bb964100023ba6420c8) Thanks [@axonstone](https://github.com/axonstone)! - Add an AWS cost guardrail that flags budgets forecast to breach their limit before actual spend exceeds it.
+
 ## 0.28.0
 
 ### Minor Changes

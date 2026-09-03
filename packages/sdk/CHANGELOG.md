@@ -1,5 +1,22 @@
 # @cloudburn/sdk
 
+## 0.29.0
+
+### Minor Changes
+
+- [#166](https://github.com/towardsthecloud/cloudburn/pull/166) [`783e67c`](https://github.com/towardsthecloud/cloudburn/commit/783e67cb0e1da3a6938f6667a6f54c10d4ba9763) Thanks [@axonstone](https://github.com/axonstone)! - Remove four heuristic AWS rules that could flag valid cost choices without usage evidence: disabled API Gateway caching, missing CloudWatch metric filters, configured Lambda provisioned concurrency, and ungated S3 Intelligent-Tiering. Default scans no longer report those findings, and the unused provider datasets are no longer loaded or exported.
+
+- [#179](https://github.com/towardsthecloud/cloudburn/pull/179) [`442bf8b`](https://github.com/towardsthecloud/cloudburn/commit/442bf8b120b9cbe8788b7bb964100023ba6420c8) Thanks [@axonstone](https://github.com/axonstone)! - Add an AWS cost guardrail that flags budgets forecast to breach their limit before actual spend exceeds it.
+
+### Patch Changes
+
+- [#191](https://github.com/towardsthecloud/cloudburn/pull/191) [`6bb5baa`](https://github.com/towardsthecloud/cloudburn/commit/6bb5baacd9b99b23f9bbdf107ba6e03394b5e321) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Mark discovery datasets unavailable when every regional load is denied, so affected rules are skipped instead of reported as passing against an empty dataset.
+
+- [#192](https://github.com/towardsthecloud/cloudburn/pull/192) [`40bbec2`](https://github.com/towardsthecloud/cloudburn/commit/40bbec2ea82d93fc203901b0de4811a9f357c473) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Load Lambda configuration through paginated `ListFunctions` calls so read-only roles can evaluate Lambda discovery rules without `GetFunctionConfiguration` access.
+
+- Updated dependencies [[`783e67c`](https://github.com/towardsthecloud/cloudburn/commit/783e67cb0e1da3a6938f6667a6f54c10d4ba9763), [`442bf8b`](https://github.com/towardsthecloud/cloudburn/commit/442bf8b120b9cbe8788b7bb964100023ba6420c8)]:
+  - @cloudburn/rules@0.29.0
+
 ## 0.28.0
 
 ### Minor Changes
