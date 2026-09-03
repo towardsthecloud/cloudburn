@@ -319,6 +319,13 @@ export type AwsLambdaFunctionMetric = {
   accountId: string;
 };
 
+/** AWS Compute Optimizer evidence for a Lambda function whose memory can be reduced. */
+export type AwsLambdaMemoryRecommendation = {
+  functionArn: string;
+  region: string;
+  accountId: string;
+};
+
 /** Discovered SageMaker notebook instance normalized for running-state checks. */
 export type AwsSageMakerNotebookInstance = {
   notebookInstanceName: string;
@@ -573,6 +580,8 @@ export type AwsDynamoDbTableUtilization = {
   totalConsumedReadCapacityUnitsLast30Days: number | null;
   /** `null` means CloudWatch returned incomplete datapoints for the 30-day write lookback window. */
   totalConsumedWriteCapacityUnitsLast30Days: number | null;
+  /** `null` or `undefined` means the table lacks a complete 90-day write-activity window. */
+  totalConsumedWriteCapacityUnitsLast90Days?: number | null;
   region: string;
   accountId: string;
 };
@@ -729,6 +738,7 @@ export type DiscoveryDatasetKey =
   | 'aws-emr-cluster-metrics'
   | 'aws-lambda-functions'
   | 'aws-lambda-function-metrics'
+  | 'aws-lambda-memory-recommendations'
   | 'aws-rds-instance-activity'
   | 'aws-rds-instance-cpu-metrics'
   | 'aws-rds-instances'
@@ -785,6 +795,7 @@ export type DiscoveryDatasetMap = {
   'aws-emr-cluster-metrics': AwsEmrClusterMetric[];
   'aws-lambda-functions': AwsLambdaFunction[];
   'aws-lambda-function-metrics': AwsLambdaFunctionMetric[];
+  'aws-lambda-memory-recommendations': AwsLambdaMemoryRecommendation[];
   'aws-rds-instance-activity': AwsRdsInstanceActivity[];
   'aws-rds-instance-cpu-metrics': AwsRdsInstanceCpuMetric[];
   'aws-rds-instances': AwsRdsInstance[];

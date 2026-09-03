@@ -53,6 +53,7 @@ export type {
   AwsEmrClusterMetric,
   AwsLambdaFunction,
   AwsLambdaFunctionMetric,
+  AwsLambdaMemoryRecommendation,
   AwsRdsInstance,
   AwsRdsInstanceActivity,
   AwsRdsInstanceCpuMetric,

@@ -5,6 +5,7 @@ import { CloudFrontClient } from '@aws-sdk/client-cloudfront';
 import { CloudTrailClient } from '@aws-sdk/client-cloudtrail';
 import { CloudWatchClient } from '@aws-sdk/client-cloudwatch';
 import { CloudWatchLogsClient } from '@aws-sdk/client-cloudwatch-logs';
+import { ComputeOptimizerClient } from '@aws-sdk/client-compute-optimizer';
 import { CostExplorerClient } from '@aws-sdk/client-cost-explorer';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DescribeRegionsCommand, EC2Client } from '@aws-sdk/client-ec2';
@@ -246,6 +247,14 @@ export const createCloudFrontClient = (): CloudFrontClient =>
 /** Creates an AWS CloudWatch Logs client for a specific region. */
 export const createCloudWatchLogsClient = (config: AwsClientConfig): CloudWatchLogsClient =>
   new CloudWatchLogsClient({
+    ...baseAwsClientConfig(),
+    region: config.region,
+    credentials: resolveAwsClientCredentials(),
+  });
+
+/** Creates an AWS Compute Optimizer client for a specific region. */
+export const createComputeOptimizerClient = (config: AwsClientConfig): ComputeOptimizerClient =>
+  new ComputeOptimizerClient({
     ...baseAwsClientConfig(),
     region: config.region,
     credentials: resolveAwsClientCredentials(),

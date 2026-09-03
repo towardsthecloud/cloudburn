@@ -69,6 +69,7 @@ import { hydrateAwsEmrClusterMetrics, hydrateAwsEmrClusters } from '../../src/pr
 import {
   hydrateAwsLambdaFunctionMetrics,
   hydrateAwsLambdaFunctions,
+  hydrateAwsLambdaMemoryRecommendations,
 } from '../../src/providers/aws/resources/lambda.js';
 import {
   hydrateAwsRdsInstances,
@@ -207,6 +208,7 @@ vi.mock('../../src/providers/aws/resources/ec2-reserved-instances.js', () => ({
 vi.mock('../../src/providers/aws/resources/lambda.js', () => ({
   hydrateAwsLambdaFunctionMetrics: vi.fn(),
   hydrateAwsLambdaFunctions: vi.fn(),
+  hydrateAwsLambdaMemoryRecommendations: vi.fn(),
 }));
 
 vi.mock('../../src/providers/aws/resources/elbv2.js', () => ({
@@ -298,6 +300,7 @@ const mockedHydrateAwsEmrClusters = vi.mocked(hydrateAwsEmrClusters);
 const mockedHydrateAwsEc2Instances = vi.mocked(hydrateAwsEc2Instances);
 const mockedHydrateAwsEc2NatGatewayActivity = vi.mocked(hydrateAwsEc2NatGatewayActivity);
 const mockedHydrateAwsEc2InstanceUtilization = vi.mocked(hydrateAwsEc2InstanceUtilization);
+const mockedHydrateAwsLambdaMemoryRecommendations = vi.mocked(hydrateAwsLambdaMemoryRecommendations);
 const mockedHydrateAwsEc2ReservedInstances = vi.mocked(hydrateAwsEc2ReservedInstances);
 const mockedHydrateAwsEc2LoadBalancers = vi.mocked(hydrateAwsEc2LoadBalancers);
 const _mockedHydrateAwsEc2LoadBalancerRequestActivity = vi.mocked(hydrateAwsEc2LoadBalancerRequestActivity);
@@ -1132,6 +1135,39 @@ describe('discoverAwsResources', () => {
     ]);
   });
 
+  it('hydrates Compute Optimizer recommendations when the Lambda memory rule requires them', async () => {
+    mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
+      indexType: 'LOCAL',
+      resources: [catalog.resources[3]],
+      searchRegion: 'us-east-1',
+    });
+    mockedHydrateAwsLambdaMemoryRecommendations.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        currentMemorySizeMb: 512,
+        functionArn: 'arn:aws:lambda:us-east-1:123456789012:function:my-func',
+        recommendedMemorySizeMb: 256,
+        region: 'us-east-1',
+      },
+    ]);
+
+    const result = await discoverAwsResources(
+      [
+        createRule({
+          discoveryDependencies: ['aws-lambda-memory-recommendations'],
+          service: 'lambda',
+        }),
+      ],
+      { mode: 'regions', regions: ['us-east-1'] },
+    );
+
+    expect(mockedHydrateAwsLambdaMemoryRecommendations).toHaveBeenCalledWith(
+      [catalog.resources[3]],
+      loadContextMatcher,
+    );
+    expect(result.resources.get('aws-lambda-memory-recommendations')).toHaveLength(1);
+  });
+
   it('reuses memoized base datasets when metrics and base datasets are requested together', async () => {
     mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
       indexType: 'LOCAL',
@@ -1330,6 +1366,41 @@ describe('discoverAwsResources', () => {
         service: 'resource-explorer',
         source: 'discovery',
         status: 'access_denied',
+      }),
+    ]);
+  });
+
+  it('keeps Resource Explorer default-view recovery steps in degraded scan diagnostics', async () => {
+    mockedResolveCurrentAwsRegion.mockResolvedValue('eu-west-1');
+    mockedBuildAwsDiscoveryCatalog.mockRejectedValue(
+      new AwsDiscoveryError(
+        'RESOURCE_EXPLORER_DEFAULT_VIEW_REQUIRED',
+        "AWS Resource Explorer does not have a default view in eu-west-1. Create one with 'cloudburn discover init' or configure a default view in the AWS console.",
+      ),
+    );
+    mockedHydrateAwsCostUsage.mockResolvedValue([]);
+
+    const result = await discoverAwsResources(
+      [
+        createRule({
+          discoveryDependencies: ['aws-ec2-instances'],
+          service: 'ec2',
+        }),
+        createRule({
+          id: 'CLDBRN-AWS-TEST-2',
+          discoveryDependencies: ['aws-cost-usage'],
+          service: 'costexplorer',
+        }),
+      ],
+      { mode: 'current' },
+    );
+
+    expect(result.diagnostics).toEqual([
+      expect.objectContaining({
+        code: 'RESOURCE_EXPLORER_DEFAULT_VIEW_REQUIRED',
+        message:
+          "AWS Resource Explorer does not have a default view in eu-west-1. Create one with 'cloudburn discover init' or configure a default view in the AWS console. Only account-scoped datasets were evaluated.",
+        status: 'error',
       }),
     ]);
   });
@@ -2827,6 +2898,65 @@ describe('discoverAwsResources', () => {
         source: 'discovery',
         status: 'access_denied',
       },
+    ]);
+  });
+
+  it('keeps a partially readable DynamoDB dataset available to rules', async () => {
+    const tableResource = {
+      accountId: '123456789012',
+      arn: 'arn:aws:dynamodb:us-east-1:123456789012:table/orders',
+      properties: [],
+      region: 'us-east-1',
+      resourceType: 'dynamodb:table',
+      service: 'dynamodb',
+    };
+    mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
+      indexType: 'LOCAL',
+      resources: [tableResource],
+      searchRegion: 'us-east-1',
+    });
+    mockedHydrateAwsDynamoDbTables.mockResolvedValue({
+      diagnostics: [
+        {
+          code: 'AccessDeniedException',
+          details: 'Access denied',
+          message: 'Skipped DynamoDB table blocked in us-east-1 because access is denied by a resource-based policy.',
+          provider: 'aws',
+          region: 'us-east-1',
+          service: 'dynamodb',
+          source: 'discovery',
+          status: 'access_denied',
+        },
+      ],
+      resources: [
+        {
+          accountId: '123456789012',
+          billingMode: 'PAY_PER_REQUEST',
+          region: 'us-east-1',
+          tableArn: tableResource.arn,
+          tableName: 'orders',
+          tableStatus: 'ACTIVE',
+        },
+      ],
+    });
+
+    const result = await discoverAwsResources(
+      [
+        createRule({
+          discoveryDependencies: ['aws-dynamodb-tables'],
+          service: 'dynamodb',
+        }),
+      ],
+      { mode: 'regions', regions: ['us-east-1'] },
+    );
+
+    expect(result.resources.get('aws-dynamodb-tables')).toHaveLength(1);
+    expect(result.unavailableDatasets?.has('aws-dynamodb-tables')).toBe(false);
+    expect(result.diagnostics).toEqual([
+      expect.objectContaining({
+        message: expect.stringContaining('DynamoDB table blocked'),
+        status: 'access_denied',
+      }),
     ]);
   });
 

@@ -47,7 +47,11 @@ import {
   hydrateAwsEc2TargetGroups,
 } from './resources/elbv2.js';
 import { hydrateAwsEmrClusterMetrics, hydrateAwsEmrClusters } from './resources/emr.js';
-import { hydrateAwsLambdaFunctionMetrics, hydrateAwsLambdaFunctions } from './resources/lambda.js';
+import {
+  hydrateAwsLambdaFunctionMetrics,
+  hydrateAwsLambdaFunctions,
+  hydrateAwsLambdaMemoryRecommendations,
+} from './resources/lambda.js';
 import { hydrateAwsRdsInstances, hydrateAwsRdsReservedInstances, hydrateAwsRdsSnapshots } from './resources/rds.js';
 import { hydrateAwsRdsInstanceActivity, hydrateAwsRdsInstanceCpuMetrics } from './resources/rds-activity.js';
 import {
@@ -291,6 +295,7 @@ const awsDiscoveryDatasetRegistry: {
     resourceTypes: ['dynamodb:table'],
     service: 'dynamodb',
     load: hydrateAwsDynamoDbTableUtilization,
+    toEvaluationResources: (tables) => mapEvaluationResources(tables, (table) => table.tableArn),
   },
   'aws-dynamodb-tables': {
     datasetKey: 'aws-dynamodb-tables',
@@ -518,6 +523,14 @@ const awsDiscoveryDatasetRegistry: {
     resourceTypes: ['lambda:function'],
     service: 'lambda',
     load: hydrateAwsLambdaFunctionMetrics,
+  },
+  'aws-lambda-memory-recommendations': {
+    datasetKey: 'aws-lambda-memory-recommendations',
+    resourceTypes: ['lambda:function'],
+    service: 'lambda',
+    load: hydrateAwsLambdaMemoryRecommendations,
+    toEvaluationResources: (recommendations) =>
+      mapEvaluationResources(recommendations, (recommendation) => recommendation.functionArn),
   },
   'aws-rds-instance-activity': {
     datasetKey: 'aws-rds-instance-activity',

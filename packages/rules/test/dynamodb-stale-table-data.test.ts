@@ -1,29 +1,21 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { dynamoDbStaleTableDataRule } from '../src/aws/dynamodb/stale-table-data.js';
-import type { AwsDynamoDbTable } from '../src/index.js';
+import type { AwsDynamoDbTableUtilization } from '../src/index.js';
 import { LiveResourceBag } from '../src/index.js';
 
-const createTable = (overrides: Partial<AwsDynamoDbTable> = {}): AwsDynamoDbTable => ({
+const createUtilization = (overrides: Partial<AwsDynamoDbTableUtilization> = {}): AwsDynamoDbTableUtilization => ({
   accountId: '123456789012',
-  billingMode: 'PROVISIONED',
-  latestStreamLabel: '2025-12-01T00:00:00.000',
   region: 'us-east-1',
   tableArn: 'arn:aws:dynamodb:us-east-1:123456789012:table/orders',
   tableName: 'orders',
+  totalConsumedReadCapacityUnitsLast30Days: 0,
+  totalConsumedWriteCapacityUnitsLast30Days: 0,
+  totalConsumedWriteCapacityUnitsLast90Days: 0,
   ...overrides,
 });
 
 describe('dynamoDbStaleTableDataRule', () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date('2026-03-24T00:00:00.000Z'));
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
-  it('flags tables whose latest stream label is older than 90 days', () => {
+  it('flags tables with no consumed write capacity over a complete 90-day window', () => {
     const finding = dynamoDbStaleTableDataRule.evaluateLive?.({
       catalog: {
         indexType: 'LOCAL',
@@ -31,7 +23,7 @@ describe('dynamoDbStaleTableDataRule', () => {
         searchRegion: 'us-east-1',
       },
       resources: new LiveResourceBag({
-        'aws-dynamodb-tables': [createTable()],
+        'aws-dynamodb-table-utilization': [createUtilization()],
       }),
     });
 
@@ -44,7 +36,7 @@ describe('dynamoDbStaleTableDataRule', () => {
     ]);
   });
 
-  it('skips tables with recent or unavailable stream labels', () => {
+  it('skips tables with write activity or incomplete 90-day evidence', () => {
     const finding = dynamoDbStaleTableDataRule.evaluateLive?.({
       catalog: {
         indexType: 'LOCAL',
@@ -52,11 +44,11 @@ describe('dynamoDbStaleTableDataRule', () => {
         searchRegion: 'us-east-1',
       },
       resources: new LiveResourceBag({
-        'aws-dynamodb-tables': [
-          createTable({ latestStreamLabel: '2026-03-01T00:00:00.000' }),
-          createTable({
-            latestStreamLabel: undefined,
+        'aws-dynamodb-table-utilization': [
+          createUtilization({ totalConsumedWriteCapacityUnitsLast90Days: 1 }),
+          createUtilization({
             tableArn: 'arn:aws:dynamodb:us-east-1:123456789012:table/audit',
+            totalConsumedWriteCapacityUnitsLast90Days: null,
           }),
         ],
       }),
