@@ -229,6 +229,51 @@ describe('CloudBurnClient', () => {
     ]);
   });
 
+  it('reports every Lambda function inspected by the memory-overprovisioning rule', async () => {
+    const accountId = '123456789012';
+    mockedDiscoverAwsResources.mockResolvedValue({
+      catalog: discoveryCatalog,
+      resources: new LiveResourceBag({
+        'aws-lambda-functions': [
+          { accountId, architectures: ['x86_64'], functionName: 'overprovisioned', region: 'us-east-1' },
+          { accountId, architectures: ['arm64'], functionName: 'right-sized', region: 'us-east-1' },
+        ],
+        'aws-lambda-memory-recommendations': [
+          {
+            accountId,
+            functionArn: `arn:aws:lambda:us-east-1:${accountId}:function:overprovisioned`,
+            region: 'us-east-1',
+          },
+        ],
+      }),
+    });
+
+    const result = await new CloudBurnClient().discover({
+      config: { discovery: { enabledRules: ['CLDBRN-AWS-LAMBDA-4'] }, iac: {} },
+      includeEvaluationResources: true,
+    });
+
+    expect(result.evaluations?.resourceSets).toEqual([
+      {
+        id: 'aws-lambda-functions',
+        resources: [
+          {
+            accountId,
+            region: 'us-east-1',
+            resourceId: 'overprovisioned',
+            resourceType: 'lambda:function',
+          },
+          {
+            accountId,
+            region: 'us-east-1',
+            resourceId: 'right-sized',
+            resourceType: 'lambda:function',
+          },
+        ],
+      },
+    ]);
+  });
+
   it('uses the same CloudWatch log group identity for findings and evaluation resources', async () => {
     const logGroupArn = 'arn:aws:logs:us-east-1:123456789012:log-group:/aws/lambda/app';
     mockedDiscoverAwsResources.mockResolvedValue({

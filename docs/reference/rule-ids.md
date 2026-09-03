@@ -18,6 +18,8 @@ sequence for every provider/service pair.
 ## Presets
 
 - `aws-core` is the default general discovery preset.
+- `CLDBRN-AWS-LAMBDA-4` is opt-in because AWS Compute Optimizer requires account enrollment. Enable it with `cloudburn discover --enabled-rules CLDBRN-AWS-LAMBDA-4` or `config.discovery.enabledRules` in the SDK.
+- `CLDBRN-AWS-TAGGING-1` is opt-in because account-wide tagging needs an accessible Resource Explorer aggregator.
 - Applications can define product-specific rule selections with `config.discovery.enabledRules`. Such selections are
   application policy rather than SDK presets; the SDK continues to return the same generic findings and evaluation
   evidence for any selected discovery rules.
@@ -124,6 +126,6 @@ meaningful optimization opportunities, and `low` covers hygiene and smaller accu
 
 ## Presets
 
-| Preset ID  | Name     | Rule IDs                                                 |
-| ---------- | -------- | -------------------------------------------------------- |
-| `aws-core` | AWS Core | All AWS rules above except opt-in `CLDBRN-AWS-TAGGING-1` |
+| Preset ID  | Name     | Rule IDs                                                                           |
+| ---------- | -------- | ---------------------------------------------------------------------------------- |
+| `aws-core` | AWS Core | All AWS rules above except opt-in `CLDBRN-AWS-LAMBDA-4` and `CLDBRN-AWS-TAGGING-1` |

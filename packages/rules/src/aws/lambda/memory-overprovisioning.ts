@@ -15,7 +15,7 @@ export const lambdaMemoryOverprovisioningRule = createRule({
   provider: 'aws',
   service: RULE_SERVICE,
   supports: ['discovery'],
-  discoveryDependencies: ['aws-lambda-memory-recommendations'],
+  discoveryDependencies: ['aws-lambda-functions', 'aws-lambda-memory-recommendations'],
   evaluateLive: ({ resources }) => {
     const findings = resources
       .get('aws-lambda-memory-recommendations')

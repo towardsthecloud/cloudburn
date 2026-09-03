@@ -193,6 +193,9 @@ const awsRuleEvaluationOverrides: Record<string, AwsRuleEvaluationOverride> = {
   'CLDBRN-AWS-ELB-5': {
     datasetKey: 'aws-ec2-load-balancers',
   },
+  'CLDBRN-AWS-LAMBDA-4': {
+    datasetKey: 'aws-lambda-functions',
+  },
   'CLDBRN-AWS-ROUTE53-1': {
     datasetKey: 'aws-route53-records',
   },

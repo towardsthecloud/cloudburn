@@ -889,7 +889,7 @@ describe('rule metadata', () => {
       provider: 'aws',
       service: 'lambda',
       supports: ['discovery'],
-      discoveryDependencies: ['aws-lambda-memory-recommendations'],
+      discoveryDependencies: ['aws-lambda-functions', 'aws-lambda-memory-recommendations'],
     });
   });
 

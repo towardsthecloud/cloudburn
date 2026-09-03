@@ -111,7 +111,7 @@ Current live-discovery behavior:
 - ECR discovery parses each returned lifecycle policy into untagged-expiry and tagged-retention traits so the policy-content rules run against live repositories as well as IaC.
 - Missing Lambda `Architectures` values from AWS are normalized to `['x86_64']`, matching the AWS default architecture.
 - Lambda discovery paginates `ListFunctions` once per selected region and filters the response to the Resource Explorer catalog selection, avoiding per-function configuration calls.
-- Lambda memory findings use paginated Compute Optimizer recommendations for the selected functions instead of inferring memory needs from timeout settings.
+- Opt-in Lambda memory findings use paginated Compute Optimizer recommendations for the selected functions. The rule stays out of AWS Core because Compute Optimizer requires account enrollment.
 - DynamoDB table hydration keeps readable tables when a resource policy denies another table and emits a diagnostic for each denied table.
 - DynamoDB inactivity uses a complete 90-day consumed-write-capacity window; stream creation timestamps are not treated as table activity.
 - Secrets Manager discovery paginates `ListSecrets` once per selected region and filters the response to the Resource Explorer catalog selection.

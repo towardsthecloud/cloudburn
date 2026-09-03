@@ -144,6 +144,29 @@ describe('DynamoDB discovery resources', () => {
     });
   });
 
+  it('rejects an all-denied DynamoDB table selection so discovery marks it unavailable', async () => {
+    mockedCreateDynamoDbClient.mockReturnValue({
+      send: vi.fn(async () => {
+        throw Object.assign(new Error('Access denied by a resource-based policy'), {
+          name: 'AccessDeniedException',
+        });
+      }),
+    } as never);
+
+    await expect(
+      hydrateAwsDynamoDbTables([
+        {
+          accountId: '123456789012',
+          arn: 'arn:aws:dynamodb:us-east-1:123456789012:table/blocked',
+          properties: [],
+          region: 'us-east-1',
+          resourceType: 'dynamodb:table',
+          service: 'dynamodb',
+        },
+      ]),
+    ).rejects.toMatchObject({ name: 'AccessDeniedException' });
+  });
+
   it('hydrates table-level autoscaling targets for DynamoDB tables', async () => {
     mockedCreateApplicationAutoScalingClient.mockReturnValue({
       send: vi.fn(async (command: DescribeScalableTargetsCommand) => {
@@ -188,7 +211,7 @@ describe('DynamoDB discovery resources', () => {
 
   it('hydrates 30-day DynamoDB table utilization from CloudWatch consumed capacity metrics', async () => {
     vi.useFakeTimers();
-    vi.setSystemTime(new Date('2026-04-01T00:00:00.000Z'));
+    vi.setSystemTime(new Date('2026-04-01T12:00:00.000Z'));
     mockedCreateDynamoDbClient.mockReturnValue({
       send: vi.fn(async (_command: DescribeTableCommand) => ({
         Table: {
@@ -220,10 +243,13 @@ describe('DynamoDB discovery resources', () => {
       return new Map([
         [
           'write0',
-          Array.from({ length: 30 }, (_, index) => ({
-            timestamp: `2026-03-${String(index + 2).padStart(2, '0')}T00:00:00.000Z`,
-            value: 0,
-          })),
+          [
+            { timestamp: '2026-03-02T00:00:00.000Z', value: 7 },
+            ...Array.from({ length: 30 }, (_, index) => ({
+              timestamp: new Date(Date.UTC(2026, 2, index + 3)).toISOString(),
+              value: 0,
+            })),
+          ],
         ],
       ]);
     });
@@ -246,22 +272,22 @@ describe('DynamoDB discovery resources', () => {
         tableArn: 'arn:aws:dynamodb:us-east-1:123456789012:table/orders',
         tableName: 'orders',
         totalConsumedReadCapacityUnitsLast30Days: 0,
-        totalConsumedWriteCapacityUnitsLast30Days: 0,
-        totalConsumedWriteCapacityUnitsLast90Days: 0,
+        totalConsumedWriteCapacityUnitsLast30Days: 7,
+        totalConsumedWriteCapacityUnitsLast90Days: 7,
       },
     ]);
     expect(mockedFetchCloudWatchSignals).toHaveBeenCalledTimes(2);
     expect(mockedFetchCloudWatchSignals).toHaveBeenCalledWith({
-      endTime: new Date('2026-04-01T00:00:00.000Z'),
+      endTime: new Date('2026-04-01T12:00:00.000Z'),
       queries: [expect.objectContaining({ id: 'read0', metricName: 'ConsumedReadCapacityUnits' })],
       region: 'us-east-1',
-      startTime: new Date('2026-03-02T00:00:00.000Z'),
+      startTime: new Date('2026-03-02T12:00:00.000Z'),
     });
     expect(mockedFetchCloudWatchSignals).toHaveBeenCalledWith({
-      endTime: new Date('2026-04-01T00:00:00.000Z'),
+      endTime: new Date('2026-04-01T12:00:00.000Z'),
       queries: [expect.objectContaining({ id: 'write0', metricName: 'ConsumedWriteCapacityUnits' })],
       region: 'us-east-1',
-      startTime: new Date('2026-01-01T00:00:00.000Z'),
+      startTime: new Date('2026-01-01T12:00:00.000Z'),
     });
   });
 

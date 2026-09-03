@@ -79,4 +79,63 @@ describe('fetchCloudWatchSignals', () => {
       ]),
     );
   });
+
+  it('omits metric evidence when CloudWatch marks a query result incomplete', async () => {
+    mockedCreateCloudWatchClient.mockReturnValue({
+      send: vi.fn(async (_command: GetMetricDataCommand) => ({
+        MetricDataResults: [
+          {
+            Id: 'partial0',
+            StatusCode: 'PartialData',
+            Timestamps: [new Date('2026-03-10T00:00:00.000Z')],
+            Values: [0],
+          },
+          {
+            Id: 'complete0',
+            StatusCode: 'Complete',
+            Timestamps: [new Date('2026-03-10T00:00:00.000Z')],
+            Values: [4.2],
+          },
+        ],
+      })),
+    } as never);
+
+    const result = await fetchCloudWatchSignals({
+      endTime: new Date('2026-03-13T00:00:00.000Z'),
+      queries: [
+        {
+          dimensions: [{ Name: 'InstanceId', Value: 'i-123' }],
+          id: 'partial0',
+          metricName: 'CPUUtilization',
+          namespace: 'AWS/EC2',
+          period: 86_400,
+          stat: 'Average',
+        },
+        {
+          dimensions: [{ Name: 'InstanceId', Value: 'i-123' }],
+          id: 'complete0',
+          metricName: 'CPUUtilization',
+          namespace: 'AWS/EC2',
+          period: 86_400,
+          stat: 'Average',
+        },
+      ],
+      region: 'us-east-1',
+      startTime: new Date('2026-03-01T00:00:00.000Z'),
+    });
+
+    expect(result).toEqual(
+      new Map([
+        [
+          'complete0',
+          [
+            {
+              timestamp: '2026-03-10T00:00:00.000Z',
+              value: 4.2,
+            },
+          ],
+        ],
+      ]),
+    );
+  });
 });

@@ -83,7 +83,7 @@ const auditableResult = await client.discover({
 });
 ```
 
-`discover()` defaults to the current AWS region and the AWS Core preset. You can also target one or more explicit AWS regions with `{ target: { mode: 'regions', regions: [...] } }`. Multi-region discovery requires an AWS Resource Explorer aggregator index. Account-wide rules such as `CLDBRN-AWS-TAGGING-1` are opt-in through `config.discovery.enabledRules` and also require an accessible aggregator.
+`discover()` defaults to the current AWS region and the AWS Core preset. You can also target one or more explicit AWS regions with `{ target: { mode: 'regions', regions: [...] } }`. Multi-region discovery requires an AWS Resource Explorer aggregator index. Rules that need explicit AWS setup are opt-in through `config.discovery.enabledRules`. `CLDBRN-AWS-TAGGING-1` needs an accessible aggregator, while `CLDBRN-AWS-LAMBDA-4` needs AWS Compute Optimizer enrollment.
 
 Set `includeEvaluationResources` when a caller needs audit evidence for checks that did not produce findings. The
 optional `result.evaluations` value contains normalized identities from the primary resource dataset supplied to each

@@ -67,6 +67,7 @@ export const hydrateAwsDynamoDbTables = async (
       const client = createDynamoDbClient({ region });
       const tables: AwsDynamoDbTable[] = [];
       const diagnostics: ScanDiagnostic[] = [];
+      let firstAccessDeniedError: unknown;
 
       for (const batch of chunkItems(regionTables, DYNAMODB_TABLE_CONCURRENCY)) {
         const hydratedBatch = await Promise.all(
@@ -100,6 +101,8 @@ export const hydrateAwsDynamoDbTables = async (
                 throw err;
               }
 
+              firstAccessDeniedError ??= err;
+
               return {
                 diagnostic: {
                   code: getAwsErrorCode(err),
@@ -125,7 +128,7 @@ export const hydrateAwsDynamoDbTables = async (
         }
       }
 
-      return { diagnostics, tables };
+      return { diagnostics, firstAccessDeniedError, tables };
     }),
   );
 
@@ -133,6 +136,13 @@ export const hydrateAwsDynamoDbTables = async (
     .flatMap((page) => page.tables)
     .sort((left, right) => left.tableArn.localeCompare(right.tableArn));
   const diagnostics = hydratedPages.flatMap((page) => page.diagnostics);
+
+  if (hydratedTables.length === 0) {
+    const firstAccessDeniedError = hydratedPages.find((page) => page.firstAccessDeniedError)?.firstAccessDeniedError;
+    if (firstAccessDeniedError) {
+      throw firstAccessDeniedError;
+    }
+  }
 
   return diagnostics.length > 0 ? { diagnostics, resources: hydratedTables } : hydratedTables;
 };
@@ -250,6 +260,8 @@ export const hydrateAwsDynamoDbTableUtilization = async (
       const endTime = new Date();
       const ninetyDayStartTime = new Date(endTime.getTime() - NINETY_DAYS_IN_SECONDS * 1000);
       const thirtyDayStartTime = new Date(endTime.getTime() - THIRTY_DAYS_IN_SECONDS * 1000);
+      const thirtyDayStartBucketMs =
+        Math.floor(thirtyDayStartTime.getTime() / (DAILY_PERIOD_IN_SECONDS * 1000)) * DAILY_PERIOD_IN_SECONDS * 1000;
       const [readMetricData, writeMetricData] = await Promise.all([
         fetchCloudWatchSignals({
           endTime,
@@ -284,9 +296,7 @@ export const hydrateAwsDynamoDbTableUtilization = async (
         const writeMetricId = `write${index}`;
         const readPoints = readMetricData.get(readMetricId) ?? [];
         const writePoints = writeMetricData.get(writeMetricId) ?? [];
-        const recentWritePoints = writePoints.filter(
-          (point) => Date.parse(point.timestamp) >= thirtyDayStartTime.getTime(),
-        );
+        const recentWritePoints = writePoints.filter((point) => Date.parse(point.timestamp) >= thirtyDayStartBucketMs);
         const creationTimeMs = table.creationDateTime ? Date.parse(table.creationDateTime) : Number.NaN;
         const hasCompleteNinetyDayWindow =
           !Number.isNaN(creationTimeMs) &&
