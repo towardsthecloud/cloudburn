@@ -2582,6 +2582,7 @@ describe('discoverAwsResources', () => {
       },
     ]);
     expect(result.resources.get('aws-lambda-functions')).toEqual([]);
+    expect(result.unavailableDatasets?.has('aws-lambda-functions')).toBe(true);
     expect(result.diagnostics).toEqual([
       {
         code: 'AccessDeniedException',
@@ -2846,6 +2847,7 @@ describe('discoverAwsResources', () => {
         region: 'us-east-1',
       },
     ]);
+    expect(result.unavailableDatasets?.has('aws-cloudwatch-log-group-recent-stream-activity')).toBe(false);
     expect(result.diagnostics).toEqual([
       {
         code: 'AccessDeniedException',

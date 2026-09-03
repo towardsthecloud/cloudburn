@@ -453,6 +453,7 @@ export const discoverAwsResources = async (
       const loadedResources: unknown[] = [];
       const diagnostics: ScanDiagnostic[] = [];
       let unavailable = false;
+      let accessDeniedRegionCount = 0;
 
       for (const [region, regionResources] of regionResourceGroups) {
         const regionStartedAtMs = Date.now();
@@ -475,7 +476,9 @@ export const discoverAwsResources = async (
             `aws: dataset ${definition.datasetKey} failed in ${region} after ${formatElapsedMs(regionStartedAtMs)}: ${err instanceof Error ? err.message : String(err)}`,
           );
           const isAccessDenied = isAwsAccessDeniedError(err);
-          if (!isAccessDenied) {
+          if (isAccessDenied) {
+            accessDeniedRegionCount += 1;
+          } else {
             unavailable = true;
           }
           diagnostics.push(
@@ -497,6 +500,10 @@ export const discoverAwsResources = async (
             `aws: completed dataset ${definition.datasetKey} in ${region} with 0 resources in ${formatElapsedMs(regionStartedAtMs)}`,
           );
         }
+      }
+
+      if (accessDeniedRegionCount > 0 && accessDeniedRegionCount === regionResourceGroups.size) {
+        unavailable = true;
       }
 
       if (regionResourceGroups.size > 1 || unavailable) {
