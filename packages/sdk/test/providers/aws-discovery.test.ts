@@ -2549,7 +2549,7 @@ describe('discoverAwsResources', () => {
     });
     mockedHydrateAwsLambdaFunctions.mockRejectedValue(
       new Error(
-        'AWS Lambda GetFunctionConfiguration failed in us-east-1 with AccessDeniedException: Access denied by SCP. Request ID: req-123.',
+        'AWS Lambda ListFunctions failed in us-east-1 with AccessDeniedException: Access denied by SCP. Request ID: req-123.',
         {
           cause: accessDeniedCause,
         },
@@ -2587,7 +2587,7 @@ describe('discoverAwsResources', () => {
       {
         code: 'AccessDeniedException',
         details:
-          'AWS Lambda GetFunctionConfiguration failed in us-east-1 with AccessDeniedException: Access denied by SCP. Request ID: req-123.',
+          'AWS Lambda ListFunctions failed in us-east-1 with AccessDeniedException: Access denied by SCP. Request ID: req-123.',
         message: 'Skipped lambda discovery in us-east-1 because access is denied by a service control policy (SCP).',
         provider: 'aws',
         region: 'us-east-1',
