@@ -1292,9 +1292,14 @@ describe('discoverAwsResources', () => {
   it('degrades to account-scoped datasets when the resource catalog fails', async () => {
     mockedResolveCurrentAwsRegion.mockResolvedValue('us-east-1');
     mockedBuildAwsDiscoveryCatalog.mockRejectedValue(
-      Object.assign(new Error('User is not authorized to perform resource-explorer-2:ListResources'), {
-        name: 'AccessDeniedException',
-      }),
+      Object.assign(
+        new Error(
+          'User is not authorized to perform resource-explorer-2:ListResources with an explicit deny in a resource-based policy',
+        ),
+        {
+          name: 'AccessDeniedException',
+        },
+      ),
     );
     mockedHydrateAwsCostUsage.mockResolvedValue([]);
 
@@ -1319,6 +1324,8 @@ describe('discoverAwsResources', () => {
     expect(result.unavailableDatasets?.has('aws-cost-usage')).toBe(false);
     expect(result.diagnostics).toEqual([
       expect.objectContaining({
+        message:
+          'Skipped catalog-backed discovery because access to the Resource Explorer catalog is denied by a resource-based policy; only account-scoped datasets were evaluated.',
         provider: 'aws',
         service: 'resource-explorer',
         source: 'discovery',
@@ -2604,14 +2611,19 @@ describe('discoverAwsResources', () => {
       resources: [catalog.resources[2]],
       searchRegion: 'us-east-1',
     });
-    const accessDeniedCause = Object.assign(new Error('User is not authorized to perform: ecr:GetLifecyclePolicy'), {
-      code: 'AccessDeniedException',
-      name: 'AccessDeniedException',
-      $metadata: {
-        httpStatusCode: 403,
-        requestId: 'req-ecr',
+    const accessDeniedCause = Object.assign(
+      new Error(
+        'User is not authorized to perform: ecr:GetLifecyclePolicy with an explicit deny in a resource-based policy',
+      ),
+      {
+        code: 'AccessDeniedException',
+        name: 'AccessDeniedException',
+        $metadata: {
+          httpStatusCode: 403,
+          requestId: 'req-ecr',
+        },
       },
-    });
+    );
     mockedHydrateAwsEcrRepositories.mockRejectedValue(
       new Error(
         'Amazon ECR GetLifecyclePolicy failed in us-east-1 with AccessDeniedException: User is not authorized to perform: ecr:GetLifecyclePolicy Request ID: req-ecr.',
@@ -2637,7 +2649,7 @@ describe('discoverAwsResources', () => {
         code: 'AccessDeniedException',
         details:
           'Amazon ECR GetLifecyclePolicy failed in us-east-1 with AccessDeniedException: User is not authorized to perform: ecr:GetLifecyclePolicy Request ID: req-ecr.',
-        message: 'Skipped ecr discovery in us-east-1 because access is denied by AWS permissions.',
+        message: 'Skipped ecr discovery in us-east-1 because access is denied by a resource-based policy.',
         provider: 'aws',
         region: 'us-east-1',
         service: 'ecr',

@@ -18,7 +18,13 @@ import type {
 } from '../../types.js';
 import { assertValidAwsRegion, listEnabledAwsRegions, resolveAwsAccountId, resolveCurrentAwsRegion } from './client.js';
 import { type AwsDiscoveryDatasetLoadContext, getAwsDiscoveryDatasetDefinition } from './discovery-registry.js';
-import { AwsDiscoveryError, getAwsErrorCode, isAwsAccessDeniedError, isAwsThrottlingError } from './errors.js';
+import {
+  AwsDiscoveryError,
+  formatAwsAccessDeniedReason,
+  getAwsErrorCode,
+  isAwsAccessDeniedError,
+  isAwsThrottlingError,
+} from './errors.js';
 import {
   buildAwsDiscoveryCatalog,
   createAwsResourceExplorerSetup,
@@ -213,14 +219,8 @@ const groupResourcesByRegion = <T extends { region: string }>(resources: T[]): M
   return resourcesByRegion;
 };
 
-const isScpAccessDeniedError = (err: unknown): boolean =>
-  err instanceof Error &&
-  (err.message.toLowerCase().includes('service control policy') || err.message.toLowerCase().includes('by scp'));
-
 const buildAccessDeniedDiagnosticMessage = (service: string, region: string, err: unknown): string =>
-  isScpAccessDeniedError(err)
-    ? `Skipped ${service} discovery in ${region} because access is denied by a service control policy (SCP).`
-    : `Skipped ${service} discovery in ${region} because access is denied by AWS permissions.`;
+  `Skipped ${service} discovery in ${region} because access is denied by ${formatAwsAccessDeniedReason(err)}.`;
 
 const buildDatasetFailureDiagnostic = (service: string, region: string | undefined, err: unknown): ScanDiagnostic => ({
   code: getAwsErrorCode(err),
@@ -239,7 +239,7 @@ const buildCatalogFailureDiagnostic = (err: unknown): ScanDiagnostic => {
   const status = isAwsAccessDeniedError(err) ? 'access_denied' : isAwsThrottlingError(err) ? 'throttled' : 'error';
   const message =
     status === 'access_denied'
-      ? 'Skipped catalog-backed discovery because access to the Resource Explorer catalog was denied; only account-scoped datasets were evaluated.'
+      ? `Skipped catalog-backed discovery because access to the Resource Explorer catalog is denied by ${formatAwsAccessDeniedReason(err)}; only account-scoped datasets were evaluated.`
       : status === 'throttled'
         ? 'Skipped catalog-backed discovery because AWS throttled the Resource Explorer catalog after retrying; only account-scoped datasets were evaluated.'
         : 'Skipped catalog-backed discovery because the Resource Explorer catalog failed to load; only account-scoped datasets were evaluated.';

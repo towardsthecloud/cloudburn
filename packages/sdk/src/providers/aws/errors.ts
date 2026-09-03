@@ -79,6 +79,28 @@ export const isAwsAccessDeniedError = (err: unknown): boolean => {
 };
 
 /**
+ * Formats the policy source named by an AWS access-denied error.
+ *
+ * @param err - AWS authorization failure, optionally wrapped with nested causes.
+ * @returns A user-facing denial reason, or the generic AWS permissions fallback.
+ */
+export const formatAwsAccessDeniedReason = (err: unknown): string => {
+  for (const serviceError of toErrorChain(err)) {
+    const message = serviceError.message.toLowerCase();
+
+    if (message.includes('service control policy') || message.includes('by scp')) {
+      return 'a service control policy (SCP)';
+    }
+
+    if (message.includes('resource-based policy')) {
+      return 'a resource-based policy';
+    }
+  }
+
+  return 'AWS permissions';
+};
+
+/**
  * Detects AWS throttling and rate-limit style service failures across SDK exception shapes.
  *
  * @param err - Unknown runtime failure.

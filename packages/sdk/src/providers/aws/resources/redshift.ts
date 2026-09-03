@@ -12,7 +12,7 @@ import type {
 import type { ScanDiagnostic } from '../../../types.js';
 import { createRedshiftClient } from '../client.js';
 import type { AwsDiscoveryDatasetResolver } from '../discovery-registry.js';
-import { getAwsErrorCode, isAwsAccessDeniedError } from '../errors.js';
+import { formatAwsAccessDeniedReason, getAwsErrorCode, isAwsAccessDeniedError } from '../errors.js';
 import { fetchCloudWatchSignals } from './cloudwatch.js';
 import { chunkItems, extractTerminalResourceIdentifier, withAwsServiceErrorContext } from './utils.js';
 
@@ -21,14 +21,8 @@ const REDSHIFT_CPU_LOOKBACK_DAYS = 14;
 const REDSHIFT_DAILY_PERIOD_IN_SECONDS = 24 * 60 * 60;
 const REDSHIFT_SCHEDULED_ACTION_FILTER_BATCH_SIZE = 100;
 
-const isScpAccessDeniedError = (err: unknown): boolean =>
-  err instanceof Error &&
-  (err.message.toLowerCase().includes('service control policy') || err.message.toLowerCase().includes('by scp'));
-
 const buildRedshiftScheduleAccessDeniedMessage = (region: string, err: unknown): string =>
-  isScpAccessDeniedError(err)
-    ? `Skipped redshift schedule discovery in ${region} because access is denied by a service control policy (SCP). Pause/resume findings may be incomplete.`
-    : `Skipped redshift schedule discovery in ${region} because access is denied by AWS permissions. Pause/resume findings may be incomplete.`;
+  `Skipped redshift schedule discovery in ${region} because access is denied by ${formatAwsAccessDeniedReason(err)}. Pause/resume findings may be incomplete.`;
 
 /**
  * Hydrates discovered Redshift clusters with normalized node metadata.
