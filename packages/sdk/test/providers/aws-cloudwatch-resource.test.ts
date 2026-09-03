@@ -138,4 +138,53 @@ describe('fetchCloudWatchSignals', () => {
       ]),
     );
   });
+
+  it('accumulates paginated partial data when the query finishes complete', async () => {
+    const send = vi
+      .fn()
+      .mockResolvedValueOnce({
+        MetricDataResults: [
+          {
+            Id: 'cpu0',
+            StatusCode: 'PartialData',
+            Timestamps: [new Date('2026-03-09T00:00:00.000Z')],
+            Values: [3.1],
+          },
+        ],
+        NextToken: 'page-2',
+      })
+      .mockResolvedValueOnce({
+        MetricDataResults: [
+          {
+            Id: 'cpu0',
+            StatusCode: 'Complete',
+            Timestamps: [new Date('2026-03-10T00:00:00.000Z')],
+            Values: [4.2],
+          },
+        ],
+      });
+    mockedCreateCloudWatchClient.mockReturnValue({ send } as never);
+
+    const result = await fetchCloudWatchSignals({
+      endTime: new Date('2026-03-13T00:00:00.000Z'),
+      queries: [
+        {
+          dimensions: [{ Name: 'InstanceId', Value: 'i-123' }],
+          id: 'cpu0',
+          metricName: 'CPUUtilization',
+          namespace: 'AWS/EC2',
+          period: 86_400,
+          stat: 'Average',
+        },
+      ],
+      region: 'us-east-1',
+      startTime: new Date('2026-03-01T00:00:00.000Z'),
+    });
+
+    expect(result.get('cpu0')).toEqual([
+      { timestamp: '2026-03-09T00:00:00.000Z', value: 3.1 },
+      { timestamp: '2026-03-10T00:00:00.000Z', value: 4.2 },
+    ]);
+    expect(send).toHaveBeenCalledTimes(2);
+  });
 });

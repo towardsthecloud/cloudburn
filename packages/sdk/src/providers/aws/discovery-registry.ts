@@ -195,6 +195,17 @@ const awsRuleEvaluationOverrides: Record<string, AwsRuleEvaluationOverride> = {
   },
   'CLDBRN-AWS-LAMBDA-4': {
     datasetKey: 'aws-lambda-functions',
+    toEvaluationResources: (resources) =>
+      mapEvaluationResources(
+        resources
+          .get('aws-lambda-functions')
+          .filter((fn): fn is typeof fn & { functionArn: string } => fn.functionArn !== undefined),
+        (fn) => fn.functionArn,
+        (fn) => ({
+          arn: fn.functionArn,
+          name: fn.functionName,
+        }),
+      ),
   },
   'CLDBRN-AWS-ROUTE53-1': {
     datasetKey: 'aws-route53-records',

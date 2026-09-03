@@ -88,6 +88,7 @@ describe('hydrateAwsLambdaFunctions', () => {
       {
         accountId: '123456789012',
         architectures: ['x86_64'],
+        functionArn: 'arn:aws:lambda:us-east-1:123456789012:function:first-function',
         functionName: 'first-function',
         memorySizeMb: 128,
         region: 'us-east-1',
@@ -96,6 +97,7 @@ describe('hydrateAwsLambdaFunctions', () => {
       {
         accountId: '123456789012',
         architectures: ['arm64'],
+        functionArn: 'arn:aws:lambda:us-east-1:123456789012:function:second-function',
         functionName: 'second-function',
         memorySizeMb: 512,
         region: 'us-east-1',
@@ -142,6 +144,7 @@ describe('hydrateAwsLambdaFunctions', () => {
       {
         accountId: '123456789012',
         architectures: ['x86_64'],
+        functionArn: 'arn:aws:lambda:eu-central-1:123456789012:function:eu-central-1-function',
         functionName: 'eu-central-1-function',
         memorySizeMb: 128,
         region: 'eu-central-1',
@@ -150,6 +153,7 @@ describe('hydrateAwsLambdaFunctions', () => {
       {
         accountId: '123456789012',
         architectures: ['x86_64'],
+        functionArn: 'arn:aws:lambda:us-east-1:123456789012:function:us-east-1-function',
         functionName: 'us-east-1-function',
         memorySizeMb: 128,
         region: 'us-east-1',
@@ -224,6 +228,7 @@ describe('hydrateAwsLambdaFunctions', () => {
       {
         accountId: '123456789012',
         architectures: ['x86_64'],
+        functionArn: 'arn:aws:lambda:eu-central-1:123456789012:function:first-function',
         functionName: 'first-function',
         memorySizeMb: 128,
         region: 'eu-central-1',
@@ -232,6 +237,7 @@ describe('hydrateAwsLambdaFunctions', () => {
       {
         accountId: '123456789012',
         architectures: ['arm64'],
+        functionArn: 'arn:aws:lambda:eu-central-1:123456789012:function:second-function',
         functionName: 'second-function',
         memorySizeMb: 128,
         region: 'eu-central-1',

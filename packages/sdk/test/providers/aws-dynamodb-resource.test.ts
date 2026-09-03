@@ -353,4 +353,47 @@ describe('DynamoDB discovery resources', () => {
       },
     ]);
   });
+
+  it('scopes shared DynamoDB tables to the requested catalog region', async () => {
+    mockedFetchCloudWatchSignals.mockResolvedValue(new Map());
+    const loadDataset = vi.fn().mockResolvedValue([
+      {
+        accountId: '123456789012',
+        creationDateTime: '2025-01-01T00:00:00.000Z',
+        region: 'us-east-1',
+        tableArn: 'arn:aws:dynamodb:us-east-1:123456789012:table/east',
+        tableName: 'east',
+      },
+      {
+        accountId: '123456789012',
+        creationDateTime: '2025-01-01T00:00:00.000Z',
+        region: 'eu-west-1',
+        tableArn: 'arn:aws:dynamodb:eu-west-1:123456789012:table/west',
+        tableName: 'west',
+      },
+    ]);
+
+    const result = await hydrateAwsDynamoDbTableUtilization(
+      [
+        {
+          accountId: '123456789012',
+          arn: 'arn:aws:dynamodb:us-east-1:123456789012:table/east',
+          properties: [],
+          region: 'us-east-1',
+          resourceType: 'dynamodb:table',
+          service: 'dynamodb',
+        },
+      ],
+      { loadDataset } as never,
+    );
+
+    expect(result).toEqual([
+      expect.objectContaining({
+        region: 'us-east-1',
+        tableArn: 'arn:aws:dynamodb:us-east-1:123456789012:table/east',
+      }),
+    ]);
+    expect(mockedFetchCloudWatchSignals).toHaveBeenCalledTimes(2);
+    expect(mockedFetchCloudWatchSignals).toHaveBeenCalledWith(expect.objectContaining({ region: 'us-east-1' }));
+  });
 });

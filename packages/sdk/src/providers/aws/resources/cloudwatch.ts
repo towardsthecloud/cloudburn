@@ -46,9 +46,9 @@ export const fetchCloudWatchSignals = async (options: {
 }): Promise<Map<string, CloudWatchMetricPoint[]>> => {
   const client = createCloudWatchClient({ region: options.region });
   const results = new Map<string, CloudWatchMetricPoint[]>();
-  const incompleteResultIds = new Set<string>();
 
   for (const batch of chunkItems(options.queries, CLOUDWATCH_METRIC_QUERY_BATCH_SIZE)) {
+    const finalStatuses = new Map<string, string>();
     let nextToken: string | undefined;
 
     do {
@@ -81,14 +81,8 @@ export const fetchCloudWatchSignals = async (options: {
           continue;
         }
 
-        if (result.StatusCode && result.StatusCode !== 'Complete') {
-          incompleteResultIds.add(result.Id);
-          results.delete(result.Id);
-          continue;
-        }
-
-        if (incompleteResultIds.has(result.Id)) {
-          continue;
+        if (result.StatusCode) {
+          finalStatuses.set(result.Id, result.StatusCode);
         }
 
         const points = results.get(result.Id) ?? [];
@@ -114,6 +108,12 @@ export const fetchCloudWatchSignals = async (options: {
 
       nextToken = response.NextToken;
     } while (nextToken);
+
+    for (const [resultId, status] of finalStatuses) {
+      if (status !== 'Complete') {
+        results.delete(resultId);
+      }
+    }
   }
 
   return results;

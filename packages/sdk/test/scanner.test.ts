@@ -235,8 +235,20 @@ describe('CloudBurnClient', () => {
       catalog: discoveryCatalog,
       resources: new LiveResourceBag({
         'aws-lambda-functions': [
-          { accountId, architectures: ['x86_64'], functionName: 'overprovisioned', region: 'us-east-1' },
-          { accountId, architectures: ['arm64'], functionName: 'right-sized', region: 'us-east-1' },
+          {
+            accountId,
+            architectures: ['x86_64'],
+            functionArn: `arn:aws:lambda:us-east-1:${accountId}:function:overprovisioned`,
+            functionName: 'overprovisioned',
+            region: 'us-east-1',
+          },
+          {
+            accountId,
+            architectures: ['arm64'],
+            functionArn: `arn:aws:lambda:us-east-1:${accountId}:function:right-sized`,
+            functionName: 'right-sized',
+            region: 'us-east-1',
+          },
         ],
         'aws-lambda-memory-recommendations': [
           {
@@ -260,13 +272,17 @@ describe('CloudBurnClient', () => {
           {
             accountId,
             region: 'us-east-1',
-            resourceId: 'overprovisioned',
+            arn: `arn:aws:lambda:us-east-1:${accountId}:function:overprovisioned`,
+            name: 'overprovisioned',
+            resourceId: `arn:aws:lambda:us-east-1:${accountId}:function:overprovisioned`,
             resourceType: 'lambda:function',
           },
           {
             accountId,
             region: 'us-east-1',
-            resourceId: 'right-sized',
+            arn: `arn:aws:lambda:us-east-1:${accountId}:function:right-sized`,
+            name: 'right-sized',
+            resourceId: `arn:aws:lambda:us-east-1:${accountId}:function:right-sized`,
             resourceType: 'lambda:function',
           },
         ],

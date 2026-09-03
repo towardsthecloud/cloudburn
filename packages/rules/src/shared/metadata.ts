@@ -296,6 +296,8 @@ export type AwsEmrClusterMetric = {
 /** Discovered AWS Lambda function with architecture metadata. */
 export type AwsLambdaFunction = {
   functionName: string;
+  /** Unqualified function ARN when returned by the AWS Lambda API. */
+  functionArn?: string;
   /** Normalized function architectures. Missing AWS API values default to `['x86_64']`. */
   architectures: string[];
   /** Configured function memory size in MB. */

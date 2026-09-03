@@ -84,6 +84,7 @@ export const hydrateAwsLambdaFunctions = async (resources: AwsDiscoveredResource
           functions.push({
             accountId: resource.accountId,
             architectures: listedFunction.Architectures?.map(String) ?? [...DEFAULT_LAMBDA_ARCHITECTURES],
+            functionArn: listedFunction.FunctionArn,
             functionName,
             memorySizeMb: listedFunction.MemorySize ?? DEFAULT_LAMBDA_MEMORY_MB,
             region,

@@ -246,7 +246,9 @@ export const hydrateAwsDynamoDbTableUtilization = async (
   const tableLoad = context
     ? await context.loadDataset('aws-dynamodb-tables')
     : await hydrateAwsDynamoDbTables(resources);
-  const tables = Array.isArray(tableLoad) ? tableLoad : tableLoad.resources;
+  const loadedTables = Array.isArray(tableLoad) ? tableLoad : tableLoad.resources;
+  const selectedTableArns = new Set(resources.map((resource) => resource.arn));
+  const tables = context ? loadedTables.filter((table) => selectedTableArns.has(table.tableArn)) : loadedTables;
   const tablesByRegion = new Map<string, typeof tables>();
 
   for (const table of tables) {
