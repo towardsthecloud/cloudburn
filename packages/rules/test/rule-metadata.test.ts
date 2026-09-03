@@ -272,7 +272,8 @@ describe('rule metadata', () => {
       message: 'ECR repositories should expire untagged images.',
       provider: 'aws',
       service: 'ecr',
-      supports: ['iac'],
+      supports: ['iac', 'discovery'],
+      discoveryDependencies: ['aws-ecr-repositories'],
       staticDependencies: ['aws-ecr-repositories'],
     });
   });
@@ -288,7 +289,8 @@ describe('rule metadata', () => {
       message: 'ECR repositories should cap tagged image retention.',
       provider: 'aws',
       service: 'ecr',
-      supports: ['iac'],
+      supports: ['iac', 'discovery'],
+      discoveryDependencies: ['aws-ecr-repositories'],
       staticDependencies: ['aws-ecr-repositories'],
     });
   });

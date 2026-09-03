@@ -5,7 +5,7 @@ const RULE_SERVICE = 'ecr';
 const RULE_SEVERITY = 'low' as const;
 const RULE_MESSAGE = 'ECR repositories should cap tagged image retention.';
 
-/** Flag ECR repositories whose statically parsed lifecycle policy does not cap tagged image retention. */
+/** Flag ECR repositories whose lifecycle policy does not cap tagged image retention. */
 export const ecrMissingTaggedImageRetentionCapRule = createRule({
   severity: RULE_SEVERITY,
   id: RULE_ID,
@@ -14,8 +14,21 @@ export const ecrMissingTaggedImageRetentionCapRule = createRule({
   message: RULE_MESSAGE,
   provider: 'aws',
   service: RULE_SERVICE,
-  supports: ['iac'],
+  supports: ['iac', 'discovery'],
+  discoveryDependencies: ['aws-ecr-repositories'],
   staticDependencies: ['aws-ecr-repositories'],
+  evaluateLive: ({ resources }) => {
+    const findings = resources
+      .get('aws-ecr-repositories')
+      .filter((repository) => repository.hasLifecyclePolicy && repository.hasTaggedImageRetentionCap === false)
+      .map((repository) => createFindingMatch(repository.repositoryName, repository.region, repository.accountId));
+
+    return createFinding(
+      { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
+      'discovery',
+      findings,
+    );
+  },
   evaluateStatic: ({ resources }) => {
     const findings = resources
       .get('aws-ecr-repositories')
