@@ -1,9 +1,7 @@
-import { DescribeSecretCommand } from '@aws-sdk/client-secrets-manager';
+import { ListSecretsCommand } from '@aws-sdk/client-secrets-manager';
 import type { AwsDiscoveredResource, AwsSecretsManagerSecret } from '@cloudburn/rules';
 import { createSecretsManagerClient } from '../client.js';
-import { chunkItems, withAwsServiceErrorContext } from './utils.js';
-
-const SECRETS_MANAGER_CONCURRENCY = 10;
+import { withAwsServiceErrorContext } from './utils.js';
 
 /**
  * Hydrates discovered Secrets Manager secrets with last-access metadata.
@@ -26,30 +24,39 @@ export const hydrateAwsSecretsManagerSecrets = async (
     [...secretsByRegion.entries()].map(async ([region, regionSecrets]) => {
       const client = createSecretsManagerClient({ region });
       const secrets: AwsSecretsManagerSecret[] = [];
+      const resourcesByArn = new Map(regionSecrets.map((resource) => [resource.arn, resource]));
+      let nextToken: string | undefined;
 
-      for (const batch of chunkItems(regionSecrets, SECRETS_MANAGER_CONCURRENCY)) {
-        const hydratedBatch = await Promise.all(
-          batch.map(async (resource) => {
-            const response = await withAwsServiceErrorContext('AWS Secrets Manager', 'DescribeSecret', region, () =>
-              client.send(
-                new DescribeSecretCommand({
-                  SecretId: resource.arn,
-                }),
-              ),
-            );
-
-            return {
-              accountId: resource.accountId,
-              lastAccessedDate: response.LastAccessedDate?.toISOString(),
-              region,
-              secretArn: response.ARN ?? resource.arn,
-              secretName: response.Name ?? resource.name ?? resource.arn,
-            } satisfies AwsSecretsManagerSecret;
-          }),
+      do {
+        const response = await withAwsServiceErrorContext('AWS Secrets Manager', 'ListSecrets', region, () =>
+          client.send(new ListSecretsCommand({ NextToken: nextToken })),
         );
 
-        secrets.push(...hydratedBatch);
-      }
+        for (const listedSecret of response.SecretList ?? []) {
+          const secretArn = listedSecret.ARN;
+
+          if (!secretArn) {
+            continue;
+          }
+
+          const resource = resourcesByArn.get(secretArn);
+
+          if (!resource) {
+            continue;
+          }
+
+          resourcesByArn.delete(secretArn);
+          secrets.push({
+            accountId: resource.accountId,
+            lastAccessedDate: listedSecret.LastAccessedDate?.toISOString(),
+            region,
+            secretArn: resource.arn,
+            secretName: listedSecret.Name ?? resource.name ?? resource.arn,
+          });
+        }
+
+        nextToken = response.NextToken;
+      } while (nextToken && resourcesByArn.size > 0);
 
       return secrets;
     }),
