@@ -1,6 +1,7 @@
 import { ListMetricsCommand } from '@aws-sdk/client-cloudwatch';
 import {
   DescribeConfigRulesCommand,
+  DescribeConfigurationRecorderStatusCommand,
   DescribeConfigurationRecordersCommand,
   GetDiscoveredResourceCountsCommand,
   ListConfigurationRecordersCommand,
@@ -47,6 +48,7 @@ const configureConfigClient = (options: {
   configRules?: unknown[];
   recorders?: unknown[];
   resourceCounts?: Array<{ count: number; resourceType: string }>;
+  recording?: boolean;
   serviceLinkedRecorder?: unknown;
   serviceLinkedRecorderArn?: string;
 }) => {
@@ -56,6 +58,10 @@ const configureConfigClient = (options: {
         return { ConfigurationRecorders: options.serviceLinkedRecorder ? [options.serviceLinkedRecorder] : [] };
       }
       return { ConfigurationRecorders: options.recorders ?? [recorder()] };
+    }
+
+    if (command instanceof DescribeConfigurationRecorderStatusCommand) {
+      return { ConfigurationRecordersStatus: [{ name: 'default', recording: options.recording ?? true }] };
     }
 
     if (command instanceof ListConfigurationRecordersCommand) {
@@ -190,6 +196,33 @@ describe('hydrateAwsConfigRecordingFrequencyReviews', () => {
       }),
     ).resolves.toEqual([]);
     expect(mockedCreateCloudWatchClient).not.toHaveBeenCalled();
+  });
+
+  it('skips a stopped configuration recorder', async () => {
+    configureConfigClient({ recording: false });
+
+    await expect(
+      hydrateAwsConfigRecordingFrequencyReviews([], {
+        region: 'eu-central-1',
+        resolveAccountId: async () => accountId,
+      }),
+    ).resolves.toEqual([]);
+    expect(mockedCreateCloudWatchClient).not.toHaveBeenCalled();
+  });
+
+  it('excludes global IAM types when an all-supported recorder leaves them disabled', async () => {
+    configureConfigClient({
+      resourceCounts: [{ count: 5, resourceType: 'AWS::IAM::Role' }],
+    });
+    configureMetrics(['AWS::IAM::Role'], { 'AWS::IAM::Role': 2_000 });
+
+    await expect(
+      hydrateAwsConfigRecordingFrequencyReviews([], {
+        region: 'eu-central-1',
+        resolveAccountId: async () => accountId,
+      }),
+    ).resolves.toEqual([]);
+    expect(mockedFetchCloudWatchSignals).not.toHaveBeenCalled();
   });
 
   it('honors daily recording-mode overrides while reviewing remaining continuous types', async () => {

@@ -3,6 +3,7 @@ import {
   type ConfigServiceClient,
   type ConfigurationRecorder,
   DescribeConfigRulesCommand,
+  DescribeConfigurationRecorderStatusCommand,
   DescribeConfigurationRecordersCommand,
   GetDiscoveredResourceCountsCommand,
   ListConfigurationRecordersCommand,
@@ -31,6 +32,7 @@ const UNSUPPORTED_DAILY_RESOURCE_TYPES = new Set([
   'AWS::Config::ConformancePackCompliance',
   'AWS::Config::ResourceCompliance',
 ]);
+const GLOBAL_IAM_RESOURCE_TYPES = new Set(['AWS::IAM::Group', 'AWS::IAM::Policy', 'AWS::IAM::Role', 'AWS::IAM::User']);
 
 type ConfigDiscoveryContext = AwsAccountIdResolver & {
   region?: string;
@@ -72,6 +74,7 @@ const isResourceTypeInRecorderScope = (
     allSupported: boolean;
     configuredResourceTypes: string[];
     excludedResourceTypes: string[];
+    includeGlobalResourceTypes: boolean;
     recordingStrategy: string;
   },
 ): boolean => {
@@ -83,11 +86,11 @@ const isResourceTypeInRecorderScope = (
     return options.configuredResourceTypes.includes(resourceType);
   }
 
-  return (
-    options.allSupported ||
-    options.configuredResourceTypes.length === 0 ||
-    options.configuredResourceTypes.includes(resourceType)
-  );
+  if (options.allSupported && !options.includeGlobalResourceTypes && GLOBAL_IAM_RESOURCE_TYPES.has(resourceType)) {
+    return false;
+  }
+
+  return options.allSupported || options.configuredResourceTypes.includes(resourceType);
 };
 
 const listConfigMetricResourceTypes = async (region: string): Promise<string[]> => {
@@ -200,6 +203,7 @@ const isRecorderContinuouslyRecordingType = (recorder: ConfigurationRecorder, re
       allSupported: recorder.recordingGroup?.allSupported ?? false,
       configuredResourceTypes: recorder.recordingGroup?.resourceTypes ?? [],
       excludedResourceTypes: recorder.recordingGroup?.exclusionByResourceTypes?.resourceTypes ?? [],
+      includeGlobalResourceTypes: recorder.recordingGroup?.includeGlobalResourceTypes ?? false,
       recordingStrategy: recorder.recordingGroup?.recordingStrategy?.useOnly ?? 'UNSPECIFIED',
     }) && getEffectiveRecordingFrequency(resourceType, defaultFrequency, overrides) === 'CONTINUOUS'
   );
@@ -280,6 +284,20 @@ export const hydrateAwsConfigRecordingFrequencyReviews = async (
 
   const recorderArn = recorder.arn;
   const recorderName = recorder.name;
+  const recorderStatusResponse = await withAwsServiceErrorContext(
+    'AWS Config',
+    'DescribeConfigurationRecorderStatus',
+    region,
+    () =>
+      configClient.send(new DescribeConfigurationRecorderStatusCommand({ ConfigurationRecorderNames: [recorderName] })),
+  );
+  const recorderStatus = recorderStatusResponse.ConfigurationRecordersStatus?.find(
+    (status) => status.name === recorderName,
+  );
+
+  if (!recorderStatus?.recording) {
+    return [];
+  }
 
   const defaultRecordingFrequency = normalizeRecordingFrequency(recorder.recordingMode?.recordingFrequency);
   const recordingModeOverrides = normalizeRecordingModeOverrides(recorder.recordingMode?.recordingModeOverrides ?? []);
@@ -308,6 +326,7 @@ export const hydrateAwsConfigRecordingFrequencyReviews = async (
         allSupported,
         configuredResourceTypes,
         excludedResourceTypes,
+        includeGlobalResourceTypes,
         recordingStrategy,
       }) &&
       getEffectiveRecordingFrequency(resourceType, defaultRecordingFrequency, recordingModeOverrides) === 'CONTINUOUS',

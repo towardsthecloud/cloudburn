@@ -979,7 +979,7 @@ describe('discoverAwsResources', () => {
     ]);
   });
 
-  it('loads regional account datasets once for every explicitly targeted region', async () => {
+  it('passes the explicit target region to account-scoped datasets', async () => {
     mockedResolveCurrentAwsRegion.mockResolvedValue('eu-west-1');
     mockedHydrateAwsConfigRecordingFrequencyReviews.mockImplementation(async (_resources, context) => [
       {
@@ -1017,20 +1017,16 @@ describe('discoverAwsResources', () => {
           discoveryDependencies: ['aws-config-recording-frequency-reviews'],
         }),
       ],
-      { mode: 'regions', regions: ['eu-west-1', 'eu-central-1'] },
+      { mode: 'region', region: 'eu-central-1' },
     );
 
     expect(mockedBuildAwsDiscoveryCatalog).not.toHaveBeenCalled();
-    expect(mockedHydrateAwsConfigRecordingFrequencyReviews).toHaveBeenCalledTimes(2);
+    expect(mockedHydrateAwsConfigRecordingFrequencyReviews).toHaveBeenCalledTimes(1);
     expect(mockedHydrateAwsConfigRecordingFrequencyReviews).toHaveBeenCalledWith(
       [],
       expect.objectContaining({ region: 'eu-central-1' }),
     );
-    expect(mockedHydrateAwsConfigRecordingFrequencyReviews).toHaveBeenCalledWith(
-      [],
-      expect.objectContaining({ region: 'eu-west-1' }),
-    );
-    expect(result.resources.get('aws-config-recording-frequency-reviews')).toHaveLength(2);
+    expect(result.resources.get('aws-config-recording-frequency-reviews')).toHaveLength(1);
   });
 
   it('loads the global untagged-resource dataset without service-specific catalog hydration', async () => {

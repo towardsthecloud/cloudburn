@@ -132,6 +132,9 @@ bound. Its estimate covers recording charges only; AWS Config rule and conforman
 charges. Types unsupported by daily recording, protected by Firewall Manager, or covered by a paid continuous
 service-linked recorder remain continuous.
 
+The rule evaluates one region per discovery run. Pass an explicit single-region target to review another region;
+multi-region and all-region SDK targets do not fan out AWS Config API calls.
+
 ## Presets
 
 | Preset ID  | Name     | Rule IDs                                                                           |

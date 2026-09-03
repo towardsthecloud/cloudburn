@@ -109,7 +109,6 @@ export type AwsDiscoveryDatasetLoadContext = AwsDiscoveryDatasetResolver &
 /** Declarative definition for one rule-facing AWS discovery dataset. */
 export type AwsDiscoveryDatasetDefinition<K extends DiscoveryDatasetKey = DiscoveryDatasetKey> = {
   datasetKey: K;
-  regional?: boolean;
   toEvaluationResources?: (resources: DiscoveryDatasetMap[K]) => EvaluationResourceProjection[];
   resourceTypes: string[];
   service:
@@ -285,7 +284,6 @@ const awsDiscoveryDatasetRegistry: {
   },
   'aws-config-recording-frequency-reviews': {
     datasetKey: 'aws-config-recording-frequency-reviews',
-    regional: true,
     resourceTypes: [],
     service: 'config',
     load: hydrateAwsConfigRecordingFrequencyReviews,
