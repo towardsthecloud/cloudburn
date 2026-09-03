@@ -1,5 +1,14 @@
 # @cloudburn/sdk
 
+## 0.30.1
+
+### Patch Changes
+
+- [#202](https://github.com/towardsthecloud/cloudburn/pull/202) [`a5d4329`](https://github.com/towardsthecloud/cloudburn/commit/a5d43294f0a4f7062b54e6d411dd334f57f79a4a) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Keep readable DynamoDB tables when individual metadata calls are denied, preserve actionable Resource Explorer setup errors, and base Lambda memory and DynamoDB inactivity findings on valid AWS usage evidence. Lambda memory recommendations are now opt-in because they require AWS Compute Optimizer enrollment.
+
+- Updated dependencies [[`a5d4329`](https://github.com/towardsthecloud/cloudburn/commit/a5d43294f0a4f7062b54e6d411dd334f57f79a4a)]:
+  - @cloudburn/rules@0.30.1
+
 ## 0.30.0
 
 ### Minor Changes
