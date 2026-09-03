@@ -157,37 +157,43 @@ describe('hydrateAwsLambdaFunctions', () => {
     expect(mockedCreateLambdaClient).toHaveBeenCalledWith({ region: 'us-east-1' });
   });
 
-  it('retries throttled ListFunctions calls before failing', async () => {
-    const send = vi
-      .fn()
-      .mockRejectedValueOnce(
-        Object.assign(new Error('Rate exceeded'), {
+  it('retries a throttled later page without duplicating earlier functions', async () => {
+    let secondPageAttempts = 0;
+    const send = vi.fn(async (command: ListFunctionsCommand) => {
+      if (!command.input.Marker) {
+        return {
+          Functions: [
+            {
+              FunctionArn: 'arn:aws:lambda:eu-central-1:123456789012:function:first-function',
+              FunctionName: 'first-function',
+            },
+          ],
+          NextMarker: 'page-2',
+        };
+      }
+
+      secondPageAttempts += 1;
+      if (secondPageAttempts === 1) {
+        throw Object.assign(new Error('Rate exceeded'), {
           name: 'TooManyRequestsException',
           $metadata: {
             httpStatusCode: 429,
             requestId: 'request-789',
           },
-        }),
-      )
-      .mockRejectedValueOnce(
-        Object.assign(new Error('Rate exceeded'), {
-          name: 'TooManyRequestsException',
-          $metadata: {
-            httpStatusCode: 429,
-            requestId: 'request-790',
-          },
-        }),
-      )
-      .mockResolvedValueOnce({
+        });
+      }
+
+      return {
         Functions: [
           {
             Architectures: ['arm64'],
-            FunctionArn: 'arn:aws:lambda:eu-central-1:123456789012:function:retry-function',
-            FunctionName: 'retry-function',
+            FunctionArn: 'arn:aws:lambda:eu-central-1:123456789012:function:second-function',
+            FunctionName: 'second-function',
             Timeout: 15,
           },
         ],
-      });
+      };
+    });
 
     mockedCreateLambdaClient.mockReturnValue({ send } as never);
 
@@ -195,7 +201,15 @@ describe('hydrateAwsLambdaFunctions', () => {
       hydrateAwsLambdaFunctions([
         {
           accountId: '123456789012',
-          arn: 'arn:aws:lambda:eu-central-1:123456789012:function:retry-function',
+          arn: 'arn:aws:lambda:eu-central-1:123456789012:function:first-function',
+          properties: [],
+          region: 'eu-central-1',
+          resourceType: 'lambda:function',
+          service: 'lambda',
+        },
+        {
+          accountId: '123456789012',
+          arn: 'arn:aws:lambda:eu-central-1:123456789012:function:second-function',
           properties: [],
           region: 'eu-central-1',
           resourceType: 'lambda:function',
@@ -205,8 +219,16 @@ describe('hydrateAwsLambdaFunctions', () => {
     ).resolves.toEqual([
       {
         accountId: '123456789012',
+        architectures: ['x86_64'],
+        functionName: 'first-function',
+        memorySizeMb: 128,
+        region: 'eu-central-1',
+        timeoutSeconds: 3,
+      },
+      {
+        accountId: '123456789012',
         architectures: ['arm64'],
-        functionName: 'retry-function',
+        functionName: 'second-function',
         memorySizeMb: 128,
         region: 'eu-central-1',
         timeoutSeconds: 15,

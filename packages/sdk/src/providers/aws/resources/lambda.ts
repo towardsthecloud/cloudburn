@@ -40,35 +40,35 @@ export const hydrateAwsLambdaFunctions = async (resources: AwsDiscoveredResource
       const functions: AwsLambdaFunction[] = [];
       const resourcesByArn = new Map(regionResources.map((resource) => [resource.arn, resource]));
 
-      await withAwsServiceErrorContext('AWS Lambda', 'ListFunctions', region, async () => {
-        let marker: string | undefined;
+      let marker: string | undefined;
 
-        do {
-          const page = await client.send(new ListFunctionsCommand({ Marker: marker }));
+      do {
+        const page = await withAwsServiceErrorContext('AWS Lambda', 'ListFunctions', region, () =>
+          client.send(new ListFunctionsCommand({ Marker: marker })),
+        );
 
-          for (const listedFunction of page.Functions ?? []) {
-            const functionName =
-              listedFunction.FunctionName ??
-              (listedFunction.FunctionArn ? extractTerminalArnResourceIdentifier(listedFunction.FunctionArn) : null);
-            const resource = listedFunction.FunctionArn ? resourcesByArn.get(listedFunction.FunctionArn) : undefined;
+        for (const listedFunction of page.Functions ?? []) {
+          const functionName =
+            listedFunction.FunctionName ??
+            (listedFunction.FunctionArn ? extractTerminalArnResourceIdentifier(listedFunction.FunctionArn) : null);
+          const resource = listedFunction.FunctionArn ? resourcesByArn.get(listedFunction.FunctionArn) : undefined;
 
-            if (!functionName || !resource) {
-              continue;
-            }
-
-            functions.push({
-              accountId: resource.accountId,
-              architectures: listedFunction.Architectures?.map(String) ?? [...DEFAULT_LAMBDA_ARCHITECTURES],
-              functionName,
-              memorySizeMb: listedFunction.MemorySize ?? DEFAULT_LAMBDA_MEMORY_MB,
-              region,
-              timeoutSeconds: listedFunction.Timeout ?? DEFAULT_LAMBDA_TIMEOUT_SECONDS,
-            });
+          if (!functionName || !resource) {
+            continue;
           }
 
-          marker = page.NextMarker;
-        } while (marker);
-      });
+          functions.push({
+            accountId: resource.accountId,
+            architectures: listedFunction.Architectures?.map(String) ?? [...DEFAULT_LAMBDA_ARCHITECTURES],
+            functionName,
+            memorySizeMb: listedFunction.MemorySize ?? DEFAULT_LAMBDA_MEMORY_MB,
+            region,
+            timeoutSeconds: listedFunction.Timeout ?? DEFAULT_LAMBDA_TIMEOUT_SECONDS,
+          });
+        }
+
+        marker = page.NextMarker;
+      } while (marker);
 
       return functions;
     }),
