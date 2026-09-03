@@ -18,7 +18,13 @@ import type {
 } from '../../types.js';
 import { assertValidAwsRegion, listEnabledAwsRegions, resolveAwsAccountId, resolveCurrentAwsRegion } from './client.js';
 import { type AwsDiscoveryDatasetLoadContext, getAwsDiscoveryDatasetDefinition } from './discovery-registry.js';
-import { AwsDiscoveryError, getAwsErrorCode, isAwsAccessDeniedError, isAwsThrottlingError } from './errors.js';
+import {
+  AwsDiscoveryError,
+  formatAwsAccessDeniedReason,
+  getAwsErrorCode,
+  isAwsAccessDeniedError,
+  isAwsThrottlingError,
+} from './errors.js';
 import {
   buildAwsDiscoveryCatalog,
   createAwsResourceExplorerSetup,
@@ -213,14 +219,8 @@ const groupResourcesByRegion = <T extends { region: string }>(resources: T[]): M
   return resourcesByRegion;
 };
 
-const isScpAccessDeniedError = (err: unknown): boolean =>
-  err instanceof Error &&
-  (err.message.toLowerCase().includes('service control policy') || err.message.toLowerCase().includes('by scp'));
-
 const buildAccessDeniedDiagnosticMessage = (service: string, region: string, err: unknown): string =>
-  isScpAccessDeniedError(err)
-    ? `Skipped ${service} discovery in ${region} because access is denied by a service control policy (SCP).`
-    : `Skipped ${service} discovery in ${region} because access is denied by AWS permissions.`;
+  `Skipped ${service} discovery in ${region} because access is denied by ${formatAwsAccessDeniedReason(err)}.`;
 
 const buildDatasetFailureDiagnostic = (service: string, region: string | undefined, err: unknown): ScanDiagnostic => ({
   code: getAwsErrorCode(err),

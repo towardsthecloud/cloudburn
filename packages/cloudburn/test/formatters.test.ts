@@ -71,10 +71,10 @@ const resultWithSkippedRuleDiagnostic = {
 const resultWithFindingAndDiagnostic = {
   diagnostics: [
     {
-      message: 'Skipped lambda discovery in us-east-1 because access is denied by AWS permissions.',
+      message: 'Skipped dynamodb discovery in eu-central-1 because access is denied by a resource-based policy.',
       provider: 'aws' as const,
-      region: 'us-east-1',
-      service: 'lambda',
+      region: 'eu-central-1',
+      service: 'dynamodb',
       source: 'discovery' as const,
       status: 'access_denied' as const,
     },
@@ -161,7 +161,9 @@ describe('renderResponse', () => {
     expect(output).toContain('vol-123');
     expect(output).toContain('Diagnostics');
     expect(output).toContain('access_denied');
-    expect(output).toContain('Skipped lambda discovery in us-east-1');
+    expect(output).toContain(
+      'Skipped dynamodb discovery in eu-central-1 because access is denied by a resource-based policy.',
+    );
   });
 
   it('retains suppressed findings in json and reports their count in table output', () => {
