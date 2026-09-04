@@ -47,6 +47,7 @@ import { hydrateAwsEbsSnapshots, hydrateAwsEbsVolumes } from '../../src/provider
 import { hydrateAwsEc2Instances } from '../../src/providers/aws/resources/ec2.js';
 import { hydrateAwsEc2NatGatewayActivity } from '../../src/providers/aws/resources/ec2-nat-gateways.js';
 import { hydrateAwsEc2ReservedInstances } from '../../src/providers/aws/resources/ec2-reserved-instances.js';
+import { hydrateAwsEc2TransitGatewayVpcAttachmentActivity } from '../../src/providers/aws/resources/ec2-transit-gateway-vpc-attachments.js';
 import { hydrateAwsEc2InstanceUtilization } from '../../src/providers/aws/resources/ec2-utilization.js';
 import { hydrateAwsEcrRepositories } from '../../src/providers/aws/resources/ecr.js';
 import {
@@ -209,6 +210,10 @@ vi.mock('../../src/providers/aws/resources/ec2-nat-gateways.js', () => ({
   hydrateAwsEc2NatGatewayActivity: vi.fn(),
 }));
 
+vi.mock('../../src/providers/aws/resources/ec2-transit-gateway-vpc-attachments.js', () => ({
+  hydrateAwsEc2TransitGatewayVpcAttachmentActivity: vi.fn(),
+}));
+
 vi.mock('../../src/providers/aws/resources/ec2-utilization.js', () => ({
   hydrateAwsEc2InstanceUtilization: vi.fn(),
 }));
@@ -321,6 +326,9 @@ const mockedHydrateAwsEmrClusterMetrics = vi.mocked(hydrateAwsEmrClusterMetrics)
 const mockedHydrateAwsEmrClusters = vi.mocked(hydrateAwsEmrClusters);
 const mockedHydrateAwsEc2Instances = vi.mocked(hydrateAwsEc2Instances);
 const mockedHydrateAwsEc2NatGatewayActivity = vi.mocked(hydrateAwsEc2NatGatewayActivity);
+const mockedHydrateAwsEc2TransitGatewayVpcAttachmentActivity = vi.mocked(
+  hydrateAwsEc2TransitGatewayVpcAttachmentActivity,
+);
 const mockedHydrateAwsEc2InstanceUtilization = vi.mocked(hydrateAwsEc2InstanceUtilization);
 const mockedHydrateAwsLambdaMemoryRecommendations = vi.mocked(hydrateAwsLambdaMemoryRecommendations);
 const mockedHydrateAwsEc2ReservedInstances = vi.mocked(hydrateAwsEc2ReservedInstances);
@@ -2605,6 +2613,58 @@ describe('discoverAwsResources', () => {
         state: 'available',
         subnetId: 'subnet-123',
       },
+    ]);
+  });
+
+  it('hydrates Transit Gateway VPC attachment activity without a Region fan-out', async () => {
+    const attachmentResource = {
+      accountId: '123456789012',
+      arn: 'arn:aws:ec2:us-east-1:123456789012:transit-gateway-attachment/tgw-attach-123',
+      properties: [],
+      region: 'us-east-1',
+      resourceType: 'ec2:transit-gateway-attachment',
+      service: 'ec2',
+    };
+    mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
+      indexType: 'LOCAL',
+      resources: [attachmentResource],
+      searchRegion: 'us-east-1',
+    });
+    mockedHydrateAwsEc2TransitGatewayVpcAttachmentActivity.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        bytesInLast30Days: 0,
+        bytesOutLast30Days: 0,
+        estimatedMonthlyAttachmentCostUsd: 36.5,
+        hourlyAttachmentCostUsd: 0.05,
+        lookbackDays: 30,
+        region: 'us-east-1',
+        state: 'available',
+        transitGatewayAttachmentId: 'tgw-attach-123',
+        transitGatewayId: 'tgw-123',
+        vpcId: 'vpc-123',
+      },
+    ]);
+
+    const result = await discoverAwsResources(
+      [
+        createRule({
+          discoveryDependencies: ['aws-ec2-transit-gateway-vpc-attachment-activity'],
+          service: 'ec2',
+        }),
+      ],
+      { mode: 'regions', regions: ['us-east-1'] },
+    );
+
+    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith({ mode: 'regions', regions: ['us-east-1'] }, [
+      'ec2:transit-gateway-attachment',
+    ]);
+    expect(mockedHydrateAwsEc2TransitGatewayVpcAttachmentActivity).toHaveBeenCalledWith(
+      [attachmentResource],
+      loadContextMatcher,
+    );
+    expect(result.resources.get('aws-ec2-transit-gateway-vpc-attachment-activity')).toEqual([
+      expect.objectContaining({ transitGatewayAttachmentId: 'tgw-attach-123' }),
     ]);
   });
 

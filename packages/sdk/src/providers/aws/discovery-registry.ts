@@ -33,6 +33,7 @@ import { hydrateAwsEc2Instances } from './resources/ec2.js';
 import { hydrateAwsEc2ElasticIps } from './resources/ec2-elastic-ips.js';
 import { hydrateAwsEc2NatGatewayActivity } from './resources/ec2-nat-gateways.js';
 import { hydrateAwsEc2ReservedInstances } from './resources/ec2-reserved-instances.js';
+import { hydrateAwsEc2TransitGatewayVpcAttachmentActivity } from './resources/ec2-transit-gateway-vpc-attachments.js';
 import { hydrateAwsEc2InstanceUtilization } from './resources/ec2-utilization.js';
 import { hydrateAwsEcrRepositories } from './resources/ecr.js';
 import { hydrateAwsEcsClusters, hydrateAwsEcsContainerInstances, hydrateAwsEcsServices } from './resources/ecs.js';
@@ -473,6 +474,29 @@ const awsDiscoveryDatasetRegistry: {
     service: 'ec2',
     load: hydrateAwsEc2NatGatewayActivity,
     toEvaluationResources: (gateways) => mapEvaluationResources(gateways, (gateway) => gateway.natGatewayId),
+  },
+  'aws-ec2-transit-gateway-vpc-attachment-activity': {
+    datasetKey: 'aws-ec2-transit-gateway-vpc-attachment-activity',
+    resourceTypes: ['ec2:transit-gateway-attachment'],
+    service: 'ec2',
+    load: hydrateAwsEc2TransitGatewayVpcAttachmentActivity,
+    toEvaluationResources: (attachments) =>
+      mapEvaluationResources(
+        attachments,
+        (attachment) => attachment.transitGatewayAttachmentId,
+        (attachment) => ({
+          data: {
+            bytesInLast30Days: attachment.bytesInLast30Days,
+            bytesOutLast30Days: attachment.bytesOutLast30Days,
+            estimatedMonthlyAttachmentCostUsd: attachment.estimatedMonthlyAttachmentCostUsd,
+            hourlyAttachmentCostUsd: attachment.hourlyAttachmentCostUsd,
+            lookbackDays: attachment.lookbackDays,
+            state: attachment.state,
+            transitGatewayId: attachment.transitGatewayId,
+            vpcId: attachment.vpcId,
+          },
+        }),
+      ),
   },
   'aws-ec2-load-balancers': {
     datasetKey: 'aws-ec2-load-balancers',

@@ -37,6 +37,7 @@ export type {
   AwsEc2LoadBalancer,
   AwsEc2ReservedInstance,
   AwsEc2TargetGroup,
+  AwsEc2TransitGatewayVpcAttachmentActivity,
   AwsEcsCluster,
   AwsEcsClusterMetric,
   AwsEcsContainerInstance,
