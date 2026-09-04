@@ -153,6 +153,12 @@ was denied, so the confirmed key count is not mistaken for complete inventory. R
 usage or rotation metadata produces a diagnostic and marks the related evidence incomplete, while the rule remains
 limited to proliferation and churn.
 
+`CLDBRN-AWS-KMS-2` projects one evaluated resource per key from the shared KMS review scan. Its normalized `data`
+contains the key ARN, creation date, multi-Region status, usage-evidence classification, estimated monthly storage cost,
+whether that estimate includes complete rotation history, the tracking start, and the last recorded use when present.
+Only keys with at least 90 days of complete no-recorded-usage evidence can trigger the rule. Missing key or usage
+metadata makes the rule `not_applicable` rather than allowing incomplete evidence to look like a pass.
+
 Every selected discovery rule appears exactly once when evaluation evidence is requested:
 
 - `triggered` means the rule emitted one or more findings.

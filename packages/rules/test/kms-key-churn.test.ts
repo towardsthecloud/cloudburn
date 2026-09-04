@@ -13,6 +13,7 @@ const createReview = (overrides: Partial<AwsKmsKeyChurnReview> = {}): AwsKmsKeyC
   estimatedMonthlyStorageCostUsd: 52,
   keyMetadataComplete: true,
   keyMetadataUnavailableCount: 0,
+  keys: [],
   keysCreatedInWindow: 8,
   multiRegionKeyCount: 2,
   noKmsUsageSinceCreationKeyCount: 4,

@@ -48,6 +48,8 @@ export type {
   AwsEmrClusterMetric,
   AwsKmsAliasPatternGroup,
   AwsKmsKeyChurnReview,
+  AwsKmsKeyUsage,
+  AwsKmsKeyUsageEvidence,
   AwsLambdaFunction,
   AwsLambdaFunctionMetric,
   AwsRdsInstance,

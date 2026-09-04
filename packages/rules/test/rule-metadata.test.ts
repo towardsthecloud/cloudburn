@@ -1288,6 +1288,24 @@ describe('rule metadata', () => {
     });
   });
 
+  it('defines the expected KMS no-recorded-usage rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-KMS-2');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-KMS-2',
+      name: 'KMS Key Without Recent Recorded Usage',
+      description:
+        'Flag enabled customer-managed KMS keys that are at least 90 days old and have no recorded KMS cryptographic use during a complete 90-day tracking window.',
+      message:
+        'Customer-managed KMS keys with no recorded cryptographic use for at least 90 days should be disabled and monitored before deletion.',
+      provider: 'aws',
+      service: 'kms',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-kms-key-usage'],
+    });
+  });
+
   it('defines the expected DynamoDB stale-data rule metadata', () => {
     const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-DYNAMODB-1');
 

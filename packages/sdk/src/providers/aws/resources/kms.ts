@@ -6,10 +6,15 @@ import {
   ListAliasesCommand,
   ListKeyRotationsCommand,
 } from '@aws-sdk/client-kms';
-import type { AwsDiscoveredResource, AwsKmsKeyChurnReview } from '@cloudburn/rules';
+import type {
+  AwsDiscoveredResource,
+  AwsKmsKeyChurnReview,
+  AwsKmsKeyUsage,
+  AwsKmsKeyUsageEvidence,
+} from '@cloudburn/rules';
 import type { ScanDiagnostic } from '../../../types.js';
 import { createKmsClient } from '../client.js';
-import type { AwsDiscoveryDatasetLoadResult } from '../discovery-registry.js';
+import type { AwsDiscoveryDatasetLoadResult, AwsDiscoveryDatasetResolver } from '../discovery-registry.js';
 import { formatAwsAccessDeniedReason, getAwsErrorCode, isAwsAccessDeniedError } from '../errors.js';
 import {
   addUtcMonths,
@@ -29,15 +34,16 @@ const HEX_IDENTIFIER_PATTERN = /\b[0-9a-f]{8,}\b/giu;
 const NUMBER_PATTERN = /\b\d+\b/gu;
 const EPHEMERAL_ALIAS_SUFFIX_PATTERN = /(^|[-_/])(branch|pr|preview|pull|review|test)(?:[-_/].*)?$/gu;
 
-type KmsUsageEvidence = 'no_kms_usage_since_creation' | 'unavailable' | 'unobserved_before_tracking' | 'used';
-
 type HydratedKmsKey = {
   creationDate: Date;
+  keyArn: string;
   keyId: string;
+  lastUsageAt?: Date;
   multiRegion: boolean;
   rotationCount?: number;
   rotationError?: unknown;
-  usageEvidence: KmsUsageEvidence;
+  trackingStartDate?: Date;
+  usageEvidence: AwsKmsKeyUsageEvidence;
   usageError?: unknown;
 };
 
@@ -209,18 +215,27 @@ const loadUsageEvidence = async (
   keyId: string,
   creationDate: Date,
   region: string,
-): Promise<{ evidence: KmsUsageEvidence; error?: unknown }> => {
+): Promise<{
+  evidence: AwsKmsKeyUsageEvidence;
+  error?: unknown;
+  lastUsageAt?: Date;
+  trackingStartDate?: Date;
+}> => {
   try {
     const response = await withAwsServiceErrorContext('AWS KMS', 'GetKeyLastUsage', region, () =>
       client.send(new GetKeyLastUsageCommand({ KeyId: keyId })),
     );
 
-    if (response.KeyLastUsage?.Timestamp) {
-      return { evidence: 'used' };
-    }
-
     if (!response.TrackingStartDate) {
       return { evidence: 'unavailable' };
+    }
+
+    if (response.KeyLastUsage?.Timestamp) {
+      return {
+        evidence: 'used',
+        lastUsageAt: response.KeyLastUsage.Timestamp,
+        trackingStartDate: response.TrackingStartDate,
+      };
     }
 
     return {
@@ -228,6 +243,7 @@ const loadUsageEvidence = async (
         creationDate.getTime() >= response.TrackingStartDate.getTime()
           ? 'no_kms_usage_since_creation'
           : 'unobserved_before_tracking',
+      trackingStartDate: response.TrackingStartDate,
     };
   } catch (err) {
     if (!isAwsAccessDeniedError(err)) {
@@ -280,10 +296,13 @@ const hydrateKey = async (
   return {
     key: {
       creationDate: metadata.CreationDate,
+      keyArn: resource.arn,
       keyId,
+      lastUsageAt: usage.lastUsageAt,
       multiRegion: metadata.MultiRegion === true,
       rotationCount: rotation.count,
       rotationError: rotation.error,
+      trackingStartDate: usage.trackingStartDate,
       usageEvidence: usage.evidence,
       usageError: usage.error,
     },
@@ -300,7 +319,7 @@ const createReview = (
 ): AwsKmsKeyChurnReview => {
   const creationWindow = getPreviousFullMonthWindow(new Date());
   const aliasPatternCounts = new Map<string, number>();
-  const usageCounts: Record<KmsUsageEvidence, number> = {
+  const usageCounts: Record<AwsKmsKeyUsageEvidence, number> = {
     no_kms_usage_since_creation: 0,
     unavailable: 0,
     unobserved_before_tracking: 0,
@@ -339,6 +358,21 @@ const createReview = (
     estimatedMonthlyStorageCostUsd,
     keyMetadataComplete: keyMetadataUnavailableCount === 0,
     keyMetadataUnavailableCount,
+    keys: keys.map(
+      (key): AwsKmsKeyUsage => ({
+        accountId,
+        creationDate: key.creationDate.toISOString(),
+        estimatedMonthlyStorageCostUsd:
+          KMS_KEY_MONTHLY_STORAGE_PRICE_USD * (1 + Math.min(key.rotationCount ?? 0, KMS_BILLED_ROTATION_LIMIT)),
+        keyArn: key.keyArn,
+        ...(key.lastUsageAt ? { lastUsageAt: key.lastUsageAt.toISOString() } : {}),
+        multiRegion: key.multiRegion,
+        region,
+        storageCostEstimateComplete: key.rotationCount !== undefined,
+        ...(key.trackingStartDate ? { trackingStartDate: key.trackingStartDate.toISOString() } : {}),
+        usageEvidence: key.usageEvidence,
+      }),
+    ),
     keysCreatedInWindow,
     multiRegionKeyCount,
     noKmsUsageSinceCreationKeyCount: usageCounts.no_kms_usage_since_creation,
@@ -355,8 +389,8 @@ const createReview = (
 /**
  * Hydrates discovered KMS keys into regional proliferation and previous-full-month churn evidence.
  *
- * Raw alias values are normalized and hashed before aggregation. Usage tracking is retained only as
- * summary counts, so the dataset cannot identify individual keys as safe deletion candidates.
+ * Raw alias values are normalized and hashed before aggregation. Per-key usage evidence retains only
+ * the ARN, creation date, multi-Region status, and storage-cost inputs needed for lifecycle review.
  *
  * @param resources - Resource Explorer KMS key inventory selected for the active discovery scope.
  * @returns Regional KMS key churn reviews plus non-fatal diagnostics for partially denied metadata.
@@ -457,4 +491,46 @@ export const hydrateAwsKmsKeyChurnReviews = async (
     .sort((left, right) => left.region.localeCompare(right.region));
 
   return diagnostics.length > 0 ? { diagnostics, resources: reviews } : reviews;
+};
+
+/**
+ * Projects shared KMS review evidence into the per-key dataset used by the no-recorded-usage rule.
+ *
+ * @param resources - Catalog resources for the Region currently being loaded.
+ * @param context - Per-run dataset resolver used to reuse the KMS API scan.
+ * @returns Per-key usage evidence, marked unavailable when required metadata is incomplete.
+ */
+export const hydrateAwsKmsKeyUsage = async (
+  resources: AwsDiscoveredResource[],
+  context: AwsDiscoveryDatasetResolver,
+): Promise<AwsKmsKeyUsage[] | AwsDiscoveryDatasetLoadResult<'aws-kms-key-usage'>> => {
+  const region = resources[0]?.region;
+  const reviews = (await context.loadDataset('aws-kms-key-churn-reviews')).filter((review) => review.region === region);
+  const keyMetadataUnavailableCount = reviews.reduce((count, review) => count + review.keyMetadataUnavailableCount, 0);
+  const usageMetadataUnavailableKeyCount = reviews.reduce(
+    (count, review) => count + review.usageMetadataUnavailableKeyCount,
+    0,
+  );
+  const keys = reviews.flatMap((review) => review.keys);
+
+  if (keyMetadataUnavailableCount === 0 && usageMetadataUnavailableKeyCount === 0) {
+    return keys;
+  }
+
+  return {
+    diagnostics: [
+      {
+        code: 'KmsUsageEvidenceIncomplete',
+        details: `${keyMetadataUnavailableCount} keys lacked DescribeKey metadata; ${usageMetadataUnavailableKeyCount} enabled customer-managed keys lacked GetKeyLastUsage metadata.`,
+        message: `Skipped KMS no-recorded-usage evaluation in ${region ?? 'the selected Region'} because key or last-usage metadata was incomplete.`,
+        provider: 'aws',
+        ...(region ? { region } : {}),
+        service: 'kms',
+        source: 'discovery',
+        status: 'skipped',
+      },
+    ],
+    resources: keys,
+    unavailable: true,
+  };
 };

@@ -7,6 +7,7 @@ export {
   AWS_KMS_KEY_PROLIFERATION_THRESHOLD,
   AWS_KMS_MONTHLY_KEY_CREATION_THRESHOLD,
 } from './aws/kms/key-churn.js';
+export { AWS_KMS_UNUSED_KEY_MINIMUM_AGE_DAYS } from './aws/kms/key-unused.js';
 export { azureRules } from './azure/index.js';
 export { gcpRules } from './gcp/index.js';
 export { awsCorePreset } from './presets/aws-core.js';
@@ -61,6 +62,8 @@ export type {
   AwsEmrClusterMetric,
   AwsKmsAliasPatternGroup,
   AwsKmsKeyChurnReview,
+  AwsKmsKeyUsage,
+  AwsKmsKeyUsageEvidence,
   AwsLambdaFunction,
   AwsLambdaFunctionMetric,
   AwsLambdaMemoryRecommendation,

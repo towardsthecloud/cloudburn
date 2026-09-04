@@ -54,6 +54,7 @@ meaningful optimization opportunities, and `low` covers hygiene and smaller accu
 | `CLDBRN-AWS-COSTGUARDRAILS-4` | medium   | Flags configured AWS Budgets when normalized forecasted spend strictly exceeds the same-unit budget limit while actual spend has not exceeded it. Missing, malformed, and unit-mismatched forecasts are skipped.                    | costguardrails | discovery      |
 | `CLDBRN-AWS-COSTEXPLORER-1`   | medium   | Compares the last two full months and flags only services with an existing prior-month baseline and a cost increase greater than `10` cost units.                                                                                   | costexplorer   | discovery      |
 | `CLDBRN-AWS-KMS-1`            | medium   | Flags Regions with at least `50` enabled customer-managed KMS keys or at least `10` such keys created during the previous full month. AWS-managed, AWS-owned, disabled, and pending-deletion keys are excluded.                     | kms            | discovery      |
+| `CLDBRN-AWS-KMS-2`            | medium   | Flags enabled customer-managed KMS keys that are at least `90` days old and have no recorded KMS cryptographic use during a complete `90`-day tracking window.                                                                      | kms            | discovery      |
 | `CLDBRN-AWS-DYNAMODB-1`       | medium   | Flags tables old enough for a complete `90`-day observation window when consumed write capacity remains `0` throughout that window.                                                                                                 | dynamodb       | discovery      |
 | `CLDBRN-AWS-DYNAMODB-2`       | medium   | Reviews only provisioned-capacity tables and flags them when no table-level read or write autoscaling targets are configured.                                                                                                       | dynamodb       | discovery, iac |
 | `CLDBRN-AWS-DYNAMODB-3`       | high     | Reviews only provisioned-capacity tables and flags them when 30 days of consumed read and write capacity both sum to zero.                                                                                                          | dynamodb       | discovery      |
@@ -155,10 +156,17 @@ keeps the `$1` base price and marks itself incomplete. Alias values never enter 
 variable alias tokens, hashes the normalized pattern, and reports only repeated pattern IDs with their key counts.
 
 KMS last-usage tracking separates keys with observed cryptographic use, keys with no KMS use since creation, keys that
-predate the tracking window, and keys whose usage metadata is unavailable. The rule reports only proliferation and churn.
-It does not label a key unused or recommend deletion. [AWS notes](https://docs.aws.amazon.com/kms/latest/developerguide/monitoring-keys-determining-usage.html)
-that last-usage data cannot see local use of generated data keys or public asymmetric keys. AWS recommends disabling a
-candidate first and monitoring CloudTrail before deletion.
+predate the tracking window, and keys whose usage metadata is unavailable. `CLDBRN-AWS-KMS-1` still reports only
+proliferation and churn. `CLDBRN-AWS-KMS-2` flags an individual key only when both the key and its usage-tracking window
+are at least `90` days old, with no recorded operation after the cutoff. This covers keys that were never used and keys
+whose last recorded use is at least `90` days old. A shorter tracking window is skipped. Missing key or usage metadata
+makes this rule `not_applicable`, with the access diagnostic retained, so an SCP or key policy denial cannot look like a
+successful pass.
+
+The second rule reports “no recorded KMS use,” not proof that a key is safe to delete. [AWS notes](https://docs.aws.amazon.com/kms/latest/developerguide/monitoring-keys-determining-usage.html)
+that last-usage data cannot see local use of generated data keys or public asymmetric keys. Its remediation therefore
+calls for disabling the candidate and monitoring CloudTrail before deletion. Multi-Region primary and replica keys are
+evaluated independently.
 
 ## Presets
 

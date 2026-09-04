@@ -26,6 +26,7 @@ import type {
   AwsEmrCluster,
   AwsEmrClusterMetric,
   AwsKmsKeyChurnReview,
+  AwsKmsKeyUsage,
   AwsRdsInstance,
   AwsRedshiftCluster,
   AwsRedshiftClusterMetric,
@@ -45,6 +46,7 @@ import {
   AWS_CONFIG_RECORDING_FREQUENCY_MINIMUM_SAVINGS_USD,
   AWS_KMS_KEY_PROLIFERATION_THRESHOLD,
   AWS_KMS_MONTHLY_KEY_CREATION_THRESHOLD,
+  AWS_KMS_UNUSED_KEY_MINIMUM_AGE_DAYS,
   awsCorePreset,
   awsRules,
   azureRules,
@@ -63,7 +65,8 @@ describe('rule exports', () => {
     expect(AWS_CONFIG_RECORDING_FREQUENCY_MINIMUM_SAVINGS_USD).toBe(10);
     expect(AWS_KMS_KEY_PROLIFERATION_THRESHOLD).toBe(50);
     expect(AWS_KMS_MONTHLY_KEY_CREATION_THRESHOLD).toBe(10);
-    expect(awsRuleIds).toHaveLength(84);
+    expect(AWS_KMS_UNUSED_KEY_MINIMUM_AGE_DAYS).toBe(90);
+    expect(awsRuleIds).toHaveLength(85);
     expect(awsCorePreset.ruleIds).toEqual(
       awsRuleIds.filter((ruleId) => !['CLDBRN-AWS-LAMBDA-4', 'CLDBRN-AWS-TAGGING-1'].includes(ruleId)),
     );
@@ -126,6 +129,7 @@ describe('rule exports', () => {
         'CLDBRN-AWS-LAMBDA-3',
         'CLDBRN-AWS-LAMBDA-4',
         'CLDBRN-AWS-KMS-1',
+        'CLDBRN-AWS-KMS-2',
         'CLDBRN-AWS-RDS-2',
         'CLDBRN-AWS-RDS-3',
         'CLDBRN-AWS-RDS-4',
@@ -223,6 +227,7 @@ describe('rule exports', () => {
       estimatedMonthlyStorageCostUsd: 52,
       keyMetadataComplete: true,
       keyMetadataUnavailableCount: 0,
+      keys: [],
       keysCreatedInWindow: 10,
       multiRegionKeyCount: 2,
       noKmsUsageSinceCreationKeyCount: 4,
@@ -233,6 +238,17 @@ describe('rule exports', () => {
       unobservedBeforeTrackingKeyCount: 3,
       usageMetadataUnavailableKeyCount: 1,
       usedKeyCount: 42,
+    };
+    const kmsKeyUsage: AwsKmsKeyUsage = {
+      accountId: '123456789012',
+      creationDate: '2026-01-01T00:00:00.000Z',
+      estimatedMonthlyStorageCostUsd: 1,
+      keyArn: 'arn:aws:kms:eu-central-1:123456789012:key/key-a',
+      multiRegion: false,
+      region: 'eu-central-1',
+      storageCostEstimateComplete: true,
+      trackingStartDate: '2026-01-01T00:00:00.000Z',
+      usageEvidence: 'no_kms_usage_since_creation',
     };
     const budgetSpend: AwsCostGuardrailBudgetSpend = {
       actualSpend: 125,
@@ -507,6 +523,7 @@ describe('rule exports', () => {
     const cloudWatchLogStreamDatasetKey: DiscoveryDatasetKey = 'aws-cloudwatch-log-streams';
     const costUsageDatasetKey: DiscoveryDatasetKey = 'aws-cost-usage';
     const kmsKeyChurnDatasetKey: DiscoveryDatasetKey = 'aws-kms-key-churn-reviews';
+    const kmsKeyUsageDatasetKey: DiscoveryDatasetKey = 'aws-kms-key-usage';
     const untaggedResourcesDatasetKey: DiscoveryDatasetKey = 'aws-resource-explorer-untagged-resources';
     const dynamoDbAutoscalingDatasetKey: DiscoveryDatasetKey = 'aws-dynamodb-autoscaling';
     const dynamoDbTableDatasetKey: DiscoveryDatasetKey = 'aws-dynamodb-tables';
@@ -540,6 +557,7 @@ describe('rule exports', () => {
     expect(cloudWatchLogStreamDatasetKey).toBe('aws-cloudwatch-log-streams');
     expect(costUsageDatasetKey).toBe('aws-cost-usage');
     expect(kmsKeyChurnDatasetKey).toBe('aws-kms-key-churn-reviews');
+    expect(kmsKeyUsageDatasetKey).toBe('aws-kms-key-usage');
     expect(untaggedResourcesDatasetKey).toBe('aws-resource-explorer-untagged-resources');
     expect(dynamoDbAutoscalingDatasetKey).toBe('aws-dynamodb-autoscaling');
     expect(dynamoDbTableDatasetKey).toBe('aws-dynamodb-tables');
@@ -565,6 +583,7 @@ describe('rule exports', () => {
     expect(cloudFrontDistribution.priceClass).toBe('PriceClass_All');
     expect(costUsage.costIncrease).toBe(15);
     expect(kmsReview.enabledCustomerManagedKeyCount).toBe(50);
+    expect(kmsKeyUsage.usageEvidence).toBe('no_kms_usage_since_creation');
     expect(budgetSummary.budgets?.[0]).toBe(budgetSpend);
     expect(untaggedResource.resourceType).toBe('ec2:instance');
     expect(dynamoDbTable.tableName).toBe('orders');

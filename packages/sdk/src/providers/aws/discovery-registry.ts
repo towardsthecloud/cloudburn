@@ -1,5 +1,6 @@
 import {
   type AwsDiscoveredResource,
+  type AwsKmsKeyChurnReview,
   createFindingMatch,
   type DiscoveryDatasetKey,
   type DiscoveryDatasetMap,
@@ -48,7 +49,7 @@ import {
   hydrateAwsEc2TargetGroups,
 } from './resources/elbv2.js';
 import { hydrateAwsEmrClusterMetrics, hydrateAwsEmrClusters } from './resources/emr.js';
-import { hydrateAwsKmsKeyChurnReviews } from './resources/kms.js';
+import { hydrateAwsKmsKeyChurnReviews, hydrateAwsKmsKeyUsage } from './resources/kms.js';
 import {
   hydrateAwsLambdaFunctionMetrics,
   hydrateAwsLambdaFunctions,
@@ -173,6 +174,8 @@ const mapEvaluationResources = <T extends { accountId: string; region?: string }
       ...details,
     };
   });
+
+const toKmsKeyChurnEvaluationData = ({ keys: _keys, ...review }: AwsKmsKeyChurnReview) => review;
 
 type AwsRuleEvaluationOverride = {
   datasetKey: DiscoveryDatasetKey;
@@ -581,7 +584,24 @@ const awsDiscoveryDatasetRegistry: {
       mapEvaluationResources(
         reviews,
         (review) => review.reviewId,
-        (review) => ({ data: review }),
+        (review) => ({ data: toKmsKeyChurnEvaluationData(review) }),
+      ),
+  },
+  'aws-kms-key-usage': {
+    datasetKey: 'aws-kms-key-usage',
+    resourceTypes: ['kms:key'],
+    service: 'kms',
+    load: hydrateAwsKmsKeyUsage,
+    toEvaluationResources: (keys) =>
+      mapEvaluationResources(
+        keys,
+        (key) => key.keyArn,
+        (key) => ({
+          arn: key.keyArn,
+          createdAt: key.creationDate,
+          data: key,
+          resourceType: 'kms:key',
+        }),
       ),
   },
   'aws-rds-instance-activity': {

@@ -370,6 +370,27 @@ export type AwsKmsAliasPatternGroup = {
   patternId: string;
 };
 
+/** Completeness-aware KMS usage classification derived from `GetKeyLastUsage`. */
+export type AwsKmsKeyUsageEvidence =
+  | 'no_kms_usage_since_creation'
+  | 'unavailable'
+  | 'unobserved_before_tracking'
+  | 'used';
+
+/** Per-key lifecycle and usage evidence retained without aliases. */
+export type AwsKmsKeyUsage = {
+  accountId: string;
+  creationDate: string;
+  estimatedMonthlyStorageCostUsd: number;
+  keyArn: string;
+  lastUsageAt?: string;
+  multiRegion: boolean;
+  region: string;
+  storageCostEstimateComplete: boolean;
+  trackingStartDate?: string;
+  usageEvidence: AwsKmsKeyUsageEvidence;
+};
+
 /** Regional evidence for customer-managed KMS key proliferation and creation churn. */
 export type AwsKmsKeyChurnReview = {
   accountId: string;
@@ -383,6 +404,7 @@ export type AwsKmsKeyChurnReview = {
   keyMetadataComplete: boolean;
   /** Discovered KMS keys whose manager, state, and creation date could not be read. */
   keyMetadataUnavailableCount: number;
+  keys: AwsKmsKeyUsage[];
   keysCreatedInWindow: number;
   multiRegionKeyCount: number;
   noKmsUsageSinceCreationKeyCount: number;
@@ -810,6 +832,7 @@ export type DiscoveryDatasetKey =
   | 'aws-lambda-function-metrics'
   | 'aws-lambda-memory-recommendations'
   | 'aws-kms-key-churn-reviews'
+  | 'aws-kms-key-usage'
   | 'aws-rds-instance-activity'
   | 'aws-rds-instance-cpu-metrics'
   | 'aws-rds-instances'
@@ -869,6 +892,7 @@ export type DiscoveryDatasetMap = {
   'aws-lambda-function-metrics': AwsLambdaFunctionMetric[];
   'aws-lambda-memory-recommendations': AwsLambdaMemoryRecommendation[];
   'aws-kms-key-churn-reviews': AwsKmsKeyChurnReview[];
+  'aws-kms-key-usage': AwsKmsKeyUsage[];
   'aws-rds-instance-activity': AwsRdsInstanceActivity[];
   'aws-rds-instance-cpu-metrics': AwsRdsInstanceCpuMetric[];
   'aws-rds-instances': AwsRdsInstance[];

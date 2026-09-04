@@ -199,6 +199,7 @@ describe('CloudBurnClient', () => {
       estimatedMonthlyStorageCostUsd: 52,
       keyMetadataComplete: true,
       keyMetadataUnavailableCount: 0,
+      keys: [],
       keysCreatedInWindow: 10,
       multiRegionKeyCount: 2,
       noKmsUsageSinceCreationKeyCount: 4,
@@ -229,7 +230,7 @@ describe('CloudBurnClient', () => {
           resources: [
             {
               accountId: '123456789012',
-              data: kmsReview,
+              data: (({ keys: _keys, ...review }) => review)(kmsReview),
               region: 'eu-central-1',
               resourceId: 'kms-key-churn/eu-central-1',
               resourceType: 'kms:key',
@@ -246,6 +247,101 @@ describe('CloudBurnClient', () => {
         }),
       ],
     });
+  });
+
+  it('returns per-key evidence for KMS keys with no recorded usage', async () => {
+    const keyUsage = {
+      accountId: '123456789012',
+      creationDate: '2000-01-01T00:00:00.000Z',
+      estimatedMonthlyStorageCostUsd: 1,
+      keyArn: 'arn:aws:kms:eu-central-1:123456789012:key/key-a',
+      multiRegion: false,
+      region: 'eu-central-1',
+      storageCostEstimateComplete: true,
+      trackingStartDate: '2000-01-01T00:00:00.000Z',
+      usageEvidence: 'no_kms_usage_since_creation' as const,
+    };
+    mockedDiscoverAwsResources.mockResolvedValue({
+      catalog: discoveryCatalog,
+      resources: new LiveResourceBag({
+        'aws-kms-key-usage': [keyUsage],
+      }),
+    });
+
+    const result = await new CloudBurnClient().discover({
+      config: { discovery: { enabledRules: ['CLDBRN-AWS-KMS-2'] }, iac: {} },
+      includeEvaluationResources: true,
+    });
+
+    expect(result.evaluations).toEqual({
+      resourceSets: [
+        {
+          id: 'aws-kms-key-usage',
+          resources: [
+            {
+              accountId: '123456789012',
+              arn: keyUsage.keyArn,
+              createdAt: keyUsage.creationDate,
+              data: keyUsage,
+              region: 'eu-central-1',
+              resourceId: keyUsage.keyArn,
+              resourceType: 'kms:key',
+            },
+          ],
+        },
+      ],
+      rules: [
+        expect.objectContaining({
+          findingCount: 1,
+          resourceSetId: 'aws-kms-key-usage',
+          ruleId: 'CLDBRN-AWS-KMS-2',
+          status: 'triggered',
+        }),
+      ],
+    });
+  });
+
+  it('reports the KMS no-recorded-usage rule as not applicable when usage evidence is incomplete', async () => {
+    const diagnostic = {
+      code: 'KmsUsageEvidenceIncomplete',
+      details: '0 keys lacked DescribeKey metadata; 1 enabled customer-managed key lacked GetKeyLastUsage metadata.',
+      message:
+        'Skipped KMS no-recorded-usage evaluation in eu-central-1 because key or last-usage metadata was incomplete.',
+      provider: 'aws' as const,
+      region: 'eu-central-1',
+      service: 'kms',
+      source: 'discovery' as const,
+      status: 'skipped' as const,
+    };
+    mockedDiscoverAwsResources.mockResolvedValue({
+      catalog: discoveryCatalog,
+      diagnostics: [diagnostic],
+      resources: new LiveResourceBag({ 'aws-kms-key-usage': [] }),
+      unavailableDatasets: new Map([['aws-kms-key-usage', [diagnostic]]]),
+    });
+
+    const result = await new CloudBurnClient().discover({
+      config: { discovery: { enabledRules: ['CLDBRN-AWS-KMS-2'] }, iac: {} },
+      includeEvaluationResources: true,
+    });
+
+    expect(result.providers).toEqual([]);
+    expect(result.evaluations?.rules).toEqual([
+      expect.objectContaining({
+        findingCount: 0,
+        reason:
+          'Skipped rule CLDBRN-AWS-KMS-2 because required discovery datasets were unavailable: aws-kms-key-usage.',
+        ruleId: 'CLDBRN-AWS-KMS-2',
+        status: 'not_applicable',
+      }),
+    ]);
+    expect(result.diagnostics).toEqual([
+      diagnostic,
+      expect.objectContaining({
+        ruleId: 'CLDBRN-AWS-KMS-2',
+        status: 'skipped',
+      }),
+    ]);
   });
 
   it('preserves concrete resource types for mixed account-wide evaluation resources', async () => {

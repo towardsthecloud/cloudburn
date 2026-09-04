@@ -6,7 +6,7 @@ import {
 } from '@aws-sdk/client-kms';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createKmsClient } from '../../src/providers/aws/client.js';
-import { hydrateAwsKmsKeyChurnReviews } from '../../src/providers/aws/resources/kms.js';
+import { hydrateAwsKmsKeyChurnReviews, hydrateAwsKmsKeyUsage } from '../../src/providers/aws/resources/kms.js';
 
 vi.mock('../../src/providers/aws/client.js', () => ({
   createKmsClient: vi.fn(),
@@ -224,6 +224,52 @@ describe('hydrateAwsKmsKeyChurnReviews', () => {
           estimatedMonthlyStorageCostUsd: 6,
           keyMetadataComplete: true,
           keyMetadataUnavailableCount: 0,
+          keys: [
+            {
+              accountId,
+              creationDate: '2026-08-05T00:00:00.000Z',
+              estimatedMonthlyStorageCostUsd: 3,
+              keyArn: keyArn('key-a'),
+              lastUsageAt: '2026-09-03T00:00:00.000Z',
+              multiRegion: true,
+              region,
+              storageCostEstimateComplete: true,
+              trackingStartDate: '2026-08-05T00:00:00.000Z',
+              usageEvidence: 'used',
+            },
+            {
+              accountId,
+              creationDate: '2026-08-20T00:00:00.000Z',
+              estimatedMonthlyStorageCostUsd: 1,
+              keyArn: keyArn('key-b'),
+              multiRegion: true,
+              region,
+              storageCostEstimateComplete: true,
+              trackingStartDate: '2026-08-20T00:00:00.000Z',
+              usageEvidence: 'no_kms_usage_since_creation',
+            },
+            {
+              accountId,
+              creationDate: '2026-07-10T00:00:00.000Z',
+              estimatedMonthlyStorageCostUsd: 1,
+              keyArn: keyArn('key-c'),
+              multiRegion: false,
+              region,
+              storageCostEstimateComplete: true,
+              trackingStartDate: '2026-08-01T00:00:00.000Z',
+              usageEvidence: 'unobserved_before_tracking',
+            },
+            {
+              accountId,
+              creationDate: '2026-08-25T00:00:00.000Z',
+              estimatedMonthlyStorageCostUsd: 1,
+              keyArn: keyArn('key-d'),
+              multiRegion: false,
+              region,
+              storageCostEstimateComplete: false,
+              usageEvidence: 'unavailable',
+            },
+          ],
           keysCreatedInWindow: 3,
           multiRegionKeyCount: 2,
           noKmsUsageSinceCreationKeyCount: 1,
@@ -302,9 +348,70 @@ describe('hydrateAwsKmsKeyChurnReviews', () => {
           enabledCustomerManagedKeyCount: 1,
           keyMetadataComplete: false,
           keyMetadataUnavailableCount: 1,
+          keys: [
+            {
+              accountId,
+              creationDate: '2026-08-01T00:00:00.000Z',
+              estimatedMonthlyStorageCostUsd: 1,
+              keyArn: keyArn('readable'),
+              multiRegion: false,
+              region,
+              storageCostEstimateComplete: true,
+              trackingStartDate: '2026-08-01T00:00:00.000Z',
+              usageEvidence: 'no_kms_usage_since_creation',
+            },
+          ],
           noKmsUsageSinceCreationKeyCount: 1,
         }),
       ],
     });
+  });
+});
+
+describe('hydrateAwsKmsKeyUsage', () => {
+  it('marks the dataset unavailable when key usage coverage is incomplete', async () => {
+    const loadDataset = vi.fn().mockResolvedValue([
+      {
+        accountId,
+        aliasPatternGroups: [],
+        aliasPatternsAvailable: true,
+        creationWindowEnd: '2026-09-01T00:00:00.000Z',
+        creationWindowStart: '2026-08-01T00:00:00.000Z',
+        enabledCustomerManagedKeyCount: 1,
+        estimatedMonthlyStorageCostUsd: 1,
+        keyMetadataComplete: true,
+        keyMetadataUnavailableCount: 0,
+        keys: [],
+        keysCreatedInWindow: 0,
+        multiRegionKeyCount: 0,
+        noKmsUsageSinceCreationKeyCount: 0,
+        region,
+        reviewId: `kms-key-churn/${region}`,
+        rotatedKeyCount: 0,
+        storageCostEstimateComplete: true,
+        unobservedBeforeTrackingKeyCount: 0,
+        usageMetadataUnavailableKeyCount: 1,
+        usedKeyCount: 0,
+      },
+    ]);
+
+    await expect(
+      hydrateAwsKmsKeyUsage([discoveredKey('key-a')], {
+        listResourcesByFilter: vi.fn(),
+        loadDataset,
+      }),
+    ).resolves.toEqual({
+      diagnostics: [
+        expect.objectContaining({
+          code: 'KmsUsageEvidenceIncomplete',
+          message:
+            'Skipped KMS no-recorded-usage evaluation in eu-central-1 because key or last-usage metadata was incomplete.',
+          status: 'skipped',
+        }),
+      ],
+      resources: [],
+      unavailable: true,
+    });
+    expect(loadDataset).toHaveBeenCalledWith('aws-kms-key-churn-reviews');
   });
 });

@@ -19,6 +19,7 @@ import {
   type AwsEmrCluster,
   type AwsKmsAliasPatternGroup,
   type AwsKmsKeyChurnReview,
+  type AwsKmsKeyUsage,
   type AwsRdsInstance,
   type AwsRedshiftCluster,
   type AwsRoute53HealthCheck,
@@ -163,6 +164,7 @@ describe('sdk exports', () => {
       estimatedMonthlyStorageCostUsd: 52,
       keyMetadataComplete: true,
       keyMetadataUnavailableCount: 0,
+      keys: [],
       keysCreatedInWindow: 10,
       multiRegionKeyCount: 2,
       noKmsUsageSinceCreationKeyCount: 4,
@@ -173,6 +175,17 @@ describe('sdk exports', () => {
       unobservedBeforeTrackingKeyCount: 3,
       usageMetadataUnavailableKeyCount: 1,
       usedKeyCount: 42,
+    };
+    const kmsKeyUsage: AwsKmsKeyUsage = {
+      accountId: '123456789012',
+      creationDate: '2026-01-01T00:00:00.000Z',
+      estimatedMonthlyStorageCostUsd: 1,
+      keyArn: 'arn:aws:kms:eu-central-1:123456789012:key/key-a',
+      multiRegion: false,
+      region: 'eu-central-1',
+      storageCostEstimateComplete: true,
+      trackingStartDate: '2026-01-01T00:00:00.000Z',
+      usageEvidence: 'no_kms_usage_since_creation',
     };
     const dynamoDbTable: AwsDynamoDbTable = {
       accountId: '123456789012',
@@ -316,6 +329,7 @@ describe('sdk exports', () => {
     expect(cloudFrontDistribution.priceClass).toBe('PriceClass_All');
     expect(costUsage.costIncrease).toBe(15);
     expect(kmsReview.aliasPatternGroups).toEqual([kmsAliasPatternGroup]);
+    expect(kmsKeyUsage.usageEvidence).toBe('no_kms_usage_since_creation');
     expect(dynamoDbTable.tableName).toBe('orders');
     expect(dynamoDbAutoscaling.hasReadTarget).toBe(true);
     expect(volume.sizeGiB).toBe(128);
