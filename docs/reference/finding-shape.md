@@ -146,6 +146,19 @@ configuration-item volume, recorded resource count, estimated monthly configurat
 and daily unit prices, estimated monthly recording-cost reduction, recorder scope and overrides, and whether Firewall
 Manager or a paid service-linked recorder requires continuous recording.
 
+`CLDBRN-AWS-KMS-1` includes the enabled customer-managed key count, previous-full-month creation window and key count,
+estimated monthly storage cost, repeated alias-pattern hashes, rotation and multi-Region counts, and usage-evidence
+coverage. It also states whether every discovered key could be classified and counts keys whose `DescribeKey` metadata
+was denied, so the confirmed key count is not mistaken for complete inventory. Raw aliases are never returned. Denied
+usage or rotation metadata produces a diagnostic and marks the related evidence incomplete, while the rule remains
+limited to proliferation and churn.
+
+`CLDBRN-AWS-KMS-2` projects one evaluated resource per key from the shared KMS review scan. Its normalized `data`
+contains the key ARN, creation date, multi-Region status, usage-evidence classification, estimated monthly storage cost,
+whether that estimate includes complete rotation history, the tracking start, and the last recorded use when present.
+Only keys with at least 90 days of complete no-recorded-usage evidence can trigger the rule. Missing key or usage
+metadata makes the rule `not_applicable` rather than allowing incomplete evidence to look like a pass.
+
 Every selected discovery rule appears exactly once when evaluation evidence is requested:
 
 - `triggered` means the rule emitted one or more findings.

@@ -17,6 +17,7 @@ import { ElasticLoadBalancingClient } from '@aws-sdk/client-elastic-load-balanci
 import { ElasticLoadBalancingV2Client } from '@aws-sdk/client-elastic-load-balancing-v2';
 import { ElastiCacheClient } from '@aws-sdk/client-elasticache';
 import { EMRClient } from '@aws-sdk/client-emr';
+import { KMSClient } from '@aws-sdk/client-kms';
 import { LambdaClient } from '@aws-sdk/client-lambda';
 import { RDSClient } from '@aws-sdk/client-rds';
 import { RedshiftClient } from '@aws-sdk/client-redshift';
@@ -288,6 +289,14 @@ export const createDynamoDbClient = (config: AwsClientConfig): DynamoDBClient =>
 /** Creates an AWS Lambda client for a specific region. */
 export const createLambdaClient = (config: AwsClientConfig): LambdaClient =>
   new LambdaClient({
+    ...baseAwsClientConfig(),
+    region: config.region,
+    credentials: resolveAwsClientCredentials(),
+  });
+
+/** Creates an AWS KMS client for a specific region. */
+export const createKmsClient = (config: AwsClientConfig): KMSClient =>
+  new KMSClient({
     ...baseAwsClientConfig(),
     region: config.region,
     credentials: resolveAwsClientCredentials(),

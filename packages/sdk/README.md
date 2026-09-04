@@ -100,6 +100,19 @@ Firewall Manager or paid service-linked recorder dependency. If bounded turnover
 eligible above-threshold review, discovery emits a diagnostic and reports the rule as `not_applicable` instead of
 `passed`.
 
+`CLDBRN-AWS-KMS-1` reports a regional count of enabled customer-managed keys, the previous-full-month creation count,
+the UTC window boundaries, estimated monthly storage cost, repeated alias-pattern hashes, multi-Region and rotation
+counts, key-metadata completeness, and usage-evidence coverage. The SDK never returns raw aliases in this dataset.
+Denied `DescribeKey` calls leave a confirmed minimum count plus an explicit unreadable count.
+
+`CLDBRN-AWS-KMS-2` reuses the same KMS review scan and reports individual keys that are at least 90 days old with no
+recorded KMS cryptographic use during a complete 90-day tracking window. This covers never-used keys and keys whose
+last recorded use is at least 90 days old. The evidence includes the key ARN, creation date, tracking start, last use
+when present, multi-Region status, and an estimated monthly storage cost with its completeness flag. A shorter tracking
+window is skipped. Missing key or usage metadata makes this check `not_applicable` instead of `passed`. Because KMS
+cannot observe every possible use, the rule recommends disabling and monitoring a candidate before deletion. The
+shared loader requires `kms:DescribeKey`, `kms:GetKeyLastUsage`, `kms:ListAliases`, and `kms:ListKeyRotations`.
+
 The SDK does not define product profiles, remediation effort, commands, or persistence schemas. Applications select
 the discovery rules that fit their use case through `config.discovery.enabledRules` and transform the generic result
 at their own product boundary.

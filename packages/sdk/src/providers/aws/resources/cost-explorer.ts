@@ -2,14 +2,9 @@ import { GetCostAndUsageCommand } from '@aws-sdk/client-cost-explorer';
 import type { AwsCostUsage, AwsDiscoveredResource } from '@cloudburn/rules';
 import { createCostExplorerClient } from '../client.js';
 import type { AwsAccountIdResolver } from '../discovery-registry.js';
-import { resolveAwsAccountIdForLoad, withAwsServiceErrorContext } from './utils.js';
+import { addUtcMonths, resolveAwsAccountIdForLoad, toUtcMonthBoundary, withAwsServiceErrorContext } from './utils.js';
 
 const COST_EXPLORER_CONTROL_REGION = 'us-east-1';
-
-const toMonthBoundary = (date: Date): Date => new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
-
-const addMonths = (date: Date, months: number): Date =>
-  new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + months, 1));
 
 const formatDate = (date: Date): string => date.toISOString().slice(0, 10);
 
@@ -33,9 +28,9 @@ export const hydrateAwsCostUsage = async (
 ): Promise<AwsCostUsage[]> => {
   const client = createCostExplorerClient();
   const accountId = await resolveAwsAccountIdForLoad(context);
-  const monthStart = toMonthBoundary(new Date());
-  const latestFullMonthStart = addMonths(monthStart, -1);
-  const previousFullMonthStart = addMonths(monthStart, -2);
+  const monthStart = toUtcMonthBoundary(new Date());
+  const latestFullMonthStart = addUtcMonths(monthStart, -1);
+  const previousFullMonthStart = addUtcMonths(monthStart, -2);
   const response = await withAwsServiceErrorContext(
     'AWS Cost Explorer',
     'GetCostAndUsage',

@@ -1,5 +1,6 @@
 import {
   type AwsDiscoveredResource,
+  type AwsKmsKeyChurnReview,
   createFindingMatch,
   type DiscoveryDatasetKey,
   type DiscoveryDatasetMap,
@@ -48,6 +49,7 @@ import {
   hydrateAwsEc2TargetGroups,
 } from './resources/elbv2.js';
 import { hydrateAwsEmrClusterMetrics, hydrateAwsEmrClusters } from './resources/emr.js';
+import { hydrateAwsKmsKeyChurnReviews, hydrateAwsKmsKeyUsage } from './resources/kms.js';
 import {
   hydrateAwsLambdaFunctionMetrics,
   hydrateAwsLambdaFunctions,
@@ -130,6 +132,7 @@ export type AwsDiscoveryDatasetDefinition<K extends DiscoveryDatasetKey = Discov
     | 'elb'
     | 'emr'
     | 'lambda'
+    | 'kms'
     | 'rds'
     | 'redshift'
     | 'route53'
@@ -171,6 +174,8 @@ const mapEvaluationResources = <T extends { accountId: string; region?: string }
       ...details,
     };
   });
+
+const toKmsKeyChurnEvaluationData = ({ keys: _keys, ...review }: AwsKmsKeyChurnReview) => review;
 
 type AwsRuleEvaluationOverride = {
   datasetKey: DiscoveryDatasetKey;
@@ -569,6 +574,35 @@ const awsDiscoveryDatasetRegistry: {
     load: hydrateAwsLambdaMemoryRecommendations,
     toEvaluationResources: (recommendations) =>
       mapEvaluationResources(recommendations, (recommendation) => recommendation.functionArn),
+  },
+  'aws-kms-key-churn-reviews': {
+    datasetKey: 'aws-kms-key-churn-reviews',
+    resourceTypes: ['kms:key'],
+    service: 'kms',
+    load: hydrateAwsKmsKeyChurnReviews,
+    toEvaluationResources: (reviews) =>
+      mapEvaluationResources(
+        reviews,
+        (review) => review.reviewId,
+        (review) => ({ data: toKmsKeyChurnEvaluationData(review) }),
+      ),
+  },
+  'aws-kms-key-usage': {
+    datasetKey: 'aws-kms-key-usage',
+    resourceTypes: ['kms:key'],
+    service: 'kms',
+    load: hydrateAwsKmsKeyUsage,
+    toEvaluationResources: (keys) =>
+      mapEvaluationResources(
+        keys,
+        (key) => key.keyArn,
+        (key) => ({
+          arn: key.keyArn,
+          createdAt: key.creationDate,
+          data: key,
+          resourceType: 'kms:key',
+        }),
+      ),
   },
   'aws-rds-instance-activity': {
     datasetKey: 'aws-rds-instance-activity',
