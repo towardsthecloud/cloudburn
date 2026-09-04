@@ -73,9 +73,7 @@ describe('Cost Optimization Hub reservation orchestration', () => {
       expect.objectContaining({
         rules: [
           expect.objectContaining({
-            findings: [
-              { accountId, region, resourceId: reservationRecommendation.resourceArn, resourceType: 'rds:db' },
-            ],
+            findings: [{ accountId, region, resourceId: 'orders', resourceType: 'rds:db' }],
             ruleId: 'CLDBRN-AWS-COSTOPTIMIZATIONHUB-2',
           }),
         ],
@@ -91,7 +89,7 @@ describe('Cost Optimization Hub reservation orchestration', () => {
               arn: reservationRecommendation.resourceArn,
               data: { ...arnIdentifiedRecommendation, region },
               region,
-              resourceId: reservationRecommendation.resourceArn,
+              resourceId: 'orders',
               resourceType: 'costoptimizationhub:reservation-recommendation',
             },
           ],
@@ -151,6 +149,42 @@ describe('Cost Optimization Hub reservation orchestration', () => {
         expect.objectContaining({ findingCount: 1, ruleId: 'CLDBRN-AWS-RDS-3', status: 'triggered' }),
       ]),
     );
+  });
+
+  it('suppresses an ARN-only Hub recommendation when native evidence uses the service identifier', async () => {
+    mockedDiscoverAwsResources.mockResolvedValue({
+      catalog: discoveryCatalog,
+      resources: new LiveResourceBag({
+        'aws-cost-optimization-hub-reservation-recommendations': [
+          { ...reservationRecommendation, resourceId: undefined },
+        ],
+        'aws-rds-instances': [
+          {
+            accountId,
+            dbInstanceIdentifier: 'orders',
+            dbInstanceStatus: 'available',
+            engine: 'postgres',
+            instanceClass: 'db.r7g.large',
+            instanceCreateTime: '2025-01-01T00:00:00.000Z',
+            multiAz: false,
+            region,
+          },
+        ],
+        'aws-rds-reserved-instances': [],
+      }),
+    });
+
+    const result = await runLiveScan(
+      {
+        discovery: { enabledRules: ['CLDBRN-AWS-COSTOPTIMIZATIONHUB-2', 'CLDBRN-AWS-RDS-3'] },
+        iac: {},
+      },
+      { mode: 'current' },
+    );
+
+    expect(result.providers.flatMap((provider) => provider.rules.map((rule) => rule.ruleId))).toEqual([
+      'CLDBRN-AWS-RDS-3',
+    ]);
   });
 
   it('does not suppress for a different resource or a native finding with a different action', async () => {

@@ -59,6 +59,7 @@ import {
   createFindingMatch,
   createStaticFindingMatch,
   gcpRules,
+  getAwsCostOptimizationHubReservationResourceId,
   isRecord,
   LiveResourceBag,
   StaticResourceBag,
@@ -74,6 +75,14 @@ describe('rule exports', () => {
     expect(AWS_KMS_UNUSED_KEY_MINIMUM_AGE_DAYS).toBe(90);
     expect(AWS_SAGEMAKER_SAVINGS_PLANS_MINIMUM_COVERAGE_PERCENTAGE).toBe(80);
     expect(AWS_SAGEMAKER_SAVINGS_PLANS_MINIMUM_UNCOVERED_COST).toBe(72);
+    expect(
+      getAwsCostOptimizationHubReservationResourceId({
+        recommendationId: 'recommendation-1',
+        reservationType: 'RdsReservedInstances',
+        resourceArn: 'arn:aws:rds:us-east-1:123456789012:db:orders',
+        resourceId: undefined,
+      }),
+    ).toBe('orders');
     expect(awsRuleIds).toHaveLength(88);
     expect(awsCorePreset.ruleIds).toEqual(
       awsRuleIds.filter(

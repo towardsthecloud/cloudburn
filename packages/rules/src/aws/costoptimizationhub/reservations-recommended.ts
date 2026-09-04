@@ -1,4 +1,5 @@
 import { createFinding, createFindingMatch, createRule } from '../../shared/helpers.js';
+import { getAwsCostOptimizationHubReservationResourceId } from './reservation-identity.js';
 
 const RULE_ID = 'CLDBRN-AWS-COSTOPTIMIZATIONHUB-2';
 const RULE_SERVICE = 'costoptimizationhub';
@@ -34,7 +35,7 @@ export const costOptimizationHubReservationsRecommendedRule = createRule({
     );
     const findings = [...recommendations.values()].map((recommendation) => ({
       ...createFindingMatch(
-        recommendation.resourceId ?? recommendation.resourceArn ?? recommendation.recommendationId,
+        getAwsCostOptimizationHubReservationResourceId(recommendation),
         recommendation.region ?? recommendation.configuration.reservedInstancesRegion,
         recommendation.accountId,
       ),

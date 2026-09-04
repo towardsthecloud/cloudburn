@@ -92,7 +92,19 @@ describe('CLDBRN-AWS-COSTOPTIMIZATIONHUB-2', () => {
     });
   });
 
-  it('falls back to recommendation identity and returns no finding for an empty dataset', () => {
+  it('canonicalizes ARN identities, falls back to recommendation identity, and returns no empty finding', () => {
+    expect(evaluate([createRecommendation({ resourceId: undefined })])).toEqual(
+      expect.objectContaining({
+        findings: [
+          {
+            accountId: '123456789012',
+            region: 'eu-west-1',
+            resourceId: 'i-123',
+            resourceType: 'ec2:instance',
+          },
+        ],
+      }),
+    );
     expect(
       evaluate([createRecommendation({ region: undefined, resourceArn: undefined, resourceId: undefined })]),
     ).toEqual(
