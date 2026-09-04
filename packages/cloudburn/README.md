@@ -102,6 +102,7 @@ cloudburn discover --enabled-rules CLDBRN-AWS-LAMBDA-4
 cloudburn discover --enabled-rules CLDBRN-AWS-COSTOPTIMIZATIONHUB-1
 cloudburn discover --enabled-rules CLDBRN-AWS-COSTOPTIMIZATIONHUB-2
 cloudburn discover --enabled-rules CLDBRN-AWS-COSTOPTIMIZATIONHUB-3
+cloudburn discover --enabled-rules CLDBRN-AWS-COSTOPTIMIZATIONHUB-4
 cloudburn discover --enabled-rules CLDBRN-AWS-TAGGING-1
 cloudburn discover --service ec2,s3
 cloudburn discover --fail-on high
@@ -121,6 +122,11 @@ Rule 3 reports idle-capacity Stop, Delete, and ScaleIn recommendations. It never
 denied access, and malformed evidence produce diagnostics. Review the exact action and rollback capability before acting.
 Table output includes an Action column for these findings. Regional discovery limits recommendations to the selected Region.
 Reservation findings include their AWS resource namespace in JSON and in the default table output.
+`CLDBRN-AWS-COSTOPTIMIZATIONHUB-4` is also opt-in and uses the same Hub IAM actions for rightsizing recommendations
+across EC2 instances and Auto Scaling groups, EBS, Lambda, ECS, RDS instances and storage, and Aurora cluster storage.
+It reads recommendations across Regions for the current account through `us-east-1`. Missing enrollment, denied
+access, or incomplete configurations produce diagnostics. The SDK exposes both typed configurations with
+`includeEvaluationResources: true`; the CLI prints finding identities and diagnostics.
 `CLDBRN-AWS-SAGEMAKER-3` uses Cost Explorer coverage data and remains available when Cost Optimization Hub is unavailable.
 Use `--debug` to print SDK and provider execution tracing to `stderr` without changing the normal `stdout` format.
 

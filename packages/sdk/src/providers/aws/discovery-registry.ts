@@ -9,6 +9,7 @@ import {
   getAwsCostOptimizationHubIdleResourceType,
   getAwsCostOptimizationHubReservationResourceId,
   getAwsCostOptimizationHubReservationResourceType,
+  getAwsCostOptimizationHubRightsizingResourceType,
   type LiveResourceBag,
   type Rule,
 } from '@cloudburn/rules';
@@ -29,6 +30,7 @@ import { hydrateAwsCostAnomalyMonitors, hydrateAwsCostGuardrailBudgets } from '.
 import {
   hydrateAwsCostOptimizationHubIdleRecommendations,
   hydrateAwsCostOptimizationHubReservationRecommendations,
+  hydrateAwsCostOptimizationHubRightsizingRecommendations,
   hydrateAwsCostOptimizationHubSavingsPlansRecommendations,
 } from './resources/cost-optimization-hub.js';
 import {
@@ -810,6 +812,23 @@ const awsDiscoveryDatasetRegistry: {
           ...(recommendation.resourceArn ? { arn: recommendation.resourceArn } : {}),
           data: recommendation,
           resourceType: getAwsCostOptimizationHubReservationResourceType(recommendation),
+        }),
+      ),
+  },
+  'aws-cost-optimization-hub-rightsizing-recommendations': {
+    datasetKey: 'aws-cost-optimization-hub-rightsizing-recommendations',
+    resourceTypes: [],
+    service: 'costoptimizationhub',
+    load: hydrateAwsCostOptimizationHubRightsizingRecommendations,
+    toEvaluationResources: (recommendations) =>
+      mapEvaluationResources(
+        recommendations,
+        (recommendation) => recommendation.resourceId,
+        (recommendation) => ({
+          ...(recommendation.resourceArn ? { arn: recommendation.resourceArn } : {}),
+          data: recommendation,
+          resourceType: getAwsCostOptimizationHubRightsizingResourceType(recommendation),
+          actionType: recommendation.actionType,
         }),
       ),
   },

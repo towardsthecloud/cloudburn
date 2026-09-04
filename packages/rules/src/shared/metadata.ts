@@ -460,10 +460,55 @@ export type AwsSageMakerEndpointActivity = {
   accountId: string;
 };
 
-/** Fields shared by purchase recommendations normalized from AWS Cost Optimization Hub. */
-export type AwsCostOptimizationHubRecommendation = {
+/** Compute configuration retained without flattening CPU, memory, architecture, or platform. */
+export type AwsCostOptimizationHubComputeConfiguration = {
+  memorySizeInMB: number;
+  vCpu?: number;
+  architecture?: string;
+  platform?: string;
+};
+
+/** Configurations retained for both sides of each supported Hub rightsizing resource type. */
+export type AwsCostOptimizationHubRightsizingConfigurationMap = {
+  Ec2Instance: { instance: { type: string } };
+  Ec2AutoScalingGroup: {
+    instance?: { type: string };
+    mixedInstances?: { type: string }[];
+    type?: string;
+    allocationStrategy?: string;
+  };
+  EbsVolume: {
+    storage: { type: string; sizeInGb: number };
+    performance?: { iops?: number; throughput?: number };
+    attachmentState?: string;
+  };
+  LambdaFunction: { compute: AwsCostOptimizationHubComputeConfiguration };
+  EcsService: { compute: AwsCostOptimizationHubComputeConfiguration & { vCpu: number } };
+  RdsDbInstance: { instance: { dbInstanceClass: string } };
+  RdsDbInstanceStorage: {
+    storageType: string;
+    allocatedStorageInGb: number;
+    iops?: number;
+    storageThroughput?: number;
+  };
+  AuroraDbClusterStorage: { storageType: string };
+};
+
+/** Resource-specific current and recommended configurations, discriminated by resource type. */
+export type AwsCostOptimizationHubRightsizingRecommendation = {
+  [K in keyof AwsCostOptimizationHubRightsizingConfigurationMap]: AwsCostOptimizationHubRecommendationEvidence & {
+    actionType: 'Rightsize';
+    resourceType: K;
+    resourceId: string;
+    region: string;
+    currentConfiguration: AwsCostOptimizationHubRightsizingConfigurationMap[K];
+    recommendedConfiguration: AwsCostOptimizationHubRightsizingConfigurationMap[K];
+  };
+}[keyof AwsCostOptimizationHubRightsizingConfigurationMap];
+
+/** Evidence shared by purchase, idle-capacity, and rightsizing recommendations. */
+type AwsCostOptimizationHubRecommendationEvidence = {
   accountId: string;
-  actionType: 'PurchaseReservedInstances' | 'PurchaseSavingsPlans' | 'Stop' | 'Delete' | 'ScaleIn';
   currencyCode: string;
   estimatedMonthlyCost: number;
   estimatedMonthlySavings: number;
@@ -477,6 +522,11 @@ export type AwsCostOptimizationHubRecommendation = {
   resourceId?: string;
   restartNeeded?: boolean;
   rollbackPossible?: boolean;
+};
+
+/** Fields shared by purchase recommendations normalized from AWS Cost Optimization Hub. */
+export type AwsCostOptimizationHubRecommendation = AwsCostOptimizationHubRecommendationEvidence & {
+  actionType: 'PurchaseReservedInstances' | 'PurchaseSavingsPlans';
 };
 
 /** Account-scoped Savings Plans purchase recommendation from AWS Cost Optimization Hub. */
@@ -526,7 +576,7 @@ type IdleConfiguration<T, A extends 'Stop' | 'Delete' | 'ScaleIn', R extends str
 };
 
 /** AWS-classified idle capacity with action-specific current and recommended configuration. */
-export type AwsCostOptimizationHubIdleRecommendation = AwsCostOptimizationHubRecommendation & {
+export type AwsCostOptimizationHubIdleRecommendation = AwsCostOptimizationHubRecommendationEvidence & {
   region: string;
   resourceId: string;
   implementationEffort: string;
@@ -1022,6 +1072,7 @@ export type DiscoveryDatasetKey =
   | 'aws-cost-usage'
   | 'aws-cost-optimization-hub-savings-plans-recommendations'
   | 'aws-cost-optimization-hub-reservation-recommendations'
+  | 'aws-cost-optimization-hub-rightsizing-recommendations'
   | 'aws-cost-optimization-hub-idle-recommendations'
   | 'aws-cost-anomaly-monitors'
   | 'aws-cost-guardrail-budgets'
@@ -1087,6 +1138,7 @@ export type DiscoveryDatasetMap = {
   'aws-cost-usage': AwsCostUsage[];
   'aws-cost-optimization-hub-savings-plans-recommendations': AwsCostOptimizationHubSavingsPlansRecommendation[];
   'aws-cost-optimization-hub-reservation-recommendations': AwsCostOptimizationHubReservationRecommendation[];
+  'aws-cost-optimization-hub-rightsizing-recommendations': AwsCostOptimizationHubRightsizingRecommendation[];
   'aws-cost-optimization-hub-idle-recommendations': AwsCostOptimizationHubIdleRecommendation[];
   'aws-cost-anomaly-monitors': AwsCostAnomalyMonitor[];
   'aws-cost-guardrail-budgets': AwsCostGuardrailBudget[];

@@ -29,6 +29,7 @@ import type {
   AwsCostOptimizationHubRedshiftReservationConfiguration,
   AwsCostOptimizationHubReservationConfiguration,
   AwsCostOptimizationHubReservationRecommendation,
+  AwsCostOptimizationHubRightsizingRecommendation,
   AwsCostOptimizationHubSavingsPlansRecommendation,
   AwsDiscoveredResource,
 } from '@cloudburn/rules';
@@ -36,6 +37,8 @@ import type { ScanDiagnostic } from '../../../types.js';
 import { createCostOptimizationHubClient } from '../client.js';
 import type { AwsAccountIdResolver, AwsDiscoveryDatasetLoadResult } from '../discovery-registry.js';
 import { formatAwsAccessDeniedReason, getAwsErrorCode, isAwsAccessDeniedError } from '../errors.js';
+import { rightsizingConfigurationNormalizers } from './cost-optimization-hub-rightsizing.js';
+import { getUnqualifiedLambdaFunctionArn } from './lambda-identity.js';
 import {
   mapWithConcurrency,
   parseFiniteNumber,
@@ -61,12 +64,18 @@ const RESERVATION_RESOURCE_TYPES = [
   'DynamoDbReservedCapacity',
 ] as const;
 
-type NormalizedRecommendationCommon = AwsCostOptimizationHubRecommendation & {
+type HubRecommendation =
+  | AwsCostOptimizationHubRecommendation
+  | AwsCostOptimizationHubIdleRecommendation
+  | AwsCostOptimizationHubRightsizingRecommendation;
+
+type NormalizedRecommendationCommon = Omit<AwsCostOptimizationHubRecommendation, 'actionType'> & {
+  actionType: HubRecommendation['actionType'];
   currentResourceType: string;
 };
 
-type RecommendationCategory<T extends AwsCostOptimizationHubRecommendation> = {
-  actionTypes: readonly AwsCostOptimizationHubRecommendation['actionType'][];
+type RecommendationCategory<T extends HubRecommendation> = {
+  actionTypes: readonly HubRecommendation['actionType'][];
   incompleteDetails: (count: number) => string;
   messageSubject: string;
   normalizeConfiguration: (common: NormalizedRecommendationCommon, response: GetRecommendationResponse) => T | null;
@@ -79,7 +88,7 @@ type SavingsPlansConfiguration =
   | Ec2InstanceSavingsPlansConfiguration
   | SageMakerSavingsPlansConfiguration;
 
-type CostOptimizationHubLoadResult<T extends AwsCostOptimizationHubRecommendation> =
+type CostOptimizationHubLoadResult<T extends HubRecommendation> =
   | T[]
   | {
       diagnostics: ScanDiagnostic[];
@@ -101,7 +110,7 @@ const withOptionalBoolean = (key: string, value: boolean | undefined): Record<st
 
 const normalizeRecommendationCommon = (
   recommendation: Recommendation,
-  category: RecommendationCategory<AwsCostOptimizationHubRecommendation>,
+  category: RecommendationCategory<HubRecommendation>,
 ): NormalizedRecommendationCommon | null => {
   if (
     !recommendation.recommendationId ||
@@ -126,7 +135,7 @@ const normalizeRecommendationCommon = (
 
   return {
     accountId: recommendation.accountId,
-    actionType: recommendation.actionType as AwsCostOptimizationHubRecommendation['actionType'],
+    actionType: recommendation.actionType as HubRecommendation['actionType'],
     currencyCode: recommendation.currencyCode,
     currentResourceType: recommendation.currentResourceType,
     estimatedMonthlyCost: recommendation.estimatedMonthlyCost,
@@ -617,7 +626,7 @@ const getCostOptimizationHubSession = (
   return session;
 };
 
-const loadCostOptimizationHubRecommendations = async <T extends AwsCostOptimizationHubRecommendation>(
+const loadCostOptimizationHubRecommendations = async <T extends HubRecommendation>(
   category: RecommendationCategory<T>,
   context?: AwsAccountIdResolver,
 ): Promise<CostOptimizationHubLoadResult<T>> => {
@@ -769,6 +778,58 @@ export const hydrateAwsCostOptimizationHubReservationRecommendations = async (
   | AwsCostOptimizationHubReservationRecommendation[]
   | AwsDiscoveryDatasetLoadResult<'aws-cost-optimization-hub-reservation-recommendations'>
 > => loadCostOptimizationHubRecommendations(reservationCategory, context);
+
+const rightsizingCategory: RecommendationCategory<AwsCostOptimizationHubRightsizingRecommendation> = {
+  actionTypes: ['Rightsize'],
+  resourceTypes: [
+    'Ec2Instance',
+    'Ec2AutoScalingGroup',
+    'EbsVolume',
+    'LambdaFunction',
+    'EcsService',
+    'RdsDbInstance',
+    'RdsDbInstanceStorage',
+    'AuroraDbClusterStorage',
+  ],
+  messageSubject: 'rightsizing recommendations',
+  incompleteDetails: (count) =>
+    `${count} rightsizing recommendations lacked required identity, cost, refresh, source, or typed current and recommended configuration data.`,
+  normalizeConfiguration: (common, response) => {
+    const { currentResourceType, ...recommendation } = common;
+    const resourceType = currentResourceType as AwsCostOptimizationHubRightsizingRecommendation['resourceType'];
+    const normalize = rightsizingConfigurationNormalizers[resourceType];
+    const currentConfiguration = normalize(response.currentResourceDetails);
+    const recommendedConfiguration = normalize(response.recommendedResourceDetails);
+    const arn = /^arn:[^:]+:([^:]+):([a-z0-9-]+):(\d{12}):(.+)$/.exec(common.resourceArn ?? '');
+    const region = common.region ?? (arn?.[3] === common.accountId ? arn[2] : undefined);
+    const resourceId =
+      resourceType === 'LambdaFunction' && arn?.[1] === 'lambda' && arn[4]?.startsWith('function:')
+        ? getUnqualifiedLambdaFunctionArn(common.resourceArn ?? '')
+        : (common.resourceId ?? common.resourceArn);
+    if (!region || !resourceId || !currentConfiguration || !recommendedConfiguration) return null;
+    return {
+      ...recommendation,
+      resourceId,
+      region,
+      actionType: 'Rightsize',
+      resourceType,
+      currentConfiguration,
+      recommendedConfiguration,
+    } as AwsCostOptimizationHubRightsizingRecommendation;
+  },
+};
+
+/**
+ * Loads both configurations for account-scoped Hub rightsizing recommendations.
+ * @param _resources - Unused for account-scoped recommendations.
+ * @param context - Discovery-run account and enrollment context.
+ * @returns Typed recommendations or unavailable evidence diagnostics.
+ */
+export const hydrateAwsCostOptimizationHubRightsizingRecommendations = async (
+  _resources: AwsDiscoveredResource[],
+  context?: AwsAccountIdResolver,
+): Promise<CostOptimizationHubLoadResult<AwsCostOptimizationHubRightsizingRecommendation>> =>
+  loadCostOptimizationHubRecommendations(rightsizingCategory, context);
 
 /**
  * Loads AWS-classified idle capacity through the shared enrollment and recommendation session.
