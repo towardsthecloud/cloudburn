@@ -260,6 +260,25 @@ export type AwsEc2NatGatewayActivity = {
   accountId: string;
 };
 
+/** Discovered Transit Gateway VPC attachment with 30-day traffic and recurring-cost evidence. */
+export type AwsEc2TransitGatewayVpcAttachmentActivity = {
+  transitGatewayAttachmentId: string;
+  transitGatewayId: string;
+  vpcId: string;
+  state: string;
+  lookbackDays: 30;
+  /** `null` means CloudWatch returned incomplete datapoints for the 30-day lookback window. */
+  bytesInLast30Days: number | null;
+  /** `null` means CloudWatch returned incomplete datapoints for the 30-day lookback window. */
+  bytesOutLast30Days: number | null;
+  /** `null` means the public AWS regional price list was unavailable or did not contain the attachment rate. */
+  hourlyAttachmentCostUsd: number | null;
+  /** `null` means the public AWS regional price list was unavailable or did not contain the attachment rate. */
+  estimatedMonthlyAttachmentCostUsd: number | null;
+  region: string;
+  accountId: string;
+};
+
 /** Discovered ElastiCache cluster normalized for reservation checks. */
 export type AwsElastiCacheCluster = {
   cacheClusterId: string;
@@ -856,6 +875,7 @@ export type DiscoveryDatasetKey =
   | 'aws-ec2-instances'
   | 'aws-ec2-instance-utilization'
   | 'aws-ec2-nat-gateway-activity'
+  | 'aws-ec2-transit-gateway-vpc-attachment-activity'
   | 'aws-ec2-load-balancer-request-activity'
   | 'aws-ec2-load-balancers'
   | 'aws-ec2-reserved-instances'
@@ -918,6 +938,7 @@ export type DiscoveryDatasetMap = {
   'aws-ec2-instances': AwsEc2Instance[];
   'aws-ec2-instance-utilization': AwsEc2InstanceUtilization[];
   'aws-ec2-nat-gateway-activity': AwsEc2NatGatewayActivity[];
+  'aws-ec2-transit-gateway-vpc-attachment-activity': AwsEc2TransitGatewayVpcAttachmentActivity[];
   'aws-ec2-load-balancer-request-activity': AwsEc2LoadBalancerRequestActivity[];
   'aws-ec2-load-balancers': AwsEc2LoadBalancer[];
   'aws-ec2-reserved-instances': AwsEc2ReservedInstance[];

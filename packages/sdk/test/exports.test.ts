@@ -14,6 +14,7 @@ import {
   type AwsDynamoDbTable,
   type AwsEbsSnapshot,
   type AwsEbsVolume,
+  type AwsEc2TransitGatewayVpcAttachmentActivity,
   type AwsEcsClusterMetric,
   type AwsEksNodegroup,
   type AwsElastiCacheCluster,
@@ -349,6 +350,19 @@ describe('sdk exports', () => {
       spendCoveredBySavingsPlans: 150,
       totalCost: 250,
     };
+    const transitGatewayAttachment: AwsEc2TransitGatewayVpcAttachmentActivity = {
+      accountId: '123456789012',
+      bytesInLast30Days: 0,
+      bytesOutLast30Days: 0,
+      estimatedMonthlyAttachmentCostUsd: 36.5,
+      hourlyAttachmentCostUsd: 0.05,
+      lookbackDays: 30,
+      region: 'us-east-1',
+      state: 'available',
+      transitGatewayAttachmentId: 'tgw-attach-123',
+      transitGatewayId: 'tgw-123',
+      vpcId: 'vpc-123',
+    };
 
     expect(trail.trailName).toBe('org-trail');
     expect(logGroup.retentionInDays).toBe(30);
@@ -375,6 +389,7 @@ describe('sdk exports', () => {
     expect(endpointActivity.totalInvocationsLast14Days).toBe(0);
     expect(savingsPlansRecommendation.estimatedMonthlySavings).toBe(50);
     expect(savingsPlansCoverage.coveragePercentage).toBe(60);
+    expect(transitGatewayAttachment.estimatedMonthlyAttachmentCostUsd).toBe(36.5);
   });
 
   it('clones supports arrays so metadata consumers cannot mutate source rule definitions', () => {

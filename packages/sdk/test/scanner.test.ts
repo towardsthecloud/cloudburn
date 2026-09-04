@@ -188,6 +188,65 @@ describe('CloudBurnClient', () => {
     });
   });
 
+  it('returns Transit Gateway attachment traffic and price inputs as evaluation evidence', async () => {
+    mockedDiscoverAwsResources.mockResolvedValue({
+      catalog: discoveryCatalog,
+      resources: new LiveResourceBag({
+        'aws-ec2-transit-gateway-vpc-attachment-activity': [
+          {
+            accountId: '123456789012',
+            bytesInLast30Days: 0,
+            bytesOutLast30Days: 0,
+            estimatedMonthlyAttachmentCostUsd: 36.5,
+            hourlyAttachmentCostUsd: 0.05,
+            lookbackDays: 30,
+            region: 'us-east-1',
+            state: 'available',
+            transitGatewayAttachmentId: 'tgw-attach-123',
+            transitGatewayId: 'tgw-123',
+            vpcId: 'vpc-123',
+          },
+        ],
+      }),
+    });
+
+    const result = await new CloudBurnClient().discover({
+      config: { discovery: { enabledRules: ['CLDBRN-AWS-EC2-14'] }, iac: {} },
+      includeEvaluationResources: true,
+    });
+
+    expect(result.providers[0]?.rules[0]?.findings).toEqual([
+      {
+        accountId: '123456789012',
+        region: 'us-east-1',
+        resourceId: 'tgw-attach-123',
+      },
+    ]);
+    expect(result.evaluations?.resourceSets).toEqual([
+      {
+        id: 'aws-ec2-transit-gateway-vpc-attachment-activity',
+        resources: [
+          {
+            accountId: '123456789012',
+            data: {
+              bytesInLast30Days: 0,
+              bytesOutLast30Days: 0,
+              estimatedMonthlyAttachmentCostUsd: 36.5,
+              hourlyAttachmentCostUsd: 0.05,
+              lookbackDays: 30,
+              state: 'available',
+              transitGatewayId: 'tgw-123',
+              vpcId: 'vpc-123',
+            },
+            region: 'us-east-1',
+            resourceId: 'tgw-attach-123',
+            resourceType: 'ec2:transit-gateway-attachment',
+          },
+        ],
+      },
+    ]);
+  });
+
   it('returns KMS churn counts and cost inputs as evaluation evidence', async () => {
     const kmsReview = {
       accountId: '123456789012',

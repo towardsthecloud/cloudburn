@@ -52,6 +52,7 @@ export type {
   AwsEc2NatGatewayActivity,
   AwsEc2ReservedInstance,
   AwsEc2TargetGroup,
+  AwsEc2TransitGatewayVpcAttachmentActivity,
   AwsEc2VpcEndpointActivity,
   AwsEcrRepository,
   AwsEcsCluster,

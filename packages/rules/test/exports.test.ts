@@ -18,6 +18,7 @@ import type {
   AwsEc2NatGatewayActivity,
   AwsEc2ReservedInstance,
   AwsEc2TargetGroup,
+  AwsEc2TransitGatewayVpcAttachmentActivity,
   AwsEcsClusterMetric,
   AwsEcsService,
   AwsEksNodegroup,
@@ -72,7 +73,7 @@ describe('rule exports', () => {
     expect(AWS_KMS_UNUSED_KEY_MINIMUM_AGE_DAYS).toBe(90);
     expect(AWS_SAGEMAKER_SAVINGS_PLANS_MINIMUM_COVERAGE_PERCENTAGE).toBe(80);
     expect(AWS_SAGEMAKER_SAVINGS_PLANS_MINIMUM_UNCOVERED_COST).toBe(72);
-    expect(awsRuleIds).toHaveLength(87);
+    expect(awsRuleIds).toHaveLength(88);
     expect(awsCorePreset.ruleIds).toEqual(
       awsRuleIds.filter(
         (ruleId) =>
@@ -110,6 +111,7 @@ describe('rule exports', () => {
         'CLDBRN-AWS-EC2-11',
         'CLDBRN-AWS-EC2-12',
         'CLDBRN-AWS-EC2-13',
+        'CLDBRN-AWS-EC2-14',
         'CLDBRN-AWS-ECS-1',
         'CLDBRN-AWS-ECS-2',
         'CLDBRN-AWS-ECS-3',
@@ -313,6 +315,19 @@ describe('rule exports', () => {
       region: 'us-east-1',
       state: 'available',
       subnetId: 'subnet-123',
+    };
+    const transitGatewayAttachmentActivity: AwsEc2TransitGatewayVpcAttachmentActivity = {
+      accountId: '123456789012',
+      bytesInLast30Days: 0,
+      bytesOutLast30Days: 0,
+      estimatedMonthlyAttachmentCostUsd: 36.5,
+      hourlyAttachmentCostUsd: 0.05,
+      lookbackDays: 30,
+      region: 'us-east-1',
+      state: 'available',
+      transitGatewayAttachmentId: 'tgw-attach-123',
+      transitGatewayId: 'tgw-123',
+      vpcId: 'vpc-123',
     };
 
     const loadBalancer: AwsEc2LoadBalancer = {
@@ -570,6 +585,7 @@ describe('rule exports', () => {
     const loadBalancerDatasetKey: DiscoveryDatasetKey = 'aws-ec2-load-balancers';
     const loadBalancerRequestActivityDatasetKey: DiscoveryDatasetKey = 'aws-ec2-load-balancer-request-activity';
     const natGatewayDatasetKey: DiscoveryDatasetKey = 'aws-ec2-nat-gateway-activity';
+    const transitGatewayAttachmentDatasetKey: DiscoveryDatasetKey = 'aws-ec2-transit-gateway-vpc-attachment-activity';
     const emrDatasetKey: DiscoveryDatasetKey = 'aws-emr-clusters';
     const emrMetricDatasetKey: DiscoveryDatasetKey = 'aws-emr-cluster-metrics';
     const reservedInstanceDatasetKey: DiscoveryDatasetKey = 'aws-ec2-reserved-instances';
@@ -607,6 +623,7 @@ describe('rule exports', () => {
     expect(loadBalancerDatasetKey).toBe('aws-ec2-load-balancers');
     expect(loadBalancerRequestActivityDatasetKey).toBe('aws-ec2-load-balancer-request-activity');
     expect(natGatewayDatasetKey).toBe('aws-ec2-nat-gateway-activity');
+    expect(transitGatewayAttachmentDatasetKey).toBe('aws-ec2-transit-gateway-vpc-attachment-activity');
     expect(emrDatasetKey).toBe('aws-emr-clusters');
     expect(emrMetricDatasetKey).toBe('aws-emr-cluster-metrics');
     expect(reservedInstanceDatasetKey).toBe('aws-ec2-reserved-instances');
@@ -633,6 +650,7 @@ describe('rule exports', () => {
     expect(cloudFrontRequestActivity.totalRequestsLast30Days).toBe(42);
     expect(loadBalancerRequestActivity.averageRequestsPerDayLast14Days).toBe(7);
     expect(natGatewayActivity.natGatewayId).toBe('nat-123');
+    expect(transitGatewayAttachmentActivity.transitGatewayAttachmentId).toBe('tgw-attach-123');
     expect(route53Zone.zoneName).toBe('example.com.');
     expect(route53Record.ttl).toBe(300);
     expect(route53HealthCheck.healthCheckId).toBe('abcd1234');

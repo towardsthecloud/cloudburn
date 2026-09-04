@@ -760,6 +760,23 @@ describe('rule metadata', () => {
     });
   });
 
+  it('defines the expected EC2 idle Transit Gateway VPC attachment rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-EC2-14');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-EC2-14',
+      name: 'Transit Gateway VPC Attachment Idle',
+      description:
+        'Flag available Transit Gateway VPC attachments whose complete 30-day inbound and outbound traffic totals are both zero.',
+      message: 'Transit Gateway VPC attachments should process traffic or be removed.',
+      provider: 'aws',
+      service: 'ec2',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-ec2-transit-gateway-vpc-attachment-activity'],
+    });
+  });
+
   it('defines the expected ELB ALB-without-targets rule metadata', () => {
     const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-ELB-1');
 

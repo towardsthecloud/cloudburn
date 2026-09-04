@@ -113,6 +113,14 @@ window is skipped. Missing key or usage metadata makes this check `not_applicabl
 cannot observe every possible use, the rule recommends disabling and monitoring a candidate before deletion. The
 shared loader requires `kms:DescribeKey`, `kms:GetKeyLastUsage`, `kms:ListAliases`, and `kms:ListKeyRotations`.
 
+`CLDBRN-AWS-EC2-14` checks available Transit Gateway VPC attachments over the previous 30 complete UTC days. A finding
+requires complete attachment-level `BytesIn` and `BytesOut` coverage with both totals equal to zero. Evaluation evidence
+includes the attachment, Transit Gateway, and VPC identities; Region; observed traffic; lookback length; and the public
+regional hourly and estimated monthly attachment price when AWS publishes it. Missing pricing does not block the rule,
+and attachments with incomplete CloudWatch evidence are skipped. The loader requires
+`ec2:DescribeTransitGatewayAttachments`, `ec2:DescribeTransitGatewayVpcAttachments`, and
+`cloudwatch:GetMetricData`.
+
 `CLDBRN-AWS-COSTOPTIMIZATIONHUB-1` reads account-scoped Compute, EC2 Instance, and SageMaker Savings Plans purchase
 recommendations from AWS Cost Optimization Hub. Evaluation evidence includes the Savings Plans type, account scope,
 hourly commitment, estimated monthly cost and savings, savings percentage, currency, commitment term, payment option,
