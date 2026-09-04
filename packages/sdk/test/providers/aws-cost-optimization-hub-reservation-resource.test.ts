@@ -353,6 +353,37 @@ describe('hydrateAwsCostOptimizationHubReservationRecommendations', () => {
     });
   });
 
+  it('counts recommendation summaries without an ID as incomplete evidence', async () => {
+    const send = vi.fn(async (command: unknown) => {
+      if (command instanceof ListEnrollmentStatusesCommand) {
+        return { items: [{ accountId, status: 'Active' }] };
+      }
+      if (command instanceof ListRecommendationsCommand) {
+        return { items: [recommendation('discarded', { recommendationId: undefined })] };
+      }
+      throw new Error(`Unexpected command: ${String(command)}`);
+    });
+    mockedCreateCostOptimizationHubClient.mockReturnValue({ send } as never);
+
+    await expect(
+      hydrateAwsCostOptimizationHubReservationRecommendations([], {
+        resolveAccountId: vi.fn().mockResolvedValue(accountId),
+      }),
+    ).resolves.toEqual({
+      diagnostics: [
+        expect.objectContaining({
+          code: 'CostOptimizationHubRecommendationIncomplete',
+          details:
+            '1 reservation purchase recommendation lacked required cost, refresh, source, or typed purchase configuration data.',
+          status: 'skipped',
+        }),
+      ],
+      resources: [],
+      unavailable: true,
+    });
+    expect(send.mock.calls.some(([command]) => command instanceof GetRecommendationCommand)).toBe(false);
+  });
+
   it('reports unenrolled and access-denied evidence as unavailable', async () => {
     mockedCreateCostOptimizationHubClient.mockReturnValueOnce({
       send: vi.fn(async (command: unknown) => {

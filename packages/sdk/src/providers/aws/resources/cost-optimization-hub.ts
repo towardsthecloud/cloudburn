@@ -534,6 +534,7 @@ const loadCostOptimizationHubRecommendations = async <T extends AwsCostOptimizat
     }
 
     const recommendationsById = new Map<string, Recommendation>();
+    let incompleteRecommendationCount = 0;
     let nextToken: string | undefined;
 
     do {
@@ -559,6 +560,8 @@ const loadCostOptimizationHubRecommendations = async <T extends AwsCostOptimizat
       for (const recommendation of page.items ?? []) {
         if (recommendation.recommendationId) {
           recommendationsById.set(recommendation.recommendationId, recommendation);
+        } else {
+          incompleteRecommendationCount += 1;
         }
       }
       nextToken = page.nextToken;
@@ -583,7 +586,7 @@ const loadCostOptimizationHubRecommendations = async <T extends AwsCostOptimizat
       },
     );
     const recommendations = normalized.filter((recommendation): recommendation is T => recommendation !== null);
-    const incompleteRecommendationCount = normalized.length - recommendations.length;
+    incompleteRecommendationCount += normalized.length - recommendations.length;
 
     if (incompleteRecommendationCount > 0) {
       return {
