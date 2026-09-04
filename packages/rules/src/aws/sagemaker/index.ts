@@ -1,10 +1,10 @@
 import { sagemakerIdleEndpointRule } from './idle-endpoint.js';
 import { sagemakerRunningNotebookInstanceRule } from './running-notebook-instance.js';
-import { sagemakerSavingsPlansRecommendedRule } from './savings-plans-recommended.js';
+import { sagemakerSavingsPlansCoverageRule } from './savings-plans-coverage.js';
 
 /** Aggregate AWS SageMaker rule definitions. */
 export const sagemakerRules = [
   sagemakerRunningNotebookInstanceRule,
   sagemakerIdleEndpointRule,
-  sagemakerSavingsPlansRecommendedRule,
+  sagemakerSavingsPlansCoverageRule,
 ];

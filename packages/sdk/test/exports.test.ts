@@ -8,6 +8,7 @@ import {
   type AwsCloudTrailTrail,
   type AwsCloudWatchLogGroup,
   type AwsCloudWatchLogStream,
+  type AwsCostOptimizationHubSavingsPlansRecommendation,
   type AwsCostUsage,
   type AwsDynamoDbAutoscaling,
   type AwsDynamoDbTable,
@@ -27,7 +28,7 @@ import {
   type AwsRoute53Zone,
   type AwsSageMakerEndpointActivity,
   type AwsSageMakerNotebookInstance,
-  type AwsSageMakerSavingsPlansRecommendation,
+  type AwsSageMakerSavingsPlansCoverage,
   type AwsSecretsManagerSecret,
   builtInRuleMetadata,
   parseIaC,
@@ -323,18 +324,30 @@ describe('sdk exports', () => {
       region: 'eu-west-1',
       totalInvocationsLast14Days: 0,
     };
-    const savingsPlansRecommendation: AwsSageMakerSavingsPlansRecommendation = {
+    const savingsPlansRecommendation: AwsCostOptimizationHubSavingsPlansRecommendation = {
       accountId: '123456789012',
+      accountScope: 'LINKED',
       actionType: 'PurchaseSavingsPlans',
       currencyCode: 'USD',
       estimatedMonthlyCost: 200,
       estimatedMonthlySavings: 50,
       estimatedSavingsPercentage: 25,
+      hourlyCommitment: 0.25,
       lastRefreshTimestamp: '2026-09-03T00:00:00.000Z',
       paymentOption: 'NoUpfront',
       recommendationId: 'recommendation-1',
       recommendationSource: 'CostExplorer',
+      savingsPlansType: 'SageMakerSavingsPlans',
       term: 'OneYear',
+    };
+    const savingsPlansCoverage: AwsSageMakerSavingsPlansCoverage = {
+      accountId: '123456789012',
+      coveragePercentage: 60,
+      onDemandCost: 100,
+      periodEnd: '2026-09-04',
+      periodStart: '2026-08-05',
+      spendCoveredBySavingsPlans: 150,
+      totalCost: 250,
     };
 
     expect(trail.trailName).toBe('org-trail');
@@ -361,6 +374,7 @@ describe('sdk exports', () => {
     expect(notebookInstance.notebookInstanceStatus).toBe('InService');
     expect(endpointActivity.totalInvocationsLast14Days).toBe(0);
     expect(savingsPlansRecommendation.estimatedMonthlySavings).toBe(50);
+    expect(savingsPlansCoverage.coveragePercentage).toBe(60);
   });
 
   it('clones supports arrays so metadata consumers cannot mutate source rule definitions', () => {

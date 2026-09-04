@@ -1122,19 +1122,38 @@ describe('rule metadata', () => {
     });
   });
 
-  it('defines the expected SageMaker Savings Plans recommendation rule metadata', () => {
+  it('defines the expected SageMaker Savings Plans coverage rule metadata', () => {
     const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-SAGEMAKER-3');
 
     expect(rule).toBeDefined();
     expect(rule).toMatchObject({
       id: 'CLDBRN-AWS-SAGEMAKER-3',
-      name: 'SageMaker Savings Plans Purchase Recommended',
-      description: 'Flag SageMaker Savings Plans purchases recommended by AWS Cost Optimization Hub.',
-      message: 'SageMaker usage should use a Savings Plan when AWS recommends a purchase.',
+      name: 'SageMaker Savings Plans Coverage Low',
+      description:
+        'Flag SageMaker Savings Plans eligible usage with less than 80% coverage and at least 72 cost units of uncovered 30-day On-Demand usage.',
+      message:
+        'SageMaker Savings Plans eligible usage should maintain at least 80% coverage when uncovered On-Demand cost is material.',
       provider: 'aws',
       service: 'sagemaker',
       supports: ['discovery'],
-      discoveryDependencies: ['aws-sagemaker-savings-plans-recommendations'],
+      discoveryDependencies: ['aws-sagemaker-savings-plans-coverage'],
+      optionalDiscoveryDependencies: ['aws-cost-optimization-hub-savings-plans-recommendations'],
+    });
+  });
+
+  it('defines the expected Cost Optimization Hub Savings Plans recommendation rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-COSTOPTIMIZATIONHUB-1');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-COSTOPTIMIZATIONHUB-1',
+      name: 'Cost Optimization Hub Savings Plans Purchase Recommended',
+      description: 'Flag Compute, EC2 Instance, and SageMaker Savings Plans purchases recommended by AWS.',
+      message: 'Savings Plans eligible usage should use a Savings Plan when AWS recommends a purchase.',
+      provider: 'aws',
+      service: 'costoptimizationhub',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-cost-optimization-hub-savings-plans-recommendations'],
     });
   });
 

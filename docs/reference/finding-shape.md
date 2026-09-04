@@ -159,12 +159,19 @@ whether that estimate includes complete rotation history, the tracking start, an
 Only keys with at least 90 days of complete no-recorded-usage evidence can trigger the rule. Missing key or usage
 metadata makes the rule `not_applicable` rather than allowing incomplete evidence to look like a pass.
 
-`CLDBRN-AWS-SAGEMAKER-3` projects one evaluated resource per Cost Optimization Hub recommendation. Its normalized
-`data` contains the recommendation ID and source, account and Region when present, action type, current monthly cost,
-estimated monthly savings and percentage, currency, implementation effort when present, last refresh time, commitment
-term, payment option, restart requirement, and rollback availability. Duplicate recommendation IDs are evaluated once.
-Missing purchase terms or required cost evidence makes the rule `not_applicable` rather than allowing an incomplete
-recommendation to look like a pass.
+`CLDBRN-AWS-COSTOPTIMIZATIONHUB-1` projects one evaluated resource per Savings Plans purchase recommendation. Its
+normalized `data` contains the recommendation ID and source, Savings Plans type, account scope, account and Region when
+present, action type, current monthly cost, estimated monthly savings and percentage, currency, hourly commitment,
+implementation effort when present, last refresh time, term, payment option, restart requirement, and rollback
+availability. EC2 Instance recommendations also include instance family and commitment Region. Duplicate recommendation
+IDs are evaluated once. Missing purchase terms or required cost evidence makes the rule `not_applicable`.
+
+`CLDBRN-AWS-SAGEMAKER-3` projects one account-scoped coverage record for the last 30 complete days. Its normalized
+`data` contains the period, coverage percentage, uncovered public On-Demand cost, spend covered by Savings Plans, and
+total eligible cost. It triggers below 80 percent coverage only when uncovered cost is at least 72 cost units. A
+SageMaker purchase recommendation from Cost Optimization Hub suppresses the coverage warning. Cost Optimization Hub
+is optional for this rule, so an unavailable recommendation dataset does not prevent coverage evaluation. Missing,
+incomplete, denied, or otherwise unavailable Cost Explorer coverage evidence makes the rule `not_applicable`.
 
 Every selected discovery rule appears exactly once when evaluation evidence is requested:
 

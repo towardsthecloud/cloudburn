@@ -2,11 +2,16 @@ import { GetCostAndUsageCommand } from '@aws-sdk/client-cost-explorer';
 import type { AwsCostUsage, AwsDiscoveredResource } from '@cloudburn/rules';
 import { createCostExplorerClient } from '../client.js';
 import type { AwsAccountIdResolver } from '../discovery-registry.js';
-import { addUtcMonths, resolveAwsAccountIdForLoad, toUtcMonthBoundary, withAwsServiceErrorContext } from './utils.js';
+import {
+  addUtcMonths,
+  formatUtcDate,
+  parseFiniteNumber,
+  resolveAwsAccountIdForLoad,
+  toUtcMonthBoundary,
+  withAwsServiceErrorContext,
+} from './utils.js';
 
 const COST_EXPLORER_CONTROL_REGION = 'us-east-1';
-
-const formatDate = (date: Date): string => date.toISOString().slice(0, 10);
 
 const slugifyServiceName = (serviceName: string): string =>
   serviceName
@@ -39,8 +44,8 @@ export const hydrateAwsCostUsage = async (
       client.send(
         new GetCostAndUsageCommand({
           TimePeriod: {
-            End: formatDate(monthStart),
-            Start: formatDate(previousFullMonthStart),
+            End: formatUtcDate(monthStart),
+            Start: formatUtcDate(previousFullMonthStart),
           },
           Granularity: 'MONTHLY',
           GroupBy: [{ Key: 'SERVICE', Type: 'DIMENSION' }],
@@ -65,9 +70,9 @@ export const hydrateAwsCostUsage = async (
         continue;
       }
 
-      const parsedAmount = Number.parseFloat(amount);
+      const parsedAmount = parseFiniteNumber(amount);
 
-      if (!Number.isFinite(parsedAmount)) {
+      if (parsedAmount === null) {
         continue;
       }
 
@@ -76,9 +81,9 @@ export const hydrateAwsCostUsage = async (
         unit: metric?.Unit ?? 'USD',
       };
 
-      if (periodStart === formatDate(previousFullMonthStart)) {
+      if (periodStart === formatUtcDate(previousFullMonthStart)) {
         previousMonthCosts.set(serviceName, entry);
-      } else if (periodStart === formatDate(latestFullMonthStart)) {
+      } else if (periodStart === formatUtcDate(latestFullMonthStart)) {
         latestMonthCosts.set(serviceName, entry);
       }
     }

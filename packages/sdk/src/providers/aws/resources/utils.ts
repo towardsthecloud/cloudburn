@@ -302,6 +302,29 @@ export const addUtcMonths = (date: Date, months: number): Date =>
   new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + months, 1));
 
 /**
+ * Formats a date as an AWS billing API UTC calendar date.
+ *
+ * @param date - Date to format.
+ * @returns The UTC calendar date in YYYY-MM-DD form.
+ */
+export const formatUtcDate = (date: Date): string => date.toISOString().slice(0, 10);
+
+/**
+ * Parses a complete finite numeric string returned by an AWS API.
+ *
+ * @param value - Numeric string to parse.
+ * @returns The finite number, or `null` when the value is missing or invalid.
+ */
+export const parseFiniteNumber = (value: string | undefined): number | null => {
+  if (!value?.trim()) {
+    return null;
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+/**
  * Splits an array into fixed-size chunks for batched AWS API calls.
  *
  * @param items - Ordered items to batch.

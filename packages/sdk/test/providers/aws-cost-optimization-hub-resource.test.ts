@@ -2,10 +2,11 @@ import {
   GetRecommendationCommand,
   ListEnrollmentStatusesCommand,
   ListRecommendationsCommand,
+  type Recommendation,
 } from '@aws-sdk/client-cost-optimization-hub';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createCostOptimizationHubClient } from '../../src/providers/aws/client.js';
-import { hydrateAwsSageMakerSavingsPlansRecommendations } from '../../src/providers/aws/resources/cost-optimization-hub.js';
+import { hydrateAwsCostOptimizationHubSavingsPlansRecommendations } from '../../src/providers/aws/resources/cost-optimization-hub.js';
 
 vi.mock('../../src/providers/aws/client.js', () => ({
   createCostOptimizationHubClient: vi.fn(),
@@ -13,8 +14,21 @@ vi.mock('../../src/providers/aws/client.js', () => ({
 
 const mockedCreateCostOptimizationHubClient = vi.mocked(createCostOptimizationHubClient);
 const accountId = '123456789012';
+const recommendation = (recommendationId: string, overrides: Partial<Recommendation> = {}): Recommendation => ({
+  accountId,
+  actionType: 'PurchaseSavingsPlans',
+  currencyCode: 'USD',
+  currentResourceType: 'SageMakerSavingsPlans',
+  estimatedMonthlyCost: 200,
+  estimatedMonthlySavings: 50,
+  estimatedSavingsPercentage: 25,
+  lastRefreshTimestamp: new Date('2026-09-03T00:00:00.000Z'),
+  recommendationId,
+  source: 'CostExplorer',
+  ...overrides,
+});
 
-describe('hydrateAwsSageMakerSavingsPlansRecommendations', () => {
+describe('hydrateAwsCostOptimizationHubSavingsPlansRecommendations', () => {
   beforeEach(() => {
     vi.resetAllMocks();
   });
@@ -28,21 +42,14 @@ describe('hydrateAwsSageMakerSavingsPlansRecommendations', () => {
       if (command instanceof ListRecommendationsCommand) {
         return {
           items: [
-            {
-              accountId,
-              actionType: 'PurchaseSavingsPlans',
-              currencyCode: 'USD',
-              currentResourceType: 'SageMakerSavingsPlans',
+            recommendation('recommendation-1', {
               estimatedMonthlyCost: 410,
               estimatedMonthlySavings: 107.85,
               estimatedSavingsPercentage: 26,
               implementationEffort: 'VeryLow',
-              lastRefreshTimestamp: new Date('2026-09-03T00:00:00.000Z'),
-              recommendationId: 'recommendation-1',
               restartNeeded: false,
               rollbackPossible: false,
-              source: 'CostExplorer',
-            },
+            }),
           ],
         };
       }
@@ -53,6 +60,8 @@ describe('hydrateAwsSageMakerSavingsPlansRecommendations', () => {
           recommendedResourceDetails: {
             sageMakerSavingsPlans: {
               configuration: {
+                accountScope: 'LINKED',
+                hourlyCommitment: '0.42',
                 paymentOption: 'NoUpfront',
                 term: 'OneYear',
               },
@@ -66,17 +75,19 @@ describe('hydrateAwsSageMakerSavingsPlansRecommendations', () => {
     mockedCreateCostOptimizationHubClient.mockReturnValue({ send } as never);
 
     await expect(
-      hydrateAwsSageMakerSavingsPlansRecommendations([], {
+      hydrateAwsCostOptimizationHubSavingsPlansRecommendations([], {
         resolveAccountId: vi.fn().mockResolvedValue(accountId),
       }),
     ).resolves.toEqual([
       {
         accountId,
+        accountScope: 'LINKED',
         actionType: 'PurchaseSavingsPlans',
         currencyCode: 'USD',
         estimatedMonthlyCost: 410,
         estimatedMonthlySavings: 107.85,
         estimatedSavingsPercentage: 26,
+        hourlyCommitment: 0.42,
         implementationEffort: 'VeryLow',
         lastRefreshTimestamp: '2026-09-03T00:00:00.000Z',
         paymentOption: 'NoUpfront',
@@ -84,6 +95,7 @@ describe('hydrateAwsSageMakerSavingsPlansRecommendations', () => {
         recommendationSource: 'CostExplorer',
         restartNeeded: false,
         rollbackPossible: false,
+        savingsPlansType: 'SageMakerSavingsPlans',
         term: 'OneYear',
       },
     ]);
@@ -94,7 +106,7 @@ describe('hydrateAwsSageMakerSavingsPlansRecommendations', () => {
           filter: {
             accountIds: [accountId],
             actionTypes: ['PurchaseSavingsPlans'],
-            resourceTypes: ['SageMakerSavingsPlans'],
+            resourceTypes: ['ComputeSavingsPlans', 'Ec2InstanceSavingsPlans', 'SageMakerSavingsPlans'],
           },
           includeAllRecommendations: false,
           maxResults: 1000,
@@ -116,7 +128,7 @@ describe('hydrateAwsSageMakerSavingsPlansRecommendations', () => {
     } as never);
 
     await expect(
-      hydrateAwsSageMakerSavingsPlansRecommendations([], {
+      hydrateAwsCostOptimizationHubSavingsPlansRecommendations([], {
         resolveAccountId: vi.fn().mockResolvedValue(accountId),
       }),
     ).resolves.toEqual({
@@ -124,9 +136,9 @@ describe('hydrateAwsSageMakerSavingsPlansRecommendations', () => {
         {
           code: 'CostOptimizationHubNotEnrolled',
           message:
-            'Skipped SageMaker Savings Plans recommendations because this account is not enrolled in AWS Cost Optimization Hub.',
+            'Skipped Savings Plans recommendations because this account is not enrolled in AWS Cost Optimization Hub.',
           provider: 'aws',
-          service: 'sagemaker',
+          service: 'costoptimizationhub',
           source: 'discovery',
           status: 'skipped',
         },
@@ -134,6 +146,80 @@ describe('hydrateAwsSageMakerSavingsPlansRecommendations', () => {
       resources: [],
       unavailable: true,
     });
+  });
+
+  it('normalizes Compute and EC2 Instance Savings Plans configuration fields', async () => {
+    const send = vi.fn(async (command: unknown) => {
+      if (command instanceof ListEnrollmentStatusesCommand) {
+        return { items: [{ accountId, status: 'Active' }] };
+      }
+
+      if (command instanceof ListRecommendationsCommand) {
+        return {
+          items: (['ComputeSavingsPlans', 'Ec2InstanceSavingsPlans'] as const).map((currentResourceType, index) =>
+            recommendation(`recommendation-${index + 1}`, {
+              currentResourceType,
+              estimatedMonthlyCost: 300,
+              estimatedMonthlySavings: 75,
+            }),
+          ),
+        };
+      }
+
+      if (command instanceof GetRecommendationCommand) {
+        return command.input.recommendationId === 'recommendation-1'
+          ? {
+              recommendedResourceDetails: {
+                computeSavingsPlans: {
+                  configuration: {
+                    accountScope: 'PAYER',
+                    hourlyCommitment: '1.25',
+                    paymentOption: 'PartialUpfront',
+                    term: 'ThreeYears',
+                  },
+                },
+              },
+            }
+          : {
+              recommendedResourceDetails: {
+                ec2InstanceSavingsPlans: {
+                  configuration: {
+                    accountScope: 'LINKED',
+                    hourlyCommitment: '0.75',
+                    instanceFamily: 'm7i',
+                    paymentOption: 'NoUpfront',
+                    savingsPlansRegion: 'eu-west-1',
+                    term: 'OneYear',
+                  },
+                },
+              },
+            };
+      }
+
+      throw new Error(`Unexpected command: ${String(command)}`);
+    });
+    mockedCreateCostOptimizationHubClient.mockReturnValue({ send } as never);
+
+    await expect(
+      hydrateAwsCostOptimizationHubSavingsPlansRecommendations([], {
+        resolveAccountId: vi.fn().mockResolvedValue(accountId),
+      }),
+    ).resolves.toEqual([
+      expect.objectContaining({
+        accountScope: 'PAYER',
+        hourlyCommitment: 1.25,
+        recommendationId: 'recommendation-1',
+        savingsPlansType: 'ComputeSavingsPlans',
+      }),
+      expect.objectContaining({
+        accountScope: 'LINKED',
+        hourlyCommitment: 0.75,
+        instanceFamily: 'm7i',
+        recommendationId: 'recommendation-2',
+        savingsPlansRegion: 'eu-west-1',
+        savingsPlansType: 'Ec2InstanceSavingsPlans',
+      }),
+    ]);
   });
 
   it('returns an access-denied diagnostic when recommendations cannot be listed', async () => {
@@ -152,7 +238,7 @@ describe('hydrateAwsSageMakerSavingsPlansRecommendations', () => {
     } as never);
 
     await expect(
-      hydrateAwsSageMakerSavingsPlansRecommendations([], {
+      hydrateAwsCostOptimizationHubSavingsPlansRecommendations([], {
         resolveAccountId: vi.fn().mockResolvedValue(accountId),
       }),
     ).resolves.toEqual({
@@ -160,7 +246,7 @@ describe('hydrateAwsSageMakerSavingsPlansRecommendations', () => {
         expect.objectContaining({
           code: 'AccessDeniedException',
           message:
-            'Skipped SageMaker Savings Plans recommendations because access to AWS Cost Optimization Hub is denied by AWS permissions.',
+            'Skipped Savings Plans recommendations because access to AWS Cost Optimization Hub is denied by AWS permissions.',
           status: 'access_denied',
         }),
       ],
@@ -184,7 +270,7 @@ describe('hydrateAwsSageMakerSavingsPlansRecommendations', () => {
     mockedCreateCostOptimizationHubClient.mockReturnValue({ send } as never);
 
     await expect(
-      hydrateAwsSageMakerSavingsPlansRecommendations([], {
+      hydrateAwsCostOptimizationHubSavingsPlansRecommendations([], {
         resolveAccountId: vi.fn().mockResolvedValue(accountId),
       }),
     ).resolves.toEqual([]);
@@ -192,18 +278,6 @@ describe('hydrateAwsSageMakerSavingsPlansRecommendations', () => {
   });
 
   it('paginates recommendations and removes repeated recommendation IDs', async () => {
-    const recommendation = (recommendationId: string) => ({
-      accountId,
-      actionType: 'PurchaseSavingsPlans',
-      currencyCode: 'USD',
-      currentResourceType: 'SageMakerSavingsPlans',
-      estimatedMonthlyCost: 200,
-      estimatedMonthlySavings: 50,
-      estimatedSavingsPercentage: 25,
-      lastRefreshTimestamp: new Date('2026-09-03T00:00:00.000Z'),
-      recommendationId,
-      source: 'CostExplorer',
-    });
     const send = vi.fn(async (command: unknown) => {
       if (command instanceof ListEnrollmentStatusesCommand) {
         return { items: [{ accountId, status: 'Active' }] };
@@ -219,7 +293,12 @@ describe('hydrateAwsSageMakerSavingsPlansRecommendations', () => {
         return {
           recommendedResourceDetails: {
             sageMakerSavingsPlans: {
-              configuration: { paymentOption: 'NoUpfront', term: 'OneYear' },
+              configuration: {
+                accountScope: 'LINKED',
+                hourlyCommitment: '0.25',
+                paymentOption: 'NoUpfront',
+                term: 'OneYear',
+              },
             },
           },
         };
@@ -229,7 +308,7 @@ describe('hydrateAwsSageMakerSavingsPlansRecommendations', () => {
     });
     mockedCreateCostOptimizationHubClient.mockReturnValue({ send } as never);
 
-    const result = await hydrateAwsSageMakerSavingsPlansRecommendations([], {
+    const result = await hydrateAwsCostOptimizationHubSavingsPlansRecommendations([], {
       resolveAccountId: vi.fn().mockResolvedValue(accountId),
     });
 
@@ -254,20 +333,7 @@ describe('hydrateAwsSageMakerSavingsPlansRecommendations', () => {
 
         if (command instanceof ListRecommendationsCommand) {
           return {
-            items: [
-              {
-                accountId,
-                actionType: 'PurchaseSavingsPlans',
-                currencyCode: 'USD',
-                currentResourceType: 'SageMakerSavingsPlans',
-                estimatedMonthlyCost: 200,
-                estimatedMonthlySavings: 50,
-                estimatedSavingsPercentage: 25,
-                lastRefreshTimestamp: new Date('2026-09-03T00:00:00.000Z'),
-                recommendationId: 'recommendation-incomplete',
-                source: 'CostExplorer',
-              },
-            ],
+            items: [recommendation('recommendation-incomplete')],
           };
         }
 
@@ -280,7 +346,7 @@ describe('hydrateAwsSageMakerSavingsPlansRecommendations', () => {
     } as never);
 
     await expect(
-      hydrateAwsSageMakerSavingsPlansRecommendations([], {
+      hydrateAwsCostOptimizationHubSavingsPlansRecommendations([], {
         resolveAccountId: vi.fn().mockResolvedValue(accountId),
       }),
     ).resolves.toEqual({

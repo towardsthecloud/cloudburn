@@ -83,7 +83,7 @@ const auditableResult = await client.discover({
 });
 ```
 
-`discover()` defaults to the current AWS region and the AWS Core preset. You can also target one or more explicit AWS regions with `{ target: { mode: 'regions', regions: [...] } }`. Multi-region discovery requires an AWS Resource Explorer aggregator index. Rules that need explicit AWS setup are opt-in through `config.discovery.enabledRules`. `CLDBRN-AWS-TAGGING-1` needs an accessible aggregator, `CLDBRN-AWS-LAMBDA-4` needs AWS Compute Optimizer enrollment, and `CLDBRN-AWS-SAGEMAKER-3` needs AWS Cost Optimization Hub enrollment.
+`discover()` defaults to the current AWS region and the AWS Core preset. You can also target one or more explicit AWS regions with `{ target: { mode: 'regions', regions: [...] } }`. Multi-region discovery requires an AWS Resource Explorer aggregator index. Rules that need explicit AWS setup are opt-in through `config.discovery.enabledRules`. `CLDBRN-AWS-TAGGING-1` needs an accessible aggregator, `CLDBRN-AWS-LAMBDA-4` needs AWS Compute Optimizer enrollment, and `CLDBRN-AWS-COSTOPTIMIZATIONHUB-1` needs AWS Cost Optimization Hub enrollment.
 
 Set `includeEvaluationResources` when a caller needs audit evidence for checks that did not produce findings. The
 optional `result.evaluations` value contains normalized identities from the primary resource dataset supplied to each
@@ -113,13 +113,21 @@ window is skipped. Missing key or usage metadata makes this check `not_applicabl
 cannot observe every possible use, the rule recommends disabling and monitoring a candidate before deletion. The
 shared loader requires `kms:DescribeKey`, `kms:GetKeyLastUsage`, `kms:ListAliases`, and `kms:ListKeyRotations`.
 
-`CLDBRN-AWS-SAGEMAKER-3` reads account-scoped SageMaker Savings Plans purchase recommendations from AWS Cost
-Optimization Hub. Evaluation evidence includes the estimated monthly cost and savings, savings percentage, currency,
-commitment term, payment option, refresh time, recommendation source, and operational impact fields. The SDK checks
-enrollment but never changes it. An account that is not enrolled, lacks
+`CLDBRN-AWS-COSTOPTIMIZATIONHUB-1` reads account-scoped Compute, EC2 Instance, and SageMaker Savings Plans purchase
+recommendations from AWS Cost Optimization Hub. Evaluation evidence includes the Savings Plans type, account scope,
+hourly commitment, estimated monthly cost and savings, savings percentage, currency, commitment term, payment option,
+refresh time, recommendation source, and operational impact fields. EC2 Instance recommendations also retain the
+instance family and commitment Region. The SDK checks enrollment but never changes it. An account that is not enrolled, lacks
 `cost-optimization-hub:ListEnrollmentStatuses`, `cost-optimization-hub:ListRecommendations`, or
 `cost-optimization-hub:GetRecommendation`, or returns incomplete purchase evidence reports the rule as
 `not_applicable` instead of `passed`.
+
+`CLDBRN-AWS-SAGEMAKER-3` reads SageMaker Savings Plans coverage from Cost Explorer for the last 30 complete days. It
+flags coverage below 80 percent only when uncovered On-Demand cost is at least 72 cost units. When Cost Optimization
+Hub returns a SageMaker purchase recommendation, that stronger finding suppresses the coverage warning for the account.
+Cost Optimization Hub is an optional dependency for this rule, so missing enrollment or access does not block coverage
+evaluation. Missing `ce:GetSavingsPlansCoverage` access, incomplete coverage values, or a Cost Explorer
+`DataUnavailableException` make the rule `not_applicable`.
 
 The SDK does not define product profiles, remediation effort, commands, or persistence schemas. Applications select
 the discovery rules that fit their use case through `config.discovery.enabledRules` and transform the generic result

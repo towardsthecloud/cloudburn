@@ -8,19 +8,10 @@ import type {
 } from '@cloudburn/rules';
 import { createBudgetsClient, createCostExplorerClient } from '../client.js';
 import type { AwsAccountIdResolver } from '../discovery-registry.js';
-import { resolveAwsAccountIdForLoad, withAwsServiceErrorContext } from './utils.js';
+import { parseFiniteNumber, resolveAwsAccountIdForLoad, withAwsServiceErrorContext } from './utils.js';
 
 const COST_CONTROL_REGION = 'us-east-1';
 const PAGE_SIZE = 100;
-
-const parseFiniteAmount = (amount: string | undefined): number | null => {
-  if (!amount?.trim()) {
-    return null;
-  }
-
-  const parsed = Number(amount);
-  return Number.isFinite(parsed) ? parsed : null;
-};
 
 /**
  * Hydrates account-scoped AWS Budgets summaries.
@@ -56,8 +47,8 @@ export const hydrateAwsCostGuardrailBudgets = async (
       }
 
       budgetCount += 1;
-      const actualSpend = parseFiniteAmount(budget.CalculatedSpend?.ActualSpend?.Amount);
-      const budgetLimit = parseFiniteAmount(budget.BudgetLimit?.Amount);
+      const actualSpend = parseFiniteNumber(budget.CalculatedSpend?.ActualSpend?.Amount);
+      const budgetLimit = parseFiniteNumber(budget.BudgetLimit?.Amount);
       const actualUnit = budget.CalculatedSpend?.ActualSpend?.Unit?.trim();
       const limitUnit = budget.BudgetLimit?.Unit?.trim();
 
@@ -66,7 +57,7 @@ export const hydrateAwsCostGuardrailBudgets = async (
       }
 
       const forecastUnit = budget.CalculatedSpend?.ForecastedSpend?.Unit?.trim();
-      const forecastedAmount = parseFiniteAmount(budget.CalculatedSpend?.ForecastedSpend?.Amount);
+      const forecastedAmount = parseFiniteNumber(budget.CalculatedSpend?.ForecastedSpend?.Amount);
       budgets.push({
         actualSpend,
         budgetLimit,

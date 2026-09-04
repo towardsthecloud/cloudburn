@@ -4,4 +4,4 @@
 'cloudburn': patch
 ---
 
-Report account-scoped SageMaker Savings Plans purchase recommendations from AWS Cost Optimization Hub, including savings and commitment evidence plus unavailable-data diagnostics.
+Report Compute, EC2 Instance, and SageMaker Savings Plans purchase recommendations from Cost Optimization Hub, and flag material SageMaker Savings Plans coverage gaps from Cost Explorer without duplicate findings.

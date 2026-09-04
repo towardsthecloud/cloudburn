@@ -1,25 +1,25 @@
 import { createFinding, createFindingMatch, createRule } from '../../shared/helpers.js';
 
-const RULE_ID = 'CLDBRN-AWS-SAGEMAKER-3';
-const RULE_SERVICE = 'sagemaker';
+const RULE_ID = 'CLDBRN-AWS-COSTOPTIMIZATIONHUB-1';
+const RULE_SERVICE = 'costoptimizationhub';
 const RULE_SEVERITY = 'medium' as const;
-const RULE_MESSAGE = 'SageMaker usage should use a Savings Plan when AWS recommends a purchase.';
+const RULE_MESSAGE = 'Savings Plans eligible usage should use a Savings Plan when AWS recommends a purchase.';
 
-/** Flag account-scoped SageMaker Savings Plans purchases recommended by AWS Cost Optimization Hub. */
-export const sagemakerSavingsPlansRecommendedRule = createRule({
+/** Flag Savings Plans purchases recommended by AWS Cost Optimization Hub. */
+export const costOptimizationHubSavingsPlansRecommendedRule = createRule({
   severity: RULE_SEVERITY,
   id: RULE_ID,
-  name: 'SageMaker Savings Plans Purchase Recommended',
-  description: 'Flag SageMaker Savings Plans purchases recommended by AWS Cost Optimization Hub.',
+  name: 'Cost Optimization Hub Savings Plans Purchase Recommended',
+  description: 'Flag Compute, EC2 Instance, and SageMaker Savings Plans purchases recommended by AWS.',
   message: RULE_MESSAGE,
   provider: 'aws',
   service: RULE_SERVICE,
   supports: ['discovery'],
-  discoveryDependencies: ['aws-sagemaker-savings-plans-recommendations'],
+  discoveryDependencies: ['aws-cost-optimization-hub-savings-plans-recommendations'],
   evaluateLive: ({ resources }) => {
     const recommendations = new Map(
       resources
-        .get('aws-sagemaker-savings-plans-recommendations')
+        .get('aws-cost-optimization-hub-savings-plans-recommendations')
         .map((recommendation) => [recommendation.recommendationId, recommendation]),
     );
     const findings = [...recommendations.values()].map((recommendation) =>

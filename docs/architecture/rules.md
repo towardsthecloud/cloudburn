@@ -15,6 +15,7 @@ classDiagram
     +Severity severity
     +Source[] supports
     +DiscoveryDatasetKey[] discoveryDependencies?
+    +DiscoveryDatasetKey[] optionalDiscoveryDependencies?
     +StaticDatasetKey[] staticDependencies?
     +evaluateLive(ctx: LiveEvaluationContext)? Finding
     +evaluateStatic(ctx: StaticEvaluationContext)? Finding

@@ -6,6 +6,7 @@ import type {
   AwsCloudWatchLogGroup,
   AwsCostGuardrailBudget,
   AwsCostGuardrailBudgetSpend,
+  AwsCostOptimizationHubSavingsPlansRecommendation,
   AwsCostUsage,
   AwsDynamoDbAutoscaling,
   AwsDynamoDbTable,
@@ -36,7 +37,7 @@ import type {
   AwsRoute53Zone,
   AwsSageMakerEndpointActivity,
   AwsSageMakerNotebookInstance,
-  AwsSageMakerSavingsPlansRecommendation,
+  AwsSageMakerSavingsPlansCoverage,
   AwsSecretsManagerSecret,
   AwsStaticRdsInstance,
   AwsUntaggedResource,
@@ -48,6 +49,8 @@ import {
   AWS_KMS_KEY_PROLIFERATION_THRESHOLD,
   AWS_KMS_MONTHLY_KEY_CREATION_THRESHOLD,
   AWS_KMS_UNUSED_KEY_MINIMUM_AGE_DAYS,
+  AWS_SAGEMAKER_SAVINGS_PLANS_MINIMUM_COVERAGE_PERCENTAGE,
+  AWS_SAGEMAKER_SAVINGS_PLANS_MINIMUM_UNCOVERED_COST,
   awsCorePreset,
   awsRules,
   azureRules,
@@ -67,10 +70,13 @@ describe('rule exports', () => {
     expect(AWS_KMS_KEY_PROLIFERATION_THRESHOLD).toBe(50);
     expect(AWS_KMS_MONTHLY_KEY_CREATION_THRESHOLD).toBe(10);
     expect(AWS_KMS_UNUSED_KEY_MINIMUM_AGE_DAYS).toBe(90);
-    expect(awsRuleIds).toHaveLength(86);
+    expect(AWS_SAGEMAKER_SAVINGS_PLANS_MINIMUM_COVERAGE_PERCENTAGE).toBe(80);
+    expect(AWS_SAGEMAKER_SAVINGS_PLANS_MINIMUM_UNCOVERED_COST).toBe(72);
+    expect(awsRuleIds).toHaveLength(87);
     expect(awsCorePreset.ruleIds).toEqual(
       awsRuleIds.filter(
-        (ruleId) => !['CLDBRN-AWS-LAMBDA-4', 'CLDBRN-AWS-SAGEMAKER-3', 'CLDBRN-AWS-TAGGING-1'].includes(ruleId),
+        (ruleId) =>
+          !['CLDBRN-AWS-COSTOPTIMIZATIONHUB-1', 'CLDBRN-AWS-LAMBDA-4', 'CLDBRN-AWS-TAGGING-1'].includes(ruleId),
       ),
     );
     expect(awsRuleIds).toEqual(
@@ -86,6 +92,7 @@ describe('rule exports', () => {
         'CLDBRN-AWS-COSTGUARDRAILS-2',
         'CLDBRN-AWS-COSTGUARDRAILS-3',
         'CLDBRN-AWS-COSTGUARDRAILS-4',
+        'CLDBRN-AWS-COSTOPTIMIZATIONHUB-1',
         'CLDBRN-AWS-COSTEXPLORER-1',
         'CLDBRN-AWS-DYNAMODB-1',
         'CLDBRN-AWS-DYNAMODB-2',
@@ -518,18 +525,30 @@ describe('rule exports', () => {
       region: 'eu-west-1',
       totalInvocationsLast14Days: 0,
     };
-    const sagemakerSavingsPlansRecommendation: AwsSageMakerSavingsPlansRecommendation = {
+    const savingsPlansRecommendation: AwsCostOptimizationHubSavingsPlansRecommendation = {
       accountId: '123456789012',
+      accountScope: 'LINKED',
       actionType: 'PurchaseSavingsPlans',
       currencyCode: 'USD',
       estimatedMonthlyCost: 100,
       estimatedMonthlySavings: 25,
       estimatedSavingsPercentage: 25,
+      hourlyCommitment: 0.1,
       lastRefreshTimestamp: '2026-03-01T00:00:00.000Z',
       paymentOption: 'No Upfront',
       recommendationId: 'recommendation-1',
       recommendationSource: 'CostExplorer',
+      savingsPlansType: 'SageMakerSavingsPlans',
       term: 'One year',
+    };
+    const sagemakerSavingsPlansCoverage: AwsSageMakerSavingsPlansCoverage = {
+      accountId: '123456789012',
+      coveragePercentage: 60,
+      onDemandCost: 100,
+      periodEnd: '2026-03-01',
+      periodStart: '2026-01-31',
+      spendCoveredBySavingsPlans: 150,
+      totalCost: 250,
     };
 
     const cloudFrontDatasetKey: DiscoveryDatasetKey = 'aws-cloudfront-distributions';
@@ -562,7 +581,9 @@ describe('rule exports', () => {
     const route53ZoneDatasetKey: DiscoveryDatasetKey = 'aws-route53-zones';
     const sagemakerEndpointDatasetKey: DiscoveryDatasetKey = 'aws-sagemaker-endpoint-activity';
     const sagemakerDatasetKey: DiscoveryDatasetKey = 'aws-sagemaker-notebook-instances';
-    const sagemakerSavingsPlansDatasetKey: DiscoveryDatasetKey = 'aws-sagemaker-savings-plans-recommendations';
+    const costOptimizationHubSavingsPlansDatasetKey: DiscoveryDatasetKey =
+      'aws-cost-optimization-hub-savings-plans-recommendations';
+    const sagemakerSavingsPlansCoverageDatasetKey: DiscoveryDatasetKey = 'aws-sagemaker-savings-plans-coverage';
     const secretsManagerDatasetKey: DiscoveryDatasetKey = 'aws-secretsmanager-secrets';
     const targetGroupDatasetKey: DiscoveryDatasetKey = 'aws-ec2-target-groups';
     const staticDatasetKey: StaticDatasetKey = 'aws-rds-instances';
@@ -597,7 +618,8 @@ describe('rule exports', () => {
     expect(route53ZoneDatasetKey).toBe('aws-route53-zones');
     expect(sagemakerEndpointDatasetKey).toBe('aws-sagemaker-endpoint-activity');
     expect(sagemakerDatasetKey).toBe('aws-sagemaker-notebook-instances');
-    expect(sagemakerSavingsPlansDatasetKey).toBe('aws-sagemaker-savings-plans-recommendations');
+    expect(costOptimizationHubSavingsPlansDatasetKey).toBe('aws-cost-optimization-hub-savings-plans-recommendations');
+    expect(sagemakerSavingsPlansCoverageDatasetKey).toBe('aws-sagemaker-savings-plans-coverage');
     expect(secretsManagerDatasetKey).toBe('aws-secretsmanager-secrets');
     expect(cloudFrontDistribution.priceClass).toBe('PriceClass_All');
     expect(costUsage.costIncrease).toBe(15);
@@ -616,7 +638,8 @@ describe('rule exports', () => {
     expect(route53HealthCheck.healthCheckId).toBe('abcd1234');
     expect(endpointActivity.totalInvocationsLast14Days).toBe(0);
     expect(notebookInstance.notebookInstanceStatus).toBe('InService');
-    expect(sagemakerSavingsPlansRecommendation.estimatedMonthlySavings).toBe(25);
+    expect(savingsPlansRecommendation.estimatedMonthlySavings).toBe(25);
+    expect(sagemakerSavingsPlansCoverage.coveragePercentage).toBe(60);
     expect(secret.secretName).toBe('db-password');
     expect(cacheCluster.cacheClusterStatus).toBe('available');
     expect(cacheClusterActivity.averageCacheHitRateLast14Days).toBe(4.5);

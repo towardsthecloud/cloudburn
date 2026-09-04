@@ -8,6 +8,10 @@ export {
   AWS_KMS_MONTHLY_KEY_CREATION_THRESHOLD,
 } from './aws/kms/key-churn.js';
 export { AWS_KMS_UNUSED_KEY_MINIMUM_AGE_DAYS } from './aws/kms/key-unused.js';
+export {
+  AWS_SAGEMAKER_SAVINGS_PLANS_MINIMUM_COVERAGE_PERCENTAGE,
+  AWS_SAGEMAKER_SAVINGS_PLANS_MINIMUM_UNCOVERED_COST,
+} from './aws/sagemaker/savings-plans-coverage.js';
 export { azureRules } from './azure/index.js';
 export { gcpRules } from './gcp/index.js';
 export { awsCorePreset } from './presets/aws-core.js';
@@ -31,6 +35,7 @@ export type {
   AwsCostAnomalyMonitor,
   AwsCostGuardrailBudget,
   AwsCostGuardrailBudgetSpend,
+  AwsCostOptimizationHubSavingsPlansRecommendation,
   AwsCostUsage,
   AwsDiscoveredResource,
   AwsDiscoveryCatalog,
@@ -83,7 +88,7 @@ export type {
   AwsS3BucketAnalysisFlags,
   AwsSageMakerEndpointActivity,
   AwsSageMakerNotebookInstance,
-  AwsSageMakerSavingsPlansRecommendation,
+  AwsSageMakerSavingsPlansCoverage,
   AwsSecretsManagerSecret,
   AwsStaticCloudFrontDistribution,
   AwsStaticCloudWatchLogGroup,
