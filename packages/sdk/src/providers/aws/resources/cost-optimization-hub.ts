@@ -20,6 +20,8 @@ import type {
   AwsCostOptimizationHubDynamoDbReservationConfiguration,
   AwsCostOptimizationHubEc2ReservationConfiguration,
   AwsCostOptimizationHubElastiCacheReservationConfiguration,
+  AwsCostOptimizationHubGravitonConfiguration,
+  AwsCostOptimizationHubGravitonRecommendation,
   AwsCostOptimizationHubMemoryDbReservationConfiguration,
   AwsCostOptimizationHubOpenSearchReservationConfiguration,
   AwsCostOptimizationHubRdsReservationConfiguration,
@@ -67,7 +69,11 @@ type RecommendationCategory<T extends AwsCostOptimizationHubRecommendation> = {
   actionType: AwsCostOptimizationHubRecommendation['actionType'];
   incompleteDetails: (count: number) => string;
   messageSubject: string;
-  normalizeConfiguration: (common: NormalizedRecommendationCommon, details: ResourceDetails | undefined) => T | null;
+  normalizeConfiguration: (
+    common: NormalizedRecommendationCommon,
+    details: ResourceDetails | undefined,
+    currentDetails: ResourceDetails | undefined,
+  ) => T | null;
   resourceTypes: readonly ResourceType[];
 };
 
@@ -460,6 +466,94 @@ const savingsPlansCategory: RecommendationCategory<AwsCostOptimizationHubSavings
   resourceTypes: SAVINGS_PLANS_RESOURCE_TYPES,
 };
 
+const normalizeGravitonComputeConfiguration = (
+  details: ResourceDetails | undefined,
+  type: string,
+): AwsCostOptimizationHubGravitonConfiguration | null => {
+  const configuration =
+    type === 'Ec2AutoScalingGroup' ? details?.ec2AutoScalingGroup?.configuration : details?.ec2Instance?.configuration;
+  if (!configuration) return null;
+  const group = type === 'Ec2AutoScalingGroup' ? details?.ec2AutoScalingGroup?.configuration : undefined;
+  const attributes = {
+    ...withOptionalString('type', group?.type),
+    ...withOptionalString('allocationStrategy', group?.allocationStrategy),
+  };
+  if (group?.mixedInstances) {
+    const types = group.mixedInstances.map((instance) => instance.type);
+    if (!types.length || !types.every((value): value is string => typeof value === 'string' && value.trim().length > 0))
+      return null;
+    return { ...attributes, mixedInstanceTypes: types };
+  }
+  const instanceType = configuration.instance?.type;
+  return typeof instanceType === 'string' && instanceType.trim() ? { ...attributes, instanceType } : null;
+};
+
+const gravitonCategory: RecommendationCategory<AwsCostOptimizationHubGravitonRecommendation> = {
+  actionType: 'MigrateToGraviton',
+  incompleteDetails: (count) => `${count} Graviton recommendations lacked required migration evidence.`,
+  messageSubject: 'Graviton migration recommendations',
+  resourceTypes: ['Ec2Instance', 'Ec2AutoScalingGroup', 'RdsDbInstance'],
+  normalizeConfiguration: (common, recommended, current) => {
+    if (
+      !common.resourceId ||
+      !common.resourceArn ||
+      !common.region ||
+      typeof common.restartNeeded !== 'boolean' ||
+      typeof common.rollbackPossible !== 'boolean'
+    )
+      return null;
+    if (common.currentResourceType === 'RdsDbInstance') {
+      const currentClass = current?.rdsDbInstance?.configuration?.instance?.dbInstanceClass;
+      const recommendedClass = recommended?.rdsDbInstance?.configuration?.instance?.dbInstanceClass;
+      if (
+        typeof currentClass !== 'string' ||
+        !currentClass.trim() ||
+        typeof recommendedClass !== 'string' ||
+        !recommendedClass.trim() ||
+        common.implementationEffort !== 'Medium'
+      )
+        return null;
+      return {
+        ...common,
+        actionType: 'MigrateToGraviton',
+        currentResourceType: 'RdsDbInstance',
+        currentConfiguration: { dbInstanceClass: currentClass },
+        recommendedConfiguration: { dbInstanceClass: recommendedClass },
+        workloadCompatibility: 'not_applicable',
+      };
+    }
+    const currentConfiguration = normalizeGravitonComputeConfiguration(current, common.currentResourceType);
+    const recommendedConfiguration = normalizeGravitonComputeConfiguration(recommended, common.currentResourceType);
+    if (
+      !currentConfiguration ||
+      !recommendedConfiguration ||
+      (common.currentResourceType !== 'Ec2Instance' && common.currentResourceType !== 'Ec2AutoScalingGroup') ||
+      (common.implementationEffort !== 'High' && common.implementationEffort !== 'VeryHigh')
+    )
+      return null;
+    return {
+      ...common,
+      actionType: 'MigrateToGraviton',
+      currentResourceType: common.currentResourceType,
+      currentConfiguration,
+      recommendedConfiguration,
+      workloadCompatibility: common.implementationEffort === 'High' ? 'inferred_compatible' : 'unclassified',
+    };
+  },
+};
+
+/**
+ * Loads account-scoped Graviton recommendations through the shared Hub session.
+ * @param _resources - Unused catalog resources for this account-scoped dataset.
+ * @param context - Discovery context sharing account identity and enrollment.
+ * @returns Typed migration evidence or unavailable diagnostics.
+ */
+export const hydrateAwsCostOptimizationHubGravitonRecommendations = async (
+  _resources: AwsDiscoveredResource[],
+  context?: AwsAccountIdResolver,
+): Promise<CostOptimizationHubLoadResult<AwsCostOptimizationHubGravitonRecommendation>> =>
+  loadCostOptimizationHubRecommendations(gravitonCategory, context);
+
 const reservationCategory: RecommendationCategory<AwsCostOptimizationHubReservationRecommendation> = {
   actionType: 'PurchaseReservedInstances',
   incompleteDetails: (count) =>
@@ -582,7 +676,11 @@ const loadCostOptimizationHubRecommendations = async <T extends AwsCostOptimizat
           COST_OPTIMIZATION_HUB_REGION,
           () => client.send(new GetRecommendationCommand({ recommendationId: recommendation.recommendationId })),
         );
-        return category.normalizeConfiguration(common, detail.recommendedResourceDetails);
+        return category.normalizeConfiguration(
+          common,
+          detail.recommendedResourceDetails,
+          detail.currentResourceDetails,
+        );
       },
     );
     const recommendations = normalized.filter((recommendation): recommendation is T => recommendation !== null);

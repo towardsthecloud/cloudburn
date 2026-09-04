@@ -2,6 +2,7 @@
 // TODO(cloudburn): publish stable docs for custom rule pack authoring.
 
 export { AWS_CONFIG_RECORDING_FREQUENCY_MINIMUM_SAVINGS_USD } from './aws/config/recording-frequency.js';
+export { gravitonResourceTypes } from './aws/costoptimizationhub/graviton-recommended.js';
 export {
   getAwsCostOptimizationHubReservationResourceId,
   getAwsCostOptimizationHubReservationResourceType,
@@ -42,6 +43,8 @@ export type {
   AwsCostOptimizationHubDynamoDbReservationConfiguration,
   AwsCostOptimizationHubEc2ReservationConfiguration,
   AwsCostOptimizationHubElastiCacheReservationConfiguration,
+  AwsCostOptimizationHubGravitonConfiguration,
+  AwsCostOptimizationHubGravitonRecommendation,
   AwsCostOptimizationHubMemoryDbReservationConfiguration,
   AwsCostOptimizationHubOpenSearchReservationConfiguration,
   AwsCostOptimizationHubRdsReservationConfiguration,

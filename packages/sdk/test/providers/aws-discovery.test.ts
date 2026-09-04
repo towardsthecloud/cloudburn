@@ -38,6 +38,7 @@ import {
   hydrateAwsCostGuardrailBudgets,
 } from '../../src/providers/aws/resources/cost-guardrails.js';
 import {
+  hydrateAwsCostOptimizationHubGravitonRecommendations,
   hydrateAwsCostOptimizationHubReservationRecommendations,
   hydrateAwsCostOptimizationHubSavingsPlansRecommendations,
 } from '../../src/providers/aws/resources/cost-optimization-hub.js';
@@ -179,6 +180,7 @@ vi.mock('../../src/providers/aws/resources/cost-explorer.js', () => ({
 
 vi.mock('../../src/providers/aws/resources/cost-optimization-hub.js', () => ({
   hydrateAwsCostOptimizationHubReservationRecommendations: vi.fn(),
+  hydrateAwsCostOptimizationHubGravitonRecommendations: vi.fn(),
   hydrateAwsCostOptimizationHubSavingsPlansRecommendations: vi.fn(),
 }));
 
@@ -1085,6 +1087,26 @@ describe('discoverAwsResources', () => {
     expect(result.resources.get('aws-sagemaker-savings-plans-coverage')).toEqual([
       expect.objectContaining({ accountId: '123456789012' }),
     ]);
+  });
+
+  it('loads Graviton evidence alone without requiring Resource Explorer or native datasets', async () => {
+    mockedResolveCurrentAwsRegion.mockResolvedValue('eu-west-1');
+    vi.mocked(hydrateAwsCostOptimizationHubGravitonRecommendations).mockResolvedValue([]);
+    const result = await discoverAwsResources(
+      [
+        createRule({
+          id: 'CLDBRN-AWS-COSTOPTIMIZATIONHUB-6',
+          service: 'costoptimizationhub',
+          discoveryDependencies: ['aws-cost-optimization-hub-graviton-recommendations'],
+        }),
+      ],
+      { mode: 'current' },
+    );
+    expect(hydrateAwsCostOptimizationHubGravitonRecommendations).toHaveBeenCalledWith([], loadContextMatcher);
+    expect(mockedBuildAwsDiscoveryCatalog).not.toHaveBeenCalled();
+    expect(mockedHydrateAwsEc2Instances).not.toHaveBeenCalled();
+    expect(mockedHydrateAwsCostOptimizationHubReservationRecommendations).not.toHaveBeenCalled();
+    expect(result.resources.get('aws-cost-optimization-hub-graviton-recommendations')).toEqual([]);
   });
 
   it('passes the explicit target region to account-scoped datasets', async () => {

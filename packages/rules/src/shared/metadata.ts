@@ -463,7 +463,7 @@ export type AwsSageMakerEndpointActivity = {
 /** Fields shared by purchase recommendations normalized from AWS Cost Optimization Hub. */
 export type AwsCostOptimizationHubRecommendation = {
   accountId: string;
-  actionType: 'PurchaseReservedInstances' | 'PurchaseSavingsPlans';
+  actionType: 'PurchaseReservedInstances' | 'PurchaseSavingsPlans' | 'MigrateToGraviton';
   currencyCode: string;
   estimatedMonthlyCost: number;
   estimatedMonthlySavings: number;
@@ -477,6 +477,21 @@ export type AwsCostOptimizationHubRecommendation = {
   resourceId?: string;
   restartNeeded?: boolean;
   rollbackPossible?: boolean;
+};
+
+/** Instance configuration reported for an architecture migration. */
+export type AwsCostOptimizationHubGravitonConfiguration =
+  | { instanceType: string; type?: string; allocationStrategy?: string }
+  | { mixedInstanceTypes: string[]; type?: string; allocationStrategy?: string }
+  | { dbInstanceClass: string };
+
+/** Graviton evidence with compatibility inferred from AWS's documented effort mapping. */
+export type AwsCostOptimizationHubGravitonRecommendation = AwsCostOptimizationHubRecommendation & {
+  actionType: 'MigrateToGraviton';
+  currentResourceType: 'Ec2Instance' | 'Ec2AutoScalingGroup' | 'RdsDbInstance';
+  currentConfiguration: AwsCostOptimizationHubGravitonConfiguration;
+  recommendedConfiguration: AwsCostOptimizationHubGravitonConfiguration;
+  workloadCompatibility: 'inferred_compatible' | 'unclassified' | 'not_applicable';
 };
 
 /** Account-scoped Savings Plans purchase recommendation from AWS Cost Optimization Hub. */
@@ -973,6 +988,7 @@ export type DiscoveryDatasetKey =
   | 'aws-cost-usage'
   | 'aws-cost-optimization-hub-savings-plans-recommendations'
   | 'aws-cost-optimization-hub-reservation-recommendations'
+  | 'aws-cost-optimization-hub-graviton-recommendations'
   | 'aws-cost-anomaly-monitors'
   | 'aws-cost-guardrail-budgets'
   | 'aws-dynamodb-autoscaling'
@@ -1037,6 +1053,7 @@ export type DiscoveryDatasetMap = {
   'aws-cost-usage': AwsCostUsage[];
   'aws-cost-optimization-hub-savings-plans-recommendations': AwsCostOptimizationHubSavingsPlansRecommendation[];
   'aws-cost-optimization-hub-reservation-recommendations': AwsCostOptimizationHubReservationRecommendation[];
+  'aws-cost-optimization-hub-graviton-recommendations': AwsCostOptimizationHubGravitonRecommendation[];
   'aws-cost-anomaly-monitors': AwsCostAnomalyMonitor[];
   'aws-cost-guardrail-budgets': AwsCostGuardrailBudget[];
   'aws-dynamodb-autoscaling': AwsDynamoDbAutoscaling[];

@@ -7,6 +7,7 @@ import {
   type FindingMatch,
   getAwsCostOptimizationHubReservationResourceId,
   getAwsCostOptimizationHubReservationResourceType,
+  gravitonResourceTypes,
   type LiveResourceBag,
   type Rule,
 } from '@cloudburn/rules';
@@ -25,6 +26,7 @@ import { hydrateAwsConfigRecordingFrequencyReviews } from './resources/config.js
 import { hydrateAwsCostUsage } from './resources/cost-explorer.js';
 import { hydrateAwsCostAnomalyMonitors, hydrateAwsCostGuardrailBudgets } from './resources/cost-guardrails.js';
 import {
+  hydrateAwsCostOptimizationHubGravitonRecommendations,
   hydrateAwsCostOptimizationHubReservationRecommendations,
   hydrateAwsCostOptimizationHubSavingsPlansRecommendations,
 } from './resources/cost-optimization-hub.js';
@@ -805,6 +807,22 @@ const awsDiscoveryDatasetRegistry: {
           ...(recommendation.resourceArn ? { arn: recommendation.resourceArn } : {}),
           data: recommendation,
           resourceType: getAwsCostOptimizationHubReservationResourceType(recommendation),
+        }),
+      ),
+  },
+  'aws-cost-optimization-hub-graviton-recommendations': {
+    datasetKey: 'aws-cost-optimization-hub-graviton-recommendations',
+    resourceTypes: [],
+    service: 'costoptimizationhub',
+    load: hydrateAwsCostOptimizationHubGravitonRecommendations,
+    toEvaluationResources: (recommendations) =>
+      mapEvaluationResources(
+        recommendations,
+        (item) => item.resourceId ?? item.resourceArn ?? item.recommendationId,
+        (item) => ({
+          arn: item.resourceArn,
+          data: item,
+          resourceType: gravitonResourceTypes[item.currentResourceType],
         }),
       ),
   },

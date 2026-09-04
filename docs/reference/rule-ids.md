@@ -12,13 +12,14 @@ Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
 - Provider: `AWS`, `AZURE`, `GCP`
 - Service: short name matching the directory (e.g. `EBS`, `EC2`, `RDS`, `S3`, `LAMBDA`)
 
-The metadata test in `packages/rules/test/rule-metadata.test.ts` currently enforces uniqueness and a gap-free numeric
-sequence for every provider/service pair.
+The metadata test in `packages/rules/test/rule-metadata.test.ts` enforces uniqueness and a gap-free numeric sequence,
+except for Cost Optimization Hub: IDs 3 through 5 are reserved for separately tracked strategies, and issue #212
+assigns Graviton migrations ID 6. Existing IDs remain unchanged.
 
 ## Presets
 
 - `aws-core` is the default general discovery preset.
-- `CLDBRN-AWS-COSTOPTIMIZATIONHUB-1` and `CLDBRN-AWS-COSTOPTIMIZATIONHUB-2` are opt-in because AWS Cost Optimization Hub requires account enrollment. CloudBurn checks enrollment but never changes it.
+- `CLDBRN-AWS-COSTOPTIMIZATIONHUB-1`, `CLDBRN-AWS-COSTOPTIMIZATIONHUB-2`, and `CLDBRN-AWS-COSTOPTIMIZATIONHUB-6` are opt-in because AWS Cost Optimization Hub requires account enrollment. CloudBurn checks enrollment but never changes it.
 - `CLDBRN-AWS-LAMBDA-4` is opt-in because AWS Compute Optimizer requires account enrollment. Enable it with `cloudburn discover --enabled-rules CLDBRN-AWS-LAMBDA-4` or `config.discovery.enabledRules` in the SDK.
 - `CLDBRN-AWS-TAGGING-1` is opt-in because account-wide tagging needs an accessible Resource Explorer aggregator.
 - Applications can define product-specific rule selections with `config.discovery.enabledRules`. Such selections are
@@ -35,6 +36,12 @@ Until that decision is resolved, follow the enforced contiguous policy, treat an
 and update all repository references together. Do not renumber IDs as part of unrelated maintenance.
 
 ## Rule Table
+
+`CLDBRN-AWS-COSTOPTIMIZATIONHUB-6` (medium, discovery only) reports Graviton migration candidates for standalone
+EC2 instances, EC2 Auto Scaling groups, and RDS DB instances. It preserves current/recommended configuration and
+AWS's compatibility inference separately from rightsizing or upgrades. Unclassified workloads require compatibility
+review. Unavailable evidence produces diagnostics and a `not_applicable` evaluation. See the
+[SDK evidence contract](../../packages/sdk/README.md) for IAM actions, opt-in configuration, and compatibility mapping.
 
 Severity communicates relative cost impact: `high` covers the largest or most immediate cost risks, `medium` covers
 meaningful optimization opportunities, and `low` covers hygiene and smaller accumulation risks. Use
@@ -175,6 +182,6 @@ evaluated independently.
 
 ## Presets
 
-| Preset ID  | Name     | Rule IDs                                                                                                                                                    |
-| ---------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `aws-core` | AWS Core | All AWS rules above except opt-in `CLDBRN-AWS-COSTOPTIMIZATIONHUB-1`, `CLDBRN-AWS-COSTOPTIMIZATIONHUB-2`, `CLDBRN-AWS-LAMBDA-4`, and `CLDBRN-AWS-TAGGING-1` |
+| Preset ID  | Name     | Rule IDs                                                                                                                                                                                        |
+| ---------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `aws-core` | AWS Core | All AWS rules above except opt-in `CLDBRN-AWS-COSTOPTIMIZATIONHUB-1`, `CLDBRN-AWS-COSTOPTIMIZATIONHUB-2`, `CLDBRN-AWS-COSTOPTIMIZATIONHUB-6`, `CLDBRN-AWS-LAMBDA-4`, and `CLDBRN-AWS-TAGGING-1` |
