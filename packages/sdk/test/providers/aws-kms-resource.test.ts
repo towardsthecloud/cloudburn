@@ -366,6 +366,63 @@ describe('hydrateAwsKmsKeyChurnReviews', () => {
       ],
     });
   });
+
+  it('keeps an incomplete regional review when every key denies DescribeKey metadata', async () => {
+    mockedCreateKmsClient.mockReturnValue({
+      send: vi.fn(async (command: unknown) => {
+        if (command instanceof ListAliasesCommand) {
+          return { Aliases: [], Truncated: false };
+        }
+
+        if (command instanceof DescribeKeyCommand) {
+          throw Object.assign(new Error('Access denied'), { name: 'AccessDeniedException' });
+        }
+
+        throw new Error(`Unexpected command: ${String(command)}`);
+      }),
+    } as never);
+
+    const churnResult = await hydrateAwsKmsKeyChurnReviews([discoveredKey('blocked-a'), discoveredKey('blocked-b')]);
+
+    expect(churnResult).toEqual({
+      diagnostics: [
+        expect.objectContaining({
+          message:
+            'KMS key metadata was unavailable for 2 discovered keys in eu-central-1 because access is denied by AWS permissions.',
+          status: 'access_denied',
+        }),
+      ],
+      resources: [
+        expect.objectContaining({
+          enabledCustomerManagedKeyCount: 0,
+          keyMetadataComplete: false,
+          keyMetadataUnavailableCount: 2,
+          keys: [],
+          region,
+        }),
+      ],
+    });
+
+    if (Array.isArray(churnResult)) {
+      throw new Error('Expected diagnostic-carrying KMS churn result');
+    }
+
+    await expect(
+      hydrateAwsKmsKeyUsage([discoveredKey('blocked-a'), discoveredKey('blocked-b')], {
+        listResourcesByFilter: vi.fn(),
+        loadDataset: vi.fn().mockResolvedValue(churnResult.resources),
+      }),
+    ).resolves.toEqual({
+      diagnostics: [
+        expect.objectContaining({
+          code: 'KmsUsageEvidenceIncomplete',
+          status: 'skipped',
+        }),
+      ],
+      resources: [],
+      unavailable: true,
+    });
+  });
 });
 
 describe('hydrateAwsKmsKeyUsage', () => {

@@ -444,10 +444,6 @@ export const hydrateAwsKmsKeyChurnReviews = async (
         );
       }
 
-      if (keys.length === 0 && metadataErrors.length > 0) {
-        throw metadataErrors[0];
-      }
-
       for (const { errors, label, subject } of [
         { errors: metadataErrors, label: 'key', subject: 'discovered key' },
         { errors: usageErrors, label: 'last-usage', subject: 'enabled customer-managed key' },
@@ -469,7 +465,7 @@ export const hydrateAwsKmsKeyChurnReviews = async (
       return {
         diagnostics,
         reviews:
-          keys.length > 0
+          keys.length > 0 || metadataErrors.length > 0
             ? [
                 createReview(
                   regionResources[0]?.accountId ?? '',
