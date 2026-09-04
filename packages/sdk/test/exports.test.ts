@@ -8,6 +8,7 @@ import {
   type AwsCloudTrailTrail,
   type AwsCloudWatchLogGroup,
   type AwsCloudWatchLogStream,
+  type AwsCostOptimizationHubReservationRecommendation,
   type AwsCostOptimizationHubSavingsPlansRecommendation,
   type AwsCostUsage,
   type AwsDynamoDbAutoscaling,
@@ -341,6 +342,25 @@ describe('sdk exports', () => {
       savingsPlansType: 'SageMakerSavingsPlans',
       term: 'OneYear',
     };
+    const reservationRecommendation: AwsCostOptimizationHubReservationRecommendation = {
+      accountId: '123456789012',
+      actionType: 'PurchaseReservedInstances',
+      configuration: {
+        accountScope: 'LINKED',
+        capacityUnits: 'RCU',
+        numberOfCapacityUnitsToPurchase: 100,
+        paymentOption: 'NoUpfront',
+        term: 'OneYear',
+      },
+      currencyCode: 'USD',
+      estimatedMonthlyCost: 200,
+      estimatedMonthlySavings: 50,
+      estimatedSavingsPercentage: 25,
+      lastRefreshTimestamp: '2026-09-03T00:00:00.000Z',
+      recommendationId: 'reservation-recommendation-1',
+      recommendationSource: 'CostExplorer',
+      reservationType: 'DynamoDbReservedCapacity',
+    };
     const savingsPlansCoverage: AwsSageMakerSavingsPlansCoverage = {
       accountId: '123456789012',
       coveragePercentage: 60,
@@ -388,6 +408,7 @@ describe('sdk exports', () => {
     expect(notebookInstance.notebookInstanceStatus).toBe('InService');
     expect(endpointActivity.totalInvocationsLast14Days).toBe(0);
     expect(savingsPlansRecommendation.estimatedMonthlySavings).toBe(50);
+    expect(reservationRecommendation.configuration.capacityUnits).toBe('RCU');
     expect(savingsPlansCoverage.coveragePercentage).toBe(60);
     expect(transitGatewayAttachment.estimatedMonthlyAttachmentCostUsd).toBe(36.5);
   });

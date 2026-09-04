@@ -1174,6 +1174,23 @@ describe('rule metadata', () => {
     });
   });
 
+  it('defines the expected Cost Optimization Hub reservation recommendation rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-COSTOPTIMIZATIONHUB-2');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-COSTOPTIMIZATIONHUB-2',
+      name: 'Cost Optimization Hub Reservation Purchase Recommended',
+      description:
+        'Flag EC2, RDS, OpenSearch, Redshift, ElastiCache, MemoryDB, and DynamoDB reservation purchases recommended by AWS.',
+      message: 'Reservation-eligible usage should use reserved capacity when AWS recommends a purchase.',
+      provider: 'aws',
+      service: 'costoptimizationhub',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-cost-optimization-hub-reservation-recommendations'],
+    });
+  });
+
   it('defines the expected CloudFront price-class rule metadata', () => {
     const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-CLOUDFRONT-1');
 

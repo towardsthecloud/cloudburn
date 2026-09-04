@@ -37,7 +37,10 @@ import {
   hydrateAwsCostAnomalyMonitors,
   hydrateAwsCostGuardrailBudgets,
 } from '../../src/providers/aws/resources/cost-guardrails.js';
-import { hydrateAwsCostOptimizationHubSavingsPlansRecommendations } from '../../src/providers/aws/resources/cost-optimization-hub.js';
+import {
+  hydrateAwsCostOptimizationHubReservationRecommendations,
+  hydrateAwsCostOptimizationHubSavingsPlansRecommendations,
+} from '../../src/providers/aws/resources/cost-optimization-hub.js';
 import {
   hydrateAwsDynamoDbAutoscaling,
   hydrateAwsDynamoDbTables,
@@ -175,6 +178,7 @@ vi.mock('../../src/providers/aws/resources/cost-explorer.js', () => ({
 }));
 
 vi.mock('../../src/providers/aws/resources/cost-optimization-hub.js', () => ({
+  hydrateAwsCostOptimizationHubReservationRecommendations: vi.fn(),
   hydrateAwsCostOptimizationHubSavingsPlansRecommendations: vi.fn(),
 }));
 
@@ -354,6 +358,9 @@ const mockedHydrateAwsRoute53Zones = vi.mocked(hydrateAwsRoute53Zones);
 const mockedHydrateAwsS3BucketAnalyses = vi.mocked(hydrateAwsS3BucketAnalyses);
 const mockedHydrateAwsCostOptimizationHubSavingsPlansRecommendations = vi.mocked(
   hydrateAwsCostOptimizationHubSavingsPlansRecommendations,
+);
+const mockedHydrateAwsCostOptimizationHubReservationRecommendations = vi.mocked(
+  hydrateAwsCostOptimizationHubReservationRecommendations,
 );
 const mockedHydrateAwsSageMakerEndpointActivity = vi.mocked(hydrateAwsSageMakerEndpointActivity);
 const mockedHydrateAwsSageMakerNotebookInstances = vi.mocked(hydrateAwsSageMakerNotebookInstances);
@@ -972,6 +979,27 @@ describe('discoverAwsResources', () => {
         term: 'OneYear',
       },
     ]);
+    mockedHydrateAwsCostOptimizationHubReservationRecommendations.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        actionType: 'PurchaseReservedInstances',
+        configuration: {
+          accountScope: 'LINKED',
+          instanceType: 'db.r7g.large',
+          numberOfInstancesToPurchase: 1,
+          paymentOption: 'NoUpfront',
+          term: 'OneYear',
+        },
+        currencyCode: 'USD',
+        estimatedMonthlyCost: 200,
+        estimatedMonthlySavings: 50,
+        estimatedSavingsPercentage: 25,
+        lastRefreshTimestamp: '2026-09-03T00:00:00.000Z',
+        recommendationId: 'reservation-recommendation-1',
+        recommendationSource: 'CostExplorer',
+        reservationType: 'RdsReservedInstances',
+      },
+    ]);
     mockedHydrateAwsSageMakerSavingsPlansCoverage.mockResolvedValue([
       {
         accountId: '123456789012',
@@ -1006,6 +1034,11 @@ describe('discoverAwsResources', () => {
           discoveryDependencies: ['aws-sagemaker-savings-plans-coverage'],
           optionalDiscoveryDependencies: ['aws-cost-optimization-hub-savings-plans-recommendations'],
         }),
+        createRule({
+          id: 'CLDBRN-AWS-TEST-RESERVATIONS',
+          service: 'costoptimizationhub',
+          discoveryDependencies: ['aws-cost-optimization-hub-reservation-recommendations'],
+        }),
       ],
       { mode: 'regions', regions: ['eu-west-1'] },
     );
@@ -1015,6 +1048,7 @@ describe('discoverAwsResources', () => {
     expect(mockedHydrateAwsCostGuardrailBudgets).toHaveBeenCalledWith([], loadContextMatcher);
     expect(mockedHydrateAwsCostAnomalyMonitors).toHaveBeenCalledWith([], loadContextMatcher);
     expect(mockedHydrateAwsCostOptimizationHubSavingsPlansRecommendations).not.toHaveBeenCalled();
+    expect(mockedHydrateAwsCostOptimizationHubReservationRecommendations).toHaveBeenCalledWith([], loadContextMatcher);
     expect(mockedHydrateAwsSageMakerSavingsPlansCoverage).toHaveBeenCalledWith([], loadContextMatcher);
     expect(result.catalog).toEqual({
       indexType: 'LOCAL',
@@ -1045,6 +1079,9 @@ describe('discoverAwsResources', () => {
       },
     ]);
     expect(result.resources.get('aws-cost-optimization-hub-savings-plans-recommendations')).toEqual([]);
+    expect(result.resources.get('aws-cost-optimization-hub-reservation-recommendations')).toEqual([
+      expect.objectContaining({ recommendationId: 'reservation-recommendation-1' }),
+    ]);
     expect(result.resources.get('aws-sagemaker-savings-plans-coverage')).toEqual([
       expect.objectContaining({ accountId: '123456789012' }),
     ]);

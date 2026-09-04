@@ -130,6 +130,15 @@ instance family and commitment Region. The SDK checks enrollment but never chang
 `cost-optimization-hub:GetRecommendation`, or returns incomplete purchase evidence reports the rule as
 `not_applicable` instead of `passed`.
 
+`CLDBRN-AWS-COSTOPTIMIZATIONHUB-2` uses the same read-only enrollment, paginated recommendation, and bounded detail
+loading seam for EC2, RDS, OpenSearch, Redshift, ElastiCache, MemoryDB, and DynamoDB reservation purchases. Its
+evaluation evidence preserves account and Region, resource ID and ARN when AWS provides them, current monthly cost,
+estimated savings and percentage, currency, implementation effort, restart and rollback flags, source, refresh time,
+term, payment option, and the resource-type-specific purchase configuration. Duplicate recommendation IDs are loaded
+once. A Hub finding is suppressed only when an enabled native CloudBurn rule actually reports the same resource for the
+same reservation purchase action with direct service evidence. The presence of a native rule in the catalog is not
+enough. Unenrolled, denied, and incomplete responses make the Hub rule `not_applicable`.
+
 `CLDBRN-AWS-SAGEMAKER-3` reads SageMaker Savings Plans coverage from Cost Explorer for the last 30 complete days. It
 flags coverage below 80 percent only when uncovered On-Demand cost is at least 72 cost units. When Cost Optimization
 Hub returns a SageMaker purchase recommendation, that stronger finding suppresses the coverage warning for the account.

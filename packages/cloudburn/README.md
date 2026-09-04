@@ -100,6 +100,7 @@ cloudburn discover --region eu-central-1
 cloudburn discover --config .cloudburn.yml --enabled-rules CLDBRN-AWS-EBS-1
 cloudburn discover --enabled-rules CLDBRN-AWS-LAMBDA-4
 cloudburn discover --enabled-rules CLDBRN-AWS-COSTOPTIMIZATIONHUB-1
+cloudburn discover --enabled-rules CLDBRN-AWS-COSTOPTIMIZATIONHUB-2
 cloudburn discover --enabled-rules CLDBRN-AWS-TAGGING-1
 cloudburn discover --service ec2,s3
 cloudburn discover --fail-on high
@@ -113,7 +114,7 @@ The discovery config equivalent is `discovery.fail-on`.
 The CLI targets one region per run. Multi-region discovery remains available through the SDK and still needs an AWS Resource Explorer aggregator plus an unfiltered default view in the aggregator region.
 `CLDBRN-AWS-TAGGING-1` is opt-in and requires an accessible aggregator; a local-only setup cannot run account-wide tagging discovery.
 `CLDBRN-AWS-LAMBDA-4` is opt-in and requires AWS Compute Optimizer enrollment.
-`CLDBRN-AWS-COSTOPTIMIZATIONHUB-1` is opt-in and requires AWS Cost Optimization Hub enrollment. CloudBurn checks enrollment but never changes it.
+`CLDBRN-AWS-COSTOPTIMIZATIONHUB-1` and `CLDBRN-AWS-COSTOPTIMIZATIONHUB-2` are opt-in and require AWS Cost Optimization Hub enrollment. CloudBurn checks enrollment but never changes it. Both rules use only `cost-optimization-hub:ListEnrollmentStatuses`, `cost-optimization-hub:ListRecommendations`, and `cost-optimization-hub:GetRecommendation`.
 `CLDBRN-AWS-SAGEMAKER-3` uses Cost Explorer coverage data and remains available when Cost Optimization Hub is unavailable.
 Use `--debug` to print SDK and provider execution tracing to `stderr` without changing the normal `stdout` format.
 

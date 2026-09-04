@@ -166,6 +166,17 @@ implementation effort when present, last refresh time, term, payment option, res
 availability. EC2 Instance recommendations also include instance family and commitment Region. Duplicate recommendation
 IDs are evaluated once. Missing purchase terms or required cost evidence makes the rule `not_applicable`.
 
+`CLDBRN-AWS-COSTOPTIMIZATIONHUB-2` projects one evaluated resource per reservation purchase recommendation. Resource
+identity prefers the AWS resource ID and retains its ARN when available, with the recommendation ID as the fallback.
+Its normalized `data` contains the common account, Region, cost, savings, effort, restart, rollback, source, and refresh
+fields plus a discriminated configuration for EC2 Reserved Instances, RDS Reserved Instances, OpenSearch Reserved
+Instances, Redshift reserved nodes, ElastiCache reserved nodes, MemoryDB reserved instances, or DynamoDB reserved
+capacity. The configuration retains the applicable term, payment option, commitment Region, purchase cost and quantity,
+instance shape, platform, tenancy, engine, deployment, license, offering, size-flexibility, or capacity-unit fields that
+AWS provides. Duplicate recommendation IDs are evaluated once. A Hub finding is omitted only when an enabled native
+rule emits a finding with the same account, Region, resource identity, and reservation purchase action. Unavailable or
+incomplete recommendation evidence makes the rule `not_applicable`.
+
 `CLDBRN-AWS-SAGEMAKER-3` projects one account-scoped coverage record for the last 30 complete days. Its normalized
 `data` contains the period, coverage percentage, uncovered public On-Demand cost, spend covered by Savings Plans, and
 total eligible cost. It triggers below 80 percent coverage only when uncovered cost is at least 72 cost units. A
