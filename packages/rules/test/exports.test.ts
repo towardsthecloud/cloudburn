@@ -41,6 +41,7 @@ import type {
   StaticDatasetKey,
 } from '../src/index.js';
 import {
+  AWS_CONFIG_RECORDING_FREQUENCY_MINIMUM_SAVINGS_USD,
   awsCorePreset,
   awsRules,
   azureRules,
@@ -56,6 +57,7 @@ const awsRuleIds = awsRules.map((rule) => rule.id);
 
 describe('rule exports', () => {
   it('exports non-empty AWS rules and preset IDs', () => {
+    expect(AWS_CONFIG_RECORDING_FREQUENCY_MINIMUM_SAVINGS_USD).toBe(10);
     expect(awsRuleIds).toHaveLength(83);
     expect(awsCorePreset.ruleIds).toEqual(
       awsRuleIds.filter((ruleId) => !['CLDBRN-AWS-LAMBDA-4', 'CLDBRN-AWS-TAGGING-1'].includes(ruleId)),

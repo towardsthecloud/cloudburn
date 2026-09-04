@@ -3,7 +3,8 @@ import { createFinding, createFindingMatch, createRule } from '../../shared/help
 const RULE_ID = 'CLDBRN-AWS-CONFIG-1';
 const RULE_SERVICE = 'config';
 const RULE_SEVERITY = 'medium' as const;
-const MINIMUM_ESTIMATED_MONTHLY_COST_REDUCTION_USD = 10;
+/** Minimum exclusive monthly saving required for the AWS Config recording-frequency finding. */
+export const AWS_CONFIG_RECORDING_FREQUENCY_MINIMUM_SAVINGS_USD = 10;
 const RULE_MESSAGE =
   'Cost-inefficient AWS Config resource types should use targeted daily recording when no continuous-recording dependency applies.';
 
@@ -25,7 +26,7 @@ export const configRecordingFrequencyRule = createRule({
       .filter(
         (review) =>
           review.turnoverEstimateReliable !== false &&
-          review.estimatedMonthlyRecordingCostReductionUsd > MINIMUM_ESTIMATED_MONTHLY_COST_REDUCTION_USD &&
+          review.estimatedMonthlyRecordingCostReductionUsd > AWS_CONFIG_RECORDING_FREQUENCY_MINIMUM_SAVINGS_USD &&
           !review.firewallManagerDependent &&
           !review.paidServiceLinkedRecorderDependent,
       )

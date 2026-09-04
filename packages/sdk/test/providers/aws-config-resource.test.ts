@@ -369,6 +369,67 @@ describe('hydrateAwsConfigRecordingFrequencyReviews', () => {
     expect(send.mock.calls.filter(([command]) => command instanceof ListDiscoveredResourcesCommand)).toHaveLength(10);
   });
 
+  it('keeps a capped low-value review available when turnover cannot cross the rule threshold', async () => {
+    const resourceType = 'AWS::ApiGateway::Stage';
+    configureConfigClient({
+      resourceCounts: [{ count: 1, resourceType }],
+      resourceIdentifierPagesByType: {
+        [resourceType]: Array.from({ length: 11 }, (_, index) => ({
+          nextToken: index < 10 ? `page-${index + 1}` : undefined,
+          resourceIdentifiers: [],
+        })),
+      },
+    });
+    configureMetrics([resourceType], { [resourceType]: 200 });
+
+    await expect(
+      hydrateAwsConfigRecordingFrequencyReviews([], {
+        region: 'eu-central-1',
+        resolveAccountId: async () => accountId,
+      }),
+    ).resolves.toEqual([
+      expect.objectContaining({
+        estimatedMonthlyRecordingCostReductionUsd: 0.93,
+        resourceType,
+        turnoverEstimateReliable: false,
+      }),
+    ]);
+  });
+
+  it('keeps a capped dependency-blocked review available', async () => {
+    const resourceType = 'AWS::Lambda::Function';
+    configureConfigClient({
+      configRules: [
+        {
+          ConfigRuleName: 'FMManagedLambdaRule',
+          CreatedBy: 'fms.amazonaws.com',
+          Scope: { ComplianceResourceTypes: [resourceType] },
+        },
+      ],
+      resourceCounts: [{ count: 5, resourceType }],
+      resourceIdentifierPagesByType: {
+        [resourceType]: Array.from({ length: 11 }, (_, index) => ({
+          nextToken: index < 10 ? `page-${index + 1}` : undefined,
+          resourceIdentifiers: [],
+        })),
+      },
+    });
+    configureMetrics([resourceType], { [resourceType]: 2_000 });
+
+    await expect(
+      hydrateAwsConfigRecordingFrequencyReviews([], {
+        region: 'eu-central-1',
+        resolveAccountId: async () => accountId,
+      }),
+    ).resolves.toEqual([
+      expect.objectContaining({
+        firewallManagerDependent: true,
+        resourceType,
+        turnoverEstimateReliable: false,
+      }),
+    ]);
+  });
+
   it('keeps continuous recording when a Firewall Manager rule depends on the resource type', async () => {
     configureConfigClient({
       configRules: [

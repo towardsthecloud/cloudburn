@@ -1,5 +1,7 @@
 // Intent: expose rule packs, presets, and metadata contracts for SDK and users.
 // TODO(cloudburn): publish stable docs for custom rule pack authoring.
+
+export { AWS_CONFIG_RECORDING_FREQUENCY_MINIMUM_SAVINGS_USD } from './aws/config/recording-frequency.js';
 export { awsRules } from './aws/index.js';
 export { azureRules } from './azure/index.js';
 export { gcpRules } from './gcp/index.js';

@@ -11,10 +11,11 @@ import {
   type RecordingFrequency,
   type ResourceType,
 } from '@aws-sdk/client-config-service';
-import type {
-  AwsConfigRecordingFrequencyReview,
-  AwsConfigRecordingModeOverride,
-  AwsDiscoveredResource,
+import {
+  AWS_CONFIG_RECORDING_FREQUENCY_MINIMUM_SAVINGS_USD,
+  type AwsConfigRecordingFrequencyReview,
+  type AwsConfigRecordingModeOverride,
+  type AwsDiscoveredResource,
 } from '@cloudburn/rules';
 import { createCloudWatchClient, createConfigServiceClient, resolveCurrentAwsRegion } from '../client.js';
 import type { AwsAccountIdResolver, AwsDiscoveryDatasetLoadResult } from '../discovery-registry.js';
@@ -520,12 +521,18 @@ export const hydrateAwsConfigRecordingFrequencyReviews = async (
       turnoverEstimateReliable: review.turnoverEstimateReliable,
     } satisfies AwsConfigRecordingFrequencyReview;
   });
-  const unreliableResourceTypes = resources
-    .filter((review) => review.turnoverEstimateReliable === false)
+  const unresolvedEligibleResourceTypes = resources
+    .filter(
+      (review) =>
+        review.turnoverEstimateReliable === false &&
+        review.estimatedMonthlyRecordingCostReductionUsd > AWS_CONFIG_RECORDING_FREQUENCY_MINIMUM_SAVINGS_USD &&
+        !review.firewallManagerDependent &&
+        !review.paidServiceLinkedRecorderDependent,
+    )
     .map((review) => review.resourceType)
     .sort((left, right) => left.localeCompare(right));
 
-  if (unreliableResourceTypes.length === 0) {
+  if (unresolvedEligibleResourceTypes.length === 0) {
     return resources;
   }
 
@@ -535,7 +542,7 @@ export const hydrateAwsConfigRecordingFrequencyReviews = async (
     diagnostics: [
       {
         code: 'ConfigResourceTurnoverLimitExceeded',
-        details: `Turnover could not be established for ${unreliableResourceTypes.join(', ')} after inspecting ${retainedResourceInspectionLimit.toLocaleString('en-US')} retained resource identities.`,
+        details: `Turnover could not be established for ${unresolvedEligibleResourceTypes.join(', ')} after inspecting ${retainedResourceInspectionLimit.toLocaleString('en-US')} retained resource identities.`,
         message: `Skipped AWS Config recording-frequency evaluation in ${region} because retained-resource turnover exceeded the ${retainedResourceInspectionLimit.toLocaleString('en-US')}-identity inspection limit.`,
         provider: 'aws',
         region,
