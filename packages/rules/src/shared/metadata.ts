@@ -496,19 +496,19 @@ export type AwsCostOptimizationHubRightsizingConfigurationMap = {
 
 /** Resource-specific current and recommended configurations, discriminated by resource type. */
 export type AwsCostOptimizationHubRightsizingRecommendation = {
-  [K in keyof AwsCostOptimizationHubRightsizingConfigurationMap]: AwsCostOptimizationHubRecommendation & {
+  [K in keyof AwsCostOptimizationHubRightsizingConfigurationMap]: AwsCostOptimizationHubRecommendationEvidence & {
     actionType: 'Rightsize';
     resourceType: K;
     resourceId: string;
+    region: string;
     currentConfiguration: AwsCostOptimizationHubRightsizingConfigurationMap[K];
     recommendedConfiguration: AwsCostOptimizationHubRightsizingConfigurationMap[K];
   };
 }[keyof AwsCostOptimizationHubRightsizingConfigurationMap];
 
-/** Fields shared by recommendations normalized from AWS Cost Optimization Hub. */
-export type AwsCostOptimizationHubRecommendation = {
+/** Evidence shared by purchase and rightsizing recommendations. */
+type AwsCostOptimizationHubRecommendationEvidence = {
   accountId: string;
-  actionType: 'PurchaseReservedInstances' | 'PurchaseSavingsPlans' | 'Rightsize';
   currencyCode: string;
   estimatedMonthlyCost: number;
   estimatedMonthlySavings: number;
@@ -522,6 +522,11 @@ export type AwsCostOptimizationHubRecommendation = {
   resourceId?: string;
   restartNeeded?: boolean;
   rollbackPossible?: boolean;
+};
+
+/** Fields shared by purchase recommendations normalized from AWS Cost Optimization Hub. */
+export type AwsCostOptimizationHubRecommendation = AwsCostOptimizationHubRecommendationEvidence & {
+  actionType: 'PurchaseReservedInstances' | 'PurchaseSavingsPlans';
 };
 
 /** Account-scoped Savings Plans purchase recommendation from AWS Cost Optimization Hub. */

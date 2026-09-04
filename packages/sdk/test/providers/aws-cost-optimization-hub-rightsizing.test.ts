@@ -28,6 +28,52 @@ const common = {
   rollbackPossible: false,
 };
 beforeEach(() => vi.resetAllMocks());
+it.each([undefined, 'not-an-arn'])('rejects missing regional identity with ARN %s', async (resourceArn) => {
+  vi.mocked(createCostOptimizationHubClient).mockReturnValue({
+    send: vi.fn(async (command: unknown) => {
+      if (command instanceof ListEnrollmentStatusesCommand) return { items: [{ accountId, status: 'Active' }] };
+      if (command instanceof ListRecommendationsCommand)
+        return { items: [{ ...common, region: undefined, resourceArn }] };
+      return {
+        currentResourceDetails: { ec2Instance: { configuration: { instance: { type: 'm7i.xlarge' } } } },
+        recommendedResourceDetails: { ec2Instance: { configuration: { instance: { type: 'm7i.large' } } } },
+      };
+    }),
+  } as never);
+  expect(
+    await hydrateAwsCostOptimizationHubRightsizingRecommendations([], { resolveAccountId: async () => accountId }),
+  ).toMatchObject({
+    unavailable: true,
+    resources: [],
+    diagnostics: [{ code: 'CostOptimizationHubRecommendationIncomplete' }],
+  });
+});
+it.each([
+  '',
+  ':3',
+  ':production',
+])('derives the Region and canonical Lambda identity from ARN qualifier %s', async (qualifier) => {
+  const functionArn = `arn:aws:lambda:eu-west-1:${accountId}:function:example`;
+  const resourceArn = functionArn + qualifier;
+  vi.mocked(createCostOptimizationHubClient).mockReturnValue({
+    send: vi.fn(async (command: unknown) => {
+      if (command instanceof ListEnrollmentStatusesCommand) return { items: [{ accountId, status: 'Active' }] };
+      if (command instanceof ListRecommendationsCommand)
+        return {
+          items: [
+            { ...common, region: undefined, resourceId: undefined, resourceArn, currentResourceType: 'LambdaFunction' },
+          ],
+        };
+      return {
+        currentResourceDetails: { lambdaFunction: { configuration: { compute: { memorySizeInMB: 1024 } } } },
+        recommendedResourceDetails: { lambdaFunction: { configuration: { compute: { memorySizeInMB: 512 } } } },
+      };
+    }),
+  } as never);
+  expect(
+    await hydrateAwsCostOptimizationHubRightsizingRecommendations([], { resolveAccountId: async () => accountId }),
+  ).toEqual([expect.objectContaining({ region: 'eu-west-1', resourceId: functionArn, resourceArn })]);
+});
 it('paginates, deduplicates IDs, and uses identical account, action, and resource filters on every page', async () => {
   const send = vi.fn(async (command: unknown) => {
     if (command instanceof ListEnrollmentStatusesCommand) return { items: [{ accountId, status: 'Active' }] };

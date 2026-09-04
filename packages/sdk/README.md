@@ -155,6 +155,9 @@ exposes `AwsCostOptimizationHubRightsizingRecommendation`. Narrow its `resourceT
 `currentConfiguration` and `recommendedConfiguration`; nested instance, mixed-instance, compute, and storage fields
 remain structured. Evidence retains resource identity, account, Region, currency, current monthly cost, estimated
 savings and percentage, implementation effort, restart and rollback flags, source, and refresh timestamp.
+Regional identity is required: a valid account-matching ARN supplies a missing Region; otherwise the evidence is
+incomplete. Lambda finding identity strips version and alias qualifiers to match the native rule, while evidence
+retains the original ARN. The existing purchase-recommendation action union remains unchanged.
 
 Only the AWS `Rightsize` action qualifies. Generation upgrades and Graviton migrations are separate actions.
 `CLDBRN-AWS-LAMBDA-4`, when enabled and reporting the same Lambda ARN, account, and Region, suppresses the Hub

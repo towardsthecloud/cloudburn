@@ -36,6 +36,7 @@ import { createCostOptimizationHubClient } from '../client.js';
 import type { AwsAccountIdResolver, AwsDiscoveryDatasetLoadResult } from '../discovery-registry.js';
 import { formatAwsAccessDeniedReason, getAwsErrorCode, isAwsAccessDeniedError } from '../errors.js';
 import { rightsizingConfigurationNormalizers } from './cost-optimization-hub-rightsizing.js';
+import { getUnqualifiedLambdaFunctionArn } from './lambda-identity.js';
 import {
   mapWithConcurrency,
   parseFiniteNumber,
@@ -61,12 +62,15 @@ const RESERVATION_RESOURCE_TYPES = [
   'DynamoDbReservedCapacity',
 ] as const;
 
-type NormalizedRecommendationCommon = AwsCostOptimizationHubRecommendation & {
+type HubRecommendation = AwsCostOptimizationHubRecommendation | AwsCostOptimizationHubRightsizingRecommendation;
+
+type NormalizedRecommendationCommon = Omit<AwsCostOptimizationHubRecommendation, 'actionType'> & {
+  actionType: HubRecommendation['actionType'];
   currentResourceType: string;
 };
 
-type RecommendationCategory<T extends AwsCostOptimizationHubRecommendation> = {
-  actionType: AwsCostOptimizationHubRecommendation['actionType'];
+type RecommendationCategory<T extends HubRecommendation> = {
+  actionType: T['actionType'];
   incompleteDetails: (count: number) => string;
   messageSubject: string;
   normalizeConfiguration: (
@@ -82,7 +86,7 @@ type SavingsPlansConfiguration =
   | Ec2InstanceSavingsPlansConfiguration
   | SageMakerSavingsPlansConfiguration;
 
-type CostOptimizationHubLoadResult<T extends AwsCostOptimizationHubRecommendation> =
+type CostOptimizationHubLoadResult<T extends HubRecommendation> =
   | T[]
   | {
       diagnostics: ScanDiagnostic[];
@@ -104,7 +108,7 @@ const withOptionalBoolean = (key: string, value: boolean | undefined): Record<st
 
 const normalizeRecommendationCommon = (
   recommendation: Recommendation,
-  category: RecommendationCategory<AwsCostOptimizationHubRecommendation>,
+  category: RecommendationCategory<HubRecommendation>,
 ): NormalizedRecommendationCommon | null => {
   if (
     !recommendation.recommendationId ||
@@ -514,7 +518,7 @@ const getCostOptimizationHubSession = (
   return session;
 };
 
-const loadCostOptimizationHubRecommendations = async <T extends AwsCostOptimizationHubRecommendation>(
+const loadCostOptimizationHubRecommendations = async <T extends HubRecommendation>(
   category: RecommendationCategory<T>,
   context?: AwsAccountIdResolver,
 ): Promise<CostOptimizationHubLoadResult<T>> => {
@@ -691,14 +695,17 @@ const rightsizingCategory: RecommendationCategory<AwsCostOptimizationHubRightsiz
     const normalize = rightsizingConfigurationNormalizers[resourceType];
     const currentConfiguration = normalize(currentDetails);
     const recommendedConfiguration = normalize(details);
+    const arn = /^arn:[^:]+:([^:]+):([a-z0-9-]+):(\d{12}):(.+)$/.exec(common.resourceArn ?? '');
+    const region = common.region ?? (arn?.[3] === common.accountId ? arn[2] : undefined);
     const resourceId =
-      resourceType === 'LambdaFunction' && common.resourceArn?.includes(':lambda:')
-        ? common.resourceArn
+      resourceType === 'LambdaFunction' && arn?.[1] === 'lambda' && arn[4]?.startsWith('function:')
+        ? getUnqualifiedLambdaFunctionArn(common.resourceArn ?? '')
         : (common.resourceId ?? common.resourceArn);
-    if (!resourceId || !currentConfiguration || !recommendedConfiguration) return null;
+    if (!region || !resourceId || !currentConfiguration || !recommendedConfiguration) return null;
     return {
       ...recommendation,
       resourceId,
+      region,
       actionType: 'Rightsize',
       resourceType,
       currentConfiguration,

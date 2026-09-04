@@ -7,6 +7,7 @@ import {
   type FindingMatch,
   getAwsCostOptimizationHubReservationResourceId,
   getAwsCostOptimizationHubReservationResourceType,
+  getAwsCostOptimizationHubRightsizingResourceType,
   type LiveResourceBag,
   type Rule,
 } from '@cloudburn/rules';
@@ -933,5 +934,3 @@ export const getAwsRuleEvaluationResourceSet = (
     })),
   };
 };
-
-import { getAwsCostOptimizationHubRightsizingResourceType } from '@cloudburn/rules';
