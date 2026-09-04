@@ -258,16 +258,18 @@ const buildCatalogFailureDiagnostic = (err: unknown): ScanDiagnostic => {
 };
 
 const normalizeDatasetLoadResult = (
-  loadResult: unknown[] | { diagnostics?: ScanDiagnostic[]; resources: unknown[] },
-): { diagnostics: ScanDiagnostic[]; resources: unknown[] } =>
+  loadResult: unknown[] | { diagnostics?: ScanDiagnostic[]; resources: unknown[]; unavailable?: boolean },
+): { diagnostics: ScanDiagnostic[]; resources: unknown[]; unavailable: boolean } =>
   Array.isArray(loadResult)
     ? {
         diagnostics: [],
         resources: loadResult,
+        unavailable: false,
       }
     : {
         diagnostics: loadResult.diagnostics ?? [],
         resources: loadResult.resources,
+        unavailable: loadResult.unavailable ?? false,
       };
 
 const formatElapsedMs = (startedAtMs: number): string => `${Math.max(0, Date.now() - startedAtMs)}ms`;
@@ -290,10 +292,22 @@ const appendItems = <T>(target: T[], items: Iterable<T>): void => {
   }
 };
 
-const buildEmptyLocalCatalog = async (): Promise<AwsDiscoveryCatalog> => ({
+const resolveAccountScopedDatasetRegion = async (target: AwsDiscoveryTarget): Promise<string> => {
+  if (target.mode === 'region') {
+    return assertValidAwsRegion(target.region);
+  }
+
+  if (target.mode === 'regions' && target.regions.length === 1) {
+    return assertValidAwsRegion(target.regions[0] as string);
+  }
+
+  return resolveCurrentAwsRegion();
+};
+
+const buildEmptyLocalCatalog = async (searchRegion: string): Promise<AwsDiscoveryCatalog> => ({
   indexType: 'LOCAL',
   resources: [],
-  searchRegion: await resolveCurrentAwsRegion(),
+  searchRegion,
 });
 
 /**
@@ -320,7 +334,7 @@ export const discoverAwsResources = async (
 
   if (datasetKeys.length === 0) {
     return {
-      catalog: await buildEmptyLocalCatalog(),
+      catalog: await buildEmptyLocalCatalog(await resolveAccountScopedDatasetRegion(target)),
       diagnostics: [],
       resources: new LiveResourceBag(),
     };
@@ -346,7 +360,7 @@ export const discoverAwsResources = async (
   let catalogFailureDiagnostic: ScanDiagnostic | undefined;
 
   if (resourceTypes.length === 0) {
-    catalog = await buildEmptyLocalCatalog();
+    catalog = await buildEmptyLocalCatalog(await resolveAccountScopedDatasetRegion(target));
   } else {
     try {
       catalog =
@@ -367,7 +381,7 @@ export const discoverAwsResources = async (
         `aws: catalog build failed, degrading to account-scoped datasets: ${err instanceof Error ? err.message : String(err)}`,
       );
       catalogFailureDiagnostic = buildCatalogFailureDiagnostic(err);
-      catalog = await buildEmptyLocalCatalog();
+      catalog = await buildEmptyLocalCatalog(await resolveAccountScopedDatasetRegion(target));
     }
   }
   emitDebugLog(
@@ -417,7 +431,7 @@ export const discoverAwsResources = async (
               DiscoveryDatasetMap[K],
             ],
             diagnostics: loadResult.diagnostics,
-            unavailable: false,
+            unavailable: loadResult.unavailable,
           };
         } catch (err) {
           emitDebugLog(
@@ -469,6 +483,12 @@ export const discoverAwsResources = async (
           const loadResult = normalizeDatasetLoadResult(await definition.load(regionResources, loadContext));
           appendItems(loadedResources, loadResult.resources);
           appendItems(diagnostics, loadResult.diagnostics);
+          if (loadResult.unavailable) {
+            unavailable = true;
+            for (const diagnostic of loadResult.diagnostics) {
+              unavailableDiagnostics.add(diagnostic);
+            }
+          }
           emitDebugLog(
             options?.debugLogger,
             `aws: completed dataset ${definition.datasetKey} in ${region} with ${loadResult.resources.length} resources in ${formatElapsedMs(regionStartedAtMs)}`,
@@ -555,6 +575,7 @@ export const discoverAwsResources = async (
         options?.debugLogger ? { ...filterOptions, debugLogger: options.debugLogger } : filterOptions,
       ),
     resolveAccountId,
+    region: await resolveAccountScopedDatasetRegion(target),
   };
   // All datasets load in parallel, so the shared budget caps the combined
   // in-flight AWS calls per service and region for the whole run.

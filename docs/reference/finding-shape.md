@@ -116,6 +116,7 @@ type EvaluatedResource = Omit<FindingMatch, 'region'> & {
   region: string; // `global` for account-scoped or global resources
   resourceType: string;
   arn?: string;
+  data?: unknown; // Provider-normalized evidence used to evaluate the resource
   name?: string;
   tags?: Record<string, string>;
   createdAt?: string;
@@ -138,6 +139,12 @@ type RuleEvaluation = {
   reason?: string;
 };
 ```
+
+`data` is present only when a discovery dataset has normalized evidence that does not fit the generic identity fields.
+For example, `CLDBRN-AWS-CONFIG-1` includes the current recording frequency, affected AWS resource type, 14-day
+configuration-item volume, recorded resource count, estimated monthly configuration-item reduction, public continuous
+and daily unit prices, estimated monthly recording-cost reduction, recorder scope and overrides, and whether Firewall
+Manager or a paid service-linked recorder requires continuous recording.
 
 Every selected discovery rule appears exactly once when evaluation evidence is requested:
 

@@ -17,6 +17,32 @@ const discoveryCatalog = {
   indexType: 'LOCAL' as const,
 };
 
+const configRecordingReview = {
+  accountId: '123456789012',
+  allSupported: true,
+  configurationItemsRecorded: 2_000,
+  configuredResourceTypes: [],
+  continuousRecordingUnitPriceUsd: 0.003,
+  currentRecordingFrequency: 'CONTINUOUS' as const,
+  dailyRecordingUnitPriceUsd: 0.012,
+  defaultRecordingFrequency: 'CONTINUOUS' as const,
+  estimatedMonthlyConfigurationItemReduction: 4_136,
+  estimatedMonthlyRecordingCostReductionUsd: 11.06,
+  excludedResourceTypes: [],
+  firewallManagerDependent: false,
+  includeGlobalResourceTypes: false,
+  observationWindowDays: 14,
+  paidServiceLinkedRecorderDependent: false,
+  recorderArn: 'arn:aws:config:eu-central-1:123456789012:configuration-recorder/default/abc',
+  recorderName: 'default',
+  recordedResourceCount: 5,
+  recordingModeOverrides: [],
+  recordingScope: 'PAID',
+  recordingStrategy: 'ALL_SUPPORTED_RESOURCE_TYPES',
+  region: 'eu-central-1',
+  resourceType: 'AWS::Lambda::Function',
+};
+
 describe('CloudBurnClient', () => {
   beforeEach(() => {
     vi.resetAllMocks();
@@ -287,6 +313,89 @@ describe('CloudBurnClient', () => {
           },
         ],
       },
+    ]);
+  });
+
+  it('exposes AWS Config recording evidence for each targeted daily override', async () => {
+    const review = configRecordingReview;
+    mockedDiscoverAwsResources.mockResolvedValue({
+      catalog: discoveryCatalog,
+      resources: new LiveResourceBag({
+        'aws-config-recording-frequency-reviews': [review],
+      }),
+    });
+
+    const result = await new CloudBurnClient().discover({
+      config: { discovery: { enabledRules: ['CLDBRN-AWS-CONFIG-1'] }, iac: {} },
+      includeEvaluationResources: true,
+    });
+
+    expect(result.evaluations?.resourceSets).toEqual([
+      {
+        id: 'aws-config-recording-frequency-reviews',
+        resources: [
+          {
+            accountId: '123456789012',
+            arn: review.recorderArn,
+            data: review,
+            name: 'default: AWS::Lambda::Function',
+            region: 'eu-central-1',
+            resourceId: `${review.recorderArn}#AWS::Lambda::Function`,
+            resourceType: 'config:configuration-recorder',
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('reports incomplete AWS Config turnover evidence as not applicable', async () => {
+    const diagnostic = {
+      code: 'ConfigResourceTurnoverLimitExceeded',
+      details:
+        'Turnover could not be established for AWS::Lambda::Function after inspecting 1,000 retained resource identities.',
+      message:
+        'Skipped AWS Config recording-frequency evaluation in eu-central-1 because retained-resource turnover exceeded the 1,000-identity inspection limit.',
+      provider: 'aws' as const,
+      region: 'eu-central-1',
+      service: 'config',
+      source: 'discovery' as const,
+      status: 'skipped' as const,
+    };
+    mockedDiscoverAwsResources.mockResolvedValue({
+      catalog: discoveryCatalog,
+      diagnostics: [diagnostic],
+      resources: new LiveResourceBag({
+        'aws-config-recording-frequency-reviews': [{ ...configRecordingReview, turnoverEstimateReliable: false }],
+      }),
+      unavailableDatasets: new Map([['aws-config-recording-frequency-reviews', [diagnostic]]]),
+    });
+
+    const result = await new CloudBurnClient().discover({
+      config: { discovery: { enabledRules: ['CLDBRN-AWS-CONFIG-1'] }, iac: {} },
+      includeEvaluationResources: true,
+    });
+
+    expect(result.providers).toEqual([]);
+    expect(result.evaluations).toEqual({
+      resourceSets: [],
+      rules: [
+        expect.objectContaining({
+          findingCount: 0,
+          reason:
+            'Skipped rule CLDBRN-AWS-CONFIG-1 because required discovery datasets were unavailable: aws-config-recording-frequency-reviews.',
+          ruleId: 'CLDBRN-AWS-CONFIG-1',
+          status: 'not_applicable',
+        }),
+      ],
+    });
+    expect(result.diagnostics).toEqual([
+      diagnostic,
+      expect.objectContaining({
+        message:
+          'Skipped rule CLDBRN-AWS-CONFIG-1 because required discovery datasets were unavailable: aws-config-recording-frequency-reviews.',
+        ruleId: 'CLDBRN-AWS-CONFIG-1',
+        status: 'skipped',
+      }),
     ]);
   });
 

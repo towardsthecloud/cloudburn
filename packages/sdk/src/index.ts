@@ -17,6 +17,8 @@ export type {
   AwsCloudTrailTrail,
   AwsCloudWatchLogGroup,
   AwsCloudWatchLogStream,
+  AwsConfigRecordingFrequencyReview,
+  AwsConfigRecordingModeOverride,
   AwsCostUsage,
   AwsDiscoveredResource,
   AwsDiscoveryCatalog,

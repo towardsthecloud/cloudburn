@@ -1,6 +1,7 @@
 import { cloudfrontRules } from './cloudfront/index.js';
 import { cloudtrailRules } from './cloudtrail/index.js';
 import { cloudwatchRules } from './cloudwatch/index.js';
+import { configRules } from './config/index.js';
 import { costexplorerRules } from './costexplorer/index.js';
 import { costguardrailsRules } from './costguardrails/index.js';
 import { dynamodbRules } from './dynamodb/index.js';
@@ -27,6 +28,7 @@ export const awsRules = [
   ...cloudfrontRules,
   ...cloudtrailRules,
   ...cloudwatchRules,
+  ...configRules,
   ...costguardrailsRules,
   ...costexplorerRules,
   ...dynamodbRules,

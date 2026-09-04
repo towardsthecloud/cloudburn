@@ -31,6 +31,7 @@ import {
   hydrateAwsCloudWatchLogGroups,
   hydrateAwsCloudWatchLogStreams,
 } from '../../src/providers/aws/resources/cloudwatch-logs.js';
+import { hydrateAwsConfigRecordingFrequencyReviews } from '../../src/providers/aws/resources/config.js';
 import { hydrateAwsCostUsage } from '../../src/providers/aws/resources/cost-explorer.js';
 import {
   hydrateAwsCostAnomalyMonitors,
@@ -161,6 +162,10 @@ vi.mock('../../src/providers/aws/resources/cloudwatch-logs.js', () => ({
   hydrateAwsCloudWatchLogStreams: vi.fn(),
 }));
 
+vi.mock('../../src/providers/aws/resources/config.js', () => ({
+  hydrateAwsConfigRecordingFrequencyReviews: vi.fn(),
+}));
+
 vi.mock('../../src/providers/aws/resources/cost-explorer.js', () => ({
   hydrateAwsCostUsage: vi.fn(),
 }));
@@ -278,6 +283,7 @@ const mockedHydrateAwsCloudWatchLogGroupRecentStreamActivity = vi.mocked(
   hydrateAwsCloudWatchLogGroupRecentStreamActivity,
 );
 const mockedHydrateAwsCloudWatchLogStreams = vi.mocked(hydrateAwsCloudWatchLogStreams);
+const mockedHydrateAwsConfigRecordingFrequencyReviews = vi.mocked(hydrateAwsConfigRecordingFrequencyReviews);
 const mockedHydrateAwsCostUsage = vi.mocked(hydrateAwsCostUsage);
 const mockedHydrateAwsCostAnomalyMonitors = vi.mocked(hydrateAwsCostAnomalyMonitors);
 const mockedHydrateAwsCostGuardrailBudgets = vi.mocked(hydrateAwsCostGuardrailBudgets);
@@ -971,6 +977,130 @@ describe('discoverAwsResources', () => {
         monitorCount: 0,
       },
     ]);
+  });
+
+  it('passes the explicit target region to account-scoped datasets', async () => {
+    mockedResolveCurrentAwsRegion.mockResolvedValue('eu-west-1');
+    mockedHydrateAwsConfigRecordingFrequencyReviews.mockImplementation(async (_resources, context) => [
+      {
+        accountId: '123456789012',
+        allSupported: true,
+        configurationItemsRecorded: 2_000,
+        configuredResourceTypes: [],
+        continuousRecordingUnitPriceUsd: 0.003,
+        currentRecordingFrequency: 'CONTINUOUS',
+        dailyRecordingUnitPriceUsd: 0.012,
+        defaultRecordingFrequency: 'CONTINUOUS',
+        estimatedMonthlyConfigurationItemReduction: 4_136,
+        estimatedMonthlyRecordingCostReductionUsd: 11.06,
+        excludedResourceTypes: [],
+        firewallManagerDependent: false,
+        includeGlobalResourceTypes: false,
+        observationWindowDays: 14,
+        paidServiceLinkedRecorderDependent: false,
+        recorderArn: `arn:aws:config:${context?.region}:123456789012:configuration-recorder/default/abc`,
+        recorderName: 'default',
+        recordedResourceCount: 5,
+        recordingModeOverrides: [],
+        recordingScope: 'PAID',
+        recordingStrategy: 'ALL_SUPPORTED_RESOURCE_TYPES',
+        region: context?.region ?? 'missing',
+        resourceType: 'AWS::Lambda::Function',
+      },
+    ]);
+
+    const result = await discoverAwsResources(
+      [
+        createRule({
+          id: 'CLDBRN-AWS-CONFIG-1',
+          service: 'config',
+          discoveryDependencies: ['aws-config-recording-frequency-reviews'],
+        }),
+      ],
+      { mode: 'region', region: 'eu-central-1' },
+    );
+
+    expect(mockedBuildAwsDiscoveryCatalog).not.toHaveBeenCalled();
+    expect(mockedHydrateAwsConfigRecordingFrequencyReviews).toHaveBeenCalledTimes(1);
+    expect(mockedHydrateAwsConfigRecordingFrequencyReviews).toHaveBeenCalledWith(
+      [],
+      expect.objectContaining({ region: 'eu-central-1' }),
+    );
+    expect(result.resources.get('aws-config-recording-frequency-reviews')).toHaveLength(1);
+  });
+
+  it('marks account-scoped datasets unavailable when a loader declares incomplete evidence', async () => {
+    const diagnostic = {
+      code: 'ConfigResourceTurnoverLimitExceeded',
+      details:
+        'Turnover could not be established for AWS::Lambda::Function after inspecting 1,000 retained resource identities.',
+      message:
+        'Skipped AWS Config recording-frequency evaluation in eu-central-1 because retained-resource turnover exceeded the 1,000-identity inspection limit.',
+      provider: 'aws' as const,
+      region: 'eu-central-1',
+      service: 'config',
+      source: 'discovery' as const,
+      status: 'skipped' as const,
+    };
+    mockedHydrateAwsConfigRecordingFrequencyReviews.mockResolvedValue({
+      diagnostics: [diagnostic],
+      resources: [],
+      unavailable: true,
+    });
+
+    const result = await discoverAwsResources(
+      [
+        createRule({
+          id: 'CLDBRN-AWS-CONFIG-1',
+          service: 'config',
+          discoveryDependencies: ['aws-config-recording-frequency-reviews'],
+        }),
+      ],
+      { mode: 'region', region: 'eu-central-1' },
+    );
+
+    expect(result.unavailableDatasets?.get('aws-config-recording-frequency-reviews')).toEqual([diagnostic]);
+    expect(result.diagnostics).toEqual([diagnostic]);
+  });
+
+  it('keeps the requested region for account-scoped datasets when Resource Explorer uses an aggregator', async () => {
+    mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
+      indexType: 'AGGREGATOR',
+      resources: [
+        {
+          accountId: '123456789012',
+          arn: 'arn:aws:ec2:eu-central-1:123456789012:instance/i-123',
+          properties: [],
+          region: 'eu-central-1',
+          resourceType: 'ec2:instance',
+          service: 'ec2',
+        },
+      ],
+      searchRegion: 'us-east-1',
+    });
+    mockedHydrateAwsEc2Instances.mockResolvedValue([]);
+    mockedHydrateAwsConfigRecordingFrequencyReviews.mockResolvedValue([]);
+
+    await discoverAwsResources(
+      [
+        createRule({
+          id: 'CLDBRN-AWS-CONFIG-1',
+          service: 'config',
+          discoveryDependencies: ['aws-config-recording-frequency-reviews'],
+        }),
+        createRule({
+          id: 'CLDBRN-AWS-TEST-EC2',
+          discoveryDependencies: ['aws-ec2-instances'],
+        }),
+      ],
+      { mode: 'region', region: 'eu-central-1' },
+    );
+
+    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledOnce();
+    expect(mockedHydrateAwsConfigRecordingFrequencyReviews).toHaveBeenCalledWith(
+      [],
+      expect.objectContaining({ region: 'eu-central-1' }),
+    );
   });
 
   it('loads the global untagged-resource dataset without service-specific catalog hydration', async () => {
