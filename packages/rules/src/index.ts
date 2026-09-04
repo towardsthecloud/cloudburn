@@ -3,6 +3,10 @@
 
 export { AWS_CONFIG_RECORDING_FREQUENCY_MINIMUM_SAVINGS_USD } from './aws/config/recording-frequency.js';
 export { awsRules } from './aws/index.js';
+export {
+  AWS_KMS_KEY_PROLIFERATION_THRESHOLD,
+  AWS_KMS_MONTHLY_KEY_CREATION_THRESHOLD,
+} from './aws/kms/key-churn.js';
 export { azureRules } from './azure/index.js';
 export { gcpRules } from './gcp/index.js';
 export { awsCorePreset } from './presets/aws-core.js';
@@ -55,6 +59,8 @@ export type {
   AwsElastiCacheReservedNode,
   AwsEmrCluster,
   AwsEmrClusterMetric,
+  AwsKmsAliasPatternGroup,
+  AwsKmsKeyChurnReview,
   AwsLambdaFunction,
   AwsLambdaFunctionMetric,
   AwsLambdaMemoryRecommendation,

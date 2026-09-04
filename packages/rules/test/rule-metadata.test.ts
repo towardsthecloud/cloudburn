@@ -1270,6 +1270,24 @@ describe('rule metadata', () => {
     });
   });
 
+  it('defines the expected KMS key-churn rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-KMS-1');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-KMS-1',
+      name: 'KMS Customer-Managed Key Churn',
+      description:
+        'Flag Regions with at least 50 enabled customer-managed KMS keys or at least 10 such keys created during the previous full month.',
+      message:
+        'Regions with many enabled customer-managed KMS keys or rapid key creation should review key lifecycle and consolidation opportunities.',
+      provider: 'aws',
+      service: 'kms',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-kms-key-churn-reviews'],
+    });
+  });
+
   it('defines the expected DynamoDB stale-data rule metadata', () => {
     const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-DYNAMODB-1');
 

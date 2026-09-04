@@ -364,6 +364,33 @@ export type AwsLambdaMemoryRecommendation = {
   accountId: string;
 };
 
+/** Alias-pattern cohort aggregated without retaining the underlying KMS alias values. */
+export type AwsKmsAliasPatternGroup = {
+  keyCount: number;
+  patternId: string;
+};
+
+/** Regional evidence for customer-managed KMS key proliferation and creation churn. */
+export type AwsKmsKeyChurnReview = {
+  accountId: string;
+  aliasPatternGroups: AwsKmsAliasPatternGroup[];
+  aliasPatternsAvailable: boolean;
+  creationWindowEnd: string;
+  creationWindowStart: string;
+  enabledCustomerManagedKeyCount: number;
+  estimatedMonthlyStorageCostUsd: number;
+  keysCreatedInWindow: number;
+  multiRegionKeyCount: number;
+  noKmsUsageSinceCreationKeyCount: number;
+  region: string;
+  reviewId: string;
+  rotatedKeyCount: number;
+  storageCostEstimateComplete: boolean;
+  unobservedBeforeTrackingKeyCount: number;
+  usageMetadataUnavailableKeyCount: number;
+  usedKeyCount: number;
+};
+
 /** Discovered SageMaker notebook instance normalized for running-state checks. */
 export type AwsSageMakerNotebookInstance = {
   notebookInstanceName: string;
@@ -778,6 +805,7 @@ export type DiscoveryDatasetKey =
   | 'aws-lambda-functions'
   | 'aws-lambda-function-metrics'
   | 'aws-lambda-memory-recommendations'
+  | 'aws-kms-key-churn-reviews'
   | 'aws-rds-instance-activity'
   | 'aws-rds-instance-cpu-metrics'
   | 'aws-rds-instances'
@@ -836,6 +864,7 @@ export type DiscoveryDatasetMap = {
   'aws-lambda-functions': AwsLambdaFunction[];
   'aws-lambda-function-metrics': AwsLambdaFunctionMetric[];
   'aws-lambda-memory-recommendations': AwsLambdaMemoryRecommendation[];
+  'aws-kms-key-churn-reviews': AwsKmsKeyChurnReview[];
   'aws-rds-instance-activity': AwsRdsInstanceActivity[];
   'aws-rds-instance-cpu-metrics': AwsRdsInstanceCpuMetric[];
   'aws-rds-instances': AwsRdsInstance[];

@@ -67,6 +67,7 @@ import {
   hydrateAwsEc2TargetGroups,
 } from '../../src/providers/aws/resources/elbv2.js';
 import { hydrateAwsEmrClusterMetrics, hydrateAwsEmrClusters } from '../../src/providers/aws/resources/emr.js';
+import { hydrateAwsKmsKeyChurnReviews } from '../../src/providers/aws/resources/kms.js';
 import {
   hydrateAwsLambdaFunctionMetrics,
   hydrateAwsLambdaFunctions,
@@ -216,6 +217,10 @@ vi.mock('../../src/providers/aws/resources/lambda.js', () => ({
   hydrateAwsLambdaMemoryRecommendations: vi.fn(),
 }));
 
+vi.mock('../../src/providers/aws/resources/kms.js', () => ({
+  hydrateAwsKmsKeyChurnReviews: vi.fn(),
+}));
+
 vi.mock('../../src/providers/aws/resources/elbv2.js', () => ({
   hydrateAwsEc2LoadBalancerRequestActivity: vi.fn(),
   hydrateAwsEc2LoadBalancers: vi.fn(),
@@ -314,6 +319,7 @@ const mockedHydrateAwsEc2TargetGroups = vi.mocked(hydrateAwsEc2TargetGroups);
 const mockedHydrateAwsEksNodegroups = vi.mocked(hydrateAwsEksNodegroups);
 const mockedHydrateAwsLambdaFunctionMetrics = vi.mocked(hydrateAwsLambdaFunctionMetrics);
 const mockedHydrateAwsLambdaFunctions = vi.mocked(hydrateAwsLambdaFunctions);
+const mockedHydrateAwsKmsKeyChurnReviews = vi.mocked(hydrateAwsKmsKeyChurnReviews);
 const mockedHydrateAwsRdsInstanceActivity = vi.mocked(hydrateAwsRdsInstanceActivity);
 const mockedHydrateAwsRdsInstanceCpuMetrics = vi.mocked(hydrateAwsRdsInstanceCpuMetrics);
 const mockedHydrateAwsRdsInstances = vi.mocked(hydrateAwsRdsInstances);
@@ -2100,6 +2106,62 @@ describe('discoverAwsResources', () => {
         region: 'us-east-1',
       },
     ]);
+  });
+
+  it('loads KMS churn reviews only from cataloged KMS keys', async () => {
+    const kmsResource = {
+      accountId: '123456789012',
+      arn: 'arn:aws:kms:us-east-1:123456789012:key/key-123',
+      properties: [],
+      region: 'us-east-1',
+      resourceType: 'kms:key',
+      service: 'kms',
+    };
+    mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
+      indexType: 'LOCAL',
+      resources: [kmsResource],
+      searchRegion: 'us-east-1',
+    });
+    mockedHydrateAwsKmsKeyChurnReviews.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        aliasPatternGroups: [],
+        aliasPatternsAvailable: true,
+        creationWindowEnd: '2026-09-01T00:00:00.000Z',
+        creationWindowStart: '2026-08-01T00:00:00.000Z',
+        enabledCustomerManagedKeyCount: 1,
+        estimatedMonthlyStorageCostUsd: 1,
+        keysCreatedInWindow: 1,
+        multiRegionKeyCount: 0,
+        noKmsUsageSinceCreationKeyCount: 1,
+        region: 'us-east-1',
+        reviewId: 'kms-key-churn/us-east-1',
+        rotatedKeyCount: 0,
+        storageCostEstimateComplete: true,
+        unobservedBeforeTrackingKeyCount: 0,
+        usageMetadataUnavailableKeyCount: 0,
+        usedKeyCount: 0,
+      },
+    ]);
+
+    const result = await discoverAwsResources(
+      [
+        createRule({
+          discoveryDependencies: ['aws-kms-key-churn-reviews'],
+          service: 'kms',
+        }),
+      ],
+      { mode: 'regions', regions: ['us-east-1'] },
+    );
+
+    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith({ mode: 'regions', regions: ['us-east-1'] }, [
+      'kms:key',
+    ]);
+    expect(mockedHydrateAwsKmsKeyChurnReviews).toHaveBeenCalledWith([kmsResource], loadContextMatcher);
+    expect(result.resources.get('aws-kms-key-churn-reviews')).toEqual([
+      expect.objectContaining({ enabledCustomerManagedKeyCount: 1 }),
+    ]);
+    expect(mockedHydrateAwsEbsVolumes).not.toHaveBeenCalled();
   });
 
   it('loads only the S3 hydrator when active rules require only S3 bucket analyses', async () => {

@@ -13,6 +13,7 @@ import { eksRules } from './eks/index.js';
 import { elastiCacheRules } from './elasticache/index.js';
 import { elbRules } from './elb/index.js';
 import { emrRules } from './emr/index.js';
+import { kmsRules } from './kms/index.js';
 import { lambdaRules } from './lambda/index.js';
 import { rdsRules } from './rds/index.js';
 import { redshiftRules } from './redshift/index.js';
@@ -40,6 +41,7 @@ export const awsRules = [
   ...ebsRules,
   ...ecrRules,
   ...emrRules,
+  ...kmsRules,
   ...rdsRules,
   ...redshiftRules,
   ...route53Rules,

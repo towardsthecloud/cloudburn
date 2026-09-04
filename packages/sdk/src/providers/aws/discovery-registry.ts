@@ -48,6 +48,7 @@ import {
   hydrateAwsEc2TargetGroups,
 } from './resources/elbv2.js';
 import { hydrateAwsEmrClusterMetrics, hydrateAwsEmrClusters } from './resources/emr.js';
+import { hydrateAwsKmsKeyChurnReviews } from './resources/kms.js';
 import {
   hydrateAwsLambdaFunctionMetrics,
   hydrateAwsLambdaFunctions,
@@ -130,6 +131,7 @@ export type AwsDiscoveryDatasetDefinition<K extends DiscoveryDatasetKey = Discov
     | 'elb'
     | 'emr'
     | 'lambda'
+    | 'kms'
     | 'rds'
     | 'redshift'
     | 'route53'
@@ -569,6 +571,18 @@ const awsDiscoveryDatasetRegistry: {
     load: hydrateAwsLambdaMemoryRecommendations,
     toEvaluationResources: (recommendations) =>
       mapEvaluationResources(recommendations, (recommendation) => recommendation.functionArn),
+  },
+  'aws-kms-key-churn-reviews': {
+    datasetKey: 'aws-kms-key-churn-reviews',
+    resourceTypes: ['kms:key'],
+    service: 'kms',
+    load: hydrateAwsKmsKeyChurnReviews,
+    toEvaluationResources: (reviews) =>
+      mapEvaluationResources(
+        reviews,
+        (review) => review.reviewId,
+        (review) => ({ data: review }),
+      ),
   },
   'aws-rds-instance-activity': {
     datasetKey: 'aws-rds-instance-activity',

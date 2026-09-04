@@ -25,6 +25,7 @@ import type {
   AwsElastiCacheReservedNode,
   AwsEmrCluster,
   AwsEmrClusterMetric,
+  AwsKmsKeyChurnReview,
   AwsRdsInstance,
   AwsRedshiftCluster,
   AwsRedshiftClusterMetric,
@@ -42,6 +43,8 @@ import type {
 } from '../src/index.js';
 import {
   AWS_CONFIG_RECORDING_FREQUENCY_MINIMUM_SAVINGS_USD,
+  AWS_KMS_KEY_PROLIFERATION_THRESHOLD,
+  AWS_KMS_MONTHLY_KEY_CREATION_THRESHOLD,
   awsCorePreset,
   awsRules,
   azureRules,
@@ -58,7 +61,9 @@ const awsRuleIds = awsRules.map((rule) => rule.id);
 describe('rule exports', () => {
   it('exports non-empty AWS rules and preset IDs', () => {
     expect(AWS_CONFIG_RECORDING_FREQUENCY_MINIMUM_SAVINGS_USD).toBe(10);
-    expect(awsRuleIds).toHaveLength(83);
+    expect(AWS_KMS_KEY_PROLIFERATION_THRESHOLD).toBe(50);
+    expect(AWS_KMS_MONTHLY_KEY_CREATION_THRESHOLD).toBe(10);
+    expect(awsRuleIds).toHaveLength(84);
     expect(awsCorePreset.ruleIds).toEqual(
       awsRuleIds.filter((ruleId) => !['CLDBRN-AWS-LAMBDA-4', 'CLDBRN-AWS-TAGGING-1'].includes(ruleId)),
     );
@@ -120,6 +125,7 @@ describe('rule exports', () => {
         'CLDBRN-AWS-LAMBDA-2',
         'CLDBRN-AWS-LAMBDA-3',
         'CLDBRN-AWS-LAMBDA-4',
+        'CLDBRN-AWS-KMS-1',
         'CLDBRN-AWS-RDS-2',
         'CLDBRN-AWS-RDS-3',
         'CLDBRN-AWS-RDS-4',
@@ -206,6 +212,25 @@ describe('rule exports', () => {
       previousMonthCost: 10,
       serviceName: 'Amazon DynamoDB',
       serviceSlug: 'amazon-dynamodb',
+    };
+    const kmsReview: AwsKmsKeyChurnReview = {
+      accountId: '123456789012',
+      aliasPatternGroups: [{ keyCount: 10, patternId: 'pattern-123456789abc' }],
+      aliasPatternsAvailable: true,
+      creationWindowEnd: '2026-09-01T00:00:00.000Z',
+      creationWindowStart: '2026-08-01T00:00:00.000Z',
+      enabledCustomerManagedKeyCount: 50,
+      estimatedMonthlyStorageCostUsd: 52,
+      keysCreatedInWindow: 10,
+      multiRegionKeyCount: 2,
+      noKmsUsageSinceCreationKeyCount: 4,
+      region: 'eu-central-1',
+      reviewId: 'kms-key-churn/eu-central-1',
+      rotatedKeyCount: 2,
+      storageCostEstimateComplete: true,
+      unobservedBeforeTrackingKeyCount: 3,
+      usageMetadataUnavailableKeyCount: 1,
+      usedKeyCount: 42,
     };
     const budgetSpend: AwsCostGuardrailBudgetSpend = {
       actualSpend: 125,
@@ -479,6 +504,7 @@ describe('rule exports', () => {
     const cloudWatchRecentActivityDatasetKey: DiscoveryDatasetKey = 'aws-cloudwatch-log-group-recent-stream-activity';
     const cloudWatchLogStreamDatasetKey: DiscoveryDatasetKey = 'aws-cloudwatch-log-streams';
     const costUsageDatasetKey: DiscoveryDatasetKey = 'aws-cost-usage';
+    const kmsKeyChurnDatasetKey: DiscoveryDatasetKey = 'aws-kms-key-churn-reviews';
     const untaggedResourcesDatasetKey: DiscoveryDatasetKey = 'aws-resource-explorer-untagged-resources';
     const dynamoDbAutoscalingDatasetKey: DiscoveryDatasetKey = 'aws-dynamodb-autoscaling';
     const dynamoDbTableDatasetKey: DiscoveryDatasetKey = 'aws-dynamodb-tables';
@@ -511,6 +537,7 @@ describe('rule exports', () => {
     expect(cloudWatchRecentActivityDatasetKey).toBe('aws-cloudwatch-log-group-recent-stream-activity');
     expect(cloudWatchLogStreamDatasetKey).toBe('aws-cloudwatch-log-streams');
     expect(costUsageDatasetKey).toBe('aws-cost-usage');
+    expect(kmsKeyChurnDatasetKey).toBe('aws-kms-key-churn-reviews');
     expect(untaggedResourcesDatasetKey).toBe('aws-resource-explorer-untagged-resources');
     expect(dynamoDbAutoscalingDatasetKey).toBe('aws-dynamodb-autoscaling');
     expect(dynamoDbTableDatasetKey).toBe('aws-dynamodb-tables');
@@ -535,6 +562,7 @@ describe('rule exports', () => {
     expect(secretsManagerDatasetKey).toBe('aws-secretsmanager-secrets');
     expect(cloudFrontDistribution.priceClass).toBe('PriceClass_All');
     expect(costUsage.costIncrease).toBe(15);
+    expect(kmsReview.enabledCustomerManagedKeyCount).toBe(50);
     expect(budgetSummary.budgets?.[0]).toBe(budgetSpend);
     expect(untaggedResource.resourceType).toBe('ec2:instance');
     expect(dynamoDbTable.tableName).toBe('orders');

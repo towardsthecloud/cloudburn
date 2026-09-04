@@ -283,6 +283,25 @@ export const resolveAwsAccountIdForLoad = (context?: AwsAccountIdResolver): Prom
   context?.resolveAccountId() ?? resolveAwsAccountId();
 
 /**
+ * Returns the first UTC instant of the calendar month containing a date.
+ *
+ * @param date - Date whose UTC month should be selected.
+ * @returns The first day of that UTC month at midnight.
+ */
+export const toUtcMonthBoundary = (date: Date): Date =>
+  new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
+
+/**
+ * Moves a UTC month boundary by a whole number of calendar months.
+ *
+ * @param date - UTC month boundary to move.
+ * @param months - Signed number of calendar months to add.
+ * @returns The shifted UTC month boundary.
+ */
+export const addUtcMonths = (date: Date, months: number): Date =>
+  new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + months, 1));
+
+/**
  * Splits an array into fixed-size chunks for batched AWS API calls.
  *
  * @param items - Ordered items to batch.

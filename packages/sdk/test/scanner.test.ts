@@ -188,6 +188,64 @@ describe('CloudBurnClient', () => {
     });
   });
 
+  it('returns KMS churn counts and cost inputs as evaluation evidence', async () => {
+    const kmsReview = {
+      accountId: '123456789012',
+      aliasPatternGroups: [{ keyCount: 12, patternId: 'pattern-123456789abc' }],
+      aliasPatternsAvailable: true,
+      creationWindowEnd: '2026-09-01T00:00:00.000Z',
+      creationWindowStart: '2026-08-01T00:00:00.000Z',
+      enabledCustomerManagedKeyCount: 50,
+      estimatedMonthlyStorageCostUsd: 52,
+      keysCreatedInWindow: 10,
+      multiRegionKeyCount: 2,
+      noKmsUsageSinceCreationKeyCount: 4,
+      region: 'eu-central-1',
+      reviewId: 'kms-key-churn/eu-central-1',
+      rotatedKeyCount: 2,
+      storageCostEstimateComplete: true,
+      unobservedBeforeTrackingKeyCount: 3,
+      usageMetadataUnavailableKeyCount: 1,
+      usedKeyCount: 42,
+    };
+    mockedDiscoverAwsResources.mockResolvedValue({
+      catalog: discoveryCatalog,
+      resources: new LiveResourceBag({
+        'aws-kms-key-churn-reviews': [kmsReview],
+      }),
+    });
+
+    const result = await new CloudBurnClient().discover({
+      config: { discovery: { enabledRules: ['CLDBRN-AWS-KMS-1'] }, iac: {} },
+      includeEvaluationResources: true,
+    });
+
+    expect(result.evaluations).toEqual({
+      resourceSets: [
+        {
+          id: 'aws-kms-key-churn-reviews',
+          resources: [
+            {
+              accountId: '123456789012',
+              data: kmsReview,
+              region: 'eu-central-1',
+              resourceId: 'kms-key-churn/eu-central-1',
+              resourceType: 'kms:key',
+            },
+          ],
+        },
+      ],
+      rules: [
+        expect.objectContaining({
+          findingCount: 1,
+          resourceSetId: 'aws-kms-key-churn-reviews',
+          ruleId: 'CLDBRN-AWS-KMS-1',
+          status: 'triggered',
+        }),
+      ],
+    });
+  });
+
   it('preserves concrete resource types for mixed account-wide evaluation resources', async () => {
     mockedDiscoverAwsResources.mockResolvedValue({
       catalog: discoveryCatalog,
