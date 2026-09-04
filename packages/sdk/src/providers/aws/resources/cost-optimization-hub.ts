@@ -71,6 +71,7 @@ type RecommendationCategory<T extends AwsCostOptimizationHubRecommendation> = {
   messageSubject: string;
   normalizeConfiguration: (common: NormalizedRecommendationCommon, response: GetRecommendationResponse) => T | null;
   resourceTypes: readonly ResourceType[];
+  regions?: string[];
 };
 
 type SavingsPlansConfiguration =
@@ -655,6 +656,7 @@ const loadCostOptimizationHubRecommendations = async <T extends AwsCostOptimizat
             new ListRecommendationsCommand({
               filter: {
                 accountIds: [accountId],
+                ...(category.regions ? { regions: category.regions } : {}),
                 actionTypes: [...category.actionTypes],
                 resourceTypes: [...category.resourceTypes],
               },
@@ -776,8 +778,8 @@ export const hydrateAwsCostOptimizationHubReservationRecommendations = async (
  */
 export const hydrateAwsCostOptimizationHubIdleRecommendations = async (
   _resources: AwsDiscoveredResource[],
-  context?: AwsAccountIdResolver,
+  context?: AwsAccountIdResolver & { regions?: string[] },
 ): Promise<
   | AwsCostOptimizationHubIdleRecommendation[]
   | AwsDiscoveryDatasetLoadResult<'aws-cost-optimization-hub-idle-recommendations'>
-> => loadCostOptimizationHubRecommendations(idleCategory, context);
+> => loadCostOptimizationHubRecommendations({ ...idleCategory, regions: context?.regions }, context);

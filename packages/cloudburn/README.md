@@ -119,6 +119,7 @@ The CLI targets one region per run. Multi-region discovery remains available thr
 
 Rule 3 reports idle-capacity Stop, Delete, and ScaleIn recommendations. It never executes them. Missing enrollment,
 denied access, and malformed evidence produce diagnostics. Review the exact action and rollback capability before acting.
+Table output includes an Action column for these findings. Regional discovery limits recommendations to the selected Region.
 Reservation findings include their AWS resource namespace in JSON and in the default table output.
 `CLDBRN-AWS-SAGEMAKER-3` uses Cost Explorer coverage data and remains available when Cost Optimization Hub is unavailable.
 Use `--debug` to print SDK and provider execution tracing to `stderr` without changing the normal `stdout` format.

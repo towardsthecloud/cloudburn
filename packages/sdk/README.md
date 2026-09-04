@@ -144,6 +144,7 @@ retains the Hub rule's original triggered result. Unenrolled, denied, and incomp
 Enable idle capacity recommendations with `config.discovery.enabledRules: ['CLDBRN-AWS-COSTOPTIMIZATIONHUB-3']`.
 The rule shares Hub enrollment, pagination, deduplication, and diagnostics with the purchase rules. It requires the
 same three Hub read permissions and `sts:GetCallerIdentity`; all Hub queries use `us-east-1` and filter to the caller's account.
+Idle recommendations also filter to the discovery target's Regions. An all-region target leaves that filter unset.
 
 With `includeEvaluationResources: true`, `AwsCostOptimizationHubIdleRecommendation` retains exact actions,
 typed current and recommended configurations, costs, savings, identity, and operational impact. Stop covers EC2

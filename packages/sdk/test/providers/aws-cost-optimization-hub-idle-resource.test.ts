@@ -57,6 +57,23 @@ const summary = (actionType = 'Stop', currentResourceType = 'Ec2Instance', recom
 const load = () => hydrateAwsCostOptimizationHubIdleRecommendations([], { resolveAccountId: async () => accountId });
 
 describe('idle recommendation loader', () => {
+  it('passes the requested regional scope to the Hub query', async () => {
+    const send = vi.fn(async (command: unknown) =>
+      command instanceof ListEnrollmentStatusesCommand ? { items: [{ accountId, status: 'Active' }] } : { items: [] },
+    );
+    vi.mocked(createCostOptimizationHubClient).mockReturnValue({ send } as never);
+    await hydrateAwsCostOptimizationHubIdleRecommendations([], {
+      resolveAccountId: async () => accountId,
+      regions: ['eu-west-1', 'eu-central-1'],
+    });
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input: expect.objectContaining({
+          filter: expect.objectContaining({ regions: ['eu-west-1', 'eu-central-1'] }),
+        }),
+      }),
+    );
+  });
   it('paginates and deduplicates IDs before fetching details, allowing absent Stop targets', async () => {
     const send = vi.fn(async (command: unknown) => {
       if (command instanceof ListEnrollmentStatusesCommand) return { items: [{ accountId, status: 'Active' }] };

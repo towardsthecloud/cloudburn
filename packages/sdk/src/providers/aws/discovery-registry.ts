@@ -119,6 +119,8 @@ export type AwsAccountIdResolver = {
 export type AwsDiscoveryDatasetLoadContext = AwsDiscoveryDatasetResolver &
   AwsAccountIdResolver & {
     region?: string;
+    /** Selected resource Regions; undefined means an all-region discovery target. */
+    regions?: string[];
   };
 
 /** Declarative definition for one rule-facing AWS discovery dataset. */
