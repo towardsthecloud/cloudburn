@@ -17,7 +17,7 @@ const metadata = {
 /** Reports architecture migration candidates without asserting workload compatibility. */
 export const costOptimizationHubGravitonRecommendedRule = createRule({
   ...metadata,
-  name: 'AWS-Recommended Graviton Migration Opportunity',
+  name: 'AWS-Identified Resources Without Graviton',
   description:
     'Flag EC2 instances, Auto Scaling groups, and RDS DB instances with AWS Graviton migration recommendations.',
   provider: 'aws',
