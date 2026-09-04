@@ -99,6 +99,7 @@ export type AwsConfigRecordingFrequencyReview = {
   includeGlobalResourceTypes: boolean;
   observationWindowDays: number;
   paidServiceLinkedRecorderDependent: boolean;
+  recentlyDeletedResourceCount?: number;
   recorderArn: string;
   recorderName: string;
   recordedResourceCount: number;

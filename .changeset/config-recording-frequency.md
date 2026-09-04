@@ -4,4 +4,4 @@
 cloudburn: patch
 ---
 
-Add a discovery check that recommends targeted daily AWS Config recording overrides for high-churn resource types while preserving continuous recording for Firewall Manager dependencies.
+Add a discovery check that recommends targeted daily AWS Config recording overrides when current inventory, recent resource turnover, and configuration-item volume show a saving. Keep continuous recording for Firewall Manager dependencies.

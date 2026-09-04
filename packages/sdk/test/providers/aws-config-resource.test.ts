@@ -5,6 +5,7 @@ import {
   DescribeConfigurationRecordersCommand,
   GetDiscoveredResourceCountsCommand,
   ListConfigurationRecordersCommand,
+  ListDiscoveredResourcesCommand,
 } from '@aws-sdk/client-config-service';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createCloudWatchClient, createConfigServiceClient } from '../../src/providers/aws/client.js';
@@ -48,6 +49,10 @@ const configureConfigClient = (options: {
   configRules?: unknown[];
   recorders?: unknown[];
   resourceCounts?: Array<{ count: number; resourceType: string }>;
+  resourceIdentifiersByType?: Record<
+    string,
+    Array<{ resourceDeletionTime?: Date; resourceId: string; resourceType: string }>
+  >;
   recording?: boolean;
   serviceLinkedRecorder?: unknown;
   serviceLinkedRecorderArn?: string;
@@ -81,6 +86,10 @@ const configureConfigClient = (options: {
 
     if (command instanceof GetDiscoveredResourceCountsCommand) {
       return { resourceCounts: options.resourceCounts ?? [] };
+    }
+
+    if (command instanceof ListDiscoveredResourcesCommand) {
+      return { resourceIdentifiers: options.resourceIdentifiersByType?.[command.input.resourceType] ?? [] };
     }
 
     if (command instanceof DescribeConfigRulesCommand) {
@@ -156,6 +165,7 @@ describe('hydrateAwsConfigRecordingFrequencyReviews', () => {
         includeGlobalResourceTypes: false,
         observationWindowDays: 14,
         paidServiceLinkedRecorderDependent: false,
+        recentlyDeletedResourceCount: 0,
         recorderArn,
         recorderName: 'default',
         recordedResourceCount: 5,
@@ -268,6 +278,36 @@ describe('hydrateAwsConfigRecordingFrequencyReviews', () => {
         ],
       }),
     );
+  });
+
+  it('accounts for recently deleted resources when estimating daily recording cost', async () => {
+    const resourceType = 'AWS::EC2::NetworkInterface';
+    configureConfigClient({
+      resourceCounts: [{ count: 1, resourceType }],
+      resourceIdentifiersByType: {
+        [resourceType]: Array.from({ length: 100 }, (_, index) => ({
+          resourceDeletionTime: new Date('2026-09-01T00:00:00.000Z'),
+          resourceId: `eni-deleted-${index}`,
+          resourceType,
+        })),
+      },
+    });
+    configureMetrics([resourceType], { [resourceType]: 2_000 });
+
+    await expect(
+      hydrateAwsConfigRecordingFrequencyReviews([], {
+        region: 'eu-central-1',
+        resolveAccountId: async () => accountId,
+      }),
+    ).resolves.toEqual([
+      expect.objectContaining({
+        estimatedMonthlyConfigurationItemReduction: 1_256,
+        estimatedMonthlyRecordingCostReductionUsd: -23.5,
+        recentlyDeletedResourceCount: 100,
+        recordedResourceCount: 1,
+        resourceType,
+      }),
+    ]);
   });
 
   it('keeps continuous recording when a Firewall Manager rule depends on the resource type', async () => {

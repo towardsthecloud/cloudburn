@@ -7,7 +7,9 @@ import {
   DescribeConfigurationRecordersCommand,
   GetDiscoveredResourceCountsCommand,
   ListConfigurationRecordersCommand,
+  ListDiscoveredResourcesCommand,
   type RecordingFrequency,
+  type ResourceType,
 } from '@aws-sdk/client-config-service';
 import type {
   AwsConfigRecordingFrequencyReview,
@@ -157,6 +159,42 @@ const getRecordedResourceCounts = async (
       } while (nextToken);
     },
   );
+
+  return counts;
+};
+
+const getRecentlyDeletedResourceCounts = async (
+  client: ConfigServiceClient,
+  region: string,
+  resourceTypes: string[],
+  startTime: Date,
+): Promise<Map<string, number>> => {
+  const counts = new Map<string, number>();
+
+  await mapWithConcurrency(resourceTypes, RESOURCE_COUNT_BATCH_CONCURRENCY, async (resourceType) => {
+    let count = 0;
+    let nextToken: string | undefined;
+
+    do {
+      const response = await withAwsServiceErrorContext('AWS Config', 'ListDiscoveredResources', region, () =>
+        client.send(
+          new ListDiscoveredResourcesCommand({
+            includeDeletedResources: true,
+            limit: 100,
+            nextToken,
+            resourceType: resourceType as ResourceType,
+          }),
+        ),
+      );
+
+      count += (response.resourceIdentifiers ?? []).filter(
+        (resource) => resource.resourceDeletionTime && resource.resourceDeletionTime >= startTime,
+      ).length;
+      nextToken = response.nextToken;
+    } while (nextToken);
+
+    counts.set(resourceType, count);
+  });
 
   return counts;
 };
@@ -350,11 +388,11 @@ export const hydrateAwsConfigRecordingFrequencyReviews = async (
     fetchCloudWatchSignals({ endTime, queries, region, startTime }),
     getRecordedResourceCounts(configClient, region, continuousResourceTypes),
   ]);
-  const recordingFrequencyReviews = continuousResourceTypes.flatMap((resourceType, index) => {
-    const recordedResourceCount = resourceCounts.get(resourceType);
+  const potentialRecordingFrequencyReviews = continuousResourceTypes.flatMap((resourceType, index) => {
+    const recordedResourceCount = resourceCounts.get(resourceType) ?? 0;
     const points = metricData.get(`config${index}`);
 
-    if (!points || recordedResourceCount === undefined || recordedResourceCount <= 0) {
+    if (!points) {
       return [];
     }
 
@@ -363,10 +401,6 @@ export const hydrateAwsConfigRecordingFrequencyReviews = async (
       (configurationItemsRecorded / OBSERVATION_WINDOW_DAYS) * 30,
     );
     const estimatedMonthlyDailyConfigurationItems = recordedResourceCount * 30;
-    const estimatedMonthlyConfigurationItemReduction = Math.max(
-      0,
-      estimatedMonthlyContinuousConfigurationItems - estimatedMonthlyDailyConfigurationItems,
-    );
     const estimatedMonthlyRecordingCostReductionUsd = Number(
       (
         estimatedMonthlyContinuousConfigurationItems * CONTINUOUS_RECORDING_UNIT_PRICE_USD -
@@ -374,20 +408,54 @@ export const hydrateAwsConfigRecordingFrequencyReviews = async (
       ).toFixed(2),
     );
 
+    if (estimatedMonthlyRecordingCostReductionUsd <= 0) {
+      return [];
+    }
+
     return [
       {
         configurationItemsRecorded,
-        estimatedMonthlyConfigurationItemReduction,
-        estimatedMonthlyRecordingCostReductionUsd,
+        estimatedMonthlyContinuousConfigurationItems,
         recordedResourceCount,
         resourceType,
       },
     ];
   });
 
-  if (recordingFrequencyReviews.length === 0) {
+  if (potentialRecordingFrequencyReviews.length === 0) {
     return [];
   }
+
+  const recentlyDeletedResourceCounts = await getRecentlyDeletedResourceCounts(
+    configClient,
+    region,
+    potentialRecordingFrequencyReviews.map((review) => review.resourceType),
+    startTime,
+  );
+  const recordingFrequencyReviews = potentialRecordingFrequencyReviews.map((review) => {
+    const recentlyDeletedResourceCount = recentlyDeletedResourceCounts.get(review.resourceType) ?? 0;
+    const estimatedMonthlyDailyConfigurationItems = Math.min(
+      review.estimatedMonthlyContinuousConfigurationItems,
+      (review.recordedResourceCount + recentlyDeletedResourceCount) * 30,
+    );
+    const estimatedMonthlyConfigurationItemReduction =
+      review.estimatedMonthlyContinuousConfigurationItems - estimatedMonthlyDailyConfigurationItems;
+    const estimatedMonthlyRecordingCostReductionUsd = Number(
+      (
+        review.estimatedMonthlyContinuousConfigurationItems * CONTINUOUS_RECORDING_UNIT_PRICE_USD -
+        estimatedMonthlyDailyConfigurationItems * DAILY_RECORDING_UNIT_PRICE_USD
+      ).toFixed(2),
+    );
+
+    return {
+      configurationItemsRecorded: review.configurationItemsRecorded,
+      estimatedMonthlyConfigurationItemReduction,
+      estimatedMonthlyRecordingCostReductionUsd,
+      recentlyDeletedResourceCount,
+      recordedResourceCount: review.recordedResourceCount,
+      resourceType: review.resourceType,
+    };
+  });
 
   const [accountId, firewallManagerDependencies, paidServiceLinkedRecorderDependencies] = await Promise.all([
     resolveAwsAccountIdForLoad(context),
@@ -421,6 +489,7 @@ export const hydrateAwsConfigRecordingFrequencyReviews = async (
       includeGlobalResourceTypes,
       observationWindowDays: OBSERVATION_WINDOW_DAYS,
       paidServiceLinkedRecorderDependent,
+      recentlyDeletedResourceCount: review.recentlyDeletedResourceCount,
       recorderArn,
       recorderName,
       recordedResourceCount: review.recordedResourceCount,

@@ -127,10 +127,11 @@ meaningful optimization opportunities, and `low` covers hygiene and smaller accu
 
 `CLDBRN-AWS-CONFIG-1` reviews a 14-day window and uses the
 [published AWS Config configuration-item prices](https://aws.amazon.com/config/pricing/): `$0.003` for continuous and
-`$0.012` for daily recording. It treats one daily item per currently recorded resource per day as the projected upper
-bound. Its estimate covers recording charges only; AWS Config rule and conformance-pack evaluations are separate
-charges. Types unsupported by daily recording, protected by Firewall Manager, or covered by a paid continuous
-service-linked recorder remain continuous.
+`$0.012` for daily recording. The daily projection includes current resources and resources deleted during the
+observation window, with at most one daily item per resource per day. It cannot exceed the observed continuous volume.
+The estimate covers recording charges only; AWS Config rule and conformance-pack evaluations are separate charges.
+Types unsupported by daily recording, protected by Firewall Manager, or covered by a paid continuous service-linked
+recorder remain continuous.
 
 The rule evaluates one region per discovery run. Pass an explicit single-region target to review another region;
 multi-region and all-region SDK targets do not fan out AWS Config API calls.
