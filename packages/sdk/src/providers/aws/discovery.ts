@@ -258,16 +258,18 @@ const buildCatalogFailureDiagnostic = (err: unknown): ScanDiagnostic => {
 };
 
 const normalizeDatasetLoadResult = (
-  loadResult: unknown[] | { diagnostics?: ScanDiagnostic[]; resources: unknown[] },
-): { diagnostics: ScanDiagnostic[]; resources: unknown[] } =>
+  loadResult: unknown[] | { diagnostics?: ScanDiagnostic[]; resources: unknown[]; unavailable?: boolean },
+): { diagnostics: ScanDiagnostic[]; resources: unknown[]; unavailable: boolean } =>
   Array.isArray(loadResult)
     ? {
         diagnostics: [],
         resources: loadResult,
+        unavailable: false,
       }
     : {
         diagnostics: loadResult.diagnostics ?? [],
         resources: loadResult.resources,
+        unavailable: loadResult.unavailable ?? false,
       };
 
 const formatElapsedMs = (startedAtMs: number): string => `${Math.max(0, Date.now() - startedAtMs)}ms`;
@@ -429,7 +431,7 @@ export const discoverAwsResources = async (
               DiscoveryDatasetMap[K],
             ],
             diagnostics: loadResult.diagnostics,
-            unavailable: false,
+            unavailable: loadResult.unavailable,
           };
         } catch (err) {
           emitDebugLog(
@@ -481,6 +483,12 @@ export const discoverAwsResources = async (
           const loadResult = normalizeDatasetLoadResult(await definition.load(regionResources, loadContext));
           appendItems(loadedResources, loadResult.resources);
           appendItems(diagnostics, loadResult.diagnostics);
+          if (loadResult.unavailable) {
+            unavailable = true;
+            for (const diagnostic of loadResult.diagnostics) {
+              unavailableDiagnostics.add(diagnostic);
+            }
+          }
           emitDebugLog(
             options?.debugLogger,
             `aws: completed dataset ${definition.datasetKey} in ${region} with ${loadResult.resources.length} resources in ${formatElapsedMs(regionStartedAtMs)}`,

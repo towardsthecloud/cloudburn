@@ -78,6 +78,8 @@ import { hydrateAwsEc2VpcEndpointActivity } from './resources/vpc-endpoints.js';
 export type AwsDiscoveryDatasetLoadResult<K extends DiscoveryDatasetKey = DiscoveryDatasetKey> = {
   diagnostics?: ScanDiagnostic[];
   resources: DiscoveryDatasetMap[K];
+  /** Whether incomplete evidence prevents dependent rules from reaching a pass/fail decision. */
+  unavailable?: boolean;
 };
 
 /**

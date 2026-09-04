@@ -134,7 +134,8 @@ Types unsupported by daily recording, protected by Firewall Manager, or covered 
 recorder remain continuous.
 
 Turnover inspection reads at most `1,000` retained resource identities per candidate type and stops sooner when observed
-deletions already erase the saving. An incomplete turnover estimate cannot produce a finding.
+deletions already erase the saving. When the bounded inspection cannot establish turnover, CloudBurn emits a diagnostic
+and reports the rule as `not_applicable`; an incomplete estimate cannot produce a finding or a successful pass.
 
 The rule evaluates one region per discovery run. Pass an explicit single-region target to review another region;
 multi-region and all-region SDK targets do not fan out AWS Config API calls.

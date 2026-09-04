@@ -17,7 +17,7 @@ import type {
   AwsDiscoveredResource,
 } from '@cloudburn/rules';
 import { createCloudWatchClient, createConfigServiceClient, resolveCurrentAwsRegion } from '../client.js';
-import type { AwsAccountIdResolver } from '../discovery-registry.js';
+import type { AwsAccountIdResolver, AwsDiscoveryDatasetLoadResult } from '../discovery-registry.js';
 import { fetchCloudWatchSignals } from './cloudwatch.js';
 import { chunkItems, mapWithConcurrency, resolveAwsAccountIdForLoad, withAwsServiceErrorContext } from './utils.js';
 
@@ -27,6 +27,7 @@ const OBSERVATION_WINDOW_DAYS = 14;
 const DAY_SECONDS = 24 * 60 * 60;
 const RESOURCE_COUNT_BATCH_SIZE = 20;
 const RESOURCE_COUNT_BATCH_CONCURRENCY = 5;
+const RETAINED_RESOURCE_PAGE_SIZE = 100;
 const MAX_RETAINED_RESOURCE_PAGES = 10;
 const CONTINUOUS_RECORDING_UNIT_PRICE_USD = 0.003;
 const DAILY_RECORDING_UNIT_PRICE_USD = 0.012;
@@ -182,7 +183,7 @@ const getRecentlyDeletedResourceCounts = async (
         client.send(
           new ListDiscoveredResourcesCommand({
             includeDeletedResources: true,
-            limit: 100,
+            limit: RETAINED_RESOURCE_PAGE_SIZE,
             nextToken,
             resourceType: resourceType as ResourceType,
           }),
@@ -309,7 +310,9 @@ const getPaidServiceLinkedRecorderDependencies = async (
 export const hydrateAwsConfigRecordingFrequencyReviews = async (
   _resources: AwsDiscoveredResource[],
   context?: ConfigDiscoveryContext,
-): Promise<AwsConfigRecordingFrequencyReview[]> => {
+): Promise<
+  AwsConfigRecordingFrequencyReview[] | AwsDiscoveryDatasetLoadResult<'aws-config-recording-frequency-reviews'>
+> => {
   const region = context?.region ?? (await resolveCurrentAwsRegion());
   const configClient = createConfigServiceClient({ region });
   const recorderResponse = await withAwsServiceErrorContext(
@@ -483,7 +486,7 @@ export const hydrateAwsConfigRecordingFrequencyReviews = async (
     ),
   ]);
 
-  return recordingFrequencyReviews.map((review) => {
+  const resources = recordingFrequencyReviews.map((review) => {
     const firewallManagerDependent =
       firewallManagerDependencies.allResourceTypes ||
       firewallManagerDependencies.resourceTypes.has(review.resourceType);
@@ -517,4 +520,31 @@ export const hydrateAwsConfigRecordingFrequencyReviews = async (
       turnoverEstimateReliable: review.turnoverEstimateReliable,
     } satisfies AwsConfigRecordingFrequencyReview;
   });
+  const unreliableResourceTypes = resources
+    .filter((review) => review.turnoverEstimateReliable === false)
+    .map((review) => review.resourceType)
+    .sort((left, right) => left.localeCompare(right));
+
+  if (unreliableResourceTypes.length === 0) {
+    return resources;
+  }
+
+  const retainedResourceInspectionLimit = MAX_RETAINED_RESOURCE_PAGES * RETAINED_RESOURCE_PAGE_SIZE;
+
+  return {
+    diagnostics: [
+      {
+        code: 'ConfigResourceTurnoverLimitExceeded',
+        details: `Turnover could not be established for ${unreliableResourceTypes.join(', ')} after inspecting ${retainedResourceInspectionLimit.toLocaleString('en-US')} retained resource identities.`,
+        message: `Skipped AWS Config recording-frequency evaluation in ${region} because retained-resource turnover exceeded the ${retainedResourceInspectionLimit.toLocaleString('en-US')}-identity inspection limit.`,
+        provider: 'aws',
+        region,
+        service: 'config',
+        source: 'discovery',
+        status: 'skipped',
+      },
+    ],
+    resources,
+    unavailable: true,
+  };
 };

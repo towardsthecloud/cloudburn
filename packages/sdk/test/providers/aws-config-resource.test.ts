@@ -343,12 +343,29 @@ describe('hydrateAwsConfigRecordingFrequencyReviews', () => {
         region: 'eu-central-1',
         resolveAccountId: async () => accountId,
       }),
-    ).resolves.toEqual([
-      expect.objectContaining({
-        resourceType,
-        turnoverEstimateReliable: false,
-      }),
-    ]);
+    ).resolves.toEqual({
+      diagnostics: [
+        {
+          code: 'ConfigResourceTurnoverLimitExceeded',
+          details:
+            'Turnover could not be established for AWS::Lambda::Function after inspecting 1,000 retained resource identities.',
+          message:
+            'Skipped AWS Config recording-frequency evaluation in eu-central-1 because retained-resource turnover exceeded the 1,000-identity inspection limit.',
+          provider: 'aws',
+          region: 'eu-central-1',
+          service: 'config',
+          source: 'discovery',
+          status: 'skipped',
+        },
+      ],
+      resources: [
+        expect.objectContaining({
+          resourceType,
+          turnoverEstimateReliable: false,
+        }),
+      ],
+      unavailable: true,
+    });
     expect(send.mock.calls.filter(([command]) => command instanceof ListDiscoveredResourcesCommand)).toHaveLength(10);
   });
 

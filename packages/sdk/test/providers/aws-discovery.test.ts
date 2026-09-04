@@ -1029,6 +1029,40 @@ describe('discoverAwsResources', () => {
     expect(result.resources.get('aws-config-recording-frequency-reviews')).toHaveLength(1);
   });
 
+  it('marks account-scoped datasets unavailable when a loader declares incomplete evidence', async () => {
+    const diagnostic = {
+      code: 'ConfigResourceTurnoverLimitExceeded',
+      details:
+        'Turnover could not be established for AWS::Lambda::Function after inspecting 1,000 retained resource identities.',
+      message:
+        'Skipped AWS Config recording-frequency evaluation in eu-central-1 because retained-resource turnover exceeded the 1,000-identity inspection limit.',
+      provider: 'aws' as const,
+      region: 'eu-central-1',
+      service: 'config',
+      source: 'discovery' as const,
+      status: 'skipped' as const,
+    };
+    mockedHydrateAwsConfigRecordingFrequencyReviews.mockResolvedValue({
+      diagnostics: [diagnostic],
+      resources: [],
+      unavailable: true,
+    });
+
+    const result = await discoverAwsResources(
+      [
+        createRule({
+          id: 'CLDBRN-AWS-CONFIG-1',
+          service: 'config',
+          discoveryDependencies: ['aws-config-recording-frequency-reviews'],
+        }),
+      ],
+      { mode: 'region', region: 'eu-central-1' },
+    );
+
+    expect(result.unavailableDatasets?.get('aws-config-recording-frequency-reviews')).toEqual([diagnostic]);
+    expect(result.diagnostics).toEqual([diagnostic]);
+  });
+
   it('keeps the requested region for account-scoped datasets when Resource Explorer uses an aggregator', async () => {
     mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
       indexType: 'AGGREGATOR',

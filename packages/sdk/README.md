@@ -96,7 +96,8 @@ Evaluation resources can include provider-normalized `data` when a check needs a
 timestamps. For example, `CLDBRN-AWS-CONFIG-1` reports the affected resource type, current recording frequency,
 observation window, configuration-item volume, current and recently deleted resource counts, estimated monthly
 reduction, turnover-estimate reliability, recorder scope and overrides, public continuous and daily unit prices, and any
-Firewall Manager or paid service-linked recorder dependency.
+Firewall Manager or paid service-linked recorder dependency. If bounded turnover inspection cannot establish a reliable
+estimate, discovery emits a diagnostic and reports the rule as `not_applicable` instead of `passed`.
 
 The SDK does not define product profiles, remediation effort, commands, or persistence schemas. Applications select
 the discovery rules that fit their use case through `config.discovery.enabledRules` and transform the generic result
