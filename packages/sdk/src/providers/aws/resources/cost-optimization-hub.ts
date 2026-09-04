@@ -30,6 +30,7 @@ import type {
   AwsCostOptimizationHubSavingsPlansRecommendation,
   AwsDiscoveredResource,
 } from '@cloudburn/rules';
+import type { ScanDiagnostic } from '../../../types.js';
 import { createCostOptimizationHubClient } from '../client.js';
 import type { AwsAccountIdResolver, AwsDiscoveryDatasetLoadResult } from '../discovery-registry.js';
 import { formatAwsAccessDeniedReason, getAwsErrorCode, isAwsAccessDeniedError } from '../errors.js';
@@ -62,7 +63,7 @@ type NormalizedRecommendationCommon = AwsCostOptimizationHubRecommendation & {
   currentResourceType: string;
 };
 
-type RecommendationCategory<T> = {
+type RecommendationCategory<T extends AwsCostOptimizationHubRecommendation> = {
   actionType: AwsCostOptimizationHubRecommendation['actionType'];
   incompleteDetails: (count: number) => string;
   messageSubject: string;
@@ -75,12 +76,10 @@ type SavingsPlansConfiguration =
   | Ec2InstanceSavingsPlansConfiguration
   | SageMakerSavingsPlansConfiguration;
 
-type CostOptimizationHubLoadResult<T> =
+type CostOptimizationHubLoadResult<T extends AwsCostOptimizationHubRecommendation> =
   | T[]
   | {
-      diagnostics: NonNullable<
-        AwsDiscoveryDatasetLoadResult<'aws-cost-optimization-hub-savings-plans-recommendations'>['diagnostics']
-      >;
+      diagnostics: ScanDiagnostic[];
       resources: T[];
       unavailable: true;
     };
@@ -99,7 +98,7 @@ const withOptionalBoolean = (key: string, value: boolean | undefined): Record<st
 
 const normalizeRecommendationCommon = (
   recommendation: Recommendation,
-  category: RecommendationCategory<unknown>,
+  category: RecommendationCategory<AwsCostOptimizationHubRecommendation>,
 ): NormalizedRecommendationCommon | null => {
   if (
     !recommendation.recommendationId ||
@@ -243,8 +242,13 @@ const normalizeOpenSearchReservationConfiguration = (
   };
 };
 
-const normalizeRedshiftReservationConfiguration = (
-  configuration: RedshiftReservedInstancesConfiguration | undefined,
+type AwsInstanceReservationConfiguration =
+  | ElastiCacheReservedInstancesConfiguration
+  | MemoryDbReservedInstancesConfiguration
+  | RedshiftReservedInstancesConfiguration;
+
+const normalizeInstanceReservationConfiguration = (
+  configuration: AwsInstanceReservationConfiguration | undefined,
 ): AwsCostOptimizationHubRedshiftReservationConfiguration | null => {
   const common = normalizeReservationConfigurationCommon(configuration);
   const normalizedUnitsToPurchase = optionalFiniteNumber(configuration?.normalizedUnitsToPurchase);
@@ -264,47 +268,20 @@ const normalizeRedshiftReservationConfiguration = (
   };
 };
 
+const normalizeRedshiftReservationConfiguration = (
+  configuration: RedshiftReservedInstancesConfiguration | undefined,
+): AwsCostOptimizationHubRedshiftReservationConfiguration | null =>
+  normalizeInstanceReservationConfiguration(configuration);
+
 const normalizeElastiCacheReservationConfiguration = (
   configuration: ElastiCacheReservedInstancesConfiguration | undefined,
-): AwsCostOptimizationHubElastiCacheReservationConfiguration | null => {
-  const common = normalizeReservationConfigurationCommon(configuration);
-  const normalizedUnitsToPurchase = optionalFiniteNumber(configuration?.normalizedUnitsToPurchase);
-  const numberOfInstancesToPurchase = optionalFiniteNumber(configuration?.numberOfInstancesToPurchase);
-  if (!common || normalizedUnitsToPurchase === null || numberOfInstancesToPurchase === null) {
-    return null;
-  }
-
-  return {
-    ...common,
-    ...withOptionalString('currentGeneration', configuration?.currentGeneration),
-    ...withOptionalString('instanceFamily', configuration?.instanceFamily),
-    ...withOptionalString('instanceType', configuration?.instanceType),
-    ...withOptionalNumber('normalizedUnitsToPurchase', normalizedUnitsToPurchase),
-    ...withOptionalNumber('numberOfInstancesToPurchase', numberOfInstancesToPurchase),
-    ...withOptionalBoolean('sizeFlexEligible', configuration?.sizeFlexEligible),
-  };
-};
+): AwsCostOptimizationHubElastiCacheReservationConfiguration | null =>
+  normalizeInstanceReservationConfiguration(configuration);
 
 const normalizeMemoryDbReservationConfiguration = (
   configuration: MemoryDbReservedInstancesConfiguration | undefined,
-): AwsCostOptimizationHubMemoryDbReservationConfiguration | null => {
-  const common = normalizeReservationConfigurationCommon(configuration);
-  const normalizedUnitsToPurchase = optionalFiniteNumber(configuration?.normalizedUnitsToPurchase);
-  const numberOfInstancesToPurchase = optionalFiniteNumber(configuration?.numberOfInstancesToPurchase);
-  if (!common || normalizedUnitsToPurchase === null || numberOfInstancesToPurchase === null) {
-    return null;
-  }
-
-  return {
-    ...common,
-    ...withOptionalString('currentGeneration', configuration?.currentGeneration),
-    ...withOptionalString('instanceFamily', configuration?.instanceFamily),
-    ...withOptionalString('instanceType', configuration?.instanceType),
-    ...withOptionalNumber('normalizedUnitsToPurchase', normalizedUnitsToPurchase),
-    ...withOptionalNumber('numberOfInstancesToPurchase', numberOfInstancesToPurchase),
-    ...withOptionalBoolean('sizeFlexEligible', configuration?.sizeFlexEligible),
-  };
-};
+): AwsCostOptimizationHubMemoryDbReservationConfiguration | null =>
+  normalizeInstanceReservationConfiguration(configuration);
 
 const normalizeDynamoDbReservationConfiguration = (
   configuration: DynamoDbReservedCapacityConfiguration | undefined,
@@ -482,21 +459,54 @@ const reservationCategory: RecommendationCategory<AwsCostOptimizationHubReservat
   resourceTypes: RESERVATION_RESOURCE_TYPES,
 };
 
-const loadCostOptimizationHubRecommendations = async <T>(
+type CostOptimizationHubSession = {
+  client: ReturnType<typeof createCostOptimizationHubClient>;
+  enrolled: boolean;
+};
+
+const sessionsByLoadContext = new WeakMap<AwsAccountIdResolver, Promise<CostOptimizationHubSession>>();
+
+const createCostOptimizationHubSession = async (accountId: string): Promise<CostOptimizationHubSession> => {
+  const client = createCostOptimizationHubClient();
+  const enrollment = await withAwsServiceErrorContext(
+    'AWS Cost Optimization Hub',
+    'ListEnrollmentStatuses',
+    COST_OPTIMIZATION_HUB_REGION,
+    () => client.send(new ListEnrollmentStatusesCommand({ accountId, maxResults: 100 })),
+  );
+  return {
+    client,
+    enrolled: enrollment.items?.some((item) => item.accountId === accountId && item.status === 'Active') ?? false,
+  };
+};
+
+const getCostOptimizationHubSession = (
+  accountId: string,
+  context?: AwsAccountIdResolver,
+): Promise<CostOptimizationHubSession> => {
+  if (!context) {
+    return createCostOptimizationHubSession(accountId);
+  }
+
+  const existing = sessionsByLoadContext.get(context);
+  if (existing) {
+    return existing;
+  }
+
+  const session = createCostOptimizationHubSession(accountId);
+  sessionsByLoadContext.set(context, session);
+  return session;
+};
+
+const loadCostOptimizationHubRecommendations = async <T extends AwsCostOptimizationHubRecommendation>(
   category: RecommendationCategory<T>,
   context?: AwsAccountIdResolver,
 ): Promise<CostOptimizationHubLoadResult<T>> => {
   const accountId = await resolveAwsAccountIdForLoad(context);
-  const client = createCostOptimizationHubClient();
   try {
-    const enrollment = await withAwsServiceErrorContext(
-      'AWS Cost Optimization Hub',
-      'ListEnrollmentStatuses',
-      COST_OPTIMIZATION_HUB_REGION,
-      () => client.send(new ListEnrollmentStatusesCommand({ accountId, maxResults: 100 })),
-    );
+    const { client, enrolled } = await getCostOptimizationHubSession(accountId, context);
 
-    if (!enrollment.items?.some((item) => item.accountId === accountId && item.status === 'Active')) {
+    if (!enrolled) {
       return {
         diagnostics: [
           {
@@ -583,11 +593,7 @@ const loadCostOptimizationHubRecommendations = async <T>(
       };
     }
 
-    return recommendations.sort((left, right) =>
-      (left as { recommendationId: string }).recommendationId.localeCompare(
-        (right as { recommendationId: string }).recommendationId,
-      ),
-    );
+    return recommendations.sort((left, right) => left.recommendationId.localeCompare(right.recommendationId));
   } catch (err) {
     if (!isAwsAccessDeniedError(err)) {
       throw err;

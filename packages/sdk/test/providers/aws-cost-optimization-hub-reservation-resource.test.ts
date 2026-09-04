@@ -6,7 +6,10 @@ import {
 } from '@aws-sdk/client-cost-optimization-hub';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createCostOptimizationHubClient } from '../../src/providers/aws/client.js';
-import { hydrateAwsCostOptimizationHubReservationRecommendations } from '../../src/providers/aws/resources/cost-optimization-hub.js';
+import {
+  hydrateAwsCostOptimizationHubReservationRecommendations,
+  hydrateAwsCostOptimizationHubSavingsPlansRecommendations,
+} from '../../src/providers/aws/resources/cost-optimization-hub.js';
 
 vi.mock('../../src/providers/aws/client.js', () => ({
   createCostOptimizationHubClient: vi.fn(),
@@ -427,5 +430,27 @@ describe('hydrateAwsCostOptimizationHubReservationRecommendations', () => {
     });
 
     expect(maximumInFlight).toBe(10);
+  });
+
+  it('shares enrollment state when both Cost Optimization Hub categories load in one discovery run', async () => {
+    const send = vi.fn(async (command: unknown) => {
+      if (command instanceof ListEnrollmentStatusesCommand) {
+        return { items: [{ accountId, status: 'Active' }] };
+      }
+      if (command instanceof ListRecommendationsCommand) {
+        return { items: [] };
+      }
+      throw new Error(`Unexpected command: ${String(command)}`);
+    });
+    mockedCreateCostOptimizationHubClient.mockReturnValue({ send } as never);
+    const context = { resolveAccountId: vi.fn().mockResolvedValue(accountId) };
+
+    await Promise.all([
+      hydrateAwsCostOptimizationHubSavingsPlansRecommendations([], context),
+      hydrateAwsCostOptimizationHubReservationRecommendations([], context),
+    ]);
+
+    expect(mockedCreateCostOptimizationHubClient).toHaveBeenCalledTimes(1);
+    expect(send.mock.calls.filter(([command]) => command instanceof ListEnrollmentStatusesCommand)).toHaveLength(1);
   });
 });

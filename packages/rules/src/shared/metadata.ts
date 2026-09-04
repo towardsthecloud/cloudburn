@@ -539,8 +539,7 @@ export type AwsCostOptimizationHubOpenSearchReservationConfiguration =
     sizeFlexEligible?: boolean;
   };
 
-/** Redshift-specific reservation purchase configuration. */
-export type AwsCostOptimizationHubRedshiftReservationConfiguration = AwsCostOptimizationHubReservationConfiguration & {
+type AwsCostOptimizationHubInstanceReservationConfiguration = AwsCostOptimizationHubReservationConfiguration & {
   currentGeneration?: string;
   instanceFamily?: string;
   instanceType?: string;
@@ -548,27 +547,18 @@ export type AwsCostOptimizationHubRedshiftReservationConfiguration = AwsCostOpti
   numberOfInstancesToPurchase?: number;
   sizeFlexEligible?: boolean;
 };
+
+/** Redshift-specific reservation purchase configuration. */
+export type AwsCostOptimizationHubRedshiftReservationConfiguration =
+  AwsCostOptimizationHubInstanceReservationConfiguration;
 
 /** ElastiCache-specific reservation purchase configuration. */
 export type AwsCostOptimizationHubElastiCacheReservationConfiguration =
-  AwsCostOptimizationHubReservationConfiguration & {
-    currentGeneration?: string;
-    instanceFamily?: string;
-    instanceType?: string;
-    normalizedUnitsToPurchase?: number;
-    numberOfInstancesToPurchase?: number;
-    sizeFlexEligible?: boolean;
-  };
+  AwsCostOptimizationHubInstanceReservationConfiguration;
 
 /** MemoryDB-specific reservation purchase configuration. */
-export type AwsCostOptimizationHubMemoryDbReservationConfiguration = AwsCostOptimizationHubReservationConfiguration & {
-  currentGeneration?: string;
-  instanceFamily?: string;
-  instanceType?: string;
-  normalizedUnitsToPurchase?: number;
-  numberOfInstancesToPurchase?: number;
-  sizeFlexEligible?: boolean;
-};
+export type AwsCostOptimizationHubMemoryDbReservationConfiguration =
+  AwsCostOptimizationHubInstanceReservationConfiguration;
 
 /** DynamoDB-specific reserved-capacity purchase configuration. */
 export type AwsCostOptimizationHubDynamoDbReservationConfiguration = AwsCostOptimizationHubReservationConfiguration & {

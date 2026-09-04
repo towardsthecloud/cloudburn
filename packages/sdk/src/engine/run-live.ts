@@ -1,100 +1,15 @@
-import type {
-  AwsCostOptimizationHubReservationRecommendation,
-  CloudProvider,
-  Finding,
-  FindingMatch,
-  LiveResourceBag,
-} from '@cloudburn/rules';
 import { toBuiltInRuleMetadata } from '../built-in-rules.js';
 import { emitDebugLog } from '../debug.js';
 import { discoverAwsResources } from '../providers/aws/discovery.js';
 import { getAwsRuleEvaluationResourceSet } from '../providers/aws/discovery-registry.js';
 import type { AwsDiscoveryProgressEvent, AwsDiscoveryTarget, CloudBurnConfig, ScanResult } from '../types.js';
+import { consolidateCostOptimizationHubFindings, type EvaluatedRuleFinding } from './cost-optimization-hub-findings.js';
 import { groupFindingsByProvider } from './group-findings.js';
 import { buildRuleRegistry } from './registry.js';
 
 const toRuleEvaluationMetadata = (rule: Parameters<typeof toBuiltInRuleMetadata>[0]) => {
   const { id: _id, ...metadata } = toBuiltInRuleMetadata(rule);
   return metadata;
-};
-
-type EvaluatedRuleFinding = {
-  finding: Finding | null;
-  provider: CloudProvider;
-  ruleId: string;
-};
-
-const nativeReservationRuleByType: Partial<
-  Record<AwsCostOptimizationHubReservationRecommendation['reservationType'], string>
-> = {
-  ElastiCacheReservedInstances: 'CLDBRN-AWS-ELASTICACHE-1',
-  RdsReservedInstances: 'CLDBRN-AWS-RDS-3',
-  RedshiftReservedInstances: 'CLDBRN-AWS-REDSHIFT-2',
-};
-
-const findingIdentityMatches = (left: FindingMatch, right: FindingMatch): boolean =>
-  left.resourceId === right.resourceId && left.accountId === right.accountId && left.region === right.region;
-
-const getRecommendationFindingIdentity = (
-  recommendation: AwsCostOptimizationHubReservationRecommendation,
-): FindingMatch => ({
-  accountId: recommendation.accountId,
-  region: recommendation.region,
-  resourceId: recommendation.resourceId ?? recommendation.resourceArn ?? recommendation.recommendationId,
-});
-
-const suppressDuplicateReservationRecommendations = (
-  evaluatedRules: EvaluatedRuleFinding[],
-  resources: LiveResourceBag,
-): EvaluatedRuleFinding[] => {
-  const hubRule = evaluatedRules.find((result) => result.ruleId === 'CLDBRN-AWS-COSTOPTIMIZATIONHUB-2');
-  if (!hubRule?.finding) {
-    return evaluatedRules;
-  }
-
-  const hubFindingGroup = hubRule.finding;
-  const recommendations = [
-    ...new Map(
-      resources
-        .get('aws-cost-optimization-hub-reservation-recommendations')
-        .map((recommendation) => [recommendation.recommendationId, recommendation]),
-    ).values(),
-  ];
-  const retainedFindings = hubFindingGroup.findings.filter((hubFinding, index) => {
-    const recommendation = recommendations[index];
-    if (!recommendation) {
-      return true;
-    }
-    if (
-      recommendation.actionType !== 'PurchaseReservedInstances' ||
-      !findingIdentityMatches(hubFinding, getRecommendationFindingIdentity(recommendation))
-    ) {
-      return true;
-    }
-
-    const nativeRuleId = nativeReservationRuleByType[recommendation.reservationType];
-    if (!nativeRuleId) {
-      return true;
-    }
-
-    const nativeFinding = evaluatedRules.find((result) => result.ruleId === nativeRuleId)?.finding;
-    return !nativeFinding?.findings.some((finding) => findingIdentityMatches(hubFinding, finding));
-  });
-
-  return evaluatedRules.map((result) =>
-    result !== hubRule
-      ? result
-      : {
-          ...result,
-          finding:
-            retainedFindings.length > 0
-              ? {
-                  ...hubFindingGroup,
-                  findings: retainedFindings,
-                }
-              : null,
-        },
-  );
 };
 
 export const runLiveScan = async (
@@ -208,18 +123,17 @@ export const runLiveScan = async (
       ruleId: rule.id,
     };
   });
-  const deduplicatedRules = suppressDuplicateReservationRecommendations(evaluatedRules, liveContext.resources);
-  const reservationEvaluation = evaluationRules.find(
-    (evaluation) => evaluation.ruleId === 'CLDBRN-AWS-COSTOPTIMIZATIONHUB-2',
-  );
-  if (reservationEvaluation && reservationEvaluation.status !== 'not_applicable') {
-    const findingCount =
-      deduplicatedRules.find((result) => result.ruleId === 'CLDBRN-AWS-COSTOPTIMIZATIONHUB-2')?.finding?.findings
-        .length ?? 0;
-    reservationEvaluation.findingCount = findingCount;
-    reservationEvaluation.status = findingCount > 0 ? 'triggered' : 'passed';
+  const consolidatedRules = consolidateCostOptimizationHubFindings(evaluatedRules, liveContext.resources);
+  const findingsByRuleId = new Map(consolidatedRules.map((result) => [result.ruleId, result.finding]));
+  for (const evaluation of evaluationRules) {
+    if (evaluation.status === 'not_applicable') {
+      continue;
+    }
+    const findingCount = findingsByRuleId.get(evaluation.ruleId)?.findings.length ?? 0;
+    evaluation.findingCount = findingCount;
+    evaluation.status = findingCount > 0 ? 'triggered' : 'passed';
   }
-  const findings = groupFindingsByProvider(deduplicatedRules);
+  const findings = groupFindingsByProvider(consolidatedRules);
 
   return {
     ...(scanDiagnostics.length > 0 ? { diagnostics: scanDiagnostics } : {}),
