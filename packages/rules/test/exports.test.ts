@@ -87,7 +87,7 @@ describe('rule exports', () => {
     expect(getAwsCostOptimizationHubReservationResourceType({ reservationType: 'RdsReservedInstances' })).toBe(
       'rds:db',
     );
-    expect(awsRuleIds).toHaveLength(88);
+    expect(awsRuleIds).toHaveLength(89);
     expect(awsCorePreset.ruleIds).toEqual(
       awsRuleIds.filter(
         (ruleId) =>
