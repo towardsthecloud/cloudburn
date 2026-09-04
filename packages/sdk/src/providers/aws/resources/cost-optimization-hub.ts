@@ -299,6 +299,16 @@ const normalizeDynamoDbReservationConfiguration = (
   };
 };
 
+const withReservationRegion = (
+  recommendation: Omit<NormalizedRecommendationCommon, 'currentResourceType'>,
+  configuration: AwsCostOptimizationHubReservationConfiguration,
+): Omit<NormalizedRecommendationCommon, 'currentResourceType'> => ({
+  ...recommendation,
+  ...(!recommendation.region && configuration.reservedInstancesRegion
+    ? { region: configuration.reservedInstancesRegion }
+    : {}),
+});
+
 const normalizeSavingsPlansConfiguration = (
   common: NormalizedRecommendationCommon,
   details: ResourceDetails | undefined,
@@ -355,7 +365,7 @@ const normalizeReservationConfiguration = (
       const configuration = normalizeEc2ReservationConfiguration(details?.ec2ReservedInstances?.configuration);
       return configuration
         ? {
-            ...recommendation,
+            ...withReservationRegion(recommendation, configuration),
             actionType: 'PurchaseReservedInstances',
             configuration,
             reservationType: currentResourceType,
@@ -366,7 +376,7 @@ const normalizeReservationConfiguration = (
       const configuration = normalizeRdsReservationConfiguration(details?.rdsReservedInstances?.configuration);
       return configuration
         ? {
-            ...recommendation,
+            ...withReservationRegion(recommendation, configuration),
             actionType: 'PurchaseReservedInstances',
             configuration,
             reservationType: currentResourceType,
@@ -379,7 +389,7 @@ const normalizeReservationConfiguration = (
       );
       return configuration
         ? {
-            ...recommendation,
+            ...withReservationRegion(recommendation, configuration),
             actionType: 'PurchaseReservedInstances',
             configuration,
             reservationType: currentResourceType,
@@ -392,7 +402,7 @@ const normalizeReservationConfiguration = (
       );
       return configuration
         ? {
-            ...recommendation,
+            ...withReservationRegion(recommendation, configuration),
             actionType: 'PurchaseReservedInstances',
             configuration,
             reservationType: currentResourceType,
@@ -405,7 +415,7 @@ const normalizeReservationConfiguration = (
       );
       return configuration
         ? {
-            ...recommendation,
+            ...withReservationRegion(recommendation, configuration),
             actionType: 'PurchaseReservedInstances',
             configuration,
             reservationType: currentResourceType,
@@ -418,7 +428,7 @@ const normalizeReservationConfiguration = (
       );
       return configuration
         ? {
-            ...recommendation,
+            ...withReservationRegion(recommendation, configuration),
             actionType: 'PurchaseReservedInstances',
             configuration,
             reservationType: currentResourceType,
@@ -429,7 +439,7 @@ const normalizeReservationConfiguration = (
       const configuration = normalizeDynamoDbReservationConfiguration(details?.dynamoDbReservedCapacity?.configuration);
       return configuration
         ? {
-            ...recommendation,
+            ...withReservationRegion(recommendation, configuration),
             actionType: 'PurchaseReservedInstances',
             configuration,
             reservationType: currentResourceType,

@@ -16,6 +16,7 @@ export const toBuiltInRuleMetadata = ({
   service,
   severity,
   supports,
+  supersedesRuleIds,
 }: Rule): BuiltInRuleMetadata => ({
   description,
   id,
@@ -25,6 +26,7 @@ export const toBuiltInRuleMetadata = ({
   service,
   severity,
   supports: [...supports],
+  ...(supersedesRuleIds ? { supersedesRuleIds: [...supersedesRuleIds] } : {}),
 });
 
 const compareBuiltInRules = (left: BuiltInRuleMetadata, right: BuiltInRuleMetadata): number =>

@@ -167,7 +167,10 @@ describe('hydrateAwsCostOptimizationHubReservationRecommendations', () => {
       if (command instanceof ListRecommendationsCommand) {
         return {
           items: reservationTypes.map((currentResourceType, index) =>
-            recommendation(`recommendation-${index + 1}`, { currentResourceType }),
+            recommendation(`recommendation-${index + 1}`, {
+              currentResourceType,
+              ...(index === 0 ? { region: undefined } : {}),
+            }),
           ),
         };
       }

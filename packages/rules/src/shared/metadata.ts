@@ -1411,6 +1411,8 @@ export type Rule = {
   discoveryDependencies?: DiscoveryDatasetKey[];
   /** Datasets an evaluator may use when another active rule has already requested them. */
   optionalDiscoveryDependencies?: DiscoveryDatasetKey[];
+  /** Rule IDs whose identical resource findings this rule replaces with stronger evidence. */
+  supersedesRuleIds?: string[];
   staticDependencies?: StaticDatasetKey[];
   evaluateLive?: (context: LiveEvaluationContext) => Finding | null;
   evaluateStatic?: (context: StaticEvaluationContext) => Finding | null;

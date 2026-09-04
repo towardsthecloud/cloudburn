@@ -76,6 +76,7 @@ export const rdsReservedCoverageRule = createRule({
   service: RULE_SERVICE,
   supports: ['discovery'],
   discoveryDependencies: ['aws-rds-instances', 'aws-rds-reserved-instances'],
+  supersedesRuleIds: ['CLDBRN-AWS-COSTOPTIMIZATIONHUB-2'],
   evaluateLive: ({ resources }) => {
     const now = Date.now();
     const cutoff = now - LONG_RUNNING_INSTANCE_DAYS * DAY_MS;

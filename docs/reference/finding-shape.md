@@ -136,6 +136,7 @@ type RuleEvaluation = {
   source: 'discovery';
   status: 'triggered' | 'passed' | 'not_applicable';
   supports: Source[];
+  supersedesRuleIds?: string[];
   reason?: string;
 };
 ```
@@ -186,7 +187,8 @@ incomplete, denied, or otherwise unavailable Cost Explorer coverage evidence mak
 
 Every selected discovery rule appears exactly once when evaluation evidence is requested:
 
-- `triggered` means the rule emitted one or more findings.
+- `triggered` means the rule emitted one or more findings. It remains triggered when generic rule precedence omits an
+  identical finding from `providers`, preserving the evaluator's original result for audit evidence.
 - `passed` means evaluation completed without findings; `resources` contains the compliant resources inspected.
 - `not_applicable` means a required dataset was unavailable; `reason` retains the corresponding diagnostic message and
   no resource set is referenced.

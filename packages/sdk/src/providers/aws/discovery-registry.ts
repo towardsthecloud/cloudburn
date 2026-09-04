@@ -794,7 +794,10 @@ const awsDiscoveryDatasetRegistry: {
     load: hydrateAwsCostOptimizationHubReservationRecommendations,
     toEvaluationResources: (recommendations) =>
       mapEvaluationResources(
-        recommendations,
+        recommendations.map((recommendation) => ({
+          ...recommendation,
+          region: recommendation.region ?? recommendation.configuration.reservedInstancesRegion,
+        })),
         (recommendation) => recommendation.resourceId ?? recommendation.resourceArn ?? recommendation.recommendationId,
         (recommendation) => ({
           ...(recommendation.resourceArn ? { arn: recommendation.resourceArn } : {}),

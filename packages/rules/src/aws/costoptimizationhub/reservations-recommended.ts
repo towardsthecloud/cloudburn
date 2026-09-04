@@ -9,7 +9,7 @@ const RULE_MESSAGE = 'Reservation-eligible usage should use reserved capacity wh
 export const costOptimizationHubReservationsRecommendedRule = createRule({
   severity: RULE_SEVERITY,
   id: RULE_ID,
-  name: 'Cost Optimization Hub Reservation Purchase Recommended',
+  name: 'Reservation-Eligible Usage Without Reserved Capacity',
   description:
     'Flag EC2, RDS, OpenSearch, Redshift, ElastiCache, MemoryDB, and DynamoDB reservation purchases recommended by AWS.',
   message: RULE_MESSAGE,
@@ -26,7 +26,7 @@ export const costOptimizationHubReservationsRecommendedRule = createRule({
     const findings = [...recommendations.values()].map((recommendation) =>
       createFindingMatch(
         recommendation.resourceId ?? recommendation.resourceArn ?? recommendation.recommendationId,
-        recommendation.region,
+        recommendation.region ?? recommendation.configuration.reservedInstancesRegion,
         recommendation.accountId,
       ),
     );

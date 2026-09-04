@@ -308,6 +308,7 @@ describe('rule metadata', () => {
       service: 'elasticache',
       supports: ['discovery'],
       discoveryDependencies: ['aws-elasticache-clusters', 'aws-elasticache-reserved-nodes'],
+      supersedesRuleIds: ['CLDBRN-AWS-COSTOPTIMIZATIONHUB-2'],
     });
   });
 
@@ -939,6 +940,7 @@ describe('rule metadata', () => {
       service: 'rds',
       supports: ['discovery'],
       discoveryDependencies: ['aws-rds-instances', 'aws-rds-reserved-instances'],
+      supersedesRuleIds: ['CLDBRN-AWS-COSTOPTIMIZATIONHUB-2'],
     });
   });
 
@@ -1087,6 +1089,7 @@ describe('rule metadata', () => {
       service: 'redshift',
       supports: ['discovery'],
       discoveryDependencies: ['aws-redshift-clusters', 'aws-redshift-reserved-nodes'],
+      supersedesRuleIds: ['CLDBRN-AWS-COSTOPTIMIZATIONHUB-2'],
     });
   });
 
@@ -1180,7 +1183,7 @@ describe('rule metadata', () => {
     expect(rule).toBeDefined();
     expect(rule).toMatchObject({
       id: 'CLDBRN-AWS-COSTOPTIMIZATIONHUB-2',
-      name: 'Cost Optimization Hub Reservation Purchase Recommended',
+      name: 'Reservation-Eligible Usage Without Reserved Capacity',
       description:
         'Flag EC2, RDS, OpenSearch, Redshift, ElastiCache, MemoryDB, and DynamoDB reservation purchases recommended by AWS.',
       message: 'Reservation-eligible usage should use reserved capacity when AWS recommends a purchase.',

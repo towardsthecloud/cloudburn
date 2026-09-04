@@ -21,6 +21,7 @@ export const redshiftReservedCoverageRule = createRule({
   service: RULE_SERVICE,
   supports: ['discovery'],
   discoveryDependencies: ['aws-redshift-clusters', 'aws-redshift-reserved-nodes'],
+  supersedesRuleIds: ['CLDBRN-AWS-COSTOPTIMIZATIONHUB-2'],
   evaluateLive: ({ resources }) => {
     const now = Date.now();
     const cutoff = now - LONG_RUNNING_CLUSTER_DAYS * DAY_MS;

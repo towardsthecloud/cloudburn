@@ -125,6 +125,7 @@ export const elastiCacheReservedCoverageRule = createRule({
   service: RULE_SERVICE,
   supports: ['discovery'],
   discoveryDependencies: ['aws-elasticache-clusters', 'aws-elasticache-reserved-nodes'],
+  supersedesRuleIds: ['CLDBRN-AWS-COSTOPTIMIZATIONHUB-2'],
   evaluateLive: ({ resources }) => {
     const now = Date.now();
     const cutoff = now - LONG_RUNNING_CLUSTER_DAYS * DAY_MS;

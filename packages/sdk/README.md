@@ -137,7 +137,9 @@ estimated savings and percentage, currency, implementation effort, restart and r
 term, payment option, and the resource-type-specific purchase configuration. Duplicate recommendation IDs are loaded
 once. A Hub finding is suppressed only when an enabled native CloudBurn rule actually reports the same resource for the
 same reservation purchase action with direct service evidence. The presence of a native rule in the catalog is not
-enough. Unenrolled, denied, and incomplete responses make the Hub rule `not_applicable`.
+enough. This precedence is declared by rule metadata rather than AWS-specific engine policy, and evaluation evidence
+retains the Hub rule's original triggered result. Unenrolled, denied, and incomplete responses make the Hub rule
+`not_applicable`.
 
 `CLDBRN-AWS-SAGEMAKER-3` reads SageMaker Savings Plans coverage from Cost Explorer for the last 30 complete days. It
 flags coverage below 80 percent only when uncovered On-Demand cost is at least 72 cost units. When Cost Optimization

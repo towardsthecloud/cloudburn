@@ -4,4 +4,4 @@
 'cloudburn': patch
 ---
 
-Add opt-in Cost Optimization Hub reservation purchase findings with typed evidence, shared read-only loading, and native-finding deduplication.
+Add opt-in Cost Optimization Hub reservation purchase findings with typed evidence, shared read-only loading, and rule-declared native-finding precedence.

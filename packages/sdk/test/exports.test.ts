@@ -422,4 +422,13 @@ describe('sdk exports', () => {
     expect(metadataRule?.supports).toEqual(sourceRule?.supports);
     expect(metadataRule?.supports).not.toBe(sourceRule?.supports);
   });
+
+  it('projects and clones rule precedence metadata', () => {
+    const sourceRule = awsRules.find((rule) => rule.id === 'CLDBRN-AWS-RDS-3');
+    const metadataRule = builtInRuleMetadata.find((rule) => rule.id === 'CLDBRN-AWS-RDS-3');
+
+    expect(sourceRule?.supersedesRuleIds).toEqual(['CLDBRN-AWS-COSTOPTIMIZATIONHUB-2']);
+    expect(metadataRule?.supersedesRuleIds).toEqual(sourceRule?.supersedesRuleIds);
+    expect(metadataRule?.supersedesRuleIds).not.toBe(sourceRule?.supersedesRuleIds);
+  });
 });

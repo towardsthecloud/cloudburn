@@ -83,7 +83,9 @@ describe('CLDBRN-AWS-COSTOPTIMIZATIONHUB-2', () => {
   });
 
   it('falls back to recommendation identity and returns no finding for an empty dataset', () => {
-    expect(evaluate([createRecommendation({ resourceArn: undefined, resourceId: undefined })])).toEqual(
+    expect(
+      evaluate([createRecommendation({ region: undefined, resourceArn: undefined, resourceId: undefined })]),
+    ).toEqual(
       expect.objectContaining({
         findings: [
           {

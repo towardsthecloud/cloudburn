@@ -3,7 +3,7 @@ import { emitDebugLog } from '../debug.js';
 import { discoverAwsResources } from '../providers/aws/discovery.js';
 import { getAwsRuleEvaluationResourceSet } from '../providers/aws/discovery-registry.js';
 import type { AwsDiscoveryProgressEvent, AwsDiscoveryTarget, CloudBurnConfig, ScanResult } from '../types.js';
-import { consolidateCostOptimizationHubFindings, type EvaluatedRuleFinding } from './cost-optimization-hub-findings.js';
+import { applyFindingPrecedence, type EvaluatedRuleFinding } from './finding-precedence.js';
 import { groupFindingsByProvider } from './group-findings.js';
 import { buildRuleRegistry } from './registry.js';
 
@@ -49,6 +49,7 @@ export const runLiveScan = async (
         provider: rule.provider,
         finding: null,
         ruleId: rule.id,
+        supersedesRuleIds: rule.supersedesRuleIds,
       };
     }
 
@@ -87,6 +88,7 @@ export const runLiveScan = async (
         provider: rule.provider,
         finding: null,
         ruleId: rule.id,
+        supersedesRuleIds: rule.supersedesRuleIds,
       };
     }
 
@@ -121,18 +123,10 @@ export const runLiveScan = async (
       provider: rule.provider,
       finding,
       ruleId: rule.id,
+      supersedesRuleIds: rule.supersedesRuleIds,
     };
   });
-  const consolidatedRules = consolidateCostOptimizationHubFindings(evaluatedRules, liveContext.resources);
-  const findingsByRuleId = new Map(consolidatedRules.map((result) => [result.ruleId, result.finding]));
-  for (const evaluation of evaluationRules) {
-    if (evaluation.status === 'not_applicable') {
-      continue;
-    }
-    const findingCount = findingsByRuleId.get(evaluation.ruleId)?.findings.length ?? 0;
-    evaluation.findingCount = findingCount;
-    evaluation.status = findingCount > 0 ? 'triggered' : 'passed';
-  }
+  const consolidatedRules = applyFindingPrecedence(evaluatedRules);
   const findings = groupFindingsByProvider(consolidatedRules);
 
   return {

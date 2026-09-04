@@ -53,6 +53,7 @@ describe('Cost Optimization Hub reservation orchestration', () => {
   it('keeps a Hub finding when a matching native rule only exists in the catalog and projects full evidence', async () => {
     const arnIdentifiedRecommendation = {
       ...reservationRecommendation,
+      region: undefined,
       resourceId: undefined,
     };
     mockedDiscoverAwsResources.mockResolvedValue({
@@ -86,7 +87,7 @@ describe('Cost Optimization Hub reservation orchestration', () => {
             {
               accountId,
               arn: reservationRecommendation.resourceArn,
-              data: arnIdentifiedRecommendation,
+              data: { ...arnIdentifiedRecommendation, region },
               region,
               resourceId: reservationRecommendation.resourceArn,
               resourceType: 'costoptimizationhub:reservation-recommendation',
@@ -141,9 +142,9 @@ describe('Cost Optimization Hub reservation orchestration', () => {
     expect(result.evaluations?.rules).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          findingCount: 0,
+          findingCount: 1,
           ruleId: 'CLDBRN-AWS-COSTOPTIMIZATIONHUB-2',
-          status: 'passed',
+          status: 'triggered',
         }),
         expect.objectContaining({ findingCount: 1, ruleId: 'CLDBRN-AWS-RDS-3', status: 'triggered' }),
       ]),
