@@ -38,10 +38,10 @@ graph LR
 
 All stdout-producing commands return a typed `CliResponse` and share the same format resolver.
 
-| Format  | Output                                                                                        |
-| ------- | --------------------------------------------------------------------------------------------- |
-| `json`  | Pretty JSON for the underlying response payload                                               |
-| `table` | ASCII tables for scans, record lists, string lists, key/value status output, and `rules list` |
+| Format  | Output                                                                                                                                    |
+| ------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `json`  | Pretty JSON for the underlying response payload                                                                                           |
+| `table` | ASCII tables for scans, including resource namespaces when present, record lists, string lists, key/value status output, and `rules list` |
 
 ## Command Behavior
 

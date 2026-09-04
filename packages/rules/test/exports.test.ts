@@ -60,6 +60,7 @@ import {
   createStaticFindingMatch,
   gcpRules,
   getAwsCostOptimizationHubReservationResourceId,
+  getAwsCostOptimizationHubReservationResourceType,
   isRecord,
   LiveResourceBag,
   StaticResourceBag,
@@ -83,6 +84,9 @@ describe('rule exports', () => {
         resourceId: undefined,
       }),
     ).toBe('orders');
+    expect(getAwsCostOptimizationHubReservationResourceType({ reservationType: 'RdsReservedInstances' })).toBe(
+      'rds:db',
+    );
     expect(awsRuleIds).toHaveLength(88);
     expect(awsCorePreset.ruleIds).toEqual(
       awsRuleIds.filter(

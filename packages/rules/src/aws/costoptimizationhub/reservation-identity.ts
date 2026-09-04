@@ -1,13 +1,17 @@
 import type { AwsCostOptimizationHubReservationRecommendation } from '../../shared/metadata.js';
 
 const ARN_NAMESPACE_BY_RESERVATION_TYPE = {
-  DynamoDbReservedCapacity: { resourceKind: 'table', service: 'dynamodb' },
-  Ec2ReservedInstances: { resourceKind: 'instance', service: 'ec2' },
-  ElastiCacheReservedInstances: { resourceKind: 'cluster', service: 'elasticache' },
-  MemoryDbReservedInstances: { resourceKind: 'cluster', service: 'memorydb' },
-  OpenSearchReservedInstances: { resourceKind: 'domain', service: 'es' },
-  RdsReservedInstances: { resourceKind: 'db', service: 'rds' },
-  RedshiftReservedInstances: { resourceKind: 'cluster', service: 'redshift' },
+  DynamoDbReservedCapacity: { resourceKind: 'table', resourceType: 'dynamodb:table', service: 'dynamodb' },
+  Ec2ReservedInstances: { resourceKind: 'instance', resourceType: 'ec2:instance', service: 'ec2' },
+  ElastiCacheReservedInstances: {
+    resourceKind: 'cluster',
+    resourceType: 'elasticache:cluster',
+    service: 'elasticache',
+  },
+  MemoryDbReservedInstances: { resourceKind: 'cluster', resourceType: 'memorydb:cluster', service: 'memorydb' },
+  OpenSearchReservedInstances: { resourceKind: 'domain', resourceType: 'opensearch:domain', service: 'es' },
+  RdsReservedInstances: { resourceKind: 'db', resourceType: 'rds:db', service: 'rds' },
+  RedshiftReservedInstances: { resourceKind: 'cluster', resourceType: 'redshift:cluster', service: 'redshift' },
 } as const;
 
 type ReservationIdentity = Pick<
@@ -48,3 +52,13 @@ export const getAwsCostOptimizationHubReservationResourceId = (recommendation: R
   getResourceIdFromArn(recommendation) ??
   recommendation.resourceArn ??
   recommendation.recommendationId;
+
+/**
+ * Returns the provider resource namespace for a reservation recommendation.
+ *
+ * @param recommendation - Reservation category whose evaluated resource type is required.
+ * @returns The service-specific resource namespace shared by findings and evaluation evidence.
+ */
+export const getAwsCostOptimizationHubReservationResourceType = (
+  recommendation: Pick<AwsCostOptimizationHubReservationRecommendation, 'reservationType'>,
+): string => ARN_NAMESPACE_BY_RESERVATION_TYPE[recommendation.reservationType].resourceType;

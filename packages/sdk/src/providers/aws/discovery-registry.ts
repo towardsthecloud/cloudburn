@@ -6,6 +6,7 @@ import {
   type DiscoveryDatasetMap,
   type FindingMatch,
   getAwsCostOptimizationHubReservationResourceId,
+  getAwsCostOptimizationHubReservationResourceType,
   type LiveResourceBag,
   type Rule,
 } from '@cloudburn/rules';
@@ -803,7 +804,7 @@ const awsDiscoveryDatasetRegistry: {
         (recommendation) => ({
           ...(recommendation.resourceArn ? { arn: recommendation.resourceArn } : {}),
           data: recommendation,
-          resourceType: 'costoptimizationhub:reservation-recommendation',
+          resourceType: getAwsCostOptimizationHubReservationResourceType(recommendation),
         }),
       ),
   },

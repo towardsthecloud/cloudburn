@@ -90,7 +90,7 @@ describe('Cost Optimization Hub reservation orchestration', () => {
               data: { ...arnIdentifiedRecommendation, region },
               region,
               resourceId: 'orders',
-              resourceType: 'costoptimizationhub:reservation-recommendation',
+              resourceType: 'rds:db',
             },
           ],
         },

@@ -2,7 +2,10 @@
 // TODO(cloudburn): publish stable docs for custom rule pack authoring.
 
 export { AWS_CONFIG_RECORDING_FREQUENCY_MINIMUM_SAVINGS_USD } from './aws/config/recording-frequency.js';
-export { getAwsCostOptimizationHubReservationResourceId } from './aws/costoptimizationhub/reservation-identity.js';
+export {
+  getAwsCostOptimizationHubReservationResourceId,
+  getAwsCostOptimizationHubReservationResourceType,
+} from './aws/costoptimizationhub/reservation-identity.js';
 export { awsRules } from './aws/index.js';
 export {
   AWS_KMS_KEY_PROLIFERATION_THRESHOLD,

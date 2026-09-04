@@ -115,6 +115,7 @@ The CLI targets one region per run. Multi-region discovery remains available thr
 `CLDBRN-AWS-TAGGING-1` is opt-in and requires an accessible aggregator; a local-only setup cannot run account-wide tagging discovery.
 `CLDBRN-AWS-LAMBDA-4` is opt-in and requires AWS Compute Optimizer enrollment.
 `CLDBRN-AWS-COSTOPTIMIZATIONHUB-1` and `CLDBRN-AWS-COSTOPTIMIZATIONHUB-2` are opt-in and require AWS Cost Optimization Hub enrollment. CloudBurn checks enrollment but never changes it. Both rules use only `cost-optimization-hub:ListEnrollmentStatuses`, `cost-optimization-hub:ListRecommendations`, and `cost-optimization-hub:GetRecommendation`.
+Reservation findings include their AWS resource namespace in JSON and in the default table output.
 `CLDBRN-AWS-SAGEMAKER-3` uses Cost Explorer coverage data and remains available when Cost Optimization Hub is unavailable.
 Use `--debug` to print SDK and provider execution tracing to `stderr` without changing the normal `stdout` format.
 
