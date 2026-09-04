@@ -441,6 +441,41 @@ export type AwsSageMakerEndpointActivity = {
   accountId: string;
 };
 
+/** Account-scoped Savings Plans purchase recommendation from AWS Cost Optimization Hub. */
+export type AwsCostOptimizationHubSavingsPlansRecommendation = {
+  accountId: string;
+  accountScope: string;
+  actionType: 'PurchaseSavingsPlans';
+  currencyCode: string;
+  estimatedMonthlyCost: number;
+  estimatedMonthlySavings: number;
+  estimatedSavingsPercentage: number;
+  hourlyCommitment: number;
+  implementationEffort?: string;
+  instanceFamily?: string;
+  lastRefreshTimestamp: string;
+  paymentOption: string;
+  recommendationId: string;
+  recommendationSource: 'ComputeOptimizer' | 'CostExplorer';
+  region?: string;
+  restartNeeded?: boolean;
+  rollbackPossible?: boolean;
+  savingsPlansRegion?: string;
+  savingsPlansType: 'ComputeSavingsPlans' | 'Ec2InstanceSavingsPlans' | 'SageMakerSavingsPlans';
+  term: string;
+};
+
+/** Account-scoped SageMaker Savings Plans coverage for a complete 30-day window. */
+export type AwsSageMakerSavingsPlansCoverage = {
+  accountId: string;
+  coveragePercentage: number;
+  onDemandCost: number;
+  periodEnd: string;
+  periodStart: string;
+  spendCoveredBySavingsPlans: number;
+  totalCost: number;
+};
+
 /** Discovered AWS RDS DB instance with its normalized instance class. */
 export type AwsRdsInstance = {
   dbInstanceIdentifier: string;
@@ -800,6 +835,7 @@ export type DiscoveryDatasetKey =
   | 'aws-cloudwatch-log-streams'
   | 'aws-config-recording-frequency-reviews'
   | 'aws-cost-usage'
+  | 'aws-cost-optimization-hub-savings-plans-recommendations'
   | 'aws-cost-anomaly-monitors'
   | 'aws-cost-guardrail-budgets'
   | 'aws-dynamodb-autoscaling'
@@ -847,6 +883,7 @@ export type DiscoveryDatasetKey =
   | 'aws-s3-bucket-analyses'
   | 'aws-sagemaker-endpoint-activity'
   | 'aws-sagemaker-notebook-instances'
+  | 'aws-sagemaker-savings-plans-coverage'
   | 'aws-resource-explorer-untagged-resources'
   | 'aws-secretsmanager-secrets';
 
@@ -860,6 +897,7 @@ export type DiscoveryDatasetMap = {
   'aws-cloudwatch-log-streams': AwsCloudWatchLogStream[];
   'aws-config-recording-frequency-reviews': AwsConfigRecordingFrequencyReview[];
   'aws-cost-usage': AwsCostUsage[];
+  'aws-cost-optimization-hub-savings-plans-recommendations': AwsCostOptimizationHubSavingsPlansRecommendation[];
   'aws-cost-anomaly-monitors': AwsCostAnomalyMonitor[];
   'aws-cost-guardrail-budgets': AwsCostGuardrailBudget[];
   'aws-dynamodb-autoscaling': AwsDynamoDbAutoscaling[];
@@ -907,6 +945,7 @@ export type DiscoveryDatasetMap = {
   'aws-s3-bucket-analyses': AwsS3BucketAnalysis[];
   'aws-sagemaker-endpoint-activity': AwsSageMakerEndpointActivity[];
   'aws-sagemaker-notebook-instances': AwsSageMakerNotebookInstance[];
+  'aws-sagemaker-savings-plans-coverage': AwsSageMakerSavingsPlansCoverage[];
   'aws-resource-explorer-untagged-resources': AwsUntaggedResource[];
   'aws-secretsmanager-secrets': AwsSecretsManagerSecret[];
 };
@@ -1132,6 +1171,22 @@ export class LiveResourceBag {
   public get<K extends DiscoveryDatasetKey>(key: K): DiscoveryDatasetMap[K] {
     return (this.#datasets[key] ?? []) as DiscoveryDatasetMap[K];
   }
+
+  /**
+   * Returns a new bag without datasets whose evidence is unavailable.
+   *
+   * @param keys - Dataset keys to omit from the derived bag.
+   * @returns A new resource bag with the selected datasets removed.
+   */
+  public without(keys: Iterable<DiscoveryDatasetKey>): LiveResourceBag {
+    const datasets = { ...this.#datasets };
+
+    for (const key of keys) {
+      delete datasets[key];
+    }
+
+    return new LiveResourceBag(datasets);
+  }
 }
 
 /** Typed bag of normalized static IaC datasets prepared by the SDK. */
@@ -1214,6 +1269,8 @@ export type Rule = {
   severity: Severity;
   supports: Source[];
   discoveryDependencies?: DiscoveryDatasetKey[];
+  /** Datasets an evaluator may use when another active rule has already requested them. */
+  optionalDiscoveryDependencies?: DiscoveryDatasetKey[];
   staticDependencies?: StaticDatasetKey[];
   evaluateLive?: (context: LiveEvaluationContext) => Finding | null;
   evaluateStatic?: (context: StaticEvaluationContext) => Finding | null;

@@ -22,6 +22,7 @@ import {
 import { hydrateAwsConfigRecordingFrequencyReviews } from './resources/config.js';
 import { hydrateAwsCostUsage } from './resources/cost-explorer.js';
 import { hydrateAwsCostAnomalyMonitors, hydrateAwsCostGuardrailBudgets } from './resources/cost-guardrails.js';
+import { hydrateAwsCostOptimizationHubSavingsPlansRecommendations } from './resources/cost-optimization-hub.js';
 import {
   hydrateAwsDynamoDbAutoscaling,
   hydrateAwsDynamoDbTables,
@@ -69,6 +70,7 @@ import {
 } from './resources/route53.js';
 import { hydrateAwsS3BucketAnalyses } from './resources/s3.js';
 import { hydrateAwsSageMakerEndpointActivity, hydrateAwsSageMakerNotebookInstances } from './resources/sagemaker.js';
+import { hydrateAwsSageMakerSavingsPlansCoverage } from './resources/savings-plans-coverage.js';
 import { hydrateAwsSecretsManagerSecrets } from './resources/secretsmanager.js';
 import { hydrateAwsUntaggedResources } from './resources/tagging.js';
 import { hydrateAwsEc2VpcEndpointActivity } from './resources/vpc-endpoints.js';
@@ -122,6 +124,7 @@ export type AwsDiscoveryDatasetDefinition<K extends DiscoveryDatasetKey = Discov
     | 'config'
     | 'costguardrails'
     | 'costexplorer'
+    | 'costoptimizationhub'
     | 'dynamodb'
     | 'ebs'
     | 'ec2'
@@ -739,6 +742,36 @@ const awsDiscoveryDatasetRegistry: {
         (instance) => instance.notebookInstanceName,
         (instance) => ({
           name: instance.notebookInstanceName,
+        }),
+      ),
+  },
+  'aws-cost-optimization-hub-savings-plans-recommendations': {
+    datasetKey: 'aws-cost-optimization-hub-savings-plans-recommendations',
+    resourceTypes: [],
+    service: 'costoptimizationhub',
+    load: hydrateAwsCostOptimizationHubSavingsPlansRecommendations,
+    toEvaluationResources: (recommendations) =>
+      mapEvaluationResources(
+        recommendations,
+        (recommendation) => recommendation.recommendationId,
+        (recommendation) => ({
+          data: recommendation,
+          resourceType: 'costoptimizationhub:savings-plans-recommendation',
+        }),
+      ),
+  },
+  'aws-sagemaker-savings-plans-coverage': {
+    datasetKey: 'aws-sagemaker-savings-plans-coverage',
+    resourceTypes: [],
+    service: 'sagemaker',
+    load: hydrateAwsSageMakerSavingsPlansCoverage,
+    toEvaluationResources: (coverage) =>
+      mapEvaluationResources(
+        coverage,
+        (record) => record.accountId,
+        (record) => ({
+          data: record,
+          resourceType: 'sagemaker:savings-plans-coverage',
         }),
       ),
   },

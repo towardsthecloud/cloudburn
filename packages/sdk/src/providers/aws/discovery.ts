@@ -180,6 +180,12 @@ const collectDiscoveryDependencies = (rules: Rule[]): DiscoveryDatasetKey[] => {
 
       datasetKeys.push(definition.datasetKey);
     }
+
+    for (const datasetKey of rule.optionalDiscoveryDependencies ?? []) {
+      if (!getAwsDiscoveryDatasetDefinition(datasetKey)) {
+        throw new Error(`Discovery rule ${rule.id} declares unknown optional discovery dependency '${datasetKey}'.`);
+      }
+    }
   }
 
   return sortUnique(datasetKeys) as DiscoveryDatasetKey[];

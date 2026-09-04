@@ -126,6 +126,9 @@ importers:
       '@aws-sdk/client-cost-explorer':
         specifier: ^3.1015.0
         version: 3.1085.0
+      '@aws-sdk/client-cost-optimization-hub':
+        specifier: ^3.1120.0
+        version: 3.1120.0
       '@aws-sdk/client-dynamodb':
         specifier: ^3.1015.0
         version: 3.1085.0
@@ -258,6 +261,10 @@ packages:
 
   '@aws-sdk/client-cost-explorer@3.1085.0':
     resolution: {integrity: sha512-3usIHKuKvq3JGNVvq3E4f5wevR5nxB1ukslk+raB90dJ4RpAZ9kLbEnW4x0itBfjqiNADjmBVlYuUIxeT7jzig==}
+    engines: {node: '>=20.0.0'}
+
+  '@aws-sdk/client-cost-optimization-hub@3.1120.0':
+    resolution: {integrity: sha512-vkYaorsmfhRH5HXxzi0ZEEmLY7P7wA2yYtIVnIplg88nTikvmAqfVU9rsdAFAqHikhNpz0q25qGaIgMEg8+0vw==}
     engines: {node: '>=20.0.0'}
 
   '@aws-sdk/client-dynamodb@3.1085.0':
@@ -2142,6 +2149,17 @@ snapshots:
       '@smithy/fetch-http-handler': 5.6.5
       '@smithy/node-http-handler': 4.9.5
       '@smithy/types': 4.16.1
+      tslib: 2.8.1
+
+  '@aws-sdk/client-cost-optimization-hub@3.1120.0':
+    dependencies:
+      '@aws-sdk/core': 3.977.9
+      '@aws-sdk/credential-provider-node': 3.972.81
+      '@aws-sdk/types': 3.974.5
+      '@smithy/core': 3.33.3
+      '@smithy/fetch-http-handler': 5.7.2
+      '@smithy/node-http-handler': 4.11.3
+      '@smithy/types': 4.17.2
       tslib: 2.8.1
 
   '@aws-sdk/client-dynamodb@3.1085.0':

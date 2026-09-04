@@ -77,7 +77,7 @@ sequenceDiagram
 | `@cloudburn/sdk`   | Scanner facade, config system, engine orchestration, parsers, AWS providers | Rule definitions, CLI concerns   |
 | `@cloudburn/rules` | Rule definitions, presets, type contracts, helper utilities                 | I/O, AWS SDK calls, engine logic |
 
-Static IaC scans and live AWS discovery now follow the same dataset-driven pattern. Static rules declare `staticDependencies`, live rules declare `discoveryDependencies`, and the SDK resolves both into normalized datasets exposed through `StaticResourceBag` and `LiveResourceBag`. The CLI keeps `scan` static-only and uses `discover` for live AWS evaluation and setup flows.
+Static IaC scans and live AWS discovery now follow the same dataset-driven pattern. Static rules declare `staticDependencies`; live rules declare required `discoveryDependencies` and may declare `optionalDiscoveryDependencies` when supporting evidence must not block evaluation. The SDK resolves these into normalized datasets exposed through `StaticResourceBag` and `LiveResourceBag`. The CLI keeps `scan` static-only and uses `discover` for live AWS evaluation and setup flows.
 
 ## Multi-Cloud Strategy
 

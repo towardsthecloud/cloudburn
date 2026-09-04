@@ -4,6 +4,7 @@ import { cloudwatchRules } from './cloudwatch/index.js';
 import { configRules } from './config/index.js';
 import { costexplorerRules } from './costexplorer/index.js';
 import { costguardrailsRules } from './costguardrails/index.js';
+import { costOptimizationHubRules } from './costoptimizationhub/index.js';
 import { dynamodbRules } from './dynamodb/index.js';
 import { ebsRules } from './ebs/index.js';
 import { ec2Rules } from './ec2/index.js';
@@ -31,6 +32,7 @@ export const awsRules = [
   ...cloudwatchRules,
   ...configRules,
   ...costguardrailsRules,
+  ...costOptimizationHubRules,
   ...costexplorerRules,
   ...dynamodbRules,
   ...ec2Rules,

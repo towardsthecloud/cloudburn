@@ -301,6 +301,156 @@ describe('CloudBurnClient', () => {
     });
   });
 
+  it('returns Cost Optimization Hub Savings Plans recommendation evidence for triggered findings', async () => {
+    const recommendation = {
+      accountId: '123456789012',
+      accountScope: 'LINKED',
+      actionType: 'PurchaseSavingsPlans' as const,
+      currencyCode: 'USD',
+      estimatedMonthlyCost: 200,
+      estimatedMonthlySavings: 50,
+      estimatedSavingsPercentage: 25,
+      hourlyCommitment: 0.25,
+      implementationEffort: 'VeryLow',
+      lastRefreshTimestamp: '2026-09-03T00:00:00.000Z',
+      paymentOption: 'NoUpfront',
+      recommendationId: 'recommendation-1',
+      recommendationSource: 'CostExplorer' as const,
+      restartNeeded: false,
+      rollbackPossible: false,
+      savingsPlansType: 'SageMakerSavingsPlans' as const,
+      term: 'OneYear',
+    };
+    mockedDiscoverAwsResources.mockResolvedValue({
+      catalog: discoveryCatalog,
+      resources: new LiveResourceBag({
+        'aws-cost-optimization-hub-savings-plans-recommendations': [recommendation],
+      }),
+    });
+
+    const result = await new CloudBurnClient().discover({
+      config: { discovery: { enabledRules: ['CLDBRN-AWS-COSTOPTIMIZATIONHUB-1'] }, iac: {} },
+      includeEvaluationResources: true,
+    });
+
+    expect(result.evaluations).toEqual({
+      resourceSets: [
+        {
+          id: 'aws-cost-optimization-hub-savings-plans-recommendations',
+          resources: [
+            {
+              accountId: '123456789012',
+              data: recommendation,
+              region: 'global',
+              resourceId: 'recommendation-1',
+              resourceType: 'costoptimizationhub:savings-plans-recommendation',
+            },
+          ],
+        },
+      ],
+      rules: [
+        expect.objectContaining({
+          findingCount: 1,
+          resourceSetId: 'aws-cost-optimization-hub-savings-plans-recommendations',
+          ruleId: 'CLDBRN-AWS-COSTOPTIMIZATIONHUB-1',
+          status: 'triggered',
+        }),
+      ],
+    });
+  });
+
+  it('evaluates SageMaker coverage when the optional Cost Optimization Hub dataset is unavailable', async () => {
+    const coverage = {
+      accountId: '123456789012',
+      coveragePercentage: 60,
+      onDemandCost: 100,
+      periodEnd: '2026-09-04',
+      periodStart: '2026-08-05',
+      spendCoveredBySavingsPlans: 150,
+      totalCost: 250,
+    };
+    const recommendation = {
+      accountId: '123456789012',
+      accountScope: 'LINKED',
+      actionType: 'PurchaseSavingsPlans' as const,
+      currencyCode: 'USD',
+      estimatedMonthlyCost: 200,
+      estimatedMonthlySavings: 50,
+      estimatedSavingsPercentage: 25,
+      hourlyCommitment: 0.25,
+      lastRefreshTimestamp: '2026-09-03T00:00:00.000Z',
+      paymentOption: 'NoUpfront',
+      recommendationId: 'recommendation-partial',
+      recommendationSource: 'CostExplorer' as const,
+      savingsPlansType: 'SageMakerSavingsPlans' as const,
+      term: 'OneYear',
+    };
+    const diagnostic = {
+      code: 'CostOptimizationHubRecommendationIncomplete',
+      message:
+        'Skipped Savings Plans recommendations because AWS Cost Optimization Hub returned incomplete recommendation evidence.',
+      provider: 'aws' as const,
+      service: 'costoptimizationhub',
+      source: 'discovery' as const,
+      status: 'skipped' as const,
+    };
+    mockedDiscoverAwsResources.mockResolvedValue({
+      catalog: discoveryCatalog,
+      diagnostics: [diagnostic],
+      resources: new LiveResourceBag({
+        'aws-cost-optimization-hub-savings-plans-recommendations': [recommendation],
+        'aws-sagemaker-savings-plans-coverage': [coverage],
+      }),
+      unavailableDatasets: new Map([['aws-cost-optimization-hub-savings-plans-recommendations', [diagnostic]]]),
+    });
+
+    const result = await new CloudBurnClient().discover({
+      config: {
+        discovery: {
+          enabledRules: ['CLDBRN-AWS-COSTOPTIMIZATIONHUB-1', 'CLDBRN-AWS-SAGEMAKER-3'],
+        },
+        iac: {},
+      },
+      includeEvaluationResources: true,
+    });
+
+    expect(result.providers).toEqual([
+      expect.objectContaining({
+        provider: 'aws',
+        rules: [expect.objectContaining({ ruleId: 'CLDBRN-AWS-SAGEMAKER-3' })],
+      }),
+    ]);
+    expect(result.evaluations).toEqual({
+      resourceSets: [
+        {
+          id: 'aws-sagemaker-savings-plans-coverage',
+          resources: [
+            {
+              accountId: '123456789012',
+              data: coverage,
+              region: 'global',
+              resourceId: '123456789012',
+              resourceType: 'sagemaker:savings-plans-coverage',
+            },
+          ],
+        },
+      ],
+      rules: [
+        expect.objectContaining({
+          findingCount: 0,
+          ruleId: 'CLDBRN-AWS-COSTOPTIMIZATIONHUB-1',
+          status: 'not_applicable',
+        }),
+        expect.objectContaining({
+          findingCount: 1,
+          resourceSetId: 'aws-sagemaker-savings-plans-coverage',
+          ruleId: 'CLDBRN-AWS-SAGEMAKER-3',
+          status: 'triggered',
+        }),
+      ],
+    });
+  });
+
   it('reports the KMS no-recorded-usage rule as not applicable when usage evidence is incomplete', async () => {
     const diagnostic = {
       code: 'KmsUsageEvidenceIncomplete',

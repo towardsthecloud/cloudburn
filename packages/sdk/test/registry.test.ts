@@ -26,6 +26,26 @@ describe('rule registry', () => {
     expect(registry.activeRules.map((rule) => rule.id)).not.toContain('CLDBRN-AWS-LAMBDA-4');
   });
 
+  it('excludes Cost Optimization Hub rules from discovery scans by default', () => {
+    const registry = buildRuleRegistry({ discovery: {}, iac: {} }, 'discovery');
+
+    expect(registry.activeRules.map((rule) => rule.id)).not.toContain('CLDBRN-AWS-COSTOPTIMIZATIONHUB-1');
+  });
+
+  it('includes Cost Optimization Hub rules when they are explicitly enabled', () => {
+    const registry = buildRuleRegistry(
+      {
+        discovery: {
+          enabledRules: ['CLDBRN-AWS-COSTOPTIMIZATIONHUB-1'],
+        },
+        iac: {},
+      },
+      'discovery',
+    );
+
+    expect(registry.activeRules.map((rule) => rule.id)).toEqual(['CLDBRN-AWS-COSTOPTIMIZATIONHUB-1']);
+  });
+
   it('includes Compute Optimizer rules when they are explicitly enabled', () => {
     const registry = buildRuleRegistry(
       {

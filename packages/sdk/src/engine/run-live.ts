@@ -88,7 +88,17 @@ export const runLiveScan = async (
         };
       }
 
-      const finding = rule.evaluateLive(liveContext);
+      const unavailableOptionalDependencies = (rule.optionalDiscoveryDependencies ?? []).filter((dependency) =>
+        unavailableDatasetDiagnostics.has(dependency),
+      );
+      const ruleContext =
+        unavailableOptionalDependencies.length === 0
+          ? liveContext
+          : {
+              ...liveContext,
+              resources: liveContext.resources.without(unavailableOptionalDependencies),
+            };
+      const finding = rule.evaluateLive(ruleContext);
 
       if (options?.includeEvaluationResources) {
         const evaluationResourceSet = getAwsRuleEvaluationResourceSet(rule, liveContext.resources);

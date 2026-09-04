@@ -37,6 +37,7 @@ import {
   hydrateAwsCostAnomalyMonitors,
   hydrateAwsCostGuardrailBudgets,
 } from '../../src/providers/aws/resources/cost-guardrails.js';
+import { hydrateAwsCostOptimizationHubSavingsPlansRecommendations } from '../../src/providers/aws/resources/cost-optimization-hub.js';
 import {
   hydrateAwsDynamoDbAutoscaling,
   hydrateAwsDynamoDbTables,
@@ -97,6 +98,7 @@ import {
   hydrateAwsSageMakerEndpointActivity,
   hydrateAwsSageMakerNotebookInstances,
 } from '../../src/providers/aws/resources/sagemaker.js';
+import { hydrateAwsSageMakerSavingsPlansCoverage } from '../../src/providers/aws/resources/savings-plans-coverage.js';
 import { hydrateAwsSecretsManagerSecrets } from '../../src/providers/aws/resources/secretsmanager.js';
 
 vi.mock('../../src/providers/aws/client.js', async (importOriginal) => {
@@ -169,6 +171,10 @@ vi.mock('../../src/providers/aws/resources/config.js', () => ({
 
 vi.mock('../../src/providers/aws/resources/cost-explorer.js', () => ({
   hydrateAwsCostUsage: vi.fn(),
+}));
+
+vi.mock('../../src/providers/aws/resources/cost-optimization-hub.js', () => ({
+  hydrateAwsCostOptimizationHubSavingsPlansRecommendations: vi.fn(),
 }));
 
 vi.mock('../../src/providers/aws/resources/cost-guardrails.js', () => ({
@@ -260,6 +266,10 @@ vi.mock('../../src/providers/aws/resources/sagemaker.js', () => ({
   hydrateAwsSageMakerNotebookInstances: vi.fn(),
 }));
 
+vi.mock('../../src/providers/aws/resources/savings-plans-coverage.js', () => ({
+  hydrateAwsSageMakerSavingsPlansCoverage: vi.fn(),
+}));
+
 vi.mock('../../src/providers/aws/resources/secretsmanager.js', () => ({
   hydrateAwsSecretsManagerSecrets: vi.fn(),
 }));
@@ -334,8 +344,12 @@ const mockedHydrateAwsRoute53HealthChecks = vi.mocked(hydrateAwsRoute53HealthChe
 const mockedHydrateAwsRoute53Records = vi.mocked(hydrateAwsRoute53Records);
 const mockedHydrateAwsRoute53Zones = vi.mocked(hydrateAwsRoute53Zones);
 const mockedHydrateAwsS3BucketAnalyses = vi.mocked(hydrateAwsS3BucketAnalyses);
+const mockedHydrateAwsCostOptimizationHubSavingsPlansRecommendations = vi.mocked(
+  hydrateAwsCostOptimizationHubSavingsPlansRecommendations,
+);
 const mockedHydrateAwsSageMakerEndpointActivity = vi.mocked(hydrateAwsSageMakerEndpointActivity);
 const mockedHydrateAwsSageMakerNotebookInstances = vi.mocked(hydrateAwsSageMakerNotebookInstances);
+const mockedHydrateAwsSageMakerSavingsPlansCoverage = vi.mocked(hydrateAwsSageMakerSavingsPlansCoverage);
 const mockedHydrateAwsSecretsManagerSecrets = vi.mocked(hydrateAwsSecretsManagerSecrets);
 const loadContextMatcher = expect.objectContaining({
   loadDataset: expect.any(Function),
@@ -932,6 +946,35 @@ describe('discoverAwsResources', () => {
         monitorCount: 0,
       },
     ]);
+    mockedHydrateAwsCostOptimizationHubSavingsPlansRecommendations.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        accountScope: 'LINKED',
+        actionType: 'PurchaseSavingsPlans',
+        currencyCode: 'USD',
+        estimatedMonthlyCost: 200,
+        estimatedMonthlySavings: 50,
+        estimatedSavingsPercentage: 25,
+        hourlyCommitment: 0.25,
+        lastRefreshTimestamp: '2026-09-03T00:00:00.000Z',
+        paymentOption: 'NoUpfront',
+        recommendationId: 'recommendation-1',
+        recommendationSource: 'CostExplorer',
+        savingsPlansType: 'SageMakerSavingsPlans',
+        term: 'OneYear',
+      },
+    ]);
+    mockedHydrateAwsSageMakerSavingsPlansCoverage.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        coveragePercentage: 60,
+        onDemandCost: 100,
+        periodEnd: '2026-09-04',
+        periodStart: '2026-08-05',
+        spendCoveredBySavingsPlans: 150,
+        totalCost: 250,
+      },
+    ]);
 
     const result = await discoverAwsResources(
       [
@@ -949,6 +992,12 @@ describe('discoverAwsResources', () => {
           service: 'costguardrails',
           discoveryDependencies: ['aws-cost-anomaly-monitors'],
         }),
+        createRule({
+          id: 'CLDBRN-AWS-TEST-SAGEMAKER-SP-COVERAGE',
+          service: 'sagemaker',
+          discoveryDependencies: ['aws-sagemaker-savings-plans-coverage'],
+          optionalDiscoveryDependencies: ['aws-cost-optimization-hub-savings-plans-recommendations'],
+        }),
       ],
       { mode: 'regions', regions: ['eu-west-1'] },
     );
@@ -957,6 +1006,8 @@ describe('discoverAwsResources', () => {
     expect(mockedHydrateAwsCostUsage).toHaveBeenCalledWith([], loadContextMatcher);
     expect(mockedHydrateAwsCostGuardrailBudgets).toHaveBeenCalledWith([], loadContextMatcher);
     expect(mockedHydrateAwsCostAnomalyMonitors).toHaveBeenCalledWith([], loadContextMatcher);
+    expect(mockedHydrateAwsCostOptimizationHubSavingsPlansRecommendations).not.toHaveBeenCalled();
+    expect(mockedHydrateAwsSageMakerSavingsPlansCoverage).toHaveBeenCalledWith([], loadContextMatcher);
     expect(result.catalog).toEqual({
       indexType: 'LOCAL',
       resources: [],
@@ -984,6 +1035,10 @@ describe('discoverAwsResources', () => {
         accountId: '123456789012',
         monitorCount: 0,
       },
+    ]);
+    expect(result.resources.get('aws-cost-optimization-hub-savings-plans-recommendations')).toEqual([]);
+    expect(result.resources.get('aws-sagemaker-savings-plans-coverage')).toEqual([
+      expect.objectContaining({ accountId: '123456789012' }),
     ]);
   });
 
