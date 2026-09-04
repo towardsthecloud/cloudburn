@@ -369,26 +369,48 @@ describe('CloudBurnClient', () => {
       spendCoveredBySavingsPlans: 150,
       totalCost: 250,
     };
+    const recommendation = {
+      accountId: '123456789012',
+      accountScope: 'LINKED',
+      actionType: 'PurchaseSavingsPlans' as const,
+      currencyCode: 'USD',
+      estimatedMonthlyCost: 200,
+      estimatedMonthlySavings: 50,
+      estimatedSavingsPercentage: 25,
+      hourlyCommitment: 0.25,
+      lastRefreshTimestamp: '2026-09-03T00:00:00.000Z',
+      paymentOption: 'NoUpfront',
+      recommendationId: 'recommendation-partial',
+      recommendationSource: 'CostExplorer' as const,
+      savingsPlansType: 'SageMakerSavingsPlans' as const,
+      term: 'OneYear',
+    };
     const diagnostic = {
-      code: 'AccessDeniedException',
-      message: 'Skipped Savings Plans recommendations because access to AWS Cost Optimization Hub is denied.',
+      code: 'CostOptimizationHubRecommendationIncomplete',
+      message:
+        'Skipped Savings Plans recommendations because AWS Cost Optimization Hub returned incomplete recommendation evidence.',
       provider: 'aws' as const,
       service: 'costoptimizationhub',
       source: 'discovery' as const,
-      status: 'access_denied' as const,
+      status: 'skipped' as const,
     };
     mockedDiscoverAwsResources.mockResolvedValue({
       catalog: discoveryCatalog,
       diagnostics: [diagnostic],
       resources: new LiveResourceBag({
-        'aws-cost-optimization-hub-savings-plans-recommendations': [],
+        'aws-cost-optimization-hub-savings-plans-recommendations': [recommendation],
         'aws-sagemaker-savings-plans-coverage': [coverage],
       }),
       unavailableDatasets: new Map([['aws-cost-optimization-hub-savings-plans-recommendations', [diagnostic]]]),
     });
 
     const result = await new CloudBurnClient().discover({
-      config: { discovery: { enabledRules: ['CLDBRN-AWS-SAGEMAKER-3'] }, iac: {} },
+      config: {
+        discovery: {
+          enabledRules: ['CLDBRN-AWS-COSTOPTIMIZATIONHUB-1', 'CLDBRN-AWS-SAGEMAKER-3'],
+        },
+        iac: {},
+      },
       includeEvaluationResources: true,
     });
 
@@ -414,6 +436,11 @@ describe('CloudBurnClient', () => {
         },
       ],
       rules: [
+        expect.objectContaining({
+          findingCount: 0,
+          ruleId: 'CLDBRN-AWS-COSTOPTIMIZATIONHUB-1',
+          status: 'not_applicable',
+        }),
         expect.objectContaining({
           findingCount: 1,
           resourceSetId: 'aws-sagemaker-savings-plans-coverage',

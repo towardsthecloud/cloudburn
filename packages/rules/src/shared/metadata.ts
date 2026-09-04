@@ -1171,6 +1171,22 @@ export class LiveResourceBag {
   public get<K extends DiscoveryDatasetKey>(key: K): DiscoveryDatasetMap[K] {
     return (this.#datasets[key] ?? []) as DiscoveryDatasetMap[K];
   }
+
+  /**
+   * Returns a new bag without datasets whose evidence is unavailable.
+   *
+   * @param keys - Dataset keys to omit from the derived bag.
+   * @returns A new resource bag with the selected datasets removed.
+   */
+  public without(keys: Iterable<DiscoveryDatasetKey>): LiveResourceBag {
+    const datasets = { ...this.#datasets };
+
+    for (const key of keys) {
+      delete datasets[key];
+    }
+
+    return new LiveResourceBag(datasets);
+  }
 }
 
 /** Typed bag of normalized static IaC datasets prepared by the SDK. */
