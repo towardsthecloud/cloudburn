@@ -27,6 +27,7 @@ const OBSERVATION_WINDOW_DAYS = 14;
 const DAY_SECONDS = 24 * 60 * 60;
 const RESOURCE_COUNT_BATCH_SIZE = 20;
 const RESOURCE_COUNT_BATCH_CONCURRENCY = 5;
+const MAX_RETAINED_RESOURCE_PAGES = 10;
 const CONTINUOUS_RECORDING_UNIT_PRICE_USD = 0.003;
 const DAILY_RECORDING_UNIT_PRICE_USD = 0.012;
 const UNSUPPORTED_DAILY_RESOURCE_TYPES = new Set([
@@ -166,14 +167,15 @@ const getRecordedResourceCounts = async (
 const getRecentlyDeletedResourceCounts = async (
   client: ConfigServiceClient,
   region: string,
-  resourceTypes: string[],
+  candidates: Array<{ resourceType: string; stopAfterCount: number }>,
   startTime: Date,
-): Promise<Map<string, number>> => {
-  const counts = new Map<string, number>();
+): Promise<Map<string, { count: number; reliable: boolean }>> => {
+  const counts = new Map<string, { count: number; reliable: boolean }>();
 
-  await mapWithConcurrency(resourceTypes, RESOURCE_COUNT_BATCH_CONCURRENCY, async (resourceType) => {
+  await mapWithConcurrency(candidates, RESOURCE_COUNT_BATCH_CONCURRENCY, async ({ resourceType, stopAfterCount }) => {
     let count = 0;
     let nextToken: string | undefined;
+    let pageCount = 0;
 
     do {
       const response = await withAwsServiceErrorContext('AWS Config', 'ListDiscoveredResources', region, () =>
@@ -191,9 +193,13 @@ const getRecentlyDeletedResourceCounts = async (
         (resource) => resource.resourceDeletionTime && resource.resourceDeletionTime >= startTime,
       ).length;
       nextToken = response.nextToken;
-    } while (nextToken);
+      pageCount += 1;
+    } while (nextToken && pageCount < MAX_RETAINED_RESOURCE_PAGES && count < stopAfterCount);
 
-    counts.set(resourceType, count);
+    counts.set(resourceType, {
+      count,
+      reliable: !nextToken || count >= stopAfterCount,
+    });
   });
 
   return counts;
@@ -418,6 +424,11 @@ export const hydrateAwsConfigRecordingFrequencyReviews = async (
         estimatedMonthlyContinuousConfigurationItems,
         recordedResourceCount,
         resourceType,
+        stopAfterCount:
+          Math.ceil(
+            (estimatedMonthlyContinuousConfigurationItems * CONTINUOUS_RECORDING_UNIT_PRICE_USD) /
+              (30 * DAILY_RECORDING_UNIT_PRICE_USD),
+          ) - recordedResourceCount,
       },
     ];
   });
@@ -429,11 +440,15 @@ export const hydrateAwsConfigRecordingFrequencyReviews = async (
   const recentlyDeletedResourceCounts = await getRecentlyDeletedResourceCounts(
     configClient,
     region,
-    potentialRecordingFrequencyReviews.map((review) => review.resourceType),
+    potentialRecordingFrequencyReviews.map((review) => ({
+      resourceType: review.resourceType,
+      stopAfterCount: review.stopAfterCount,
+    })),
     startTime,
   );
   const recordingFrequencyReviews = potentialRecordingFrequencyReviews.map((review) => {
-    const recentlyDeletedResourceCount = recentlyDeletedResourceCounts.get(review.resourceType) ?? 0;
+    const turnover = recentlyDeletedResourceCounts.get(review.resourceType) ?? { count: 0, reliable: false };
+    const recentlyDeletedResourceCount = turnover.count;
     const estimatedMonthlyDailyConfigurationItems = Math.min(
       review.estimatedMonthlyContinuousConfigurationItems,
       (review.recordedResourceCount + recentlyDeletedResourceCount) * 30,
@@ -454,6 +469,7 @@ export const hydrateAwsConfigRecordingFrequencyReviews = async (
       recentlyDeletedResourceCount,
       recordedResourceCount: review.recordedResourceCount,
       resourceType: review.resourceType,
+      turnoverEstimateReliable: turnover.reliable,
     };
   });
 
@@ -498,6 +514,7 @@ export const hydrateAwsConfigRecordingFrequencyReviews = async (
       recordingStrategy,
       region,
       resourceType: review.resourceType,
+      turnoverEstimateReliable: review.turnoverEstimateReliable,
     } satisfies AwsConfigRecordingFrequencyReview;
   });
 };

@@ -108,6 +108,7 @@ export type AwsConfigRecordingFrequencyReview = {
   recordingStrategy: string;
   region: string;
   resourceType: string;
+  turnoverEstimateReliable?: boolean;
 };
 
 /** Discovered CloudWatch Logs log group normalized for retention checks. */

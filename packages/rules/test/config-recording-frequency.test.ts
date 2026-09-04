@@ -85,4 +85,15 @@ describe('configRecordingFrequencyRule', () => {
 
     expect(finding).toBeNull();
   });
+
+  it('does not recommend daily recording when the turnover estimate is unreliable', () => {
+    const finding = configRecordingFrequencyRule.evaluateLive?.({
+      catalog: { indexType: 'LOCAL', resources: [], searchRegion: 'eu-central-1' },
+      resources: new LiveResourceBag({
+        'aws-config-recording-frequency-reviews': [createReview({ turnoverEstimateReliable: false })],
+      }),
+    });
+
+    expect(finding).toBeNull();
+  });
 });

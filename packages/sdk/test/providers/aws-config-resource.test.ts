@@ -49,6 +49,13 @@ const configureConfigClient = (options: {
   configRules?: unknown[];
   recorders?: unknown[];
   resourceCounts?: Array<{ count: number; resourceType: string }>;
+  resourceIdentifierPagesByType?: Record<
+    string,
+    Array<{
+      nextToken?: string;
+      resourceIdentifiers: Array<{ resourceDeletionTime?: Date; resourceId: string; resourceType: string }>;
+    }>
+  >;
   resourceIdentifiersByType?: Record<
     string,
     Array<{ resourceDeletionTime?: Date; resourceId: string; resourceType: string }>
@@ -57,6 +64,7 @@ const configureConfigClient = (options: {
   serviceLinkedRecorder?: unknown;
   serviceLinkedRecorderArn?: string;
 }) => {
+  const listPageByType = new Map<string, number>();
   const send = vi.fn(async (command: unknown) => {
     if (command instanceof DescribeConfigurationRecordersCommand) {
       if (options.serviceLinkedRecorderArn && command.input.Arn === options.serviceLinkedRecorderArn) {
@@ -89,6 +97,12 @@ const configureConfigClient = (options: {
     }
 
     if (command instanceof ListDiscoveredResourcesCommand) {
+      const pages = options.resourceIdentifierPagesByType?.[command.input.resourceType];
+      if (pages) {
+        const pageIndex = listPageByType.get(command.input.resourceType) ?? 0;
+        listPageByType.set(command.input.resourceType, pageIndex + 1);
+        return pages[pageIndex] ?? { resourceIdentifiers: [] };
+      }
       return { resourceIdentifiers: options.resourceIdentifiersByType?.[command.input.resourceType] ?? [] };
     }
 
@@ -174,6 +188,7 @@ describe('hydrateAwsConfigRecordingFrequencyReviews', () => {
         recordingStrategy: 'ALL_SUPPORTED_RESOURCE_TYPES',
         region: 'eu-central-1',
         resourceType: 'AWS::Lambda::Function',
+        turnoverEstimateReliable: true,
       },
     ]);
     expect(mockedFetchCloudWatchSignals).toHaveBeenCalledWith({
@@ -308,6 +323,33 @@ describe('hydrateAwsConfigRecordingFrequencyReviews', () => {
         resourceType,
       }),
     ]);
+  });
+
+  it('bounds retained-resource pagination when turnover cannot be established safely', async () => {
+    const resourceType = 'AWS::Lambda::Function';
+    const send = configureConfigClient({
+      resourceCounts: [{ count: 5, resourceType }],
+      resourceIdentifierPagesByType: {
+        [resourceType]: Array.from({ length: 11 }, (_, index) => ({
+          nextToken: index < 10 ? `page-${index + 1}` : undefined,
+          resourceIdentifiers: [],
+        })),
+      },
+    });
+    configureMetrics([resourceType], { [resourceType]: 2_000 });
+
+    await expect(
+      hydrateAwsConfigRecordingFrequencyReviews([], {
+        region: 'eu-central-1',
+        resolveAccountId: async () => accountId,
+      }),
+    ).resolves.toEqual([
+      expect.objectContaining({
+        resourceType,
+        turnoverEstimateReliable: false,
+      }),
+    ]);
+    expect(send.mock.calls.filter(([command]) => command instanceof ListDiscoveredResourcesCommand)).toHaveLength(10);
   });
 
   it('keeps continuous recording when a Firewall Manager rule depends on the resource type', async () => {

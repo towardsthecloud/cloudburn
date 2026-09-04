@@ -24,6 +24,7 @@ export const configRecordingFrequencyRule = createRule({
       .get('aws-config-recording-frequency-reviews')
       .filter(
         (review) =>
+          review.turnoverEstimateReliable !== false &&
           review.estimatedMonthlyRecordingCostReductionUsd > MINIMUM_ESTIMATED_MONTHLY_COST_REDUCTION_USD &&
           !review.firewallManagerDependent &&
           !review.paidServiceLinkedRecorderDependent,
