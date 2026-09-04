@@ -60,7 +60,10 @@ export const redshiftReservedCoverageRule = createRule({
         remainingCoverage.set(coverageKey, remainingNodeCount - cluster.numberOfNodes);
         return false;
       })
-      .map((cluster) => createFindingMatch(cluster.clusterIdentifier, cluster.region, cluster.accountId));
+      .map((cluster) => ({
+        ...createFindingMatch(cluster.clusterIdentifier, cluster.region, cluster.accountId),
+        resourceType: 'redshift:cluster',
+      }));
 
     return createFinding(
       { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },

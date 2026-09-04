@@ -38,18 +38,20 @@ IaC findings may include `location`. Live discovery findings omit it.
 ```ts
 type FindingMatch = {
   resourceId: string;
+  resourceType?: string;
   accountId?: string;
   region?: string;
   location?: SourceLocation;
 };
 ```
 
-| Field        | Type             | Description                                                                                                                                                 |
-| ------------ | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `resourceId` | `string`         | Provider-specific resource identity. Terraform uses resource addresses today; future CloudFormation support can use logical IDs or paths in the same field. |
-| `accountId`  | `string?`        | Account identifier when available. Omit it when unavailable.                                                                                                |
-| `region`     | `string?`        | Region when available. Omit it when unavailable.                                                                                                            |
-| `location`   | `SourceLocation` | Source coordinates for IaC matches when available.                                                                                                          |
+| Field          | Type             | Description                                                                                                                                                 |
+| -------------- | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `resourceId`   | `string`         | Provider-specific resource identity. Terraform uses resource addresses today; future CloudFormation support can use logical IDs or paths in the same field. |
+| `resourceType` | `string?`        | Provider resource namespace when an ID is not globally unique across the findings being compared.                                                           |
+| `accountId`    | `string?`        | Account identifier when available. Omit it when unavailable.                                                                                                |
+| `region`       | `string?`        | Region when available. Omit it when unavailable.                                                                                                            |
+| `location`     | `SourceLocation` | Source coordinates for IaC matches when available.                                                                                                          |
 
 ## `Finding`
 

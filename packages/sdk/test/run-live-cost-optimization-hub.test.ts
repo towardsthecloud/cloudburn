@@ -73,7 +73,9 @@ describe('Cost Optimization Hub reservation orchestration', () => {
       expect.objectContaining({
         rules: [
           expect.objectContaining({
-            findings: [{ accountId, region, resourceId: reservationRecommendation.resourceArn }],
+            findings: [
+              { accountId, region, resourceId: reservationRecommendation.resourceArn, resourceType: 'rds:db' },
+            ],
             ruleId: 'CLDBRN-AWS-COSTOPTIMIZATIONHUB-2',
           }),
         ],
@@ -208,5 +210,55 @@ describe('Cost Optimization Hub reservation orchestration', () => {
       .flatMap((provider) => provider.rules)
       .find((rule) => rule.ruleId === 'CLDBRN-AWS-COSTOPTIMIZATIONHUB-2');
     expect(hubFinding?.findings.map((finding) => finding.resourceId)).toEqual(['orders', 'reservation-current']);
+  });
+
+  it('does not suppress the same resource ID from a different service namespace', async () => {
+    const elastiCacheRecommendation = {
+      ...reservationRecommendation,
+      configuration: {
+        accountScope: 'LINKED',
+        instanceType: 'cache.r7g.large',
+        numberOfInstancesToPurchase: 1,
+        paymentOption: 'NoUpfront',
+        reservedInstancesRegion: region,
+        service: 'AmazonElastiCache',
+        term: 'OneYear',
+      },
+      recommendationId: 'recommendation-2',
+      reservationType: 'ElastiCacheReservedInstances' as const,
+    };
+    mockedDiscoverAwsResources.mockResolvedValue({
+      catalog: discoveryCatalog,
+      resources: new LiveResourceBag({
+        'aws-cost-optimization-hub-reservation-recommendations': [elastiCacheRecommendation],
+        'aws-rds-instances': [
+          {
+            accountId,
+            dbInstanceIdentifier: 'orders',
+            dbInstanceStatus: 'available',
+            engine: 'postgres',
+            instanceClass: 'db.r7g.large',
+            instanceCreateTime: '2025-01-01T00:00:00.000Z',
+            multiAz: false,
+            region,
+          },
+        ],
+        'aws-rds-reserved-instances': [],
+      }),
+    });
+
+    const result = await runLiveScan(
+      {
+        discovery: { enabledRules: ['CLDBRN-AWS-COSTOPTIMIZATIONHUB-2', 'CLDBRN-AWS-RDS-3'] },
+        iac: {},
+      },
+      { mode: 'current' },
+    );
+
+    expect(
+      result.providers
+        .flatMap((provider) => provider.rules)
+        .find((rule) => rule.ruleId === 'CLDBRN-AWS-COSTOPTIMIZATIONHUB-2')?.findings,
+    ).toEqual([{ accountId, region, resourceId: 'orders', resourceType: 'elasticache:cluster' }]);
   });
 });

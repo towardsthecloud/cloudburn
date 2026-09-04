@@ -9,7 +9,7 @@ export type EvaluatedRuleFinding = {
 };
 
 const findingIdentityKey = (finding: FindingMatch): string =>
-  JSON.stringify([finding.resourceId, finding.accountId ?? null, finding.region ?? null]);
+  JSON.stringify([finding.resourceType ?? null, finding.resourceId, finding.accountId ?? null, finding.region ?? null]);
 
 /**
  * Removes exact resource findings replaced by stronger findings from active rules.

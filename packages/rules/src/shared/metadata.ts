@@ -1383,6 +1383,8 @@ export type StaticEvaluationContext = {
 /** A resource-level policy match emitted inside a rule finding group. */
 export type FindingMatch = {
   resourceId: string;
+  /** Provider resource namespace used to distinguish otherwise identical resource IDs. */
+  resourceType?: string;
   accountId?: string;
   region?: string;
   location?: SourceLocation;

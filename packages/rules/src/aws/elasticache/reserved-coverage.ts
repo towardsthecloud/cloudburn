@@ -181,7 +181,10 @@ export const elastiCacheReservedCoverageRule = createRule({
           cluster.numCacheNodes * capacityShape.normalizedUnits,
         );
       })
-      .map((cluster) => createFindingMatch(cluster.cacheClusterId, cluster.region, cluster.accountId));
+      .map((cluster) => ({
+        ...createFindingMatch(cluster.cacheClusterId, cluster.region, cluster.accountId),
+        resourceType: 'elasticache:cluster',
+      }));
 
     return createFinding(
       { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },

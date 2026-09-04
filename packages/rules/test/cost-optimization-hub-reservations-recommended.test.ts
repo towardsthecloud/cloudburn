@@ -60,6 +60,15 @@ describe('CLDBRN-AWS-COSTOPTIMIZATIONHUB-2', () => {
       'MemoryDbReservedInstances',
       'DynamoDbReservedCapacity',
     ] as const;
+    const resourceNamespaceByType = {
+      DynamoDbReservedCapacity: 'dynamodb:table',
+      Ec2ReservedInstances: 'ec2:instance',
+      ElastiCacheReservedInstances: 'elasticache:cluster',
+      MemoryDbReservedInstances: 'memorydb:cluster',
+      OpenSearchReservedInstances: 'opensearch:domain',
+      RdsReservedInstances: 'rds:db',
+      RedshiftReservedInstances: 'redshift:cluster',
+    } as const;
     const recommendations = resourceTypes.map((reservationType, index) =>
       createRecommendation({
         recommendationId: `recommendation-${index + 1}`,
@@ -69,10 +78,11 @@ describe('CLDBRN-AWS-COSTOPTIMIZATIONHUB-2', () => {
     );
 
     expect(evaluate([...recommendations, recommendations[0]])).toEqual({
-      findings: resourceTypes.map((_reservationType, index) => ({
+      findings: resourceTypes.map((reservationType, index) => ({
         accountId: '123456789012',
         region: 'eu-west-1',
         resourceId: `resource-${index + 1}`,
+        resourceType: resourceNamespaceByType[reservationType],
       })),
       message: 'Reservation-eligible usage should use reserved capacity when AWS recommends a purchase.',
       ruleId: 'CLDBRN-AWS-COSTOPTIMIZATIONHUB-2',
@@ -92,6 +102,7 @@ describe('CLDBRN-AWS-COSTOPTIMIZATIONHUB-2', () => {
             accountId: '123456789012',
             region: 'eu-west-1',
             resourceId: 'recommendation-1',
+            resourceType: 'ec2:instance',
           },
         ],
       }),

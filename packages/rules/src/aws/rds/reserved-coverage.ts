@@ -119,7 +119,10 @@ export const rdsReservedCoverageRule = createRule({
           normalizedEngine,
         );
       })
-      .map((instance) => createFindingMatch(instance.dbInstanceIdentifier, instance.region, instance.accountId));
+      .map((instance) => ({
+        ...createFindingMatch(instance.dbInstanceIdentifier, instance.region, instance.accountId),
+        resourceType: 'rds:db',
+      }));
 
     return createFinding(
       { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
