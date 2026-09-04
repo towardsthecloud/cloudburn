@@ -31,6 +31,7 @@ export const costOptimizationHubRightsizingRecommendedRule = createRule({
       ].map((recommendation) => ({
         ...createFindingMatch(recommendation.resourceId, recommendation.region, recommendation.accountId),
         resourceType: getAwsCostOptimizationHubRightsizingResourceType(recommendation),
+        actionType: recommendation.actionType,
       })),
     ),
 });

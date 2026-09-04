@@ -165,6 +165,22 @@ duplicate using direct Compute Optimizer memory evidence. Low-utilization and mi
 RDS instance and storage recommendations have separate evidence namespaces. Unenrolled accounts, denied access, and
 incomplete detail evidence produce diagnostics and `not_applicable`; an enrolled account with no recommendations passes.
 
+Enable idle capacity recommendations with `config.discovery.enabledRules: ['CLDBRN-AWS-COSTOPTIMIZATIONHUB-3']`.
+The rule shares Hub enrollment, pagination, deduplication, and diagnostics with the purchase rules. It requires the
+same three Hub read permissions and `sts:GetCallerIdentity`; all Hub queries use `us-east-1` and filter to the caller's account.
+Idle recommendations also filter to the discovery target's Regions. An all-region target leaves that filter unset.
+
+With `includeEvaluationResources: true`, `AwsCostOptimizationHubIdleRecommendation` retains exact actions,
+typed current and recommended configurations, costs, savings, identity, and operational impact. Stop covers EC2
+and RDS MySQL/PostgreSQL; Delete covers EBS, ECS, and Aurora MySQL/PostgreSQL instances; ScaleIn covers Auto Scaling
+groups. AWS classifies RDS engine eligibility; Hub configuration exposes instance class, not engine metadata.
+See [AWS's action mapping](https://docs.aws.amazon.com/cost-management/latest/userguide/coh-optimization-strategies.html).
+
+An absent Stop/Delete target is represented as null. Missing ScaleIn targets, malformed supplied configuration,
+missing operational flags, denied requests, or unenrolled accounts make the rule `not_applicable`. CloudBurn never
+executes these actions or changes enrollment. The native unattached-volume rule can suppress the same EBS Delete
+finding when enabled; low utilization alone does not suppress Stop/Delete recommendations.
+
 `CLDBRN-AWS-SAGEMAKER-3` reads SageMaker Savings Plans coverage from Cost Explorer for the last 30 complete days. It
 flags coverage below 80 percent only when uncovered On-Demand cost is at least 72 cost units. When Cost Optimization
 Hub returns a SageMaker purchase recommendation, that stronger finding suppresses the coverage warning for the account.

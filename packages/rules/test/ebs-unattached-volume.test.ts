@@ -48,6 +48,8 @@ describe('ebsUnattachedVolumeRule', () => {
       findings: [
         {
           resourceId: 'vol-123',
+          actionType: 'Delete',
+          resourceType: 'ec2:volume',
           region: 'eu-west-1',
           accountId: '123456789012',
         },

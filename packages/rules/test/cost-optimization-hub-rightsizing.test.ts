@@ -29,7 +29,13 @@ describe('CLDBRN-AWS-COSTOPTIMIZATIONHUB-4', () => {
       }),
     });
     expect(finding?.findings).toEqual([
-      { resourceId: 'resource-example', accountId: '123456789012', region: 'eu-west-1', resourceType: namespace },
+      {
+        resourceId: 'resource-example',
+        accountId: '123456789012',
+        region: 'eu-west-1',
+        resourceType: namespace,
+        actionType: 'Rightsize',
+      },
     ]);
   });
   it.each([

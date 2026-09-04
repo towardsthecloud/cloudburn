@@ -21,6 +21,7 @@ export const lambdaMemoryOverprovisioningRule = createRule({
     const findings = resources.get('aws-lambda-memory-recommendations').map((recommendation) => ({
       ...createFindingMatch(recommendation.functionArn, recommendation.region, recommendation.accountId),
       resourceType: 'lambda:function',
+      actionType: 'Rightsize',
     }));
 
     return createFinding(

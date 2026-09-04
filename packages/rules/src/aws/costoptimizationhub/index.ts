@@ -1,3 +1,4 @@
+import { costOptimizationHubIdleCapacityRule } from './idle-capacity.js';
 import { costOptimizationHubReservationsRecommendedRule } from './reservations-recommended.js';
 import { costOptimizationHubRightsizingRecommendedRule } from './rightsizing-recommended.js';
 import { costOptimizationHubSavingsPlansRecommendedRule } from './savings-plans-recommended.js';
@@ -7,4 +8,5 @@ export const costOptimizationHubRules = [
   costOptimizationHubSavingsPlansRecommendedRule,
   costOptimizationHubReservationsRecommendedRule,
   costOptimizationHubRightsizingRecommendedRule,
+  costOptimizationHubIdleCapacityRule,
 ];

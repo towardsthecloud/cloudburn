@@ -38,6 +38,7 @@ import {
   hydrateAwsCostGuardrailBudgets,
 } from '../../src/providers/aws/resources/cost-guardrails.js';
 import {
+  hydrateAwsCostOptimizationHubIdleRecommendations,
   hydrateAwsCostOptimizationHubReservationRecommendations,
   hydrateAwsCostOptimizationHubRightsizingRecommendations,
   hydrateAwsCostOptimizationHubSavingsPlansRecommendations,
@@ -180,6 +181,7 @@ vi.mock('../../src/providers/aws/resources/cost-explorer.js', () => ({
 
 vi.mock('../../src/providers/aws/resources/cost-optimization-hub.js', () => ({
   hydrateAwsCostOptimizationHubRightsizingRecommendations: vi.fn(),
+  hydrateAwsCostOptimizationHubIdleRecommendations: vi.fn(),
   hydrateAwsCostOptimizationHubReservationRecommendations: vi.fn(),
   hydrateAwsCostOptimizationHubSavingsPlansRecommendations: vi.fn(),
 }));
@@ -939,6 +941,7 @@ describe('discoverAwsResources', () => {
   });
 
   it('loads account-scoped discovery datasets without building a Resource Explorer catalog', async () => {
+    vi.mocked(hydrateAwsCostOptimizationHubIdleRecommendations).mockResolvedValue([]);
     mockedResolveCurrentAwsRegion.mockResolvedValue('eu-west-1');
     mockedHydrateAwsCostUsage.mockResolvedValue([
       {
@@ -1041,6 +1044,11 @@ describe('discoverAwsResources', () => {
           service: 'costoptimizationhub',
           discoveryDependencies: ['aws-cost-optimization-hub-reservation-recommendations'],
         }),
+        createRule({
+          id: 'CLDBRN-AWS-COSTOPTIMIZATIONHUB-3',
+          service: 'costoptimizationhub',
+          discoveryDependencies: ['aws-cost-optimization-hub-idle-recommendations'],
+        }),
       ],
       { mode: 'regions', regions: ['eu-west-1'] },
     );
@@ -1051,6 +1059,11 @@ describe('discoverAwsResources', () => {
     expect(mockedHydrateAwsCostAnomalyMonitors).toHaveBeenCalledWith([], loadContextMatcher);
     expect(mockedHydrateAwsCostOptimizationHubSavingsPlansRecommendations).not.toHaveBeenCalled();
     expect(mockedHydrateAwsCostOptimizationHubReservationRecommendations).toHaveBeenCalledWith([], loadContextMatcher);
+    expect(hydrateAwsCostOptimizationHubIdleRecommendations).toHaveBeenCalledWith([], loadContextMatcher);
+    expect(hydrateAwsCostOptimizationHubIdleRecommendations).toHaveBeenCalledWith(
+      [],
+      expect.objectContaining({ regions: ['eu-west-1'] }),
+    );
     expect(mockedHydrateAwsSageMakerSavingsPlansCoverage).toHaveBeenCalledWith([], loadContextMatcher);
     expect(result.catalog).toEqual({
       indexType: 'LOCAL',
@@ -1087,6 +1100,28 @@ describe('discoverAwsResources', () => {
     expect(result.resources.get('aws-sagemaker-savings-plans-coverage')).toEqual([
       expect.objectContaining({ accountId: '123456789012' }),
     ]);
+  });
+
+  it.each([
+    [{ mode: 'current' }, ['eu-west-1']],
+    [{ mode: 'region', region: 'eu-central-1' }, ['eu-central-1']],
+    [{ mode: 'regions', regions: ['eu-west-1', 'eu-central-1'] }, ['eu-west-1', 'eu-central-1']],
+    [{ mode: 'all' }, undefined],
+  ] as const)('propagates the resource scope for target %j', async (target, regions) => {
+    mockedResolveCurrentAwsRegion.mockResolvedValue('eu-west-1');
+    vi.mocked(hydrateAwsCostOptimizationHubIdleRecommendations).mockResolvedValue([]);
+    await discoverAwsResources(
+      [
+        createRule({
+          id: 'CLDBRN-AWS-COSTOPTIMIZATIONHUB-3',
+          service: 'costoptimizationhub',
+          discoveryDependencies: ['aws-cost-optimization-hub-idle-recommendations'],
+        }),
+      ],
+      target.mode === 'regions' ? { ...target, regions: [...target.regions] } : target,
+    );
+    const context = vi.mocked(hydrateAwsCostOptimizationHubIdleRecommendations).mock.calls[0]?.[1];
+    expect(context?.regions).toEqual(regions);
   });
 
   it('passes the explicit target region to account-scoped datasets', async () => {

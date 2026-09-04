@@ -5,6 +5,8 @@ import {
   type DiscoveryDatasetKey,
   type DiscoveryDatasetMap,
   type FindingMatch,
+  getAwsCostOptimizationHubIdleResourceId,
+  getAwsCostOptimizationHubIdleResourceType,
   getAwsCostOptimizationHubReservationResourceId,
   getAwsCostOptimizationHubReservationResourceType,
   getAwsCostOptimizationHubRightsizingResourceType,
@@ -26,6 +28,7 @@ import { hydrateAwsConfigRecordingFrequencyReviews } from './resources/config.js
 import { hydrateAwsCostUsage } from './resources/cost-explorer.js';
 import { hydrateAwsCostAnomalyMonitors, hydrateAwsCostGuardrailBudgets } from './resources/cost-guardrails.js';
 import {
+  hydrateAwsCostOptimizationHubIdleRecommendations,
   hydrateAwsCostOptimizationHubReservationRecommendations,
   hydrateAwsCostOptimizationHubRightsizingRecommendations,
   hydrateAwsCostOptimizationHubSavingsPlansRecommendations,
@@ -118,6 +121,8 @@ export type AwsAccountIdResolver = {
 export type AwsDiscoveryDatasetLoadContext = AwsDiscoveryDatasetResolver &
   AwsAccountIdResolver & {
     region?: string;
+    /** Selected resource Regions; undefined means an all-region discovery target. */
+    regions?: string[];
   };
 
 /** Declarative definition for one rule-facing AWS discovery dataset. */
@@ -823,8 +828,22 @@ const awsDiscoveryDatasetRegistry: {
           ...(recommendation.resourceArn ? { arn: recommendation.resourceArn } : {}),
           data: recommendation,
           resourceType: getAwsCostOptimizationHubRightsizingResourceType(recommendation),
+          actionType: recommendation.actionType,
         }),
       ),
+  },
+  'aws-cost-optimization-hub-idle-recommendations': {
+    datasetKey: 'aws-cost-optimization-hub-idle-recommendations',
+    resourceTypes: [],
+    service: 'costoptimizationhub',
+    load: hydrateAwsCostOptimizationHubIdleRecommendations,
+    toEvaluationResources: (recommendations) =>
+      mapEvaluationResources(recommendations, getAwsCostOptimizationHubIdleResourceId, (recommendation) => ({
+        data: recommendation,
+        actionType: recommendation.actionType,
+        ...(recommendation.resourceArn ? { arn: recommendation.resourceArn } : {}),
+        resourceType: getAwsCostOptimizationHubIdleResourceType(recommendation),
+      })),
   },
   'aws-sagemaker-savings-plans-coverage': {
     datasetKey: 'aws-sagemaker-savings-plans-coverage',

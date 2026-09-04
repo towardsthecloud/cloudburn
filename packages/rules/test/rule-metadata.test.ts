@@ -51,9 +51,7 @@ describe('rule metadata', () => {
       numbersByScope.set(scopeKey, ruleNumbers);
     }
 
-    for (const [scope, ruleNumbers] of numbersByScope) {
-      // #209 reserves Hub-3; #210 explicitly assigns rightsizing to Hub-4.
-      if (scope === 'AWS-COSTOPTIMIZATIONHUB' && !ruleNumbers.includes(3)) ruleNumbers.push(3);
+    for (const ruleNumbers of numbersByScope.values()) {
       const sortedRuleNumbers = [...ruleNumbers].sort((left, right) => left - right);
 
       expect(sortedRuleNumbers).toEqual(Array.from({ length: sortedRuleNumbers.length }, (_, index) => index + 1));
