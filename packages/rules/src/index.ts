@@ -83,6 +83,7 @@ export type {
   AwsS3BucketAnalysisFlags,
   AwsSageMakerEndpointActivity,
   AwsSageMakerNotebookInstance,
+  AwsSageMakerSavingsPlansRecommendation,
   AwsSecretsManagerSecret,
   AwsStaticCloudFrontDistribution,
   AwsStaticCloudWatchLogGroup,

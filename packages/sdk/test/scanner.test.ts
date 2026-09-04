@@ -301,6 +301,61 @@ describe('CloudBurnClient', () => {
     });
   });
 
+  it('returns SageMaker Savings Plans recommendation evidence for triggered findings', async () => {
+    const recommendation = {
+      accountId: '123456789012',
+      actionType: 'PurchaseSavingsPlans' as const,
+      currencyCode: 'USD',
+      estimatedMonthlyCost: 200,
+      estimatedMonthlySavings: 50,
+      estimatedSavingsPercentage: 25,
+      implementationEffort: 'VeryLow',
+      lastRefreshTimestamp: '2026-09-03T00:00:00.000Z',
+      paymentOption: 'NoUpfront',
+      recommendationId: 'recommendation-1',
+      recommendationSource: 'CostExplorer' as const,
+      restartNeeded: false,
+      rollbackPossible: false,
+      term: 'OneYear',
+    };
+    mockedDiscoverAwsResources.mockResolvedValue({
+      catalog: discoveryCatalog,
+      resources: new LiveResourceBag({
+        'aws-sagemaker-savings-plans-recommendations': [recommendation],
+      }),
+    });
+
+    const result = await new CloudBurnClient().discover({
+      config: { discovery: { enabledRules: ['CLDBRN-AWS-SAGEMAKER-3'] }, iac: {} },
+      includeEvaluationResources: true,
+    });
+
+    expect(result.evaluations).toEqual({
+      resourceSets: [
+        {
+          id: 'aws-sagemaker-savings-plans-recommendations',
+          resources: [
+            {
+              accountId: '123456789012',
+              data: recommendation,
+              region: 'global',
+              resourceId: 'recommendation-1',
+              resourceType: 'sagemaker:savings-plans-recommendation',
+            },
+          ],
+        },
+      ],
+      rules: [
+        expect.objectContaining({
+          findingCount: 1,
+          resourceSetId: 'aws-sagemaker-savings-plans-recommendations',
+          ruleId: 'CLDBRN-AWS-SAGEMAKER-3',
+          status: 'triggered',
+        }),
+      ],
+    });
+  });
+
   it('reports the KMS no-recorded-usage rule as not applicable when usage evidence is incomplete', async () => {
     const diagnostic = {
       code: 'KmsUsageEvidenceIncomplete',

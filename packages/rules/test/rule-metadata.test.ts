@@ -1122,6 +1122,22 @@ describe('rule metadata', () => {
     });
   });
 
+  it('defines the expected SageMaker Savings Plans recommendation rule metadata', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-SAGEMAKER-3');
+
+    expect(rule).toBeDefined();
+    expect(rule).toMatchObject({
+      id: 'CLDBRN-AWS-SAGEMAKER-3',
+      name: 'SageMaker Savings Plans Purchase Recommended',
+      description: 'Flag SageMaker Savings Plans purchases recommended by AWS Cost Optimization Hub.',
+      message: 'SageMaker usage should use a Savings Plan when AWS recommends a purchase.',
+      provider: 'aws',
+      service: 'sagemaker',
+      supports: ['discovery'],
+      discoveryDependencies: ['aws-sagemaker-savings-plans-recommendations'],
+    });
+  });
+
   it('defines the expected CloudFront price-class rule metadata', () => {
     const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-CLOUDFRONT-1');
 

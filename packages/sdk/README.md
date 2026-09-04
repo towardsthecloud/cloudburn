@@ -83,7 +83,7 @@ const auditableResult = await client.discover({
 });
 ```
 
-`discover()` defaults to the current AWS region and the AWS Core preset. You can also target one or more explicit AWS regions with `{ target: { mode: 'regions', regions: [...] } }`. Multi-region discovery requires an AWS Resource Explorer aggregator index. Rules that need explicit AWS setup are opt-in through `config.discovery.enabledRules`. `CLDBRN-AWS-TAGGING-1` needs an accessible aggregator, while `CLDBRN-AWS-LAMBDA-4` needs AWS Compute Optimizer enrollment.
+`discover()` defaults to the current AWS region and the AWS Core preset. You can also target one or more explicit AWS regions with `{ target: { mode: 'regions', regions: [...] } }`. Multi-region discovery requires an AWS Resource Explorer aggregator index. Rules that need explicit AWS setup are opt-in through `config.discovery.enabledRules`. `CLDBRN-AWS-TAGGING-1` needs an accessible aggregator, `CLDBRN-AWS-LAMBDA-4` needs AWS Compute Optimizer enrollment, and `CLDBRN-AWS-SAGEMAKER-3` needs AWS Cost Optimization Hub enrollment.
 
 Set `includeEvaluationResources` when a caller needs audit evidence for checks that did not produce findings. The
 optional `result.evaluations` value contains normalized identities from the primary resource dataset supplied to each
@@ -112,6 +112,14 @@ when present, multi-Region status, and an estimated monthly storage cost with it
 window is skipped. Missing key or usage metadata makes this check `not_applicable` instead of `passed`. Because KMS
 cannot observe every possible use, the rule recommends disabling and monitoring a candidate before deletion. The
 shared loader requires `kms:DescribeKey`, `kms:GetKeyLastUsage`, `kms:ListAliases`, and `kms:ListKeyRotations`.
+
+`CLDBRN-AWS-SAGEMAKER-3` reads account-scoped SageMaker Savings Plans purchase recommendations from AWS Cost
+Optimization Hub. Evaluation evidence includes the estimated monthly cost and savings, savings percentage, currency,
+commitment term, payment option, refresh time, recommendation source, and operational impact fields. The SDK checks
+enrollment but never changes it. An account that is not enrolled, lacks
+`cost-optimization-hub:ListEnrollmentStatuses`, `cost-optimization-hub:ListRecommendations`, or
+`cost-optimization-hub:GetRecommendation`, or returns incomplete purchase evidence reports the rule as
+`not_applicable` instead of `passed`.
 
 The SDK does not define product profiles, remediation effort, commands, or persistence schemas. Applications select
 the discovery rules that fit their use case through `config.discovery.enabledRules` and transform the generic result

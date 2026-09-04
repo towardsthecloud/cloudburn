@@ -19,6 +19,7 @@ sequence for every provider/service pair.
 
 - `aws-core` is the default general discovery preset.
 - `CLDBRN-AWS-LAMBDA-4` is opt-in because AWS Compute Optimizer requires account enrollment. Enable it with `cloudburn discover --enabled-rules CLDBRN-AWS-LAMBDA-4` or `config.discovery.enabledRules` in the SDK.
+- `CLDBRN-AWS-SAGEMAKER-3` is opt-in because AWS Cost Optimization Hub requires account enrollment. CloudBurn checks enrollment but never changes it.
 - `CLDBRN-AWS-TAGGING-1` is opt-in because account-wide tagging needs an accessible Resource Explorer aggregator.
 - Applications can define product-specific rule selections with `config.discovery.enabledRules`. Such selections are
   application policy rather than SDK presets; the SDK continues to return the same generic findings and evaluation
@@ -120,6 +121,7 @@ meaningful optimization opportunities, and `low` covers hygiene and smaller accu
 | `CLDBRN-AWS-S3-4`             | medium   | Flags only versioned buckets and requires either noncurrent-version expiration or transition cleanup to avoid unbounded version growth.                                                                                             | s3             | iac            |
 | `CLDBRN-AWS-SAGEMAKER-1`      | high     | Flags only notebook instances whose normalized status remains `InService`.                                                                                                                                                          | sagemaker      | discovery      |
 | `CLDBRN-AWS-SAGEMAKER-2`      | high     | Flags only endpoints whose normalized status remains `InService`, whose parsed `creationTime` is at least `14` days old, and whose complete 14-day `Invocations` total stays at `0`. Endpoints with incomplete metrics are skipped. | sagemaker      | discovery      |
+| `CLDBRN-AWS-SAGEMAKER-3`      | medium   | Opt-in. Flags account-scoped SageMaker Savings Plans purchase recommendations returned by AWS Cost Optimization Hub. The check is skipped when the account is not enrolled or required evidence is unavailable.                     | sagemaker      | discovery      |
 | `CLDBRN-AWS-SECRETSMANAGER-1` | low      | Flags secrets with no `lastAccessedDate` and secrets whose parsed last access is at least `90` days old.                                                                                                                            | secretsmanager | discovery      |
 | `CLDBRN-AWS-TAGGING-1`        | low      | Opt-in. Uses an accessible Resource Explorer aggregator and `resourcetype.supports:tags tag:none` to flag taggable resources without user-created tags across the account. AWS-managed tags do not satisfy the rule.                | tagging        | discovery      |
 | `CLDBRN-AWS-LAMBDA-1`         | medium   | Recommend arm64 architecture when compatible.                                                                                                                                                                                       | lambda         | iac, discovery |
@@ -170,6 +172,6 @@ evaluated independently.
 
 ## Presets
 
-| Preset ID  | Name     | Rule IDs                                                                           |
-| ---------- | -------- | ---------------------------------------------------------------------------------- |
-| `aws-core` | AWS Core | All AWS rules above except opt-in `CLDBRN-AWS-LAMBDA-4` and `CLDBRN-AWS-TAGGING-1` |
+| Preset ID  | Name     | Rule IDs                                                                                                      |
+| ---------- | -------- | ------------------------------------------------------------------------------------------------------------- |
+| `aws-core` | AWS Core | All AWS rules above except opt-in `CLDBRN-AWS-LAMBDA-4`, `CLDBRN-AWS-SAGEMAKER-3`, and `CLDBRN-AWS-TAGGING-1` |

@@ -159,6 +159,13 @@ whether that estimate includes complete rotation history, the tracking start, an
 Only keys with at least 90 days of complete no-recorded-usage evidence can trigger the rule. Missing key or usage
 metadata makes the rule `not_applicable` rather than allowing incomplete evidence to look like a pass.
 
+`CLDBRN-AWS-SAGEMAKER-3` projects one evaluated resource per Cost Optimization Hub recommendation. Its normalized
+`data` contains the recommendation ID and source, account and Region when present, action type, current monthly cost,
+estimated monthly savings and percentage, currency, implementation effort when present, last refresh time, commitment
+term, payment option, restart requirement, and rollback availability. Duplicate recommendation IDs are evaluated once.
+Missing purchase terms or required cost evidence makes the rule `not_applicable` rather than allowing an incomplete
+recommendation to look like a pass.
+
 Every selected discovery rule appears exactly once when evaluation evidence is requested:
 
 - `triggered` means the rule emitted one or more findings.

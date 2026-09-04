@@ -52,6 +52,7 @@
     "@aws-sdk/client-compute-optimizer": "^3.1085.0",
     "@aws-sdk/client-config-service": "^3.1120.0",
     "@aws-sdk/client-cost-explorer": "^3.1015.0",
+    "@aws-sdk/client-cost-optimization-hub": "^3.1120.0",
     "@aws-sdk/client-dynamodb": "^3.1015.0",
     "@aws-sdk/client-ec2": "^3.1003.0",
     "@aws-sdk/client-ecr": "^3.1003.0",

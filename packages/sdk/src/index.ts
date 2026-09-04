@@ -66,6 +66,7 @@ export type {
   AwsRoute53Zone,
   AwsSageMakerEndpointActivity,
   AwsSageMakerNotebookInstance,
+  AwsSageMakerSavingsPlansRecommendation,
   AwsSecretsManagerSecret,
   AwsSupportedResourceType,
   BuiltInRuleMetadata,

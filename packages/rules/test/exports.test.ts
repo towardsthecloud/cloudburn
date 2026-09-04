@@ -36,6 +36,7 @@ import type {
   AwsRoute53Zone,
   AwsSageMakerEndpointActivity,
   AwsSageMakerNotebookInstance,
+  AwsSageMakerSavingsPlansRecommendation,
   AwsSecretsManagerSecret,
   AwsStaticRdsInstance,
   AwsUntaggedResource,
@@ -66,9 +67,11 @@ describe('rule exports', () => {
     expect(AWS_KMS_KEY_PROLIFERATION_THRESHOLD).toBe(50);
     expect(AWS_KMS_MONTHLY_KEY_CREATION_THRESHOLD).toBe(10);
     expect(AWS_KMS_UNUSED_KEY_MINIMUM_AGE_DAYS).toBe(90);
-    expect(awsRuleIds).toHaveLength(85);
+    expect(awsRuleIds).toHaveLength(86);
     expect(awsCorePreset.ruleIds).toEqual(
-      awsRuleIds.filter((ruleId) => !['CLDBRN-AWS-LAMBDA-4', 'CLDBRN-AWS-TAGGING-1'].includes(ruleId)),
+      awsRuleIds.filter(
+        (ruleId) => !['CLDBRN-AWS-LAMBDA-4', 'CLDBRN-AWS-SAGEMAKER-3', 'CLDBRN-AWS-TAGGING-1'].includes(ruleId),
+      ),
     );
     expect(awsRuleIds).toEqual(
       expect.arrayContaining([
@@ -150,6 +153,7 @@ describe('rule exports', () => {
         'CLDBRN-AWS-S3-4',
         'CLDBRN-AWS-SAGEMAKER-1',
         'CLDBRN-AWS-SAGEMAKER-2',
+        'CLDBRN-AWS-SAGEMAKER-3',
         'CLDBRN-AWS-SECRETSMANAGER-1',
       ]),
     );
@@ -514,6 +518,19 @@ describe('rule exports', () => {
       region: 'eu-west-1',
       totalInvocationsLast14Days: 0,
     };
+    const sagemakerSavingsPlansRecommendation: AwsSageMakerSavingsPlansRecommendation = {
+      accountId: '123456789012',
+      actionType: 'PurchaseSavingsPlans',
+      currencyCode: 'USD',
+      estimatedMonthlyCost: 100,
+      estimatedMonthlySavings: 25,
+      estimatedSavingsPercentage: 25,
+      lastRefreshTimestamp: '2026-03-01T00:00:00.000Z',
+      paymentOption: 'No Upfront',
+      recommendationId: 'recommendation-1',
+      recommendationSource: 'CostExplorer',
+      term: 'One year',
+    };
 
     const cloudFrontDatasetKey: DiscoveryDatasetKey = 'aws-cloudfront-distributions';
     const cloudFrontRequestActivityDatasetKey: DiscoveryDatasetKey = 'aws-cloudfront-distribution-request-activity';
@@ -545,6 +562,7 @@ describe('rule exports', () => {
     const route53ZoneDatasetKey: DiscoveryDatasetKey = 'aws-route53-zones';
     const sagemakerEndpointDatasetKey: DiscoveryDatasetKey = 'aws-sagemaker-endpoint-activity';
     const sagemakerDatasetKey: DiscoveryDatasetKey = 'aws-sagemaker-notebook-instances';
+    const sagemakerSavingsPlansDatasetKey: DiscoveryDatasetKey = 'aws-sagemaker-savings-plans-recommendations';
     const secretsManagerDatasetKey: DiscoveryDatasetKey = 'aws-secretsmanager-secrets';
     const targetGroupDatasetKey: DiscoveryDatasetKey = 'aws-ec2-target-groups';
     const staticDatasetKey: StaticDatasetKey = 'aws-rds-instances';
@@ -579,6 +597,7 @@ describe('rule exports', () => {
     expect(route53ZoneDatasetKey).toBe('aws-route53-zones');
     expect(sagemakerEndpointDatasetKey).toBe('aws-sagemaker-endpoint-activity');
     expect(sagemakerDatasetKey).toBe('aws-sagemaker-notebook-instances');
+    expect(sagemakerSavingsPlansDatasetKey).toBe('aws-sagemaker-savings-plans-recommendations');
     expect(secretsManagerDatasetKey).toBe('aws-secretsmanager-secrets');
     expect(cloudFrontDistribution.priceClass).toBe('PriceClass_All');
     expect(costUsage.costIncrease).toBe(15);
@@ -597,6 +616,7 @@ describe('rule exports', () => {
     expect(route53HealthCheck.healthCheckId).toBe('abcd1234');
     expect(endpointActivity.totalInvocationsLast14Days).toBe(0);
     expect(notebookInstance.notebookInstanceStatus).toBe('InService');
+    expect(sagemakerSavingsPlansRecommendation.estimatedMonthlySavings).toBe(25);
     expect(secret.secretName).toBe('db-password');
     expect(cacheCluster.cacheClusterStatus).toBe('available');
     expect(cacheClusterActivity.averageCacheHitRateLast14Days).toBe(4.5);

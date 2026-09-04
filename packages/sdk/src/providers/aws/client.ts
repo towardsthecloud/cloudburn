@@ -8,6 +8,7 @@ import { CloudWatchLogsClient } from '@aws-sdk/client-cloudwatch-logs';
 import { ComputeOptimizerClient } from '@aws-sdk/client-compute-optimizer';
 import { ConfigServiceClient } from '@aws-sdk/client-config-service';
 import { CostExplorerClient } from '@aws-sdk/client-cost-explorer';
+import { CostOptimizationHubClient } from '@aws-sdk/client-cost-optimization-hub';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DescribeRegionsCommand, EC2Client } from '@aws-sdk/client-ec2';
 import { ECRClient } from '@aws-sdk/client-ecr';
@@ -273,6 +274,14 @@ export const createConfigServiceClient = (config: AwsClientConfig): ConfigServic
 /** Creates an AWS Cost Explorer client against the global billing control plane. */
 export const createCostExplorerClient = (): CostExplorerClient =>
   new CostExplorerClient({
+    ...baseAwsClientConfig(),
+    region: AWS_GLOBAL_CONTROL_REGION,
+    credentials: resolveAwsClientCredentials(),
+  });
+
+/** Creates an AWS Cost Optimization Hub client against the global billing control plane. */
+export const createCostOptimizationHubClient = (): CostOptimizationHubClient =>
+  new CostOptimizationHubClient({
     ...baseAwsClientConfig(),
     region: AWS_GLOBAL_CONTROL_REGION,
     credentials: resolveAwsClientCredentials(),

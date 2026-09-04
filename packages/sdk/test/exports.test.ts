@@ -27,6 +27,7 @@ import {
   type AwsRoute53Zone,
   type AwsSageMakerEndpointActivity,
   type AwsSageMakerNotebookInstance,
+  type AwsSageMakerSavingsPlansRecommendation,
   type AwsSecretsManagerSecret,
   builtInRuleMetadata,
   parseIaC,
@@ -322,6 +323,19 @@ describe('sdk exports', () => {
       region: 'eu-west-1',
       totalInvocationsLast14Days: 0,
     };
+    const savingsPlansRecommendation: AwsSageMakerSavingsPlansRecommendation = {
+      accountId: '123456789012',
+      actionType: 'PurchaseSavingsPlans',
+      currencyCode: 'USD',
+      estimatedMonthlyCost: 200,
+      estimatedMonthlySavings: 50,
+      estimatedSavingsPercentage: 25,
+      lastRefreshTimestamp: '2026-09-03T00:00:00.000Z',
+      paymentOption: 'NoUpfront',
+      recommendationId: 'recommendation-1',
+      recommendationSource: 'CostExplorer',
+      term: 'OneYear',
+    };
 
     expect(trail.trailName).toBe('org-trail');
     expect(logGroup.retentionInDays).toBe(30);
@@ -346,6 +360,7 @@ describe('sdk exports', () => {
     expect(secret.secretName).toBe('db-password');
     expect(notebookInstance.notebookInstanceStatus).toBe('InService');
     expect(endpointActivity.totalInvocationsLast14Days).toBe(0);
+    expect(savingsPlansRecommendation.estimatedMonthlySavings).toBe(50);
   });
 
   it('clones supports arrays so metadata consumers cannot mutate source rule definitions', () => {

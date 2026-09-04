@@ -22,6 +22,7 @@ import {
 import { hydrateAwsConfigRecordingFrequencyReviews } from './resources/config.js';
 import { hydrateAwsCostUsage } from './resources/cost-explorer.js';
 import { hydrateAwsCostAnomalyMonitors, hydrateAwsCostGuardrailBudgets } from './resources/cost-guardrails.js';
+import { hydrateAwsSageMakerSavingsPlansRecommendations } from './resources/cost-optimization-hub.js';
 import {
   hydrateAwsDynamoDbAutoscaling,
   hydrateAwsDynamoDbTables,
@@ -739,6 +740,21 @@ const awsDiscoveryDatasetRegistry: {
         (instance) => instance.notebookInstanceName,
         (instance) => ({
           name: instance.notebookInstanceName,
+        }),
+      ),
+  },
+  'aws-sagemaker-savings-plans-recommendations': {
+    datasetKey: 'aws-sagemaker-savings-plans-recommendations',
+    resourceTypes: [],
+    service: 'sagemaker',
+    load: hydrateAwsSageMakerSavingsPlansRecommendations,
+    toEvaluationResources: (recommendations) =>
+      mapEvaluationResources(
+        recommendations,
+        (recommendation) => recommendation.recommendationId,
+        (recommendation) => ({
+          data: recommendation,
+          resourceType: 'sagemaker:savings-plans-recommendation',
         }),
       ),
   },

@@ -441,6 +441,25 @@ export type AwsSageMakerEndpointActivity = {
   accountId: string;
 };
 
+/** Account-scoped SageMaker Savings Plans purchase recommendation from AWS Cost Optimization Hub. */
+export type AwsSageMakerSavingsPlansRecommendation = {
+  accountId: string;
+  actionType: 'PurchaseSavingsPlans';
+  currencyCode: string;
+  estimatedMonthlyCost: number;
+  estimatedMonthlySavings: number;
+  estimatedSavingsPercentage: number;
+  implementationEffort?: string;
+  lastRefreshTimestamp: string;
+  paymentOption: string;
+  recommendationId: string;
+  recommendationSource: 'ComputeOptimizer' | 'CostExplorer';
+  region?: string;
+  restartNeeded?: boolean;
+  rollbackPossible?: boolean;
+  term: string;
+};
+
 /** Discovered AWS RDS DB instance with its normalized instance class. */
 export type AwsRdsInstance = {
   dbInstanceIdentifier: string;
@@ -847,6 +866,7 @@ export type DiscoveryDatasetKey =
   | 'aws-s3-bucket-analyses'
   | 'aws-sagemaker-endpoint-activity'
   | 'aws-sagemaker-notebook-instances'
+  | 'aws-sagemaker-savings-plans-recommendations'
   | 'aws-resource-explorer-untagged-resources'
   | 'aws-secretsmanager-secrets';
 
@@ -907,6 +927,7 @@ export type DiscoveryDatasetMap = {
   'aws-s3-bucket-analyses': AwsS3BucketAnalysis[];
   'aws-sagemaker-endpoint-activity': AwsSageMakerEndpointActivity[];
   'aws-sagemaker-notebook-instances': AwsSageMakerNotebookInstance[];
+  'aws-sagemaker-savings-plans-recommendations': AwsSageMakerSavingsPlansRecommendation[];
   'aws-resource-explorer-untagged-resources': AwsUntaggedResource[];
   'aws-secretsmanager-secrets': AwsSecretsManagerSecret[];
 };
