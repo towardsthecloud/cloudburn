@@ -5,6 +5,7 @@ import {
   type Ec2ReservedInstancesConfiguration,
   type ElastiCacheReservedInstancesConfiguration,
   GetRecommendationCommand,
+  type GetRecommendationResponse,
   ListEnrollmentStatusesCommand,
   ListRecommendationsCommand,
   type MemoryDbReservedInstancesConfiguration,
@@ -20,6 +21,7 @@ import type {
   AwsCostOptimizationHubDynamoDbReservationConfiguration,
   AwsCostOptimizationHubEc2ReservationConfiguration,
   AwsCostOptimizationHubElastiCacheReservationConfiguration,
+  AwsCostOptimizationHubIdleRecommendation,
   AwsCostOptimizationHubMemoryDbReservationConfiguration,
   AwsCostOptimizationHubOpenSearchReservationConfiguration,
   AwsCostOptimizationHubRdsReservationConfiguration,
@@ -64,11 +66,12 @@ type NormalizedRecommendationCommon = AwsCostOptimizationHubRecommendation & {
 };
 
 type RecommendationCategory<T extends AwsCostOptimizationHubRecommendation> = {
-  actionType: AwsCostOptimizationHubRecommendation['actionType'];
+  actionTypes: readonly AwsCostOptimizationHubRecommendation['actionType'][];
   incompleteDetails: (count: number) => string;
   messageSubject: string;
-  normalizeConfiguration: (common: NormalizedRecommendationCommon, details: ResourceDetails | undefined) => T | null;
+  normalizeConfiguration: (common: NormalizedRecommendationCommon, response: GetRecommendationResponse) => T | null;
   resourceTypes: readonly ResourceType[];
+  regions?: string[];
 };
 
 type SavingsPlansConfiguration =
@@ -102,7 +105,8 @@ const normalizeRecommendationCommon = (
 ): NormalizedRecommendationCommon | null => {
   if (
     !recommendation.recommendationId ||
-    recommendation.actionType !== category.actionType ||
+    !recommendation.actionType ||
+    !category.actionTypes.some((action) => action === recommendation.actionType) ||
     !recommendation.currentResourceType ||
     !category.resourceTypes.some((resourceType) => resourceType === recommendation.currentResourceType) ||
     !recommendation.accountId ||
@@ -122,7 +126,7 @@ const normalizeRecommendationCommon = (
 
   return {
     accountId: recommendation.accountId,
-    actionType: category.actionType,
+    actionType: recommendation.actionType as AwsCostOptimizationHubRecommendation['actionType'],
     currencyCode: recommendation.currencyCode,
     currentResourceType: recommendation.currentResourceType,
     estimatedMonthlyCost: recommendation.estimatedMonthlyCost,
@@ -452,26 +456,131 @@ const normalizeReservationConfiguration = (
 };
 
 const savingsPlansCategory: RecommendationCategory<AwsCostOptimizationHubSavingsPlansRecommendation> = {
-  actionType: 'PurchaseSavingsPlans',
+  actionTypes: ['PurchaseSavingsPlans'],
   incompleteDetails: (count) =>
     `${count} Savings Plans recommendation${count === 1 ? '' : 's'} lacked required cost, refresh, source, scope, commitment, term, or payment data.`,
   messageSubject: 'Savings Plans recommendations',
-  normalizeConfiguration: normalizeSavingsPlansConfiguration,
+  normalizeConfiguration: (common, response) =>
+    normalizeSavingsPlansConfiguration(common, response.recommendedResourceDetails),
   resourceTypes: SAVINGS_PLANS_RESOURCE_TYPES,
 };
 
 const reservationCategory: RecommendationCategory<AwsCostOptimizationHubReservationRecommendation> = {
-  actionType: 'PurchaseReservedInstances',
+  actionTypes: ['PurchaseReservedInstances'],
   incompleteDetails: (count) =>
     `${count} reservation purchase recommendation${count === 1 ? '' : 's'} lacked required cost, refresh, source, or typed purchase configuration data.`,
   messageSubject: 'reservation purchase recommendations',
-  normalizeConfiguration: normalizeReservationConfiguration,
+  normalizeConfiguration: (common, response) =>
+    normalizeReservationConfiguration(common, response.recommendedResourceDetails),
   resourceTypes: RESERVATION_RESOURCE_TYPES,
 };
 
 type CostOptimizationHubSession = {
   client: ReturnType<typeof createCostOptimizationHubClient>;
   enrolled: boolean;
+};
+
+const idleResourceKeys = {
+  Ec2Instance: 'ec2Instance',
+  RdsDbInstance: 'rdsDbInstance',
+  EbsVolume: 'ebsVolume',
+  EcsService: 'ecsService',
+  Ec2AutoScalingGroup: 'ec2AutoScalingGroup',
+} as const;
+
+// Validate AWS's optional nested fields before preserving the typed configuration.
+const validConfigurationValues = (value: unknown, key = ''): boolean => {
+  if (value === undefined) return true;
+  if (['sizeInGb', 'iops', 'throughput', 'vCpu', 'memorySizeInMB'].includes(key))
+    return typeof value === 'number' && Number.isFinite(value) && value >= 0;
+  if (['type', 'dbInstanceClass', 'attachmentState', 'allocationStrategy', 'architecture', 'platform'].includes(key))
+    return typeof value === 'string' && value.trim().length > 0;
+  if (Array.isArray(value))
+    return key === 'mixedInstances' && value.length > 0 && value.every((item) => validConfigurationValues(item));
+  if (value && typeof value === 'object')
+    return (
+      Object.values(value).some((v) => v !== undefined) &&
+      Object.entries(value).every(([field, item]) => validConfigurationValues(item, field))
+    );
+  return false;
+};
+
+const idleConfiguration = (type: keyof typeof idleResourceKeys, details: ResourceDetails | undefined) => {
+  const configuration = details?.[idleResourceKeys[type]]?.configuration;
+  if (!configuration || !validConfigurationValues(configuration)) return null;
+  switch (type) {
+    case 'Ec2Instance':
+      return details?.ec2Instance?.configuration?.instance?.type ? configuration : null;
+    case 'RdsDbInstance':
+      return details?.rdsDbInstance?.configuration?.instance?.dbInstanceClass ? configuration : null;
+    case 'EbsVolume':
+      return details?.ebsVolume?.configuration?.storage?.type &&
+        typeof details.ebsVolume.configuration.storage.sizeInGb === 'number'
+        ? configuration
+        : null;
+    case 'EcsService': {
+      const compute = details?.ecsService?.configuration?.compute;
+      return typeof compute?.vCpu === 'number' && typeof compute.memorySizeInMB === 'number' ? configuration : null;
+    }
+    case 'Ec2AutoScalingGroup': {
+      const group = details?.ec2AutoScalingGroup?.configuration;
+      return group?.instance?.type ||
+        (group?.mixedInstances?.length &&
+          group.mixedInstances.every((instance) => typeof instance.type === 'string' && instance.type.length > 0))
+        ? configuration
+        : null;
+    }
+  }
+};
+
+const idleCategory: RecommendationCategory<AwsCostOptimizationHubIdleRecommendation> = {
+  actionTypes: ['Stop', 'Delete', 'ScaleIn'],
+  resourceTypes: ['Ec2Instance', 'RdsDbInstance', 'EbsVolume', 'EcsService', 'Ec2AutoScalingGroup'],
+  messageSubject: 'idle capacity recommendations',
+  incompleteDetails: (count) =>
+    `${count} idle capacity recommendations lacked valid identity, action, operational flags, or current/recommended configuration.`,
+  normalizeConfiguration: (common, response) => {
+    const { currentResourceDetails: current, recommendedResourceDetails: recommended } = response;
+    const type = common.currentResourceType as keyof typeof idleResourceKeys;
+    const actions = {
+      Ec2Instance: ['Stop'],
+      RdsDbInstance: ['Stop', 'Delete'],
+      EbsVolume: ['Delete'],
+      EcsService: ['Delete'],
+      Ec2AutoScalingGroup: ['ScaleIn'],
+    };
+    if (
+      !actions[type]?.includes(common.actionType) ||
+      !common.region ||
+      !(common.resourceId || common.resourceArn) ||
+      !common.implementationEffort ||
+      typeof common.restartNeeded !== 'boolean' ||
+      typeof common.rollbackPossible !== 'boolean'
+    )
+      return null;
+    // A detail for another recommendation or action must never be combined with this summary.
+    if (
+      (['recommendationId', 'accountId', 'region', 'actionType', 'currentResourceType'] as const).some(
+        (key) => response[key] !== undefined && response[key] !== common[key],
+      )
+    )
+      return null;
+    const currentConfiguration = idleConfiguration(type, current);
+    const recommendedConfiguration = idleConfiguration(type, recommended);
+    if (
+      !currentConfiguration ||
+      (recommended !== undefined && !recommendedConfiguration) ||
+      (common.actionType === 'ScaleIn' && !recommendedConfiguration)
+    )
+      return null;
+    return {
+      ...common,
+      resourceId: common.resourceId || common.resourceArn,
+      currentResourceType: type,
+      currentConfiguration,
+      recommendedConfiguration,
+    } as AwsCostOptimizationHubIdleRecommendation;
+  },
 };
 
 const sessionsByLoadContext = new WeakMap<AwsAccountIdResolver, Promise<CostOptimizationHubSession>>();
@@ -547,7 +656,8 @@ const loadCostOptimizationHubRecommendations = async <T extends AwsCostOptimizat
             new ListRecommendationsCommand({
               filter: {
                 accountIds: [accountId],
-                actionTypes: [category.actionType],
+                ...(category.regions ? { regions: category.regions } : {}),
+                actionTypes: [...category.actionTypes],
                 resourceTypes: [...category.resourceTypes],
               },
               includeAllRecommendations: false,
@@ -582,7 +692,7 @@ const loadCostOptimizationHubRecommendations = async <T extends AwsCostOptimizat
           COST_OPTIMIZATION_HUB_REGION,
           () => client.send(new GetRecommendationCommand({ recommendationId: recommendation.recommendationId })),
         );
-        return category.normalizeConfiguration(common, detail.recommendedResourceDetails);
+        return category.normalizeConfiguration(common, detail);
       },
     );
     const recommendations = normalized.filter((recommendation): recommendation is T => recommendation !== null);
@@ -659,3 +769,17 @@ export const hydrateAwsCostOptimizationHubReservationRecommendations = async (
   | AwsCostOptimizationHubReservationRecommendation[]
   | AwsDiscoveryDatasetLoadResult<'aws-cost-optimization-hub-reservation-recommendations'>
 > => loadCostOptimizationHubRecommendations(reservationCategory, context);
+
+/**
+ * Loads AWS-classified idle capacity through the shared enrollment and recommendation session.
+ * @param _resources - Unused for account-scoped recommendations.
+ * @param context - Discovery-run account resolver and shared session identity.
+ * @returns Typed idle recommendations or an unavailable dataset with diagnostics.
+ */
+export const hydrateAwsCostOptimizationHubIdleRecommendations = async (
+  _resources: AwsDiscoveredResource[],
+  context?: AwsAccountIdResolver & { regions?: string[] },
+): Promise<
+  | AwsCostOptimizationHubIdleRecommendation[]
+  | AwsDiscoveryDatasetLoadResult<'aws-cost-optimization-hub-idle-recommendations'>
+> => loadCostOptimizationHubRecommendations({ ...idleCategory, regions: context?.regions }, context);
