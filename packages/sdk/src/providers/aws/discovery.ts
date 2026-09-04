@@ -567,7 +567,7 @@ export const discoverAwsResources = async (
         options?.debugLogger ? { ...filterOptions, debugLogger: options.debugLogger } : filterOptions,
       ),
     resolveAccountId,
-    region: catalog.searchRegion,
+    region: await resolveAccountScopedDatasetRegion(target),
   };
   // All datasets load in parallel, so the shared budget caps the combined
   // in-flight AWS calls per service and region for the whole run.

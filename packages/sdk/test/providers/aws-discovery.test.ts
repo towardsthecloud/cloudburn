@@ -1029,6 +1029,46 @@ describe('discoverAwsResources', () => {
     expect(result.resources.get('aws-config-recording-frequency-reviews')).toHaveLength(1);
   });
 
+  it('keeps the requested region for account-scoped datasets when Resource Explorer uses an aggregator', async () => {
+    mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
+      indexType: 'AGGREGATOR',
+      resources: [
+        {
+          accountId: '123456789012',
+          arn: 'arn:aws:ec2:eu-central-1:123456789012:instance/i-123',
+          properties: [],
+          region: 'eu-central-1',
+          resourceType: 'ec2:instance',
+          service: 'ec2',
+        },
+      ],
+      searchRegion: 'us-east-1',
+    });
+    mockedHydrateAwsEc2Instances.mockResolvedValue([]);
+    mockedHydrateAwsConfigRecordingFrequencyReviews.mockResolvedValue([]);
+
+    await discoverAwsResources(
+      [
+        createRule({
+          id: 'CLDBRN-AWS-CONFIG-1',
+          service: 'config',
+          discoveryDependencies: ['aws-config-recording-frequency-reviews'],
+        }),
+        createRule({
+          id: 'CLDBRN-AWS-TEST-EC2',
+          discoveryDependencies: ['aws-ec2-instances'],
+        }),
+      ],
+      { mode: 'region', region: 'eu-central-1' },
+    );
+
+    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledOnce();
+    expect(mockedHydrateAwsConfigRecordingFrequencyReviews).toHaveBeenCalledWith(
+      [],
+      expect.objectContaining({ region: 'eu-central-1' }),
+    );
+  });
+
   it('loads the global untagged-resource dataset without service-specific catalog hydration', async () => {
     mockedResolveCurrentAwsRegion.mockResolvedValue('eu-west-1');
     mockedListAwsResourcesByFilter.mockResolvedValue([
