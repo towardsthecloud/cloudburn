@@ -1,5 +1,18 @@
 # @cloudburn/sdk
 
+## 0.31.0
+
+### Minor Changes
+
+- [#206](https://github.com/towardsthecloud/cloudburn/pull/206) [`bda6f2d`](https://github.com/towardsthecloud/cloudburn/commit/bda6f2d06907316904cf242add3477d2e89a6593) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Add `CLDBRN-AWS-KMS-1` to flag Regions with at least 50 enabled customer-managed KMS keys or at least 10 created during the previous full month. Add `CLDBRN-AWS-KMS-2` to flag enabled customer-managed keys that are at least 90 days old and have no recorded KMS cryptographic use during a complete 90-day tracking window. Both rules share one KMS discovery scan, keep raw aliases private, and surface incomplete metadata without treating it as proof that a key is unused.
+
+### Patch Changes
+
+- [#204](https://github.com/towardsthecloud/cloudburn/pull/204) [`cb8da02`](https://github.com/towardsthecloud/cloudburn/commit/cb8da02f764975f9a9ff98905e586c1b2b72aa85) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Add a discovery check that recommends targeted daily AWS Config recording overrides when current inventory, recent resource turnover, and configuration-item volume show a saving. Keep continuous recording for Firewall Manager dependencies, and report inconclusive turnover inspection as unavailable when it could change the finding decision.
+
+- Updated dependencies [[`cb8da02`](https://github.com/towardsthecloud/cloudburn/commit/cb8da02f764975f9a9ff98905e586c1b2b72aa85), [`bda6f2d`](https://github.com/towardsthecloud/cloudburn/commit/bda6f2d06907316904cf242add3477d2e89a6593)]:
+  - @cloudburn/rules@0.31.0
+
 ## 0.30.1
 
 ### Patch Changes
