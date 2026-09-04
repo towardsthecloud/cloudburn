@@ -509,7 +509,7 @@ const normalizeAutoScalingUpgrade = (
 };
 
 const validInstanceType = (value: unknown): value is string =>
-  typeof value === 'string' && /^(?:db\.)?[a-z][a-z0-9-]*\.[a-z0-9]+$/.test(value);
+  typeof value === 'string' && /^(?:db\.)?[a-z][a-z0-9-]*\.[a-z0-9-]+$/.test(value);
 const autoScalingFamilies = (configuration: AwsCostOptimizationHubAutoScalingUpgradeConfiguration): Set<string> =>
   new Set(
     (configuration.type === 'SingleInstanceType' ? [configuration.instance] : configuration.mixedInstances).map(
@@ -753,7 +753,7 @@ const loadCostOptimizationHubRecommendations = async <T extends AwsCostOptimizat
           ),
       );
 
-      if (!Array.isArray(page.items)) {
+      if (page.items !== undefined && !Array.isArray(page.items)) {
         incompleteRecommendationCount += 1;
       }
       for (const recommendation of Array.isArray(page.items) ? page.items : []) {
