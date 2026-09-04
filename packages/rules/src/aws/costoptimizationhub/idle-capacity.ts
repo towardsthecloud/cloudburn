@@ -34,7 +34,7 @@ export const getAwsCostOptimizationHubIdleResourceId = (
   if (!id.startsWith('arn:')) return id;
   const resource = id.split(':').slice(5).join(':');
   if (recommendation.currentResourceType === 'Ec2AutoScalingGroup')
-    return resource.split(':autoScalingGroupName:')[1] ?? resource;
+    return resource.split(':autoScalingGroupName/')[1] ?? resource;
   return resource.replace(/^(instance\/|volume\/|db:|service\/)/, '');
 };
 

@@ -43,5 +43,24 @@ describe('CLDBRN-AWS-COSTOPTIMIZATIONHUB-3', () => {
       ],
     });
     expect(evaluate([])).toBeNull();
+    expect(
+      rule?.evaluateLive?.({
+        catalog: { indexType: 'LOCAL', resources: [], searchRegion: 'eu-west-1' },
+        resources: new LiveResourceBag({
+          'aws-cost-optimization-hub-idle-recommendations': [
+            {
+              ...recommendation,
+              actionType: 'ScaleIn',
+              currentResourceType: 'Ec2AutoScalingGroup',
+              resourceId:
+                'arn:aws:autoscaling:eu-west-1:123456789012:autoScalingGroup:12345678-1234-1234-1234-123456789012:autoScalingGroupName/workers',
+              recommendedConfiguration: { instance: { type: 'm7i.large' } },
+            },
+          ],
+        }),
+      }),
+    ).toMatchObject({
+      findings: [{ resourceId: 'workers', resourceType: 'autoscaling:autoScalingGroup', actionType: 'ScaleIn' }],
+    });
   });
 });
