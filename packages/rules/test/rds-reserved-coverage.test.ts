@@ -53,6 +53,7 @@ describe('rdsReservedCoverageRule', () => {
           accountId: '123456789012',
           region: 'us-east-1',
           resourceId: 'prod-db',
+          resourceType: 'rds:db',
         },
       ],
     });
@@ -109,6 +110,7 @@ describe('rdsReservedCoverageRule', () => {
         accountId: '123456789012',
         region: 'us-east-1',
         resourceId: 'prod-db',
+        resourceType: 'rds:db',
       },
     ]);
   });

@@ -61,6 +61,7 @@ describe('elastiCacheReservedCoverageRule', () => {
           accountId: '123456789012',
           region: 'us-east-1',
           resourceId: 'cache-prod',
+          resourceType: 'elasticache:cluster',
         },
       ],
     });

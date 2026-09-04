@@ -6,6 +6,7 @@ import type {
   AwsCloudWatchLogGroup,
   AwsCostGuardrailBudget,
   AwsCostGuardrailBudgetSpend,
+  AwsCostOptimizationHubReservationRecommendation,
   AwsCostOptimizationHubSavingsPlansRecommendation,
   AwsCostUsage,
   AwsDynamoDbAutoscaling,
@@ -58,6 +59,8 @@ import {
   createFindingMatch,
   createStaticFindingMatch,
   gcpRules,
+  getAwsCostOptimizationHubReservationResourceId,
+  getAwsCostOptimizationHubReservationResourceType,
   isRecord,
   LiveResourceBag,
   StaticResourceBag,
@@ -73,11 +76,27 @@ describe('rule exports', () => {
     expect(AWS_KMS_UNUSED_KEY_MINIMUM_AGE_DAYS).toBe(90);
     expect(AWS_SAGEMAKER_SAVINGS_PLANS_MINIMUM_COVERAGE_PERCENTAGE).toBe(80);
     expect(AWS_SAGEMAKER_SAVINGS_PLANS_MINIMUM_UNCOVERED_COST).toBe(72);
-    expect(awsRuleIds).toHaveLength(88);
+    expect(
+      getAwsCostOptimizationHubReservationResourceId({
+        recommendationId: 'recommendation-1',
+        reservationType: 'RdsReservedInstances',
+        resourceArn: 'arn:aws:rds:us-east-1:123456789012:db:orders',
+        resourceId: undefined,
+      }),
+    ).toBe('orders');
+    expect(getAwsCostOptimizationHubReservationResourceType({ reservationType: 'RdsReservedInstances' })).toBe(
+      'rds:db',
+    );
+    expect(awsRuleIds).toHaveLength(89);
     expect(awsCorePreset.ruleIds).toEqual(
       awsRuleIds.filter(
         (ruleId) =>
-          !['CLDBRN-AWS-COSTOPTIMIZATIONHUB-1', 'CLDBRN-AWS-LAMBDA-4', 'CLDBRN-AWS-TAGGING-1'].includes(ruleId),
+          ![
+            'CLDBRN-AWS-COSTOPTIMIZATIONHUB-1',
+            'CLDBRN-AWS-COSTOPTIMIZATIONHUB-2',
+            'CLDBRN-AWS-LAMBDA-4',
+            'CLDBRN-AWS-TAGGING-1',
+          ].includes(ruleId),
       ),
     );
     expect(awsRuleIds).toEqual(
@@ -94,6 +113,7 @@ describe('rule exports', () => {
         'CLDBRN-AWS-COSTGUARDRAILS-3',
         'CLDBRN-AWS-COSTGUARDRAILS-4',
         'CLDBRN-AWS-COSTOPTIMIZATIONHUB-1',
+        'CLDBRN-AWS-COSTOPTIMIZATIONHUB-2',
         'CLDBRN-AWS-COSTEXPLORER-1',
         'CLDBRN-AWS-DYNAMODB-1',
         'CLDBRN-AWS-DYNAMODB-2',
@@ -556,6 +576,25 @@ describe('rule exports', () => {
       savingsPlansType: 'SageMakerSavingsPlans',
       term: 'One year',
     };
+    const reservationRecommendation: AwsCostOptimizationHubReservationRecommendation = {
+      accountId: '123456789012',
+      actionType: 'PurchaseReservedInstances',
+      configuration: {
+        accountScope: 'LINKED',
+        instanceType: 'db.r7g.large',
+        numberOfInstancesToPurchase: 1,
+        paymentOption: 'NoUpfront',
+        term: 'OneYear',
+      },
+      currencyCode: 'USD',
+      estimatedMonthlyCost: 200,
+      estimatedMonthlySavings: 50,
+      estimatedSavingsPercentage: 25,
+      lastRefreshTimestamp: '2026-03-01T00:00:00.000Z',
+      recommendationId: 'reservation-recommendation-1',
+      recommendationSource: 'CostExplorer',
+      reservationType: 'RdsReservedInstances',
+    };
     const sagemakerSavingsPlansCoverage: AwsSageMakerSavingsPlansCoverage = {
       accountId: '123456789012',
       coveragePercentage: 60,
@@ -599,6 +638,8 @@ describe('rule exports', () => {
     const sagemakerDatasetKey: DiscoveryDatasetKey = 'aws-sagemaker-notebook-instances';
     const costOptimizationHubSavingsPlansDatasetKey: DiscoveryDatasetKey =
       'aws-cost-optimization-hub-savings-plans-recommendations';
+    const costOptimizationHubReservationDatasetKey: DiscoveryDatasetKey =
+      'aws-cost-optimization-hub-reservation-recommendations';
     const sagemakerSavingsPlansCoverageDatasetKey: DiscoveryDatasetKey = 'aws-sagemaker-savings-plans-coverage';
     const secretsManagerDatasetKey: DiscoveryDatasetKey = 'aws-secretsmanager-secrets';
     const targetGroupDatasetKey: DiscoveryDatasetKey = 'aws-ec2-target-groups';
@@ -636,6 +677,7 @@ describe('rule exports', () => {
     expect(sagemakerEndpointDatasetKey).toBe('aws-sagemaker-endpoint-activity');
     expect(sagemakerDatasetKey).toBe('aws-sagemaker-notebook-instances');
     expect(costOptimizationHubSavingsPlansDatasetKey).toBe('aws-cost-optimization-hub-savings-plans-recommendations');
+    expect(costOptimizationHubReservationDatasetKey).toBe('aws-cost-optimization-hub-reservation-recommendations');
     expect(sagemakerSavingsPlansCoverageDatasetKey).toBe('aws-sagemaker-savings-plans-coverage');
     expect(secretsManagerDatasetKey).toBe('aws-secretsmanager-secrets');
     expect(cloudFrontDistribution.priceClass).toBe('PriceClass_All');
@@ -657,6 +699,7 @@ describe('rule exports', () => {
     expect(endpointActivity.totalInvocationsLast14Days).toBe(0);
     expect(notebookInstance.notebookInstanceStatus).toBe('InService');
     expect(savingsPlansRecommendation.estimatedMonthlySavings).toBe(25);
+    expect(reservationRecommendation.configuration.instanceType).toBe('db.r7g.large');
     expect(sagemakerSavingsPlansCoverage.coveragePercentage).toBe(60);
     expect(secret.secretName).toBe('db-password');
     expect(cacheCluster.cacheClusterStatus).toBe('available');

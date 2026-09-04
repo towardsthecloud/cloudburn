@@ -460,29 +460,146 @@ export type AwsSageMakerEndpointActivity = {
   accountId: string;
 };
 
-/** Account-scoped Savings Plans purchase recommendation from AWS Cost Optimization Hub. */
-export type AwsCostOptimizationHubSavingsPlansRecommendation = {
+/** Fields shared by purchase recommendations normalized from AWS Cost Optimization Hub. */
+export type AwsCostOptimizationHubRecommendation = {
   accountId: string;
-  accountScope: string;
-  actionType: 'PurchaseSavingsPlans';
+  actionType: 'PurchaseReservedInstances' | 'PurchaseSavingsPlans';
   currencyCode: string;
   estimatedMonthlyCost: number;
   estimatedMonthlySavings: number;
   estimatedSavingsPercentage: number;
-  hourlyCommitment: number;
   implementationEffort?: string;
-  instanceFamily?: string;
   lastRefreshTimestamp: string;
-  paymentOption: string;
   recommendationId: string;
   recommendationSource: 'ComputeOptimizer' | 'CostExplorer';
   region?: string;
+  resourceArn?: string;
+  resourceId?: string;
   restartNeeded?: boolean;
   rollbackPossible?: boolean;
+};
+
+/** Account-scoped Savings Plans purchase recommendation from AWS Cost Optimization Hub. */
+export type AwsCostOptimizationHubSavingsPlansRecommendation = AwsCostOptimizationHubRecommendation & {
+  accountScope: string;
+  actionType: 'PurchaseSavingsPlans';
+  hourlyCommitment: number;
+  instanceFamily?: string;
+  paymentOption: string;
   savingsPlansRegion?: string;
   savingsPlansType: 'ComputeSavingsPlans' | 'Ec2InstanceSavingsPlans' | 'SageMakerSavingsPlans';
   term: string;
 };
+
+/** Fields shared by reservation purchase configurations from AWS Cost Optimization Hub. */
+export type AwsCostOptimizationHubReservationConfiguration = {
+  accountScope: string;
+  monthlyRecurringCost?: number;
+  paymentOption: string;
+  reservedInstancesRegion?: string;
+  service?: string;
+  term: string;
+  upfrontCost?: number;
+};
+
+/** EC2-specific reservation purchase configuration. */
+export type AwsCostOptimizationHubEc2ReservationConfiguration = AwsCostOptimizationHubReservationConfiguration & {
+  currentGeneration?: string;
+  instanceFamily?: string;
+  instanceType?: string;
+  normalizedUnitsToPurchase?: number;
+  numberOfInstancesToPurchase?: number;
+  offeringClass?: string;
+  platform?: string;
+  sizeFlexEligible?: boolean;
+  tenancy?: string;
+};
+
+/** RDS-specific reservation purchase configuration. */
+export type AwsCostOptimizationHubRdsReservationConfiguration = AwsCostOptimizationHubReservationConfiguration & {
+  currentGeneration?: string;
+  databaseEdition?: string;
+  databaseEngine?: string;
+  deploymentOption?: string;
+  instanceFamily?: string;
+  instanceType?: string;
+  licenseModel?: string;
+  normalizedUnitsToPurchase?: number;
+  numberOfInstancesToPurchase?: number;
+  sizeFlexEligible?: boolean;
+};
+
+/** OpenSearch-specific reservation purchase configuration. */
+export type AwsCostOptimizationHubOpenSearchReservationConfiguration =
+  AwsCostOptimizationHubReservationConfiguration & {
+    currentGeneration?: string;
+    instanceType?: string;
+    normalizedUnitsToPurchase?: number;
+    numberOfInstancesToPurchase?: number;
+    sizeFlexEligible?: boolean;
+  };
+
+type AwsCostOptimizationHubInstanceReservationConfiguration = AwsCostOptimizationHubReservationConfiguration & {
+  currentGeneration?: string;
+  instanceFamily?: string;
+  instanceType?: string;
+  normalizedUnitsToPurchase?: number;
+  numberOfInstancesToPurchase?: number;
+  sizeFlexEligible?: boolean;
+};
+
+/** Redshift-specific reservation purchase configuration. */
+export type AwsCostOptimizationHubRedshiftReservationConfiguration =
+  AwsCostOptimizationHubInstanceReservationConfiguration;
+
+/** ElastiCache-specific reservation purchase configuration. */
+export type AwsCostOptimizationHubElastiCacheReservationConfiguration =
+  AwsCostOptimizationHubInstanceReservationConfiguration;
+
+/** MemoryDB-specific reservation purchase configuration. */
+export type AwsCostOptimizationHubMemoryDbReservationConfiguration =
+  AwsCostOptimizationHubInstanceReservationConfiguration;
+
+/** DynamoDB-specific reserved-capacity purchase configuration. */
+export type AwsCostOptimizationHubDynamoDbReservationConfiguration = AwsCostOptimizationHubReservationConfiguration & {
+  capacityUnits?: string;
+  numberOfCapacityUnitsToPurchase?: number;
+};
+
+type AwsCostOptimizationHubReservationRecommendationBase = AwsCostOptimizationHubRecommendation & {
+  actionType: 'PurchaseReservedInstances';
+};
+
+/** Reservation purchase recommendation with resource-type-specific configuration evidence. */
+export type AwsCostOptimizationHubReservationRecommendation =
+  | (AwsCostOptimizationHubReservationRecommendationBase & {
+      configuration: AwsCostOptimizationHubEc2ReservationConfiguration;
+      reservationType: 'Ec2ReservedInstances';
+    })
+  | (AwsCostOptimizationHubReservationRecommendationBase & {
+      configuration: AwsCostOptimizationHubRdsReservationConfiguration;
+      reservationType: 'RdsReservedInstances';
+    })
+  | (AwsCostOptimizationHubReservationRecommendationBase & {
+      configuration: AwsCostOptimizationHubOpenSearchReservationConfiguration;
+      reservationType: 'OpenSearchReservedInstances';
+    })
+  | (AwsCostOptimizationHubReservationRecommendationBase & {
+      configuration: AwsCostOptimizationHubRedshiftReservationConfiguration;
+      reservationType: 'RedshiftReservedInstances';
+    })
+  | (AwsCostOptimizationHubReservationRecommendationBase & {
+      configuration: AwsCostOptimizationHubElastiCacheReservationConfiguration;
+      reservationType: 'ElastiCacheReservedInstances';
+    })
+  | (AwsCostOptimizationHubReservationRecommendationBase & {
+      configuration: AwsCostOptimizationHubMemoryDbReservationConfiguration;
+      reservationType: 'MemoryDbReservedInstances';
+    })
+  | (AwsCostOptimizationHubReservationRecommendationBase & {
+      configuration: AwsCostOptimizationHubDynamoDbReservationConfiguration;
+      reservationType: 'DynamoDbReservedCapacity';
+    });
 
 /** Account-scoped SageMaker Savings Plans coverage for a complete 30-day window. */
 export type AwsSageMakerSavingsPlansCoverage = {
@@ -855,6 +972,7 @@ export type DiscoveryDatasetKey =
   | 'aws-config-recording-frequency-reviews'
   | 'aws-cost-usage'
   | 'aws-cost-optimization-hub-savings-plans-recommendations'
+  | 'aws-cost-optimization-hub-reservation-recommendations'
   | 'aws-cost-anomaly-monitors'
   | 'aws-cost-guardrail-budgets'
   | 'aws-dynamodb-autoscaling'
@@ -918,6 +1036,7 @@ export type DiscoveryDatasetMap = {
   'aws-config-recording-frequency-reviews': AwsConfigRecordingFrequencyReview[];
   'aws-cost-usage': AwsCostUsage[];
   'aws-cost-optimization-hub-savings-plans-recommendations': AwsCostOptimizationHubSavingsPlansRecommendation[];
+  'aws-cost-optimization-hub-reservation-recommendations': AwsCostOptimizationHubReservationRecommendation[];
   'aws-cost-anomaly-monitors': AwsCostAnomalyMonitor[];
   'aws-cost-guardrail-budgets': AwsCostGuardrailBudget[];
   'aws-dynamodb-autoscaling': AwsDynamoDbAutoscaling[];
@@ -1264,6 +1383,8 @@ export type StaticEvaluationContext = {
 /** A resource-level policy match emitted inside a rule finding group. */
 export type FindingMatch = {
   resourceId: string;
+  /** Provider resource namespace used to distinguish otherwise identical resource IDs. */
+  resourceType?: string;
   accountId?: string;
   region?: string;
   location?: SourceLocation;
@@ -1292,6 +1413,8 @@ export type Rule = {
   discoveryDependencies?: DiscoveryDatasetKey[];
   /** Datasets an evaluator may use when another active rule has already requested them. */
   optionalDiscoveryDependencies?: DiscoveryDatasetKey[];
+  /** Rule IDs whose identical resource findings this rule replaces with stronger evidence. */
+  supersedesRuleIds?: string[];
   staticDependencies?: StaticDatasetKey[];
   evaluateLive?: (context: LiveEvaluationContext) => Finding | null;
   evaluateStatic?: (context: StaticEvaluationContext) => Finding | null;

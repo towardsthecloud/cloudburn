@@ -16,6 +16,7 @@ classDiagram
     +Source[] supports
     +DiscoveryDatasetKey[] discoveryDependencies?
     +DiscoveryDatasetKey[] optionalDiscoveryDependencies?
+    +string[] supersedesRuleIds?
     +StaticDatasetKey[] staticDependencies?
     +evaluateLive(ctx: LiveEvaluationContext)? Finding
     +evaluateStatic(ctx: StaticEvaluationContext)? Finding
@@ -31,6 +32,7 @@ classDiagram
 
   class FindingMatch {
     +string resourceId
+    +string resourceType?
     +string accountId?
     +string region?
     +SourceLocation location?
@@ -62,6 +64,11 @@ classDiagram
 ```
 
 Rules return a single grouped `Finding` or `null`. The SDK regroups those rule findings under providers in the public `ScanResult`.
+
+Rules with stronger evidence can declare `supersedesRuleIds`. The live engine removes only findings with the same
+resource namespace, ID, account, and Region, and only when the superseding rule is active and emits that identity.
+Evaluation records retain each evaluator's original result, including findings later omitted from provider output by
+precedence.
 
 ## Rule Assembly Chain
 

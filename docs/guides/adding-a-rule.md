@@ -84,6 +84,9 @@ Key patterns:
 - Use `optionalDiscoveryDependencies` only when the evaluator can improve its decision with a dataset requested by
   another active rule but can still reach a valid result when that dataset is absent or unavailable. Optional
   dependencies do not trigger dataset loading on their own.
+- Use `supersedesRuleIds` only when this rule's emitted identity is stronger evidence for the same resource and action.
+  The target finding remains unless both rules are active and this rule emits the identical resource namespace, ID,
+  account, and Region.
 - Reuse an existing dataset key when the service already exposes the normalized fields you need.
 - If the same policy should work in both scan modes, keep the static and discovery predicates aligned and extract shared helpers when that reduces duplication.
 - Read static data from `StaticEvaluationContext.resources` with `resources.get('<dataset-key>')`.

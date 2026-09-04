@@ -143,6 +143,24 @@ describe('renderResponse', () => {
     `);
   });
 
+  it('renders a finding resource namespace in table output', () => {
+    const resultWithResourceType = {
+      ...resultWithoutLocation,
+      providers: resultWithoutLocation.providers.map((provider) => ({
+        ...provider,
+        rules: provider.rules.map((rule) => ({
+          ...rule,
+          findings: rule.findings.map((finding) => ({ ...finding, resourceType: 'ebs:volume' })),
+        })),
+      })),
+    };
+
+    const output = renderResponse({ kind: 'scan-result', result: resultWithResourceType }, 'table');
+
+    expect(output).toContain('ResourceType');
+    expect(output).toContain('ebs:volume');
+  });
+
   it('renders skipped-rule diagnostics with their rule id in table mode', () => {
     const output = renderResponse({ kind: 'scan-result', result: resultWithSkippedRuleDiagnostic }, 'table');
 

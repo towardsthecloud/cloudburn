@@ -5,6 +5,16 @@ import type {
   AwsCloudWatchLogStream,
   AwsConfigRecordingFrequencyReview,
   AwsConfigRecordingModeOverride,
+  AwsCostOptimizationHubDynamoDbReservationConfiguration,
+  AwsCostOptimizationHubEc2ReservationConfiguration,
+  AwsCostOptimizationHubElastiCacheReservationConfiguration,
+  AwsCostOptimizationHubMemoryDbReservationConfiguration,
+  AwsCostOptimizationHubOpenSearchReservationConfiguration,
+  AwsCostOptimizationHubRdsReservationConfiguration,
+  AwsCostOptimizationHubRecommendation,
+  AwsCostOptimizationHubRedshiftReservationConfiguration,
+  AwsCostOptimizationHubReservationConfiguration,
+  AwsCostOptimizationHubReservationRecommendation,
   AwsCostOptimizationHubSavingsPlansRecommendation,
   AwsCostUsage,
   AwsDiscoveredResource,
@@ -99,7 +109,7 @@ export type ScanSource = Source;
 /** Serializable metadata surfaced for built-in rules in SDK and CLI inspection commands. */
 export type BuiltInRuleMetadata = Pick<
   Rule,
-  'id' | 'name' | 'description' | 'message' | 'provider' | 'service' | 'severity' | 'supports'
+  'id' | 'name' | 'description' | 'message' | 'provider' | 'service' | 'severity' | 'supports' | 'supersedesRuleIds'
 >;
 
 /** Selects how a live AWS discovery resolves its search region or index scope. */
@@ -282,6 +292,16 @@ export type {
   AwsCloudWatchLogStream,
   AwsConfigRecordingFrequencyReview,
   AwsConfigRecordingModeOverride,
+  AwsCostOptimizationHubDynamoDbReservationConfiguration,
+  AwsCostOptimizationHubEc2ReservationConfiguration,
+  AwsCostOptimizationHubElastiCacheReservationConfiguration,
+  AwsCostOptimizationHubMemoryDbReservationConfiguration,
+  AwsCostOptimizationHubOpenSearchReservationConfiguration,
+  AwsCostOptimizationHubRdsReservationConfiguration,
+  AwsCostOptimizationHubRecommendation,
+  AwsCostOptimizationHubRedshiftReservationConfiguration,
+  AwsCostOptimizationHubReservationConfiguration,
+  AwsCostOptimizationHubReservationRecommendation,
   AwsCostOptimizationHubSavingsPlansRecommendation,
   AwsCostUsage,
   AwsDiscoveredResource,

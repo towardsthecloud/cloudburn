@@ -21,6 +21,7 @@ export const redshiftReservedCoverageRule = createRule({
   service: RULE_SERVICE,
   supports: ['discovery'],
   discoveryDependencies: ['aws-redshift-clusters', 'aws-redshift-reserved-nodes'],
+  supersedesRuleIds: ['CLDBRN-AWS-COSTOPTIMIZATIONHUB-2'],
   evaluateLive: ({ resources }) => {
     const now = Date.now();
     const cutoff = now - LONG_RUNNING_CLUSTER_DAYS * DAY_MS;
@@ -59,7 +60,10 @@ export const redshiftReservedCoverageRule = createRule({
         remainingCoverage.set(coverageKey, remainingNodeCount - cluster.numberOfNodes);
         return false;
       })
-      .map((cluster) => createFindingMatch(cluster.clusterIdentifier, cluster.region, cluster.accountId));
+      .map((cluster) => ({
+        ...createFindingMatch(cluster.clusterIdentifier, cluster.region, cluster.accountId),
+        resourceType: 'redshift:cluster',
+      }));
 
     return createFinding(
       { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },

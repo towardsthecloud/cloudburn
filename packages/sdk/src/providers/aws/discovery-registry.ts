@@ -5,6 +5,8 @@ import {
   type DiscoveryDatasetKey,
   type DiscoveryDatasetMap,
   type FindingMatch,
+  getAwsCostOptimizationHubReservationResourceId,
+  getAwsCostOptimizationHubReservationResourceType,
   type LiveResourceBag,
   type Rule,
 } from '@cloudburn/rules';
@@ -22,7 +24,10 @@ import {
 import { hydrateAwsConfigRecordingFrequencyReviews } from './resources/config.js';
 import { hydrateAwsCostUsage } from './resources/cost-explorer.js';
 import { hydrateAwsCostAnomalyMonitors, hydrateAwsCostGuardrailBudgets } from './resources/cost-guardrails.js';
-import { hydrateAwsCostOptimizationHubSavingsPlansRecommendations } from './resources/cost-optimization-hub.js';
+import {
+  hydrateAwsCostOptimizationHubReservationRecommendations,
+  hydrateAwsCostOptimizationHubSavingsPlansRecommendations,
+} from './resources/cost-optimization-hub.js';
 import {
   hydrateAwsDynamoDbAutoscaling,
   hydrateAwsDynamoDbTables,
@@ -781,6 +786,25 @@ const awsDiscoveryDatasetRegistry: {
         (recommendation) => ({
           data: recommendation,
           resourceType: 'costoptimizationhub:savings-plans-recommendation',
+        }),
+      ),
+  },
+  'aws-cost-optimization-hub-reservation-recommendations': {
+    datasetKey: 'aws-cost-optimization-hub-reservation-recommendations',
+    resourceTypes: [],
+    service: 'costoptimizationhub',
+    load: hydrateAwsCostOptimizationHubReservationRecommendations,
+    toEvaluationResources: (recommendations) =>
+      mapEvaluationResources(
+        recommendations.map((recommendation) => ({
+          ...recommendation,
+          region: recommendation.region ?? recommendation.configuration.reservedInstancesRegion,
+        })),
+        getAwsCostOptimizationHubReservationResourceId,
+        (recommendation) => ({
+          ...(recommendation.resourceArn ? { arn: recommendation.resourceArn } : {}),
+          data: recommendation,
+          resourceType: getAwsCostOptimizationHubReservationResourceType(recommendation),
         }),
       ),
   },

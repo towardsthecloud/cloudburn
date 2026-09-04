@@ -30,7 +30,7 @@ console.log(awsCorePreset.id);
 console.log(awsRules.length);
 ```
 
-`awsRules` contains every public AWS rule. `awsCorePreset` is the default subset used by CloudBurn and excludes rules that need explicit AWS setup, including `CLDBRN-AWS-TAGGING-1`, `CLDBRN-AWS-LAMBDA-4`, and `CLDBRN-AWS-COSTOPTIMIZATIONHUB-1`.
+`awsRules` contains every public AWS rule. `awsCorePreset` is the default subset used by CloudBurn and excludes rules that need explicit AWS setup, including `CLDBRN-AWS-TAGGING-1`, `CLDBRN-AWS-LAMBDA-4`, `CLDBRN-AWS-COSTOPTIMIZATIONHUB-1`, and `CLDBRN-AWS-COSTOPTIMIZATIONHUB-2`.
 
 Or write your own rule pack on top of the same contracts:
 

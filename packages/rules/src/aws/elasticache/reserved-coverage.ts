@@ -125,6 +125,7 @@ export const elastiCacheReservedCoverageRule = createRule({
   service: RULE_SERVICE,
   supports: ['discovery'],
   discoveryDependencies: ['aws-elasticache-clusters', 'aws-elasticache-reserved-nodes'],
+  supersedesRuleIds: ['CLDBRN-AWS-COSTOPTIMIZATIONHUB-2'],
   evaluateLive: ({ resources }) => {
     const now = Date.now();
     const cutoff = now - LONG_RUNNING_CLUSTER_DAYS * DAY_MS;
@@ -180,7 +181,10 @@ export const elastiCacheReservedCoverageRule = createRule({
           cluster.numCacheNodes * capacityShape.normalizedUnits,
         );
       })
-      .map((cluster) => createFindingMatch(cluster.cacheClusterId, cluster.region, cluster.accountId));
+      .map((cluster) => ({
+        ...createFindingMatch(cluster.cacheClusterId, cluster.region, cluster.accountId),
+        resourceType: 'elasticache:cluster',
+      }));
 
     return createFinding(
       { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },

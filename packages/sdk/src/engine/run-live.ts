@@ -3,6 +3,7 @@ import { emitDebugLog } from '../debug.js';
 import { discoverAwsResources } from '../providers/aws/discovery.js';
 import { getAwsRuleEvaluationResourceSet } from '../providers/aws/discovery-registry.js';
 import type { AwsDiscoveryProgressEvent, AwsDiscoveryTarget, CloudBurnConfig, ScanResult } from '../types.js';
+import { applyFindingPrecedence, type EvaluatedRuleFinding } from './finding-precedence.js';
 import { groupFindingsByProvider } from './group-findings.js';
 import { buildRuleRegistry } from './registry.js';
 
@@ -42,85 +43,91 @@ export const runLiveScan = async (
   const scanDiagnostics = [...diagnostics];
   const evaluationRules: NonNullable<ScanResult['evaluations']>['rules'] = [];
   const evaluationResourceSets = new Map<string, NonNullable<ScanResult['evaluations']>['resourceSets'][number]>();
-  const findings = groupFindingsByProvider(
-    registry.activeRules.map((rule) => {
-      if (!rule.supports.includes('discovery') || !rule.evaluateLive) {
-        return {
-          provider: rule.provider,
-          finding: null,
-        };
-      }
+  const evaluatedRules = registry.activeRules.map((rule): EvaluatedRuleFinding => {
+    if (!rule.supports.includes('discovery') || !rule.evaluateLive) {
+      return {
+        provider: rule.provider,
+        finding: null,
+        ruleId: rule.id,
+        supersedesRuleIds: rule.supersedesRuleIds,
+      };
+    }
 
-      const unavailableDependencies = (rule.discoveryDependencies ?? []).filter((dependency) =>
-        unavailableDatasetDiagnostics.has(dependency),
-      );
+    const unavailableDependencies = (rule.discoveryDependencies ?? []).filter((dependency) =>
+      unavailableDatasetDiagnostics.has(dependency),
+    );
 
-      if (unavailableDependencies.length > 0) {
-        const skippedRuleDiagnostic = {
-          details: unavailableDependencies
-            .flatMap((dependency) => unavailableDatasetDiagnostics.get(dependency) ?? [])
-            .map((diagnostic) => diagnostic.details)
-            .filter((detail): detail is string => detail !== undefined)
-            .filter((detail, index, details) => details.indexOf(detail) === index)
-            .join('\n'),
-          message: `Skipped rule ${rule.id} because required discovery datasets were unavailable: ${unavailableDependencies.join(', ')}.`,
-          provider: rule.provider,
-          ruleId: rule.id,
-          service: rule.service,
-          source: 'discovery' as const,
-          status: 'skipped' as const,
-        };
-        scanDiagnostics.push(skippedRuleDiagnostic);
-        if (options?.includeEvaluationResources) {
-          evaluationRules.push({
-            ...toRuleEvaluationMetadata(rule),
-            findingCount: 0,
-            reason: skippedRuleDiagnostic.message,
-            ruleId: rule.id,
-            source: 'discovery',
-            status: 'not_applicable',
-          });
-        }
-
-        return {
-          provider: rule.provider,
-          finding: null,
-        };
-      }
-
-      const unavailableOptionalDependencies = (rule.optionalDiscoveryDependencies ?? []).filter((dependency) =>
-        unavailableDatasetDiagnostics.has(dependency),
-      );
-      const ruleContext =
-        unavailableOptionalDependencies.length === 0
-          ? liveContext
-          : {
-              ...liveContext,
-              resources: liveContext.resources.without(unavailableOptionalDependencies),
-            };
-      const finding = rule.evaluateLive(ruleContext);
-
+    if (unavailableDependencies.length > 0) {
+      const skippedRuleDiagnostic = {
+        details: unavailableDependencies
+          .flatMap((dependency) => unavailableDatasetDiagnostics.get(dependency) ?? [])
+          .map((diagnostic) => diagnostic.details)
+          .filter((detail): detail is string => detail !== undefined)
+          .filter((detail, index, details) => details.indexOf(detail) === index)
+          .join('\n'),
+        message: `Skipped rule ${rule.id} because required discovery datasets were unavailable: ${unavailableDependencies.join(', ')}.`,
+        provider: rule.provider,
+        ruleId: rule.id,
+        service: rule.service,
+        source: 'discovery' as const,
+        status: 'skipped' as const,
+      };
+      scanDiagnostics.push(skippedRuleDiagnostic);
       if (options?.includeEvaluationResources) {
-        const evaluationResourceSet = getAwsRuleEvaluationResourceSet(rule, liveContext.resources);
-        if (!evaluationResourceSets.has(evaluationResourceSet.id)) {
-          evaluationResourceSets.set(evaluationResourceSet.id, evaluationResourceSet);
-        }
         evaluationRules.push({
           ...toRuleEvaluationMetadata(rule),
-          findingCount: finding?.findings.length ?? 0,
-          resourceSetId: evaluationResourceSet.id,
+          findingCount: 0,
+          reason: skippedRuleDiagnostic.message,
           ruleId: rule.id,
           source: 'discovery',
-          status: finding ? 'triggered' : 'passed',
+          status: 'not_applicable',
         });
       }
 
       return {
         provider: rule.provider,
-        finding,
+        finding: null,
+        ruleId: rule.id,
+        supersedesRuleIds: rule.supersedesRuleIds,
       };
-    }),
-  );
+    }
+
+    const unavailableOptionalDependencies = (rule.optionalDiscoveryDependencies ?? []).filter((dependency) =>
+      unavailableDatasetDiagnostics.has(dependency),
+    );
+    const ruleContext =
+      unavailableOptionalDependencies.length === 0
+        ? liveContext
+        : {
+            ...liveContext,
+            resources: liveContext.resources.without(unavailableOptionalDependencies),
+          };
+    const finding = rule.evaluateLive(ruleContext);
+
+    if (options?.includeEvaluationResources) {
+      const evaluationResourceSet = getAwsRuleEvaluationResourceSet(rule, liveContext.resources);
+      if (!evaluationResourceSets.has(evaluationResourceSet.id)) {
+        evaluationResourceSets.set(evaluationResourceSet.id, evaluationResourceSet);
+      }
+      evaluationRules.push({
+        ...toRuleEvaluationMetadata(rule),
+        findingCount: finding?.findings.length ?? 0,
+        resourceSetId: evaluationResourceSet.id,
+        ruleId: rule.id,
+        source: 'discovery',
+        status: finding ? 'triggered' : 'passed',
+      });
+    }
+
+    return {
+      provider: rule.provider,
+      finding,
+      ruleId: rule.id,
+      supersedesRuleIds: rule.supersedesRuleIds,
+    };
+  });
+  const consolidatedRules = applyFindingPrecedence(evaluatedRules);
+  const findings = groupFindingsByProvider(consolidatedRules);
 
   return {
     ...(scanDiagnostics.length > 0 ? { diagnostics: scanDiagnostics } : {}),

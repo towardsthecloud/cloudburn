@@ -65,6 +65,7 @@ describe('redshiftReservedCoverageRule', () => {
           accountId: '123456789012',
           region: 'us-east-1',
           resourceId: 'warehouse-prod',
+          resourceType: 'redshift:cluster',
         },
       ],
     });
