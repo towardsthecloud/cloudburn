@@ -118,7 +118,8 @@ requires complete attachment-level `BytesIn` and `BytesOut` coverage with both t
 includes the attachment, Transit Gateway, and VPC identities; Region; observed traffic; lookback length; and the public
 regional hourly and estimated monthly attachment price when AWS publishes it. Missing pricing does not block the rule,
 and attachments with incomplete CloudWatch evidence are skipped. The loader requires
-`ec2:DescribeTransitGatewayVpcAttachments` and `cloudwatch:GetMetricData`.
+`ec2:DescribeTransitGatewayAttachments`, `ec2:DescribeTransitGatewayVpcAttachments`, and
+`cloudwatch:GetMetricData`.
 
 `CLDBRN-AWS-COSTOPTIMIZATIONHUB-1` reads account-scoped Compute, EC2 Instance, and SageMaker Savings Plans purchase
 recommendations from AWS Cost Optimization Hub. Evaluation evidence includes the Savings Plans type, account scope,

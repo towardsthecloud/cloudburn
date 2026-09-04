@@ -1,4 +1,8 @@
-import type { DescribeTransitGatewayVpcAttachmentsCommand } from '@aws-sdk/client-ec2';
+import {
+  DescribeTransitGatewayAttachmentsCommand,
+  type TransitGatewayAttachment,
+  type TransitGatewayVpcAttachment,
+} from '@aws-sdk/client-ec2';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createEc2Client } from '../../src/providers/aws/client.js';
 import { fetchCloudWatchSignals } from '../../src/providers/aws/resources/cloudwatch.js';
@@ -30,6 +34,31 @@ const discoveredAttachment = {
   service: 'ec2',
 };
 
+const availableVpcAttachment: TransitGatewayVpcAttachment = {
+  CreationTime: new Date('2026-08-01T00:00:00.000Z'),
+  State: 'available',
+  TransitGatewayAttachmentId: 'tgw-attach-123',
+  TransitGatewayId: 'tgw-123',
+  VpcId: 'vpc-123',
+};
+
+const genericVpcAttachment: TransitGatewayAttachment = {
+  ResourceType: 'vpc',
+  TransitGatewayAttachmentId: 'tgw-attach-123',
+};
+
+const mockEc2Attachments = (
+  options: { genericAttachments?: TransitGatewayAttachment[]; vpcAttachments?: TransitGatewayVpcAttachment[] } = {},
+) => {
+  const send = vi.fn(async (command: unknown) =>
+    command instanceof DescribeTransitGatewayAttachmentsCommand
+      ? { TransitGatewayAttachments: options.genericAttachments ?? [genericVpcAttachment] }
+      : { TransitGatewayVpcAttachments: options.vpcAttachments ?? [availableVpcAttachment] },
+  );
+  mockedCreateEc2Client.mockReturnValue({ send } as never);
+  return send;
+};
+
 const priceList = {
   products: {
     sku123: {
@@ -49,7 +78,7 @@ const priceList = {
           priceDimensions: {
             dimension123: {
               pricePerUnit: { USD: '0.0500000000' },
-              unit: 'hour',
+              unit: 'Hrs',
             },
           },
         },
@@ -72,14 +101,9 @@ describe('hydrateAwsEc2TransitGatewayVpcAttachmentActivity', () => {
   });
 
   it('hydrates available VPC attachments with 30-day traffic totals and the public attachment price', async () => {
-    const send = vi.fn(async (_command: DescribeTransitGatewayVpcAttachmentsCommand) => ({
-      TransitGatewayVpcAttachments: [
-        {
-          State: 'available',
-          TransitGatewayAttachmentId: 'tgw-attach-123',
-          TransitGatewayId: 'tgw-123',
-          VpcId: 'vpc-123',
-        },
+    const send = mockEc2Attachments({
+      vpcAttachments: [
+        availableVpcAttachment,
         {
           State: 'deleted',
           TransitGatewayAttachmentId: 'tgw-attach-deleted',
@@ -87,8 +111,7 @@ describe('hydrateAwsEc2TransitGatewayVpcAttachmentActivity', () => {
           VpcId: 'vpc-deleted',
         },
       ],
-    }));
-    mockedCreateEc2Client.mockReturnValue({ send } as never);
+    });
     mockedFetchCloudWatchSignals.mockResolvedValue(
       new Map([
         ['tgwIn0', createDailyPoints(30, 0)],
@@ -153,18 +176,7 @@ describe('hydrateAwsEc2TransitGatewayVpcAttachmentActivity', () => {
   });
 
   it('preserves unknown totals when either CloudWatch metric has incomplete coverage', async () => {
-    mockedCreateEc2Client.mockReturnValue({
-      send: vi.fn(async (_command: DescribeTransitGatewayVpcAttachmentsCommand) => ({
-        TransitGatewayVpcAttachments: [
-          {
-            State: 'available',
-            TransitGatewayAttachmentId: 'tgw-attach-123',
-            TransitGatewayId: 'tgw-123',
-            VpcId: 'vpc-123',
-          },
-        ],
-      })),
-    } as never);
+    mockEc2Attachments();
     mockedFetchCloudWatchSignals.mockResolvedValue(
       new Map([
         ['tgwIn0', createDailyPoints(29, 0)],
@@ -180,19 +192,68 @@ describe('hydrateAwsEc2TransitGatewayVpcAttachmentActivity', () => {
     ]);
   });
 
+  it('filters non-VPC attachments before the VPC-specific lookup', async () => {
+    const nonVpcAttachment = {
+      ...discoveredAttachment,
+      arn: 'arn:aws:ec2:us-east-1:123456789012:transit-gateway-attachment/tgw-attach-vpn',
+    };
+    const send = mockEc2Attachments();
+    mockedFetchCloudWatchSignals.mockResolvedValue(
+      new Map([
+        ['tgwIn0', createDailyPoints(30, 0)],
+        ['tgwOut0', createDailyPoints(30, 0)],
+      ]),
+    );
+
+    await expect(
+      hydrateAwsEc2TransitGatewayVpcAttachmentActivity([discoveredAttachment, nonVpcAttachment]),
+    ).resolves.toHaveLength(1);
+
+    expect(send).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        input: {
+          Filters: [{ Name: 'resource-type', Values: ['vpc'] }],
+          TransitGatewayAttachmentIds: ['tgw-attach-123', 'tgw-attach-vpn'],
+        },
+      }),
+    );
+    expect(send).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        input: {
+          TransitGatewayAttachmentIds: ['tgw-attach-123'],
+        },
+      }),
+    );
+  });
+
+  it('preserves unknown totals for attachments younger than the complete lookback window', async () => {
+    mockEc2Attachments({
+      vpcAttachments: [
+        {
+          ...availableVpcAttachment,
+          CreationTime: new Date('2026-08-05T12:00:00.000Z'),
+        },
+      ],
+    });
+    mockedFetchCloudWatchSignals.mockResolvedValue(
+      new Map([
+        ['tgwIn0', createDailyPoints(30, 0)],
+        ['tgwOut0', createDailyPoints(30, 0)],
+      ]),
+    );
+
+    await expect(hydrateAwsEc2TransitGatewayVpcAttachmentActivity([discoveredAttachment])).resolves.toEqual([
+      expect.objectContaining({
+        bytesInLast30Days: null,
+        bytesOutLast30Days: null,
+      }),
+    ]);
+  });
+
   it('keeps the activity evidence when public pricing is unavailable', async () => {
-    mockedCreateEc2Client.mockReturnValue({
-      send: vi.fn(async (_command: DescribeTransitGatewayVpcAttachmentsCommand) => ({
-        TransitGatewayVpcAttachments: [
-          {
-            State: 'available',
-            TransitGatewayAttachmentId: 'tgw-attach-123',
-            TransitGatewayId: 'tgw-123',
-            VpcId: 'vpc-123',
-          },
-        ],
-      })),
-    } as never);
+    mockEc2Attachments();
     mockedFetchCloudWatchSignals.mockResolvedValue(
       new Map([
         ['tgwIn0', createDailyPoints(30, 0)],
@@ -215,7 +276,17 @@ describe('hydrateAwsEc2TransitGatewayVpcAttachmentActivity', () => {
       $metadata: { httpStatusCode: 403, requestId: 'req-tgw' },
     });
     mockedCreateEc2Client.mockReturnValue({
-      send: vi.fn().mockRejectedValue(accessDenied),
+      send: vi
+        .fn()
+        .mockResolvedValueOnce({
+          TransitGatewayAttachments: [
+            {
+              ResourceType: 'vpc',
+              TransitGatewayAttachmentId: 'tgw-attach-123',
+            },
+          ],
+        })
+        .mockRejectedValueOnce(accessDenied),
     } as never);
 
     await expect(hydrateAwsEc2TransitGatewayVpcAttachmentActivity([discoveredAttachment])).rejects.toMatchObject({
@@ -226,18 +297,7 @@ describe('hydrateAwsEc2TransitGatewayVpcAttachmentActivity', () => {
   });
 
   it('preserves CloudWatch access-denied identity for discovery diagnostics', async () => {
-    mockedCreateEc2Client.mockReturnValue({
-      send: vi.fn(async (_command: DescribeTransitGatewayVpcAttachmentsCommand) => ({
-        TransitGatewayVpcAttachments: [
-          {
-            State: 'available',
-            TransitGatewayAttachmentId: 'tgw-attach-123',
-            TransitGatewayId: 'tgw-123',
-            VpcId: 'vpc-123',
-          },
-        ],
-      })),
-    } as never);
+    mockEc2Attachments();
     const accessDenied = Object.assign(new Error('Access denied by SCP.'), {
       name: 'AccessDeniedException',
       $metadata: { httpStatusCode: 403, requestId: 'req-cloudwatch' },

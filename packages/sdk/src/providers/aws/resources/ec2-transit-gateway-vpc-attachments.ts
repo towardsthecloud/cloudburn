@@ -1,4 +1,7 @@
-import { DescribeTransitGatewayVpcAttachmentsCommand } from '@aws-sdk/client-ec2';
+import {
+  DescribeTransitGatewayAttachmentsCommand,
+  DescribeTransitGatewayVpcAttachmentsCommand,
+} from '@aws-sdk/client-ec2';
 import type { AwsDiscoveredResource, AwsEc2TransitGatewayVpcAttachmentActivity } from '@cloudburn/rules';
 import { createEc2Client } from '../client.js';
 import { fetchCloudWatchSignals } from './cloudwatch.js';
@@ -56,7 +59,7 @@ const readHourlyVpcAttachmentPrice = (priceList: PriceList, region: string): num
   for (const term of Object.values(priceList.terms?.OnDemand?.[sku] ?? {})) {
     for (const dimension of Object.values(term.priceDimensions ?? {})) {
       const price = Number.parseFloat(dimension.pricePerUnit?.USD ?? '');
-      if (dimension.unit === 'hour' && Number.isFinite(price) && price >= 0) {
+      if (['hour', 'hrs'].includes(dimension.unit?.toLowerCase() ?? '') && Number.isFinite(price) && price >= 0) {
         return price;
       }
     }
@@ -110,6 +113,32 @@ export const hydrateAwsEc2TransitGatewayVpcAttachmentActivity = async (
       let hourlyAttachmentCostPromise: Promise<number | null> | undefined;
 
       for (const batch of chunkItems(regionResources, TRANSIT_GATEWAY_ATTACHMENT_DESCRIBE_BATCH_SIZE)) {
+        const attachmentResponse = await withAwsServiceErrorContext(
+          'Amazon EC2',
+          'DescribeTransitGatewayAttachments',
+          region,
+          () =>
+            client.send(
+              new DescribeTransitGatewayAttachmentsCommand({
+                Filters: [{ Name: 'resource-type', Values: ['vpc'] }],
+                TransitGatewayAttachmentIds: batch.map(({ transitGatewayAttachmentId }) => transitGatewayAttachmentId),
+              }),
+            ),
+        );
+        const vpcAttachmentIds = new Set(
+          (attachmentResponse.TransitGatewayAttachments ?? []).flatMap((attachment) =>
+            attachment.ResourceType === 'vpc' && attachment.TransitGatewayAttachmentId
+              ? [attachment.TransitGatewayAttachmentId]
+              : [],
+          ),
+        );
+        const vpcBatch = batch.filter(({ transitGatewayAttachmentId }) =>
+          vpcAttachmentIds.has(transitGatewayAttachmentId),
+        );
+        if (vpcBatch.length === 0) {
+          continue;
+        }
+
         const response = await withAwsServiceErrorContext(
           'Amazon EC2',
           'DescribeTransitGatewayVpcAttachments',
@@ -117,7 +146,9 @@ export const hydrateAwsEc2TransitGatewayVpcAttachmentActivity = async (
           () =>
             client.send(
               new DescribeTransitGatewayVpcAttachmentsCommand({
-                TransitGatewayAttachmentIds: batch.map(({ transitGatewayAttachmentId }) => transitGatewayAttachmentId),
+                TransitGatewayAttachmentIds: vpcBatch.map(
+                  ({ transitGatewayAttachmentId }) => transitGatewayAttachmentId,
+                ),
               }),
             ),
         );
@@ -132,7 +163,7 @@ export const hydrateAwsEc2TransitGatewayVpcAttachmentActivity = async (
             return [];
           }
 
-          const discoveredResource = batch.find(
+          const discoveredResource = vpcBatch.find(
             ({ transitGatewayAttachmentId }) => transitGatewayAttachmentId === attachment.TransitGatewayAttachmentId,
           );
           if (!discoveredResource) {
@@ -142,6 +173,7 @@ export const hydrateAwsEc2TransitGatewayVpcAttachmentActivity = async (
           return [
             {
               accountId: discoveredResource.accountId,
+              creationTime: attachment.CreationTime ?? null,
               state: attachment.State,
               transitGatewayAttachmentId: attachment.TransitGatewayAttachmentId,
               transitGatewayId: attachment.TransitGatewayId,
@@ -155,6 +187,7 @@ export const hydrateAwsEc2TransitGatewayVpcAttachmentActivity = async (
 
         const endTime = new Date();
         endTime.setUTCHours(0, 0, 0, 0);
+        const startTime = new Date(endTime.getTime() - LOOKBACK_SECONDS * 1_000);
         hourlyAttachmentCostPromise ??= loadHourlyVpcAttachmentPrice(region);
         const [metricData, hourlyAttachmentCostUsd] = await Promise.all([
           fetchCloudWatchSignals({
@@ -191,7 +224,7 @@ export const hydrateAwsEc2TransitGatewayVpcAttachmentActivity = async (
               ];
             }),
             region,
-            startTime: new Date(endTime.getTime() - LOOKBACK_SECONDS * 1_000),
+            startTime,
           }),
           hourlyAttachmentCostPromise,
         ]);
@@ -200,14 +233,16 @@ export const hydrateAwsEc2TransitGatewayVpcAttachmentActivity = async (
           ...availableAttachments.map((attachment, index) => {
             const inboundPoints = metricData.get(`tgwIn${index}`) ?? [];
             const outboundPoints = metricData.get(`tgwOut${index}`) ?? [];
+            const hasCompleteLookback =
+              attachment.creationTime !== null && attachment.creationTime.getTime() <= startTime.getTime();
             return {
-              ...attachment,
+              accountId: attachment.accountId,
               bytesInLast30Days:
-                inboundPoints.length >= LOOKBACK_DAYS
+                hasCompleteLookback && inboundPoints.length >= LOOKBACK_DAYS
                   ? inboundPoints.reduce((sum, point) => sum + point.value, 0)
                   : null,
               bytesOutLast30Days:
-                outboundPoints.length >= LOOKBACK_DAYS
+                hasCompleteLookback && outboundPoints.length >= LOOKBACK_DAYS
                   ? outboundPoints.reduce((sum, point) => sum + point.value, 0)
                   : null,
               estimatedMonthlyAttachmentCostUsd:
@@ -217,6 +252,10 @@ export const hydrateAwsEc2TransitGatewayVpcAttachmentActivity = async (
               hourlyAttachmentCostUsd,
               lookbackDays: LOOKBACK_DAYS,
               region,
+              state: attachment.state,
+              transitGatewayAttachmentId: attachment.transitGatewayAttachmentId,
+              transitGatewayId: attachment.transitGatewayId,
+              vpcId: attachment.vpcId,
             } satisfies AwsEc2TransitGatewayVpcAttachmentActivity;
           }),
         );
