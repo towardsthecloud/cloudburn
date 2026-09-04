@@ -16,11 +16,16 @@ export const ebsUnattachedVolumeRule = createRule({
   service: RULE_SERVICE,
   supports: ['discovery'],
   discoveryDependencies: ['aws-ebs-volumes'],
+  supersedesRuleIds: ['CLDBRN-AWS-COSTOPTIMIZATIONHUB-3'],
   evaluateLive: ({ resources }) => {
     const findings = resources
       .get('aws-ebs-volumes')
       .filter((volume) => volume.attachments?.length === 0)
-      .map((volume) => createFindingMatch(volume.volumeId, volume.region, volume.accountId));
+      .map((volume) => ({
+        ...createFindingMatch(volume.volumeId, volume.region, volume.accountId),
+        resourceType: 'ec2:volume',
+        actionType: 'Delete',
+      }));
 
     return createFinding(
       { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },

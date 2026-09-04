@@ -4,6 +4,7 @@ import { toRuleIds } from '../shared/helpers.js';
 const awsCoreOptInRuleIds = new Set([
   'CLDBRN-AWS-COSTOPTIMIZATIONHUB-1',
   'CLDBRN-AWS-COSTOPTIMIZATIONHUB-2',
+  'CLDBRN-AWS-COSTOPTIMIZATIONHUB-3',
   'CLDBRN-AWS-LAMBDA-4',
   'CLDBRN-AWS-TAGGING-1',
 ]);

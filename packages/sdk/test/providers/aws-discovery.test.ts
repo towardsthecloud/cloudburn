@@ -38,6 +38,7 @@ import {
   hydrateAwsCostGuardrailBudgets,
 } from '../../src/providers/aws/resources/cost-guardrails.js';
 import {
+  hydrateAwsCostOptimizationHubIdleRecommendations,
   hydrateAwsCostOptimizationHubReservationRecommendations,
   hydrateAwsCostOptimizationHubSavingsPlansRecommendations,
 } from '../../src/providers/aws/resources/cost-optimization-hub.js';
@@ -178,6 +179,7 @@ vi.mock('../../src/providers/aws/resources/cost-explorer.js', () => ({
 }));
 
 vi.mock('../../src/providers/aws/resources/cost-optimization-hub.js', () => ({
+  hydrateAwsCostOptimizationHubIdleRecommendations: vi.fn(),
   hydrateAwsCostOptimizationHubReservationRecommendations: vi.fn(),
   hydrateAwsCostOptimizationHubSavingsPlansRecommendations: vi.fn(),
 }));
@@ -937,6 +939,7 @@ describe('discoverAwsResources', () => {
   });
 
   it('loads account-scoped discovery datasets without building a Resource Explorer catalog', async () => {
+    vi.mocked(hydrateAwsCostOptimizationHubIdleRecommendations).mockResolvedValue([]);
     mockedResolveCurrentAwsRegion.mockResolvedValue('eu-west-1');
     mockedHydrateAwsCostUsage.mockResolvedValue([
       {
@@ -1039,6 +1042,11 @@ describe('discoverAwsResources', () => {
           service: 'costoptimizationhub',
           discoveryDependencies: ['aws-cost-optimization-hub-reservation-recommendations'],
         }),
+        createRule({
+          id: 'CLDBRN-AWS-COSTOPTIMIZATIONHUB-3',
+          service: 'costoptimizationhub',
+          discoveryDependencies: ['aws-cost-optimization-hub-idle-recommendations'],
+        }),
       ],
       { mode: 'regions', regions: ['eu-west-1'] },
     );
@@ -1049,6 +1057,7 @@ describe('discoverAwsResources', () => {
     expect(mockedHydrateAwsCostAnomalyMonitors).toHaveBeenCalledWith([], loadContextMatcher);
     expect(mockedHydrateAwsCostOptimizationHubSavingsPlansRecommendations).not.toHaveBeenCalled();
     expect(mockedHydrateAwsCostOptimizationHubReservationRecommendations).toHaveBeenCalledWith([], loadContextMatcher);
+    expect(hydrateAwsCostOptimizationHubIdleRecommendations).toHaveBeenCalledWith([], loadContextMatcher);
     expect(mockedHydrateAwsSageMakerSavingsPlansCoverage).toHaveBeenCalledWith([], loadContextMatcher);
     expect(result.catalog).toEqual({
       indexType: 'LOCAL',
