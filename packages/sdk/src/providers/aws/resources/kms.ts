@@ -296,6 +296,7 @@ const createReview = (
   keys: HydratedKmsKey[],
   aliasPatternsByKey: Map<string, string[]>,
   aliasPatternsAvailable: boolean,
+  keyMetadataUnavailableCount: number,
 ): AwsKmsKeyChurnReview => {
   const creationWindow = getPreviousFullMonthWindow(new Date());
   const aliasPatternCounts = new Map<string, number>();
@@ -336,6 +337,8 @@ const createReview = (
     creationWindowStart: creationWindow.start.toISOString(),
     enabledCustomerManagedKeyCount: keys.length,
     estimatedMonthlyStorageCostUsd,
+    keyMetadataComplete: keyMetadataUnavailableCount === 0,
+    keyMetadataUnavailableCount,
     keysCreatedInWindow,
     multiRegionKeyCount,
     noKmsUsageSinceCreationKeyCount: usageCounts.no_kms_usage_since_creation,
@@ -440,6 +443,7 @@ export const hydrateAwsKmsKeyChurnReviews = async (
                   keys,
                   aliasPatterns.patterns,
                   aliasPatterns.available,
+                  metadataErrors.length,
                 ),
               ]
             : [],

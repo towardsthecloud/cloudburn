@@ -146,7 +146,8 @@ multi-region and all-region SDK targets do not fan out AWS Config API calls.
 `CLDBRN-AWS-KMS-1` counts customer-managed keys reported by Resource Explorer after `DescribeKey` confirms that each
 key is enabled and is not pending deletion. Multi-Region primary and replica keys count separately because AWS bills
 each one as a key. The churn window is the previous full UTC calendar month. A Region triggers at `50` enabled keys or
-`10` keys created inside that window.
+`10` keys created inside that window. When a resource policy denies `DescribeKey` for part of the catalog, the evidence
+marks key metadata incomplete and reports the unreadable count; the enabled-key count remains the confirmed minimum.
 
 The monthly storage estimate uses [AWS KMS public pricing](https://aws.amazon.com/kms/pricing/): `$1` per enabled
 customer-managed key, plus `$1` for each of the first 2 completed rotations. If rotation history is denied, the estimate

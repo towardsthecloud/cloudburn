@@ -11,6 +11,8 @@ const createReview = (overrides: Partial<AwsKmsKeyChurnReview> = {}): AwsKmsKeyC
   creationWindowStart: '2026-08-01T00:00:00.000Z',
   enabledCustomerManagedKeyCount: 50,
   estimatedMonthlyStorageCostUsd: 52,
+  keyMetadataComplete: true,
+  keyMetadataUnavailableCount: 0,
   keysCreatedInWindow: 8,
   multiRegionKeyCount: 2,
   noKmsUsageSinceCreationKeyCount: 4,

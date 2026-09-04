@@ -221,6 +221,8 @@ describe('rule exports', () => {
       creationWindowStart: '2026-08-01T00:00:00.000Z',
       enabledCustomerManagedKeyCount: 50,
       estimatedMonthlyStorageCostUsd: 52,
+      keyMetadataComplete: true,
+      keyMetadataUnavailableCount: 0,
       keysCreatedInWindow: 10,
       multiRegionKeyCount: 2,
       noKmsUsageSinceCreationKeyCount: 4,

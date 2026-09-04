@@ -2131,6 +2131,8 @@ describe('discoverAwsResources', () => {
         creationWindowStart: '2026-08-01T00:00:00.000Z',
         enabledCustomerManagedKeyCount: 1,
         estimatedMonthlyStorageCostUsd: 1,
+        keyMetadataComplete: true,
+        keyMetadataUnavailableCount: 0,
         keysCreatedInWindow: 1,
         multiRegionKeyCount: 0,
         noKmsUsageSinceCreationKeyCount: 1,

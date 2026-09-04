@@ -379,6 +379,10 @@ export type AwsKmsKeyChurnReview = {
   creationWindowStart: string;
   enabledCustomerManagedKeyCount: number;
   estimatedMonthlyStorageCostUsd: number;
+  /** Whether every discovered KMS key could be classified through `DescribeKey`. */
+  keyMetadataComplete: boolean;
+  /** Discovered KMS keys whose manager, state, and creation date could not be read. */
+  keyMetadataUnavailableCount: number;
   keysCreatedInWindow: number;
   multiRegionKeyCount: number;
   noKmsUsageSinceCreationKeyCount: number;

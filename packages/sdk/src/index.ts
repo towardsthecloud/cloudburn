@@ -46,6 +46,8 @@ export type {
   AwsElastiCacheReservedNode,
   AwsEmrCluster,
   AwsEmrClusterMetric,
+  AwsKmsAliasPatternGroup,
+  AwsKmsKeyChurnReview,
   AwsLambdaFunction,
   AwsLambdaFunctionMetric,
   AwsRdsInstance,

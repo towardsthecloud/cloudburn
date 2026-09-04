@@ -148,8 +148,10 @@ Manager or a paid service-linked recorder requires continuous recording.
 
 `CLDBRN-AWS-KMS-1` includes the enabled customer-managed key count, previous-full-month creation window and key count,
 estimated monthly storage cost, repeated alias-pattern hashes, rotation and multi-Region counts, and usage-evidence
-coverage. Raw aliases are never returned. Denied usage or rotation metadata produces a diagnostic and marks the related
-evidence incomplete, while the rule remains limited to proliferation and churn.
+coverage. It also states whether every discovered key could be classified and counts keys whose `DescribeKey` metadata
+was denied, so the confirmed key count is not mistaken for complete inventory. Raw aliases are never returned. Denied
+usage or rotation metadata produces a diagnostic and marks the related evidence incomplete, while the rule remains
+limited to proliferation and churn.
 
 Every selected discovery rule appears exactly once when evaluation evidence is requested:
 

@@ -102,8 +102,10 @@ eligible above-threshold review, discovery emits a diagnostic and reports the ru
 
 `CLDBRN-AWS-KMS-1` reports a regional count of enabled customer-managed keys, the previous-full-month creation count,
 the UTC window boundaries, estimated monthly storage cost, repeated alias-pattern hashes, multi-Region and rotation
-counts, and usage-evidence coverage. The SDK never returns raw aliases in this dataset. Missing KMS usage or rotation
-permissions produce diagnostics without turning a valid proliferation or churn finding into an unused-key claim.
+counts, key-metadata completeness, and usage-evidence coverage. The SDK never returns raw aliases in this dataset.
+Denied `DescribeKey` calls leave a confirmed minimum count plus an explicit unreadable count. Missing KMS usage or
+rotation permissions produce diagnostics without turning a valid proliferation or churn finding into an unused-key
+claim. The loader requires `kms:DescribeKey`, `kms:GetKeyLastUsage`, `kms:ListAliases`, and `kms:ListKeyRotations`.
 
 The SDK does not define product profiles, remediation effort, commands, or persistence schemas. Applications select
 the discovery rules that fit their use case through `config.discovery.enabledRules` and transform the generic result

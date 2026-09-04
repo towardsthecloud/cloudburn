@@ -222,6 +222,8 @@ describe('hydrateAwsKmsKeyChurnReviews', () => {
           creationWindowStart: '2026-08-01T00:00:00.000Z',
           enabledCustomerManagedKeyCount: 4,
           estimatedMonthlyStorageCostUsd: 6,
+          keyMetadataComplete: true,
+          keyMetadataUnavailableCount: 0,
           keysCreatedInWindow: 3,
           multiRegionKeyCount: 2,
           noKmsUsageSinceCreationKeyCount: 1,
@@ -298,6 +300,8 @@ describe('hydrateAwsKmsKeyChurnReviews', () => {
       resources: [
         expect.objectContaining({
           enabledCustomerManagedKeyCount: 1,
+          keyMetadataComplete: false,
+          keyMetadataUnavailableCount: 1,
           noKmsUsageSinceCreationKeyCount: 1,
         }),
       ],

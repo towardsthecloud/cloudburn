@@ -17,6 +17,8 @@ import {
   type AwsEksNodegroup,
   type AwsElastiCacheCluster,
   type AwsEmrCluster,
+  type AwsKmsAliasPatternGroup,
+  type AwsKmsKeyChurnReview,
   type AwsRdsInstance,
   type AwsRedshiftCluster,
   type AwsRoute53HealthCheck,
@@ -146,6 +148,31 @@ describe('sdk exports', () => {
       previousMonthCost: 10,
       serviceName: 'Amazon DynamoDB',
       serviceSlug: 'amazon-dynamodb',
+    };
+    const kmsAliasPatternGroup: AwsKmsAliasPatternGroup = {
+      keyCount: 10,
+      patternId: 'pattern-123456789abc',
+    };
+    const kmsReview: AwsKmsKeyChurnReview = {
+      accountId: '123456789012',
+      aliasPatternGroups: [kmsAliasPatternGroup],
+      aliasPatternsAvailable: true,
+      creationWindowEnd: '2026-09-01T00:00:00.000Z',
+      creationWindowStart: '2026-08-01T00:00:00.000Z',
+      enabledCustomerManagedKeyCount: 50,
+      estimatedMonthlyStorageCostUsd: 52,
+      keyMetadataComplete: true,
+      keyMetadataUnavailableCount: 0,
+      keysCreatedInWindow: 10,
+      multiRegionKeyCount: 2,
+      noKmsUsageSinceCreationKeyCount: 4,
+      region: 'eu-central-1',
+      reviewId: 'kms-key-churn/eu-central-1',
+      rotatedKeyCount: 2,
+      storageCostEstimateComplete: true,
+      unobservedBeforeTrackingKeyCount: 3,
+      usageMetadataUnavailableKeyCount: 1,
+      usedKeyCount: 42,
     };
     const dynamoDbTable: AwsDynamoDbTable = {
       accountId: '123456789012',
@@ -288,6 +315,7 @@ describe('sdk exports', () => {
     expect(logStream.logStreamName).toContain('[$LATEST]');
     expect(cloudFrontDistribution.priceClass).toBe('PriceClass_All');
     expect(costUsage.costIncrease).toBe(15);
+    expect(kmsReview.aliasPatternGroups).toEqual([kmsAliasPatternGroup]);
     expect(dynamoDbTable.tableName).toBe('orders');
     expect(dynamoDbAutoscaling.hasReadTarget).toBe(true);
     expect(volume.sizeGiB).toBe(128);
