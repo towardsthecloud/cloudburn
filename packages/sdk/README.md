@@ -141,6 +141,27 @@ rule in the catalog is not enough. This precedence is declared by rule metadata 
 retains the Hub rule's original triggered result. Unenrolled, denied, and incomplete responses make the Hub rule
 `not_applicable`.
 
+Enable `CLDBRN-AWS-COSTOPTIMIZATIONHUB-4` through `config.discovery.enabledRules` to read Hub rightsizing
+recommendations for standalone EC2 instances, EC2 Auto Scaling groups, EBS volumes, Lambda functions, ECS services,
+RDS DB instances, RDS DB instance storage, and Aurora DB cluster storage. It queries the current account through the
+Hub endpoint in `us-east-1`, across all recommendation Regions, without requiring Resource Explorer.
+
+The rule uses `cost-optimization-hub:ListEnrollmentStatuses`, `cost-optimization-hub:ListRecommendations`, and
+`cost-optimization-hub:GetRecommendation`, plus `sts:GetCallerIdentity` for account identity. Grant the Hub actions on
+`Resource: "*"`, as required by the [Hub IAM reference](https://docs.aws.amazon.com/service-authorization/latest/reference/list_cost-optimization-hub.html). CloudBurn only reads enrollment; an administrator must enroll the account separately.
+
+With `includeEvaluationResources: true`, the `aws-cost-optimization-hub-rightsizing-recommendations` resource set
+exposes `AwsCostOptimizationHubRightsizingRecommendation`. Narrow its `resourceType` discriminant to read the typed
+`currentConfiguration` and `recommendedConfiguration`; nested instance, mixed-instance, compute, and storage fields
+remain structured. Evidence retains resource identity, account, Region, currency, current monthly cost, estimated
+savings and percentage, implementation effort, restart and rollback flags, source, and refresh timestamp.
+
+Only the AWS `Rightsize` action qualifies. Generation upgrades and Graviton migrations are separate actions.
+`CLDBRN-AWS-LAMBDA-4`, when enabled and reporting the same Lambda ARN, account, and Region, suppresses the Hub
+duplicate using direct Compute Optimizer memory evidence. Low-utilization and migration findings do not suppress it.
+RDS instance and storage recommendations have separate evidence namespaces. Unenrolled accounts, denied access, and
+incomplete detail evidence produce diagnostics and `not_applicable`; an enrolled account with no recommendations passes.
+
 `CLDBRN-AWS-SAGEMAKER-3` reads SageMaker Savings Plans coverage from Cost Explorer for the last 30 complete days. It
 flags coverage below 80 percent only when uncovered On-Demand cost is at least 72 cost units. When Cost Optimization
 Hub returns a SageMaker purchase recommendation, that stronger finding suppresses the coverage warning for the account.

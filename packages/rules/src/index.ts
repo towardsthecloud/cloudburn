@@ -6,6 +6,7 @@ export {
   getAwsCostOptimizationHubReservationResourceId,
   getAwsCostOptimizationHubReservationResourceType,
 } from './aws/costoptimizationhub/reservation-identity.js';
+export { getAwsCostOptimizationHubRightsizingResourceType } from './aws/costoptimizationhub/rightsizing-identity.js';
 export { awsRules } from './aws/index.js';
 export {
   AWS_KMS_KEY_PROLIFERATION_THRESHOLD,
@@ -39,6 +40,7 @@ export type {
   AwsCostAnomalyMonitor,
   AwsCostGuardrailBudget,
   AwsCostGuardrailBudgetSpend,
+  AwsCostOptimizationHubComputeConfiguration,
   AwsCostOptimizationHubDynamoDbReservationConfiguration,
   AwsCostOptimizationHubEc2ReservationConfiguration,
   AwsCostOptimizationHubElastiCacheReservationConfiguration,
@@ -49,6 +51,8 @@ export type {
   AwsCostOptimizationHubRedshiftReservationConfiguration,
   AwsCostOptimizationHubReservationConfiguration,
   AwsCostOptimizationHubReservationRecommendation,
+  AwsCostOptimizationHubRightsizingConfigurationMap,
+  AwsCostOptimizationHubRightsizingRecommendation,
   AwsCostOptimizationHubSavingsPlansRecommendation,
   AwsCostUsage,
   AwsDiscoveredResource,

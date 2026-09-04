@@ -26,6 +26,7 @@ import { hydrateAwsCostUsage } from './resources/cost-explorer.js';
 import { hydrateAwsCostAnomalyMonitors, hydrateAwsCostGuardrailBudgets } from './resources/cost-guardrails.js';
 import {
   hydrateAwsCostOptimizationHubReservationRecommendations,
+  hydrateAwsCostOptimizationHubRightsizingRecommendations,
   hydrateAwsCostOptimizationHubSavingsPlansRecommendations,
 } from './resources/cost-optimization-hub.js';
 import {
@@ -808,6 +809,22 @@ const awsDiscoveryDatasetRegistry: {
         }),
       ),
   },
+  'aws-cost-optimization-hub-rightsizing-recommendations': {
+    datasetKey: 'aws-cost-optimization-hub-rightsizing-recommendations',
+    resourceTypes: [],
+    service: 'costoptimizationhub',
+    load: hydrateAwsCostOptimizationHubRightsizingRecommendations,
+    toEvaluationResources: (recommendations) =>
+      mapEvaluationResources(
+        recommendations,
+        (recommendation) => recommendation.resourceId,
+        (recommendation) => ({
+          ...(recommendation.resourceArn ? { arn: recommendation.resourceArn } : {}),
+          data: recommendation,
+          resourceType: getAwsCostOptimizationHubRightsizingResourceType(recommendation),
+        }),
+      ),
+  },
   'aws-sagemaker-savings-plans-coverage': {
     datasetKey: 'aws-sagemaker-savings-plans-coverage',
     resourceTypes: [],
@@ -916,3 +933,5 @@ export const getAwsRuleEvaluationResourceSet = (
     })),
   };
 };
+
+import { getAwsCostOptimizationHubRightsizingResourceType } from '@cloudburn/rules';
