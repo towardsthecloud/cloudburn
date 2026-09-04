@@ -8,17 +8,17 @@ Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
 
 - All uppercase
 - No zero-padding on the sequence number
-- IDs stay contiguous within each provider/service sequence; when a change affects the sequence, renumber later entries and update references in the same change
+- IDs stay contiguous within each provider/service sequence except the issue-allocated Cost Optimization Hub slots: `-3` belongs to #209, `-4` to #210, and `-5` to #211. Unimplemented slots do not export placeholder rules.
 - Provider: `AWS`, `AZURE`, `GCP`
 - Service: short name matching the directory (e.g. `EBS`, `EC2`, `RDS`, `S3`, `LAMBDA`)
 
 The metadata test in `packages/rules/test/rule-metadata.test.ts` currently enforces uniqueness and a gap-free numeric
-sequence for every provider/service pair.
+sequence for every provider/service pair, with the explicit Cost Optimization Hub allocation above.
 
 ## Presets
 
 - `aws-core` is the default general discovery preset.
-- `CLDBRN-AWS-COSTOPTIMIZATIONHUB-1` and `CLDBRN-AWS-COSTOPTIMIZATIONHUB-2` are opt-in because AWS Cost Optimization Hub requires account enrollment. CloudBurn checks enrollment but never changes it.
+- `CLDBRN-AWS-COSTOPTIMIZATIONHUB-1`, `CLDBRN-AWS-COSTOPTIMIZATIONHUB-2`, and `CLDBRN-AWS-COSTOPTIMIZATIONHUB-5` are opt-in because AWS Cost Optimization Hub requires account enrollment. CloudBurn checks enrollment but never changes it.
 - `CLDBRN-AWS-LAMBDA-4` is opt-in because AWS Compute Optimizer requires account enrollment. Enable it with `cloudburn discover --enabled-rules CLDBRN-AWS-LAMBDA-4` or `config.discovery.enabledRules` in the SDK.
 - `CLDBRN-AWS-TAGGING-1` is opt-in because account-wide tagging needs an accessible Resource Explorer aggregator.
 - Applications can define product-specific rule selections with `config.discovery.enabledRules`. Such selections are
@@ -27,7 +27,7 @@ sequence for every provider/service pair.
 
 ## Compatibility Status
 
-Rule IDs are public configuration and result references. The repository currently enforces contiguous service sequences,
+Rule IDs are public configuration and result references. Except for the allocated Hub slots above, the repository enforces contiguous service sequences,
 including renumbering later entries when rules are removed or reordered. That policy conflicts with treating each ID as an
 immutable cross-release identifier. The long-term public-stability contract remains a maintainer decision.
 
@@ -55,6 +55,7 @@ meaningful optimization opportunities, and `low` covers hygiene and smaller accu
 | `CLDBRN-AWS-COSTGUARDRAILS-4`      | medium   | Flags configured AWS Budgets when normalized forecasted spend strictly exceeds the same-unit budget limit while actual spend has not exceeded it. Missing, malformed, and unit-mismatched forecasts are skipped.                    | costguardrails      | discovery      |
 | `CLDBRN-AWS-COSTOPTIMIZATIONHUB-1` | medium   | Opt-in. Flags Compute, EC2 Instance, and SageMaker Savings Plans purchases recommended by AWS Cost Optimization Hub. Unavailable or incomplete recommendation evidence makes the rule not applicable.                               | costoptimizationhub | discovery      |
 | `CLDBRN-AWS-COSTOPTIMIZATIONHUB-2` | medium   | Opt-in. Flags EC2, RDS, OpenSearch, Redshift, ElastiCache, MemoryDB, and DynamoDB reservation purchases from Cost Optimization Hub. Namespaced native matches for the same purchase action take precedence.                         | costoptimizationhub | discovery      |
+| `CLDBRN-AWS-COSTOPTIMIZATIONHUB-5` | medium   | Opt-in. Flags product-generation upgrades for EC2 instances, Auto Scaling groups, EBS volumes, RDS instances, and RDS storage. Requires current and recommended configuration evidence; incomplete evidence is not applicable.      | costoptimizationhub | discovery      |
 | `CLDBRN-AWS-COSTEXPLORER-1`        | medium   | Compares the last two full months and flags only services with an existing prior-month baseline and a cost increase greater than `10` cost units.                                                                                   | costexplorer        | discovery      |
 | `CLDBRN-AWS-KMS-1`                 | medium   | Flags Regions with at least `50` enabled customer-managed KMS keys or at least `10` such keys created during the previous full month. AWS-managed, AWS-owned, disabled, and pending-deletion keys are excluded.                     | kms                 | discovery      |
 | `CLDBRN-AWS-KMS-2`                 | medium   | Flags enabled customer-managed KMS keys that are at least `90` days old and have no recorded KMS cryptographic use during a complete `90`-day tracking window.                                                                      | kms                 | discovery      |
@@ -175,6 +176,6 @@ evaluated independently.
 
 ## Presets
 
-| Preset ID  | Name     | Rule IDs                                                                                                                                                    |
-| ---------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `aws-core` | AWS Core | All AWS rules above except opt-in `CLDBRN-AWS-COSTOPTIMIZATIONHUB-1`, `CLDBRN-AWS-COSTOPTIMIZATIONHUB-2`, `CLDBRN-AWS-LAMBDA-4`, and `CLDBRN-AWS-TAGGING-1` |
+| Preset ID  | Name     | Rule IDs                                                                                                                                                                                        |
+| ---------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `aws-core` | AWS Core | All AWS rules above except opt-in `CLDBRN-AWS-COSTOPTIMIZATIONHUB-1`, `CLDBRN-AWS-COSTOPTIMIZATIONHUB-2`, `CLDBRN-AWS-COSTOPTIMIZATIONHUB-5`, `CLDBRN-AWS-LAMBDA-4`, and `CLDBRN-AWS-TAGGING-1` |

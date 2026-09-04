@@ -57,6 +57,7 @@ describe('rdsStorageTypeCurrentGenRule', () => {
           resourceId: 'orders',
           region: 'us-east-1',
           accountId: '123456789012',
+          resourceType: 'rds:db-storage',
         },
       ],
     });
@@ -85,6 +86,7 @@ describe('rdsStorageTypeCurrentGenRule', () => {
           resourceId: 'orders',
           region: 'us-east-1',
           accountId: '123456789012',
+          resourceType: 'rds:db-storage',
         },
       ],
     });

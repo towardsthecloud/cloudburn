@@ -180,6 +180,28 @@ AWS provides. Duplicate recommendation IDs are evaluated once. A Hub finding is 
 rule emits a finding with the same account, Region, resource identity, and reservation purchase action. Unavailable or
 incomplete recommendation evidence makes the rule `not_applicable`.
 
+`CLDBRN-AWS-COSTOPTIMIZATIONHUB-5` projects `AwsCostOptimizationHubUpgradeRecommendation` in `data`. The
+`resourceType` discriminator correlates `currentConfiguration` and `recommendedConfiguration`:
+
+| Resource type          | Configuration fields                                                                                         |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `Ec2Instance`          | `instance.type`                                                                                              |
+| `Ec2AutoScalingGroup`  | `type`; single `instance.type` or nonempty `mixedInstances[].type`; optional `allocationStrategy`            |
+| `EbsVolume`            | `storage.type`, `storage.sizeInGb`; optional `performance.iops`, `performance.throughput`, `attachmentState` |
+| `RdsDbInstance`        | `instance.dbInstanceClass`                                                                                   |
+| `RdsDbInstanceStorage` | `storageType`, `allocatedStorageInGb`; optional `iops`, `storageThroughput`                                  |
+
+Each recommendation retains the AWS resource ID and ARN when present, account, Region, action `Upgrade`, currency,
+estimated monthly cost and savings, savings percentage, implementation effort, restart and rollback flags, source,
+and refresh timestamp. At least one resource identity and both configurations are required. Incomplete details make
+the dataset unavailable and evaluation `not_applicable`, including when other recommendations are complete.
+
+Finding identities normalize supported ARNs to service identifiers. Namespaces are `ec2:instance`,
+`autoscaling:autoScalingGroup`, `ec2:volume`, `rds:db`, and `rds:db-storage`, respectively.
+Native `CLDBRN-AWS-EBS-1` and `CLDBRN-AWS-RDS-11` discovery findings also carry the matching storage namespace
+and declare precedence over `-5`. Only enabled native rules that emit the same account, Region, and resource match
+can suppress a Hub finding; evaluation resources retain the Hub evidence before suppression.
+
 `CLDBRN-AWS-SAGEMAKER-3` projects one account-scoped coverage record for the last 30 complete days. Its normalized
 `data` contains the period, coverage percentage, uncovered public On-Demand cost, spend covered by Savings Plans, and
 total eligible cost. It triggers below 80 percent coverage only when uncovered cost is at least 72 cost units. A

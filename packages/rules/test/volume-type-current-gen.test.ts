@@ -69,6 +69,7 @@ describe('ebsVolumeTypeCurrentGenRule', () => {
             resourceId: 'vol-123',
             region: 'eu-west-1',
             accountId: '123456789012',
+            resourceType: 'ec2:volume',
           },
         ],
       });

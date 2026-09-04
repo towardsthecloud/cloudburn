@@ -7,6 +7,8 @@ import {
   type FindingMatch,
   getAwsCostOptimizationHubReservationResourceId,
   getAwsCostOptimizationHubReservationResourceType,
+  getAwsCostOptimizationHubUpgradeResourceId,
+  getAwsCostOptimizationHubUpgradeResourceType,
   type LiveResourceBag,
   type Rule,
 } from '@cloudburn/rules';
@@ -27,6 +29,7 @@ import { hydrateAwsCostAnomalyMonitors, hydrateAwsCostGuardrailBudgets } from '.
 import {
   hydrateAwsCostOptimizationHubReservationRecommendations,
   hydrateAwsCostOptimizationHubSavingsPlansRecommendations,
+  hydrateAwsCostOptimizationHubUpgradeRecommendations,
 } from './resources/cost-optimization-hub.js';
 import {
   hydrateAwsDynamoDbAutoscaling,
@@ -807,6 +810,18 @@ const awsDiscoveryDatasetRegistry: {
           resourceType: getAwsCostOptimizationHubReservationResourceType(recommendation),
         }),
       ),
+  },
+  'aws-cost-optimization-hub-upgrade-recommendations': {
+    datasetKey: 'aws-cost-optimization-hub-upgrade-recommendations',
+    resourceTypes: [],
+    service: 'costoptimizationhub',
+    load: hydrateAwsCostOptimizationHubUpgradeRecommendations,
+    toEvaluationResources: (recommendations) =>
+      mapEvaluationResources(recommendations, getAwsCostOptimizationHubUpgradeResourceId, (recommendation) => ({
+        ...(recommendation.resourceArn ? { arn: recommendation.resourceArn } : {}),
+        data: recommendation,
+        resourceType: getAwsCostOptimizationHubUpgradeResourceType(recommendation),
+      })),
   },
   'aws-sagemaker-savings-plans-coverage': {
     datasetKey: 'aws-sagemaker-savings-plans-coverage',

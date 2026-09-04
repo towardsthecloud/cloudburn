@@ -141,6 +141,21 @@ rule in the catalog is not enough. This precedence is declared by rule metadata 
 retains the Hub rule's original triggered result. Unenrolled, denied, and incomplete responses make the Hub rule
 `not_applicable`.
 
+`CLDBRN-AWS-COSTOPTIMIZATIONHUB-5` is opt-in through `config.discovery.enabledRules`. It reads only `Upgrade`
+recommendations for EC2 instances, Auto Scaling groups, EBS volumes, RDS DB instances, and RDS DB instance storage
+through the shared Hub loader in `us-east-1`. The three Hub IAM actions listed above require `Resource: "*"`;
+account identity also uses `sts:GetCallerIdentity`. CloudBurn never changes enrollment or resources.
+
+`AwsCostOptimizationHubUpgradeRecommendation` is a discriminated union keyed by `resourceType`, with typed
+`currentConfiguration` and `recommendedConfiguration`. It retains identity, account, Region, cost, savings,
+currency, implementation effort, restart, rollback, source, and refresh evidence. Missing required configuration,
+identity, cost, or operational data makes evaluation `not_applicable`; an enrolled account with a successful empty
+response passes. The [finding reference](../../docs/reference/finding-shape.md) lists each configuration contract.
+
+Enabled native EBS and RDS storage generation rules take precedence for the same account, Region, resource, and
+storage upgrade. RDS compute and storage findings use distinct namespaces. EC2 family preferences do not establish
+the same recommended upgrade and do not suppress Hub findings. Evaluation evidence retains the original Hub result.
+
 `CLDBRN-AWS-SAGEMAKER-3` reads SageMaker Savings Plans coverage from Cost Explorer for the last 30 complete days. It
 flags coverage below 80 percent only when uncovered On-Demand cost is at least 72 cost units. When Cost Optimization
 Hub returns a SageMaker purchase recommendation, that stronger finding suppresses the coverage warning for the account.

@@ -460,10 +460,10 @@ export type AwsSageMakerEndpointActivity = {
   accountId: string;
 };
 
-/** Fields shared by purchase recommendations normalized from AWS Cost Optimization Hub. */
+/** Fields shared by recommendations normalized from AWS Cost Optimization Hub. */
 export type AwsCostOptimizationHubRecommendation = {
   accountId: string;
-  actionType: 'PurchaseReservedInstances' | 'PurchaseSavingsPlans';
+  actionType: 'PurchaseReservedInstances' | 'PurchaseSavingsPlans' | 'Upgrade';
   currencyCode: string;
   estimatedMonthlyCost: number;
   estimatedMonthlySavings: number;
@@ -478,6 +478,58 @@ export type AwsCostOptimizationHubRecommendation = {
   restartNeeded?: boolean;
   rollbackPossible?: boolean;
 };
+
+/** EC2 instance configuration for a product-generation upgrade. */
+export type AwsCostOptimizationHubEc2UpgradeConfiguration = { instance: { type: string } };
+
+/** EBS configuration for a product-generation upgrade. */
+export type AwsCostOptimizationHubEbsUpgradeConfiguration = {
+  storage: { type: string; sizeInGb: number };
+  performance?: { iops?: number; throughput?: number };
+  attachmentState?: string;
+};
+
+type AwsCostOptimizationHubUpgradeConfigurations = {
+  Ec2AutoScalingGroup: AwsCostOptimizationHubAutoScalingUpgradeConfiguration;
+  RdsDbInstanceStorage: AwsCostOptimizationHubRdsStorageUpgradeConfiguration;
+  RdsDbInstance: AwsCostOptimizationHubRdsUpgradeConfiguration;
+  Ec2Instance: AwsCostOptimizationHubEc2UpgradeConfiguration;
+  EbsVolume: AwsCostOptimizationHubEbsUpgradeConfiguration;
+};
+
+/** RDS DB instance configuration for a product-generation upgrade. */
+export type AwsCostOptimizationHubRdsUpgradeConfiguration = { instance: { dbInstanceClass: string } };
+
+/** Auto Scaling configuration for a product-generation upgrade. */
+export type AwsCostOptimizationHubAutoScalingUpgradeConfiguration =
+  | {
+      type: 'SingleInstanceType';
+      instance: { type: string };
+      allocationStrategy?: 'LowestPrice' | 'Prioritized';
+    }
+  | {
+      type: 'MixedInstanceTypes';
+      mixedInstances: { type: string }[];
+      allocationStrategy?: 'LowestPrice' | 'Prioritized';
+    };
+
+/** RDS storage configuration for a product-generation upgrade. */
+export type AwsCostOptimizationHubRdsStorageUpgradeConfiguration = {
+  storageType: string;
+  allocatedStorageInGb: number;
+  iops?: number;
+  storageThroughput?: number;
+};
+
+/** Product-generation upgrade with correlated current and recommended configuration evidence. */
+export type AwsCostOptimizationHubUpgradeRecommendation = {
+  [T in keyof AwsCostOptimizationHubUpgradeConfigurations]: AwsCostOptimizationHubRecommendation & {
+    actionType: 'Upgrade';
+    resourceType: T;
+    currentConfiguration: AwsCostOptimizationHubUpgradeConfigurations[T];
+    recommendedConfiguration: AwsCostOptimizationHubUpgradeConfigurations[T];
+  };
+}[keyof AwsCostOptimizationHubUpgradeConfigurations];
 
 /** Account-scoped Savings Plans purchase recommendation from AWS Cost Optimization Hub. */
 export type AwsCostOptimizationHubSavingsPlansRecommendation = AwsCostOptimizationHubRecommendation & {
@@ -973,6 +1025,7 @@ export type DiscoveryDatasetKey =
   | 'aws-cost-usage'
   | 'aws-cost-optimization-hub-savings-plans-recommendations'
   | 'aws-cost-optimization-hub-reservation-recommendations'
+  | 'aws-cost-optimization-hub-upgrade-recommendations'
   | 'aws-cost-anomaly-monitors'
   | 'aws-cost-guardrail-budgets'
   | 'aws-dynamodb-autoscaling'
@@ -1037,6 +1090,7 @@ export type DiscoveryDatasetMap = {
   'aws-cost-usage': AwsCostUsage[];
   'aws-cost-optimization-hub-savings-plans-recommendations': AwsCostOptimizationHubSavingsPlansRecommendation[];
   'aws-cost-optimization-hub-reservation-recommendations': AwsCostOptimizationHubReservationRecommendation[];
+  'aws-cost-optimization-hub-upgrade-recommendations': AwsCostOptimizationHubUpgradeRecommendation[];
   'aws-cost-anomaly-monitors': AwsCostAnomalyMonitor[];
   'aws-cost-guardrail-budgets': AwsCostGuardrailBudget[];
   'aws-dynamodb-autoscaling': AwsDynamoDbAutoscaling[];
