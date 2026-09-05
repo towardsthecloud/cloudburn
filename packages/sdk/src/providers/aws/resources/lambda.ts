@@ -9,6 +9,7 @@ import type {
 import { createComputeOptimizerClient, createLambdaClient } from '../client.js';
 import type { AwsDiscoveryDatasetResolver } from '../discovery-registry.js';
 import { fetchCloudWatchSignals } from './cloudwatch.js';
+import { getUnqualifiedLambdaFunctionArn } from './lambda-identity.js';
 import { extractTerminalArnResourceIdentifier, withAwsServiceErrorContext } from './utils.js';
 
 const DEFAULT_LAMBDA_ARCHITECTURES = ['x86_64'];
@@ -20,18 +21,6 @@ const getSum = (values: Array<{ value: number }>): number => values.reduce((sum,
 
 const getAverage = (values: Array<{ value: number }>): number | null =>
   values.length === 0 ? null : getSum(values) / values.length;
-
-const getUnqualifiedLambdaFunctionArn = (functionArn: string): string => {
-  const functionMarker = ':function:';
-  const functionMarkerIndex = functionArn.indexOf(functionMarker);
-
-  if (functionMarkerIndex < 0) {
-    return functionArn;
-  }
-
-  const qualifierIndex = functionArn.indexOf(':', functionMarkerIndex + functionMarker.length);
-  return qualifierIndex < 0 ? functionArn : functionArn.slice(0, qualifierIndex);
-};
 
 const groupLambdaResourcesByRegion = (resources: AwsDiscoveredResource[]): Map<string, AwsDiscoveredResource[]> => {
   const resourcesByRegion = new Map<string, AwsDiscoveredResource[]>();

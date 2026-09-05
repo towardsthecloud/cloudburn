@@ -9,6 +9,9 @@ import {
   getAwsCostOptimizationHubIdleResourceType,
   getAwsCostOptimizationHubReservationResourceId,
   getAwsCostOptimizationHubReservationResourceType,
+  getAwsCostOptimizationHubRightsizingResourceType,
+  getAwsCostOptimizationHubUpgradeResourceId,
+  getAwsCostOptimizationHubUpgradeResourceType,
   gravitonResourceTypes,
   type LiveResourceBag,
   type Rule,
@@ -31,7 +34,9 @@ import {
   hydrateAwsCostOptimizationHubGravitonRecommendations,
   hydrateAwsCostOptimizationHubIdleRecommendations,
   hydrateAwsCostOptimizationHubReservationRecommendations,
+  hydrateAwsCostOptimizationHubRightsizingRecommendations,
   hydrateAwsCostOptimizationHubSavingsPlansRecommendations,
+  hydrateAwsCostOptimizationHubUpgradeRecommendations,
 } from './resources/cost-optimization-hub.js';
 import {
   hydrateAwsDynamoDbAutoscaling,
@@ -815,6 +820,23 @@ const awsDiscoveryDatasetRegistry: {
         }),
       ),
   },
+  'aws-cost-optimization-hub-rightsizing-recommendations': {
+    datasetKey: 'aws-cost-optimization-hub-rightsizing-recommendations',
+    resourceTypes: [],
+    service: 'costoptimizationhub',
+    load: hydrateAwsCostOptimizationHubRightsizingRecommendations,
+    toEvaluationResources: (recommendations) =>
+      mapEvaluationResources(
+        recommendations,
+        (recommendation) => recommendation.resourceId,
+        (recommendation) => ({
+          ...(recommendation.resourceArn ? { arn: recommendation.resourceArn } : {}),
+          data: recommendation,
+          resourceType: getAwsCostOptimizationHubRightsizingResourceType(recommendation),
+          actionType: recommendation.actionType,
+        }),
+      ),
+  },
   'aws-cost-optimization-hub-idle-recommendations': {
     datasetKey: 'aws-cost-optimization-hub-idle-recommendations',
     resourceTypes: [],
@@ -826,6 +848,18 @@ const awsDiscoveryDatasetRegistry: {
         actionType: recommendation.actionType,
         ...(recommendation.resourceArn ? { arn: recommendation.resourceArn } : {}),
         resourceType: getAwsCostOptimizationHubIdleResourceType(recommendation),
+      })),
+  },
+  'aws-cost-optimization-hub-upgrade-recommendations': {
+    datasetKey: 'aws-cost-optimization-hub-upgrade-recommendations',
+    resourceTypes: [],
+    service: 'costoptimizationhub',
+    load: hydrateAwsCostOptimizationHubUpgradeRecommendations,
+    toEvaluationResources: (recommendations) =>
+      mapEvaluationResources(recommendations, getAwsCostOptimizationHubUpgradeResourceId, (recommendation) => ({
+        ...(recommendation.resourceArn ? { arn: recommendation.resourceArn } : {}),
+        data: recommendation,
+        resourceType: getAwsCostOptimizationHubUpgradeResourceType(recommendation),
       })),
   },
   'aws-cost-optimization-hub-graviton-recommendations': {

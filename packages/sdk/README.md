@@ -163,6 +163,30 @@ rule in the catalog is not enough. This precedence is declared by rule metadata 
 retains the Hub rule's original triggered result. Unenrolled, denied, and incomplete responses make the Hub rule
 `not_applicable`.
 
+Enable `CLDBRN-AWS-COSTOPTIMIZATIONHUB-4` through `config.discovery.enabledRules` to read Hub rightsizing
+recommendations for standalone EC2 instances, EC2 Auto Scaling groups, EBS volumes, Lambda functions, ECS services,
+RDS DB instances, RDS DB instance storage, and Aurora DB cluster storage. It queries the current account through the
+Hub endpoint in `us-east-1`, across all recommendation Regions, without requiring Resource Explorer.
+
+The rule uses `cost-optimization-hub:ListEnrollmentStatuses`, `cost-optimization-hub:ListRecommendations`, and
+`cost-optimization-hub:GetRecommendation`, plus `sts:GetCallerIdentity` for account identity. Grant the Hub actions on
+`Resource: "*"`, as required by the [Hub IAM reference](https://docs.aws.amazon.com/service-authorization/latest/reference/list_cost-optimization-hub.html). CloudBurn only reads enrollment; an administrator must enroll the account separately.
+
+With `includeEvaluationResources: true`, the `aws-cost-optimization-hub-rightsizing-recommendations` resource set
+exposes `AwsCostOptimizationHubRightsizingRecommendation`. Narrow its `resourceType` discriminant to read the typed
+`currentConfiguration` and `recommendedConfiguration`; nested instance, mixed-instance, compute, and storage fields
+remain structured. Evidence retains resource identity, account, Region, currency, current monthly cost, estimated
+savings and percentage, implementation effort, restart and rollback flags, source, and refresh timestamp.
+Regional identity is required: a valid account-matching ARN supplies a missing Region; otherwise the evidence is
+incomplete. Lambda finding identity strips version and alias qualifiers to match the native rule, while evidence
+retains the original ARN. The existing purchase-recommendation action union remains unchanged.
+
+Only the AWS `Rightsize` action qualifies. Generation upgrades and Graviton migrations are separate actions.
+`CLDBRN-AWS-LAMBDA-4`, when enabled and reporting the same Lambda ARN, account, and Region, suppresses the Hub
+duplicate using direct Compute Optimizer memory evidence. Low-utilization and migration findings do not suppress it.
+RDS instance and storage recommendations have separate evidence namespaces. Unenrolled accounts, denied access, and
+incomplete detail evidence produce diagnostics and `not_applicable`; an enrolled account with no recommendations passes.
+
 Enable idle capacity recommendations with `config.discovery.enabledRules: ['CLDBRN-AWS-COSTOPTIMIZATIONHUB-3']`.
 The rule shares Hub enrollment, pagination, deduplication, and diagnostics with the purchase rules. It requires the
 same three Hub read permissions and `sts:GetCallerIdentity`; all Hub queries use `us-east-1` and filter to the caller's account.
@@ -178,6 +202,21 @@ An absent Stop/Delete target is represented as null. Missing ScaleIn targets, ma
 missing operational flags, denied requests, or unenrolled accounts make the rule `not_applicable`. CloudBurn never
 executes these actions or changes enrollment. The native unattached-volume rule can suppress the same EBS Delete
 finding when enabled; low utilization alone does not suppress Stop/Delete recommendations.
+
+`CLDBRN-AWS-COSTOPTIMIZATIONHUB-5` is opt-in through `config.discovery.enabledRules`. It reads only `Upgrade`
+recommendations for EC2 instances, Auto Scaling groups, EBS volumes, RDS DB instances, and RDS DB instance storage
+through the shared Hub loader in `us-east-1`. The three Hub IAM actions listed above require `Resource: "*"`;
+account identity also uses `sts:GetCallerIdentity`. CloudBurn never changes enrollment or resources.
+
+`AwsCostOptimizationHubUpgradeRecommendation` is a discriminated union keyed by `resourceType`, with typed
+`currentConfiguration` and `recommendedConfiguration`. It retains identity, account, Region, cost, savings,
+currency, implementation effort, restart, rollback, source, and refresh evidence. Missing required configuration,
+identity, cost, or operational data makes evaluation `not_applicable`; an enrolled account with a successful empty
+response passes. The [finding reference](../../docs/reference/finding-shape.md) lists each configuration contract.
+
+Enabled native EBS and RDS storage generation rules take precedence for the same account, Region, resource, and
+storage upgrade. RDS compute and storage findings use distinct namespaces. EC2 family preferences do not establish
+the same recommended upgrade and do not suppress Hub findings. Evaluation evidence retains the original Hub result.
 
 `CLDBRN-AWS-SAGEMAKER-3` reads SageMaker Savings Plans coverage from Cost Explorer for the last 30 complete days. It
 flags coverage below 80 percent only when uncovered On-Demand cost is at least 72 cost units. When Cost Optimization

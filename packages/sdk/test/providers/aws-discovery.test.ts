@@ -41,6 +41,7 @@ import {
   hydrateAwsCostOptimizationHubGravitonRecommendations,
   hydrateAwsCostOptimizationHubIdleRecommendations,
   hydrateAwsCostOptimizationHubReservationRecommendations,
+  hydrateAwsCostOptimizationHubRightsizingRecommendations,
   hydrateAwsCostOptimizationHubSavingsPlansRecommendations,
 } from '../../src/providers/aws/resources/cost-optimization-hub.js';
 import {
@@ -180,10 +181,12 @@ vi.mock('../../src/providers/aws/resources/cost-explorer.js', () => ({
 }));
 
 vi.mock('../../src/providers/aws/resources/cost-optimization-hub.js', () => ({
+  hydrateAwsCostOptimizationHubRightsizingRecommendations: vi.fn(),
   hydrateAwsCostOptimizationHubIdleRecommendations: vi.fn(),
   hydrateAwsCostOptimizationHubReservationRecommendations: vi.fn(),
   hydrateAwsCostOptimizationHubGravitonRecommendations: vi.fn(),
   hydrateAwsCostOptimizationHubSavingsPlansRecommendations: vi.fn(),
+  hydrateAwsCostOptimizationHubUpgradeRecommendations: vi.fn(),
 }));
 
 vi.mock('../../src/providers/aws/resources/cost-guardrails.js', () => ({
@@ -1192,6 +1195,23 @@ describe('discoverAwsResources', () => {
       expect.objectContaining({ region: 'eu-central-1' }),
     );
     expect(result.resources.get('aws-config-recording-frequency-reviews')).toHaveLength(1);
+  });
+
+  it('loads opt-in rightsizing without requiring a Resource Explorer catalog', async () => {
+    vi.mocked(hydrateAwsCostOptimizationHubRightsizingRecommendations).mockResolvedValue([]);
+    const result = await discoverAwsResources(
+      [
+        createRule({
+          id: 'CLDBRN-AWS-COSTOPTIMIZATIONHUB-4',
+          service: 'costoptimizationhub',
+          discoveryDependencies: ['aws-cost-optimization-hub-rightsizing-recommendations'],
+        }),
+      ],
+      { mode: 'current' },
+    );
+    expect(mockedBuildAwsDiscoveryCatalog).not.toHaveBeenCalled();
+    expect(hydrateAwsCostOptimizationHubRightsizingRecommendations).toHaveBeenCalledWith([], loadContextMatcher);
+    expect(result.resources.get('aws-cost-optimization-hub-rightsizing-recommendations')).toEqual([]);
   });
 
   it('marks account-scoped datasets unavailable when a loader declares incomplete evidence', async () => {

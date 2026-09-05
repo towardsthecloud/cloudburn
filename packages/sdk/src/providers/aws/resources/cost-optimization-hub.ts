@@ -1,6 +1,7 @@
 import {
   type ComputeSavingsPlansConfiguration,
   type DynamoDbReservedCapacityConfiguration,
+  type Ec2AutoScalingGroupConfiguration,
   type Ec2InstanceSavingsPlansConfiguration,
   type Ec2ReservedInstancesConfiguration,
   type ElastiCacheReservedInstancesConfiguration,
@@ -18,6 +19,7 @@ import {
   type SageMakerSavingsPlansConfiguration,
 } from '@aws-sdk/client-cost-optimization-hub';
 import type {
+  AwsCostOptimizationHubAutoScalingUpgradeConfiguration,
   AwsCostOptimizationHubDynamoDbReservationConfiguration,
   AwsCostOptimizationHubEc2ReservationConfiguration,
   AwsCostOptimizationHubElastiCacheReservationConfiguration,
@@ -31,13 +33,17 @@ import type {
   AwsCostOptimizationHubRedshiftReservationConfiguration,
   AwsCostOptimizationHubReservationConfiguration,
   AwsCostOptimizationHubReservationRecommendation,
+  AwsCostOptimizationHubRightsizingRecommendation,
   AwsCostOptimizationHubSavingsPlansRecommendation,
+  AwsCostOptimizationHubUpgradeRecommendation,
   AwsDiscoveredResource,
 } from '@cloudburn/rules';
 import type { ScanDiagnostic } from '../../../types.js';
 import { createCostOptimizationHubClient } from '../client.js';
 import type { AwsAccountIdResolver, AwsDiscoveryDatasetLoadResult } from '../discovery-registry.js';
 import { formatAwsAccessDeniedReason, getAwsErrorCode, isAwsAccessDeniedError } from '../errors.js';
+import { rightsizingConfigurationNormalizers } from './cost-optimization-hub-rightsizing.js';
+import { getUnqualifiedLambdaFunctionArn } from './lambda-identity.js';
 import {
   mapWithConcurrency,
   parseFiniteNumber,
@@ -63,12 +69,20 @@ const RESERVATION_RESOURCE_TYPES = [
   'DynamoDbReservedCapacity',
 ] as const;
 
-type NormalizedRecommendationCommon = AwsCostOptimizationHubRecommendation & {
+type HubRecommendation =
+  | AwsCostOptimizationHubGravitonRecommendation
+  | AwsCostOptimizationHubUpgradeRecommendation
+  | AwsCostOptimizationHubRecommendation
+  | AwsCostOptimizationHubIdleRecommendation
+  | AwsCostOptimizationHubRightsizingRecommendation;
+
+type NormalizedRecommendationCommon = Omit<AwsCostOptimizationHubRecommendation, 'actionType'> & {
+  actionType: HubRecommendation['actionType'];
   currentResourceType: string;
 };
 
-type RecommendationCategory<T extends AwsCostOptimizationHubRecommendation> = {
-  actionTypes: readonly AwsCostOptimizationHubRecommendation['actionType'][];
+type RecommendationCategory<T extends HubRecommendation> = {
+  actionTypes: readonly HubRecommendation['actionType'][];
   incompleteDetails: (count: number) => string;
   messageSubject: string;
   normalizeConfiguration: (common: NormalizedRecommendationCommon, response: GetRecommendationResponse) => T | null;
@@ -81,7 +95,7 @@ type SavingsPlansConfiguration =
   | Ec2InstanceSavingsPlansConfiguration
   | SageMakerSavingsPlansConfiguration;
 
-type CostOptimizationHubLoadResult<T extends AwsCostOptimizationHubRecommendation> =
+type CostOptimizationHubLoadResult<T extends HubRecommendation> =
   | T[]
   | {
       diagnostics: ScanDiagnostic[];
@@ -103,7 +117,7 @@ const withOptionalBoolean = (key: string, value: boolean | undefined): Record<st
 
 const normalizeRecommendationCommon = (
   recommendation: Recommendation,
-  category: RecommendationCategory<AwsCostOptimizationHubRecommendation>,
+  category: RecommendationCategory<HubRecommendation>,
 ): NormalizedRecommendationCommon | null => {
   if (
     !recommendation.recommendationId ||
@@ -119,16 +133,16 @@ const normalizeRecommendationCommon = (
     !Number.isFinite(recommendation.estimatedMonthlySavings) ||
     recommendation.estimatedSavingsPercentage === undefined ||
     !Number.isFinite(recommendation.estimatedSavingsPercentage) ||
-    !recommendation.lastRefreshTimestamp ||
+    !(recommendation.lastRefreshTimestamp instanceof Date) ||
     Number.isNaN(recommendation.lastRefreshTimestamp.getTime()) ||
-    !recommendation.source
+    (recommendation.source !== 'ComputeOptimizer' && recommendation.source !== 'CostExplorer')
   ) {
     return null;
   }
 
   return {
     accountId: recommendation.accountId,
-    actionType: recommendation.actionType as AwsCostOptimizationHubRecommendation['actionType'],
+    actionType: recommendation.actionType as HubRecommendation['actionType'],
     currencyCode: recommendation.currencyCode,
     currentResourceType: recommendation.currentResourceType,
     estimatedMonthlyCost: recommendation.estimatedMonthlyCost,
@@ -567,6 +581,198 @@ const reservationCategory: RecommendationCategory<AwsCostOptimizationHubReservat
   resourceTypes: RESERVATION_RESOURCE_TYPES,
 };
 
+const normalizeAutoScalingUpgrade = (
+  configuration: Ec2AutoScalingGroupConfiguration | undefined,
+): AwsCostOptimizationHubAutoScalingUpgradeConfiguration | null => {
+  if (
+    configuration?.allocationStrategy !== undefined &&
+    configuration.allocationStrategy !== 'LowestPrice' &&
+    configuration.allocationStrategy !== 'Prioritized'
+  )
+    return null;
+  if (configuration?.type === 'SingleInstanceType' && validInstanceType(configuration.instance?.type)) {
+    return {
+      type: configuration.type,
+      instance: { type: configuration.instance.type },
+      ...(configuration.allocationStrategy ? { allocationStrategy: configuration.allocationStrategy } : {}),
+    };
+  }
+  if (
+    configuration?.type === 'MixedInstanceTypes' &&
+    Array.isArray(configuration.mixedInstances) &&
+    configuration.mixedInstances.length > 0 &&
+    configuration.mixedInstances.every((instance) => validInstanceType(instance?.type))
+  ) {
+    return {
+      type: configuration.type,
+      mixedInstances: configuration.mixedInstances.map((instance) => ({ type: instance.type as string })),
+      ...(configuration.allocationStrategy ? { allocationStrategy: configuration.allocationStrategy } : {}),
+    };
+  }
+  return null;
+};
+
+const validInstanceType = (value: unknown): value is string =>
+  typeof value === 'string' && /^(?:db\.)?[a-z][a-z0-9-]*\.[a-z0-9-]+$/.test(value);
+const autoScalingFamilies = (configuration: AwsCostOptimizationHubAutoScalingUpgradeConfiguration): Set<string> =>
+  new Set(
+    (configuration.type === 'SingleInstanceType' ? [configuration.instance] : configuration.mixedInstances).map(
+      (instance) => instance.type.split('.')[0] ?? '',
+    ),
+  );
+
+const validCapacity = (value: number | undefined): value is number =>
+  typeof value === 'number' && Number.isFinite(value) && value > 0;
+const validOptionalPerformance = (...values: (number | undefined)[]): boolean =>
+  values.every((value) => value === undefined || (Number.isFinite(value) && value >= 0));
+
+const upgradeCategory: RecommendationCategory<AwsCostOptimizationHubUpgradeRecommendation> = {
+  actionTypes: ['Upgrade'],
+  resourceTypes: ['Ec2Instance', 'Ec2AutoScalingGroup', 'EbsVolume', 'RdsDbInstance', 'RdsDbInstanceStorage'],
+  messageSubject: 'product-generation upgrade recommendations',
+  incompleteDetails: (count) =>
+    `${count} upgrade recommendations lacked required identity, cost, refresh, source, or current and recommended configuration data.`,
+  normalizeConfiguration: (common, response) => {
+    const details = response.recommendedResourceDetails;
+    const { currentResourceType, ...recommendation } = common;
+    if (
+      (!common.resourceId && !common.resourceArn) ||
+      !common.region ||
+      !common.implementationEffort ||
+      typeof common.restartNeeded !== 'boolean' ||
+      typeof common.rollbackPossible !== 'boolean' ||
+      response.recommendationId !== common.recommendationId ||
+      response.accountId !== common.accountId ||
+      response.resourceId !== common.resourceId ||
+      response.resourceArn !== common.resourceArn ||
+      response.region !== common.region ||
+      response.actionType !== 'Upgrade' ||
+      response.currentResourceType !== currentResourceType ||
+      response.recommendedResourceType !== currentResourceType
+    )
+      return null;
+    if (currentResourceType === 'Ec2AutoScalingGroup') {
+      const current = normalizeAutoScalingUpgrade(response.currentResourceDetails?.ec2AutoScalingGroup?.configuration);
+      const recommended = normalizeAutoScalingUpgrade(details?.ec2AutoScalingGroup?.configuration);
+      if (!current || !recommended) return null;
+      const currentFamilies = autoScalingFamilies(current);
+      const recommendedFamilies = autoScalingFamilies(recommended);
+      if (
+        currentFamilies.size === recommendedFamilies.size &&
+        [...currentFamilies].every((family) => recommendedFamilies.has(family))
+      )
+        return null;
+
+      return {
+        ...recommendation,
+        actionType: 'Upgrade',
+        resourceType: currentResourceType,
+        currentConfiguration: current,
+        recommendedConfiguration: recommended,
+      };
+    }
+    if (currentResourceType === 'RdsDbInstanceStorage') {
+      const current = response.currentResourceDetails?.rdsDbInstanceStorage?.configuration;
+      const recommended = details?.rdsDbInstanceStorage?.configuration;
+      if (
+        typeof current?.storageType !== 'string' ||
+        !current.storageType.trim() ||
+        !validCapacity(current.allocatedStorageInGb) ||
+        !validOptionalPerformance(current.iops, current.storageThroughput) ||
+        typeof recommended?.storageType !== 'string' ||
+        !recommended.storageType.trim() ||
+        !validCapacity(recommended.allocatedStorageInGb) ||
+        !validOptionalPerformance(recommended.iops, recommended.storageThroughput) ||
+        current.storageType === recommended.storageType
+      )
+        return null;
+
+      return {
+        ...recommendation,
+        actionType: 'Upgrade',
+        resourceType: currentResourceType,
+        currentConfiguration: {
+          ...current,
+          storageType: current.storageType,
+          allocatedStorageInGb: current.allocatedStorageInGb,
+        },
+        recommendedConfiguration: {
+          ...recommended,
+          storageType: recommended.storageType,
+          allocatedStorageInGb: recommended.allocatedStorageInGb,
+        },
+      };
+    }
+    if (currentResourceType === 'RdsDbInstance') {
+      const current = response.currentResourceDetails?.rdsDbInstance?.configuration?.instance?.dbInstanceClass;
+      const recommended = details?.rdsDbInstance?.configuration?.instance?.dbInstanceClass;
+      if (
+        !validInstanceType(current) ||
+        !validInstanceType(recommended) ||
+        current.split('.').slice(0, -1).join('.') === recommended.split('.').slice(0, -1).join('.')
+      )
+        return null;
+
+      return {
+        ...recommendation,
+        actionType: 'Upgrade',
+        resourceType: currentResourceType,
+        currentConfiguration: { instance: { dbInstanceClass: current } },
+        recommendedConfiguration: { instance: { dbInstanceClass: recommended } },
+      };
+    }
+    if (currentResourceType === 'EbsVolume') {
+      const current = response.currentResourceDetails?.ebsVolume?.configuration;
+      const recommended = details?.ebsVolume?.configuration;
+      if (
+        typeof current?.storage?.type !== 'string' ||
+        !current.storage.type.trim() ||
+        (current.attachmentState !== undefined && typeof current.attachmentState !== 'string') ||
+        !validCapacity(current.storage.sizeInGb) ||
+        !validOptionalPerformance(current.performance?.iops, current.performance?.throughput) ||
+        typeof recommended?.storage?.type !== 'string' ||
+        !recommended.storage.type.trim() ||
+        (recommended.attachmentState !== undefined && typeof recommended.attachmentState !== 'string') ||
+        !validCapacity(recommended.storage.sizeInGb) ||
+        !validOptionalPerformance(recommended.performance?.iops, recommended.performance?.throughput) ||
+        current.storage.type === recommended.storage.type
+      )
+        return null;
+
+      return {
+        ...recommendation,
+        actionType: 'Upgrade',
+        resourceType: currentResourceType,
+        currentConfiguration: {
+          ...current,
+          storage: { type: current.storage.type, sizeInGb: current.storage.sizeInGb },
+        },
+        recommendedConfiguration: {
+          ...recommended,
+          storage: { type: recommended.storage.type, sizeInGb: recommended.storage.sizeInGb },
+        },
+      };
+    }
+    const current = response.currentResourceDetails?.ec2Instance?.configuration?.instance?.type;
+    const recommended = details?.ec2Instance?.configuration?.instance?.type;
+    if (
+      currentResourceType !== 'Ec2Instance' ||
+      !validInstanceType(current) ||
+      !validInstanceType(recommended) ||
+      current.split('.')[0] === recommended.split('.')[0]
+    )
+      return null;
+
+    return {
+      ...recommendation,
+      actionType: 'Upgrade',
+      resourceType: currentResourceType,
+      currentConfiguration: { instance: { type: current } },
+      recommendedConfiguration: { instance: { type: recommended } },
+    };
+  },
+};
+
 type CostOptimizationHubSession = {
   client: ReturnType<typeof createCostOptimizationHubClient>;
   enrolled: boolean;
@@ -709,7 +915,7 @@ const getCostOptimizationHubSession = (
   return session;
 };
 
-const loadCostOptimizationHubRecommendations = async <T extends AwsCostOptimizationHubRecommendation>(
+const loadCostOptimizationHubRecommendations = async <T extends HubRecommendation>(
   category: RecommendationCategory<T>,
   context?: AwsAccountIdResolver,
 ): Promise<CostOptimizationHubLoadResult<T>> => {
@@ -759,8 +965,11 @@ const loadCostOptimizationHubRecommendations = async <T extends AwsCostOptimizat
           ),
       );
 
-      for (const recommendation of page.items ?? []) {
-        if (recommendation.recommendationId) {
+      if (page.items !== undefined && !Array.isArray(page.items)) {
+        incompleteRecommendationCount += 1;
+      }
+      for (const recommendation of Array.isArray(page.items) ? page.items : []) {
+        if (recommendation?.recommendationId) {
           recommendationsById.set(recommendation.recommendationId, recommendation);
         } else {
           incompleteRecommendationCount += 1;
@@ -862,6 +1071,58 @@ export const hydrateAwsCostOptimizationHubReservationRecommendations = async (
   | AwsDiscoveryDatasetLoadResult<'aws-cost-optimization-hub-reservation-recommendations'>
 > => loadCostOptimizationHubRecommendations(reservationCategory, context);
 
+const rightsizingCategory: RecommendationCategory<AwsCostOptimizationHubRightsizingRecommendation> = {
+  actionTypes: ['Rightsize'],
+  resourceTypes: [
+    'Ec2Instance',
+    'Ec2AutoScalingGroup',
+    'EbsVolume',
+    'LambdaFunction',
+    'EcsService',
+    'RdsDbInstance',
+    'RdsDbInstanceStorage',
+    'AuroraDbClusterStorage',
+  ],
+  messageSubject: 'rightsizing recommendations',
+  incompleteDetails: (count) =>
+    `${count} rightsizing recommendations lacked required identity, cost, refresh, source, or typed current and recommended configuration data.`,
+  normalizeConfiguration: (common, response) => {
+    const { currentResourceType, ...recommendation } = common;
+    const resourceType = currentResourceType as AwsCostOptimizationHubRightsizingRecommendation['resourceType'];
+    const normalize = rightsizingConfigurationNormalizers[resourceType];
+    const currentConfiguration = normalize(response.currentResourceDetails);
+    const recommendedConfiguration = normalize(response.recommendedResourceDetails);
+    const arn = /^arn:[^:]+:([^:]+):([a-z0-9-]+):(\d{12}):(.+)$/.exec(common.resourceArn ?? '');
+    const region = common.region ?? (arn?.[3] === common.accountId ? arn[2] : undefined);
+    const resourceId =
+      resourceType === 'LambdaFunction' && arn?.[1] === 'lambda' && arn[4]?.startsWith('function:')
+        ? getUnqualifiedLambdaFunctionArn(common.resourceArn ?? '')
+        : (common.resourceId ?? common.resourceArn);
+    if (!region || !resourceId || !currentConfiguration || !recommendedConfiguration) return null;
+    return {
+      ...recommendation,
+      resourceId,
+      region,
+      actionType: 'Rightsize',
+      resourceType,
+      currentConfiguration,
+      recommendedConfiguration,
+    } as AwsCostOptimizationHubRightsizingRecommendation;
+  },
+};
+
+/**
+ * Loads both configurations for account-scoped Hub rightsizing recommendations.
+ * @param _resources - Unused for account-scoped recommendations.
+ * @param context - Discovery-run account and enrollment context.
+ * @returns Typed recommendations or unavailable evidence diagnostics.
+ */
+export const hydrateAwsCostOptimizationHubRightsizingRecommendations = async (
+  _resources: AwsDiscoveredResource[],
+  context?: AwsAccountIdResolver,
+): Promise<CostOptimizationHubLoadResult<AwsCostOptimizationHubRightsizingRecommendation>> =>
+  loadCostOptimizationHubRecommendations(rightsizingCategory, context);
+
 /**
  * Loads AWS-classified idle capacity through the shared enrollment and recommendation session.
  * @param _resources - Unused for account-scoped recommendations.
@@ -875,3 +1136,15 @@ export const hydrateAwsCostOptimizationHubIdleRecommendations = async (
   | AwsCostOptimizationHubIdleRecommendation[]
   | AwsDiscoveryDatasetLoadResult<'aws-cost-optimization-hub-idle-recommendations'>
 > => loadCostOptimizationHubRecommendations({ ...idleCategory, regions: context?.regions }, context);
+
+/**
+ * Loads product-generation upgrades through the shared account-scoped Hub seam.
+ * @param _resources - Unused because Hub recommendations are account-scoped.
+ * @param context - Discovery-run context sharing account identity and enrollment.
+ * @returns Typed upgrade evidence or an unavailable dataset result.
+ */
+export const hydrateAwsCostOptimizationHubUpgradeRecommendations = async (
+  _resources: AwsDiscoveredResource[],
+  context?: AwsAccountIdResolver,
+): Promise<CostOptimizationHubLoadResult<AwsCostOptimizationHubUpgradeRecommendation>> =>
+  loadCostOptimizationHubRecommendations(upgradeCategory, context);

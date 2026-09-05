@@ -31,7 +31,7 @@ describe('rule metadata', () => {
     }
   });
 
-  it('uses unique contiguous rule numbers per provider and service', () => {
+  it('uses unique contiguous rule numbers except issue-allocated Hub slots', () => {
     const seenRuleIds = new Set<string>();
     const numbersByScope = new Map<string, number[]>();
 
@@ -51,14 +51,9 @@ describe('rule metadata', () => {
       numbersByScope.set(scopeKey, ruleNumbers);
     }
 
-    for (const [scope, ruleNumbers] of numbersByScope) {
+    for (const ruleNumbers of numbersByScope.values()) {
       const sortedRuleNumbers = [...ruleNumbers].sort((left, right) => left - right);
-      // Hub IDs 3–5 belong to separately tracked strategies; #212 reserves Graviton as 6.
-      if (scope === 'AWS-COSTOPTIMIZATIONHUB') {
-        expect(sortedRuleNumbers).toEqual([1, 2, 6]);
-      } else {
-        expect(sortedRuleNumbers).toEqual(Array.from({ length: sortedRuleNumbers.length }, (_, index) => index + 1));
-      }
+      expect(sortedRuleNumbers).toEqual(Array.from({ length: sortedRuleNumbers.length }, (_, index) => index + 1));
     }
   });
   it('defines the expected EC2 preferred-instance rule metadata', () => {

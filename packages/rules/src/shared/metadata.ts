@@ -460,16 +460,55 @@ export type AwsSageMakerEndpointActivity = {
   accountId: string;
 };
 
-/** Fields shared by purchase recommendations normalized from AWS Cost Optimization Hub. */
-export type AwsCostOptimizationHubRecommendation = {
+/** Compute configuration retained without flattening CPU, memory, architecture, or platform. */
+export type AwsCostOptimizationHubComputeConfiguration = {
+  memorySizeInMB: number;
+  vCpu?: number;
+  architecture?: string;
+  platform?: string;
+};
+
+/** Configurations retained for both sides of each supported Hub rightsizing resource type. */
+export type AwsCostOptimizationHubRightsizingConfigurationMap = {
+  Ec2Instance: { instance: { type: string } };
+  Ec2AutoScalingGroup: {
+    instance?: { type: string };
+    mixedInstances?: { type: string }[];
+    type?: string;
+    allocationStrategy?: string;
+  };
+  EbsVolume: {
+    storage: { type: string; sizeInGb: number };
+    performance?: { iops?: number; throughput?: number };
+    attachmentState?: string;
+  };
+  LambdaFunction: { compute: AwsCostOptimizationHubComputeConfiguration };
+  EcsService: { compute: AwsCostOptimizationHubComputeConfiguration & { vCpu: number } };
+  RdsDbInstance: { instance: { dbInstanceClass: string } };
+  RdsDbInstanceStorage: {
+    storageType: string;
+    allocatedStorageInGb: number;
+    iops?: number;
+    storageThroughput?: number;
+  };
+  AuroraDbClusterStorage: { storageType: string };
+};
+
+/** Resource-specific current and recommended configurations, discriminated by resource type. */
+export type AwsCostOptimizationHubRightsizingRecommendation = {
+  [K in keyof AwsCostOptimizationHubRightsizingConfigurationMap]: AwsCostOptimizationHubRecommendationEvidence & {
+    actionType: 'Rightsize';
+    resourceType: K;
+    resourceId: string;
+    region: string;
+    currentConfiguration: AwsCostOptimizationHubRightsizingConfigurationMap[K];
+    recommendedConfiguration: AwsCostOptimizationHubRightsizingConfigurationMap[K];
+  };
+}[keyof AwsCostOptimizationHubRightsizingConfigurationMap];
+
+/** Evidence shared by purchase, idle-capacity, and rightsizing recommendations. */
+type AwsCostOptimizationHubRecommendationEvidence = {
   accountId: string;
-  actionType:
-    | 'PurchaseReservedInstances'
-    | 'PurchaseSavingsPlans'
-    | 'Stop'
-    | 'Delete'
-    | 'ScaleIn'
-    | 'MigrateToGraviton';
   currencyCode: string;
   estimatedMonthlyCost: number;
   estimatedMonthlySavings: number;
@@ -485,6 +524,63 @@ export type AwsCostOptimizationHubRecommendation = {
   rollbackPossible?: boolean;
 };
 
+/** Fields shared by purchase recommendations normalized from AWS Cost Optimization Hub. */
+export type AwsCostOptimizationHubRecommendation = AwsCostOptimizationHubRecommendationEvidence & {
+  actionType: 'PurchaseReservedInstances' | 'PurchaseSavingsPlans';
+};
+
+/** EC2 instance configuration for a product-generation upgrade. */
+export type AwsCostOptimizationHubEc2UpgradeConfiguration = { instance: { type: string } };
+
+/** EBS configuration for a product-generation upgrade. */
+export type AwsCostOptimizationHubEbsUpgradeConfiguration = {
+  storage: { type: string; sizeInGb: number };
+  performance?: { iops?: number; throughput?: number };
+  attachmentState?: string;
+};
+
+type AwsCostOptimizationHubUpgradeConfigurations = {
+  Ec2AutoScalingGroup: AwsCostOptimizationHubAutoScalingUpgradeConfiguration;
+  RdsDbInstanceStorage: AwsCostOptimizationHubRdsStorageUpgradeConfiguration;
+  RdsDbInstance: AwsCostOptimizationHubRdsUpgradeConfiguration;
+  Ec2Instance: AwsCostOptimizationHubEc2UpgradeConfiguration;
+  EbsVolume: AwsCostOptimizationHubEbsUpgradeConfiguration;
+};
+
+/** RDS DB instance configuration for a product-generation upgrade. */
+export type AwsCostOptimizationHubRdsUpgradeConfiguration = { instance: { dbInstanceClass: string } };
+
+/** Auto Scaling configuration for a product-generation upgrade. */
+export type AwsCostOptimizationHubAutoScalingUpgradeConfiguration =
+  | {
+      type: 'SingleInstanceType';
+      instance: { type: string };
+      allocationStrategy?: 'LowestPrice' | 'Prioritized';
+    }
+  | {
+      type: 'MixedInstanceTypes';
+      mixedInstances: { type: string }[];
+      allocationStrategy?: 'LowestPrice' | 'Prioritized';
+    };
+
+/** RDS storage configuration for a product-generation upgrade. */
+export type AwsCostOptimizationHubRdsStorageUpgradeConfiguration = {
+  storageType: string;
+  allocatedStorageInGb: number;
+  iops?: number;
+  storageThroughput?: number;
+};
+
+/** Product-generation upgrade with correlated current and recommended configuration evidence. */
+export type AwsCostOptimizationHubUpgradeRecommendation = {
+  [T in keyof AwsCostOptimizationHubUpgradeConfigurations]: AwsCostOptimizationHubRecommendationEvidence & {
+    actionType: 'Upgrade';
+    resourceType: T;
+    currentConfiguration: AwsCostOptimizationHubUpgradeConfigurations[T];
+    recommendedConfiguration: AwsCostOptimizationHubUpgradeConfigurations[T];
+  };
+}[keyof AwsCostOptimizationHubUpgradeConfigurations];
+
 /** Instance configuration reported for an architecture migration. */
 export type AwsCostOptimizationHubGravitonConfiguration =
   | { instanceType: string; type?: string; allocationStrategy?: string }
@@ -492,14 +588,13 @@ export type AwsCostOptimizationHubGravitonConfiguration =
   | { dbInstanceClass: string };
 
 /** Graviton evidence with compatibility inferred from AWS's documented effort mapping. */
-export type AwsCostOptimizationHubGravitonRecommendation = AwsCostOptimizationHubRecommendation & {
+export type AwsCostOptimizationHubGravitonRecommendation = AwsCostOptimizationHubRecommendationEvidence & {
   actionType: 'MigrateToGraviton';
   currentResourceType: 'Ec2Instance' | 'Ec2AutoScalingGroup' | 'RdsDbInstance';
   currentConfiguration: AwsCostOptimizationHubGravitonConfiguration;
   recommendedConfiguration: AwsCostOptimizationHubGravitonConfiguration;
   workloadCompatibility: 'inferred_compatible' | 'unclassified' | 'not_applicable';
 };
-
 /** Account-scoped Savings Plans purchase recommendation from AWS Cost Optimization Hub. */
 export type AwsCostOptimizationHubSavingsPlansRecommendation = AwsCostOptimizationHubRecommendation & {
   accountScope: string;
@@ -547,7 +642,7 @@ type IdleConfiguration<T, A extends 'Stop' | 'Delete' | 'ScaleIn', R extends str
 };
 
 /** AWS-classified idle capacity with action-specific current and recommended configuration. */
-export type AwsCostOptimizationHubIdleRecommendation = AwsCostOptimizationHubRecommendation & {
+export type AwsCostOptimizationHubIdleRecommendation = AwsCostOptimizationHubRecommendationEvidence & {
   region: string;
   resourceId: string;
   implementationEffort: string;
@@ -1043,7 +1138,9 @@ export type DiscoveryDatasetKey =
   | 'aws-cost-usage'
   | 'aws-cost-optimization-hub-savings-plans-recommendations'
   | 'aws-cost-optimization-hub-reservation-recommendations'
+  | 'aws-cost-optimization-hub-rightsizing-recommendations'
   | 'aws-cost-optimization-hub-idle-recommendations'
+  | 'aws-cost-optimization-hub-upgrade-recommendations'
   | 'aws-cost-optimization-hub-graviton-recommendations'
   | 'aws-cost-anomaly-monitors'
   | 'aws-cost-guardrail-budgets'
@@ -1109,7 +1206,9 @@ export type DiscoveryDatasetMap = {
   'aws-cost-usage': AwsCostUsage[];
   'aws-cost-optimization-hub-savings-plans-recommendations': AwsCostOptimizationHubSavingsPlansRecommendation[];
   'aws-cost-optimization-hub-reservation-recommendations': AwsCostOptimizationHubReservationRecommendation[];
+  'aws-cost-optimization-hub-rightsizing-recommendations': AwsCostOptimizationHubRightsizingRecommendation[];
   'aws-cost-optimization-hub-idle-recommendations': AwsCostOptimizationHubIdleRecommendation[];
+  'aws-cost-optimization-hub-upgrade-recommendations': AwsCostOptimizationHubUpgradeRecommendation[];
   'aws-cost-optimization-hub-graviton-recommendations': AwsCostOptimizationHubGravitonRecommendation[];
   'aws-cost-anomaly-monitors': AwsCostAnomalyMonitor[];
   'aws-cost-guardrail-budgets': AwsCostGuardrailBudget[];

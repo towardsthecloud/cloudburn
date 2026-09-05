@@ -30,7 +30,7 @@ console.log(awsCorePreset.id);
 console.log(awsRules.length);
 ```
 
-`awsRules` contains every public AWS rule. `awsCorePreset` is the default subset used by CloudBurn and excludes rules that need explicit AWS setup, including `CLDBRN-AWS-TAGGING-1`, `CLDBRN-AWS-LAMBDA-4`, and `CLDBRN-AWS-COSTOPTIMIZATIONHUB-1` through `CLDBRN-AWS-COSTOPTIMIZATIONHUB-3`, and `CLDBRN-AWS-COSTOPTIMIZATIONHUB-6`.
+`awsRules` contains every public AWS rule. `awsCorePreset` is the default subset used by CloudBurn and excludes rules that need explicit AWS setup, including `CLDBRN-AWS-TAGGING-1`, `CLDBRN-AWS-LAMBDA-4`, and `CLDBRN-AWS-COSTOPTIMIZATIONHUB-1` through `CLDBRN-AWS-COSTOPTIMIZATIONHUB-6`.
 
 Rule 3 evaluates AWS-classified idle capacity. `AwsCostOptimizationHubIdleRecommendation` preserves the exact action
 and typed current/recommended configuration. EBS unattached-volume findings include `actionType: 'Delete'` and
@@ -79,3 +79,12 @@ export const ebsVolumeTypeCurrentGenRule = createRule({
 ## License
 
 Apache-2.0
+
+## Hub rightsizing
+
+`CLDBRN-AWS-COSTOPTIMIZATIONHUB-4` is an opt-in discovery rule. Its
+`aws-cost-optimization-hub-rightsizing-recommendations` dataset contains
+`AwsCostOptimizationHubRightsizingRecommendation`, a union discriminated by `resourceType` with typed
+`currentConfiguration` and `recommendedConfiguration` fields for each of the 8 supported AWS resource types.
+The evaluator accepts only `Rightsize` actions. See the [SDK discovery guidance](../sdk/README.md) for enrollment,
+IAM permissions, evidence projection, and native-rule precedence.
