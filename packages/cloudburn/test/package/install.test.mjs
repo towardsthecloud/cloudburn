@@ -8,6 +8,7 @@ import { after, before, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 const repository = fileURLToPath(new URL('../../../../', import.meta.url));
+const rootPackage = JSON.parse(readFileSync(join(repository, 'package.json'), 'utf8'));
 const cliPackage = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8'));
 let directory;
 
@@ -18,6 +19,11 @@ const run = (command, args, cwd, expectedStatus = 0) => {
     timeout: 120_000,
     maxBuffer: 8 * 1024 * 1024,
     env: {
+      ...Object.fromEntries(
+        ['HTTP_PROXY', 'HTTPS_PROXY', 'NO_PROXY', 'http_proxy', 'https_proxy', 'no_proxy', 'NODE_EXTRA_CA_CERTS']
+          .filter((key) => process.env[key] !== undefined)
+          .map((key) => [key, process.env[key]]),
+      ),
       PATH: [dirname(process.execPath), process.env.PATH].join(delimiter),
       CI: 'true',
       NO_COLOR: '1',
@@ -50,7 +56,12 @@ before(() => {
   );
   writeFileSync(
     join(directory, 'package.json'),
-    JSON.stringify({ name: 'cloudburn-package-consumer', private: true, dependencies }),
+    JSON.stringify({
+      name: 'cloudburn-package-consumer',
+      private: true,
+      packageManager: rootPackage.packageManager,
+      dependencies,
+    }),
   );
   writeFileSync(
     join(directory, 'pnpm-workspace.yaml'),
@@ -113,3 +124,35 @@ for (const format of ['module', 'commonjs']) {
     ]);
   });
 }
+
+test('package subprocesses retain registry connectivity without AWS credentials', (t) => {
+  const caPath = join(directory, 'test-ca.pem');
+  writeFileSync(caPath, '');
+  const network = {
+    HTTP_PROXY: 'http://proxy.example.test:8080',
+    HTTPS_PROXY: 'http://proxy.example.test:8443',
+    NO_PROXY: 'localhost,.example.test',
+    http_proxy: 'http://lowercase-proxy.example.test:8080',
+    https_proxy: 'http://lowercase-proxy.example.test:8443',
+    no_proxy: '127.0.0.1,.example.test',
+    NODE_EXTRA_CA_CERTS: caPath,
+  };
+  const ambient = { ...network, AWS_ACCESS_KEY_ID: 'SYNTHETIC', AWS_SECRET_ACCESS_KEY: 'synthetic-secret' };
+  const previous = Object.fromEntries(Object.keys(ambient).map((key) => [key, process.env[key]]));
+  t.after(() => {
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  });
+  Object.assign(process.env, ambient);
+  const source = `process.stdout.write(JSON.stringify(Object.fromEntries(${JSON.stringify(Object.keys(ambient))}.filter(key => process.env[key] !== undefined).map(key => [key, process.env[key]]))));`;
+  const result = run(process.execPath, ['--eval', source], directory);
+  assert.deepEqual(JSON.parse(result.stdout), network);
+});
+
+test('the temporary consumer uses the repository-pinned pnpm version', () => {
+  const expectedVersion = rootPackage.packageManager.split('@')[1].split('+')[0];
+  const result = run('pnpm', ['--version'], directory);
+  assert.equal(result.stdout.trim(), expectedVersion);
+});

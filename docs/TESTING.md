@@ -86,7 +86,7 @@ Keep the fixture expectations independent of implementation output. Normalize on
 
 ### Installed-package tests
 
-`pnpm test:packages` builds and packs all three workspace packages, installs the archives into a temporary consumer project, then checks the installed CLI executable and SDK ESM/CommonJS exports with real scans. Nothing is published. Installation can access the public npm registry for runtime dependencies, so this suite is uncached and requires registry connectivity. It does not use AWS credentials or contact AWS.
+`pnpm test:packages` builds and packs all three workspace packages, installs the archives into a temporary consumer project, then checks the installed CLI executable and SDK ESM/CommonJS exports with real scans. Nothing is published. Installation can access the public npm registry for runtime dependencies, so this suite is uncached and requires registry connectivity. The temporary consumer uses the repository-pinned pnpm version. The uncached task forwards `HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY` (including lowercase forms), and `NODE_EXTRA_CA_CERTS` through Turbo and into subprocesses for registry connectivity. It does not use AWS credentials or contact AWS.
 
 ## Fixture privacy
 
