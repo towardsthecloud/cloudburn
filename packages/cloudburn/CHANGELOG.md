@@ -1,5 +1,14 @@
 # cloudburn
 
+## 0.16.1
+
+### Patch Changes
+
+- [#220](https://github.com/towardsthecloud/cloudburn/pull/220) [`43677ed`](https://github.com/towardsthecloud/cloudburn/commit/43677ed95a2231b580a90a6f2406c3f11e8366a4) Thanks [@axonstone](https://github.com/axonstone)! - Add `discover --timeout <seconds>` to configure the total discovery deadline, which defaults to five minutes.
+
+- Updated dependencies [[`43677ed`](https://github.com/towardsthecloud/cloudburn/commit/43677ed95a2231b580a90a6f2406c3f11e8366a4)]:
+  - @cloudburn/sdk@0.32.1
+
 ## 0.16.0
 
 ### Minor Changes

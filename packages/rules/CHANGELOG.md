@@ -1,5 +1,13 @@
 # @cloudburn/rules
 
+## 0.32.1
+
+### Patch Changes
+
+- [#220](https://github.com/towardsthecloud/cloudburn/pull/220) [`43677ed`](https://github.com/towardsthecloud/cloudburn/commit/43677ed95a2231b580a90a6f2406c3f11e8366a4) Thanks [@axonstone](https://github.com/axonstone)! - Join Redshift and EMR metric evidence by account, region, and cluster identifier so same-named resources do not inherit another resource’s findings.
+
+  Index load-balancer target groups once per rule evaluation to avoid repeated fleet-wide lookups.
+
 ## 0.32.0
 
 ### Minor Changes
