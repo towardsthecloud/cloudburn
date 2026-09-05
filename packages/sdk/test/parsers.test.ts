@@ -6,6 +6,36 @@ import { describe, expect, it } from 'vitest';
 import { parseCloudFormation, parseIaC, parseIaCWithDiagnostics, parseTerraform } from '../src/parsers/index.js';
 
 describe('parsers', () => {
+  it.each([
+    parseTerraform,
+    parseIaCWithDiagnostics,
+  ])('skips nested symlink loops and duplicate file links in %s', async (parse) => {
+    const directory = await mkdtemp(join(tmpdir(), 'cloudburn-parser-loop-'));
+    try {
+      await writeFile(join(directory, 'main.tf'), 'resource "aws_ebs_volume" "data" { type = "gp2" }');
+      await symlink(directory, join(directory, 'loop'));
+      await symlink(join(directory, 'main.tf'), join(directory, 'duplicate.tf'));
+      await symlink(join(directory, 'missing.tf'), join(directory, 'broken.tf'));
+      const result = await parse(directory);
+      expect(result.resources.map((resource) => resource.location?.path)).toEqual(['main.tf']);
+      expect(result.diagnostics).toEqual([]);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  it('parses an explicit Terraform symlink root and keeps the requested source name', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'cloudburn-tf-root-link-'));
+    try {
+      await writeFile(join(directory, 'main.tf'), 'resource "aws_ebs_volume" "data" { type = "gp2" }');
+      await symlink(join(directory, 'main.tf'), join(directory, 'linked.tf'));
+      const result = await parseTerraform(join(directory, 'linked.tf'));
+      expect(result.resources.map((resource) => resource.location?.path)).toEqual(['linked.tf']);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
   it('parses a literal aws_ebs_volume terraform resource', async () => {
     const resourcePath = fileURLToPath(new URL('./fixtures/terraform/ebs-gp2.tf', import.meta.url));
     const { resources } = await parseTerraform(resourcePath);

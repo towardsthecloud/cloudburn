@@ -1,24 +1,17 @@
-import { readdir, readFile, stat } from 'node:fs/promises';
-import { basename, extname, join, relative, sep } from 'node:path';
+import { readFile } from 'node:fs/promises';
+import { extname } from 'node:path';
 import { parse as parseHcl } from '@cdktf/hcl2json';
 import type { SourceLocation } from '@cloudburn/rules';
+import { type IaCFileParser, parseIaCFiles } from './files.js';
 import { createEmptyIaCParseResult, createSkippedIaCParseResult } from './result.js';
 import { extractSuppressionComments, findResourceSuppressions } from './suppressions.js';
 import { createTerraformLexerState, scanTerraformLine } from './terraform-lexer.js';
 import type { IaCParseResult } from './types.js';
 
-const SKIPPED_DIRECTORIES = new Set(['.git', '.terraform', 'node_modules']);
-
 type ResourceLocationMetadata = {
   blockLocation: SourceLocation;
   attributeLocations: Record<string, SourceLocation>;
   suppressions: ReturnType<typeof findResourceSuppressions>;
-};
-
-const toRelativePath = (path: string, scanRoot: string): string => {
-  const relativePath = relative(scanRoot, path);
-
-  return (relativePath === '' ? basename(path) : relativePath).split(sep).join('/');
 };
 
 const toResourceLocationKey = (resourceType: string, resourceName: string): string => `${resourceType}.${resourceName}`;
@@ -103,13 +96,12 @@ const locateResourceBlocks = (contents: string, path: string): Map<string, Resou
   return locations;
 };
 
-const toIaCResources = async (path: string, scanRoot: string): Promise<IaCParseResult> => {
+const toIaCResources = async (path: string, relativePath: string): Promise<IaCParseResult> => {
   if (extname(path) !== '.tf') {
     return createEmptyIaCParseResult();
   }
 
   const contents = await readFile(path, 'utf8');
-  const relativePath = toRelativePath(path, scanRoot);
 
   // Parse failures are treated as "not a valid Terraform file" rather than
   // aborting the scan, matching the CloudFormation parser's behavior for
@@ -198,38 +190,8 @@ const toIaCResources = async (path: string, scanRoot: string): Promise<IaCParseR
   };
 };
 
-const parseTerraformPath = async (path: string, scanRoot: string): Promise<IaCParseResult> => {
-  const pathStats = await stat(path);
-
-  if (pathStats.isFile()) {
-    return toIaCResources(path, scanRoot);
-  }
-
-  if (!pathStats.isDirectory()) {
-    return createEmptyIaCParseResult();
-  }
-  const entries = (await readdir(path, { withFileTypes: true })).sort((left, right) =>
-    left.name.localeCompare(right.name),
-  );
-  const results = await Promise.all(
-    entries.flatMap((entry) => {
-      if (entry.isDirectory() && SKIPPED_DIRECTORIES.has(entry.name)) {
-        return [];
-      }
-
-      if (entry.isFile() && extname(entry.name) !== '.tf') {
-        return [];
-      }
-
-      return [parseTerraformPath(join(path, entry.name), scanRoot)];
-    }),
-  );
-
-  return {
-    diagnostics: results.flatMap((result) => result.diagnostics),
-    resources: results.flatMap((result) => result.resources),
-  };
-};
+/** Terraform file format and its single-file parser. */
+export const terraformFileParser: IaCFileParser = { extensions: new Set(['.tf']), parseFile: toIaCResources };
 
 /**
  * Parses Terraform files into normalized IaC resources and skipped-file diagnostics.
@@ -237,4 +199,5 @@ const parseTerraformPath = async (path: string, scanRoot: string): Promise<IaCPa
  * @param path - Terraform file or directory to parse.
  * @returns Parsed resources plus non-fatal diagnostics.
  */
-export const parseTerraform = async (path: string): Promise<IaCParseResult> => parseTerraformPath(path, path);
+export const parseTerraform = async (path: string): Promise<IaCParseResult> =>
+  parseIaCFiles(path, [terraformFileParser]);

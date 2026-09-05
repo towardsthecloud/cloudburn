@@ -69,6 +69,8 @@ graph TD
 10. Group active rule findings under `providers -> rules -> findings`, retain suppressed matches under `suppressed`,
     and attach parser diagnostics when present.
 
+Static scans walk the filesystem once for all selected source formats and parse at most eight files concurrently. Nested symlink files and directories are skipped, including dangling links and cycles; an explicitly selected symlink root is resolved while source locations retain its requested name. The walk also excludes `.git`, `.terraform`, and `node_modules` directories.
+
 Terraform S3 lifecycle, tiering, and versioning resources and ECR lifecycle policies are indexed by reference before bucket or repository analysis. Alias matches preserve policy source order.
 
 Static rule evaluation retains those scopes, including joins between datasets such as DynamoDB tables and autoscaling targets. Findings from each scope are merged under one rule result. Public resource IDs and source locations stay unchanged, and inline suppression matching still uses the source path and resource ID.

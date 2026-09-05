@@ -1,10 +1,11 @@
-import { parseCloudFormation } from './cloudformation.js';
-import { parseTerraform } from './terraform.js';
+import { cloudFormationFileParser, parseCloudFormation } from './cloudformation.js';
+import { parseIaCFiles } from './files.js';
+import { parseTerraform, terraformFileParser } from './terraform.js';
 import type { IaCParseResult, IaCResource } from './types.js';
 
 const PARSER_LOADERS = {
-  cloudformation: parseCloudFormation,
-  terraform: parseTerraform,
+  cloudformation: cloudFormationFileParser,
+  terraform: terraformFileParser,
 } as const;
 
 /** Supported static IaC source kinds that can be parsed for dataset loading. */
@@ -14,39 +15,6 @@ export type IaCSourceKind = keyof typeof PARSER_LOADERS;
 export type ParseIaCOptions = {
   sourceKinds?: IaCSourceKind[];
 };
-
-const compareIaCResources = (left: IaCResource, right: IaCResource): number => {
-  const leftPath = left.location?.path ?? '';
-  const rightPath = right.location?.path ?? '';
-
-  if (leftPath !== rightPath) {
-    return leftPath.localeCompare(rightPath);
-  }
-
-  const leftLine = left.location?.line ?? 0;
-  const rightLine = right.location?.line ?? 0;
-
-  if (leftLine !== rightLine) {
-    return leftLine - rightLine;
-  }
-
-  const leftColumn = left.location?.column ?? 0;
-  const rightColumn = right.location?.column ?? 0;
-
-  if (leftColumn !== rightColumn) {
-    return leftColumn - rightColumn;
-  }
-
-  return `${left.type}.${left.name}`.localeCompare(`${right.type}.${right.name}`);
-};
-
-const compareDiagnostics = (
-  left: IaCParseResult['diagnostics'][number],
-  right: IaCParseResult['diagnostics'][number],
-): number =>
-  left.service.localeCompare(right.service) ||
-  left.message.localeCompare(right.message) ||
-  (left.code ?? '').localeCompare(right.code ?? '');
 
 /**
  * Parses a file or directory by auto-detecting supported Terraform and
@@ -62,12 +30,10 @@ const compareDiagnostics = (
  */
 export const parseIaCWithDiagnostics = async (path: string, options?: ParseIaCOptions): Promise<IaCParseResult> => {
   const sourceKinds = options?.sourceKinds ?? ['terraform', 'cloudformation'];
-  const results = await Promise.all(sourceKinds.map((sourceKind) => PARSER_LOADERS[sourceKind](path)));
-
-  return {
-    diagnostics: results.flatMap((result) => result.diagnostics).sort(compareDiagnostics),
-    resources: results.flatMap((result) => result.resources).sort(compareIaCResources),
-  };
+  return parseIaCFiles(
+    path,
+    sourceKinds.map((sourceKind) => PARSER_LOADERS[sourceKind]),
+  );
 };
 
 /**
