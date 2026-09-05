@@ -71,6 +71,7 @@ const baseAwsClientConfig = () => ({
   requestHandler: {
     connectionTimeout: AWS_CLIENT_CONNECTION_TIMEOUT_MS,
     requestTimeout: AWS_CLIENT_REQUEST_TIMEOUT_MS,
+    throwOnRequestTimeout: true,
   },
   retryMode: 'adaptive',
 });
@@ -398,10 +399,11 @@ export const resolveCurrentAwsRegion = async (): Promise<AwsRegion> => {
 /**
  * Resolves the AWS account ID for the current caller via STS.
  *
+ * @param region - Explicit discovery control region, or the ambient region when omitted.
  * @returns The caller account ID.
  */
-export const resolveAwsAccountId = async (): Promise<string> => {
-  const client = new STSClient({ ...baseAwsClientConfig(), credentials: resolveAwsClientCredentials() });
+export const resolveAwsAccountId = async (region?: string): Promise<string> => {
+  const client = new STSClient({ ...baseAwsClientConfig(), region, credentials: resolveAwsClientCredentials() });
   const { Account } = await client.send(new GetCallerIdentityCommand({}));
 
   if (!Account) {

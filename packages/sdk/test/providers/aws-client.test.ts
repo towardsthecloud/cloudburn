@@ -1,8 +1,40 @@
+import { createServer } from 'node:http';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const importClientModule = async () => import('../../src/providers/aws/client.js');
 
 describe('aws client resilience defaults', () => {
+  it('aborts an established request when its request deadline expires', async () => {
+    const server = createServer((_request, response) => {
+      setTimeout(() => response.end('ok'), 100);
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const address = server.address();
+    if (!address || typeof address === 'string') throw new Error('Missing server address');
+    const { createEc2Client } = await importClientModule();
+    const client = createEc2Client({ region: 'us-east-1' });
+    const handler = client.config.requestHandler;
+    handler.updateHttpClientConfig?.('requestTimeout', 20);
+
+    try {
+      const request = {
+        protocol: 'http:',
+        hostname: '127.0.0.1',
+        port: address.port,
+        method: 'GET',
+        path: '/',
+        headers: {},
+        query: {},
+      };
+      await expect(handler.handle(request as Parameters<typeof handler.handle>[0], {})).rejects.toMatchObject({
+        name: 'TimeoutError',
+      });
+    } finally {
+      client.destroy();
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+  });
+
   it('configures adaptive retries, explicit max attempts, and request timeouts on every client factory', async () => {
     const clientModule = await importClientModule();
     const factories = Object.entries(clientModule).filter(

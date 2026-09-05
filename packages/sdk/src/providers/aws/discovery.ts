@@ -405,7 +405,7 @@ export const discoverAwsResources = async (
   const resourcesByType = buildResourcesByTypeIndex(catalog.resources);
   const datasetLoadPromises = new Map<DiscoveryDatasetKey, Promise<AwsDiscoveryDatasetLoad>>();
   let accountIdPromise: Promise<string> | undefined;
-  const resolveAccountId = (): Promise<string> => (accountIdPromise ??= resolveAwsAccountId());
+  const resolveAccountId = (): Promise<string> => (accountIdPromise ??= resolveAwsAccountId(catalog.searchRegion));
   const loadDataset = <K extends DiscoveryDatasetKey>(datasetKey: K): Promise<AwsDiscoveryDatasetLoad<K>> => {
     const cachedLoad = datasetLoadPromises.get(datasetKey);
 
