@@ -1,0 +1,3 @@
+Resources:
+  Logs:
+    Type: AWS::S3::Bucket

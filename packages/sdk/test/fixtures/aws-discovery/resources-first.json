@@ -1,0 +1,12 @@
+{
+  "Resources": [
+    {
+      "Arn": "arn:aws:ec2:eu-west-1:111111111111:volume/vol-legacy",
+      "OwningAccountId": "111111111111",
+      "Region": "eu-west-1",
+      "ResourceType": "ec2:volume",
+      "Service": "ec2"
+    }
+  ],
+  "NextToken": "next-page"
+}

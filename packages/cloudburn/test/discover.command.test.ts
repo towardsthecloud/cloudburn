@@ -103,7 +103,7 @@ const observedLocalStatus = {
     'Discovery coverage is limited. 16 of 17 regions could not be inspected, which may be intentional if SCPs restrict regional Resource Explorer access.',
 };
 
-describe('discover command e2e', () => {
+describe('discover command', () => {
   afterEach(() => {
     vi.restoreAllMocks();
     process.exitCode = undefined;

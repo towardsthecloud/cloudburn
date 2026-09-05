@@ -12,5 +12,6 @@
 ## Testing
 
 - Prefer CLI-level tests that validate command behavior, serialized output, and exit-code behavior.
-- Mock the SDK boundary instead of re-testing SDK internals.
+- In `*.command.test.ts`, mock the SDK to isolate command wiring, formatting, and exit policies.
+- In `test/e2e/`, run the built CLI in a separate process against real template fixtures. Do not mock the SDK or parsers. Keep fixtures synthetic and runs independent of AWS credentials.
 - For live AWS behavior, mock `CloudBurnClient.discover()` and the discovery helper methods rather than provider internals.

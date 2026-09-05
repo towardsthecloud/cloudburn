@@ -1,0 +1,9 @@
+{
+  "Indexes": [
+    {
+      "Arn": "arn:aws:resource-explorer-2:eu-west-1:111111111111:index/00000000-0000-0000-0000-000000000000",
+      "Region": "eu-west-1",
+      "Type": "LOCAL"
+    }
+  ]
+}

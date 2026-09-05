@@ -13,7 +13,7 @@ const createTempDirectory = async (): Promise<string> => {
   return directory;
 };
 
-describe('config command e2e', () => {
+describe('config command', () => {
   afterEach(async () => {
     vi.restoreAllMocks();
     process.chdir(originalCwd);

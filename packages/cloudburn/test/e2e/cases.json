@@ -1,0 +1,82 @@
+[
+  {
+    "name": "Terraform storage",
+    "fixture": "ebs/terraform",
+    "ruleId": "CLDBRN-AWS-EBS-1",
+    "expected": [
+      {
+        "ruleId": "CLDBRN-AWS-EBS-1",
+        "resourceId": "aws_ebs_volume.legacy",
+        "location": {
+          "path": "main.tf",
+          "line": 4,
+          "column": 3
+        }
+      }
+    ]
+  },
+  {
+    "name": "CloudFormation YAML storage",
+    "fixture": "ebs/cloudformation",
+    "ruleId": "CLDBRN-AWS-EBS-1",
+    "expected": [
+      {
+        "ruleId": "CLDBRN-AWS-EBS-1",
+        "resourceId": "Legacy",
+        "location": {
+          "path": "template.yaml",
+          "line": 6,
+          "column": 7
+        }
+      }
+    ]
+  },
+  {
+    "name": "CloudFormation JSON storage",
+    "fixture": "ebs/json",
+    "ruleId": "CLDBRN-AWS-EBS-1",
+    "expected": [
+      {
+        "ruleId": "CLDBRN-AWS-EBS-1",
+        "resourceId": "Legacy",
+        "location": {
+          "path": "template.json",
+          "line": 7,
+          "column": 9
+        }
+      }
+    ]
+  },
+  {
+    "name": "Terraform module isolation",
+    "fixture": "s3/terraform",
+    "ruleId": "CLDBRN-AWS-S3-1",
+    "expected": [
+      {
+        "ruleId": "CLDBRN-AWS-S3-1",
+        "resourceId": "aws_s3_bucket.logs",
+        "location": {
+          "path": "b/main.tf",
+          "line": 1,
+          "column": 1
+        }
+      }
+    ]
+  },
+  {
+    "name": "CloudFormation template isolation",
+    "fixture": "s3/cloudformation",
+    "ruleId": "CLDBRN-AWS-S3-1",
+    "expected": [
+      {
+        "ruleId": "CLDBRN-AWS-S3-1",
+        "resourceId": "Logs",
+        "location": {
+          "path": "b.yaml",
+          "line": 2,
+          "column": 3
+        }
+      }
+    ]
+  }
+]

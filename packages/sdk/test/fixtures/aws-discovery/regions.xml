@@ -1,0 +1,6 @@
+<DescribeRegionsResponse xmlns="http://ec2.amazonaws.com/doc/2016-11-15/">
+  <requestId>synthetic-request</requestId>
+  <regionInfo>
+    <item><regionName>eu-west-1</regionName><regionEndpoint>ec2.eu-west-1.amazonaws.com</regionEndpoint><optInStatus>opt-in-not-required</optInStatus></item>
+  </regionInfo>
+</DescribeRegionsResponse>

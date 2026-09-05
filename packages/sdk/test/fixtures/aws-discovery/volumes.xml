@@ -1,0 +1,8 @@
+<DescribeVolumesResponse xmlns="http://ec2.amazonaws.com/doc/2016-11-15/">
+  <requestId>synthetic-request</requestId>
+  <volumeSet>
+    <item><volumeId>vol-legacy</volumeId><volumeType>gp2</volumeType><size>8</size><status>available</status></item>
+    <item><volumeId>vol-current</volumeId><volumeType>gp3</volumeType><size>8</size><status>available</status></item>
+    <item><volumeId>vol-not-discovered</volumeId><volumeType>gp2</volumeType><size>8</size><status>available</status></item>
+  </volumeSet>
+</DescribeVolumesResponse>

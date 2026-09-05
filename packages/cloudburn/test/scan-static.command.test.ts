@@ -30,7 +30,7 @@ const staticScanResult = {
   ],
 };
 
-describe('scan command e2e', () => {
+describe('scan command', () => {
   afterEach(() => {
     vi.restoreAllMocks();
     process.exitCode = undefined;
