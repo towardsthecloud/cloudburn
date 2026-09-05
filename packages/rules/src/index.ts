@@ -4,6 +4,10 @@
 export { AWS_CONFIG_RECORDING_FREQUENCY_MINIMUM_SAVINGS_USD } from './aws/config/recording-frequency.js';
 export { gravitonResourceTypes } from './aws/costoptimizationhub/graviton-recommended.js';
 export {
+  getAwsCostOptimizationHubIdleResourceId,
+  getAwsCostOptimizationHubIdleResourceType,
+} from './aws/costoptimizationhub/idle-capacity.js';
+export {
   getAwsCostOptimizationHubReservationResourceId,
   getAwsCostOptimizationHubReservationResourceType,
 } from './aws/costoptimizationhub/reservation-identity.js';
@@ -40,11 +44,15 @@ export type {
   AwsCostAnomalyMonitor,
   AwsCostGuardrailBudget,
   AwsCostGuardrailBudgetSpend,
+  AwsCostOptimizationHubAutoScalingConfiguration,
+  AwsCostOptimizationHubDbConfiguration,
   AwsCostOptimizationHubDynamoDbReservationConfiguration,
   AwsCostOptimizationHubEc2ReservationConfiguration,
   AwsCostOptimizationHubElastiCacheReservationConfiguration,
   AwsCostOptimizationHubGravitonConfiguration,
   AwsCostOptimizationHubGravitonRecommendation,
+  AwsCostOptimizationHubIdleRecommendation,
+  AwsCostOptimizationHubInstanceConfiguration,
   AwsCostOptimizationHubMemoryDbReservationConfiguration,
   AwsCostOptimizationHubOpenSearchReservationConfiguration,
   AwsCostOptimizationHubRdsReservationConfiguration,
@@ -53,6 +61,8 @@ export type {
   AwsCostOptimizationHubReservationConfiguration,
   AwsCostOptimizationHubReservationRecommendation,
   AwsCostOptimizationHubSavingsPlansRecommendation,
+  AwsCostOptimizationHubServiceConfiguration,
+  AwsCostOptimizationHubVolumeConfiguration,
   AwsCostUsage,
   AwsDiscoveredResource,
   AwsDiscoveryCatalog,

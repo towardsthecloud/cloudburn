@@ -94,6 +94,7 @@ describe('rule exports', () => {
           ![
             'CLDBRN-AWS-COSTOPTIMIZATIONHUB-1',
             'CLDBRN-AWS-COSTOPTIMIZATIONHUB-2',
+            'CLDBRN-AWS-COSTOPTIMIZATIONHUB-3',
             'CLDBRN-AWS-COSTOPTIMIZATIONHUB-6',
             'CLDBRN-AWS-LAMBDA-4',
             'CLDBRN-AWS-TAGGING-1',

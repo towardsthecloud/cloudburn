@@ -30,7 +30,11 @@ console.log(awsCorePreset.id);
 console.log(awsRules.length);
 ```
 
-`awsRules` contains every public AWS rule. `awsCorePreset` is the default subset used by CloudBurn and excludes rules that need explicit AWS setup, including `CLDBRN-AWS-TAGGING-1`, `CLDBRN-AWS-LAMBDA-4`, `CLDBRN-AWS-COSTOPTIMIZATIONHUB-1`, `CLDBRN-AWS-COSTOPTIMIZATIONHUB-2`, and `CLDBRN-AWS-COSTOPTIMIZATIONHUB-6`.
+`awsRules` contains every public AWS rule. `awsCorePreset` is the default subset used by CloudBurn and excludes rules that need explicit AWS setup, including `CLDBRN-AWS-TAGGING-1`, `CLDBRN-AWS-LAMBDA-4`, and `CLDBRN-AWS-COSTOPTIMIZATIONHUB-1` through `CLDBRN-AWS-COSTOPTIMIZATIONHUB-3`, and `CLDBRN-AWS-COSTOPTIMIZATIONHUB-6`.
+
+Rule 3 evaluates AWS-classified idle capacity. `AwsCostOptimizationHubIdleRecommendation` preserves the exact action
+and typed current/recommended configuration. EBS unattached-volume findings include `actionType: 'Delete'` and
+`resourceType: 'ec2:volume'` so precedence requires the same resource and action.
 
 Or write your own rule pack on top of the same contracts:
 

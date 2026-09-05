@@ -19,7 +19,7 @@ assigns Graviton migrations ID 6. Existing IDs remain unchanged.
 ## Presets
 
 - `aws-core` is the default general discovery preset.
-- `CLDBRN-AWS-COSTOPTIMIZATIONHUB-1`, `CLDBRN-AWS-COSTOPTIMIZATIONHUB-2`, and `CLDBRN-AWS-COSTOPTIMIZATIONHUB-6` are opt-in because AWS Cost Optimization Hub requires account enrollment. CloudBurn checks enrollment but never changes it.
+- `CLDBRN-AWS-COSTOPTIMIZATIONHUB-1`, `CLDBRN-AWS-COSTOPTIMIZATIONHUB-2`, `CLDBRN-AWS-COSTOPTIMIZATIONHUB-3`, and `CLDBRN-AWS-COSTOPTIMIZATIONHUB-6` are opt-in because AWS Cost Optimization Hub requires account enrollment. CloudBurn checks enrollment but never changes it.
 - `CLDBRN-AWS-LAMBDA-4` is opt-in because AWS Compute Optimizer requires account enrollment. Enable it with `cloudburn discover --enabled-rules CLDBRN-AWS-LAMBDA-4` or `config.discovery.enabledRules` in the SDK.
 - `CLDBRN-AWS-TAGGING-1` is opt-in because account-wide tagging needs an accessible Resource Explorer aggregator.
 - Applications can define product-specific rule selections with `config.discovery.enabledRules`. Such selections are
@@ -36,6 +36,11 @@ Until that decision is resolved, follow the enforced contiguous policy, treat an
 and update all repository references together. Do not renumber IDs as part of unrelated maintenance.
 
 ## Rule Table
+
+`CLDBRN-AWS-COSTOPTIMIZATIONHUB-3` (medium, discovery, `costoptimizationhub`) flags AWS-classified idle capacity:
+Stop for EC2 and supported RDS instances, Delete for EBS volumes, ECS services and supported Aurora instances,
+and ScaleIn for EC2 Auto Scaling groups. Only an enabled native rule with stronger evidence for the same resource
+and action suppresses a Hub finding; currently this is `CLDBRN-AWS-EBS-2` for Delete. Unavailable evidence makes the rule not applicable.
 
 `CLDBRN-AWS-COSTOPTIMIZATIONHUB-6` (medium, discovery only) reports Graviton migration candidates for standalone
 EC2 instances, EC2 Auto Scaling groups, and RDS DB instances. It preserves current/recommended configuration and
@@ -62,6 +67,7 @@ meaningful optimization opportunities, and `low` covers hygiene and smaller accu
 | `CLDBRN-AWS-COSTGUARDRAILS-4`      | medium   | Flags configured AWS Budgets when normalized forecasted spend strictly exceeds the same-unit budget limit while actual spend has not exceeded it. Missing, malformed, and unit-mismatched forecasts are skipped.                    | costguardrails      | discovery      |
 | `CLDBRN-AWS-COSTOPTIMIZATIONHUB-1` | medium   | Opt-in. Flags Compute, EC2 Instance, and SageMaker Savings Plans purchases recommended by AWS Cost Optimization Hub. Unavailable or incomplete recommendation evidence makes the rule not applicable.                               | costoptimizationhub | discovery      |
 | `CLDBRN-AWS-COSTOPTIMIZATIONHUB-2` | medium   | Opt-in. Flags EC2, RDS, OpenSearch, Redshift, ElastiCache, MemoryDB, and DynamoDB reservation purchases from Cost Optimization Hub. Namespaced native matches for the same purchase action take precedence.                         | costoptimizationhub | discovery      |
+| `CLDBRN-AWS-COSTOPTIMIZATIONHUB-3` | medium   | Opt-in. Flags AWS-classified idle capacity with Stop, Delete, and ScaleIn actions. Unavailable or malformed evidence makes the rule not applicable.                                                                                 | costoptimizationhub | discovery      |
 | `CLDBRN-AWS-COSTOPTIMIZATIONHUB-6` | medium   | Opt-in. Flags standalone EC2 instances, Auto Scaling groups, and RDS DB instances with AWS Graviton recommendations. Preserves configuration and compatibility inference; unavailable evidence produces diagnostics.                | costoptimizationhub | discovery      |
 | `CLDBRN-AWS-COSTEXPLORER-1`        | medium   | Compares the last two full months and flags only services with an existing prior-month baseline and a cost increase greater than `10` cost units.                                                                                   | costexplorer        | discovery      |
 | `CLDBRN-AWS-KMS-1`                 | medium   | Flags Regions with at least `50` enabled customer-managed KMS keys or at least `10` such keys created during the previous full month. AWS-managed, AWS-owned, disabled, and pending-deletion keys are excluded.                     | kms                 | discovery      |

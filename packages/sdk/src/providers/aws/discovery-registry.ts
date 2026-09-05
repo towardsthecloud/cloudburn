@@ -5,6 +5,8 @@ import {
   type DiscoveryDatasetKey,
   type DiscoveryDatasetMap,
   type FindingMatch,
+  getAwsCostOptimizationHubIdleResourceId,
+  getAwsCostOptimizationHubIdleResourceType,
   getAwsCostOptimizationHubReservationResourceId,
   getAwsCostOptimizationHubReservationResourceType,
   gravitonResourceTypes,
@@ -27,6 +29,7 @@ import { hydrateAwsCostUsage } from './resources/cost-explorer.js';
 import { hydrateAwsCostAnomalyMonitors, hydrateAwsCostGuardrailBudgets } from './resources/cost-guardrails.js';
 import {
   hydrateAwsCostOptimizationHubGravitonRecommendations,
+  hydrateAwsCostOptimizationHubIdleRecommendations,
   hydrateAwsCostOptimizationHubReservationRecommendations,
   hydrateAwsCostOptimizationHubSavingsPlansRecommendations,
 } from './resources/cost-optimization-hub.js';
@@ -118,6 +121,8 @@ export type AwsAccountIdResolver = {
 export type AwsDiscoveryDatasetLoadContext = AwsDiscoveryDatasetResolver &
   AwsAccountIdResolver & {
     region?: string;
+    /** Selected resource Regions; undefined means an all-region discovery target. */
+    regions?: string[];
   };
 
 /** Declarative definition for one rule-facing AWS discovery dataset. */
@@ -809,6 +814,19 @@ const awsDiscoveryDatasetRegistry: {
           resourceType: getAwsCostOptimizationHubReservationResourceType(recommendation),
         }),
       ),
+  },
+  'aws-cost-optimization-hub-idle-recommendations': {
+    datasetKey: 'aws-cost-optimization-hub-idle-recommendations',
+    resourceTypes: [],
+    service: 'costoptimizationhub',
+    load: hydrateAwsCostOptimizationHubIdleRecommendations,
+    toEvaluationResources: (recommendations) =>
+      mapEvaluationResources(recommendations, getAwsCostOptimizationHubIdleResourceId, (recommendation) => ({
+        data: recommendation,
+        actionType: recommendation.actionType,
+        ...(recommendation.resourceArn ? { arn: recommendation.resourceArn } : {}),
+        resourceType: getAwsCostOptimizationHubIdleResourceType(recommendation),
+      })),
   },
   'aws-cost-optimization-hub-graviton-recommendations': {
     datasetKey: 'aws-cost-optimization-hub-graviton-recommendations',

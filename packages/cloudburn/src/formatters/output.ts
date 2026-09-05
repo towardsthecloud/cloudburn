@@ -68,6 +68,7 @@ const scanColumns: ColumnSpec[] = [
   { key: 'service', header: 'Service' },
   { key: 'resourceType', header: 'ResourceType' },
   { key: 'resourceId', header: 'ResourceId' },
+  { key: 'actionType', header: 'Action' },
   { key: 'accountId', header: 'AccountId' },
   { key: 'region', header: 'Region' },
   { key: 'path', header: 'Path' },
@@ -232,6 +233,7 @@ const renderTable = (response: CliResponse): string => {
 const projectFindingRows = (result: ScanResult): RecordRow[] =>
   flattenScanResult(result).map(({ finding, message, provider, ruleId, service, severity, source }) => ({
     accountId: finding.accountId ?? '',
+    actionType: finding.actionType ?? '',
     message,
     path: finding.location?.path ?? '',
     provider,

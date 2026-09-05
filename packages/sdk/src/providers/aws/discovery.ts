@@ -561,6 +561,7 @@ export const discoverAwsResources = async (
 
     return loadPromise as Promise<AwsDiscoveryDatasetLoad<K>>;
   };
+  const datasetRegion = await resolveAccountScopedDatasetRegion(target);
   const loadContext: AwsDiscoveryDatasetLoadContext = {
     loadDataset: async <K extends DiscoveryDatasetKey>(datasetKey: K): Promise<DiscoveryDatasetMap[K]> => {
       const loadResult = await loadDataset(datasetKey);
@@ -581,7 +582,10 @@ export const discoverAwsResources = async (
         options?.debugLogger ? { ...filterOptions, debugLogger: options.debugLogger } : filterOptions,
       ),
     resolveAccountId,
-    region: await resolveAccountScopedDatasetRegion(target),
+    region: datasetRegion,
+    ...(target.mode === 'all'
+      ? {}
+      : { regions: target.mode === 'regions' ? target.regions.map(assertValidAwsRegion) : [datasetRegion] }),
   };
   // All datasets load in parallel, so the shared budget caps the combined
   // in-flight AWS calls per service and region for the whole run.

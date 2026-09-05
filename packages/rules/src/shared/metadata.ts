@@ -463,7 +463,13 @@ export type AwsSageMakerEndpointActivity = {
 /** Fields shared by purchase recommendations normalized from AWS Cost Optimization Hub. */
 export type AwsCostOptimizationHubRecommendation = {
   accountId: string;
-  actionType: 'PurchaseReservedInstances' | 'PurchaseSavingsPlans' | 'MigrateToGraviton';
+  actionType:
+    | 'PurchaseReservedInstances'
+    | 'PurchaseSavingsPlans'
+    | 'Stop'
+    | 'Delete'
+    | 'ScaleIn'
+    | 'MigrateToGraviton';
   currencyCode: string;
   estimatedMonthlyCost: number;
   estimatedMonthlySavings: number;
@@ -505,6 +511,55 @@ export type AwsCostOptimizationHubSavingsPlansRecommendation = AwsCostOptimizati
   savingsPlansType: 'ComputeSavingsPlans' | 'Ec2InstanceSavingsPlans' | 'SageMakerSavingsPlans';
   term: string;
 };
+
+/** Instance configuration supplied by Cost Optimization Hub. */
+export type AwsCostOptimizationHubInstanceConfiguration = { instance: { type: string } };
+
+/** RDS instance configuration; AWS determines engine eligibility for the action. */
+export type AwsCostOptimizationHubDbConfiguration = { instance: { dbInstanceClass: string } };
+
+/** EBS storage and performance configuration supplied by Cost Optimization Hub. */
+export type AwsCostOptimizationHubVolumeConfiguration = {
+  storage?: { type?: string; sizeInGb?: number };
+  performance?: { iops?: number; throughput?: number };
+  attachmentState?: string;
+};
+
+/** ECS compute configuration supplied by Cost Optimization Hub. */
+export type AwsCostOptimizationHubServiceConfiguration = {
+  compute: { vCpu?: number; memorySizeInMB?: number; architecture?: string; platform?: string };
+};
+
+/** Auto Scaling configuration supplied by Cost Optimization Hub. */
+export type AwsCostOptimizationHubAutoScalingConfiguration = {
+  instance?: { type: string };
+  mixedInstances?: { type: string }[];
+  type?: string;
+  allocationStrategy?: string;
+};
+
+type IdleConfiguration<T, A extends 'Stop' | 'Delete' | 'ScaleIn', R extends string> = {
+  actionType: A;
+  currentResourceType: R;
+  currentConfiguration: T;
+  /** Null means AWS supplied no target configuration for stopping or deleting capacity. */
+  recommendedConfiguration: T | null;
+};
+
+/** AWS-classified idle capacity with action-specific current and recommended configuration. */
+export type AwsCostOptimizationHubIdleRecommendation = AwsCostOptimizationHubRecommendation & {
+  region: string;
+  resourceId: string;
+  implementationEffort: string;
+  restartNeeded: boolean;
+  rollbackPossible: boolean;
+} & (
+    | IdleConfiguration<AwsCostOptimizationHubInstanceConfiguration, 'Stop', 'Ec2Instance'>
+    | IdleConfiguration<AwsCostOptimizationHubDbConfiguration, 'Stop' | 'Delete', 'RdsDbInstance'>
+    | IdleConfiguration<AwsCostOptimizationHubVolumeConfiguration, 'Delete', 'EbsVolume'>
+    | IdleConfiguration<AwsCostOptimizationHubServiceConfiguration, 'Delete', 'EcsService'>
+    | IdleConfiguration<AwsCostOptimizationHubAutoScalingConfiguration, 'ScaleIn', 'Ec2AutoScalingGroup'>
+  );
 
 /** Fields shared by reservation purchase configurations from AWS Cost Optimization Hub. */
 export type AwsCostOptimizationHubReservationConfiguration = {
@@ -988,6 +1043,7 @@ export type DiscoveryDatasetKey =
   | 'aws-cost-usage'
   | 'aws-cost-optimization-hub-savings-plans-recommendations'
   | 'aws-cost-optimization-hub-reservation-recommendations'
+  | 'aws-cost-optimization-hub-idle-recommendations'
   | 'aws-cost-optimization-hub-graviton-recommendations'
   | 'aws-cost-anomaly-monitors'
   | 'aws-cost-guardrail-budgets'
@@ -1053,6 +1109,7 @@ export type DiscoveryDatasetMap = {
   'aws-cost-usage': AwsCostUsage[];
   'aws-cost-optimization-hub-savings-plans-recommendations': AwsCostOptimizationHubSavingsPlansRecommendation[];
   'aws-cost-optimization-hub-reservation-recommendations': AwsCostOptimizationHubReservationRecommendation[];
+  'aws-cost-optimization-hub-idle-recommendations': AwsCostOptimizationHubIdleRecommendation[];
   'aws-cost-optimization-hub-graviton-recommendations': AwsCostOptimizationHubGravitonRecommendation[];
   'aws-cost-anomaly-monitors': AwsCostAnomalyMonitor[];
   'aws-cost-guardrail-budgets': AwsCostGuardrailBudget[];
@@ -1399,6 +1456,8 @@ export type StaticEvaluationContext = {
 
 /** A resource-level policy match emitted inside a rule finding group. */
 export type FindingMatch = {
+  /** Exact recommended operation when needed to distinguish findings for one resource. */
+  actionType?: string;
   resourceId: string;
   /** Provider resource namespace used to distinguish otherwise identical resource IDs. */
   resourceType?: string;

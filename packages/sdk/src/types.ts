@@ -288,6 +288,14 @@ export type RegisteredRules = {
 };
 
 export type {
+  AwsCostOptimizationHubAutoScalingConfiguration,
+  AwsCostOptimizationHubDbConfiguration,
+  AwsCostOptimizationHubIdleRecommendation,
+  AwsCostOptimizationHubInstanceConfiguration,
+  AwsCostOptimizationHubServiceConfiguration,
+  AwsCostOptimizationHubVolumeConfiguration,
+} from '@cloudburn/rules';
+export type {
   AwsCloudFrontDistribution,
   AwsCloudTrailTrail,
   AwsCloudWatchLogGroup,
