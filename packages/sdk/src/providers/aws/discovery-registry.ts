@@ -9,6 +9,7 @@ import {
   getAwsCostOptimizationHubIdleResourceType,
   getAwsCostOptimizationHubReservationResourceId,
   getAwsCostOptimizationHubReservationResourceType,
+  getAwsCostOptimizationHubRightsizingResourceType,
   getAwsCostOptimizationHubUpgradeResourceId,
   getAwsCostOptimizationHubUpgradeResourceType,
   type LiveResourceBag,
@@ -31,6 +32,7 @@ import { hydrateAwsCostAnomalyMonitors, hydrateAwsCostGuardrailBudgets } from '.
 import {
   hydrateAwsCostOptimizationHubIdleRecommendations,
   hydrateAwsCostOptimizationHubReservationRecommendations,
+  hydrateAwsCostOptimizationHubRightsizingRecommendations,
   hydrateAwsCostOptimizationHubSavingsPlansRecommendations,
   hydrateAwsCostOptimizationHubUpgradeRecommendations,
 } from './resources/cost-optimization-hub.js';
@@ -813,6 +815,23 @@ const awsDiscoveryDatasetRegistry: {
           ...(recommendation.resourceArn ? { arn: recommendation.resourceArn } : {}),
           data: recommendation,
           resourceType: getAwsCostOptimizationHubReservationResourceType(recommendation),
+        }),
+      ),
+  },
+  'aws-cost-optimization-hub-rightsizing-recommendations': {
+    datasetKey: 'aws-cost-optimization-hub-rightsizing-recommendations',
+    resourceTypes: [],
+    service: 'costoptimizationhub',
+    load: hydrateAwsCostOptimizationHubRightsizingRecommendations,
+    toEvaluationResources: (recommendations) =>
+      mapEvaluationResources(
+        recommendations,
+        (recommendation) => recommendation.resourceId,
+        (recommendation) => ({
+          ...(recommendation.resourceArn ? { arn: recommendation.resourceArn } : {}),
+          data: recommendation,
+          resourceType: getAwsCostOptimizationHubRightsizingResourceType(recommendation),
+          actionType: recommendation.actionType,
         }),
       ),
   },

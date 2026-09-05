@@ -16,12 +16,13 @@ export const lambdaMemoryOverprovisioningRule = createRule({
   service: RULE_SERVICE,
   supports: ['discovery'],
   discoveryDependencies: ['aws-lambda-functions', 'aws-lambda-memory-recommendations'],
+  supersedesRuleIds: ['CLDBRN-AWS-COSTOPTIMIZATIONHUB-4'],
   evaluateLive: ({ resources }) => {
-    const findings = resources
-      .get('aws-lambda-memory-recommendations')
-      .map((recommendation) =>
-        createFindingMatch(recommendation.functionArn, recommendation.region, recommendation.accountId),
-      );
+    const findings = resources.get('aws-lambda-memory-recommendations').map((recommendation) => ({
+      ...createFindingMatch(recommendation.functionArn, recommendation.region, recommendation.accountId),
+      resourceType: 'lambda:function',
+      actionType: 'Rightsize',
+    }));
 
     return createFinding(
       { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },

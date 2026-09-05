@@ -8,6 +8,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createCostOptimizationHubClient } from '../../src/providers/aws/client.js';
 import {
   hydrateAwsCostOptimizationHubReservationRecommendations,
+  hydrateAwsCostOptimizationHubRightsizingRecommendations,
   hydrateAwsCostOptimizationHubSavingsPlansRecommendations,
 } from '../../src/providers/aws/resources/cost-optimization-hub.js';
 
@@ -482,6 +483,7 @@ describe('hydrateAwsCostOptimizationHubReservationRecommendations', () => {
     await Promise.all([
       hydrateAwsCostOptimizationHubSavingsPlansRecommendations([], context),
       hydrateAwsCostOptimizationHubReservationRecommendations([], context),
+      hydrateAwsCostOptimizationHubRightsizingRecommendations([], context),
     ]);
 
     expect(mockedCreateCostOptimizationHubClient).toHaveBeenCalledTimes(1);

@@ -10,6 +10,7 @@ export {
   getAwsCostOptimizationHubReservationResourceId,
   getAwsCostOptimizationHubReservationResourceType,
 } from './aws/costoptimizationhub/reservation-identity.js';
+export { getAwsCostOptimizationHubRightsizingResourceType } from './aws/costoptimizationhub/rightsizing-identity.js';
 export {
   getAwsCostOptimizationHubUpgradeResourceId,
   getAwsCostOptimizationHubUpgradeResourceType,
@@ -49,6 +50,7 @@ export type {
   AwsCostGuardrailBudgetSpend,
   AwsCostOptimizationHubAutoScalingConfiguration,
   AwsCostOptimizationHubAutoScalingUpgradeConfiguration,
+  AwsCostOptimizationHubComputeConfiguration,
   AwsCostOptimizationHubDbConfiguration,
   AwsCostOptimizationHubDynamoDbReservationConfiguration,
   AwsCostOptimizationHubEbsUpgradeConfiguration,
@@ -66,6 +68,8 @@ export type {
   AwsCostOptimizationHubRedshiftReservationConfiguration,
   AwsCostOptimizationHubReservationConfiguration,
   AwsCostOptimizationHubReservationRecommendation,
+  AwsCostOptimizationHubRightsizingConfigurationMap,
+  AwsCostOptimizationHubRightsizingRecommendation,
   AwsCostOptimizationHubSavingsPlansRecommendation,
   AwsCostOptimizationHubServiceConfiguration,
   AwsCostOptimizationHubUpgradeRecommendation,

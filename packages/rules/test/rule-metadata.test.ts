@@ -55,7 +55,7 @@ describe('rule metadata', () => {
       const sortedRuleNumbers = [...ruleNumbers].sort((left, right) => left - right);
       if (scope === 'AWS-COSTOPTIMIZATIONHUB') {
         // Issues #209 and #210 own slots 3 and 4; #211 must retain its assigned ID.
-        expect(sortedRuleNumbers).toEqual([1, 2, 3, 5]);
+        expect(sortedRuleNumbers).toEqual([1, 2, 3, 4, 5]);
         continue;
       }
 

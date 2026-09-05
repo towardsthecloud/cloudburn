@@ -41,6 +41,8 @@ describe('lambdaMemoryOverprovisioningRule', () => {
           accountId: '123456789012',
           region: 'us-east-1',
           resourceId: 'arn:aws:lambda:us-east-1:123456789012:function:my-function',
+          resourceType: 'lambda:function',
+          actionType: 'Rightsize',
         },
       ],
     });
