@@ -338,6 +338,37 @@ describe('hydrateAwsCloudWatchLogGroupRecentStreamActivity', () => {
     vi.resetAllMocks();
   });
 
+  it('starts the next log group while an earlier stream lookup is still slow', async () => {
+    let release = (): void => undefined;
+    const slow = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const started: string[] = [];
+    mockedCreateCloudWatchLogsClient.mockReturnValue({
+      send: vi.fn(async (command) => {
+        started.push(command.input.logGroupName);
+        if (command.input.logGroupName === 'group-0') await slow;
+        return { logStreams: [] };
+      }),
+    } as never);
+    const run = hydrateAwsCloudWatchLogGroupRecentStreamActivity(
+      Array.from({ length: 11 }, (_, index) => ({
+        accountId: '123456789012',
+        region: 'us-east-1',
+        service: 'logs',
+        resourceType: 'logs:log-group',
+        arn: `arn:aws:logs:us-east-1:123456789012:log-group:group-${index}`,
+      })),
+    );
+    try {
+      await vi.waitFor(() => expect(started).toContain('group-10'), { timeout: 1000 });
+    } finally {
+      release();
+      await run;
+    }
+    expect(await run).toHaveLength(11);
+  });
+
   it('loads only the most recent stream summary for each discovered log group', async () => {
     const send = vi.fn(async (command: DescribeLogStreamsCommand) => {
       const input = command.input as {

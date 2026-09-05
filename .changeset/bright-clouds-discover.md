@@ -7,3 +7,5 @@ Enforce AWS request timeouts, use the discovery control region for STS account-I
 Cache regional dataset dependencies, load regions concurrently, and retain healthy-region findings when other regions fail. Exclude incomplete regional evidence from joined rules and evaluated-resource projections. Explicit targets also select the region for account and Resource Explorer control-plane calls.
 
 Require complete CPU and both network directions before counting EC2 idle days, deduplicate daily observations, and align the observation window to complete UTC days.
+
+Batch CloudWatch queries by supported query and datapoint limits with aligned windows and bounded concurrency, and keep recent log-stream hydration workers busy when individual requests are slow.
