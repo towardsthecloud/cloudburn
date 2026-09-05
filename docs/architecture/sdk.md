@@ -62,12 +62,14 @@ graph TD
 4. Union required IaC source kinds from the resolved dataset definitions.
 5. Parse only the required Terraform and CloudFormation inputs through
    `parseIaCWithDiagnostics` and retain non-fatal skipped-file diagnostics.
-6. Load only the requested normalized static datasets.
+6. Group Terraform resources by module directory and CloudFormation resources by template file. Load the requested normalized static datasets separately for each scope.
 7. Build `StaticEvaluationContext` with `{ resources: StaticResourceBag }`.
 8. Invoke each static evaluator.
 9. Match parsed resource-local suppression directives against each resource finding.
 10. Group active rule findings under `providers -> rules -> findings`, retain suppressed matches under `suppressed`,
     and attach parser diagnostics when present.
+
+Static rule evaluation retains those scopes, including joins between datasets such as DynamoDB tables and autoscaling targets. Findings from each scope are merged under one rule result. Public resource IDs and source locations stay unchanged, and inline suppression matching still uses the source path and resource ID.
 
 ### Live Scan
 

@@ -54,7 +54,7 @@ const findSuppressionEntry = (
  */
 export const runStaticScan = async (path: string, config: CloudBurnConfig): Promise<ScanResult> => {
   const registry = buildRuleRegistry(config, 'iac');
-  const { diagnostics, suppressionTargets, ...staticContext } = await loadAwsStaticResources(
+  const { diagnostics, suppressionTargets, evaluationScopes, ...staticContext } = await loadAwsStaticResources(
     path,
     registry.activeRules,
   );
@@ -69,7 +69,14 @@ export const runStaticScan = async (path: string, config: CloudBurnConfig): Prom
         };
       }
 
-      const finding = rule.evaluateStatic(staticContext);
+      const scopedFindings = (evaluationScopes ?? [staticContext]).flatMap((context) => {
+        const scopedFinding = rule.evaluateStatic?.(context);
+        return scopedFinding ? [scopedFinding] : [];
+      });
+      const firstFinding = scopedFindings[0];
+      const finding = firstFinding
+        ? { ...firstFinding, findings: scopedFindings.flatMap((entry) => entry.findings) }
+        : null;
 
       if (!finding) {
         return {

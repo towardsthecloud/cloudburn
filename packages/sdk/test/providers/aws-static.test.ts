@@ -488,6 +488,7 @@ describe('loadAwsStaticResources', () => {
       createIaCResource({
         type: 'AWS::Logs::LogGroup',
         name: 'RefRetentionGroup',
+        location: { path: 'template.yaml', line: 8, column: 1 },
         attributeLocations: {
           'Properties.RetentionInDays': {
             path: 'template.yaml',
@@ -660,6 +661,7 @@ describe('loadAwsStaticResources', () => {
       }),
       createIaCResource({
         type: 'aws_eip_association',
+        location: { path: 'main.tf', line: 20, column: 1 },
         name: 'detached_assoc',
         attributes: {
           allocation_id: 'aws_eip.detached.id',
@@ -1046,6 +1048,7 @@ describe('loadAwsStaticResources', () => {
       }),
       createIaCResource({
         type: 'aws_ecr_lifecycle_policy',
+        location: { path: 'main.tf', line: 20, column: 1 },
         name: 'app',
         attributes: {
           repository: 'aws_ecr_repository.app.name',
@@ -1143,6 +1146,7 @@ describe('loadAwsStaticResources', () => {
       }),
       createIaCResource({
         type: 'aws_ecr_lifecycle_policy',
+        location: { path: 'main.tf', line: 20, column: 1 },
         name: 'app',
         attributes: {
           repository: 'aws_ecr_repository.app.id',
@@ -1187,6 +1191,7 @@ describe('loadAwsStaticResources', () => {
       }),
       createIaCResource({
         type: 'aws_ecr_lifecycle_policy',
+        location: { path: 'main.tf', line: 20, column: 1 },
         name: 'app',
         attributes: {
           repository: '$' + '{var.repo_name}',
@@ -1349,6 +1354,7 @@ describe('aws static dataset registry', () => {
         }),
         createIaCResource({
           type: 'aws_ecr_lifecycle_policy',
+          location: { path: 'main.tf', line: 20, column: 1 },
           name: 'app',
           attributes: {
             repository: '$' + '{aws_ecr_repository.app.name}',
@@ -1972,6 +1978,7 @@ describe('aws static dataset registry', () => {
         }),
         createIaCResource({
           type: 'aws_ecr_lifecycle_policy',
+          location: { path: 'main.tf', line: 20, column: 1 },
           name: 'app',
           attributes: {
             policy: JSON.stringify({
