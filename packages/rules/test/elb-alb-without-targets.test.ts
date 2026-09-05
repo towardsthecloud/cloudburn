@@ -68,6 +68,28 @@ describe('elbAlbWithoutTargetsRule', () => {
     ]);
   });
 
+  it('looks up target groups in linear work for a large load-balancer fleet', () => {
+    const size = 500;
+    let targetGroupReads = 0;
+    const finding = elbAlbWithoutTargetsRule.evaluateLive?.({
+      catalog: { indexType: 'LOCAL', resources: [], searchRegion: 'us-east-1' },
+      resources: new LiveResourceBag({
+        'aws-ec2-load-balancers': Array.from({ length: size }, (_, index) =>
+          createLoadBalancer({ loadBalancerArn: `lb-${index}`, attachedTargetGroupArns: [`tg-${index}`] }),
+        ),
+        'aws-ec2-target-groups': Array.from({ length: size }, (_, index) => ({
+          ...createTargetGroup(),
+          get targetGroupArn() {
+            targetGroupReads += 1;
+            return `tg-${index}`;
+          },
+        })),
+      }),
+    });
+    expect(finding?.findings).toHaveLength(size);
+    expect(targetGroupReads).toBeLessThanOrEqual(size * 3);
+  });
+
   it('skips ALBs with registered targets', () => {
     const finding = elbAlbWithoutTargetsRule.evaluateLive?.({
       catalog: {

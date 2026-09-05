@@ -1,4 +1,4 @@
-import { createFinding, createFindingMatch, createRule } from '../../shared/helpers.js';
+import { createFinding, createFindingMatch, createRule, getAwsResourceScopeKey } from '../../shared/helpers.js';
 
 const RULE_ID = 'CLDBRN-AWS-EMR-2';
 const RULE_SERVICE = 'emr';
@@ -20,13 +20,17 @@ export const emrIdleClusterRule = createRule({
   discoveryDependencies: ['aws-emr-clusters', 'aws-emr-cluster-metrics'],
   evaluateLive: ({ resources }) => {
     const clustersById = new Map(
-      resources.get('aws-emr-clusters').map((cluster) => [cluster.clusterId, cluster] as const),
+      resources
+        .get('aws-emr-clusters')
+        .map(
+          (cluster) => [getAwsResourceScopeKey(cluster.accountId, cluster.region, cluster.clusterId), cluster] as const,
+        ),
     );
 
     const findings = resources
       .get('aws-emr-cluster-metrics')
       .filter((metric) => {
-        const cluster = clustersById.get(metric.clusterId);
+        const cluster = clustersById.get(getAwsResourceScopeKey(metric.accountId, metric.region, metric.clusterId));
 
         if (!cluster) {
           return false;
@@ -40,7 +44,7 @@ export const emrIdleClusterRule = createRule({
         );
       })
       .flatMap((metric) => {
-        const cluster = clustersById.get(metric.clusterId);
+        const cluster = clustersById.get(getAwsResourceScopeKey(metric.accountId, metric.region, metric.clusterId));
 
         return cluster ? [createFindingMatch(cluster.clusterId, cluster.region, cluster.accountId)] : [];
       });

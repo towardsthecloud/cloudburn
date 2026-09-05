@@ -275,20 +275,34 @@ const getTerraformInlineS3VersioningEnabled = (resource: IaCResource): boolean |
   return enabled;
 };
 
-const hasTerraformS3VersioningEnabled = (
-  versioningConfigurations: IaCResource[],
-  identityKeys: Set<string>,
-): boolean | null => {
+type TerraformReferenceIndex = Map<string, Array<{ resource: IaCResource; position: number }>>;
+
+const indexTerraformReferences = (
+  resources: IaCResource[],
+  referenceKey: (resource: IaCResource) => string | null,
+): TerraformReferenceIndex => {
+  const index: TerraformReferenceIndex = new Map();
+  resources.forEach((resource, position) => {
+    const key = referenceKey(resource);
+    if (key === null) return;
+    const entries = index.get(key) ?? [];
+    entries.push({ resource, position });
+    index.set(key, entries);
+  });
+  return index;
+};
+
+const findTerraformReferences = (index: TerraformReferenceIndex, keys: Set<string>): IaCResource[] =>
+  [...keys]
+    .flatMap((key) => index.get(key) ?? [])
+    .sort((left, right) => left.position - right.position)
+    .map((entry) => entry.resource);
+
+const hasTerraformS3VersioningEnabled = (versioningConfigurations: IaCResource[]): boolean | null => {
   let matchedAny = false;
   let resolvedValue: boolean | null = false;
 
   for (const resource of versioningConfigurations) {
-    const targetKey = getTerraformBucketReferenceKey(resource.attributes.bucket);
-
-    if (!targetKey || !identityKeys.has(targetKey)) {
-      continue;
-    }
-
     matchedAny = true;
     const versioningConfiguration = toRecordArray(resource.attributes.versioning_configuration)[0];
     const status = versioningConfiguration?.status;
@@ -398,39 +412,11 @@ const getCloudFormationRedshiftActionTarget = (
   return null;
 };
 
-const getTerraformLifecycleRules = (
-  lifecycleConfigurations: IaCResource[],
-  identityKeys: Set<string>,
-): Record<string, unknown>[] =>
-  lifecycleConfigurations.flatMap((resource) => {
-    const targetKey = getTerraformBucketReferenceKey(resource.attributes.bucket);
-
-    if (!targetKey || !identityKeys.has(targetKey)) {
-      return [];
-    }
-
-    return toRecordArray(resource.attributes.rule);
-  });
-
-const hasEnabledTerraformIntelligentTieringConfiguration = (
-  intelligentTieringConfigurations: IaCResource[],
-  identityKeys: Set<string>,
-): Record<string, unknown>[] =>
-  intelligentTieringConfigurations.flatMap((resource) => {
-    const targetKey = getTerraformBucketReferenceKey(resource.attributes.bucket);
-
-    if (targetKey === null || !identityKeys.has(targetKey)) {
-      return [];
-    }
-
-    return [{ status: resource.attributes.status }];
-  });
-
 const createTerraformS3BucketAnalysis = (
   bucket: IaCResource,
-  lifecycleConfigurations: IaCResource[],
-  intelligentTieringConfigurations: IaCResource[],
-  versioningConfigurations: IaCResource[],
+  lifecycleConfigurations: TerraformReferenceIndex,
+  intelligentTieringConfigurations: TerraformReferenceIndex,
+  versioningConfigurations: TerraformReferenceIndex,
 ): AwsStaticS3BucketAnalysis | null => {
   const literalBucketName = getLiteralString(bucket.attributes.bucket);
   const identityKeys = new Set<string>([toStaticResourceId(bucket)]);
@@ -441,14 +427,18 @@ const createTerraformS3BucketAnalysis = (
 
   const lifecycleRules = [
     ...toRecordArray(bucket.attributes.lifecycle_rule),
-    ...getTerraformLifecycleRules(lifecycleConfigurations, identityKeys),
+    ...findTerraformReferences(lifecycleConfigurations, identityKeys).flatMap((resource) =>
+      toRecordArray(resource.attributes.rule),
+    ),
   ];
 
   return {
     hasNoncurrentVersionCleanup: lifecycleRules.some((rule) => hasLifecycleRuleNoncurrentVersionCleanup(rule)),
     resourceId: toStaticResourceId(bucket),
     versioningEnabled: (() => {
-      const linkedVersioningEnabled = hasTerraformS3VersioningEnabled(versioningConfigurations, identityKeys);
+      const linkedVersioningEnabled = hasTerraformS3VersioningEnabled(
+        findTerraformReferences(versioningConfigurations, identityKeys),
+      );
       const inlineVersioningEnabled = getTerraformInlineS3VersioningEnabled(bucket);
 
       if (linkedVersioningEnabled === true || inlineVersioningEnabled === true) {
@@ -464,7 +454,9 @@ const createTerraformS3BucketAnalysis = (
     location: bucket.location,
     ...buildS3BucketAnalysisFlags(
       lifecycleRules,
-      hasEnabledTerraformIntelligentTieringConfiguration(intelligentTieringConfigurations, identityKeys),
+      findTerraformReferences(intelligentTieringConfigurations, identityKeys).map((resource) => ({
+        status: resource.attributes.status,
+      })),
     ),
   };
 };
@@ -497,7 +489,7 @@ const createCloudFormationS3BucketAnalysis = (bucket: IaCResource): AwsStaticS3B
 
 const createTerraformEcrRepository = (
   repository: IaCResource,
-  lifecyclePolicies: IaCResource[],
+  lifecyclePolicies: TerraformReferenceIndex,
 ): AwsStaticEcrRepository => {
   const repositoryName = getTerraformEcrRepositoryReferenceKey(repository.attributes.name);
   const identityKeys = new Set<string>([toStaticResourceId(repository)]);
@@ -506,23 +498,12 @@ const createTerraformEcrRepository = (
     identityKeys.add(repositoryName);
   }
 
+  const lifecyclePolicy = findTerraformReferences(lifecyclePolicies, identityKeys)[0];
+  const traits = lifecyclePolicy ? getEcrLifecyclePolicyTraits(lifecyclePolicy.attributes.policy) : undefined;
   return {
-    hasLifecyclePolicy: lifecyclePolicies.some((lifecyclePolicy) => {
-      const targetKey = getTerraformEcrRepositoryReferenceKey(lifecyclePolicy.attributes.repository);
-      return targetKey !== null && identityKeys.has(targetKey);
-    }),
-    ...(() => {
-      const lifecyclePolicy = lifecyclePolicies.find((candidate) => {
-        const targetKey = getTerraformEcrRepositoryReferenceKey(candidate.attributes.repository);
-        return targetKey !== null && identityKeys.has(targetKey);
-      });
-      const traits = lifecyclePolicy ? getEcrLifecyclePolicyTraits(lifecyclePolicy.attributes.policy) : undefined;
-
-      return {
-        hasTaggedImageRetentionCap: traits?.hasTaggedImageRetentionCap ?? null,
-        hasUntaggedImageExpiry: traits?.hasUntaggedImageExpiry ?? null,
-      };
-    })(),
+    hasLifecyclePolicy: lifecyclePolicy !== undefined,
+    hasTaggedImageRetentionCap: traits?.hasTaggedImageRetentionCap ?? null,
+    hasUntaggedImageExpiry: traits?.hasUntaggedImageExpiry ?? null,
     location: repository.location,
     resourceId: toStaticResourceId(repository),
   };
@@ -802,7 +783,10 @@ const loadStaticEbsVolumes = (resources: IaCResource[]): AwsStaticEbsVolume[] =>
   }));
 
 const loadStaticEcrRepositories = (resources: IaCResource[]): AwsStaticEcrRepository[] => {
-  const lifecyclePolicies = resources.filter((resource) => resource.type === TERRAFORM_ECR_LIFECYCLE_POLICY_TYPE);
+  const lifecyclePolicies = indexTerraformReferences(
+    resources.filter((resource) => resource.type === TERRAFORM_ECR_LIFECYCLE_POLICY_TYPE),
+    (resource) => getTerraformEcrRepositoryReferenceKey(resource.attributes.repository),
+  );
 
   return resources.flatMap((resource) => {
     if (resource.type === TERRAFORM_ECR_REPOSITORY_TYPE) {
@@ -1331,11 +1315,18 @@ const loadStaticEc2VpcEndpoints = (resources: IaCResource[]): AwsStaticEc2VpcEnd
   }));
 
 const loadStaticS3BucketAnalyses = (resources: IaCResource[]): AwsStaticS3BucketAnalysis[] => {
-  const lifecycleConfigurations = resources.filter((resource) => resource.type === TERRAFORM_LIFECYCLE_TYPE);
-  const intelligentTieringConfigurations = resources.filter(
-    (resource) => resource.type === TERRAFORM_INTELLIGENT_TIERING_TYPE,
+  const lifecycleConfigurations = indexTerraformReferences(
+    resources.filter((resource) => resource.type === TERRAFORM_LIFECYCLE_TYPE),
+    (resource) => getTerraformBucketReferenceKey(resource.attributes.bucket),
   );
-  const versioningConfigurations = resources.filter((resource) => resource.type === TERRAFORM_BUCKET_VERSIONING_TYPE);
+  const intelligentTieringConfigurations = indexTerraformReferences(
+    resources.filter((resource) => resource.type === TERRAFORM_INTELLIGENT_TIERING_TYPE),
+    (resource) => getTerraformBucketReferenceKey(resource.attributes.bucket),
+  );
+  const versioningConfigurations = indexTerraformReferences(
+    resources.filter((resource) => resource.type === TERRAFORM_BUCKET_VERSIONING_TYPE),
+    (resource) => getTerraformBucketReferenceKey(resource.attributes.bucket),
+  );
 
   return resources.flatMap((resource) => {
     if (resource.type === TERRAFORM_BUCKET_TYPE) {

@@ -1,12 +1,12 @@
-import { lstat, readdir, readFile, realpath, stat } from 'node:fs/promises';
-import { basename, extname, join, relative, sep } from 'node:path';
+import { readFile, stat } from 'node:fs/promises';
+import { extname } from 'node:path';
 import type { SourceLocation } from '@cloudburn/rules';
 import { isMap, isScalar, isSeq, LineCounter, parseDocument } from 'yaml';
+import { type IaCFileParser, parseIaCFiles } from './files.js';
 import { createEmptyIaCParseResult, createSkippedIaCParseResult } from './result.js';
 import { extractSuppressionComments, findResourceSuppressions } from './suppressions.js';
 import type { IaCParseResult } from './types.js';
 
-const SKIPPED_DIRECTORIES = new Set(['.git', '.terraform', 'node_modules']);
 const SUPPORTED_EXTENSIONS = new Set(['.json', '.yaml', '.yml']);
 const MAX_TEMPLATE_SIZE_BYTES = 5 * 1024 * 1024;
 
@@ -42,12 +42,6 @@ type TagCarrier = {
 type PairLike = {
   key?: unknown;
   value?: unknown;
-};
-
-const toRelativePath = (path: string, scanRoot: string): string => {
-  const relativePath = relative(scanRoot, path);
-
-  return (relativePath === '' ? basename(path) : relativePath).split(sep).join('/');
 };
 
 const hasSupportedExtension = (path: string): boolean => SUPPORTED_EXTENSIONS.has(extname(path));
@@ -310,79 +304,8 @@ const toIaCResources = async (path: string, relativePath: string): Promise<IaCPa
   };
 };
 
-const parseCloudFormationPath = async (
-  path: string,
-  scanRoot: string,
-  filesystemPath: string = path,
-  allowSymbolicLinkTarget = false,
-): Promise<IaCParseResult> => {
-  const linkStats = await lstat(filesystemPath);
-
-  if (linkStats.isSymbolicLink()) {
-    if (!allowSymbolicLinkTarget) {
-      return createEmptyIaCParseResult();
-    }
-
-    filesystemPath = await realpath(filesystemPath);
-  }
-
-  const pathStats = await stat(filesystemPath);
-
-  if (pathStats.isFile()) {
-    return toIaCResources(filesystemPath, toRelativePath(path, scanRoot));
-  }
-
-  if (!pathStats.isDirectory()) {
-    return createEmptyIaCParseResult();
-  }
-
-  const entries = (await readdir(filesystemPath, { withFileTypes: true })).sort((left, right) =>
-    left.name.localeCompare(right.name),
-  );
-  const results = await Promise.all(
-    entries.flatMap((entry) => {
-      if (entry.isDirectory() && SKIPPED_DIRECTORIES.has(entry.name)) {
-        return [];
-      }
-
-      if (entry.isFile() && !hasSupportedExtension(entry.name)) {
-        return [];
-      }
-
-      return [parseCloudFormationPath(join(path, entry.name), scanRoot, join(filesystemPath, entry.name))];
-    }),
-  );
-
-  const resources = results.flatMap((result) => result.resources);
-
-  return {
-    diagnostics: results.flatMap((result) => result.diagnostics),
-    resources: resources.sort((left, right) => {
-      const leftPath = left.location?.path ?? '';
-      const rightPath = right.location?.path ?? '';
-
-      if (leftPath !== rightPath) {
-        return leftPath.localeCompare(rightPath);
-      }
-
-      const leftLine = left.location?.line ?? 0;
-      const rightLine = right.location?.line ?? 0;
-
-      if (leftLine !== rightLine) {
-        return leftLine - rightLine;
-      }
-
-      const leftColumn = left.location?.column ?? 0;
-      const rightColumn = right.location?.column ?? 0;
-
-      if (leftColumn !== rightColumn) {
-        return leftColumn - rightColumn;
-      }
-
-      return `${left.type}.${left.name}`.localeCompare(`${right.type}.${right.name}`);
-    }),
-  };
-};
+/** CloudFormation file formats and their single-file parser. */
+export const cloudFormationFileParser: IaCFileParser = { extensions: SUPPORTED_EXTENSIONS, parseFile: toIaCResources };
 
 /**
  * Parses CloudFormation templates into normalized IaC resources and skipped-file diagnostics.
@@ -391,4 +314,4 @@ const parseCloudFormationPath = async (
  * @returns Parsed resources plus non-fatal diagnostics.
  */
 export const parseCloudFormation = async (path: string): Promise<IaCParseResult> =>
-  parseCloudFormationPath(path, path, path, true);
+  parseIaCFiles(path, [cloudFormationFileParser]);

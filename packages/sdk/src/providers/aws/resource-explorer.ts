@@ -36,7 +36,8 @@ import {
   RESOURCE_EXPLORER_SETUP_DOCS_URL,
   wrapAwsServiceError,
 } from './errors.js';
-import { withAwsServiceErrorContext } from './resources/utils.js';
+import { memoizeAwsExecution, throwIfAwsExecutionAborted, waitForAwsDelay } from './execution.js';
+import { mapWithConcurrency, withAwsServiceErrorContext } from './resources/utils.js';
 
 const DEFAULT_RESOURCE_EXPLORER_VIEW_NAME = 'cloudburn-default';
 const TERMINAL_OPERATION_STATUSES = new Set(['FAILED', 'SKIPPED', 'SUCCEEDED']);
@@ -44,6 +45,7 @@ const RESOURCE_EXPLORER_FILTER_STRING_MAX_LENGTH = 2048;
 const RESOURCE_EXPLORER_LIST_RESOURCES_INITIAL_DELAY_MS = 250;
 const RESOURCE_EXPLORER_LIST_RESOURCES_MAX_ATTEMPTS = 5;
 const RESOURCE_EXPLORER_LIST_RESOURCES_MAX_RESULTS = 999;
+const RESOURCE_EXPLORER_REGION_CONCURRENCY = 5;
 
 type SearchPlan = {
   searchRegion: string;
@@ -133,16 +135,9 @@ const isResourceNotFoundError = (err: unknown): boolean => {
   return candidates.some((value) => value.includes('resourcenotfound') || value.includes('not found'));
 };
 
-const sleep = async (delayMs: number): Promise<void> =>
-  new Promise((resolve) => {
-    setTimeout(resolve, delayMs);
-  });
-
 const throwResourceExplorerOperationError = (err: unknown, operation: string, region: string): never => {
-  if (err instanceof AwsDiscoveryError) {
-    throw err;
-  }
-
+  throwIfAwsExecutionAborted();
+  if (err instanceof AwsDiscoveryError) throw err;
   throw wrapAwsServiceError(err, 'AWS Resource Explorer', operation, region);
 };
 
@@ -193,31 +188,32 @@ const mapSupportedResourceType = (resourceType: SupportedResourceType): AwsSuppo
   };
 };
 
-const listIndexesForRegion = async (region: string, regions?: string[]): Promise<AwsDiscoveryRegion[]> => {
-  const validRegion = assertValidAwsRegion(region);
-  const client = createResourceExplorerClient({ region: validRegion });
-  const normalizedRegions = regions?.map((value) => assertValidAwsRegion(value));
-  const indexes: AwsDiscoveryRegion[] = [];
-  let nextToken: string | undefined;
+const listIndexesForRegion = async (region: string, regions?: string[]): Promise<AwsDiscoveryRegion[]> =>
+  memoizeAwsExecution(JSON.stringify(['resource-explorer-indexes', region, regions]), async () => {
+    const validRegion = assertValidAwsRegion(region);
+    const client = createResourceExplorerClient({ region: validRegion });
+    const normalizedRegions = regions?.map((value) => assertValidAwsRegion(value));
+    const indexes: AwsDiscoveryRegion[] = [];
+    let nextToken: string | undefined;
 
-  do {
-    const response = await client.send(
-      new ListIndexesCommand({
-        NextToken: nextToken,
-        ...(normalizedRegions ? { Regions: normalizedRegions } : {}),
-      }),
-    );
-    const mapped = (response.Indexes ?? []).flatMap((index) => {
-      const normalized = mapIndex(index);
-      return normalized ? [normalized] : [];
-    });
+    do {
+      const response = await client.send(
+        new ListIndexesCommand({
+          NextToken: nextToken,
+          ...(normalizedRegions ? { Regions: normalizedRegions } : {}),
+        }),
+      );
+      const mapped = (response.Indexes ?? []).flatMap((index) => {
+        const normalized = mapIndex(index);
+        return normalized ? [normalized] : [];
+      });
 
-    indexes.push(...mapped);
-    nextToken = response.NextToken;
-  } while (nextToken);
+      indexes.push(...mapped);
+      nextToken = response.NextToken;
+    } while (nextToken);
 
-  return indexes.sort((left, right) => left.region.localeCompare(right.region));
-};
+    return indexes.sort((left, right) => left.region.localeCompare(right.region));
+  });
 
 const getAwsResourceExplorerIndex = async (region: string): Promise<AwsResourceExplorerIndexDetails | null> => {
   const validRegion = assertValidAwsRegion(region);
@@ -266,7 +262,7 @@ const resolveRegionalSearchPlan = async (requestedRegion: string): Promise<Searc
   }
 
   if (requestedIndex.type === 'local') {
-    const { aggregatorRegion } = await findAccessibleAggregatorRegion();
+    const { aggregatorRegion } = await findAccessibleAggregatorRegion(validRequestedRegion);
 
     if (aggregatorRegion) {
       return {
@@ -303,45 +299,51 @@ const listIndexesForAggregatorLookup = async (region: string): Promise<Aggregato
   }
 };
 
-const findAccessibleAggregatorRegion = async (): Promise<AccessibleAggregatorLookup> => {
-  const enabledRegions = await listEnabledAwsRegions();
-  const accessibleIndexedRegions: string[] = [];
-  let aggregatorRegion: string | undefined;
-  let sawDeniedRegion = false;
+const findAccessibleAggregatorRegion = async (preferredRegion?: string): Promise<AccessibleAggregatorLookup> =>
+  memoizeAwsExecution(JSON.stringify(['resource-explorer-aggregator', preferredRegion]), async () => {
+    const enabledRegions = await listEnabledAwsRegions(preferredRegion);
+    const accessibleIndexedRegions: string[] = [];
+    let aggregatorRegion: string | undefined;
+    let sawDeniedRegion = false;
+    const lookups = await mapWithConcurrency(enabledRegions, RESOURCE_EXPLORER_REGION_CONCURRENCY, async (region) => ({
+      region,
+      lookup: await listIndexesForAggregatorLookup(region),
+    }));
 
-  for (const region of enabledRegions) {
-    const lookup = await listIndexesForAggregatorLookup(region);
+    for (const { region, lookup } of lookups) {
+      if (lookup.kind === 'skipped') {
+        sawDeniedRegion = true;
+        continue;
+      }
 
-    if (lookup.kind === 'skipped') {
-      sawDeniedRegion = true;
-      continue;
+      const matchingIndex = lookup.indexes.find((index) => index.region === region);
+
+      if (matchingIndex) {
+        accessibleIndexedRegions.push(matchingIndex.region);
+      }
+
+      const aggregator = lookup.indexes.find((index) => index.type === 'aggregator');
+
+      if (aggregator && !aggregatorRegion) {
+        aggregatorRegion = aggregator.region;
+      }
     }
 
-    const matchingIndex = lookup.indexes.find((index) => index.region === region);
+    return {
+      aggregatorRegion,
+      accessibleIndexedRegions,
+      sawDeniedRegion,
+    };
+  });
 
-    if (matchingIndex) {
-      accessibleIndexedRegions.push(matchingIndex.region);
-    }
-
-    const aggregator = lookup.indexes.find((index) => index.type === 'aggregator');
-
-    if (aggregator && !aggregatorRegion) {
-      aggregatorRegion = aggregator.region;
-    }
-  }
-
-  return {
-    aggregatorRegion,
-    accessibleIndexedRegions,
-    sawDeniedRegion,
-  };
-};
-
-const requireAccessibleAggregator = async (messages: {
-  denied: string;
-  missing: string;
-}): Promise<AccessibleAggregatorLookup & { aggregatorRegion: string }> => {
-  const lookup = await findAccessibleAggregatorRegion();
+const requireAccessibleAggregator = async (
+  messages: {
+    denied: string;
+    missing: string;
+  },
+  preferredRegion?: string,
+): Promise<AccessibleAggregatorLookup & { aggregatorRegion: string }> => {
+  const lookup = await findAccessibleAggregatorRegion(preferredRegion);
 
   if (lookup.aggregatorRegion) {
     return { ...lookup, aggregatorRegion: lookup.aggregatorRegion };
@@ -357,14 +359,17 @@ const sortUniqueStrings = <T extends string>(values: T[]): T[] =>
   [...new Set(values)].sort((left, right) => left.localeCompare(right)) as T[];
 
 const resolveAggregatorSearchPlan = async (requestedRegions?: AwsRegion[]): Promise<SearchPlan> => {
-  const { accessibleIndexedRegions, aggregatorRegion } = await requireAccessibleAggregator({
-    denied:
-      "Cross-region discovery requires an accessible aggregator index. CloudBurn only searches regions that are indexed and permitted in AWS Resource Explorer. Run 'cloudburn discover status' to inspect indexed regions and access restrictions.",
-    missing:
-      "Cross-region discovery requires an aggregator index. Enable one first with 'cloudburn discover init' or the AWS console.",
-  });
+  const { accessibleIndexedRegions, aggregatorRegion } = await requireAccessibleAggregator(
+    {
+      denied:
+        "Cross-region discovery requires an accessible aggregator index. CloudBurn only searches regions that are indexed and permitted in AWS Resource Explorer. Run 'cloudburn discover status' to inspect indexed regions and access restrictions.",
+      missing:
+        "Cross-region discovery requires an aggregator index. Enable one first with 'cloudburn discover init' or the AWS console.",
+    },
+    requestedRegions?.[0],
+  );
   const selectedRegions: AwsRegion[] = requestedRegions
-    ? sortUniqueStrings(requestedRegions)
+    ? sortUniqueStrings(requestedRegions.map(assertValidAwsRegion))
     : (accessibleIndexedRegions as AwsRegion[]);
 
   const missingRegions = selectedRegions.filter((region) => !accessibleIndexedRegions.includes(region));
@@ -383,13 +388,16 @@ const resolveAggregatorSearchPlan = async (requestedRegions?: AwsRegion[]): Prom
   };
 };
 
-const resolveAccountSearchPlan = async (): Promise<SearchPlan> => {
-  const { aggregatorRegion } = await requireAccessibleAggregator({
-    denied:
-      "Account-wide discovery requires an accessible aggregator index. Run 'cloudburn discover status' to inspect indexed regions and access restrictions.",
-    missing:
-      "Account-wide discovery requires an aggregator index. Enable one first with 'cloudburn discover init' or the AWS console.",
-  });
+const resolveAccountSearchPlan = async (preferredRegion?: string): Promise<SearchPlan> => {
+  const { aggregatorRegion } = await requireAccessibleAggregator(
+    {
+      denied:
+        "Account-wide discovery requires an accessible aggregator index. Run 'cloudburn discover status' to inspect indexed regions and access restrictions.",
+      missing:
+        "Account-wide discovery requires an aggregator index. Enable one first with 'cloudburn discover init' or the AWS console.",
+    },
+    preferredRegion,
+  );
 
   return {
     searchRegion: aggregatorRegion,
@@ -487,30 +495,31 @@ const getDefaultResourceExplorerView = async (
   client: ReturnType<typeof createResourceExplorerClient>;
   view: View | undefined;
   viewArn: string;
-}> => {
-  const client = createResourceExplorerClient({ region: searchRegion });
-  const defaultViewResponse = await client
-    .send(new GetDefaultViewCommand({}))
-    .catch((err: unknown) => throwResourceExplorerOperationError(err, 'GetDefaultView', searchRegion));
-  const viewArn = defaultViewResponse.ViewArn;
+}> =>
+  memoizeAwsExecution(JSON.stringify(['resource-explorer-view', searchRegion]), async () => {
+    const client = createResourceExplorerClient({ region: searchRegion });
+    const defaultViewResponse = await client
+      .send(new GetDefaultViewCommand({}))
+      .catch((err: unknown) => throwResourceExplorerOperationError(err, 'GetDefaultView', searchRegion));
+    const viewArn = defaultViewResponse.ViewArn;
 
-  if (!viewArn) {
-    throw new AwsDiscoveryError(
-      'RESOURCE_EXPLORER_DEFAULT_VIEW_REQUIRED',
-      `AWS Resource Explorer does not have a default view in ${searchRegion}. Create one with 'cloudburn discover init' or configure a default view in the AWS console.`,
-    );
-  }
+    if (!viewArn) {
+      throw new AwsDiscoveryError(
+        'RESOURCE_EXPLORER_DEFAULT_VIEW_REQUIRED',
+        `AWS Resource Explorer does not have a default view in ${searchRegion}. Create one with 'cloudburn discover init' or configure a default view in the AWS console.`,
+      );
+    }
 
-  const viewResponse = await client
-    .send(
-      new GetViewCommand({
-        ViewArn: viewArn,
-      }),
-    )
-    .catch((err: unknown) => throwResourceExplorerOperationError(err, 'GetView', searchRegion));
+    const viewResponse = await client
+      .send(
+        new GetViewCommand({
+          ViewArn: viewArn,
+        }),
+      )
+      .catch((err: unknown) => throwResourceExplorerOperationError(err, 'GetView', searchRegion));
 
-  return { client, view: viewResponse.View, viewArn };
-};
+    return { client, view: viewResponse.View, viewArn };
+  });
 
 const getIncludedPropertyNames = (view: View | undefined): Set<string> =>
   new Set((view?.IncludedProperties ?? []).flatMap((property) => (property.Name ? [property.Name] : [])));
@@ -762,7 +771,7 @@ export const waitForAwsResourceExplorerSetup = async (
     }
 
     if (attempt < maxAttempts - 1) {
-      await sleep(delayMs);
+      await waitForAwsDelay(delayMs);
     }
   }
 
@@ -890,7 +899,16 @@ export const listAwsResourcesByFilter = async (
     scope?: 'target' | 'account';
   },
 ): Promise<AwsDiscoveredResource[]> => {
-  const searchPlan = options?.scope === 'account' ? await resolveAccountSearchPlan() : await resolveSearchPlan(target);
+  const searchPlan =
+    options?.scope === 'account'
+      ? await resolveAccountSearchPlan(
+          target.mode === 'region'
+            ? assertValidAwsRegion(target.region)
+            : target.mode === 'regions' && target.regions[0]
+              ? assertValidAwsRegion(target.regions[0])
+              : undefined,
+        )
+      : await resolveSearchPlan(target);
   const viewArn = await resolveSearchViewArn(searchPlan.searchRegion, options?.requiredViewProperties);
   const scopedFilters = planScopedFilters(filterString, searchPlan.regionFilters);
 
@@ -1034,7 +1052,7 @@ export const waitForAwsResourceExplorerIndex = async (
     }
 
     if (attempt < maxAttempts - 1) {
-      await sleep(delayMs);
+      await waitForAwsDelay(delayMs);
     }
   }
 

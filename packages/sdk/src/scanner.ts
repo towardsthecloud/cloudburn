@@ -10,6 +10,7 @@ import {
   initializeAwsDiscovery,
   listSupportedAwsResourceTypes,
 } from './providers/aws/discovery.js';
+import { withAwsDiscoveryExecution } from './providers/aws/execution.js';
 import type {
   AwsDiscoveryInitialization,
   AwsDiscoveryProgressEvent,
@@ -74,7 +75,8 @@ export class CloudBurnClient {
    *
    * @param options - Optional discovery target, config overrides, progress
    *   callback, and AWS credentials to use instead of the ambient credential
-   *   provider chain.
+   *   provider chain. `signal` cancels the run; `timeoutMs` sets its total deadline
+   *   (default five minutes). Cancelled or timed-out runs reject without a partial result.
    * @returns Grouped live scan findings.
    */
   public async discover(options?: {
@@ -84,11 +86,12 @@ export class CloudBurnClient {
     aws?: { credentials?: AwsClientCredentials };
     includeEvaluationResources?: boolean;
     onProgress?: (event: AwsDiscoveryProgressEvent) => void;
+    signal?: AbortSignal;
+    timeoutMs?: number;
   }): Promise<ScanResult> {
     emitDebugLog(this.options?.debugLogger, 'sdk: starting live discovery scan');
-    const effectiveConfig = await this.getEffectiveConfig(options?.config, options?.configPath);
-
     const run = async () => {
+      const effectiveConfig = await this.getEffectiveConfig(options?.config, options?.configPath);
       const result = await runLiveScan(effectiveConfig, options?.target ?? { mode: 'current' }, {
         debugLogger: this.options?.debugLogger,
         includeEvaluationResources: options?.includeEvaluationResources,
@@ -99,7 +102,10 @@ export class CloudBurnClient {
       return threshold === undefined ? result : { ...result, policy: evaluateScanPolicy(result, threshold) };
     };
 
-    return options?.aws?.credentials ? withAwsClientCredentials(options.aws.credentials, run) : run();
+    return withAwsDiscoveryExecution(
+      { signal: options?.signal, timeoutMs: options?.timeoutMs, debugLogger: this.options?.debugLogger },
+      () => (options?.aws?.credentials ? withAwsClientCredentials(options.aws.credentials, run) : run()),
+    );
   }
 
   /**

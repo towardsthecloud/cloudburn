@@ -1,6 +1,7 @@
 import { DescribeNatGatewaysCommand } from '@aws-sdk/client-ec2';
 import type { AwsDiscoveredResource, AwsEc2NatGatewayActivity } from '@cloudburn/rules';
 import { createEc2Client } from '../client.js';
+import { getAwsDiscoveryTimestamp } from '../execution.js';
 import { fetchCloudWatchSignals } from './cloudwatch.js';
 import { chunkItems, withAwsServiceErrorContext } from './utils.js';
 
@@ -95,7 +96,7 @@ export const hydrateAwsEc2NatGatewayActivity = async (
         }
 
         const metricData = await fetchCloudWatchSignals({
-          endTime: new Date(),
+          endTime: new Date(getAwsDiscoveryTimestamp()),
           queries: availableNatGateways.flatMap((natGateway, index) => [
             {
               dimensions: [{ Name: 'NatGatewayId', Value: natGateway.natGatewayId }],
@@ -115,7 +116,7 @@ export const hydrateAwsEc2NatGatewayActivity = async (
             },
           ]),
           region,
-          startTime: new Date(Date.now() - SEVEN_DAYS_IN_SECONDS * 1000),
+          startTime: new Date(getAwsDiscoveryTimestamp() - SEVEN_DAYS_IN_SECONDS * 1000),
         });
 
         natGateways.push(

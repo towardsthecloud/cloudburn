@@ -2,6 +2,7 @@ import { GetCostAndUsageCommand } from '@aws-sdk/client-cost-explorer';
 import type { AwsCostUsage, AwsDiscoveredResource } from '@cloudburn/rules';
 import { createCostExplorerClient } from '../client.js';
 import type { AwsAccountIdResolver } from '../discovery-registry.js';
+import { getAwsDiscoveryTimestamp } from '../execution.js';
 import {
   addUtcMonths,
   formatUtcDate,
@@ -33,7 +34,7 @@ export const hydrateAwsCostUsage = async (
 ): Promise<AwsCostUsage[]> => {
   const client = createCostExplorerClient();
   const accountId = await resolveAwsAccountIdForLoad(context);
-  const monthStart = toUtcMonthBoundary(new Date());
+  const monthStart = toUtcMonthBoundary(new Date(getAwsDiscoveryTimestamp()));
   const latestFullMonthStart = addUtcMonths(monthStart, -1);
   const previousFullMonthStart = addUtcMonths(monthStart, -2);
   const response = await withAwsServiceErrorContext(

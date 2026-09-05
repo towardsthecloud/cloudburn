@@ -11,6 +11,7 @@ import type {
   AwsEc2TargetGroup,
 } from '@cloudburn/rules';
 import { createElasticLoadBalancingClient, createElasticLoadBalancingV2Client } from '../client.js';
+import { getAwsDiscoveryTimestamp } from '../execution.js';
 import { fetchCloudWatchSignals } from './cloudwatch.js';
 import { chunkItems, mapWithConcurrency, withAwsServiceErrorContext } from './utils.js';
 
@@ -441,7 +442,7 @@ export const hydrateAwsEc2LoadBalancerRequestActivity = async (
   const hydratedPages = await Promise.all(
     [...loadBalancersByRegion.entries()].map(async ([region, regionLoadBalancers]) => {
       const metricData = await fetchCloudWatchSignals({
-        endTime: new Date(),
+        endTime: new Date(getAwsDiscoveryTimestamp()),
         queries: regionLoadBalancers.flatMap((loadBalancer, index) => {
           const dimensionValue = extractLoadBalancerMetricDimensionValue(loadBalancer.loadBalancerArn);
 
@@ -471,7 +472,7 @@ export const hydrateAwsEc2LoadBalancerRequestActivity = async (
           ];
         }),
         region,
-        startTime: new Date(Date.now() - FOURTEEN_DAYS_IN_SECONDS * 1000),
+        startTime: new Date(getAwsDiscoveryTimestamp() - FOURTEEN_DAYS_IN_SECONDS * 1000),
       });
 
       return regionLoadBalancers.map((loadBalancer, index) => {

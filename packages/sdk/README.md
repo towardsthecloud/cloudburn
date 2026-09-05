@@ -83,6 +83,19 @@ const auditableResult = await client.discover({
 });
 ```
 
+`discover()` has a five-minute total deadline. Set `timeoutMs` to allow a longer run, or pass an `AbortSignal` to cancel it:
+
+```typescript
+const controller = new AbortController();
+const result = await client.discover({
+  target: { mode: 'regions', regions: ['eu-west-1'] },
+  timeoutMs: 600_000,
+  signal: controller.signal,
+});
+```
+
+An expired deadline rejects with `TimeoutError`; cancellation rejects with the signal's reason. Both stop queued requests, retry waits, and active AWS requests without returning partial findings. AWS clients and lookup caches belong to one run and are released when it ends.
+
 `discover()` defaults to the current AWS region and the AWS Core preset. You can also target one or more explicit AWS regions with `{ target: { mode: 'regions', regions: [...] } }`. Multi-region discovery requires an AWS Resource Explorer aggregator index. Rules that need explicit AWS setup are opt-in through `config.discovery.enabledRules`. `CLDBRN-AWS-TAGGING-1` needs an accessible aggregator, `CLDBRN-AWS-LAMBDA-4` needs AWS Compute Optimizer enrollment, and `CLDBRN-AWS-COSTOPTIMIZATIONHUB-1` needs AWS Cost Optimization Hub enrollment.
 
 Set `includeEvaluationResources` when a caller needs audit evidence for checks that did not produce findings. The

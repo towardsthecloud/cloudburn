@@ -14,6 +14,69 @@ describe('fetchCloudWatchSignals', () => {
     vi.resetAllMocks();
   });
 
+  const query = (id: string, period = 86_400) => ({
+    id,
+    period,
+    dimensions: [],
+    metricName: 'CPUUtilization',
+    namespace: 'AWS/EC2',
+    stat: 'Average' as const,
+  });
+  const window = {
+    region: 'us-east-1',
+    startTime: new Date('2026-03-01T00:00:00.000Z'),
+    endTime: new Date('2026-03-15T00:00:00.000Z'),
+  };
+
+  it('packs 500 daily queries into a request and runs independent batches while the first is slow', async () => {
+    let release = (): void => undefined;
+    const slow = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const batchSizes: number[] = [];
+    const send = vi.fn(async (command: GetMetricDataCommand) => {
+      const queries = command.input.MetricDataQueries ?? [];
+      batchSizes.push(queries.length);
+      if (queries[0]?.Id === 'cpu0') await slow;
+      return {
+        MetricDataResults: queries.map((entry) => ({
+          Id: entry.Id,
+          StatusCode: 'Complete',
+          Timestamps: [window.startTime],
+          Values: [1],
+        })),
+      };
+    });
+    mockedCreateCloudWatchClient.mockReturnValue({ send } as never);
+    const run = fetchCloudWatchSignals({ ...window, queries: Array.from({ length: 501 }, (_, i) => query(`cpu${i}`)) });
+    try {
+      await vi.waitFor(() => expect(batchSizes).toEqual([500, 1]), { timeout: 1000 });
+    } finally {
+      release();
+      await run;
+    }
+    const result = await run;
+    expect([...result.keys()]).toEqual(Array.from({ length: 501 }, (_, i) => `cpu${i}`));
+  });
+
+  it('bounds estimated datapoints as well as query count and pins aligned windows through pagination', async () => {
+    const send = vi.fn(async (command: GetMetricDataCommand) => {
+      expect(command.input.MetricDataQueries?.length).toBeLessThanOrEqual(5);
+      expect(command.input.MaxDatapoints).toBe(100800);
+      expect(command.input.StartTime).toEqual(window.startTime);
+      expect(command.input.EndTime).toEqual(window.endTime);
+      return { MetricDataResults: [] };
+    });
+    mockedCreateCloudWatchClient.mockReturnValue({ send } as never);
+    await fetchCloudWatchSignals({
+      ...window,
+      startTime: new Date(window.startTime.getTime() + 1234),
+      endTime: new Date(window.endTime.getTime() + 5678),
+      queries: Array.from({ length: 6 }, (_, i) => query(`cpu${i}`, 60)),
+    });
+    expect(send).toHaveBeenCalledTimes(2);
+  });
+
   it('normalizes CloudWatch metric results by query id', async () => {
     mockedCreateCloudWatchClient.mockReturnValue({
       send: vi.fn(async (_command: GetMetricDataCommand) => ({

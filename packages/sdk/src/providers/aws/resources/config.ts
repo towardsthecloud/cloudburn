@@ -19,6 +19,7 @@ import {
 } from '@cloudburn/rules';
 import { createCloudWatchClient, createConfigServiceClient, resolveCurrentAwsRegion } from '../client.js';
 import type { AwsAccountIdResolver, AwsDiscoveryDatasetLoadResult } from '../discovery-registry.js';
+import { getAwsDiscoveryTimestamp } from '../execution.js';
 import { fetchCloudWatchSignals } from './cloudwatch.js';
 import { chunkItems, mapWithConcurrency, resolveAwsAccountIdForLoad, withAwsServiceErrorContext } from './utils.js';
 
@@ -384,7 +385,7 @@ export const hydrateAwsConfigRecordingFrequencyReviews = async (
     return [];
   }
 
-  const endTime = new Date();
+  const endTime = new Date(getAwsDiscoveryTimestamp());
   const startTime = new Date(endTime.getTime() - OBSERVATION_WINDOW_DAYS * DAY_SECONDS * 1000);
   const queries = continuousResourceTypes.map((resourceType, index) => ({
     dimensions: [{ Name: 'ResourceType', Value: resourceType }],

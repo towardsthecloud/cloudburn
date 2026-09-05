@@ -8,6 +8,7 @@ import type {
 } from '@cloudburn/rules';
 import { createComputeOptimizerClient, createLambdaClient } from '../client.js';
 import type { AwsDiscoveryDatasetResolver } from '../discovery-registry.js';
+import { getAwsDiscoveryTimestamp } from '../execution.js';
 import { fetchCloudWatchSignals } from './cloudwatch.js';
 import { getUnqualifiedLambdaFunctionArn } from './lambda-identity.js';
 import { extractTerminalArnResourceIdentifier, withAwsServiceErrorContext } from './utils.js';
@@ -179,7 +180,7 @@ export const hydrateAwsLambdaFunctionMetrics = async (
   const hydratedPages = await Promise.all(
     [...functionsByRegion.entries()].map(async ([region, regionFunctions]) => {
       const metricData = await fetchCloudWatchSignals({
-        endTime: new Date(),
+        endTime: new Date(getAwsDiscoveryTimestamp()),
         queries: regionFunctions.flatMap((fn, index) => [
           {
             dimensions: [{ Name: 'FunctionName', Value: fn.functionName }],
@@ -207,7 +208,7 @@ export const hydrateAwsLambdaFunctionMetrics = async (
           },
         ]),
         region,
-        startTime: new Date(Date.now() - SEVEN_DAYS_IN_SECONDS * 1000),
+        startTime: new Date(getAwsDiscoveryTimestamp() - SEVEN_DAYS_IN_SECONDS * 1000),
       });
 
       return regionFunctions.map((fn, index) => {

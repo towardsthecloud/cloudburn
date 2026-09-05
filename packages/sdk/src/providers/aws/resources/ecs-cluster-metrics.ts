@@ -1,5 +1,6 @@
 import type { AwsDiscoveredResource, AwsEcsClusterMetric } from '@cloudburn/rules';
 import type { AwsDiscoveryDatasetResolver } from '../discovery-registry.js';
+import { getAwsDiscoveryTimestamp } from '../execution.js';
 import { fetchCloudWatchSignals } from './cloudwatch.js';
 import { hydrateAwsEcsClusters } from './ecs.js';
 
@@ -29,7 +30,7 @@ export const hydrateAwsEcsClusterMetrics = async (
   const hydratedPages = await Promise.all(
     [...clustersByRegion.entries()].map(async ([region, regionClusters]) => {
       const metricData = await fetchCloudWatchSignals({
-        endTime: new Date(),
+        endTime: new Date(getAwsDiscoveryTimestamp()),
         queries: regionClusters.map((cluster, index) => ({
           dimensions: [{ Name: 'ClusterName', Value: cluster.clusterName }],
           id: `ecsCluster${index}`,
@@ -39,7 +40,7 @@ export const hydrateAwsEcsClusterMetrics = async (
           stat: 'Average',
         })),
         region,
-        startTime: new Date(Date.now() - FOURTEEN_DAYS_IN_SECONDS * 1000),
+        startTime: new Date(getAwsDiscoveryTimestamp() - FOURTEEN_DAYS_IN_SECONDS * 1000),
       });
 
       return regionClusters.map((cluster, index) => {

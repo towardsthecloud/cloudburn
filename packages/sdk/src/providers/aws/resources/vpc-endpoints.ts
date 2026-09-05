@@ -1,6 +1,7 @@
 import { DescribeVpcEndpointsCommand } from '@aws-sdk/client-ec2';
 import type { AwsDiscoveredResource, AwsEc2VpcEndpointActivity } from '@cloudburn/rules';
 import { createEc2Client } from '../client.js';
+import { getAwsDiscoveryTimestamp } from '../execution.js';
 import { fetchCloudWatchSignals } from './cloudwatch.js';
 import { chunkItems, withAwsServiceErrorContext } from './utils.js';
 
@@ -158,7 +159,7 @@ export const hydrateAwsEc2VpcEndpointActivity = async (
         }
 
         const metricData = await fetchCloudWatchSignals({
-          endTime: new Date(),
+          endTime: new Date(getAwsDiscoveryTimestamp()),
           queries: matchedEndpoints.map((endpoint, index) => ({
             dimensions: [
               { Name: 'Endpoint Type', Value: 'Interface' },
@@ -173,7 +174,7 @@ export const hydrateAwsEc2VpcEndpointActivity = async (
             stat: 'Sum',
           })),
           region,
-          startTime: new Date(Date.now() - THIRTY_DAYS_IN_SECONDS * 1000),
+          startTime: new Date(getAwsDiscoveryTimestamp() - THIRTY_DAYS_IN_SECONDS * 1000),
         });
 
         interfaceEndpoints.push(

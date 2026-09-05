@@ -1,5 +1,5 @@
 import { createFinding, createFindingMatch, createRule } from '../../shared/helpers.js';
-import { hasNoRegisteredTargets } from './shared.js';
+import { getTargetCountByArn, hasNoRegisteredTargets } from './shared.js';
 
 const RULE_ID = 'CLDBRN-AWS-ELB-1';
 const RULE_SERVICE = 'elb';
@@ -18,11 +18,11 @@ export const elbAlbWithoutTargetsRule = createRule({
   supports: ['discovery'],
   discoveryDependencies: ['aws-ec2-load-balancers', 'aws-ec2-target-groups'],
   evaluateLive: ({ resources }) => {
-    const targetGroups = resources.get('aws-ec2-target-groups');
+    const targetCountByArn = getTargetCountByArn(resources.get('aws-ec2-target-groups'));
     const findings = resources
       .get('aws-ec2-load-balancers')
       .filter((loadBalancer) => loadBalancer.loadBalancerType === 'application')
-      .filter((loadBalancer) => hasNoRegisteredTargets(loadBalancer, targetGroups))
+      .filter((loadBalancer) => hasNoRegisteredTargets(loadBalancer, targetCountByArn))
       .map((loadBalancer) =>
         createFindingMatch(loadBalancer.loadBalancerArn, loadBalancer.region, loadBalancer.accountId),
       );

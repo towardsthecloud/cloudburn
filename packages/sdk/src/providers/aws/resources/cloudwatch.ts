@@ -1,8 +1,35 @@
 import { GetMetricDataCommand } from '@aws-sdk/client-cloudwatch';
 import { createCloudWatchClient } from '../client.js';
-import { chunkItems, withAwsServiceErrorContext } from './utils.js';
+import { chunkItems, mapWithConcurrency, withAwsServiceErrorContext } from './utils.js';
 
-const CLOUDWATCH_METRIC_QUERY_BATCH_SIZE = 100;
+const CLOUDWATCH_METRIC_QUERY_BATCH_SIZE = 500;
+const CLOUDWATCH_MAX_DATAPOINTS = 100_800;
+const CLOUDWATCH_BATCH_CONCURRENCY = 2;
+
+type MetricBatch = { queries: CloudWatchMetricQuery[]; startTime: Date; endTime: Date };
+
+const createMetricBatches = (queries: CloudWatchMetricQuery[], startTime: Date, endTime: Date): MetricBatch[] => {
+  const byPeriod = new Map<number, CloudWatchMetricQuery[]>();
+  for (const query of queries) {
+    if (!Number.isFinite(query.period) || query.period <= 0)
+      throw new RangeError('CloudWatch metric periods must be positive.');
+    const group = byPeriod.get(query.period) ?? [];
+    group.push(query);
+    byPeriod.set(query.period, group);
+  }
+  return [...byPeriod].flatMap(([period, group]) => {
+    const periodMs = period * 1000;
+    const start = new Date(Math.floor(startTime.getTime() / periodMs) * periodMs);
+    const end = new Date(Math.floor(endTime.getTime() / periodMs) * periodMs);
+    const pointsPerQuery = (end.getTime() - start.getTime()) / periodMs;
+    if (pointsPerQuery <= 0) return [];
+    const size = Math.max(
+      1,
+      Math.min(CLOUDWATCH_METRIC_QUERY_BATCH_SIZE, Math.floor(CLOUDWATCH_MAX_DATAPOINTS / pointsPerQuery)),
+    );
+    return chunkItems(group, size).map((batch) => ({ queries: batch, startTime: start, endTime: end }));
+  });
+};
 
 /**
  * Declarative CloudWatch metric query definition used for batched
@@ -45,9 +72,9 @@ export const fetchCloudWatchSignals = async (options: {
   queries: CloudWatchMetricQuery[];
 }): Promise<Map<string, CloudWatchMetricPoint[]>> => {
   const client = createCloudWatchClient({ region: options.region });
-  const results = new Map<string, CloudWatchMetricPoint[]>();
-
-  for (const batch of chunkItems(options.queries, CLOUDWATCH_METRIC_QUERY_BATCH_SIZE)) {
+  const batches = createMetricBatches(options.queries, options.startTime, options.endTime);
+  const batchResults = await mapWithConcurrency(batches, CLOUDWATCH_BATCH_CONCURRENCY, async (batch) => {
+    const results = new Map<string, CloudWatchMetricPoint[]>();
     const finalStatuses = new Map<string, string>();
     let nextToken: string | undefined;
 
@@ -55,8 +82,9 @@ export const fetchCloudWatchSignals = async (options: {
       const response = await withAwsServiceErrorContext('Amazon CloudWatch', 'GetMetricData', options.region, () =>
         client.send(
           new GetMetricDataCommand({
-            EndTime: options.endTime,
-            MetricDataQueries: batch.map((query) => ({
+            EndTime: batch.endTime,
+            MaxDatapoints: CLOUDWATCH_MAX_DATAPOINTS,
+            MetricDataQueries: batch.queries.map((query) => ({
               Id: query.id,
               MetricStat: {
                 Metric: {
@@ -71,7 +99,7 @@ export const fetchCloudWatchSignals = async (options: {
             })),
             NextToken: nextToken,
             ScanBy: 'TimestampAscending',
-            StartTime: options.startTime,
+            StartTime: batch.startTime,
           }),
         ),
       );
@@ -93,7 +121,7 @@ export const fetchCloudWatchSignals = async (options: {
           const timestamp = timestamps[index];
           const value = values[index];
 
-          if (!timestamp || value === undefined) {
+          if (!timestamp || !Number.isFinite(timestamp.getTime()) || value === undefined || !Number.isFinite(value)) {
             continue;
           }
 
@@ -114,7 +142,13 @@ export const fetchCloudWatchSignals = async (options: {
         results.delete(resultId);
       }
     }
-  }
-
-  return results;
+    return results;
+  });
+  const results = new Map(batchResults.flatMap((batch) => [...batch]));
+  return new Map(
+    options.queries.flatMap((query) => {
+      const points = results.get(query.id);
+      return points ? [[query.id, points] as const] : [];
+    }),
+  );
 };

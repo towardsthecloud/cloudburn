@@ -6,7 +6,7 @@ import type {
   AwsDiscoveredResource,
 } from '@cloudburn/rules';
 import { createCloudWatchLogsClient } from '../client.js';
-import { chunkItems, withAwsServiceErrorContext } from './utils.js';
+import { mapWithConcurrency, withAwsServiceErrorContext } from './utils.js';
 
 const CLOUDWATCH_LOG_GROUP_ARN_PATTERN = /^arn:[^:]+:logs:[^:]+:[^:]+:log-group:(.+)$/u;
 const CLOUDWATCH_LOG_GROUP_HYDRATION_CONCURRENCY = 10;
@@ -226,49 +226,43 @@ export const hydrateAwsCloudWatchLogGroupRecentStreamActivity = async (
           return logGroupName ? [[logGroupName, resource] as const] : [];
         }),
       );
-      const activity: AwsCloudWatchLogGroupRecentStreamActivity[] = [];
+      return mapWithConcurrency(
+        [...desiredLogGroups.entries()],
+        CLOUDWATCH_LOG_GROUP_HYDRATION_CONCURRENCY,
+        async ([logGroupName, discoveredResource]) => {
+          const response = await withAwsServiceErrorContext(
+            'Amazon CloudWatch Logs',
+            'DescribeLogStreams',
+            region,
+            () =>
+              client.send(
+                new DescribeLogStreamsCommand({
+                  descending: true,
+                  limit: 1,
+                  logGroupName,
+                  orderBy: 'LastEventTime',
+                }),
+              ),
+          );
+          const latestStream = response.logStreams?.[0];
+          const latestEventTimestamp = latestStream?.lastEventTimestamp;
 
-      for (const batch of chunkItems([...desiredLogGroups.entries()], CLOUDWATCH_LOG_GROUP_HYDRATION_CONCURRENCY)) {
-        const hydratedBatch = await Promise.all(
-          batch.map(async ([logGroupName, discoveredResource]) => {
-            const response = await withAwsServiceErrorContext(
-              'Amazon CloudWatch Logs',
-              'DescribeLogStreams',
-              region,
-              () =>
-                client.send(
-                  new DescribeLogStreamsCommand({
-                    descending: true,
-                    limit: 1,
-                    logGroupName,
-                    orderBy: 'LastEventTime',
-                  }),
-                ),
-            );
-            const latestStream = response.logStreams?.[0];
-            const latestEventTimestamp = latestStream?.lastEventTimestamp;
-
-            return {
-              accountId:
-                (latestStream?.arn ? extractAccountIdFromArn(latestStream.arn) : null) ?? discoveredResource.accountId,
-              ...(latestEventTimestamp !== undefined
-                ? { lastActivityAt: new Date(latestEventTimestamp).toISOString() }
-                : {}),
-              lastEventTimestamp: latestStream?.lastEventTimestamp,
-              lastIngestionTime: latestStream?.lastIngestionTime,
-              latestStreamArn: latestStream?.arn,
-              latestStreamName: latestStream?.logStreamName,
-              logGroupArn: discoveredResource.arn,
-              logGroupName,
-              region,
-            } satisfies AwsCloudWatchLogGroupRecentStreamActivity;
-          }),
-        );
-
-        activity.push(...hydratedBatch);
-      }
-
-      return activity;
+          return {
+            accountId:
+              (latestStream?.arn ? extractAccountIdFromArn(latestStream.arn) : null) ?? discoveredResource.accountId,
+            ...(latestEventTimestamp !== undefined
+              ? { lastActivityAt: new Date(latestEventTimestamp).toISOString() }
+              : {}),
+            lastEventTimestamp: latestStream?.lastEventTimestamp,
+            lastIngestionTime: latestStream?.lastIngestionTime,
+            latestStreamArn: latestStream?.arn,
+            latestStreamName: latestStream?.logStreamName,
+            logGroupArn: discoveredResource.arn,
+            logGroupName,
+            region,
+          } satisfies AwsCloudWatchLogGroupRecentStreamActivity;
+        },
+      );
     }),
   );
 

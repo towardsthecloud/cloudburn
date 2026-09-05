@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as clientModule from '../../src/providers/aws/client.js';
+import { withAwsDiscoveryExecution } from '../../src/providers/aws/execution.js';
 import {
   buildAwsDiscoveryCatalog,
   createAwsResourceExplorerSetup,
@@ -11,6 +12,98 @@ import {
 describe('resource explorer discovery', () => {
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it('checks other regions while a slow regional index lookup is still in flight', async () => {
+    const regions = ['eu-west-1', 'eu-central-1', 'us-east-1'];
+    vi.spyOn(clientModule, 'listEnabledAwsRegions').mockResolvedValue(regions);
+    let releaseSlow = (): void => undefined;
+    const slowLookup = new Promise<void>((resolve) => {
+      releaseSlow = resolve;
+    });
+    const checkedRegions: string[] = [];
+    vi.spyOn(clientModule, 'createResourceExplorerClient').mockImplementation(
+      ({ region }) =>
+        ({
+          send: vi.fn(async (command) => {
+            if (command.input.Regions) {
+              checkedRegions.push(region as string);
+              if (region === 'eu-west-1') await slowLookup;
+              return { Indexes: [{ Region: region, Type: region === 'eu-west-1' ? 'AGGREGATOR' : 'LOCAL' }] };
+            }
+            if (command.input.Filters) return { Resources: [] };
+            return { ViewArn: 'view', View: { Filters: { FilterString: '' } } };
+          }),
+        }) as never,
+    );
+
+    const run = buildAwsDiscoveryCatalog({ mode: 'all' }, ['ec2:volume']);
+    try {
+      await vi.waitFor(() => expect(checkedRegions).toContain('us-east-1'), { timeout: 1000 });
+    } finally {
+      releaseSlow();
+      await run;
+    }
+  });
+
+  it.each([
+    { mode: 'region', region: 'eu-west-1' },
+    { mode: 'regions', regions: ['eu-west-1', 'eu-central-1'] },
+  ] as const)('uses the explicit target to enumerate enabled regions for %j', async (target) => {
+    const listRegions = vi.spyOn(clientModule, 'listEnabledAwsRegions').mockImplementation(async (region) => {
+      expect(region).toBe('eu-west-1');
+      return ['eu-west-1', 'eu-central-1'];
+    });
+    vi.spyOn(clientModule, 'createResourceExplorerClient').mockImplementation(
+      ({ region }) =>
+        ({
+          send: vi.fn(async (command) => {
+            if (command.input.Regions)
+              return { Indexes: [{ Region: region, Type: region === 'eu-central-1' ? 'AGGREGATOR' : 'LOCAL' }] };
+            if (command.input.Filters) return { Resources: [] };
+            return { ViewArn: 'view', View: { Filters: { FilterString: '' } } };
+          }),
+        }) as never,
+    );
+    await buildAwsDiscoveryCatalog(target.mode === 'regions' ? { ...target, regions: [...target.regions] } : target, [
+      'ec2:volume',
+    ]);
+    expect(listRegions).toHaveBeenCalledOnce();
+  });
+
+  it('reuses aggregator and view lookups within a run without caching them across runs', async () => {
+    const enabled = vi.spyOn(clientModule, 'listEnabledAwsRegions').mockResolvedValue(['eu-west-1', 'eu-central-1']);
+    const operations: string[] = [];
+    vi.spyOn(clientModule, 'createResourceExplorerClient').mockImplementation(
+      ({ region }) =>
+        ({
+          send: vi.fn(async (command) => {
+            operations.push(command.constructor.name);
+            if (command.input.Regions)
+              return { Indexes: [{ Region: region, Type: region === 'eu-west-1' ? 'AGGREGATOR' : 'LOCAL' }] };
+            if (command.input.Filters) return { Resources: [] };
+            return { ViewArn: 'view', View: { Filters: { FilterString: '' }, IncludedProperties: [{ Name: 'tags' }] } };
+          }),
+        }) as never,
+    );
+    const scan = () =>
+      withAwsDiscoveryExecution({}, async () => {
+        await Promise.all([
+          buildAwsDiscoveryCatalog({ mode: 'all' }, ['ec2:volume']),
+          listAwsResourcesByFilter({ mode: 'all' }, 'resourcetype.supports:tags tag:none', {
+            scope: 'account',
+            requiredViewProperties: ['tags'],
+          }),
+        ]);
+      });
+    await scan();
+    expect(enabled).toHaveBeenCalledOnce();
+    expect(operations.filter((operation) => operation === 'ListIndexesCommand')).toHaveLength(2);
+    expect(operations.filter((operation) => operation === 'GetViewCommand')).toHaveLength(1);
+    await scan();
+    expect(enabled).toHaveBeenCalledTimes(2);
+    expect(operations.filter((operation) => operation === 'ListIndexesCommand')).toHaveLength(4);
+    expect(operations.filter((operation) => operation === 'GetViewCommand')).toHaveLength(2);
   });
 
   it('builds a deduplicated catalog and applies a region filter when listing from an aggregator region', async () => {

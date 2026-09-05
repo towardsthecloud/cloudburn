@@ -30,6 +30,7 @@ import { SecretsManagerClient } from '@aws-sdk/client-secrets-manager';
 import { GetCallerIdentityCommand, STSClient } from '@aws-sdk/client-sts';
 import type { AwsCredentialIdentity, AwsCredentialIdentityProvider } from '@aws-sdk/types';
 import { AwsDiscoveryError } from './errors.js';
+import { getAwsClient } from './execution.js';
 
 export type AwsClientCredentials = AwsCredentialIdentity | AwsCredentialIdentityProvider;
 
@@ -62,8 +63,8 @@ const AWS_ROUTE53_CLIENT_MAX_ATTEMPTS = 1;
 const AWS_CLIENT_CONNECTION_TIMEOUT_MS = 5_000;
 const AWS_CLIENT_REQUEST_TIMEOUT_MS = 30_000;
 
-// Adaptive retry mode rate-limits the client proactively when AWS throttles;
-// retries beyond these attempts are owned by withAwsServiceErrorContext. Node
+// Direct control-plane calls retain SDK retries. Wrapped service calls use
+// one SDK attempt so their outer budget owns every retry and backoff. Node
 // sockets have no default timeout, so without explicit request timeouts a hung
 // connection would stall a discovery run indefinitely.
 const baseAwsClientConfig = () => ({
@@ -71,6 +72,7 @@ const baseAwsClientConfig = () => ({
   requestHandler: {
     connectionTimeout: AWS_CLIENT_CONNECTION_TIMEOUT_MS,
     requestTimeout: AWS_CLIENT_REQUEST_TIMEOUT_MS,
+    throwOnRequestTimeout: true,
   },
   retryMode: 'adaptive',
 });
@@ -153,230 +155,342 @@ export const assertSupportedAwsRegion = (region: string | undefined): AwsRegion 
 
 /** Creates an AWS EC2 client for a specific region. */
 export const createEc2Client = (config: AwsClientConfig): EC2Client =>
-  new EC2Client({
-    ...baseAwsClientConfig(),
-    region: config.region,
-    credentials: resolveAwsClientCredentials(),
-  });
+  getAwsClient(
+    JSON.stringify(['EC2Client', config.region]),
+    () =>
+      new EC2Client({
+        ...baseAwsClientConfig(),
+        region: config.region,
+        credentials: resolveAwsClientCredentials(),
+      }),
+  );
 
 /** Creates an AWS ECS client for a specific region. */
 export const createEcsClient = (config: AwsClientConfig): ECSClient =>
-  new ECSClient({
-    ...baseAwsClientConfig(),
-    region: config.region,
-    credentials: resolveAwsClientCredentials(),
-  });
+  getAwsClient(
+    JSON.stringify(['ECSClient', config.region]),
+    () =>
+      new ECSClient({
+        ...baseAwsClientConfig(),
+        region: config.region,
+        credentials: resolveAwsClientCredentials(),
+      }),
+  );
 
 /** Creates an AWS EKS client for a specific region. */
 export const createEksClient = (config: AwsClientConfig): EKSClient =>
-  new EKSClient({
-    ...baseAwsClientConfig(),
-    region: config.region,
-    credentials: resolveAwsClientCredentials(),
-  });
+  getAwsClient(
+    JSON.stringify(['EKSClient', config.region]),
+    () =>
+      new EKSClient({
+        ...baseAwsClientConfig(),
+        region: config.region,
+        credentials: resolveAwsClientCredentials(),
+      }),
+  );
 
 /** Creates an AWS ECR client for a specific region. */
 export const createEcrClient = (config: AwsClientConfig): ECRClient =>
-  new ECRClient({
-    ...baseAwsClientConfig(),
-    region: config.region,
-    credentials: resolveAwsClientCredentials(),
-  });
+  getAwsClient(
+    JSON.stringify(['ECRClient', config.region]),
+    () =>
+      new ECRClient({
+        ...baseAwsClientConfig(),
+        region: config.region,
+        credentials: resolveAwsClientCredentials(),
+      }),
+  );
 
 /** Creates an AWS Application Auto Scaling client for a specific region. */
 export const createApplicationAutoScalingClient = (config: AwsClientConfig): ApplicationAutoScalingClient =>
-  new ApplicationAutoScalingClient({
-    ...baseAwsClientConfig(),
-    region: config.region,
-    credentials: resolveAwsClientCredentials(),
-  });
+  getAwsClient(
+    JSON.stringify(['ApplicationAutoScalingClient', config.region]),
+    () =>
+      new ApplicationAutoScalingClient({
+        ...baseAwsClientConfig(),
+        region: config.region,
+        credentials: resolveAwsClientCredentials(),
+      }),
+  );
 
 /** Creates an AWS Budgets client against the global billing control plane. */
 export const createBudgetsClient = (): BudgetsClient =>
-  new BudgetsClient({
-    ...baseAwsClientConfig(),
-    region: AWS_GLOBAL_CONTROL_REGION,
-    credentials: resolveAwsClientCredentials(),
-  });
+  getAwsClient(
+    JSON.stringify(['BudgetsClient', AWS_GLOBAL_CONTROL_REGION]),
+    () =>
+      new BudgetsClient({
+        ...baseAwsClientConfig(),
+        region: AWS_GLOBAL_CONTROL_REGION,
+        credentials: resolveAwsClientCredentials(),
+      }),
+  );
 
 /** Creates an AWS ElastiCache client for a specific region. */
 export const createElastiCacheClient = (config: AwsClientConfig): ElastiCacheClient =>
-  new ElastiCacheClient({
-    ...baseAwsClientConfig(),
-    region: config.region,
-    credentials: resolveAwsClientCredentials(),
-  });
+  getAwsClient(
+    JSON.stringify(['ElastiCacheClient', config.region]),
+    () =>
+      new ElastiCacheClient({
+        ...baseAwsClientConfig(),
+        region: config.region,
+        credentials: resolveAwsClientCredentials(),
+      }),
+  );
 
 /** Creates an AWS Classic ELB client for a specific region. */
 export const createElasticLoadBalancingClient = (config: AwsClientConfig): ElasticLoadBalancingClient =>
-  new ElasticLoadBalancingClient({
-    ...baseAwsClientConfig(),
-    region: config.region,
-    credentials: resolveAwsClientCredentials(),
-  });
+  getAwsClient(
+    JSON.stringify(['ElasticLoadBalancingClient', config.region]),
+    () =>
+      new ElasticLoadBalancingClient({
+        ...baseAwsClientConfig(),
+        region: config.region,
+        credentials: resolveAwsClientCredentials(),
+      }),
+  );
 
 /** Creates an AWS ELBv2 client for a specific region. */
 export const createElasticLoadBalancingV2Client = (config: AwsClientConfig): ElasticLoadBalancingV2Client =>
-  new ElasticLoadBalancingV2Client({
-    ...baseAwsClientConfig(),
-    region: config.region,
-    credentials: resolveAwsClientCredentials(),
-  });
+  getAwsClient(
+    JSON.stringify(['ElasticLoadBalancingV2Client', config.region]),
+    () =>
+      new ElasticLoadBalancingV2Client({
+        ...baseAwsClientConfig(),
+        region: config.region,
+        credentials: resolveAwsClientCredentials(),
+      }),
+  );
 
 /** Creates an AWS CloudWatch client for a specific region. */
 export const createCloudWatchClient = (config: AwsClientConfig): CloudWatchClient =>
-  new CloudWatchClient({
-    ...baseAwsClientConfig(),
-    region: config.region,
-    credentials: resolveAwsClientCredentials(),
-  });
+  getAwsClient(
+    JSON.stringify(['CloudWatchClient', config.region]),
+    () =>
+      new CloudWatchClient({
+        ...baseAwsClientConfig(),
+        region: config.region,
+        credentials: resolveAwsClientCredentials(),
+      }),
+  );
 
 /** Creates an AWS CloudTrail client for a specific region. */
 export const createCloudTrailClient = (config: AwsClientConfig): CloudTrailClient =>
-  new CloudTrailClient({
-    ...baseAwsClientConfig(),
-    region: config.region,
-    credentials: resolveAwsClientCredentials(),
-  });
+  getAwsClient(
+    JSON.stringify(['CloudTrailClient', config.region]),
+    () =>
+      new CloudTrailClient({
+        ...baseAwsClientConfig(),
+        region: config.region,
+        credentials: resolveAwsClientCredentials(),
+      }),
+  );
 
 /** Creates an AWS CloudFront client against the global control plane. */
 export const createCloudFrontClient = (): CloudFrontClient =>
-  new CloudFrontClient({
-    ...baseAwsClientConfig(),
-    region: AWS_GLOBAL_CONTROL_REGION,
-    credentials: resolveAwsClientCredentials(),
-  });
+  getAwsClient(
+    JSON.stringify(['CloudFrontClient', AWS_GLOBAL_CONTROL_REGION]),
+    () =>
+      new CloudFrontClient({
+        ...baseAwsClientConfig(),
+        region: AWS_GLOBAL_CONTROL_REGION,
+        credentials: resolveAwsClientCredentials(),
+      }),
+  );
 
 /** Creates an AWS CloudWatch Logs client for a specific region. */
 export const createCloudWatchLogsClient = (config: AwsClientConfig): CloudWatchLogsClient =>
-  new CloudWatchLogsClient({
-    ...baseAwsClientConfig(),
-    region: config.region,
-    credentials: resolveAwsClientCredentials(),
-  });
+  getAwsClient(
+    JSON.stringify(['CloudWatchLogsClient', config.region]),
+    () =>
+      new CloudWatchLogsClient({
+        ...baseAwsClientConfig(),
+        region: config.region,
+        credentials: resolveAwsClientCredentials(),
+      }),
+  );
 
 /** Creates an AWS Compute Optimizer client for a specific region. */
 export const createComputeOptimizerClient = (config: AwsClientConfig): ComputeOptimizerClient =>
-  new ComputeOptimizerClient({
-    ...baseAwsClientConfig(),
-    region: config.region,
-    credentials: resolveAwsClientCredentials(),
-  });
+  getAwsClient(
+    JSON.stringify(['ComputeOptimizerClient', config.region]),
+    () =>
+      new ComputeOptimizerClient({
+        ...baseAwsClientConfig(),
+        region: config.region,
+        credentials: resolveAwsClientCredentials(),
+      }),
+  );
 
 /** Creates an AWS Config client for a specific region. */
 export const createConfigServiceClient = (config: AwsClientConfig): ConfigServiceClient =>
-  new ConfigServiceClient({
-    ...baseAwsClientConfig(),
-    region: config.region,
-    credentials: resolveAwsClientCredentials(),
-  });
+  getAwsClient(
+    JSON.stringify(['ConfigServiceClient', config.region]),
+    () =>
+      new ConfigServiceClient({
+        ...baseAwsClientConfig(),
+        region: config.region,
+        credentials: resolveAwsClientCredentials(),
+      }),
+  );
 
 /** Creates an AWS Cost Explorer client against the global billing control plane. */
 export const createCostExplorerClient = (): CostExplorerClient =>
-  new CostExplorerClient({
-    ...baseAwsClientConfig(),
-    region: AWS_GLOBAL_CONTROL_REGION,
-    credentials: resolveAwsClientCredentials(),
-  });
+  getAwsClient(
+    JSON.stringify(['CostExplorerClient', AWS_GLOBAL_CONTROL_REGION]),
+    () =>
+      new CostExplorerClient({
+        ...baseAwsClientConfig(),
+        region: AWS_GLOBAL_CONTROL_REGION,
+        credentials: resolveAwsClientCredentials(),
+      }),
+  );
 
 /** Creates an AWS Cost Optimization Hub client against the global billing control plane. */
 export const createCostOptimizationHubClient = (): CostOptimizationHubClient =>
-  new CostOptimizationHubClient({
-    ...baseAwsClientConfig(),
-    region: AWS_GLOBAL_CONTROL_REGION,
-    credentials: resolveAwsClientCredentials(),
-  });
+  getAwsClient(
+    JSON.stringify(['CostOptimizationHubClient', AWS_GLOBAL_CONTROL_REGION]),
+    () =>
+      new CostOptimizationHubClient({
+        ...baseAwsClientConfig(),
+        region: AWS_GLOBAL_CONTROL_REGION,
+        credentials: resolveAwsClientCredentials(),
+      }),
+  );
 
 /** Creates an AWS DynamoDB client for a specific region. */
 export const createDynamoDbClient = (config: AwsClientConfig): DynamoDBClient =>
-  new DynamoDBClient({
-    ...baseAwsClientConfig(),
-    region: config.region,
-    credentials: resolveAwsClientCredentials(),
-  });
+  getAwsClient(
+    JSON.stringify(['DynamoDBClient', config.region]),
+    () =>
+      new DynamoDBClient({
+        ...baseAwsClientConfig(),
+        region: config.region,
+        credentials: resolveAwsClientCredentials(),
+      }),
+  );
 
 /** Creates an AWS Lambda client for a specific region. */
 export const createLambdaClient = (config: AwsClientConfig): LambdaClient =>
-  new LambdaClient({
-    ...baseAwsClientConfig(),
-    region: config.region,
-    credentials: resolveAwsClientCredentials(),
-  });
+  getAwsClient(
+    JSON.stringify(['LambdaClient', config.region]),
+    () =>
+      new LambdaClient({
+        ...baseAwsClientConfig(),
+        region: config.region,
+        credentials: resolveAwsClientCredentials(),
+      }),
+  );
 
 /** Creates an AWS KMS client for a specific region. */
 export const createKmsClient = (config: AwsClientConfig): KMSClient =>
-  new KMSClient({
-    ...baseAwsClientConfig(),
-    region: config.region,
-    credentials: resolveAwsClientCredentials(),
-  });
+  getAwsClient(
+    JSON.stringify(['KMSClient', config.region]),
+    () =>
+      new KMSClient({
+        ...baseAwsClientConfig(),
+        region: config.region,
+        credentials: resolveAwsClientCredentials(),
+      }),
+  );
 
 /** Creates an AWS EMR client for a specific region. */
 export const createEmrClient = (config: AwsClientConfig): EMRClient =>
-  new EMRClient({
-    ...baseAwsClientConfig(),
-    region: config.region,
-    credentials: resolveAwsClientCredentials(),
-  });
+  getAwsClient(
+    JSON.stringify(['EMRClient', config.region]),
+    () =>
+      new EMRClient({
+        ...baseAwsClientConfig(),
+        region: config.region,
+        credentials: resolveAwsClientCredentials(),
+      }),
+  );
 
 /** Creates an AWS RDS client for a specific region. */
 export const createRdsClient = (config: AwsClientConfig): RDSClient =>
-  new RDSClient({
-    ...baseAwsClientConfig(),
-    region: config.region,
-    credentials: resolveAwsClientCredentials(),
-  });
+  getAwsClient(
+    JSON.stringify(['RDSClient', config.region]),
+    () =>
+      new RDSClient({
+        ...baseAwsClientConfig(),
+        region: config.region,
+        credentials: resolveAwsClientCredentials(),
+      }),
+  );
 
 /** Creates an AWS Redshift client for a specific region. */
 export const createRedshiftClient = (config: AwsClientConfig): RedshiftClient =>
-  new RedshiftClient({
-    ...baseAwsClientConfig(),
-    region: config.region,
-    credentials: resolveAwsClientCredentials(),
-  });
+  getAwsClient(
+    JSON.stringify(['RedshiftClient', config.region]),
+    () =>
+      new RedshiftClient({
+        ...baseAwsClientConfig(),
+        region: config.region,
+        credentials: resolveAwsClientCredentials(),
+      }),
+  );
 
 /** Creates an AWS Route 53 client against the global control plane. */
 export const createRoute53Client = (): Route53Client =>
-  new Route53Client({
-    ...baseAwsClientConfig(),
-    // Route 53 retries must reacquire the shared five-request-per-second
-    // discovery budget, so the outer service wrapper owns every retry.
-    maxAttempts: AWS_ROUTE53_CLIENT_MAX_ATTEMPTS,
-    region: AWS_GLOBAL_CONTROL_REGION,
-    credentials: resolveAwsClientCredentials(),
-  });
+  getAwsClient(
+    JSON.stringify(['Route53Client', AWS_GLOBAL_CONTROL_REGION]),
+    () =>
+      new Route53Client({
+        ...baseAwsClientConfig(),
+        // Route 53 retries must reacquire the shared five-request-per-second
+        // discovery budget, so the outer service wrapper owns every retry.
+        maxAttempts: AWS_ROUTE53_CLIENT_MAX_ATTEMPTS,
+        region: AWS_GLOBAL_CONTROL_REGION,
+        credentials: resolveAwsClientCredentials(),
+      }),
+  );
 
 /** Creates an AWS S3 client for a specific region. */
 export const createS3Client = (config: AwsClientConfig): S3Client =>
-  new S3Client({
-    ...baseAwsClientConfig(),
-    region: config.region,
-    credentials: resolveAwsClientCredentials(),
-  });
+  getAwsClient(
+    JSON.stringify(['S3Client', config.region]),
+    () =>
+      new S3Client({
+        ...baseAwsClientConfig(),
+        region: config.region,
+        credentials: resolveAwsClientCredentials(),
+      }),
+  );
 
 /** Creates an AWS SageMaker client for a specific region. */
 export const createSageMakerClient = (config: AwsClientConfig): SageMakerClient =>
-  new SageMakerClient({
-    ...baseAwsClientConfig(),
-    region: config.region,
-    credentials: resolveAwsClientCredentials(),
-  });
+  getAwsClient(
+    JSON.stringify(['SageMakerClient', config.region]),
+    () =>
+      new SageMakerClient({
+        ...baseAwsClientConfig(),
+        region: config.region,
+        credentials: resolveAwsClientCredentials(),
+      }),
+  );
 
 /** Creates an AWS Secrets Manager client for a specific region. */
 export const createSecretsManagerClient = (config: AwsClientConfig): SecretsManagerClient =>
-  new SecretsManagerClient({
-    ...baseAwsClientConfig(),
-    region: config.region,
-    credentials: resolveAwsClientCredentials(),
-  });
+  getAwsClient(
+    JSON.stringify(['SecretsManagerClient', config.region]),
+    () =>
+      new SecretsManagerClient({
+        ...baseAwsClientConfig(),
+        region: config.region,
+        credentials: resolveAwsClientCredentials(),
+      }),
+  );
 
 /** Creates an AWS Resource Explorer client for a specific region. */
 export const createResourceExplorerClient = (config: AwsClientConfig): ResourceExplorer2Client =>
-  new ResourceExplorer2Client({
-    ...baseAwsClientConfig(),
-    region: config.region,
-    credentials: resolveAwsClientCredentials(),
-  });
+  getAwsClient(
+    JSON.stringify(['ResourceExplorer2Client', config.region]),
+    () =>
+      new ResourceExplorer2Client({
+        ...baseAwsClientConfig(),
+        region: config.region,
+        credentials: resolveAwsClientCredentials(),
+      }),
+  );
 
 /**
  * Resolves the current AWS region using CLI env precedence before falling back
@@ -398,10 +512,14 @@ export const resolveCurrentAwsRegion = async (): Promise<AwsRegion> => {
 /**
  * Resolves the AWS account ID for the current caller via STS.
  *
+ * @param region - Explicit discovery control region, or the ambient region when omitted.
  * @returns The caller account ID.
  */
-export const resolveAwsAccountId = async (): Promise<string> => {
-  const client = new STSClient({ ...baseAwsClientConfig(), credentials: resolveAwsClientCredentials() });
+export const resolveAwsAccountId = async (region?: string): Promise<string> => {
+  const client = getAwsClient(
+    JSON.stringify(['STSClient', region]),
+    () => new STSClient({ ...baseAwsClientConfig(), region, credentials: resolveAwsClientCredentials() }),
+  );
   const { Account } = await client.send(new GetCallerIdentityCommand({}));
 
   if (!Account) {

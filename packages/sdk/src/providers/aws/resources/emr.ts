@@ -2,6 +2,7 @@ import { DescribeClusterCommand, ListInstancesCommand } from '@aws-sdk/client-em
 import type { AwsDiscoveredResource, AwsEmrCluster, AwsEmrClusterMetric } from '@cloudburn/rules';
 import { createEmrClient } from '../client.js';
 import type { AwsDiscoveryDatasetResolver } from '../discovery-registry.js';
+import { getAwsDiscoveryTimestamp } from '../execution.js';
 import { fetchCloudWatchSignals } from './cloudwatch.js';
 import { extractTerminalArnResourceIdentifier, withAwsServiceErrorContext } from './utils.js';
 
@@ -139,7 +140,7 @@ export const hydrateAwsEmrClusterMetrics = async (
   const hydratedPages = await Promise.all(
     [...clustersByRegion.entries()].map(async ([region, regionClusters]) => {
       const metricData = await fetchCloudWatchSignals({
-        endTime: new Date(),
+        endTime: new Date(getAwsDiscoveryTimestamp()),
         queries: regionClusters.map((cluster, index) => ({
           dimensions: [{ Name: 'JobFlowId', Value: cluster.clusterId }],
           id: `idle${index}`,
@@ -149,7 +150,7 @@ export const hydrateAwsEmrClusterMetrics = async (
           stat: 'Average',
         })),
         region,
-        startTime: new Date(Date.now() - EMR_IDLE_LOOKBACK_PERIODS * EMR_IDLE_PERIOD_IN_SECONDS * 1000),
+        startTime: new Date(getAwsDiscoveryTimestamp() - EMR_IDLE_LOOKBACK_PERIODS * EMR_IDLE_PERIOD_IN_SECONDS * 1000),
       });
 
       return regionClusters.map((cluster, index) => {

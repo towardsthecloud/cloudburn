@@ -6,7 +6,7 @@
   classDiagram
   class CloudBurnClient {
     +scanStatic(path: string, config?: Partial~CloudBurnConfig~, options?: { configPath?: string }) Promise~ScanResult~
-    +discover(options?: { target?: AwsDiscoveryTarget, config?: Partial~CloudBurnConfig~, configPath?: string }) Promise~ScanResult~
+    +discover(options?: { target?: AwsDiscoveryTarget, config?: Partial~CloudBurnConfig~, configPath?: string, timeoutMs?: number, signal?: AbortSignal }) Promise~ScanResult~
     +initializeDiscovery(options?: { region?: string }) Promise~AwsDiscoveryInitialization~
     +getDiscoveryStatus(options?: { region?: string }) Promise~AwsDiscoveryStatus~
     +listSupportedDiscoveryResourceTypes() Promise~AwsSupportedResourceType[]~
@@ -62,12 +62,18 @@ graph TD
 4. Union required IaC source kinds from the resolved dataset definitions.
 5. Parse only the required Terraform and CloudFormation inputs through
    `parseIaCWithDiagnostics` and retain non-fatal skipped-file diagnostics.
-6. Load only the requested normalized static datasets.
+6. Group Terraform resources by module directory and CloudFormation resources by template file. Load the requested normalized static datasets separately for each scope.
 7. Build `StaticEvaluationContext` with `{ resources: StaticResourceBag }`.
 8. Invoke each static evaluator.
 9. Match parsed resource-local suppression directives against each resource finding.
 10. Group active rule findings under `providers -> rules -> findings`, retain suppressed matches under `suppressed`,
     and attach parser diagnostics when present.
+
+Static scans walk the filesystem once for all selected source formats and parse at most eight files concurrently. Nested symlink files and directories are skipped, including dangling links and cycles; an explicitly selected symlink root is resolved while source locations retain its requested name. The walk also excludes `.git`, `.terraform`, and `node_modules` directories.
+
+Terraform S3 lifecycle, tiering, and versioning resources and ECR lifecycle policies are indexed by reference before bucket or repository analysis. Alias matches preserve policy source order.
+
+Static rule evaluation retains those scopes, including joins between datasets such as DynamoDB tables and autoscaling targets. Findings from each scope are merged under one rule result. Public resource IDs and source locations stay unchanged, and inline suppression matching still uses the source path and resource ID.
 
 ### Live Scan
 
@@ -92,6 +98,7 @@ Current live-discovery behavior:
   `ScanResult` at their own boundary. The SDK does not define product profiles, remediation policy, or persisted
   application schemas.
 - `discoverAwsResources` in `src/providers/aws/discovery.ts` is the AWS live orchestration entrypoint.
+- Aggregator discovery checks up to 5 regional indexes concurrently and preserves enabled-region order when resolving coverage. Denied regions remain excluded from the search scope.
 - Default discovery target is the current region (see [`docs/architecture/cli.md`](cli.md) for the full resolution order).
 - Explicit discovery uses `target: { mode: 'regions', regions: [...] }`.
 - Explicit single-region discovery uses the selected region as the Resource Explorer control plane instead of the ambient current region.
@@ -102,12 +109,21 @@ Current live-discovery behavior:
 - Catalog collection uses Resource Explorer `ListResources` with filter strings instead of `Search`, which avoids the 1,000-result ceiling on filter-only queries.
 - Resource Explorer catalog seeding batches `resourcetype:` and `region:` filters into the smallest possible query set, uses `MaxResults: 999` so AWS reliably returns pagination tokens, and retries throttled `ListResources` calls before failing.
 - Account-scoped or fallback-backed datasets can bypass Resource Explorer seeding entirely by declaring no `resourceTypes`; the loader then receives `[]` and owns the account-level API call.
-- Account-scoped datasets receive one resolved region in their load context: the explicit target for a single-region scan, otherwise the current AWS region. They do not fan out service API calls across regions.
-- Account-scoped loaders share one lazy STS account-ID resolution per discovery run; the cache is discarded between runs so ambient credential contexts cannot leak identity.
+- Account-scoped datasets receive one resolved region in their load context: the first explicit target region when provided, otherwise the current AWS region. They do not fan out service API calls across regions.
+- Account-scoped loaders share one lazy STS account-ID resolution per discovery run, using the catalog control region even when the profile has no default region. The cache is discarded between runs so ambient credential contexts cannot leak identity.
+- `discover()` owns a five-minute total deadline, configurable with `timeoutMs`, and accepts a caller `AbortSignal`. Cancellation rejects the run, stops queued requests and backoff timers, aborts active HTTP requests, and destroys owned clients. Configuration and credential resolution count toward the deadline; cancelled runs do not return partial results.
+- AWS clients are reused by service and region within one run and destroyed on completion. Index and default-view lookup promises share that same lifetime. Separate runs keep independent credential and lookup state. Observation windows use one timestamp captured at the start of discovery.
+- Debug tracing records physical request duration, service/region, and HTTP status. It does not log request bodies, headers, or credentials.
+- AWS clients enforce a 5-second connection timeout and a 30-second request timeout. A request that exceeds its deadline throws a timeout error, allowing discovery to report the failed dataset.
+- Wrapped service calls use exactly one AWS SDK attempt per outer attempt. The service wrapper owns a maximum of six attempts, transient-error and throttling backoff, and slot acquisition. Direct control-plane calls retain the SDK’s three-attempt retry policy. Route 53 always uses the outer policy so retries count toward its account-wide request rate.
 - Each discovery run shares one AWS call budget: concurrent datasets fanning out to the same service in the same region are capped at a combined in-flight limit, on top of each loader's own bounded batches. Route 53 operations additionally share an account-wide sliding-window limit of five request starts per second across hosted zones, record sets, health checks, pagination, retries, and simultaneous discovery runs in the same process. Hydrators called directly outside a discover run stay unbounded.
 - `CloudBurnClient.discover({ onProgress })` streams `AwsDiscoveryProgressEvent` values (catalog ready, per-dataset completion counts) while the run executes, so callers can render live feedback without waiting for the final result.
 - Resource Explorer catalog failures degrade when the run also requested account-scoped datasets: the SDK records one catalog diagnostic, marks every catalog-backed dataset unavailable (skipping the rules that need them), and still evaluates account-scoped datasets. When every requested dataset needs the catalog, the failure stays fatal so the actionable Resource Explorer error reaches the user.
-- Dataset loader failures are non-fatal: the SDK records diagnostics, marks the affected datasets unavailable, skips rules that require them, and returns findings from datasets that loaded successfully. A regional access denial keeps data loaded from other regions, but when every attempted region is denied the dataset is unavailable rather than an empty passing dataset. Access-denied diagnostics identify service control policies (SCPs) and resource-based policies when AWS names that source in the error chain; otherwise they use the generic AWS permissions description.
+- CloudWatch metric requests group matching periods, align windows to period boundaries, and batch up to 500 queries or 100,800 estimated datapoints. Two batches can run concurrently within the shared service budget; pagination retains each batch’s fixed window and incomplete series are excluded. See the [GetMetricData API limits](https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_GetMetricData.html).
+- Recent log-stream activity uses ten workers per region. A completed lookup starts the next log group immediately while slower lookups finish.
+- EC2 utilization uses the previous 14 complete UTC days. Only distinct days with finite CPU, inbound-network, and outbound-network observations contribute to the idle heuristic or averages; absent metrics never become zero usage. Instances with no complete observations are omitted from utilization evidence.
+- Dataset loads are cached by dataset and region. Up to five regional loads per dataset run concurrently; derived datasets resolve dependencies in the same region, so metric requests and normalized rows are not repeated for other regions.
+- Dataset loader failures are non-fatal: the SDK records diagnostics and evaluates each rule only in regions where all its required datasets loaded completely. The same regional restriction applies to evaluated-resource projections. Optional evidence does not block a rule. An account-scoped failure or failure in every attempted region makes the dataset unavailable and skips dependent rules. Access-denied diagnostics identify service control policies (SCPs) and resource-based policies when AWS names that source in the error chain; otherwise they use the generic AWS permissions description.
 - Global tagging discovery is opt-in because it requires an accessible aggregator, and uses one paginated `ListResources` filter query (`resourcetype.supports:tags tag:none`) instead of per-service tagging APIs.
 - ECR discovery parses each returned lifecycle policy into untagged-expiry and tagged-retention traits so the policy-content rules run against live repositories as well as IaC.
 - Missing Lambda `Architectures` values from AWS are normalized to `['x86_64']`, matching the AWS default architecture.
@@ -132,11 +148,10 @@ See [`docs/reference/finding-shape.md`](../reference/finding-shape.md) for the f
 ```mermaid
 graph LR
   Path["file or directory"] --> PI["parseIaCWithDiagnostics(path)"]
-  PI --> TF["parseTerraform(path)"]
-  PI --> CFN["parseCloudFormation(path)"]
-  TF --> Walk["recursive walk\n(skips .git, .terraform, node_modules)"]
-  CFN --> Walk
-  Walk --> HCL["@cdktf/hcl2json / YAML+JSON parse"]
+  PI --> Walk["one filesystem walk\n(skips nested symlinks and excluded directories)"]
+  Walk --> Files["selected files, sorted by path"]
+  Files --> Workers["up to eight parser workers"]
+  Workers --> HCL["@cdktf/hcl2json / YAML+JSON parse"]
   HCL --> Extract["extract AWS Terraform blocks\nand AWS:: CloudFormation resources"]
   Extract --> Suppress["bind resource-local suppression comments"]
   Suppress --> IaC["resources + diagnostics"]

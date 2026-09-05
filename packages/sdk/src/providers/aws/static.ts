@@ -1,4 +1,12 @@
-import type { IaCSuppression, Rule, StaticDatasetKey, StaticEvaluationContext } from '@cloudburn/rules';
+import { dirname } from 'node:path';
+import type {
+  IaCResource,
+  IaCSuppression,
+  Rule,
+  StaticDatasetKey,
+  StaticDatasetMap,
+  StaticEvaluationContext,
+} from '@cloudburn/rules';
 import { StaticResourceBag } from '@cloudburn/rules';
 import { type IaCSourceKind, parseIaCWithDiagnostics } from '../../parsers/index.js';
 import type { ScanDiagnostic } from '../../types.js';
@@ -8,6 +16,7 @@ import { getAwsStaticDatasetDefinition, toStaticResourceId } from './static-regi
 export type AwsStaticResourceLoadResult = StaticEvaluationContext & {
   diagnostics: ScanDiagnostic[];
   suppressionTargets: AwsStaticSuppressionTarget[];
+  evaluationScopes?: StaticEvaluationContext[];
 };
 
 /** Canonical static resource identity and its parsed inline directives. */
@@ -88,17 +97,38 @@ export const loadAwsStaticResources = async (path: string, rules: Rule[]): Promi
       },
     ];
   });
-  const loadedDatasets = datasetDefinitions.map(
-    (definition) =>
-      [
-        definition.datasetKey,
-        definition.load(iacResources.filter((resource) => definition.resourceTypes.includes(resource.type))),
-      ] as const,
-  );
+  // Terraform files share references only within their module directory;
+  // CloudFormation logical IDs belong to one template, even in a shared folder.
+  const resourcesByScope = new Map<string, IaCResource[]>();
+  for (const resource of iacResources) {
+    const sourcePath = resource.location?.path;
+    const scope = sourcePath
+      ? resource.type.startsWith('AWS::')
+        ? `cloudformation:${sourcePath}`
+        : `terraform:${dirname(sourcePath)}`
+      : '';
+    const scopedResources = resourcesByScope.get(scope) ?? [];
+    scopedResources.push(resource);
+    resourcesByScope.set(scope, scopedResources);
+  }
+  const evaluationScopes = [...resourcesByScope.values()].map((scopeResources) => ({
+    resources: new StaticResourceBag(
+      Object.fromEntries(
+        datasetDefinitions.map((definition) => [
+          definition.datasetKey,
+          definition.load(scopeResources.filter((resource) => definition.resourceTypes.includes(resource.type))),
+        ]),
+      ),
+    ),
+  }));
+  const loadedDatasets = Object.fromEntries(
+    datasetKeys.map((key) => [key, evaluationScopes.flatMap<unknown>((scope) => scope.resources.get(key))]),
+  ) as Partial<StaticDatasetMap>;
 
   return {
     diagnostics,
-    resources: new StaticResourceBag(Object.fromEntries(loadedDatasets)),
+    resources: new StaticResourceBag(loadedDatasets),
+    evaluationScopes,
     suppressionTargets,
   };
 };

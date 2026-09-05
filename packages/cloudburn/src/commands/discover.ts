@@ -24,6 +24,15 @@ type DiscoverOptions = {
   failOn?: Severity;
   region?: AwsRegion;
   service?: string[];
+  timeout?: number;
+};
+
+const parseDiscoveryTimeout = (value: string): number => {
+  const seconds = Number(value);
+  if (!Number.isInteger(seconds) || seconds < 1 || seconds > 2_147_483) {
+    throw new InvalidArgumentError('Timeout must be a whole number of seconds between 1 and 2147483.');
+  }
+  return seconds;
 };
 
 const parseDiscoveryServiceList = (value: string): string[] =>
@@ -206,6 +215,7 @@ export const registerDiscoverCommand = (program: Command): void => {
         parseAwsRegion,
       )
       .option('--config <path>', 'Explicit CloudBurn config file to load (required for config files in CI)')
+      .option('--timeout <seconds>', 'Maximum discovery duration in seconds (default: 300).', parseDiscoveryTimeout)
       .option(
         '--enabled-rules <ruleIds>',
         'Comma-separated rule IDs to enable. When set, CloudBurn checks only these rules. By default, AWS Core preset rules are enabled.',
@@ -235,6 +245,7 @@ export const registerDiscoverCommand = (program: Command): void => {
             config?: ReturnType<typeof toDiscoveryConfigOverride>;
             configPath?: string;
             onProgress?: (event: AwsDiscoveryProgressEvent) => void;
+            timeoutMs?: number;
           } = {
             target: resolveDiscoveryTarget(options.region),
           };
@@ -249,6 +260,10 @@ export const registerDiscoverCommand = (program: Command): void => {
 
           if (onProgress !== undefined) {
             discoveryOptions.onProgress = onProgress;
+          }
+
+          if (options.timeout !== undefined) {
+            discoveryOptions.timeoutMs = options.timeout * 1_000;
           }
 
           const result = await scanner.discover(discoveryOptions);
