@@ -1,5 +1,5 @@
 import { createFinding, createFindingMatch, createRule } from '../../shared/helpers.js';
-import { hasNoRegisteredTargets } from './shared.js';
+import { getTargetCountByArn, hasNoRegisteredTargets } from './shared.js';
 
 const RULE_ID = 'CLDBRN-AWS-ELB-5';
 const RULE_SERVICE = 'elb';
@@ -19,7 +19,7 @@ export const elbIdleRule = createRule({
   discoveryDependencies: ['aws-ec2-load-balancer-request-activity', 'aws-ec2-load-balancers', 'aws-ec2-target-groups'],
   evaluateLive: ({ resources }) => {
     const loadBalancers = resources.get('aws-ec2-load-balancers');
-    const targetGroups = resources.get('aws-ec2-target-groups');
+    const targetCountByArn = getTargetCountByArn(resources.get('aws-ec2-target-groups'));
     const loadBalancerByArn = new Map(
       loadBalancers.map((loadBalancer) => [loadBalancer.loadBalancerArn, loadBalancer] as const),
     );
@@ -39,7 +39,7 @@ export const elbIdleRule = createRule({
         const alreadyCoveredByCleanupRule =
           loadBalancer.loadBalancerType === 'classic'
             ? loadBalancer.instanceCount === 0
-            : hasNoRegisteredTargets(loadBalancer, targetGroups);
+            : hasNoRegisteredTargets(loadBalancer, targetCountByArn);
 
         return alreadyCoveredByCleanupRule
           ? []
