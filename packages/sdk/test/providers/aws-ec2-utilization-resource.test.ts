@@ -73,6 +73,51 @@ describe('hydrateAwsEc2InstanceUtilization', () => {
     ]);
   });
 
+  it.each([
+    'both',
+    'in',
+    'out',
+  ] as const)('does not infer idle network usage when %s network evidence is absent', async (missing) => {
+    mockedHydrateAwsEc2Instances.mockResolvedValue([
+      { accountId: '123456789012', instanceId: 'i-123', instanceType: 'm6i.large', region: 'us-east-1' },
+    ]);
+    const points = [1, 2, 3, 4].map((day) => ({ timestamp: `2026-03-0${day}T00:00:00.000Z`, value: 0 }));
+    mockedFetchCloudWatchSignals.mockResolvedValue(
+      new Map([
+        ['cpu0', points],
+        ['in0', missing === 'both' || missing === 'in' ? [] : points],
+        ['out0', missing === 'both' || missing === 'out' ? [] : points],
+      ]),
+    );
+    expect(await hydrateAwsEc2InstanceUtilization([])).toEqual([]);
+  });
+
+  it('counts distinct complete days and excludes partial or non-finite evidence', async () => {
+    mockedHydrateAwsEc2Instances.mockResolvedValue([
+      { accountId: '123456789012', instanceId: 'i-123', instanceType: 'm6i.large', region: 'us-east-1' },
+    ]);
+    const first = { timestamp: '2026-03-01T00:00:00.000Z', value: 0 };
+    const second = { timestamp: '2026-03-02T00:00:00.000Z', value: 0 };
+    const third = { timestamp: '2026-03-03T00:00:00.000Z', value: 0 };
+    mockedFetchCloudWatchSignals.mockResolvedValue(
+      new Map([
+        ['cpu0', [first, first, first, first, second, third]],
+        ['in0', [first, second, third]],
+        ['out0', [first, { ...third, value: Number.NaN }]],
+      ]),
+    );
+    expect(await hydrateAwsEc2InstanceUtilization([])).toEqual([
+      expect.objectContaining({
+        lowUtilizationDays: 1,
+        averageCpuUtilizationLast14Days: 0,
+        averageDailyNetworkBytesLast14Days: 0,
+      }),
+    ]);
+    const window = mockedFetchCloudWatchSignals.mock.calls[0]?.[0];
+    expect(window?.endTime.toISOString()).toMatch(/T00:00:00.000Z$/);
+    expect(Number(window?.endTime) - Number(window?.startTime)).toBe(14 * 86400 * 1000);
+  });
+
   it('reuses the shared EC2 instance dataset when a discovery context provides preloaded instances', async () => {
     mockedFetchCloudWatchSignals.mockResolvedValue(
       new Map([

@@ -1,6 +1,6 @@
 import type { AwsDiscoveredResource, AwsEc2InstanceUtilization } from '@cloudburn/rules';
 import type { AwsDiscoveryDatasetResolver } from '../discovery-registry.js';
-import { fetchCloudWatchSignals } from './cloudwatch.js';
+import { type CloudWatchMetricPoint, fetchCloudWatchSignals } from './cloudwatch.js';
 import { hydrateAwsEc2Instances } from './ec2.js';
 
 const FOURTEEN_DAYS_IN_SECONDS = 14 * 24 * 60 * 60;
@@ -8,7 +8,17 @@ const DAILY_PERIOD_IN_SECONDS = 24 * 60 * 60;
 const LOW_CPU_THRESHOLD = 10;
 const LOW_NETWORK_THRESHOLD = 5 * 1024 * 1024;
 
-const toIsoDate = (timestamp: string): string => timestamp.slice(0, 10);
+const dailyValues = (points: CloudWatchMetricPoint[]): Map<string, number> => {
+  const values = new Map<string, number>();
+  for (const point of points) {
+    if (!Number.isFinite(point.value) || point.value < 0 || !Number.isFinite(Date.parse(point.timestamp))) continue;
+    const day = point.timestamp.slice(0, 10);
+    // Repeated points must not create extra idle days. Use the higher value
+    // conservatively if the service returns conflicting values for one day.
+    values.set(day, Math.max(values.get(day) ?? 0, point.value));
+  }
+  return values;
+};
 
 /**
  * Hydrates discovered EC2 instances with a 14-day low-utilization summary.
@@ -29,6 +39,9 @@ export const hydrateAwsEc2InstanceUtilization = async (
     instancesByRegion.set(instance.region, regionInstances);
   }
 
+  const endTime = new Date();
+  endTime.setUTCHours(0, 0, 0, 0);
+  const startTime = new Date(endTime.getTime() - FOURTEEN_DAYS_IN_SECONDS * 1000);
   const hydratedPages = await Promise.all(
     [...instancesByRegion.entries()].map(async ([region, regionInstances]) => {
       const queries = regionInstances.flatMap((instance, index) => [
@@ -59,41 +72,29 @@ export const hydrateAwsEc2InstanceUtilization = async (
       ]);
 
       const metricData = await fetchCloudWatchSignals({
-        endTime: new Date(),
+        endTime,
         queries,
         region,
-        startTime: new Date(Date.now() - FOURTEEN_DAYS_IN_SECONDS * 1000),
+        startTime,
       });
 
-      return regionInstances.map((instance, index) => {
-        const cpuPoints = metricData.get(`cpu${index}`) ?? [];
-        const inPoints = metricData.get(`in${index}`) ?? [];
-        const outPoints = metricData.get(`out${index}`) ?? [];
-        const networkByDay = new Map<string, number>();
-
-        for (const point of inPoints) {
-          const day = toIsoDate(point.timestamp);
-          networkByDay.set(day, (networkByDay.get(day) ?? 0) + point.value);
-        }
-
-        for (const point of outPoints) {
-          const day = toIsoDate(point.timestamp);
-          networkByDay.set(day, (networkByDay.get(day) ?? 0) + point.value);
-        }
-
-        const lowUtilizationDays = cpuPoints.reduce((count, point) => {
-          const day = toIsoDate(point.timestamp);
-          const networkBytes = networkByDay.get(day) ?? 0;
-
-          return point.value <= LOW_CPU_THRESHOLD && networkBytes <= LOW_NETWORK_THRESHOLD ? count + 1 : count;
-        }, 0);
-
+      return regionInstances.flatMap((instance, index) => {
+        const cpuByDay = dailyValues(metricData.get(`cpu${index}`) ?? []);
+        const inByDay = dailyValues(metricData.get(`in${index}`) ?? []);
+        const outByDay = dailyValues(metricData.get(`out${index}`) ?? []);
+        const completeDays = [...cpuByDay].flatMap(([day, cpu]) => {
+          const incoming = inByDay.get(day);
+          const outgoing = outByDay.get(day);
+          return incoming === undefined || outgoing === undefined ? [] : [{ cpu, network: incoming + outgoing }];
+        });
+        if (completeDays.length === 0) return [];
+        const lowUtilizationDays = completeDays.filter(
+          ({ cpu, network }) => cpu <= LOW_CPU_THRESHOLD && network <= LOW_NETWORK_THRESHOLD,
+        ).length;
         const averageCpuUtilizationLast14Days =
-          cpuPoints.length > 0 ? cpuPoints.reduce((sum, point) => sum + point.value, 0) / cpuPoints.length : 0;
+          completeDays.reduce((sum, day) => sum + day.cpu, 0) / completeDays.length;
         const averageDailyNetworkBytesLast14Days =
-          networkByDay.size > 0
-            ? [...networkByDay.values()].reduce((sum, value) => sum + value, 0) / networkByDay.size
-            : 0;
+          completeDays.reduce((sum, day) => sum + day.network, 0) / completeDays.length;
 
         return {
           accountId: instance.accountId,
