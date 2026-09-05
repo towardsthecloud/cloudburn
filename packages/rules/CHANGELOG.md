@@ -1,5 +1,25 @@
 # @cloudburn/rules
 
+## 0.32.0
+
+### Minor Changes
+
+- [#217](https://github.com/towardsthecloud/cloudburn/pull/217) [`7a69c3a`](https://github.com/towardsthecloud/cloudburn/commit/7a69c3aeddc7810a4b9dc44400efdf4fbbed93e3) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Add opt-in Cost Optimization Hub rightsizing rule CLDBRN-AWS-COSTOPTIMIZATIONHUB-4 and typed current/recommended configurations for 8 resource types. Direct Lambda memory findings suppress matching Hub duplicates.
+
+- [#218](https://github.com/towardsthecloud/cloudburn/pull/218) [`e83ad0f`](https://github.com/towardsthecloud/cloudburn/commit/e83ad0f9d8e850f82bf5f62e83897be6788dcbaa) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Add opt-in CLDBRN-AWS-COSTOPTIMIZATIONHUB-6 for AWS-recommended Graviton migrations with typed configuration and workload compatibility evidence.
+
+- [#216](https://github.com/towardsthecloud/cloudburn/pull/216) [`4a5f31b`](https://github.com/towardsthecloud/cloudburn/commit/4a5f31be22c859869f34f44277a7f4b972256c63) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Add opt-in CLDBRN-AWS-COSTOPTIMIZATIONHUB-3 for AWS-classified idle capacity, with typed action-specific evidence. Add action and resource namespace to unattached EBS findings for exact duplicate suppression.
+
+- [#219](https://github.com/towardsthecloud/cloudburn/pull/219) [`629f912`](https://github.com/towardsthecloud/cloudburn/commit/629f9126aa70fd717670e8d60c84de31547944e7) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Add opt-in CLDBRN-AWS-COSTOPTIMIZATIONHUB-5 for product-generation upgrades with typed current and recommended configurations. Give native EBS and RDS storage generation findings distinct resource namespaces for duplicate suppression.
+
+### Patch Changes
+
+- [#214](https://github.com/towardsthecloud/cloudburn/pull/214) [`4246560`](https://github.com/towardsthecloud/cloudburn/commit/4246560ab4913b22bbf3ea968eef173b4f81d175) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Detect available Transit Gateway VPC attachments with no traffic during a complete 30-day window and include public regional attachment pricing when available.
+
+- [#215](https://github.com/towardsthecloud/cloudburn/pull/215) [`e265e3b`](https://github.com/towardsthecloud/cloudburn/commit/e265e3b040e3aaa0fe414d86453114d72e6bafe5) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Add opt-in Cost Optimization Hub reservation purchase findings with typed evidence, shared read-only loading, and rule-declared native-finding precedence.
+
+- [#207](https://github.com/towardsthecloud/cloudburn/pull/207) [`8f40c21`](https://github.com/towardsthecloud/cloudburn/commit/8f40c218170c6f3c7892247d501e6699fa211f33) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Report Compute, EC2 Instance, and SageMaker Savings Plans purchase recommendations from Cost Optimization Hub, and flag material SageMaker Savings Plans coverage gaps from Cost Explorer without duplicate findings.
+
 ## 0.31.0
 
 ### Minor Changes
