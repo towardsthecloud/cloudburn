@@ -267,7 +267,7 @@ const resolveRegionalSearchPlan = async (requestedRegion: string): Promise<Searc
   }
 
   if (requestedIndex.type === 'local') {
-    const { aggregatorRegion } = await findAccessibleAggregatorRegion();
+    const { aggregatorRegion } = await findAccessibleAggregatorRegion(validRequestedRegion);
 
     if (aggregatorRegion) {
       return {
@@ -304,8 +304,8 @@ const listIndexesForAggregatorLookup = async (region: string): Promise<Aggregato
   }
 };
 
-const findAccessibleAggregatorRegion = async (): Promise<AccessibleAggregatorLookup> => {
-  const enabledRegions = await listEnabledAwsRegions();
+const findAccessibleAggregatorRegion = async (preferredRegion?: string): Promise<AccessibleAggregatorLookup> => {
+  const enabledRegions = await listEnabledAwsRegions(preferredRegion);
   const accessibleIndexedRegions: string[] = [];
   let aggregatorRegion: string | undefined;
   let sawDeniedRegion = false;
@@ -340,11 +340,14 @@ const findAccessibleAggregatorRegion = async (): Promise<AccessibleAggregatorLoo
   };
 };
 
-const requireAccessibleAggregator = async (messages: {
-  denied: string;
-  missing: string;
-}): Promise<AccessibleAggregatorLookup & { aggregatorRegion: string }> => {
-  const lookup = await findAccessibleAggregatorRegion();
+const requireAccessibleAggregator = async (
+  messages: {
+    denied: string;
+    missing: string;
+  },
+  preferredRegion?: string,
+): Promise<AccessibleAggregatorLookup & { aggregatorRegion: string }> => {
+  const lookup = await findAccessibleAggregatorRegion(preferredRegion);
 
   if (lookup.aggregatorRegion) {
     return { ...lookup, aggregatorRegion: lookup.aggregatorRegion };
@@ -360,14 +363,17 @@ const sortUniqueStrings = <T extends string>(values: T[]): T[] =>
   [...new Set(values)].sort((left, right) => left.localeCompare(right)) as T[];
 
 const resolveAggregatorSearchPlan = async (requestedRegions?: AwsRegion[]): Promise<SearchPlan> => {
-  const { accessibleIndexedRegions, aggregatorRegion } = await requireAccessibleAggregator({
-    denied:
-      "Cross-region discovery requires an accessible aggregator index. CloudBurn only searches regions that are indexed and permitted in AWS Resource Explorer. Run 'cloudburn discover status' to inspect indexed regions and access restrictions.",
-    missing:
-      "Cross-region discovery requires an aggregator index. Enable one first with 'cloudburn discover init' or the AWS console.",
-  });
+  const { accessibleIndexedRegions, aggregatorRegion } = await requireAccessibleAggregator(
+    {
+      denied:
+        "Cross-region discovery requires an accessible aggregator index. CloudBurn only searches regions that are indexed and permitted in AWS Resource Explorer. Run 'cloudburn discover status' to inspect indexed regions and access restrictions.",
+      missing:
+        "Cross-region discovery requires an aggregator index. Enable one first with 'cloudburn discover init' or the AWS console.",
+    },
+    requestedRegions?.[0],
+  );
   const selectedRegions: AwsRegion[] = requestedRegions
-    ? sortUniqueStrings(requestedRegions)
+    ? sortUniqueStrings(requestedRegions.map(assertValidAwsRegion))
     : (accessibleIndexedRegions as AwsRegion[]);
 
   const missingRegions = selectedRegions.filter((region) => !accessibleIndexedRegions.includes(region));
@@ -386,13 +392,16 @@ const resolveAggregatorSearchPlan = async (requestedRegions?: AwsRegion[]): Prom
   };
 };
 
-const resolveAccountSearchPlan = async (): Promise<SearchPlan> => {
-  const { aggregatorRegion } = await requireAccessibleAggregator({
-    denied:
-      "Account-wide discovery requires an accessible aggregator index. Run 'cloudburn discover status' to inspect indexed regions and access restrictions.",
-    missing:
-      "Account-wide discovery requires an aggregator index. Enable one first with 'cloudburn discover init' or the AWS console.",
-  });
+const resolveAccountSearchPlan = async (preferredRegion?: string): Promise<SearchPlan> => {
+  const { aggregatorRegion } = await requireAccessibleAggregator(
+    {
+      denied:
+        "Account-wide discovery requires an accessible aggregator index. Run 'cloudburn discover status' to inspect indexed regions and access restrictions.",
+      missing:
+        "Account-wide discovery requires an aggregator index. Enable one first with 'cloudburn discover init' or the AWS console.",
+    },
+    preferredRegion,
+  );
 
   return {
     searchRegion: aggregatorRegion,
@@ -893,7 +902,16 @@ export const listAwsResourcesByFilter = async (
     scope?: 'target' | 'account';
   },
 ): Promise<AwsDiscoveredResource[]> => {
-  const searchPlan = options?.scope === 'account' ? await resolveAccountSearchPlan() : await resolveSearchPlan(target);
+  const searchPlan =
+    options?.scope === 'account'
+      ? await resolveAccountSearchPlan(
+          target.mode === 'region'
+            ? assertValidAwsRegion(target.region)
+            : target.mode === 'regions' && target.regions[0]
+              ? assertValidAwsRegion(target.regions[0])
+              : undefined,
+        )
+      : await resolveSearchPlan(target);
   const viewArn = await resolveSearchViewArn(searchPlan.searchRegion, options?.requiredViewProperties);
   const scopedFilters = planScopedFilters(filterString, searchPlan.regionFilters);
 

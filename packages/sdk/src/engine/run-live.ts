@@ -1,3 +1,4 @@
+import { type DiscoveryDatasetMap, LiveResourceBag } from '@cloudburn/rules';
 import { toBuiltInRuleMetadata } from '../built-in-rules.js';
 import { emitDebugLog } from '../debug.js';
 import { discoverAwsResources } from '../providers/aws/discovery.js';
@@ -26,6 +27,7 @@ export const runLiveScan = async (
   const {
     diagnostics = [],
     unavailableDatasets = new Map(),
+    unavailableRegions = new Map(),
     ...liveContext
   } = await discoverAwsResources(registry.activeRules, target, {
     debugLogger: options?.debugLogger,
@@ -95,17 +97,57 @@ export const runLiveScan = async (
     const unavailableOptionalDependencies = (rule.optionalDiscoveryDependencies ?? []).filter((dependency) =>
       unavailableDatasetDiagnostics.has(dependency),
     );
+    const excludedRegions = new Set<string>(
+      (rule.discoveryDependencies ?? []).flatMap((key) => [...(unavailableRegions.get(key) ?? [])]),
+    );
+    const dependencies = [...(rule.discoveryDependencies ?? []), ...(rule.optionalDiscoveryDependencies ?? [])];
     const ruleContext =
-      unavailableOptionalDependencies.length === 0
+      excludedRegions.size === 0 &&
+      unavailableOptionalDependencies.length === 0 &&
+      !dependencies.some((key) => unavailableRegions.has(key))
         ? liveContext
         : {
             ...liveContext,
-            resources: liveContext.resources.without(unavailableOptionalDependencies),
+            catalog: {
+              ...liveContext.catalog,
+              resources: liveContext.catalog.resources.filter((resource) => !excludedRegions.has(resource.region)),
+            },
+            resources: new LiveResourceBag(
+              Object.fromEntries(
+                dependencies
+                  .filter((key) => !unavailableOptionalDependencies.includes(key))
+                  .map((key) => [
+                    key,
+                    liveContext.resources
+                      .get(key)
+                      .filter(
+                        (resource) =>
+                          !(
+                            'region' in resource &&
+                            typeof resource.region === 'string' &&
+                            (excludedRegions.has(resource.region) || unavailableRegions.get(key)?.has(resource.region))
+                          ),
+                      ),
+                  ]),
+              ) as Partial<DiscoveryDatasetMap>,
+            ),
           };
+    for (const region of excludedRegions) {
+      scanDiagnostics.push({
+        message: `Skipped rule ${rule.id} in ${region} because required discovery evidence was unavailable.`,
+        provider: rule.provider,
+        ruleId: rule.id,
+        region,
+        service: rule.service,
+        source: 'discovery',
+        status: 'skipped',
+      });
+    }
     const finding = rule.evaluateLive(ruleContext);
 
     if (options?.includeEvaluationResources) {
-      const evaluationResourceSet = getAwsRuleEvaluationResourceSet(rule, liveContext.resources);
+      const evaluationResourceSet = getAwsRuleEvaluationResourceSet(rule, ruleContext.resources);
+      if (excludedRegions.size > 0) evaluationResourceSet.id += `:excluding:${[...excludedRegions].sort().join(',')}`;
       if (!evaluationResourceSets.has(evaluationResourceSet.id)) {
         evaluationResourceSets.set(evaluationResourceSet.id, evaluationResourceSet);
       }

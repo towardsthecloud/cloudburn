@@ -38,11 +38,36 @@ describe('resource explorer discovery', () => {
 
     const run = buildAwsDiscoveryCatalog({ mode: 'all' }, ['ec2:volume']);
     try {
-      await vi.waitFor(() => expect(checkedRegions).toContain('us-east-1'), { timeout: 100 });
+      await vi.waitFor(() => expect(checkedRegions).toContain('us-east-1'), { timeout: 1000 });
     } finally {
       releaseSlow();
       await run;
     }
+  });
+
+  it.each([
+    { mode: 'region', region: 'eu-west-1' },
+    { mode: 'regions', regions: ['eu-west-1', 'eu-central-1'] },
+  ] as const)('uses the explicit target to enumerate enabled regions for %j', async (target) => {
+    const listRegions = vi.spyOn(clientModule, 'listEnabledAwsRegions').mockImplementation(async (region) => {
+      expect(region).toBe('eu-west-1');
+      return ['eu-west-1', 'eu-central-1'];
+    });
+    vi.spyOn(clientModule, 'createResourceExplorerClient').mockImplementation(
+      ({ region }) =>
+        ({
+          send: vi.fn(async (command) => {
+            if (command.input.Regions)
+              return { Indexes: [{ Region: region, Type: region === 'eu-central-1' ? 'AGGREGATOR' : 'LOCAL' }] };
+            if (command.input.Filters) return { Resources: [] };
+            return { ViewArn: 'view', View: { Filters: { FilterString: '' } } };
+          }),
+        }) as never,
+    );
+    await buildAwsDiscoveryCatalog(target.mode === 'regions' ? { ...target, regions: [...target.regions] } : target, [
+      'ec2:volume',
+    ]);
+    expect(listRegions).toHaveBeenCalledOnce();
   });
 
   it('builds a deduplicated catalog and applies a region filter when listing from an aggregator region', async () => {

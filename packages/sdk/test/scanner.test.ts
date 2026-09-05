@@ -48,6 +48,33 @@ describe('CloudBurnClient', () => {
     vi.resetAllMocks();
   });
 
+  it('excludes incomplete regions from joined rules and their evaluation evidence', async () => {
+    mockedDiscoverAwsResources.mockResolvedValue({
+      catalog: discoveryCatalog,
+      unavailableRegions: new Map([['aws-ec2-target-groups', new Set(['us-east-1'])]]),
+      resources: new LiveResourceBag({
+        'aws-ec2-load-balancers': ['eu-west-1', 'us-east-1'].map((region) => ({
+          accountId: '123456789012',
+          region,
+          loadBalancerArn: `arn:aws:elasticloadbalancing:${region}:123456789012:loadbalancer/app/test/123`,
+          loadBalancerType: 'application' as const,
+          attachedTargetGroupArns: [],
+        })),
+        'aws-ec2-target-groups': [],
+      }),
+    });
+    const result = await new CloudBurnClient().discover({
+      target: { mode: 'all' },
+      includeEvaluationResources: true,
+      config: { discovery: { enabledRules: ['CLDBRN-AWS-ELB-1'] } },
+    });
+    expect(result.providers[0]?.rules[0]?.findings.map((finding) => finding.region)).toEqual(['eu-west-1']);
+    expect(result.evaluations?.resourceSets[0]?.resources.map((resource) => resource.region)).toEqual(['eu-west-1']);
+    expect(result.diagnostics).toEqual([
+      expect.objectContaining({ status: 'skipped', region: 'us-east-1', ruleId: 'CLDBRN-AWS-ELB-1' }),
+    ]);
+  });
+
   it('passes the explicit discovery target to the aws provider scanner and returns gp2 findings', async () => {
     mockedDiscoverAwsResources.mockResolvedValue({
       catalog: discoveryCatalog,
