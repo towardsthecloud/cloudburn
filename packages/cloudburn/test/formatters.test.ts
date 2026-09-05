@@ -126,6 +126,24 @@ const withStdoutColumns = (columns: number, run: () => void): void => {
 };
 
 describe('renderResponse', () => {
+  it('shows the exact recommendation action in table output', () => {
+    const result = {
+      providers: [
+        {
+          provider: 'aws' as const,
+          rules: [
+            {
+              ...resultWithoutLocation.providers[0].rules[0],
+              findings: [{ resourceId: 'database', actionType: 'Delete' }],
+            },
+          ],
+        },
+      ],
+    };
+    const output = renderResponse({ kind: 'scan-result', result }, 'table');
+    expect(output).toContain('Action');
+    expect(output).toContain('Delete');
+  });
   it('renders scan results as json', () => {
     expect(renderResponse({ kind: 'scan-result', result: resultWithoutLocation }, 'json')).toContain('123456789012');
   });

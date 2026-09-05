@@ -37,6 +37,7 @@ IaC findings may include `location`. Live discovery findings omit it.
 
 ```ts
 type FindingMatch = {
+  actionType?: string;
   resourceId: string;
   resourceType?: string;
   accountId?: string;
@@ -208,6 +209,17 @@ total eligible cost. It triggers below 80 percent coverage only when uncovered c
 SageMaker purchase recommendation from Cost Optimization Hub suppresses the coverage warning. Cost Optimization Hub
 is optional for this rule, so an unavailable recommendation dataset does not prevent coverage evaluation. Missing,
 incomplete, denied, or otherwise unavailable Cost Explorer coverage evidence makes the rule `not_applicable`.
+
+`CLDBRN-AWS-COSTOPTIMIZATIONHUB-3` preserves the exact `Stop`, `Delete`, or `ScaleIn` action in each finding.
+Its `AwsCostOptimizationHubIdleRecommendation` evidence discriminates by `currentResourceType` and `actionType`,
+with typed `currentConfiguration` and `recommendedConfiguration`. A null target means AWS omitted the target
+configuration for Stop or Delete; ScaleIn requires a target configuration. Empty or malformed supplied configurations
+make the dataset unavailable.
+
+Evidence retains resource identity, account, Region, currency, current monthly cost, savings and percentage,
+implementation effort, restart and rollback flags, source, and refresh time. Native EBS unattached-volume findings
+take precedence only for the same namespace, canonical resource ID, account, Region, and Delete action.
+RDS idle and EC2 low-utilization rules do not establish the same specific action and do not suppress these findings.
 
 Every selected discovery rule appears exactly once when evaluation evidence is requested:
 

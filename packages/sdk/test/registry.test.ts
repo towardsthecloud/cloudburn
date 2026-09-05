@@ -31,6 +31,7 @@ describe('rule registry', () => {
 
     expect(registry.activeRules.map((rule) => rule.id)).not.toContain('CLDBRN-AWS-COSTOPTIMIZATIONHUB-1');
     expect(registry.activeRules.map((rule) => rule.id)).not.toContain('CLDBRN-AWS-COSTOPTIMIZATIONHUB-2');
+    expect(registry.activeRules.map((rule) => rule.id)).not.toContain('CLDBRN-AWS-COSTOPTIMIZATIONHUB-3');
   });
 
   it('includes Cost Optimization Hub rules when they are explicitly enabled', () => {
