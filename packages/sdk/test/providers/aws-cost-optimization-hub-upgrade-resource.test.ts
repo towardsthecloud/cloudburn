@@ -132,14 +132,19 @@ describe('Cost Optimization Hub upgrades', () => {
     );
     expect(await load()).toMatchObject({ unavailable: true });
   });
-  it('rejects detail evidence from a different account', async () => {
+  it.each([
+    { accountId: '999999999999' },
+    { resourceId: 'i-other' },
+    { resourceArn: 'arn:aws:ec2:eu-west-1:123456789012:instance/i-other' },
+    { region: 'us-west-2' },
+  ])('rejects detail evidence with mismatched identity: %j', async (identity) => {
     const send = mockHub();
     send.mockImplementation(async (command: unknown) => {
       if (command instanceof ListEnrollmentStatusesCommand) return { items: [{ accountId, status: 'Active' }] };
       if (command instanceof ListRecommendationsCommand) return { items: [summary()] };
       return {
         ...summary(),
-        accountId: '999999999999',
+        ...identity,
         currentResourceDetails: currentDetails,
         recommendedResourceDetails: recommendedDetails,
       };

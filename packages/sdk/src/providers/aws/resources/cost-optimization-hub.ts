@@ -540,6 +540,9 @@ const upgradeCategory: RecommendationCategory<AwsCostOptimizationHubUpgradeRecom
       typeof common.rollbackPossible !== 'boolean' ||
       response.recommendationId !== common.recommendationId ||
       response.accountId !== common.accountId ||
+      response.resourceId !== common.resourceId ||
+      response.resourceArn !== common.resourceArn ||
+      response.region !== common.region ||
       response.actionType !== 'Upgrade' ||
       response.currentResourceType !== currentResourceType ||
       response.recommendedResourceType !== currentResourceType
