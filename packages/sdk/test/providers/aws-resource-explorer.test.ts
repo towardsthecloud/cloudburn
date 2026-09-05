@@ -13,6 +13,38 @@ describe('resource explorer discovery', () => {
     vi.restoreAllMocks();
   });
 
+  it('checks other regions while a slow regional index lookup is still in flight', async () => {
+    const regions = ['eu-west-1', 'eu-central-1', 'us-east-1'];
+    vi.spyOn(clientModule, 'listEnabledAwsRegions').mockResolvedValue(regions);
+    let releaseSlow = (): void => undefined;
+    const slowLookup = new Promise<void>((resolve) => {
+      releaseSlow = resolve;
+    });
+    const checkedRegions: string[] = [];
+    vi.spyOn(clientModule, 'createResourceExplorerClient').mockImplementation(
+      ({ region }) =>
+        ({
+          send: vi.fn(async (command) => {
+            if (command.input.Regions) {
+              checkedRegions.push(region as string);
+              if (region === 'eu-west-1') await slowLookup;
+              return { Indexes: [{ Region: region, Type: region === 'eu-west-1' ? 'AGGREGATOR' : 'LOCAL' }] };
+            }
+            if (command.input.Filters) return { Resources: [] };
+            return { ViewArn: 'view', View: { Filters: { FilterString: '' } } };
+          }),
+        }) as never,
+    );
+
+    const run = buildAwsDiscoveryCatalog({ mode: 'all' }, ['ec2:volume']);
+    try {
+      await vi.waitFor(() => expect(checkedRegions).toContain('us-east-1'), { timeout: 100 });
+    } finally {
+      releaseSlow();
+      await run;
+    }
+  });
+
   it('builds a deduplicated catalog and applies a region filter when listing from an aggregator region', async () => {
     vi.spyOn(clientModule, 'resolveCurrentAwsRegion').mockResolvedValue('eu-central-1');
 

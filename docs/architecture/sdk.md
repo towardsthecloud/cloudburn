@@ -92,6 +92,7 @@ Current live-discovery behavior:
   `ScanResult` at their own boundary. The SDK does not define product profiles, remediation policy, or persisted
   application schemas.
 - `discoverAwsResources` in `src/providers/aws/discovery.ts` is the AWS live orchestration entrypoint.
+- Aggregator discovery checks up to 5 regional indexes concurrently and preserves enabled-region order when resolving coverage. Denied regions remain excluded from the search scope.
 - Default discovery target is the current region (see [`docs/architecture/cli.md`](cli.md) for the full resolution order).
 - Explicit discovery uses `target: { mode: 'regions', regions: [...] }`.
 - Explicit single-region discovery uses the selected region as the Resource Explorer control plane instead of the ambient current region.

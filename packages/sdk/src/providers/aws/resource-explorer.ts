@@ -36,7 +36,7 @@ import {
   RESOURCE_EXPLORER_SETUP_DOCS_URL,
   wrapAwsServiceError,
 } from './errors.js';
-import { withAwsServiceErrorContext } from './resources/utils.js';
+import { mapWithConcurrency, withAwsServiceErrorContext } from './resources/utils.js';
 
 const DEFAULT_RESOURCE_EXPLORER_VIEW_NAME = 'cloudburn-default';
 const TERMINAL_OPERATION_STATUSES = new Set(['FAILED', 'SKIPPED', 'SUCCEEDED']);
@@ -44,6 +44,7 @@ const RESOURCE_EXPLORER_FILTER_STRING_MAX_LENGTH = 2048;
 const RESOURCE_EXPLORER_LIST_RESOURCES_INITIAL_DELAY_MS = 250;
 const RESOURCE_EXPLORER_LIST_RESOURCES_MAX_ATTEMPTS = 5;
 const RESOURCE_EXPLORER_LIST_RESOURCES_MAX_RESULTS = 999;
+const RESOURCE_EXPLORER_REGION_CONCURRENCY = 5;
 
 type SearchPlan = {
   searchRegion: string;
@@ -308,10 +309,12 @@ const findAccessibleAggregatorRegion = async (): Promise<AccessibleAggregatorLoo
   const accessibleIndexedRegions: string[] = [];
   let aggregatorRegion: string | undefined;
   let sawDeniedRegion = false;
+  const lookups = await mapWithConcurrency(enabledRegions, RESOURCE_EXPLORER_REGION_CONCURRENCY, async (region) => ({
+    region,
+    lookup: await listIndexesForAggregatorLookup(region),
+  }));
 
-  for (const region of enabledRegions) {
-    const lookup = await listIndexesForAggregatorLookup(region);
-
+  for (const { region, lookup } of lookups) {
     if (lookup.kind === 'skipped') {
       sawDeniedRegion = true;
       continue;
