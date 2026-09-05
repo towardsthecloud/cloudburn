@@ -11,3 +11,5 @@ Require complete CPU and both network directions before counting EC2 idle days, 
 Batch CloudWatch queries by supported query and datapoint limits with aligned windows and bounded concurrency, and keep recent log-stream hydration workers busy when individual requests are slow.
 
 Isolate static dataset relationships and rule evaluation by Terraform module directory or CloudFormation template so one source cannot satisfy another source’s missing lifecycle or autoscaling configuration.
+
+Index Terraform S3 and ECR policy references once per source scope to avoid rescanning every policy for every resource.

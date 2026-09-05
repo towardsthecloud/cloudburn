@@ -1606,6 +1606,29 @@ describe('aws static dataset registry', () => {
     ]);
   });
 
+  it('correlates S3 lifecycle policies with linear reference reads for a large module', () => {
+    const size = 500;
+    let referenceReads = 0;
+    const resources = Array.from({ length: size }, (_, index) => [
+      createIaCResource({ type: 'aws_s3_bucket', name: `bucket${index}` }),
+      createIaCResource({
+        type: 'aws_s3_bucket_lifecycle_configuration',
+        name: `policy${index}`,
+        attributes: {
+          get bucket() {
+            referenceReads += 1;
+            return `\${aws_s3_bucket.bucket${index}.id}`;
+          },
+          rule: [{ status: 'Enabled', expiration: [{ days: 30 }] }],
+        },
+      }),
+    ]).flat();
+    const analyses = getAwsStaticDatasetDefinition('aws-s3-bucket-analyses')?.load(resources);
+    expect(analyses).toHaveLength(size);
+    expect(analyses?.every((analysis) => analysis.hasLifecycleSignal)).toBe(true);
+    expect(referenceReads).toBeLessThanOrEqual(size * 3);
+  });
+
   it('builds S3 bucket analyses from correlated Terraform lifecycle resources', () => {
     const definition = getAwsStaticDatasetDefinition('aws-s3-bucket-analyses');
 

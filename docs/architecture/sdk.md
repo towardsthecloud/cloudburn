@@ -69,6 +69,8 @@ graph TD
 10. Group active rule findings under `providers -> rules -> findings`, retain suppressed matches under `suppressed`,
     and attach parser diagnostics when present.
 
+Terraform S3 lifecycle, tiering, and versioning resources and ECR lifecycle policies are indexed by reference before bucket or repository analysis. Alias matches preserve policy source order.
+
 Static rule evaluation retains those scopes, including joins between datasets such as DynamoDB tables and autoscaling targets. Findings from each scope are merged under one rule result. Public resource IDs and source locations stay unchanged, and inline suppression matching still uses the source path and resource ID.
 
 ### Live Scan
