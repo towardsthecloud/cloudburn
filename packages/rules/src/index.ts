@@ -11,6 +11,10 @@ export {
   getAwsCostOptimizationHubReservationResourceType,
 } from './aws/costoptimizationhub/reservation-identity.js';
 export { getAwsCostOptimizationHubRightsizingResourceType } from './aws/costoptimizationhub/rightsizing-identity.js';
+export {
+  getAwsCostOptimizationHubUpgradeResourceId,
+  getAwsCostOptimizationHubUpgradeResourceType,
+} from './aws/costoptimizationhub/upgrade-identity.js';
 export { awsRules } from './aws/index.js';
 export {
   AWS_KMS_KEY_PROLIFERATION_THRESHOLD,
@@ -45,16 +49,21 @@ export type {
   AwsCostGuardrailBudget,
   AwsCostGuardrailBudgetSpend,
   AwsCostOptimizationHubAutoScalingConfiguration,
+  AwsCostOptimizationHubAutoScalingUpgradeConfiguration,
   AwsCostOptimizationHubComputeConfiguration,
   AwsCostOptimizationHubDbConfiguration,
   AwsCostOptimizationHubDynamoDbReservationConfiguration,
+  AwsCostOptimizationHubEbsUpgradeConfiguration,
   AwsCostOptimizationHubEc2ReservationConfiguration,
+  AwsCostOptimizationHubEc2UpgradeConfiguration,
   AwsCostOptimizationHubElastiCacheReservationConfiguration,
   AwsCostOptimizationHubIdleRecommendation,
   AwsCostOptimizationHubInstanceConfiguration,
   AwsCostOptimizationHubMemoryDbReservationConfiguration,
   AwsCostOptimizationHubOpenSearchReservationConfiguration,
   AwsCostOptimizationHubRdsReservationConfiguration,
+  AwsCostOptimizationHubRdsStorageUpgradeConfiguration,
+  AwsCostOptimizationHubRdsUpgradeConfiguration,
   AwsCostOptimizationHubRecommendation,
   AwsCostOptimizationHubRedshiftReservationConfiguration,
   AwsCostOptimizationHubReservationConfiguration,
@@ -63,6 +72,7 @@ export type {
   AwsCostOptimizationHubRightsizingRecommendation,
   AwsCostOptimizationHubSavingsPlansRecommendation,
   AwsCostOptimizationHubServiceConfiguration,
+  AwsCostOptimizationHubUpgradeRecommendation,
   AwsCostOptimizationHubVolumeConfiguration,
   AwsCostUsage,
   AwsDiscoveredResource,

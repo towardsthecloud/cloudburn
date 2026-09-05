@@ -184,6 +184,7 @@ vi.mock('../../src/providers/aws/resources/cost-optimization-hub.js', () => ({
   hydrateAwsCostOptimizationHubIdleRecommendations: vi.fn(),
   hydrateAwsCostOptimizationHubReservationRecommendations: vi.fn(),
   hydrateAwsCostOptimizationHubSavingsPlansRecommendations: vi.fn(),
+  hydrateAwsCostOptimizationHubUpgradeRecommendations: vi.fn(),
 }));
 
 vi.mock('../../src/providers/aws/resources/cost-guardrails.js', () => ({

@@ -25,13 +25,17 @@ export const rdsStorageTypeCurrentGenRule = createRule({
   provider: 'aws',
   service: RULE_SERVICE,
   supports: ['discovery', 'iac'],
+  supersedesRuleIds: ['CLDBRN-AWS-COSTOPTIMIZATIONHUB-5'],
   discoveryDependencies: ['aws-rds-instances'],
   staticDependencies: ['aws-rds-instances'],
   evaluateLive: ({ resources }) => {
     const findings = resources
       .get('aws-rds-instances')
       .filter((instance) => isPreviousGenerationRdsStorageType(instance.storageType))
-      .map((instance) => createFindingMatch(instance.dbInstanceIdentifier, instance.region, instance.accountId));
+      .map((instance) => ({
+        ...createFindingMatch(instance.dbInstanceIdentifier, instance.region, instance.accountId),
+        resourceType: 'rds:db-storage',
+      }));
 
     return createFinding(
       { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },

@@ -18,13 +18,17 @@ export const ebsVolumeTypeCurrentGenRule = createRule({
   provider: 'aws',
   service: RULE_SERVICE,
   supports: ['discovery', 'iac'],
+  supersedesRuleIds: ['CLDBRN-AWS-COSTOPTIMIZATIONHUB-5'],
   discoveryDependencies: ['aws-ebs-volumes'],
   staticDependencies: ['aws-ebs-volumes'],
   evaluateLive: ({ resources }) => {
     const findings = resources
       .get('aws-ebs-volumes')
       .filter((volume) => isPreviousGenerationEbsVolumeType(volume.volumeType))
-      .map((volume) => createFindingMatch(volume.volumeId, volume.region, volume.accountId));
+      .map((volume) => ({
+        ...createFindingMatch(volume.volumeId, volume.region, volume.accountId),
+        resourceType: 'ec2:volume',
+      }));
 
     return createFinding(
       {

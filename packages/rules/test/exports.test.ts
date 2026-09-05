@@ -87,7 +87,7 @@ describe('rule exports', () => {
     expect(getAwsCostOptimizationHubReservationResourceType({ reservationType: 'RdsReservedInstances' })).toBe(
       'rds:db',
     );
-    expect(awsRuleIds).toHaveLength(91);
+    expect(awsRuleIds).toHaveLength(92);
     expect(awsCorePreset.ruleIds).toEqual(
       awsRuleIds.filter(
         (ruleId) =>
@@ -96,6 +96,7 @@ describe('rule exports', () => {
             'CLDBRN-AWS-COSTOPTIMIZATIONHUB-2',
             'CLDBRN-AWS-COSTOPTIMIZATIONHUB-4',
             'CLDBRN-AWS-COSTOPTIMIZATIONHUB-3',
+            'CLDBRN-AWS-COSTOPTIMIZATIONHUB-5',
             'CLDBRN-AWS-LAMBDA-4',
             'CLDBRN-AWS-TAGGING-1',
           ].includes(ruleId),

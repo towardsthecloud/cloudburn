@@ -31,7 +31,7 @@ describe('rule metadata', () => {
     }
   });
 
-  it('uses unique contiguous rule numbers per provider and service', () => {
+  it('uses unique contiguous rule numbers except issue-allocated Hub slots', () => {
     const seenRuleIds = new Set<string>();
     const numbersByScope = new Map<string, number[]>();
 
@@ -51,8 +51,13 @@ describe('rule metadata', () => {
       numbersByScope.set(scopeKey, ruleNumbers);
     }
 
-    for (const ruleNumbers of numbersByScope.values()) {
+    for (const [scope, ruleNumbers] of numbersByScope) {
       const sortedRuleNumbers = [...ruleNumbers].sort((left, right) => left - right);
+      if (scope === 'AWS-COSTOPTIMIZATIONHUB') {
+        // Issues #209 and #210 own slots 3 and 4; #211 must retain its assigned ID.
+        expect(sortedRuleNumbers).toEqual([1, 2, 3, 4, 5]);
+        continue;
+      }
 
       expect(sortedRuleNumbers).toEqual(Array.from({ length: sortedRuleNumbers.length }, (_, index) => index + 1));
     }
