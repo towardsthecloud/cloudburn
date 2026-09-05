@@ -88,3 +88,14 @@ export const createFinding = (
 
 /** Returns the stable rule identifiers from a rule collection. */
 export const toRuleIds = (rules: Rule[]): string[] => rules.map((rule) => rule.id);
+
+/**
+ * Keys AWS evidence by account, region, and the service's resource identifier.
+ *
+ * @param accountId - AWS account owning the resource.
+ * @param region - AWS region containing the resource.
+ * @param resourceId - Service-local resource identifier.
+ * @returns A collision-free key for joining normalized AWS evidence.
+ */
+export const getAwsResourceScopeKey = (accountId: string, region: string, resourceId: string): string =>
+  JSON.stringify([accountId, region, resourceId]);

@@ -58,6 +58,22 @@ describe('redshiftLowCpuRule', () => {
     });
   });
 
+  it.each([
+    { region: 'eu-west-1' },
+    { accountId: '999999999999' },
+  ])('keeps same-named cluster evidence isolated by %j', (scope) => {
+    const finding = redshiftLowCpuRule.evaluateLive?.({
+      catalog: { indexType: 'AGGREGATOR', resources: [], searchRegion: 'us-east-1' },
+      resources: new LiveResourceBag({
+        'aws-redshift-cluster-metrics': [createMetric()],
+        'aws-redshift-clusters': [createCluster(), createCluster(scope)],
+      }),
+    });
+    expect(finding?.findings).toEqual([
+      { accountId: '123456789012', region: 'us-east-1', resourceId: 'warehouse-prod' },
+    ]);
+  });
+
   it('skips clusters without low CPU utilization or that are not available', () => {
     const finding = redshiftLowCpuRule.evaluateLive?.({
       catalog: {

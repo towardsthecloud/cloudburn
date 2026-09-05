@@ -90,3 +90,5 @@ See [`docs/guides/adding-a-rule.md`](../guides/adding-a-rule.md) for the full en
 ## Current Rules
 
 See [`docs/reference/rule-ids.md`](../reference/rule-ids.md) for the complete rule table with descriptions and support modes.
+
+AWS evidence joins use the full resource identity. Service-local identifiers such as Redshift cluster names and EMR cluster IDs are scoped by account and region before matching metrics.

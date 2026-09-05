@@ -53,6 +53,20 @@ describe('emrIdleClusterRule', () => {
     });
   });
 
+  it.each([
+    { region: 'eu-west-1' },
+    { accountId: '999999999999' },
+  ])('keeps same-named cluster evidence isolated by %j', (scope) => {
+    const finding = emrIdleClusterRule.evaluateLive?.({
+      catalog: { indexType: 'AGGREGATOR', resources: [], searchRegion: 'us-east-1' },
+      resources: new LiveResourceBag({
+        'aws-emr-cluster-metrics': [createMetric()],
+        'aws-emr-clusters': [createCluster(), createCluster(scope)],
+      }),
+    });
+    expect(finding?.findings).toEqual([{ accountId: '123456789012', region: 'us-east-1', resourceId: 'j-CLUSTER1' }]);
+  });
+
   it('skips clusters without full idle coverage or that have already ended', () => {
     const finding = emrIdleClusterRule.evaluateLive?.({
       catalog: {

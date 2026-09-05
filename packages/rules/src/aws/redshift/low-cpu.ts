@@ -1,4 +1,4 @@
-import { createFinding, createFindingMatch, createRule } from '../../shared/helpers.js';
+import { createFinding, createFindingMatch, createRule, getAwsResourceScopeKey } from '../../shared/helpers.js';
 
 const RULE_ID = 'CLDBRN-AWS-REDSHIFT-1';
 const RULE_SERVICE = 'redshift';
@@ -20,13 +20,20 @@ export const redshiftLowCpuRule = createRule({
   discoveryDependencies: ['aws-redshift-clusters', 'aws-redshift-cluster-metrics'],
   evaluateLive: ({ resources }) => {
     const clustersById = new Map(
-      resources.get('aws-redshift-clusters').map((cluster) => [cluster.clusterIdentifier, cluster] as const),
+      resources
+        .get('aws-redshift-clusters')
+        .map(
+          (cluster) =>
+            [getAwsResourceScopeKey(cluster.accountId, cluster.region, cluster.clusterIdentifier), cluster] as const,
+        ),
     );
 
     const findings = resources
       .get('aws-redshift-cluster-metrics')
       .filter((metric) => {
-        const cluster = clustersById.get(metric.clusterIdentifier);
+        const cluster = clustersById.get(
+          getAwsResourceScopeKey(metric.accountId, metric.region, metric.clusterIdentifier),
+        );
 
         return (
           cluster?.clusterStatus === 'available' &&
@@ -35,7 +42,9 @@ export const redshiftLowCpuRule = createRule({
         );
       })
       .flatMap((metric) => {
-        const cluster = clustersById.get(metric.clusterIdentifier);
+        const cluster = clustersById.get(
+          getAwsResourceScopeKey(metric.accountId, metric.region, metric.clusterIdentifier),
+        );
 
         return cluster ? [createFindingMatch(cluster.clusterIdentifier, cluster.region, cluster.accountId)] : [];
       });
