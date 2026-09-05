@@ -2,6 +2,7 @@
 // TODO(cloudburn): publish stable docs for custom rule pack authoring.
 
 export { AWS_CONFIG_RECORDING_FREQUENCY_MINIMUM_SAVINGS_USD } from './aws/config/recording-frequency.js';
+export { gravitonResourceTypes } from './aws/costoptimizationhub/graviton-recommended.js';
 export {
   getAwsCostOptimizationHubIdleResourceId,
   getAwsCostOptimizationHubIdleResourceType,
@@ -11,6 +12,10 @@ export {
   getAwsCostOptimizationHubReservationResourceType,
 } from './aws/costoptimizationhub/reservation-identity.js';
 export { getAwsCostOptimizationHubRightsizingResourceType } from './aws/costoptimizationhub/rightsizing-identity.js';
+export {
+  getAwsCostOptimizationHubUpgradeResourceId,
+  getAwsCostOptimizationHubUpgradeResourceType,
+} from './aws/costoptimizationhub/upgrade-identity.js';
 export { awsRules } from './aws/index.js';
 export {
   AWS_KMS_KEY_PROLIFERATION_THRESHOLD,
@@ -45,16 +50,23 @@ export type {
   AwsCostGuardrailBudget,
   AwsCostGuardrailBudgetSpend,
   AwsCostOptimizationHubAutoScalingConfiguration,
+  AwsCostOptimizationHubAutoScalingUpgradeConfiguration,
   AwsCostOptimizationHubComputeConfiguration,
   AwsCostOptimizationHubDbConfiguration,
   AwsCostOptimizationHubDynamoDbReservationConfiguration,
+  AwsCostOptimizationHubEbsUpgradeConfiguration,
   AwsCostOptimizationHubEc2ReservationConfiguration,
+  AwsCostOptimizationHubEc2UpgradeConfiguration,
   AwsCostOptimizationHubElastiCacheReservationConfiguration,
+  AwsCostOptimizationHubGravitonConfiguration,
+  AwsCostOptimizationHubGravitonRecommendation,
   AwsCostOptimizationHubIdleRecommendation,
   AwsCostOptimizationHubInstanceConfiguration,
   AwsCostOptimizationHubMemoryDbReservationConfiguration,
   AwsCostOptimizationHubOpenSearchReservationConfiguration,
   AwsCostOptimizationHubRdsReservationConfiguration,
+  AwsCostOptimizationHubRdsStorageUpgradeConfiguration,
+  AwsCostOptimizationHubRdsUpgradeConfiguration,
   AwsCostOptimizationHubRecommendation,
   AwsCostOptimizationHubRedshiftReservationConfiguration,
   AwsCostOptimizationHubReservationConfiguration,
@@ -63,6 +75,7 @@ export type {
   AwsCostOptimizationHubRightsizingRecommendation,
   AwsCostOptimizationHubSavingsPlansRecommendation,
   AwsCostOptimizationHubServiceConfiguration,
+  AwsCostOptimizationHubUpgradeRecommendation,
   AwsCostOptimizationHubVolumeConfiguration,
   AwsCostUsage,
   AwsDiscoveredResource,

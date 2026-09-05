@@ -131,6 +131,7 @@ describe('CloudBurnClient', () => {
                   resourceId: 'vol-123',
                   region: 'us-east-1',
                   accountId: '123456789012',
+                  resourceType: 'ec2:volume',
                 },
               ],
             },
@@ -210,6 +211,7 @@ describe('CloudBurnClient', () => {
           source: 'discovery',
           status: 'triggered',
           supports: ['discovery', 'iac'],
+          supersedesRuleIds: ['CLDBRN-AWS-COSTOPTIMIZATIONHUB-5'],
         },
       ],
     });

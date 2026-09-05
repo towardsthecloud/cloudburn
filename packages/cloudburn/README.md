@@ -103,6 +103,8 @@ cloudburn discover --enabled-rules CLDBRN-AWS-COSTOPTIMIZATIONHUB-1
 cloudburn discover --enabled-rules CLDBRN-AWS-COSTOPTIMIZATIONHUB-2
 cloudburn discover --enabled-rules CLDBRN-AWS-COSTOPTIMIZATIONHUB-3
 cloudburn discover --enabled-rules CLDBRN-AWS-COSTOPTIMIZATIONHUB-4
+cloudburn discover --enabled-rules CLDBRN-AWS-COSTOPTIMIZATIONHUB-5
+cloudburn discover --enabled-rules CLDBRN-AWS-COSTOPTIMIZATIONHUB-6
 cloudburn discover --enabled-rules CLDBRN-AWS-TAGGING-1
 cloudburn discover --service ec2,s3
 cloudburn discover --fail-on high
@@ -118,11 +120,17 @@ Discovery has a five-minute deadline. Use `--timeout <seconds>` to change it, fo
 The CLI targets one region per run. Multi-region discovery remains available through the SDK and still needs an AWS Resource Explorer aggregator plus an unfiltered default view in the aggregator region.
 `CLDBRN-AWS-TAGGING-1` is opt-in and requires an accessible aggregator; a local-only setup cannot run account-wide tagging discovery.
 `CLDBRN-AWS-LAMBDA-4` is opt-in and requires AWS Compute Optimizer enrollment.
-`CLDBRN-AWS-COSTOPTIMIZATIONHUB-1`, `CLDBRN-AWS-COSTOPTIMIZATIONHUB-2`, and `CLDBRN-AWS-COSTOPTIMIZATIONHUB-3` are opt-in and require AWS Cost Optimization Hub enrollment. CloudBurn checks enrollment but never changes it. These rules use `cost-optimization-hub:ListEnrollmentStatuses`, `cost-optimization-hub:ListRecommendations`, and `cost-optimization-hub:GetRecommendation`, plus `sts:GetCallerIdentity` for account scoping.
+`CLDBRN-AWS-COSTOPTIMIZATIONHUB-1` through `CLDBRN-AWS-COSTOPTIMIZATIONHUB-6` are opt-in and require AWS Cost Optimization Hub enrollment. CloudBurn checks enrollment but never changes it. These rules use `cost-optimization-hub:ListEnrollmentStatuses`, `cost-optimization-hub:ListRecommendations`, and `cost-optimization-hub:GetRecommendation`, with `Resource: "*"`, plus `sts:GetCallerIdentity` for account scoping.
 
 Rule 3 reports idle-capacity Stop, Delete, and ScaleIn recommendations. It never executes them. Missing enrollment,
 denied access, and malformed evidence produce diagnostics. Review the exact action and rollback capability before acting.
 Table output includes an Action column for these findings. Regional discovery limits recommendations to the selected Region.
+
+`CLDBRN-AWS-COSTOPTIMIZATIONHUB-5` reviews AWS `Upgrade` recommendations for standalone EC2 instances, Auto Scaling groups, EBS volumes, RDS DB instances, and RDS DB instance storage. It preserves both configurations for generation review; rightsizing and Graviton migration use separate AWS actions. Unenrolled accounts, access denial, and incomplete required details produce unavailable diagnostics.
+
+Rule 6 reports Graviton migration candidates for standalone EC2 instances, Auto Scaling groups, and RDS DB instances.
+Review workload compatibility and rollback requirements before migrating. Unclassified workloads are not confirmed
+compatible; unavailable evidence produces diagnostics. See the [SDK evidence contract](../sdk/README.md) for details.
 Reservation findings include their AWS resource namespace in JSON and in the default table output.
 `CLDBRN-AWS-COSTOPTIMIZATIONHUB-4` is also opt-in and uses the same Hub IAM actions for rightsizing recommendations
 across EC2 instances and Auto Scaling groups, EBS, Lambda, ECS, RDS instances and storage, and Aurora cluster storage.

@@ -31,7 +31,7 @@ describe('rule metadata', () => {
     }
   });
 
-  it('uses unique contiguous rule numbers per provider and service', () => {
+  it('uses unique contiguous rule numbers except issue-allocated Hub slots', () => {
     const seenRuleIds = new Set<string>();
     const numbersByScope = new Map<string, number[]>();
 
@@ -53,7 +53,6 @@ describe('rule metadata', () => {
 
     for (const ruleNumbers of numbersByScope.values()) {
       const sortedRuleNumbers = [...ruleNumbers].sort((left, right) => left - right);
-
       expect(sortedRuleNumbers).toEqual(Array.from({ length: sortedRuleNumbers.length }, (_, index) => index + 1));
     }
   });

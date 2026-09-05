@@ -1,5 +1,28 @@
 # @cloudburn/sdk
 
+## 0.32.0
+
+### Minor Changes
+
+- [#217](https://github.com/towardsthecloud/cloudburn/pull/217) [`7a69c3a`](https://github.com/towardsthecloud/cloudburn/commit/7a69c3aeddc7810a4b9dc44400efdf4fbbed93e3) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Load Hub rightsizing through shared enrollment, pagination, and deduplication. Expose typed configurations and common recommendation evidence, with diagnostics for unavailable details and access.
+
+- [#218](https://github.com/towardsthecloud/cloudburn/pull/218) [`e83ad0f`](https://github.com/towardsthecloud/cloudburn/commit/e83ad0f9d8e850f82bf5f62e83897be6788dcbaa) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Load Graviton recommendations through the shared Cost Optimization Hub loader and expose current and recommended configurations, compatibility inference, and common recommendation evidence. Report unavailable evidence as diagnostics.
+
+- [#216](https://github.com/towardsthecloud/cloudburn/pull/216) [`4a5f31b`](https://github.com/towardsthecloud/cloudburn/commit/4a5f31be22c859869f34f44277a7f4b972256c63) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Load idle-capacity recommendations through the shared Cost Optimization Hub session, scoped to the selected Regions. Preserve typed current and recommended configuration and report incomplete or unavailable evidence as diagnostics. Compare exact actions when applying finding precedence.
+
+- [#219](https://github.com/towardsthecloud/cloudburn/pull/219) [`629f912`](https://github.com/towardsthecloud/cloudburn/commit/629f9126aa70fd717670e8d60c84de31547944e7) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Load product-generation upgrade recommendations through the shared Cost Optimization Hub seam. Export typed configurations, project both configurations in evaluation evidence, and report incomplete or denied evidence as unavailable.
+
+### Patch Changes
+
+- [#214](https://github.com/towardsthecloud/cloudburn/pull/214) [`4246560`](https://github.com/towardsthecloud/cloudburn/commit/4246560ab4913b22bbf3ea968eef173b4f81d175) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Detect available Transit Gateway VPC attachments with no traffic during a complete 30-day window and include public regional attachment pricing when available.
+
+- [#215](https://github.com/towardsthecloud/cloudburn/pull/215) [`e265e3b`](https://github.com/towardsthecloud/cloudburn/commit/e265e3b040e3aaa0fe414d86453114d72e6bafe5) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Add opt-in Cost Optimization Hub reservation purchase findings with typed evidence, shared read-only loading, and rule-declared native-finding precedence.
+
+- [#207](https://github.com/towardsthecloud/cloudburn/pull/207) [`8f40c21`](https://github.com/towardsthecloud/cloudburn/commit/8f40c218170c6f3c7892247d501e6699fa211f33) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Report Compute, EC2 Instance, and SageMaker Savings Plans purchase recommendations from Cost Optimization Hub, and flag material SageMaker Savings Plans coverage gaps from Cost Explorer without duplicate findings.
+
+- Updated dependencies [[`7a69c3a`](https://github.com/towardsthecloud/cloudburn/commit/7a69c3aeddc7810a4b9dc44400efdf4fbbed93e3), [`4246560`](https://github.com/towardsthecloud/cloudburn/commit/4246560ab4913b22bbf3ea968eef173b4f81d175), [`e265e3b`](https://github.com/towardsthecloud/cloudburn/commit/e265e3b040e3aaa0fe414d86453114d72e6bafe5), [`e83ad0f`](https://github.com/towardsthecloud/cloudburn/commit/e83ad0f9d8e850f82bf5f62e83897be6788dcbaa), [`4a5f31b`](https://github.com/towardsthecloud/cloudburn/commit/4a5f31be22c859869f34f44277a7f4b972256c63), [`8f40c21`](https://github.com/towardsthecloud/cloudburn/commit/8f40c218170c6f3c7892247d501e6699fa211f33), [`629f912`](https://github.com/towardsthecloud/cloudburn/commit/629f9126aa70fd717670e8d60c84de31547944e7)]:
+  - @cloudburn/rules@0.32.0
+
 ## 0.31.0
 
 ### Minor Changes

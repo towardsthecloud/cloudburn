@@ -10,6 +10,9 @@ import {
   getAwsCostOptimizationHubReservationResourceId,
   getAwsCostOptimizationHubReservationResourceType,
   getAwsCostOptimizationHubRightsizingResourceType,
+  getAwsCostOptimizationHubUpgradeResourceId,
+  getAwsCostOptimizationHubUpgradeResourceType,
+  gravitonResourceTypes,
   type LiveResourceBag,
   type Rule,
 } from '@cloudburn/rules';
@@ -28,10 +31,12 @@ import { hydrateAwsConfigRecordingFrequencyReviews } from './resources/config.js
 import { hydrateAwsCostUsage } from './resources/cost-explorer.js';
 import { hydrateAwsCostAnomalyMonitors, hydrateAwsCostGuardrailBudgets } from './resources/cost-guardrails.js';
 import {
+  hydrateAwsCostOptimizationHubGravitonRecommendations,
   hydrateAwsCostOptimizationHubIdleRecommendations,
   hydrateAwsCostOptimizationHubReservationRecommendations,
   hydrateAwsCostOptimizationHubRightsizingRecommendations,
   hydrateAwsCostOptimizationHubSavingsPlansRecommendations,
+  hydrateAwsCostOptimizationHubUpgradeRecommendations,
 } from './resources/cost-optimization-hub.js';
 import {
   hydrateAwsDynamoDbAutoscaling,
@@ -844,6 +849,34 @@ const awsDiscoveryDatasetRegistry: {
         ...(recommendation.resourceArn ? { arn: recommendation.resourceArn } : {}),
         resourceType: getAwsCostOptimizationHubIdleResourceType(recommendation),
       })),
+  },
+  'aws-cost-optimization-hub-upgrade-recommendations': {
+    datasetKey: 'aws-cost-optimization-hub-upgrade-recommendations',
+    resourceTypes: [],
+    service: 'costoptimizationhub',
+    load: hydrateAwsCostOptimizationHubUpgradeRecommendations,
+    toEvaluationResources: (recommendations) =>
+      mapEvaluationResources(recommendations, getAwsCostOptimizationHubUpgradeResourceId, (recommendation) => ({
+        ...(recommendation.resourceArn ? { arn: recommendation.resourceArn } : {}),
+        data: recommendation,
+        resourceType: getAwsCostOptimizationHubUpgradeResourceType(recommendation),
+      })),
+  },
+  'aws-cost-optimization-hub-graviton-recommendations': {
+    datasetKey: 'aws-cost-optimization-hub-graviton-recommendations',
+    resourceTypes: [],
+    service: 'costoptimizationhub',
+    load: hydrateAwsCostOptimizationHubGravitonRecommendations,
+    toEvaluationResources: (recommendations) =>
+      mapEvaluationResources(
+        recommendations,
+        (item) => item.resourceId ?? item.resourceArn ?? item.recommendationId,
+        (item) => ({
+          arn: item.resourceArn,
+          data: item,
+          resourceType: gravitonResourceTypes[item.currentResourceType],
+        }),
+      ),
   },
   'aws-sagemaker-savings-plans-coverage': {
     datasetKey: 'aws-sagemaker-savings-plans-coverage',
