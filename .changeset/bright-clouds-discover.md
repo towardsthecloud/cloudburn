@@ -15,3 +15,5 @@ Isolate static dataset relationships and rule evaluation by Terraform module dir
 Index Terraform S3 and ECR policy references once per source scope to avoid rescanning every policy for every resource.
 
 Use one bounded filesystem walk for mixed IaC scans, skip nested symlink loops and duplicate links, and preserve support for explicit symlink roots.
+
+Give wrapped AWS service calls one retry owner so retries cannot multiply through nested loops, while retaining transient-error recovery and direct control-plane SDK retries.

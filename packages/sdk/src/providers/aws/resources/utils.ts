@@ -6,6 +6,7 @@ import { isTransientError } from '@smithy/service-error-classification';
 import { resolveAwsAccountId } from '../client.js';
 import type { AwsAccountIdResolver } from '../discovery-registry.js';
 import { AwsDiscoveryError, isAwsThrottlingError, wrapAwsServiceError } from '../errors.js';
+import { runAwsServiceAttempt } from '../execution.js';
 
 // Datasets load in parallel, and several datasets can fan out to the same
 // service in the same region at once. Each loader only bounds its own
@@ -37,6 +38,7 @@ type AwsServiceCallPolicy = {
 
 const AWS_SERVICE_CALL_POLICIES: Record<'default' | 'route53', AwsServiceCallPolicy> = {
   default: {
+    isRetryableError: (err) => err instanceof Error && isTransientError(err as SdkError),
     limiterScope: 'service-region',
     maxConcurrentCalls: AWS_SERVICE_CALL_CONCURRENCY,
   },
@@ -406,7 +408,7 @@ export const withAwsServiceErrorContext = async <T>(
     const releaseSlot = limiter ? await limiter.acquire() : null;
 
     try {
-      const result = await execute();
+      const result = await runAwsServiceAttempt(execute);
       releaseSlot?.();
 
       return result;
