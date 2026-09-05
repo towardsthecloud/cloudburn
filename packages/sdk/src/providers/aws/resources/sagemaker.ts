@@ -10,6 +10,7 @@ import type {
   AwsSageMakerNotebookInstance,
 } from '@cloudburn/rules';
 import { createSageMakerClient } from '../client.js';
+import { getAwsDiscoveryTimestamp } from '../execution.js';
 import { fetchCloudWatchSignals } from './cloudwatch.js';
 import { chunkItems, extractTerminalResourceIdentifier, withAwsServiceErrorContext } from './utils.js';
 
@@ -264,7 +265,7 @@ export const hydrateAwsSageMakerEndpointActivity = async (
         const metricData =
           completeEndpoints.length > 0
             ? await fetchCloudWatchSignals({
-                endTime: new Date(),
+                endTime: new Date(getAwsDiscoveryTimestamp()),
                 queries: completeEndpoints.flatMap((endpoint, endpointIndex) =>
                   endpoint.productionVariantNames.map((variantName, variantIndex) => ({
                     dimensions: [
@@ -279,7 +280,7 @@ export const hydrateAwsSageMakerEndpointActivity = async (
                   })),
                 ),
                 region,
-                startTime: new Date(Date.now() - FOURTEEN_DAYS_IN_SECONDS * 1000),
+                startTime: new Date(getAwsDiscoveryTimestamp() - FOURTEEN_DAYS_IN_SECONDS * 1000),
               })
             : new Map();
 

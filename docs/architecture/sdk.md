@@ -6,7 +6,7 @@
   classDiagram
   class CloudBurnClient {
     +scanStatic(path: string, config?: Partial~CloudBurnConfig~, options?: { configPath?: string }) Promise~ScanResult~
-    +discover(options?: { target?: AwsDiscoveryTarget, config?: Partial~CloudBurnConfig~, configPath?: string }) Promise~ScanResult~
+    +discover(options?: { target?: AwsDiscoveryTarget, config?: Partial~CloudBurnConfig~, configPath?: string, timeoutMs?: number, signal?: AbortSignal }) Promise~ScanResult~
     +initializeDiscovery(options?: { region?: string }) Promise~AwsDiscoveryInitialization~
     +getDiscoveryStatus(options?: { region?: string }) Promise~AwsDiscoveryStatus~
     +listSupportedDiscoveryResourceTypes() Promise~AwsSupportedResourceType[]~
@@ -111,6 +111,9 @@ Current live-discovery behavior:
 - Account-scoped or fallback-backed datasets can bypass Resource Explorer seeding entirely by declaring no `resourceTypes`; the loader then receives `[]` and owns the account-level API call.
 - Account-scoped datasets receive one resolved region in their load context: the first explicit target region when provided, otherwise the current AWS region. They do not fan out service API calls across regions.
 - Account-scoped loaders share one lazy STS account-ID resolution per discovery run, using the catalog control region even when the profile has no default region. The cache is discarded between runs so ambient credential contexts cannot leak identity.
+- `discover()` owns a five-minute total deadline, configurable with `timeoutMs`, and accepts a caller `AbortSignal`. Cancellation rejects the run, stops queued requests and backoff timers, aborts active HTTP requests, and destroys owned clients. Configuration and credential resolution count toward the deadline; cancelled runs do not return partial results.
+- AWS clients are reused by service and region within one run and destroyed on completion. Index and default-view lookup promises share that same lifetime. Separate runs keep independent credential and lookup state. Observation windows use one timestamp captured at the start of discovery.
+- Debug tracing records physical request duration, service/region, and HTTP status. It does not log request bodies, headers, or credentials.
 - AWS clients enforce a 5-second connection timeout and a 30-second request timeout. A request that exceeds its deadline throws a timeout error, allowing discovery to report the failed dataset.
 - Wrapped service calls use exactly one AWS SDK attempt per outer attempt. The service wrapper owns a maximum of six attempts, transient-error and throttling backoff, and slot acquisition. Direct control-plane calls retain the SDK’s three-attempt retry policy. Route 53 always uses the outer policy so retries count toward its account-wide request rate.
 - Each discovery run shares one AWS call budget: concurrent datasets fanning out to the same service in the same region are capped at a combined in-flight limit, on top of each loader's own bounded batches. Route 53 operations additionally share an account-wide sliding-window limit of five request starts per second across hosted zones, record sets, health checks, pagination, retries, and simultaneous discovery runs in the same process. Hydrators called directly outside a discover run stay unbounded.
@@ -144,11 +147,10 @@ See [`docs/reference/finding-shape.md`](../reference/finding-shape.md) for the f
 ```mermaid
 graph LR
   Path["file or directory"] --> PI["parseIaCWithDiagnostics(path)"]
-  PI --> TF["parseTerraform(path)"]
-  PI --> CFN["parseCloudFormation(path)"]
-  TF --> Walk["recursive walk\n(skips .git, .terraform, node_modules)"]
-  CFN --> Walk
-  Walk --> HCL["@cdktf/hcl2json / YAML+JSON parse"]
+  PI --> Walk["one filesystem walk\n(skips nested symlinks and excluded directories)"]
+  Walk --> Files["selected files, sorted by path"]
+  Files --> Workers["up to eight parser workers"]
+  Workers --> HCL["@cdktf/hcl2json / YAML+JSON parse"]
   HCL --> Extract["extract AWS Terraform blocks\nand AWS:: CloudFormation resources"]
   Extract --> Suppress["bind resource-local suppression comments"]
   Suppress --> IaC["resources + diagnostics"]

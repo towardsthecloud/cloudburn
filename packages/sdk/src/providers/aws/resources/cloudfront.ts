@@ -6,6 +6,7 @@ import type {
 } from '@cloudburn/rules';
 import { createCloudFrontClient } from '../client.js';
 import type { AwsAccountIdResolver, AwsDiscoveryDatasetResolver } from '../discovery-registry.js';
+import { getAwsDiscoveryTimestamp } from '../execution.js';
 import { fetchCloudWatchSignals } from './cloudwatch.js';
 import {
   chunkItems,
@@ -147,7 +148,7 @@ export const hydrateAwsCloudFrontDistributionRequestActivity = async (
   }
 
   const metricData = await fetchCloudWatchSignals({
-    endTime: new Date(),
+    endTime: new Date(getAwsDiscoveryTimestamp()),
     queries: distributions.map((distribution, index) => ({
       dimensions: [
         { Name: 'DistributionId', Value: distribution.distributionId },
@@ -160,7 +161,7 @@ export const hydrateAwsCloudFrontDistributionRequestActivity = async (
       stat: 'Sum' as const,
     })),
     region: CLOUDFRONT_CONTROL_REGION,
-    startTime: new Date(Date.now() - THIRTY_DAYS_IN_SECONDS * 1000),
+    startTime: new Date(getAwsDiscoveryTimestamp() - THIRTY_DAYS_IN_SECONDS * 1000),
   });
 
   return distributions.map((distribution, index) => {

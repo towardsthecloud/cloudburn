@@ -17,3 +17,5 @@ Index Terraform S3 and ECR policy references once per source scope to avoid resc
 Use one bounded filesystem walk for mixed IaC scans, skip nested symlink loops and duplicate links, and preserve support for explicit symlink roots.
 
 Give wrapped AWS service calls one retry owner so retries cannot multiply through nested loops, while retaining transient-error recovery and direct control-plane SDK retries.
+
+Bound each discovery run with a configurable deadline and cancellation signal. Reuse and release AWS clients and Resource Explorer lookups within the run, pin metric observation time, and trace physical request timing without sensitive request data.

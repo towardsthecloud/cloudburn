@@ -7,6 +7,7 @@ import type {
 } from '@cloudburn/rules';
 import { createElastiCacheClient } from '../client.js';
 import type { AwsDiscoveryDatasetResolver } from '../discovery-registry.js';
+import { getAwsDiscoveryTimestamp } from '../execution.js';
 import { fetchCloudWatchSignals } from './cloudwatch.js';
 import { extractTerminalResourceIdentifier, withAwsServiceErrorContext } from './utils.js';
 
@@ -201,7 +202,7 @@ export const hydrateAwsElastiCacheClusterActivity = async (
       const metricData =
         supportedClusters.length > 0
           ? await fetchCloudWatchSignals({
-              endTime: new Date(),
+              endTime: new Date(getAwsDiscoveryTimestamp()),
               queries: supportedClusters.flatMap((cluster, index) => [
                 {
                   dimensions: [{ Name: 'CacheClusterId', Value: cluster.cacheClusterId }],
@@ -229,7 +230,7 @@ export const hydrateAwsElastiCacheClusterActivity = async (
                 },
               ]),
               region,
-              startTime: new Date(Date.now() - FOURTEEN_DAYS_IN_SECONDS * 1000),
+              startTime: new Date(getAwsDiscoveryTimestamp() - FOURTEEN_DAYS_IN_SECONDS * 1000),
             })
           : new Map();
 

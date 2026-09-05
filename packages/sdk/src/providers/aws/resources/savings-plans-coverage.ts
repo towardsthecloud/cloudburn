@@ -3,6 +3,7 @@ import type { AwsDiscoveredResource, AwsSageMakerSavingsPlansCoverage } from '@c
 import { createCostExplorerClient } from '../client.js';
 import type { AwsAccountIdResolver, AwsDiscoveryDatasetLoadResult } from '../discovery-registry.js';
 import { formatAwsAccessDeniedReason, getAwsErrorCode, isAwsAccessDeniedError } from '../errors.js';
+import { getAwsDiscoveryTimestamp } from '../execution.js';
 import { formatUtcDate, parseFiniteNumber, resolveAwsAccountIdForLoad, withAwsServiceErrorContext } from './utils.js';
 
 const COST_EXPLORER_CONTROL_REGION = 'us-east-1';
@@ -72,7 +73,7 @@ export const hydrateAwsSageMakerSavingsPlansCoverage = async (
 > => {
   const client = createCostExplorerClient();
   const accountId = await resolveAwsAccountIdForLoad(context);
-  const period = resolveCoveragePeriod(new Date());
+  const period = resolveCoveragePeriod(new Date(getAwsDiscoveryTimestamp()));
 
   try {
     const coverageByPeriod = new Map<string, AwsSageMakerSavingsPlansCoverage>();

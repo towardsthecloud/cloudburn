@@ -6,7 +6,13 @@ import { isTransientError } from '@smithy/service-error-classification';
 import { resolveAwsAccountId } from '../client.js';
 import type { AwsAccountIdResolver } from '../discovery-registry.js';
 import { AwsDiscoveryError, isAwsThrottlingError, wrapAwsServiceError } from '../errors.js';
-import { runAwsServiceAttempt } from '../execution.js';
+import {
+  awaitAwsExecution,
+  getAwsExecutionSignal,
+  runAwsServiceAttempt,
+  throwIfAwsExecutionAborted,
+  waitForAwsDelay,
+} from '../execution.js';
 
 // Datasets load in parallel, and several datasets can fan out to the same
 // service in the same region at once. Each loader only bounds its own
@@ -21,7 +27,7 @@ const AWS_SERVICE_CALL_CONCURRENCY = 10;
 type AwsServiceCallSlotRelease = () => void;
 
 type AwsServiceCallLimiter = {
-  acquire: () => Promise<AwsServiceCallSlotRelease>;
+  acquire: (signal?: AbortSignal) => Promise<AwsServiceCallSlotRelease>;
 };
 
 type AwsServiceCallRateLimit = {
@@ -64,11 +70,17 @@ const createAwsServiceCallLimiter = (
   let nextWaiterIndex = 0;
   let wakeTimer: ReturnType<typeof setTimeout> | undefined;
   const requestStarts: number[] = [];
-  const waiters: Array<(release: AwsServiceCallSlotRelease) => void> = [];
+  type Waiter = {
+    cancelled: boolean;
+    resolve: (release: AwsServiceCallSlotRelease) => void;
+    signal?: AbortSignal;
+    onAbort: () => void;
+  };
+  const waiters: Waiter[] = [];
 
   const hasWaiters = (): boolean => nextWaiterIndex < waiters.length;
 
-  const takeNextWaiter = (): ((release: AwsServiceCallSlotRelease) => void) | undefined => {
+  const takeNextWaiter = (): Waiter | undefined => {
     const waiter = waiters[nextWaiterIndex];
     nextWaiterIndex += 1;
 
@@ -98,7 +110,10 @@ const createAwsServiceCallLimiter = (
 
     const now = Date.now();
     discardExpiredRequestStarts(now);
-
+    const discardCancelledWaiters = () => {
+      while (waiters[nextWaiterIndex]?.cancelled) takeNextWaiter();
+    };
+    discardCancelledWaiters();
     while (
       activeCalls < maxConcurrentCalls &&
       hasWaiters() &&
@@ -110,7 +125,17 @@ const createAwsServiceCallLimiter = (
         requestStarts.push(now);
       }
 
-      takeNextWaiter()?.(release);
+      const waiter = takeNextWaiter();
+      if (waiter) {
+        waiter.signal?.removeEventListener('abort', waiter.onAbort);
+        let released = false;
+        waiter.resolve(() => {
+          if (released) return;
+          released = true;
+          release();
+        });
+      }
+      discardCancelledWaiters();
     }
 
     const oldestRequestStart = requestStarts[0];
@@ -130,9 +155,24 @@ const createAwsServiceCallLimiter = (
   };
 
   return {
-    acquire: () =>
-      new Promise<AwsServiceCallSlotRelease>((resolve) => {
-        waiters.push(resolve);
+    acquire: (signal) =>
+      new Promise<AwsServiceCallSlotRelease>((resolve, reject) => {
+        if (signal?.aborted) {
+          reject(signal.reason);
+          return;
+        }
+        const waiter: Waiter = {
+          cancelled: false,
+          resolve,
+          signal,
+          onAbort: () => {
+            waiter.cancelled = true;
+            reject(signal?.reason);
+            dispatchWaiters();
+          },
+        };
+        signal?.addEventListener('abort', waiter.onAbort, { once: true });
+        waiters.push(waiter);
         dispatchWaiters();
       }),
   };
@@ -266,11 +306,6 @@ type AwsServiceErrorContextOptions = {
   passthrough?: (err: unknown) => boolean;
 };
 
-const sleep = async (delayMs: number): Promise<void> =>
-  new Promise((resolve) => {
-    setTimeout(resolve, delayMs);
-  });
-
 const calculateThrottleDelayMs = (initialDelayMs: number, attempt: number): number => {
   const baseDelayMs = initialDelayMs * 2 ** (attempt - 1);
 
@@ -403,17 +438,21 @@ export const withAwsServiceErrorContext = async <T>(
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     // The slot is acquired per attempt and released before any backoff sleep,
     // so a call waiting out a throttle never blocks other callers.
+    throwIfAwsExecutionAborted();
     const unresolvedLimiter = getAwsServiceCallLimiter(service, region, options.callPolicy ?? 'default');
-    const limiter = unresolvedLimiter instanceof Promise ? await unresolvedLimiter : unresolvedLimiter;
-    const releaseSlot = limiter ? await limiter.acquire() : null;
+    const limiter =
+      unresolvedLimiter instanceof Promise ? await awaitAwsExecution(unresolvedLimiter) : unresolvedLimiter;
+    const releaseSlot = limiter ? await limiter.acquire(getAwsExecutionSignal()) : null;
 
     try {
-      const result = await runAwsServiceAttempt(execute);
+      throwIfAwsExecutionAborted();
+      const result = await awaitAwsExecution(runAwsServiceAttempt(execute));
       releaseSlot?.();
 
       return result;
     } catch (err) {
       releaseSlot?.();
+      throwIfAwsExecutionAborted();
 
       if (options.passthrough?.(err) || err instanceof AwsDiscoveryError) {
         throw err;
@@ -424,7 +463,7 @@ export const withAwsServiceErrorContext = async <T>(
       if (attempt < maxAttempts && shouldRetry) {
         const delayMs = calculateThrottleDelayMs(initialDelayMs, attempt);
         options.onRetry?.({ attempt, delayMs, error: err, maxAttempts });
-        await sleep(delayMs);
+        await waitForAwsDelay(delayMs);
         continue;
       }
 

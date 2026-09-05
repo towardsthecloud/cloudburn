@@ -1,5 +1,6 @@
 import type { AwsDiscoveredResource, AwsEc2InstanceUtilization } from '@cloudburn/rules';
 import type { AwsDiscoveryDatasetResolver } from '../discovery-registry.js';
+import { getAwsDiscoveryTimestamp } from '../execution.js';
 import { type CloudWatchMetricPoint, fetchCloudWatchSignals } from './cloudwatch.js';
 import { hydrateAwsEc2Instances } from './ec2.js';
 
@@ -39,7 +40,7 @@ export const hydrateAwsEc2InstanceUtilization = async (
     instancesByRegion.set(instance.region, regionInstances);
   }
 
-  const endTime = new Date();
+  const endTime = new Date(getAwsDiscoveryTimestamp());
   endTime.setUTCHours(0, 0, 0, 0);
   const startTime = new Date(endTime.getTime() - FOURTEEN_DAYS_IN_SECONDS * 1000);
   const hydratedPages = await Promise.all(

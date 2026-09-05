@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as clientModule from '../../src/providers/aws/client.js';
+import { withAwsDiscoveryExecution } from '../../src/providers/aws/execution.js';
 import {
   buildAwsDiscoveryCatalog,
   createAwsResourceExplorerSetup,
@@ -68,6 +69,41 @@ describe('resource explorer discovery', () => {
       'ec2:volume',
     ]);
     expect(listRegions).toHaveBeenCalledOnce();
+  });
+
+  it('reuses aggregator and view lookups within a run without caching them across runs', async () => {
+    const enabled = vi.spyOn(clientModule, 'listEnabledAwsRegions').mockResolvedValue(['eu-west-1', 'eu-central-1']);
+    const operations: string[] = [];
+    vi.spyOn(clientModule, 'createResourceExplorerClient').mockImplementation(
+      ({ region }) =>
+        ({
+          send: vi.fn(async (command) => {
+            operations.push(command.constructor.name);
+            if (command.input.Regions)
+              return { Indexes: [{ Region: region, Type: region === 'eu-west-1' ? 'AGGREGATOR' : 'LOCAL' }] };
+            if (command.input.Filters) return { Resources: [] };
+            return { ViewArn: 'view', View: { Filters: { FilterString: '' }, IncludedProperties: [{ Name: 'tags' }] } };
+          }),
+        }) as never,
+    );
+    const scan = () =>
+      withAwsDiscoveryExecution({}, async () => {
+        await Promise.all([
+          buildAwsDiscoveryCatalog({ mode: 'all' }, ['ec2:volume']),
+          listAwsResourcesByFilter({ mode: 'all' }, 'resourcetype.supports:tags tag:none', {
+            scope: 'account',
+            requiredViewProperties: ['tags'],
+          }),
+        ]);
+      });
+    await scan();
+    expect(enabled).toHaveBeenCalledOnce();
+    expect(operations.filter((operation) => operation === 'ListIndexesCommand')).toHaveLength(2);
+    expect(operations.filter((operation) => operation === 'GetViewCommand')).toHaveLength(1);
+    await scan();
+    expect(enabled).toHaveBeenCalledTimes(2);
+    expect(operations.filter((operation) => operation === 'ListIndexesCommand')).toHaveLength(4);
+    expect(operations.filter((operation) => operation === 'GetViewCommand')).toHaveLength(2);
   });
 
   it('builds a deduplicated catalog and applies a region filter when listing from an aggregator region', async () => {

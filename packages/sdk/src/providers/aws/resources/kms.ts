@@ -16,6 +16,7 @@ import type { ScanDiagnostic } from '../../../types.js';
 import { createKmsClient } from '../client.js';
 import type { AwsDiscoveryDatasetLoadResult, AwsDiscoveryDatasetResolver } from '../discovery-registry.js';
 import { formatAwsAccessDeniedReason, getAwsErrorCode, isAwsAccessDeniedError } from '../errors.js';
+import { getAwsDiscoveryTimestamp } from '../execution.js';
 import {
   addUtcMonths,
   extractTerminalArnResourceIdentifier,
@@ -317,7 +318,7 @@ const createReview = (
   aliasPatternsAvailable: boolean,
   keyMetadataUnavailableCount: number,
 ): AwsKmsKeyChurnReview => {
-  const creationWindow = getPreviousFullMonthWindow(new Date());
+  const creationWindow = getPreviousFullMonthWindow(new Date(getAwsDiscoveryTimestamp()));
   const aliasPatternCounts = new Map<string, number>();
   const usageCounts: Record<AwsKmsKeyUsageEvidence, number> = {
     no_kms_usage_since_creation: 0,

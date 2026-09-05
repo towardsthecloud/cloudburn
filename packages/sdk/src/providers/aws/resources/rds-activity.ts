@@ -1,5 +1,6 @@
 import type { AwsDiscoveredResource, AwsRdsInstanceActivity, AwsRdsInstanceCpuMetric } from '@cloudburn/rules';
 import type { AwsDiscoveryDatasetResolver } from '../discovery-registry.js';
+import { getAwsDiscoveryTimestamp } from '../execution.js';
 import { fetchCloudWatchSignals } from './cloudwatch.js';
 import { hydrateAwsRdsInstances } from './rds.js';
 
@@ -33,7 +34,7 @@ export const hydrateAwsRdsInstanceActivity = async (
   const hydratedPages = await Promise.all(
     [...instancesByRegion.entries()].map(async ([region, regionInstances]) => {
       const metricData = await fetchCloudWatchSignals({
-        endTime: new Date(),
+        endTime: new Date(getAwsDiscoveryTimestamp()),
         queries: regionInstances.map((instance, index) => ({
           dimensions: [{ Name: 'DBInstanceIdentifier', Value: instance.dbInstanceIdentifier }],
           id: `rds${index}`,
@@ -43,7 +44,7 @@ export const hydrateAwsRdsInstanceActivity = async (
           stat: 'Maximum',
         })),
         region,
-        startTime: new Date(Date.now() - SEVEN_DAYS_IN_SECONDS * 1000),
+        startTime: new Date(getAwsDiscoveryTimestamp() - SEVEN_DAYS_IN_SECONDS * 1000),
       });
 
       return regionInstances.map((instance, index) => {
@@ -90,7 +91,7 @@ export const hydrateAwsRdsInstanceCpuMetrics = async (
   const hydratedPages = await Promise.all(
     [...instancesByRegion.entries()].map(async ([region, regionInstances]) => {
       const metricData = await fetchCloudWatchSignals({
-        endTime: new Date(),
+        endTime: new Date(getAwsDiscoveryTimestamp()),
         queries: regionInstances.map((instance, index) => ({
           dimensions: [{ Name: 'DBInstanceIdentifier', Value: instance.dbInstanceIdentifier }],
           id: `cpu${index}`,
@@ -100,7 +101,7 @@ export const hydrateAwsRdsInstanceCpuMetrics = async (
           stat: 'Average',
         })),
         region,
-        startTime: new Date(Date.now() - THIRTY_DAYS_IN_SECONDS * 1000),
+        startTime: new Date(getAwsDiscoveryTimestamp() - THIRTY_DAYS_IN_SECONDS * 1000),
       });
 
       return regionInstances.map((instance, index) => {

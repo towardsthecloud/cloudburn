@@ -25,6 +25,7 @@ import {
   isAwsAccessDeniedError,
   isAwsThrottlingError,
 } from './errors.js';
+import { throwIfAwsExecutionAborted } from './execution.js';
 import {
   buildAwsDiscoveryCatalog,
   createAwsResourceExplorerSetup,
@@ -369,6 +370,7 @@ export const discoverAwsResources = async (
           ? await buildAwsDiscoveryCatalog(target, resourceTypes)
           : await buildAwsDiscoveryCatalog(target, resourceTypes, { debugLogger: options.debugLogger });
     } catch (err) {
+      throwIfAwsExecutionAborted();
       const hasAccountScopedDatasets = datasetDefinitions.some((definition) => definition.resourceTypes.length === 0);
 
       // With no account-scoped datasets in the run, nothing can load without
@@ -432,6 +434,7 @@ export const discoverAwsResources = async (
     datasetKey: K,
     requestedRegion?: string,
   ): Promise<AwsDiscoveryDatasetLoad<K>> => {
+    throwIfAwsExecutionAborted();
     const definition = getAwsDiscoveryDatasetDefinition(datasetKey);
     if (!definition) throw new Error(`Unknown discovery dataset '${datasetKey}'.`);
     const accountScoped = definition.resourceTypes.length === 0;
@@ -485,6 +488,7 @@ export const discoverAwsResources = async (
         const loaded = normalizeDatasetLoadResult(await definition.load(regionResources, createLoadContext(region)));
         load = result(loaded.resources, loaded.diagnostics, loaded.unavailable);
       } catch (err) {
+        throwIfAwsExecutionAborted();
         emitDebugLog(
           options?.debugLogger,
           `aws: dataset ${datasetKey} failed${region ? ` in ${region}` : ''} after ${formatElapsedMs(startedAtMs)}: ${err instanceof Error ? err.message : String(err)}`,

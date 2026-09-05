@@ -10,6 +10,7 @@ import type { ScanDiagnostic } from '../../../types.js';
 import { createApplicationAutoScalingClient, createDynamoDbClient } from '../client.js';
 import type { AwsDiscoveryDatasetLoadResult, AwsDiscoveryDatasetResolver } from '../discovery-registry.js';
 import { formatAwsAccessDeniedReason, getAwsErrorCode, isAwsAccessDeniedError } from '../errors.js';
+import { getAwsDiscoveryTimestamp } from '../execution.js';
 import { fetchCloudWatchSignals } from './cloudwatch.js';
 import { chunkItems, extractTerminalArnResourceIdentifier, withAwsServiceErrorContext } from './utils.js';
 
@@ -259,7 +260,7 @@ export const hydrateAwsDynamoDbTableUtilization = async (
 
   const hydratedPages = await Promise.all(
     [...tablesByRegion.entries()].map(async ([region, regionTables]) => {
-      const endTime = new Date();
+      const endTime = new Date(getAwsDiscoveryTimestamp());
       const ninetyDayStartTime = new Date(endTime.getTime() - NINETY_DAYS_IN_SECONDS * 1000);
       const thirtyDayStartTime = new Date(endTime.getTime() - THIRTY_DAYS_IN_SECONDS * 1000);
       const thirtyDayStartBucketMs =

@@ -4,6 +4,7 @@ import {
 } from '@aws-sdk/client-ec2';
 import type { AwsDiscoveredResource, AwsEc2TransitGatewayVpcAttachmentActivity } from '@cloudburn/rules';
 import { createEc2Client } from '../client.js';
+import { getAwsDiscoveryTimestamp } from '../execution.js';
 import { fetchCloudWatchSignals } from './cloudwatch.js';
 import { chunkItems, extractTerminalArnResourceIdentifier, withAwsServiceErrorContext } from './utils.js';
 
@@ -185,7 +186,7 @@ export const hydrateAwsEc2TransitGatewayVpcAttachmentActivity = async (
           continue;
         }
 
-        const endTime = new Date();
+        const endTime = new Date(getAwsDiscoveryTimestamp());
         endTime.setUTCHours(0, 0, 0, 0);
         const startTime = new Date(endTime.getTime() - LOOKBACK_SECONDS * 1_000);
         hourlyAttachmentCostPromise ??= loadHourlyVpcAttachmentPrice(region);
