@@ -164,6 +164,26 @@ describe('discover command e2e', () => {
     expect(process.exitCode).toBe(0);
   });
 
+  it('passes an explicit discovery timeout to the sdk in milliseconds', async () => {
+    const discover = vi.spyOn(CloudBurnClient.prototype, 'discover').mockResolvedValue({ providers: [] });
+
+    await createProgram().parseAsync(['discover', '--timeout', '600'], { from: 'user' });
+
+    expect(discover).toHaveBeenCalledWith({ target: { mode: 'current' }, timeoutMs: 600_000 });
+  });
+
+  it.each(['0', '-1', 'abc', '1.5', '2147484'])('rejects invalid discovery timeout %s', async (timeout) => {
+    const discover = vi.spyOn(CloudBurnClient.prototype, 'discover');
+    vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+
+    await expect(
+      createProgram().parseAsync(['discover', '--timeout', timeout], { from: 'user' }),
+    ).rejects.toMatchObject({
+      code: 'commander.invalidArgument',
+    });
+    expect(discover).not.toHaveBeenCalled();
+  });
+
   it('writes sdk debug tracing to stderr without adding cli-originated debug lines', async () => {
     const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);

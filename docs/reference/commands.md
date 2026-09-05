@@ -17,6 +17,10 @@ The root `package.json` is authoritative for command definitions; `turbo.json` o
 | `pnpm clean`                 | Remove package build output                          | Destructive only to generated `dist/` output                        |
 | `pnpm depupdate`             | Update Corepack and dependencies                     | Mutates manifests and the lockfile                                  |
 
+## Discovery timeout
+
+`cloudburn discover --timeout <seconds>` sets the total discovery deadline (default: 300 seconds). The value must be an integer from 1 to 2147483. An expired deadline stops AWS work and exits with code 2. SDK callers can set `timeoutMs` and provide an `AbortSignal` to `CloudBurnClient.discover()`.
+
 ## Turbo filters
 
 ```bash

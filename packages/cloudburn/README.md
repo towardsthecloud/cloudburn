@@ -113,6 +113,8 @@ cloudburn rules list --service ec2 --source discovery --severity high
 
 The discovery config equivalent is `discovery.fail-on`.
 
+Discovery has a five-minute deadline. Use `--timeout <seconds>` to change it, for example `cloudburn discover --timeout 600`. If the deadline expires, the command exits with code 2 and reports the timeout.
+
 The CLI targets one region per run. Multi-region discovery remains available through the SDK and still needs an AWS Resource Explorer aggregator plus an unfiltered default view in the aggregator region.
 `CLDBRN-AWS-TAGGING-1` is opt-in and requires an accessible aggregator; a local-only setup cannot run account-wide tagging discovery.
 `CLDBRN-AWS-LAMBDA-4` is opt-in and requires AWS Compute Optimizer enrollment.
