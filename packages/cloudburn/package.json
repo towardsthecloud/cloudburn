@@ -22,6 +22,8 @@
     "build": "tsup",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:e2e": "node --test test/e2e/*.test.mjs",
+    "test:package": "node --test test/package/*.test.mjs",
     "lint": "biome check --error-on-warnings .",
     "lint:fix": "biome check --write .",
     "clean": "rm -rf dist",

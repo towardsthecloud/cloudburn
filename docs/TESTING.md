@@ -2,8 +2,8 @@
 
 ## Tools
 
-- **Test runner:** Vitest (all packages)
-- **Gate command:** `pnpm verify` (runs lint, typecheck, package and documentation tests, and the live documentation check)
+- **Test runners:** Vitest for source tests; Node.js `node:test` for built CLI, installed-package, and documentation tests
+- **Gate command:** `pnpm verify` (runs documentation checks, package boundaries, lint, typecheck, and every test suite)
 - **TDD flow:** red-green-refactor — write a failing test first, implement the minimal code to pass, then refactor
 
 ## Three-Package Test Strategy
@@ -51,9 +51,13 @@ Split live AWS provider tests into three layers:
 2. Dataset loader/hydrator tests per service
 3. Orchestration tests in `discoverAwsResources`
 
+### Discovery HTTP integration
+
+`packages/sdk/test/discovery-http-integration.test.ts` runs the public `CloudBurnClient.discover()` method with the real catalog, hydrators, AWS serialization/deserialization, and rule evaluation. Only the AWS HTTP transport is intercepted. Synthetic JSON and XML responses cover pagination, catalog deduplication, hydration scope, findings, and denied required evidence. Unexpected requests fail the test before reaching the network. Keep focused provider unit tests for exhaustive service behavior.
+
 ### `cloudburn` (CLI)
 
-Mock at the SDK boundary — do not run real scans.
+Command tests (`*.command.test.ts`) mock the SDK boundary to isolate CLI behavior. The separate `test/e2e/` suite runs the built executable against real Terraform and CloudFormation files, without mocking the SDK or parsers.
 
 | Boundary              | Mock strategy                                                        |
 | --------------------- | -------------------------------------------------------------------- |
@@ -74,20 +78,43 @@ Mock at the SDK boundary — do not run real scans.
 - `table` output stays human-readable and `json` output stays machine-readable
 - Runtime errors remain structured JSON on `stderr` regardless of stdout format
 
+### Built CLI template tests
+
+`pnpm test:e2e` builds the CLI and its workspace dependencies, then starts the executable in isolated temporary directories. Fixtures and reviewed finding expectations live in `packages/cloudburn/test/e2e/`. These tests cover Terraform, CloudFormation YAML and JSON, positive and negative findings, source scope, source locations, configuration, suppression, parser diagnostics, and exit codes. They use no AWS credentials or account resources.
+
+Keep the fixture expectations independent of implementation output. Normalize only irrelevant result ordering; preserve rule IDs, resource IDs, source locations, and diagnostics. Add representative complete command flows here and keep exhaustive rule permutations in SDK/rules tests.
+
+### Installed-package tests
+
+`pnpm test:packages` builds and packs all three workspace packages, installs the archives into a temporary consumer project, then checks the installed CLI executable and SDK ESM/CommonJS exports with real scans. Nothing is published. Installation can access the public npm registry for runtime dependencies, so this suite is uncached and requires registry connectivity. It does not use AWS credentials or contact AWS.
+
+## Fixture privacy
+
+Use synthetic AWS account IDs, ARNs, credentials, and responses in committed fixtures. Do not record live account output or add real credentials, real account identifiers, or live AWS workflows to this test pipeline. The synthetic discovery fixtures use `111111111111`; this is example data.
+
 ## Running Tests
 
 ```bash
 # Single package
 pnpm turbo run test --filter @cloudburn/rules
 
-# All packages
+# All suites (including built CLI and installed-package checks)
 pnpm test
+
+# Built CLI and real template fixtures
+pnpm test:e2e
+
+# Installed archives and public package exports
+pnpm test:packages
+
+# One discovery integration file
+pnpm --filter @cloudburn/sdk exec vitest run test/discovery-http-integration.test.ts
 
 # Repository knowledge checker and its public CLI tests
 pnpm docs:check
 pnpm docs:test
 
-# Full verification gate (lint + typecheck + test)
+# Full verification gate
 pnpm verify
 ```
 
@@ -95,3 +122,9 @@ pnpm verify
 live `docs:check` validates required entry points, root and package instruction aliases, repository-contained local links,
 heading fragments, reference-style definitions and uses, code-example exclusion, canonical page reachability, and the root
 `AGENTS.md` line budget.
+
+## CI and task caching
+
+CI installs dependencies once in a shared validation job. Pull requests run `pnpm verify --affected`; pushes to `main` run the full `pnpm verify` gate. Documentation checks and package boundaries always run. Turbo selects affected package tasks and shares required builds within the job.
+
+Source tests resolve workspace source directly and can run without dependency builds. The `test:inputs` transit task propagates upstream source changes into downstream test cache keys without serializing their execution. Built CLI and installed-package suites depend on the CLI build, which depends on SDK/rules builds. Test fixture edits invalidate tests without rebuilding unchanged package output. See the [command reference](reference/commands.md) for task dependencies and cache policy.

@@ -18,13 +18,24 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", "!test/**"],
       "outputs": ["dist/**"]
     },
     "typecheck": {
       "dependsOn": ["^build"]
     },
     "test": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["test:inputs"]
+    },
+    "test:inputs": {
+      "dependsOn": ["^test:inputs"]
+    },
+    "test:e2e": {
+      "dependsOn": ["build"]
+    },
+    "test:package": {
+      "dependsOn": ["build"],
+      "cache": false
     },
     "lint": {},
     "lint:fix": {

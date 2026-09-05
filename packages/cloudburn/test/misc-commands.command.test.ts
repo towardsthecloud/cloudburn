@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createProgram } from '../src/cli.js';
 
-describe('misc command e2e', () => {
+describe('misc command', () => {
   afterEach(() => {
     vi.restoreAllMocks();
   });

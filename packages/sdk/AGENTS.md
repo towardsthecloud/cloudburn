@@ -35,6 +35,7 @@
 
 - Cover `CloudBurnClient` facade behavior directly.
 - Test config behavior, orchestration flow, and provider integration seams.
-- Mock provider or external boundaries instead of re-testing the CLI or downstream SDK clients.
+- In unit tests, mock provider or external boundaries instead of re-testing the CLI or downstream SDK clients.
+- Keep representative discovery integration flows in `test/discovery-http-integration.test.ts`: use the real SDK pipeline with only the AWS HTTP transport intercepted. Use synthetic responses and fail unexpected requests before network access.
 - Static provider tests should split into dataset loader tests and orchestration tests.
 - Live provider tests should split into Resource Explorer catalog tests, hydrator tests, and orchestration tests.

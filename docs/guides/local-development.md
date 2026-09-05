@@ -24,6 +24,9 @@ Run all package development watchers with `pnpm dev`. Filter Turbo tasks while w
 pnpm turbo run test --filter @cloudburn/rules
 pnpm turbo run build --filter @cloudburn/sdk
 pnpm turbo run lint --filter cloudburn
+pnpm --filter @cloudburn/sdk exec vitest run test/discovery-http-integration.test.ts
+pnpm test:e2e
+pnpm test:packages
 ```
 
 Package names are `cloudburn`, `@cloudburn/sdk`, and `@cloudburn/rules`.
@@ -38,5 +41,5 @@ pnpm exec turbo boundaries
 pnpm verify
 ```
 
-`pnpm verify` runs lint, typecheck, and all tests. See the [testing strategy](../TESTING.md) and [command
+`pnpm verify` runs documentation checks, package boundaries, lint, typecheck, and all tests, including built CLI and installed-package checks. The installed-package suite needs public npm registry access; all AWS discovery responses are synthetic. See the [testing strategy](../TESTING.md) and [command
 reference](../reference/commands.md) for narrower commands and side effects.
