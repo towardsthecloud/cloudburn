@@ -130,6 +130,28 @@ instance family and commitment Region. The SDK checks enrollment but never chang
 `cost-optimization-hub:GetRecommendation`, or returns incomplete purchase evidence reports the rule as
 `not_applicable` instead of `passed`.
 
+`CLDBRN-AWS-COSTOPTIMIZATIONHUB-6` is an opt-in Graviton migration rule for standalone EC2 instances, EC2 Auto Scaling
+groups (single or mixed instance types), and RDS DB instances. Enable it through `config.discovery.enabledRules`.
+It uses the shared Hub loader with `MigrateToGraviton`; rightsizing and generation upgrades remain separate actions.
+
+The loader requires `cost-optimization-hub:ListEnrollmentStatuses`, `cost-optimization-hub:ListRecommendations`, and
+`cost-optimization-hub:GetRecommendation`. It checks enrollment without changing it and queries the account through
+the `us-east-1` Hub endpoint. Recommendations retain their own resource regions.
+
+With `includeEvaluationResources: true`, `AwsCostOptimizationHubGravitonRecommendation` includes current and recommended
+typed configurations, resource ID and ARN, account and region, current monthly cost, savings and percentage, currency,
+implementation effort, restart and rollback flags, recommendation ID, source, and refresh timestamp.
+`workloadCompatibility` follows [AWS's documented strategy mapping](https://docs.aws.amazon.com/cost-management/latest/userguide/coh-optimization-strategies.html):
+EC2 and Auto Scaling `High` means `inferred_compatible`, while `VeryHigh` means `unclassified`. RDS `Medium` maps to
+`not_applicable` because that strategy does not classify an inferred application workload. An inference still requires
+application validation before migration; unclassified workloads have no confirmed compatibility.
+
+Missing configuration, unsupported effort, incomplete evidence, unenrolled accounts, and denied access produce a
+diagnostic and `not_applicable` evaluation. An enrolled account with no matching recommendations passes.
+The native EC2 and RDS Graviton rules currently use family heuristics, which do not provide stronger workload
+compatibility evidence, so their findings do not suppress this rule. Suppression requires an enabled native rule
+reporting the same resource with stronger compatibility evidence.
+
 `CLDBRN-AWS-COSTOPTIMIZATIONHUB-2` uses the same read-only enrollment, paginated recommendation, and bounded detail
 loading seam for EC2, RDS, OpenSearch, Redshift, ElastiCache, MemoryDB, and DynamoDB reservation purchases. Its
 evaluation evidence preserves account and Region, resource ID and ARN when AWS provides them, current monthly cost,

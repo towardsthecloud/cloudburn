@@ -38,6 +38,7 @@ import {
   hydrateAwsCostGuardrailBudgets,
 } from '../../src/providers/aws/resources/cost-guardrails.js';
 import {
+  hydrateAwsCostOptimizationHubGravitonRecommendations,
   hydrateAwsCostOptimizationHubIdleRecommendations,
   hydrateAwsCostOptimizationHubReservationRecommendations,
   hydrateAwsCostOptimizationHubRightsizingRecommendations,
@@ -183,6 +184,7 @@ vi.mock('../../src/providers/aws/resources/cost-optimization-hub.js', () => ({
   hydrateAwsCostOptimizationHubRightsizingRecommendations: vi.fn(),
   hydrateAwsCostOptimizationHubIdleRecommendations: vi.fn(),
   hydrateAwsCostOptimizationHubReservationRecommendations: vi.fn(),
+  hydrateAwsCostOptimizationHubGravitonRecommendations: vi.fn(),
   hydrateAwsCostOptimizationHubSavingsPlansRecommendations: vi.fn(),
   hydrateAwsCostOptimizationHubUpgradeRecommendations: vi.fn(),
 }));
@@ -1123,6 +1125,26 @@ describe('discoverAwsResources', () => {
     );
     const context = vi.mocked(hydrateAwsCostOptimizationHubIdleRecommendations).mock.calls[0]?.[1];
     expect(context?.regions).toEqual(regions);
+  });
+
+  it('loads Graviton evidence alone without requiring Resource Explorer or native datasets', async () => {
+    mockedResolveCurrentAwsRegion.mockResolvedValue('eu-west-1');
+    vi.mocked(hydrateAwsCostOptimizationHubGravitonRecommendations).mockResolvedValue([]);
+    const result = await discoverAwsResources(
+      [
+        createRule({
+          id: 'CLDBRN-AWS-COSTOPTIMIZATIONHUB-6',
+          service: 'costoptimizationhub',
+          discoveryDependencies: ['aws-cost-optimization-hub-graviton-recommendations'],
+        }),
+      ],
+      { mode: 'current' },
+    );
+    expect(hydrateAwsCostOptimizationHubGravitonRecommendations).toHaveBeenCalledWith([], loadContextMatcher);
+    expect(mockedBuildAwsDiscoveryCatalog).not.toHaveBeenCalled();
+    expect(mockedHydrateAwsEc2Instances).not.toHaveBeenCalled();
+    expect(mockedHydrateAwsCostOptimizationHubReservationRecommendations).not.toHaveBeenCalled();
+    expect(result.resources.get('aws-cost-optimization-hub-graviton-recommendations')).toEqual([]);
   });
 
   it('passes the explicit target region to account-scoped datasets', async () => {

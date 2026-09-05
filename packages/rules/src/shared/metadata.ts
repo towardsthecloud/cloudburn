@@ -581,6 +581,20 @@ export type AwsCostOptimizationHubUpgradeRecommendation = {
   };
 }[keyof AwsCostOptimizationHubUpgradeConfigurations];
 
+/** Instance configuration reported for an architecture migration. */
+export type AwsCostOptimizationHubGravitonConfiguration =
+  | { instanceType: string; type?: string; allocationStrategy?: string }
+  | { mixedInstanceTypes: string[]; type?: string; allocationStrategy?: string }
+  | { dbInstanceClass: string };
+
+/** Graviton evidence with compatibility inferred from AWS's documented effort mapping. */
+export type AwsCostOptimizationHubGravitonRecommendation = AwsCostOptimizationHubRecommendationEvidence & {
+  actionType: 'MigrateToGraviton';
+  currentResourceType: 'Ec2Instance' | 'Ec2AutoScalingGroup' | 'RdsDbInstance';
+  currentConfiguration: AwsCostOptimizationHubGravitonConfiguration;
+  recommendedConfiguration: AwsCostOptimizationHubGravitonConfiguration;
+  workloadCompatibility: 'inferred_compatible' | 'unclassified' | 'not_applicable';
+};
 /** Account-scoped Savings Plans purchase recommendation from AWS Cost Optimization Hub. */
 export type AwsCostOptimizationHubSavingsPlansRecommendation = AwsCostOptimizationHubRecommendation & {
   accountScope: string;
@@ -1127,6 +1141,7 @@ export type DiscoveryDatasetKey =
   | 'aws-cost-optimization-hub-rightsizing-recommendations'
   | 'aws-cost-optimization-hub-idle-recommendations'
   | 'aws-cost-optimization-hub-upgrade-recommendations'
+  | 'aws-cost-optimization-hub-graviton-recommendations'
   | 'aws-cost-anomaly-monitors'
   | 'aws-cost-guardrail-budgets'
   | 'aws-dynamodb-autoscaling'
@@ -1194,6 +1209,7 @@ export type DiscoveryDatasetMap = {
   'aws-cost-optimization-hub-rightsizing-recommendations': AwsCostOptimizationHubRightsizingRecommendation[];
   'aws-cost-optimization-hub-idle-recommendations': AwsCostOptimizationHubIdleRecommendation[];
   'aws-cost-optimization-hub-upgrade-recommendations': AwsCostOptimizationHubUpgradeRecommendation[];
+  'aws-cost-optimization-hub-graviton-recommendations': AwsCostOptimizationHubGravitonRecommendation[];
   'aws-cost-anomaly-monitors': AwsCostAnomalyMonitor[];
   'aws-cost-guardrail-budgets': AwsCostGuardrailBudget[];
   'aws-dynamodb-autoscaling': AwsDynamoDbAutoscaling[];

@@ -1,3 +1,4 @@
+import { costOptimizationHubGravitonRecommendedRule } from './graviton-recommended.js';
 import { costOptimizationHubIdleCapacityRule } from './idle-capacity.js';
 import { costOptimizationHubReservationsRecommendedRule } from './reservations-recommended.js';
 import { costOptimizationHubRightsizingRecommendedRule } from './rightsizing-recommended.js';
@@ -11,4 +12,5 @@ export const costOptimizationHubRules = [
   costOptimizationHubRightsizingRecommendedRule,
   costOptimizationHubIdleCapacityRule,
   costOptimizationHubUpgradesRecommendedRule,
+  costOptimizationHubGravitonRecommendedRule,
 ];

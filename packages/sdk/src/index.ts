@@ -28,6 +28,8 @@ export type {
   AwsCostOptimizationHubEc2ReservationConfiguration,
   AwsCostOptimizationHubEc2UpgradeConfiguration,
   AwsCostOptimizationHubElastiCacheReservationConfiguration,
+  AwsCostOptimizationHubGravitonConfiguration,
+  AwsCostOptimizationHubGravitonRecommendation,
   AwsCostOptimizationHubIdleRecommendation,
   AwsCostOptimizationHubInstanceConfiguration,
   AwsCostOptimizationHubMemoryDbReservationConfiguration,
