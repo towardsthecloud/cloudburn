@@ -802,32 +802,6 @@ describe('discover command', () => {
     expect(parsed.error.code).toBe('CREDENTIALS_ERROR');
   });
 
-  it('rejects text output for supported resource types before invoking the sdk', async () => {
-    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
-    const listSupportedResourceTypes = vi
-      .spyOn(CloudBurnClient.prototype, 'listSupportedDiscoveryResourceTypes')
-      .mockResolvedValue([{ resourceType: 'AWS::EC2::Instance', service: 'ec2' }, { resourceType: 'AWS::S3::Bucket' }]);
-    const program = createProgram();
-    const discoverCommand = program.commands.find((command) => command.name() === 'discover');
-    const supportedTypesCommand = discoverCommand?.commands.find(
-      (command) => command.name() === 'supported-resource-types',
-    );
-
-    program.exitOverride();
-    discoverCommand?.exitOverride();
-    supportedTypesCommand?.exitOverride();
-
-    await expect(
-      program.parseAsync(['discover', 'supported-resource-types', '--format', 'text'], { from: 'user' }),
-    ).rejects.toMatchObject({
-      code: 'commander.invalidArgument',
-      exitCode: 1,
-      message: expect.stringContaining('text'),
-    });
-    expect(listSupportedResourceTypes).not.toHaveBeenCalled();
-    expect(stderr).toHaveBeenCalled();
-  });
-
   it('writes a setup-specific error payload for disabled resource explorer', async () => {
     const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     const err = Object.assign(

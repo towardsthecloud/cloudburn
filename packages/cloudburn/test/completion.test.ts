@@ -106,29 +106,6 @@ describe('completion command', () => {
 
   const itWithZsh = zshPath ? it : it.skip;
 
-  itWithZsh('passes nested zsh words through to the hidden completer', async () => {
-    const script = await renderCompletionScript('zsh');
-    const runnableScript = script.replace("_describe 'values' suggestions", `print -l -- "\${suggestions[@]}"`);
-    const output = execFileSync(
-      zshPath ?? 'zsh',
-      [
-        '-c',
-        `
-compdef() { :; }
-cloudburn() { printf '%s\\n' "$@"; }
-${runnableScript}
-words=(cloudburn discover init "")
-CURRENT=4
-_cloudburn
-`,
-      ],
-      { encoding: 'utf8' },
-    );
-
-    expect(output).toContain('discover');
-    expect(output).toContain('init');
-  });
-
   itWithZsh('limits zsh completion input to the current word', async () => {
     const script = await renderCompletionScript('zsh');
     const runnableScript = script.replace("_describe 'values' suggestions", `print -l -- "\${suggestions[@]}"`);

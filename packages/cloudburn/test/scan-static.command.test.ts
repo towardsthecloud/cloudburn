@@ -263,24 +263,7 @@ describe('scan command', () => {
       exitCode: 1,
       message: expect.stringContaining('sarif'),
     });
-    expect(scanStatic).not.toHaveBeenCalled();
-    expect(stderr).toHaveBeenCalled();
-  });
-
-  it('rejects text output before running a static scan', async () => {
-    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
-    const scanStatic = vi.spyOn(CloudBurnClient.prototype, 'scanStatic').mockResolvedValue(staticScanResult);
-    const program = createProgram();
-    const scanCommand = program.commands.find((command) => command.name() === 'scan');
-
-    program.exitOverride();
-    scanCommand?.exitOverride();
-
-    await expect(program.parseAsync(['scan', '--format', 'text'], { from: 'user' })).rejects.toMatchObject({
-      code: 'commander.invalidArgument',
-      exitCode: 1,
-      message: expect.stringContaining('text'),
-    });
+    expect(stderr.mock.calls.map(([chunk]) => String(chunk)).join('')).toContain('Allowed formats: json, table.');
     expect(scanStatic).not.toHaveBeenCalled();
     expect(stderr).toHaveBeenCalled();
   });

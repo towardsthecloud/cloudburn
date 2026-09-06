@@ -3,45 +3,20 @@ import { awsRules } from '@cloudburn/rules';
 import { describe, expect, it } from 'vitest';
 import { listBuiltInRuleMetadata } from '../src/built-in-rules.js';
 import { builtInRuleMetadata, parseIaC, type Rule, withAwsClientCredentials } from '../src/index.js';
+import { getAwsDiscoveryDatasetDefinition } from '../src/providers/aws/discovery-registry.js';
+import { getAwsStaticDatasetDefinition } from '../src/providers/aws/static-registry.js';
 
-const createRuleFixture = (id: string): Rule => ({
+const createRuleFixture = (id: string, overrides: Partial<Rule> = {}): Rule => ({
   description: id,
   id,
   message: id,
   name: id,
   provider: 'aws',
   service: 'ec2',
+  severity: 'medium',
   supports: ['iac'],
+  ...overrides,
 });
-
-const RULE_ID_PATTERN = /^CLDBRN-([A-Z0-9]+)-([A-Z0-9]+)-(\d+)$/;
-
-const toComparableRuleMetadata = (rule: Pick<Rule, 'description' | 'id' | 'provider' | 'service' | 'supports'>) => ({
-  description: rule.description,
-  id: rule.id,
-  provider: rule.provider,
-  service: rule.service,
-  supports: rule.supports,
-});
-
-const sortRulesForMetadata = <TRule extends Pick<Rule, 'id' | 'provider' | 'service'>>(rules: TRule[]): TRule[] =>
-  [...rules].sort((left, right) => {
-    const leftMatch = RULE_ID_PATTERN.exec(left.id);
-    const rightMatch = RULE_ID_PATTERN.exec(right.id);
-
-    if (!leftMatch || !rightMatch) {
-      return left.id.localeCompare(right.id);
-    }
-
-    const [, leftProvider, leftService, leftSuffix] = leftMatch;
-    const [, rightProvider, rightService, rightSuffix] = rightMatch;
-
-    return (
-      leftProvider.localeCompare(rightProvider) ||
-      leftService.localeCompare(rightService) ||
-      Number.parseInt(leftSuffix, 10) - Number.parseInt(rightSuffix, 10)
-    );
-  });
 
 describe('sdk exports', () => {
   it('preserves the array-returning autodetect parser contract at the package root', async () => {
@@ -58,38 +33,78 @@ describe('sdk exports', () => {
     expect(withAwsClientCredentials).toBeTypeOf('function');
   });
 
-  it('exports built-in rule metadata in stable provider/service/id order', () => {
-    const expected = sortRulesForMetadata(awsRules).map((rule) => toComparableRuleMetadata(rule));
-
-    expect(builtInRuleMetadata.map((rule) => toComparableRuleMetadata(rule))).toEqual(expected);
+  it('exports the complete projected catalog without sharing mutable arrays', () => {
+    expect(builtInRuleMetadata).toEqual(listBuiltInRuleMetadata(awsRules));
+    for (const rule of awsRules) {
+      const metadata = builtInRuleMetadata.find((candidate) => candidate.id === rule.id);
+      expect(metadata?.supports, rule.id).not.toBe(rule.supports);
+      if (rule.supersedesRuleIds) {
+        expect(metadata?.supersedesRuleIds, rule.id).not.toBe(rule.supersedesRuleIds);
+      }
+    }
   });
 
-  it('sorts numeric rule suffixes in numeric order within the same service', () => {
-    expect(
-      listBuiltInRuleMetadata([
-        createRuleFixture('CLDBRN-AWS-EC2-9'),
-        createRuleFixture('CLDBRN-AWS-EC2-2'),
-        createRuleFixture('CLDBRN-AWS-EC2-1'),
-      ]).map((rule) => rule.id),
-    ).toEqual(['CLDBRN-AWS-EC2-1', 'CLDBRN-AWS-EC2-2', 'CLDBRN-AWS-EC2-9']);
+  it('resolves every built-in dependency to an SDK dataset loader', () => {
+    for (const rule of awsRules) {
+      for (const key of [...(rule.discoveryDependencies ?? []), ...(rule.optionalDiscoveryDependencies ?? [])]) {
+        expect(getAwsDiscoveryDatasetDefinition(key), `${rule.id} discovery dependency ${key}`).toMatchObject({
+          datasetKey: key,
+          load: expect.any(Function),
+        });
+      }
+      for (const key of rule.staticDependencies ?? []) {
+        expect(getAwsStaticDatasetDefinition(key), `${rule.id} static dependency ${key}`).toMatchObject({
+          datasetKey: key,
+          load: expect.any(Function),
+        });
+      }
+    }
   });
 
-  it('clones supports arrays so metadata consumers cannot mutate source rule definitions', () => {
-    const sourceRule = awsRules.find((rule) => rule.id === 'CLDBRN-AWS-EBS-1');
-    const metadataRule = builtInRuleMetadata.find((rule) => rule.id === 'CLDBRN-AWS-EBS-1');
+  it('orders metadata by provider, service, then numeric rule ID', () => {
+    const metadata = listBuiltInRuleMetadata([
+      createRuleFixture('CLDBRN-AWS-EC2-10'),
+      createRuleFixture('CLDBRN-GCP-COMPUTE-1', { provider: 'gcp', service: 'compute' }),
+      createRuleFixture('CLDBRN-AWS-S3-1', { service: 's3' }),
+      createRuleFixture('CLDBRN-AWS-EC2-2'),
+      createRuleFixture('CLDBRN-AZURE-COMPUTE-1', { provider: 'azure', service: 'compute' }),
+      createRuleFixture('CLDBRN-AWS-EBS-1', { service: 'ebs' }),
+    ]);
 
-    expect(sourceRule).toBeDefined();
-    expect(metadataRule).toBeDefined();
-    expect(metadataRule?.supports).toEqual(sourceRule?.supports);
-    expect(metadataRule?.supports).not.toBe(sourceRule?.supports);
+    expect(metadata.map((rule) => rule.id)).toEqual([
+      'CLDBRN-AWS-EBS-1',
+      'CLDBRN-AWS-EC2-2',
+      'CLDBRN-AWS-EC2-10',
+      'CLDBRN-AWS-S3-1',
+      'CLDBRN-AZURE-COMPUTE-1',
+      'CLDBRN-GCP-COMPUTE-1',
+    ]);
+    expect(metadata[0]).not.toHaveProperty('supersedesRuleIds');
   });
 
-  it('projects and clones rule precedence metadata', () => {
-    const sourceRule = awsRules.find((rule) => rule.id === 'CLDBRN-AWS-RDS-3');
-    const metadataRule = builtInRuleMetadata.find((rule) => rule.id === 'CLDBRN-AWS-RDS-3');
+  it('projects serializable metadata without exposing evaluators or sharing mutable arrays', () => {
+    const rule = createRuleFixture('CLDBRN-AWS-EC2-1', {
+      description: 'Find older instance types.',
+      message: 'Review this instance type.',
+      name: 'Preferred instance type',
+      staticDependencies: ['aws-ec2-instances'],
+      supersedesRuleIds: ['CLDBRN-AWS-COSTOPTIMIZATIONHUB-5'],
+      evaluateStatic: () => null,
+    });
+    const [metadata] = listBuiltInRuleMetadata([rule]);
 
-    expect(sourceRule?.supersedesRuleIds).toEqual(['CLDBRN-AWS-COSTOPTIMIZATIONHUB-2']);
-    expect(metadataRule?.supersedesRuleIds).toEqual(sourceRule?.supersedesRuleIds);
-    expect(metadataRule?.supersedesRuleIds).not.toBe(sourceRule?.supersedesRuleIds);
+    expect(metadata).toEqual({
+      description: 'Find older instance types.',
+      id: 'CLDBRN-AWS-EC2-1',
+      message: 'Review this instance type.',
+      name: 'Preferred instance type',
+      provider: 'aws',
+      service: 'ec2',
+      severity: 'medium',
+      supports: ['iac'],
+      supersedesRuleIds: ['CLDBRN-AWS-COSTOPTIMIZATIONHUB-5'],
+    });
+    expect(metadata.supports).not.toBe(rule.supports);
+    expect(metadata.supersedesRuleIds).not.toBe(rule.supersedesRuleIds);
   });
 });

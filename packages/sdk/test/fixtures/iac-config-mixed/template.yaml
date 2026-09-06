@@ -1,4 +1,0 @@
-Resources:
-  MissingRetentionGroup:
-    Type: AWS::Logs::LogGroup
-    Properties: {}
