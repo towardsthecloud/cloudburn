@@ -27,7 +27,11 @@ export type AwsEc2Instance = {
 };
 ```
 
-Register the dataset key and shape:
+Register the key in `DiscoveryDatasetKey` and its shape in `DiscoveryDatasetMap` in
+[metadata.ts](../../packages/rules/src/shared/metadata.ts). For a concept shared with IaC, also add it to
+`SharedDatasetKey` and `StaticDatasetMap`; `DiscoveryDatasetKey` is a separate explicit union.
+Export new normalized types through the [rules package entry point](../../packages/rules/src/index.ts) so the SDK can import them.
+The map entry looks like:
 
 ```ts
 export type DiscoveryDatasetMap = {
@@ -55,11 +59,20 @@ export const hydrateAwsEc2Instances = async (
 };
 ```
 
+Use the [shared AWS client factories](../../packages/sdk/src/providers/aws/client.ts) and
+`withAwsServiceErrorContext` from [resource utilities](../../packages/sdk/src/providers/aws/resources/utils.ts) when
+adding service calls. The [EC2 loader](../../packages/sdk/src/providers/aws/resources/ec2.ts) shows how these preserve
+per-run credentials, timeouts, retry handling, and shared service budgets.
+
+Propagate API failures to discovery orchestration. It records diagnostics and marks required evidence unavailable;
+returning an empty successful dataset can make a failed load appear to pass a rule.
+
 ## 4. Register the Dataset in SDK Discovery
 
 Update `packages/sdk/src/providers/aws/discovery-registry.ts` with:
 
 - `datasetKey`
+- `service` (extend the `AwsDiscoveryDatasetDefinition` service union for a new service)
 - required `resourceTypes`
 - `load` function
 - `toEvaluationResources` when callers need auditable discovery results
@@ -67,6 +80,7 @@ Update `packages/sdk/src/providers/aws/discovery-registry.ts` with:
 ```ts
 'aws-ec2-instances': {
   datasetKey: 'aws-ec2-instances',
+  service: 'ec2',
   resourceTypes: ['ec2:instance'],
   load: hydrateAwsEc2Instances,
   toEvaluationResources: (instances) =>
@@ -113,10 +127,19 @@ evaluateLive: ({ resources }) => {
 
 ## 6. Verify
 
+Cover the loader and its orchestration before running the full gate. Existing examples:
+
+- [EC2 hydration tests](../../packages/sdk/test/providers/aws-ec2-resource.test.ts) for hydration and normalization.
+- [Discovery orchestration tests](../../packages/sdk/test/providers/aws-discovery.test.ts) for dataset selection and availability.
+- [Discovery HTTP integration](../../packages/sdk/test/discovery-http-integration.test.ts) for the real SDK pipeline with synthetic transport responses.
+
 ```bash
+pnpm --filter @cloudburn/sdk exec vitest run test/providers/aws-ec2-resource.test.ts
 pnpm verify
 ```
 
-Also document IAM permissions for any new loader-backed AWS API calls.
+Substitute the affected loader test when working on another service. Document IAM permissions for new API calls in the
+[SDK README](../../packages/sdk/README.md#live-discovery) and keep the [live scan architecture](../architecture/sdk.md#live-scan)
+consistent with any new orchestration constraints.
 
 For existing services such as S3, prefer extending the existing discovery dataset and hydrator instead of adding a second service-specific path for a closely related rule family.

@@ -27,7 +27,11 @@ export type AwsStaticEc2VpcEndpoint = {
 };
 ```
 
-Register the dataset key and shape:
+Register the key in `StaticDatasetKey` and its shape in `StaticDatasetMap` in
+[metadata.ts](../../packages/rules/src/shared/metadata.ts). For a concept shared with discovery, use `SharedDatasetKey`
+(which `StaticDatasetKey` includes), and register live support separately in `DiscoveryDatasetKey` and `DiscoveryDatasetMap`.
+Export new normalized types through the [rules package entry point](../../packages/rules/src/index.ts) for SDK consumers.
+The map entry looks like:
 
 ```ts
 export type StaticDatasetMap = {

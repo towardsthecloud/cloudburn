@@ -1,5 +1,8 @@
 # cloudburn
 
+For command flows and compatibility details, read the [CLI architecture](../../docs/architecture/cli.md).
+The [package README](README.md) owns public CLI usage; [testing](../../docs/TESTING.md) explains test boundaries.
+
 ## Boundaries
 
 - CLI owns the end-user command surface, output formatting, and exit-code behavior.

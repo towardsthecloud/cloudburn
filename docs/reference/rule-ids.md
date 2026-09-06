@@ -1,6 +1,7 @@
 # Rule ID Reference
 
-Source of truth: rule files in `packages/rules/src/aws/`.
+Current identifiers and metadata: [rule files](../../packages/rules/src/aws/). Preset membership:
+[AWS Core preset](../../packages/rules/src/presets/aws-core.ts). This page is manually maintained.
 
 ## ID Convention
 
@@ -12,8 +13,11 @@ Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
 - Provider: `AWS`, `AZURE`, `GCP`
 - Service: short name matching the directory (e.g. `EBS`, `EC2`, `RDS`, `S3`, `LAMBDA`)
 
-The metadata test in `packages/rules/test/rule-metadata.test.ts` enforces uniqueness and a gap-free numeric
-sequence for every provider/service pair.
+The [metadata test](../../packages/rules/test/rule-metadata.test.ts) enforces uniqueness and a gap-free numeric
+sequence for every provider/service pair. Its title mentions the Hub exception, but its assertions do not implement
+that exception. The [Hub service index](../../packages/rules/src/aws/costoptimizationhub/index.ts) currently includes
+all 6 slots, so the mismatch is latent. Preserve the documented allocations; if an unimplemented slot is needed again,
+resolve the enforcement gap rather than renumbering allocated IDs to satisfy the test.
 
 ## Presets
 

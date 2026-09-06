@@ -9,7 +9,9 @@ Use this guide for both:
 
 ## 1. Choose an ID
 
-Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`. Check [rule-ids.md](../reference/rule-ids.md) for the next contiguous number in your service. Keep each provider/service sequence gap-free, and if you remove or reorder a rule, renumber later IDs and update references in the same change.
+Use `CLDBRN-{PROVIDER}-{SERVICE}-{N}` and consult the [ID convention](../reference/rule-ids.md#id-convention) before
+assigning a number. The reference owns sequence rules, allocated slots, and the test enforcement gap. Review the
+[compatibility status](../reference/rule-ids.md#compatibility-status) before removing or reordering a published rule.
 
 ## 2. Decide Whether You Need a Dataset Change
 
@@ -26,52 +28,9 @@ Before writing the rule, check whether the target service already exposes a norm
 
 Place it in `packages/rules/src/{provider}/{service}/{kebab-case-name}.ts`.
 
-Example: `packages/rules/src/aws/ebs/volume-type-current-gen.ts`
-
-```ts
-import { createFinding, createFindingMatch, createRule } from '../../shared/helpers.js';
-
-const RULE_ID = 'CLDBRN-AWS-EBS-1';
-const RULE_SERVICE = 'ebs';
-const RULE_MESSAGE = 'EBS volumes should use current-generation storage.';
-
-export const ebsVolumeTypeCurrentGenRule = createRule({
-  severity: 'medium',
-  id: RULE_ID,
-  name: 'EBS Volume Type Not Current Generation',
-  description: 'Flag EBS volumes using previous-generation gp2 type instead of gp3.',
-  message: RULE_MESSAGE,
-  provider: 'aws',
-  service: RULE_SERVICE,
-  supports: ['discovery', 'iac'],
-  discoveryDependencies: ['aws-ebs-volumes'],
-  staticDependencies: ['aws-ebs-volumes'],
-  evaluateLive: ({ resources }) => {
-    const findings = resources
-      .get('aws-ebs-volumes')
-      .filter((volume) => volume.volumeType === 'gp2')
-      .map((volume) => createFindingMatch(volume.volumeId, volume.region, volume.accountId));
-
-    return createFinding(
-      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
-      'discovery',
-      findings,
-    );
-  },
-  evaluateStatic: ({ resources }) => {
-    const findings = resources
-      .get('aws-ebs-volumes')
-      .filter((volume) => volume.volumeType === 'gp2')
-      .map((volume) => createFindingMatch(volume.resourceId, undefined, undefined, volume.location));
-
-    return createFinding(
-      { id: RULE_ID, service: RULE_SERVICE, severity: 'medium', message: RULE_MESSAGE },
-      'iac',
-      findings,
-    );
-  },
-});
-```
+Use the [EBS current-generation rule](../../packages/rules/src/aws/ebs/volume-type-current-gen.ts) as the executable
+reference for a dual-mode declaration, matching resource identities, and finding precedence. Its implementation and
+[helpers](../../packages/rules/src/shared/helpers.ts) own the current signatures; adapt the policy to your new rule.
 
 Key patterns:
 
@@ -131,10 +90,10 @@ the consuming application.
 Add a row to the Rule Table in [`rule-ids.md`](../reference/rule-ids.md) for the new rule:
 
 ```md
-| `CLDBRN-AWS-EBS-1` | Flags previous-generation EBS volume types ... | ebs | discovery, iac |
+| `CLDBRN-AWS-EBS-1` | medium | Flags previous-generation EBS volume types ... | ebs | discovery, iac |
 ```
 
-Columns: `ID`, `Description`, `Service`, `Supports`. The description should explain what the rule flags, including thresholds and skip conditions.
+Columns: `ID`, `Severity`, `Description`, `Service`, `Supports`. The description should explain what the rule flags, including thresholds and skip conditions.
 
 ## 8. Write Tests
 
@@ -144,93 +103,9 @@ All tests live in `packages/rules/test/`.
 - `rule-metadata.test.ts` verifies metadata fields are populated.
 - Add a rule-specific evaluator test file for behavior.
 
-Pattern:
-
-```ts
-import { describe, expect, it } from 'vitest';
-import { ebsVolumeTypeCurrentGenRule } from '../src/aws/ebs/volume-type-current-gen.js';
-import { LiveResourceBag, StaticResourceBag } from '../src/index.js';
-import type { AwsEbsVolume, AwsStaticEbsVolume } from '../src/index.js';
-
-const createVolume = (overrides: Partial<AwsEbsVolume> = {}): AwsEbsVolume => ({
-  accountId: '123456789012',
-  volumeId: 'vol-test',
-  volumeType: 'gp2',
-  sizeGiB: 100,
-  region: 'us-east-1',
-  ...overrides,
-});
-
-const createStaticVolume = (overrides: Partial<AwsStaticEbsVolume> = {}): AwsStaticEbsVolume => ({
-  resourceId: 'aws_ebs_volume.logs',
-  volumeType: 'gp2',
-  ...overrides,
-});
-
-describe('CLDBRN-AWS-EBS-1', () => {
-  it('groups matching discovery resources under one rule finding', () => {
-    const finding = ebsVolumeTypeCurrentGenRule.evaluateLive?.({
-      catalog: {
-        resources: [],
-        searchRegion: 'us-east-1',
-        indexType: 'LOCAL',
-      },
-      resources: new LiveResourceBag({
-        'aws-ebs-volumes': [createVolume()],
-      }),
-    });
-
-    expect(finding).toEqual({
-      ruleId: 'CLDBRN-AWS-EBS-1',
-      service: 'ebs',
-      source: 'discovery',
-      message: 'EBS volumes should use current-generation storage.',
-      findings: [
-        {
-          resourceId: 'vol-test',
-          region: 'us-east-1',
-          accountId: '123456789012',
-        },
-      ],
-    });
-  });
-
-  it('returns null when nothing matches', () => {
-    const finding = ebsVolumeTypeCurrentGenRule.evaluateLive?.({
-      catalog: {
-        resources: [],
-        searchRegion: 'us-east-1',
-        indexType: 'LOCAL',
-      },
-      resources: new LiveResourceBag({
-        'aws-ebs-volumes': [createVolume({ volumeType: 'gp3' })],
-      }),
-    });
-
-    expect(finding).toBeNull();
-  });
-
-  it('groups matching static resources under one rule finding', () => {
-    const finding = ebsVolumeTypeCurrentGenRule.evaluateStatic?.({
-      resources: new StaticResourceBag({
-        'aws-ebs-volumes': [createStaticVolume()],
-      }),
-    });
-
-    expect(finding).toEqual({
-      ruleId: 'CLDBRN-AWS-EBS-1',
-      service: 'ebs',
-      source: 'iac',
-      message: 'EBS volumes should use current-generation storage.',
-      findings: [
-        {
-          resourceId: 'aws_ebs_volume.logs',
-        },
-      ],
-    });
-  });
-});
-```
+Use the [EBS evaluator tests](../../packages/rules/test/volume-type-current-gen.test.ts) for fixture builders,
+`LiveResourceBag` / `StaticResourceBag` setup, complete finding assertions, and non-matching cases. Assert group-level
+`severity` and the resource identity fields emitted by the rule, including live `resourceType` where applicable.
 
 For dual-mode rules on an existing service, add both live and static evaluator coverage unless the rule is intentionally single-mode.
 
@@ -242,8 +117,13 @@ For IaC-capable rules, do not stop at one source kind:
 
 ## 9. Verify
 
+Run the new evaluator file while iterating, for example:
+
 ```bash
-pnpm verify
+pnpm --filter @cloudburn/rules exec vitest run test/volume-type-current-gen.test.ts
 ```
+
+Then run `pnpm verify` for metadata, package boundaries, source tests, and installed-package behavior. Follow the
+[release guide](releasing.md) for the changeset required by a user-facing rule addition.
 
 The SDK later groups these rule-level findings under providers in the public `ScanResult`.

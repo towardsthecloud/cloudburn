@@ -1,6 +1,9 @@
 # Config Schema Reference
 
-Source of truth: `packages/sdk/src/types.ts` (type), `packages/sdk/src/config/defaults.ts` (defaults), `packages/sdk/src/config/merge.ts` (merge behavior).
+Implementation sources: [SDK types](../../packages/sdk/src/types.ts), [defaults](../../packages/sdk/src/config/defaults.ts),
+[schema](../../packages/sdk/src/config/schema.ts), [validation](../../packages/sdk/src/config/validate.ts),
+[loading](../../packages/sdk/src/config/loader.ts), and [merging](../../packages/sdk/src/config/merge.ts).
+This reference is manually maintained alongside those sources.
 
 ## `CloudBurnConfig` Fields
 

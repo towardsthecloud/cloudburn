@@ -1,5 +1,11 @@
 # @cloudburn/sdk
 
+For orchestration and package structure, read the [SDK architecture](../../docs/architecture/sdk.md).
+Use [adding a static dataset](../../docs/guides/adding-a-static-dataset.md) or
+[adding a provider resource](../../docs/guides/adding-a-provider-resource.md) for dataset changes.
+The [package README](README.md) owns public SDK usage and AWS permissions; the
+[config](../../docs/reference/config-schema.md) and [finding](../../docs/reference/finding-shape.md) references describe public shapes.
+
 ## Public API
 
 - Treat `CloudBurnClient`, exported types, and package exports as the SDK's integration contract for scripts and downstream clients.
@@ -23,7 +29,8 @@
 - SDK owns `.cloudburn.yml` / `.cloudburn.yaml` loading, upward config discovery, mode-specific config validation, and rule registry filtering for `iac` and `discovery`.
 - Static IaC scanning is dataset-driven. Parse only the source kinds required by active `staticDependencies`, then load the requested datasets into `StaticResourceBag`.
 - Live AWS discovery is Resource Explorer first and dataset-driven. Build one catalog, then load only the datasets required by active rules.
-- Rules must declare `staticDependencies` and `discoveryDependencies` keys only. SDK owns dataset-to-resource-type mapping and dataset loader wiring.
+- Rules declare dataset keys through `staticDependencies`, `discoveryDependencies`, and optional supporting evidence in
+  `optionalDiscoveryDependencies`. SDK owns dataset-to-resource-type mapping and dataset loader wiring.
 - Keep mode and service filtering in registry selection so excluded rules cannot trigger dataset loading.
 - Keep AWS static orchestration in `src/providers/aws/static.ts` (`loadAwsStaticResources`). Do not reintroduce hardcoded Terraform/CloudFormation/service branching in orchestration.
 - Keep AWS live orchestration in `src/providers/aws/discovery.ts` (`discoverAwsResources`). Do not reintroduce hardcoded resource/service branching in orchestration.
