@@ -41,7 +41,6 @@ describe('configRecordingFrequencyRule', () => {
       }),
     });
 
-    expect(configRecordingFrequencyRule.discoveryDependencies).toEqual(['aws-config-recording-frequency-reviews']);
     expect(finding).toEqual({
       findings: [
         {

@@ -1672,57 +1672,6 @@ describe('CloudBurnClient', () => {
     ]);
   });
 
-  it('returns static RDS findings from Terraform DB instance resources', async () => {
-    const scanner = new CloudBurnClient();
-    const fixturePath = fileURLToPath(new URL('./fixtures/terraform/rds-scan-dir', import.meta.url));
-
-    const result = await scanner.scanStatic(fixturePath);
-
-    expect(result).toEqual({
-      providers: [
-        {
-          provider: 'aws',
-          rules: [
-            {
-              ruleId: 'CLDBRN-AWS-RDS-1',
-              service: 'rds',
-              severity: 'medium',
-              source: 'iac',
-              message: 'RDS DB instances should use preferred instance classes.',
-              findings: [
-                {
-                  resourceId: 'aws_db_instance.legacy',
-                  location: {
-                    path: 'main.tf',
-                    line: 4,
-                    column: 3,
-                  },
-                },
-              ],
-            },
-            {
-              ruleId: 'CLDBRN-AWS-RDS-4',
-              service: 'rds',
-              severity: 'medium',
-              source: 'iac',
-              message: 'RDS DB instances without a Graviton equivalent in use should be reviewed.',
-              findings: [
-                {
-                  resourceId: 'aws_db_instance.legacy',
-                  location: {
-                    path: 'main.tf',
-                    line: 4,
-                    column: 3,
-                  },
-                },
-              ],
-            },
-          ],
-        },
-      ],
-    });
-  });
-
   it('returns static RDS findings from terraform and cloudformation resources in the same directory', async () => {
     const scanner = new CloudBurnClient();
     const fixturePath = fileURLToPath(new URL('./fixtures/iac-rds-mixed', import.meta.url));

@@ -18,6 +18,9 @@ Three test layers, all in `packages/rules/test/`:
 | **2. Metadata contract**  | `rule-metadata.test.ts` | Every rule has non-empty `id`, `name`, `description`, and `supports`                      |
 | **3. Evaluator behavior** | `{rule-name}.test.ts`   | Full finding payloads for both `evaluateLive` and `evaluateStatic`, plus negative cases   |
 
+Keep shared metadata assertions in `rule-metadata.test.ts`; evaluator tests should focus on inputs and findings.
+Repeat metadata assertions in an evaluator file only when they protect a contract absent from the shared suite.
+
 For static IaC rules, evaluator coverage must include both Terraform-shaped and CloudFormation-shaped resources. A passing test suite for only one source kind is incomplete.
 
 ### `@cloudburn/sdk`
@@ -87,6 +90,16 @@ Keep the fixture expectations independent of implementation output. Normalize on
 ### Installed-package tests
 
 `pnpm test:packages` builds and packs all three workspace packages, installs the archives into a temporary consumer project, then checks the installed CLI executable and SDK ESM/CommonJS exports with real scans. Nothing is published. Installation can access the public npm registry for runtime dependencies, so this suite is uncached and requires registry connectivity. The temporary consumer uses the repository-pinned pnpm version. The uncached task forwards `HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY` (including lowercase forms), and `NODE_EXTRA_CA_CERTS` through Turbo and into subprocesses for registry connectivity. It does not use AWS credentials or contact AWS.
+
+## Runtime and type contracts
+
+Export tests should exercise values imported from the public package entry point. Constructing a typed object and
+asserting its literal fields does not verify an export or a type contract: Vitest transpiles source tests without
+checking types, and package `typecheck` scripts include `src` only.
+
+Keep compiler-backed consumer checks for type contracts. Existing examples are the
+[rules purchase contract](../packages/rules/test/hub-type-contract.test.ts) and
+[SDK upgrade exports](../packages/sdk/test/cost-optimization-hub-upgrade-exports.test.ts), which explicitly run TypeScript.
 
 ## Fixture privacy
 

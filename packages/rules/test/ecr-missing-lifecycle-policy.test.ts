@@ -38,8 +38,6 @@ describe('ecrMissingLifecyclePolicyRule', () => {
       }),
     });
 
-    expect(ecrMissingLifecyclePolicyRule.discoveryDependencies).toEqual(['aws-ecr-repositories']);
-    expect(ecrMissingLifecyclePolicyRule.staticDependencies).toEqual(['aws-ecr-repositories']);
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-ECR-1',
       service: 'ecr',

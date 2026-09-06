@@ -293,6 +293,8 @@ describe('renderResponse', () => {
           region: 'eu-west-1',
           indexType: 'aggregator (active)',
           status: 'indexed',
+          viewStatus: 'present',
+          notes: '',
         },
         {
           region: 'ap-south-1',
@@ -319,54 +321,14 @@ describe('renderResponse', () => {
     {
       "region": "eu-west-1",
       "indexType": "aggregator (active)",
-      "status": "indexed"
+      "status": "indexed",
+      "viewStatus": "present",
+      "notes": ""
     },
     {
       "region": "ap-south-1",
       "indexType": "",
       "status": "access_denied"
-    }
-  ]
-}`);
-  });
-
-  it('renders discovery status responses as structured json', () => {
-    expect(
-      renderResponse(
-        {
-          kind: 'discovery-status',
-          summary: {
-            aggregatorRegion: 'eu-central-1',
-            coverage: 'partial',
-            indexedRegionCount: 3,
-            totalRegionCount: 17,
-          },
-          rows: [
-            {
-              region: 'eu-central-1',
-              indexType: 'aggregator (active)',
-              status: 'indexed',
-              viewStatus: 'present',
-              notes: '',
-            },
-          ],
-        },
-        'json',
-      ),
-    ).toBe(`{
-  "summary": {
-    "aggregatorRegion": "eu-central-1",
-    "coverage": "partial",
-    "indexedRegionCount": 3,
-    "totalRegionCount": 17
-  },
-  "regions": [
-    {
-      "region": "eu-central-1",
-      "indexType": "aggregator (active)",
-      "status": "indexed",
-      "viewStatus": "present",
-      "notes": ""
     }
   ]
 }`);

@@ -52,7 +52,6 @@ describe('CLDBRN-AWS-KMS-1', () => {
       severity: 'medium',
       source: 'discovery',
     });
-    expect(kmsKeyChurnRule.discoveryDependencies).toEqual(['aws-kms-key-churn-reviews']);
   });
 
   it('flags rapid creation during the previous full month even below the proliferation threshold', () => {

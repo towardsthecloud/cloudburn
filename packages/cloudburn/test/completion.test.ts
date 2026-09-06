@@ -220,21 +220,4 @@ printf '%s\\n' "\${COMPREPLY[@]}"
     expect(script).toContain('complete -c cloudburn');
     expect(script).toContain('__complete --');
   });
-
-  it('rejects unsupported completion shell usage', async () => {
-    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
-    const program = createProgram();
-    const completionCommand = program.commands.find((command) => command.name() === 'completion');
-
-    program.exitOverride();
-    completionCommand?.exitOverride();
-
-    await expect(program.parseAsync(['completion', 'powershell'], { from: 'user' })).rejects.toMatchObject({
-      code: 'commander.unknownCommand',
-      exitCode: 1,
-      message: expect.stringContaining("unknown command 'powershell'"),
-    });
-    expect(stderr).toHaveBeenCalled();
-    expect(stderr.mock.calls.map(([chunk]) => String(chunk)).join('')).toContain('Available Commands:');
-  });
 });

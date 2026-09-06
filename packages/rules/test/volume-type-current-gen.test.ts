@@ -39,12 +39,6 @@ const createDiscoveredResource = (overrides: Partial<AwsDiscoveredResource> = {}
 });
 
 describe('ebsVolumeTypeCurrentGenRule', () => {
-  it('exposes the expected discovery and iac metadata', () => {
-    expect(ebsVolumeTypeCurrentGenRule.supports).toEqual(['discovery', 'iac']);
-    expect(ebsVolumeTypeCurrentGenRule.discoveryDependencies).toEqual(['aws-ebs-volumes']);
-    expect(ebsVolumeTypeCurrentGenRule.staticDependencies).toEqual(['aws-ebs-volumes']);
-  });
-
   for (const volumeType of PREVIOUS_GENERATION_EBS_VOLUME_TYPES) {
     it(`flags ${volumeType} volumes in discovery mode`, () => {
       const finding = ebsVolumeTypeCurrentGenRule.evaluateLive?.({

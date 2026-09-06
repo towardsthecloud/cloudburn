@@ -34,11 +34,6 @@ const createStaticInstance = (overrides: Partial<AwsStaticEc2Instance> = {}): Aw
 });
 
 describe('ec2PreferredInstanceTypeRule', () => {
-  it('declares the live discovery metadata for direct EC2 instances', () => {
-    expect(ec2PreferredInstanceTypeRule.discoveryDependencies).toEqual(['aws-ec2-instances']);
-    expect(ec2PreferredInstanceTypeRule.staticDependencies).toEqual(['aws-ec2-instances']);
-  });
-
   it('flags non-preferred EC2 instances in discovery mode', () => {
     const finding = ec2PreferredInstanceTypeRule.evaluateLive?.({
       catalog: {

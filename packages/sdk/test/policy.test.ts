@@ -36,10 +36,14 @@ const result: ScanResult = {
 };
 
 describe('scan policy', () => {
-  it('reports the inclusive threshold, qualifying finding count, and violation status', () => {
-    expect(evaluateScanPolicy(result, 'medium')).toEqual({
-      qualifyingFindingCount: 3,
-      threshold: 'medium',
+  it.each([
+    { threshold: 'high' as const, qualifyingFindingCount: 1 },
+    { threshold: 'medium' as const, qualifyingFindingCount: 3 },
+    { threshold: 'low' as const, qualifyingFindingCount: 4 },
+  ])('counts findings at or above $threshold severity', ({ threshold, qualifyingFindingCount }) => {
+    expect(evaluateScanPolicy(result, threshold)).toEqual({
+      qualifyingFindingCount,
+      threshold,
       violated: true,
     });
   });

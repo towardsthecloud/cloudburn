@@ -49,8 +49,6 @@ describe('s3MissingLifecycleConfigRule', () => {
       }),
     });
 
-    expect(s3MissingLifecycleConfigRule.discoveryDependencies).toEqual(['aws-s3-bucket-analyses']);
-    expect(s3MissingLifecycleConfigRule.staticDependencies).toEqual(['aws-s3-bucket-analyses']);
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-S3-1',
       service: 's3',

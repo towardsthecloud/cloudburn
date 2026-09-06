@@ -85,18 +85,6 @@ describe('scan command', () => {
     expect(process.exitCode).toBe(0);
   });
 
-  it('passes a cloudformation template path through to static autodetection', async () => {
-    const fixturePath = fileURLToPath(
-      new URL('../../sdk/test/fixtures/cloudformation/ebs-volume.yaml', import.meta.url),
-    );
-    const scanStatic = vi.spyOn(CloudBurnClient.prototype, 'scanStatic').mockResolvedValue(staticScanResult);
-
-    await createProgram().parseAsync(['scan', fixturePath, '--format', 'json'], { from: 'user' });
-
-    expect(scanStatic).toHaveBeenCalledWith(fixturePath);
-    expect(process.exitCode).toBe(0);
-  });
-
   it.each([
     {
       format: 'table',

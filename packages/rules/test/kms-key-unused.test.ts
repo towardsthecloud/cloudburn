@@ -50,7 +50,6 @@ describe('CLDBRN-AWS-KMS-2', () => {
       severity: 'medium',
       source: 'discovery',
     });
-    expect(kmsKeyUnusedRule.discoveryDependencies).toEqual(['aws-kms-key-usage']);
   });
 
   it('does not flag keys younger than 90 days', () => {

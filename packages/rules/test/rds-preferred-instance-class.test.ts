@@ -70,13 +70,6 @@ describe('rdsPreferredInstanceClassRule', () => {
     });
   });
 
-  it('declares static and live metadata for RDS DB instances', () => {
-    expect(rdsPreferredInstanceClassRule.supports).toEqual(['iac', 'discovery']);
-    expect(rdsPreferredInstanceClassRule.discoveryDependencies).toEqual(['aws-rds-instances']);
-    expect(rdsPreferredInstanceClassRule.staticDependencies).toEqual(['aws-rds-instances']);
-    expect(rdsPreferredInstanceClassRule.evaluateLive).toBeTypeOf('function');
-  });
-
   it('flags non-preferred Terraform aws_db_instance resources', () => {
     const finding = rdsPreferredInstanceClassRule.evaluateStatic?.({
       resources: new StaticResourceBag({

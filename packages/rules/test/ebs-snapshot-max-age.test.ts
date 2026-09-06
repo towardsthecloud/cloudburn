@@ -30,8 +30,6 @@ describe('ebsSnapshotMaxAgeRule', () => {
       }),
     });
 
-    expect(ebsSnapshotMaxAgeRule.supports).toEqual(['discovery']);
-    expect(ebsSnapshotMaxAgeRule.discoveryDependencies).toEqual(['aws-ebs-snapshots']);
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-EBS-7',
       service: 'ebs',

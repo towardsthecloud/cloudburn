@@ -79,7 +79,11 @@ describe('cli help e2e', () => {
   it('shows scoped help after invalid completion subcommand usage', async () => {
     const { error, stderr } = await captureHelpOutput(['completion', 'powershell']);
 
-    expect(error.code).toBe('commander.unknownCommand');
+    expect(error).toMatchObject({
+      code: 'commander.unknownCommand',
+      exitCode: 1,
+      message: expect.stringContaining("unknown command 'powershell'"),
+    });
     expect(stderr).toContain(`error: unknown command 'powershell'`);
     expect(stderr).not.toContain('Generate shell completion scripts for CloudBurn.');
     expect(stderr).toContain('Usage: cloudburn completion [command]');
