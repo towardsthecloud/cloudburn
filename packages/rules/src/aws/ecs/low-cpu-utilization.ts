@@ -1,4 +1,10 @@
-import { createFinding, createFindingMatch, createRule } from '../../shared/helpers.js';
+import {
+  createFinding,
+  createFindingMatch,
+  createLiveEvaluationCoverage,
+  createRule,
+  getAwsResourceScopeKey,
+} from '../../shared/helpers.js';
 
 const RULE_ID = 'CLDBRN-AWS-ECS-2';
 const RULE_SERVICE = 'ecs';
@@ -18,6 +24,25 @@ export const ecsLowCpuUtilizationRule = createRule({
   service: RULE_SERVICE,
   supports: ['discovery'],
   discoveryDependencies: ['aws-ecs-clusters', 'aws-ecs-cluster-metrics'],
+  getLiveEvaluationCoverage: ({ resources }) => {
+    const metricsByResource = new Map(
+      resources
+        .get('aws-ecs-cluster-metrics')
+        .map((metric) => [getAwsResourceScopeKey(metric.accountId, metric.region, metric.clusterArn), metric]),
+    );
+
+    return createLiveEvaluationCoverage(
+      resources.get('aws-ecs-clusters'),
+      (resource) => {
+        const metric = metricsByResource.get(
+          getAwsResourceScopeKey(resource.accountId, resource.region, resource.clusterArn),
+        );
+
+        return metric?.averageCpuUtilizationLast14Days != null;
+      },
+      (resource) => createFindingMatch(resource.clusterArn, resource.region, resource.accountId),
+    );
+  },
   evaluateLive: ({ resources }) => {
     const metricsByClusterArn = new Map(
       resources.get('aws-ecs-cluster-metrics').map((cluster) => [cluster.clusterArn, cluster] as const),

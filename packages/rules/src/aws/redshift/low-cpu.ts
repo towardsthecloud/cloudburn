@@ -1,4 +1,10 @@
-import { createFinding, createFindingMatch, createRule, getAwsResourceScopeKey } from '../../shared/helpers.js';
+import {
+  createFinding,
+  createFindingMatch,
+  createLiveEvaluationCoverage,
+  createRule,
+  getAwsResourceScopeKey,
+} from '../../shared/helpers.js';
 
 const RULE_ID = 'CLDBRN-AWS-REDSHIFT-1';
 const RULE_SERVICE = 'redshift';
@@ -18,6 +24,25 @@ export const redshiftLowCpuRule = createRule({
   service: RULE_SERVICE,
   supports: ['discovery'],
   discoveryDependencies: ['aws-redshift-clusters', 'aws-redshift-cluster-metrics'],
+  getLiveEvaluationCoverage: ({ resources }) => {
+    const metricsByResource = new Map(
+      resources
+        .get('aws-redshift-cluster-metrics')
+        .map((metric) => [getAwsResourceScopeKey(metric.accountId, metric.region, metric.clusterIdentifier), metric]),
+    );
+
+    return createLiveEvaluationCoverage(
+      resources.get('aws-redshift-clusters'),
+      (resource) => {
+        const metric = metricsByResource.get(
+          getAwsResourceScopeKey(resource.accountId, resource.region, resource.clusterIdentifier),
+        );
+
+        return resource.clusterStatus !== 'available' || metric?.averageCpuUtilizationLast14Days != null;
+      },
+      (resource) => createFindingMatch(resource.clusterIdentifier, resource.region, resource.accountId),
+    );
+  },
   evaluateLive: ({ resources }) => {
     const clustersById = new Map(
       resources

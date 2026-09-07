@@ -10,6 +10,8 @@ import {
   awsRules,
   azureRules,
   createFindingMatch,
+  createLiveEvaluationCoverage,
+  createRule,
   createStaticFindingMatch,
   gcpRules,
   getAwsCostOptimizationHubReservationResourceId,
@@ -22,6 +24,40 @@ import {
 const awsRuleIds = awsRules.map((rule) => rule.id);
 
 describe('rule exports', () => {
+  it('lets custom rules retain coverage alongside the existing grouped finding contract', () => {
+    const resources = [
+      { id: 'known', complete: true },
+      { id: 'unavailable', complete: false },
+    ];
+    const customRule = createRule({
+      id: 'CUSTOM-AWS-EXAMPLE-1',
+      name: 'Custom example',
+      description: 'Demonstrates custom evidence coverage.',
+      message: 'Review matching resources.',
+      provider: 'aws',
+      service: 'example',
+      severity: 'low',
+      supports: ['discovery'],
+      evaluateLive: () => null,
+      getLiveEvaluationCoverage: () =>
+        createLiveEvaluationCoverage(
+          resources,
+          (resource) => resource.complete,
+          (resource) => createFindingMatch(resource.id),
+        ),
+    });
+    const context = {
+      catalog: { indexType: 'LOCAL' as const, resources: [], searchRegion: 'us-east-1' },
+      resources: new LiveResourceBag(),
+    };
+
+    expect(customRule.evaluateLive?.(context)).toBeNull();
+    expect(customRule.getLiveEvaluationCoverage?.(context)).toEqual({
+      assessed: [{ resourceId: 'known' }],
+      unknown: [{ resourceId: 'unavailable' }],
+    });
+  });
+
   it('exports non-empty AWS rules and preset IDs', () => {
     expect(AWS_CONFIG_RECORDING_FREQUENCY_MINIMUM_SAVINGS_USD).toBe(10);
     expect(AWS_KMS_KEY_PROLIFERATION_THRESHOLD).toBe(50);

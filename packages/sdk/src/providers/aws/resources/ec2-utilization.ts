@@ -1,7 +1,7 @@
 import type { AwsDiscoveredResource, AwsEc2InstanceUtilization } from '@cloudburn/rules';
 import type { AwsDiscoveryDatasetResolver } from '../discovery-registry.js';
 import { getAwsDiscoveryTimestamp } from '../execution.js';
-import { type CloudWatchMetricPoint, fetchCloudWatchSignals } from './cloudwatch.js';
+import { type CloudWatchMetricPoint, fetchCloudWatchSignals, getCompleteCloudWatchPoints } from './cloudwatch.js';
 import { hydrateAwsEc2Instances } from './ec2.js';
 
 const FOURTEEN_DAYS_IN_SECONDS = 14 * 24 * 60 * 60;
@@ -80,9 +80,9 @@ export const hydrateAwsEc2InstanceUtilization = async (
       });
 
       return regionInstances.flatMap((instance, index) => {
-        const cpuByDay = dailyValues(metricData.get(`cpu${index}`) ?? []);
-        const inByDay = dailyValues(metricData.get(`in${index}`) ?? []);
-        const outByDay = dailyValues(metricData.get(`out${index}`) ?? []);
+        const cpuByDay = dailyValues(getCompleteCloudWatchPoints(metricData.get(`cpu${index}`)) ?? []);
+        const inByDay = dailyValues(getCompleteCloudWatchPoints(metricData.get(`in${index}`)) ?? []);
+        const outByDay = dailyValues(getCompleteCloudWatchPoints(metricData.get(`out${index}`)) ?? []);
         const completeDays = [...cpuByDay].flatMap(([day, cpu]) => {
           const incoming = inByDay.get(day);
           const outgoing = outByDay.get(day);
@@ -104,6 +104,7 @@ export const hydrateAwsEc2InstanceUtilization = async (
           instanceId: instance.instanceId,
           instanceType: instance.instanceType,
           lowUtilizationDays,
+          observedDays: completeDays.length,
           region,
         };
       });

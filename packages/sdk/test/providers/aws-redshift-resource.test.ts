@@ -11,12 +11,14 @@ import {
   hydrateAwsRedshiftClusters,
   hydrateAwsRedshiftReservedNodes,
 } from '../../src/providers/aws/resources/redshift.js';
+import { completeMetricEvidence } from '../helpers/cloudwatch.js';
 
 vi.mock('../../src/providers/aws/client.js', () => ({
   createRedshiftClient: vi.fn(),
 }));
 
-vi.mock('../../src/providers/aws/resources/cloudwatch.js', () => ({
+vi.mock('../../src/providers/aws/resources/cloudwatch.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/providers/aws/resources/cloudwatch.js')>()),
   fetchCloudWatchSignals: vi.fn(),
 }));
 
@@ -235,10 +237,12 @@ describe('Redshift discovery resources', () => {
       new Map([
         [
           'cpu0',
-          Array.from({ length: 14 }, (_, index) => ({
-            timestamp: `2026-03-${String(index + 1).padStart(2, '0')}T00:00:00.000Z`,
-            value: 4,
-          })),
+          completeMetricEvidence(
+            Array.from({ length: 14 }, (_, index) => ({
+              timestamp: `2026-03-${String(index + 1).padStart(2, '0')}T00:00:00.000Z`,
+              value: 4,
+            })),
+          ),
         ],
       ]),
     );

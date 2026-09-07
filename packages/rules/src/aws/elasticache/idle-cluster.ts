@@ -1,4 +1,10 @@
-import { createFinding, createFindingMatch, createRule } from '../../shared/helpers.js';
+import {
+  createFinding,
+  createFindingMatch,
+  createLiveEvaluationCoverage,
+  createRule,
+  getAwsResourceScopeKey,
+} from '../../shared/helpers.js';
 
 const RULE_ID = 'CLDBRN-AWS-ELASTICACHE-2';
 const RULE_SERVICE = 'elasticache';
@@ -18,12 +24,41 @@ export const elastiCacheIdleClusterRule = createRule({
   service: RULE_SERVICE,
   supports: ['discovery'],
   discoveryDependencies: ['aws-elasticache-clusters', 'aws-elasticache-cluster-activity'],
+  getLiveEvaluationCoverage: ({ resources }) => {
+    const metricsByResource = new Map(
+      resources
+        .get('aws-elasticache-cluster-activity')
+        .map((metric) => [getAwsResourceScopeKey(metric.accountId, metric.region, metric.cacheClusterId), metric]),
+    );
+
+    return createLiveEvaluationCoverage(
+      resources.get('aws-elasticache-clusters'),
+      (resource) => {
+        const metric = metricsByResource.get(
+          getAwsResourceScopeKey(resource.accountId, resource.region, resource.cacheClusterId),
+        );
+
+        return (
+          resource.cacheClusterStatus !== 'available' ||
+          (metric?.averageCacheHitRateLast14Days != null && metric.averageCurrentConnectionsLast14Days != null)
+        );
+      },
+      (resource) => createFindingMatch(resource.cacheClusterId, resource.region, resource.accountId),
+    );
+  },
   evaluateLive: ({ resources }) => {
     const clustersById = new Map(
-      resources.get('aws-elasticache-clusters').map((cluster) => [cluster.cacheClusterId, cluster] as const),
+      resources
+        .get('aws-elasticache-clusters')
+        .map(
+          (cluster) =>
+            [getAwsResourceScopeKey(cluster.accountId, cluster.region, cluster.cacheClusterId), cluster] as const,
+        ),
     );
     const findings = resources.get('aws-elasticache-cluster-activity').flatMap((activity) => {
-      const cluster = clustersById.get(activity.cacheClusterId);
+      const cluster = clustersById.get(
+        getAwsResourceScopeKey(activity.accountId, activity.region, activity.cacheClusterId),
+      );
 
       if (cluster?.cacheClusterStatus !== 'available') {
         return [];

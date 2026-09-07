@@ -83,6 +83,7 @@ import type {
   Finding,
   FindingMatch,
   IaCSuppression,
+  LiveEvaluationCoverage,
   LiveResourceBag,
   Rule,
   Severity,
@@ -94,7 +95,7 @@ import type {
 } from '@cloudburn/rules';
 import type { AwsRegion } from './providers/aws/client.js';
 
-export type { AwsRegion };
+export type { AwsRegion, LiveEvaluationCoverage };
 
 // Intent: define SDK-facing contracts for scanner orchestration.
 // TODO(cloudburn): extend config and result metadata as new providers/resources land.
@@ -238,10 +239,12 @@ export type ScanPolicyResult = {
 
 /** Serializable outcome and metadata for one completed or skipped discovery rule. */
 export type RuleEvaluation = Omit<BuiltInRuleMetadata, 'id'> & {
+  /** Resource identities assessed by this rule and those missing required evidence. */
+  coverage?: LiveEvaluationCoverage;
   findingCount: number;
   resourceSetId?: string;
   ruleId: string;
-  status: 'triggered' | 'passed' | 'not_applicable';
+  status: 'triggered' | 'passed' | 'not_applicable' | 'unknown';
   source: 'discovery';
   reason?: string;
 };

@@ -1,4 +1,4 @@
-import { createFinding, createFindingMatch, createRule } from '../../shared/helpers.js';
+import { createFinding, createFindingMatch, createLiveEvaluationCoverage, createRule } from '../../shared/helpers.js';
 
 const RULE_ID = 'CLDBRN-AWS-LAMBDA-2';
 const RULE_SERVICE = 'lambda';
@@ -20,6 +20,23 @@ export const lambdaHighErrorRateRule = createRule({
   service: RULE_SERVICE,
   supports: ['discovery'],
   discoveryDependencies: ['aws-lambda-functions', 'aws-lambda-function-metrics'],
+  getLiveEvaluationCoverage: ({ resources }) => {
+    const metricsByFunctionKey = new Map(
+      resources
+        .get('aws-lambda-function-metrics')
+        .map((metric) => [getFunctionKey(metric.accountId, metric.region, metric.functionName), metric] as const),
+    );
+
+    return createLiveEvaluationCoverage(
+      resources.get('aws-lambda-functions'),
+      (fn) => {
+        const metric = metricsByFunctionKey.get(getFunctionKey(fn.accountId, fn.region, fn.functionName));
+
+        return metric?.totalInvocationsLast7Days != null && metric.totalErrorsLast7Days != null;
+      },
+      (fn) => createFindingMatch(fn.functionName, fn.region, fn.accountId),
+    );
+  },
   evaluateLive: ({ resources }) => {
     const metricsByFunctionKey = new Map(
       resources

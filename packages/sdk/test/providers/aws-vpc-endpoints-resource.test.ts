@@ -3,12 +3,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createEc2Client } from '../../src/providers/aws/client.js';
 import { fetchCloudWatchSignals } from '../../src/providers/aws/resources/cloudwatch.js';
 import { hydrateAwsEc2VpcEndpointActivity } from '../../src/providers/aws/resources/vpc-endpoints.js';
+import { completeMetricEvidence } from '../helpers/cloudwatch.js';
 
 vi.mock('../../src/providers/aws/client.js', () => ({
   createEc2Client: vi.fn(),
 }));
 
-vi.mock('../../src/providers/aws/resources/cloudwatch.js', () => ({
+vi.mock('../../src/providers/aws/resources/cloudwatch.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/providers/aws/resources/cloudwatch.js')>()),
   fetchCloudWatchSignals: vi.fn(),
 }));
 
@@ -46,7 +48,9 @@ describe('hydrateAwsEc2VpcEndpointActivity', () => {
         ],
       })),
     } as never);
-    mockedFetchCloudWatchSignals.mockResolvedValue(new Map([['vpce0', createDailyPoints(30, 0)]]));
+    mockedFetchCloudWatchSignals.mockResolvedValue(
+      new Map([['vpce0', completeMetricEvidence(createDailyPoints(30, 0))]]),
+    );
 
     await expect(
       hydrateAwsEc2VpcEndpointActivity([
@@ -87,7 +91,9 @@ describe('hydrateAwsEc2VpcEndpointActivity', () => {
         ],
       })),
     } as never);
-    mockedFetchCloudWatchSignals.mockResolvedValue(new Map());
+    mockedFetchCloudWatchSignals.mockResolvedValue(
+      new Map([['vpce0', completeMetricEvidence([], { status: 'Missing' })]]),
+    );
 
     await expect(
       hydrateAwsEc2VpcEndpointActivity([
@@ -128,7 +134,9 @@ describe('hydrateAwsEc2VpcEndpointActivity', () => {
         ],
       })),
     } as never);
-    mockedFetchCloudWatchSignals.mockResolvedValue(new Map([['vpce0', createDailyPoints(29, 0)]]));
+    mockedFetchCloudWatchSignals.mockResolvedValue(
+      new Map([['vpce0', completeMetricEvidence(createDailyPoints(29, 0))]]),
+    );
 
     await expect(
       hydrateAwsEc2VpcEndpointActivity([
@@ -186,7 +194,9 @@ describe('hydrateAwsEc2VpcEndpointActivity', () => {
         };
       }),
     } as never);
-    mockedFetchCloudWatchSignals.mockResolvedValue(new Map([['vpce0', createDailyPoints(30, 0)]]));
+    mockedFetchCloudWatchSignals.mockResolvedValue(
+      new Map([['vpce0', completeMetricEvidence(createDailyPoints(30, 0))]]),
+    );
 
     await expect(
       hydrateAwsEc2VpcEndpointActivity([
@@ -248,7 +258,9 @@ describe('hydrateAwsEc2VpcEndpointActivity', () => {
     });
 
     mockedCreateEc2Client.mockReturnValue({ send } as never);
-    mockedFetchCloudWatchSignals.mockResolvedValue(new Map([['vpce0', createDailyPoints(30, 0)]]));
+    mockedFetchCloudWatchSignals.mockResolvedValue(
+      new Map([['vpce0', completeMetricEvidence(createDailyPoints(30, 0))]]),
+    );
 
     await expect(
       hydrateAwsEc2VpcEndpointActivity([

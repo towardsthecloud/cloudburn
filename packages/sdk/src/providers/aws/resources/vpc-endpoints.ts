@@ -2,7 +2,7 @@ import { DescribeVpcEndpointsCommand } from '@aws-sdk/client-ec2';
 import type { AwsDiscoveredResource, AwsEc2VpcEndpointActivity } from '@cloudburn/rules';
 import { createEc2Client } from '../client.js';
 import { getAwsDiscoveryTimestamp } from '../execution.js';
-import { fetchCloudWatchSignals } from './cloudwatch.js';
+import { cloudWatchWindow, fetchCloudWatchSignals, getCompleteCloudWatchPoints } from './cloudwatch.js';
 import { chunkItems, withAwsServiceErrorContext } from './utils.js';
 
 const VPC_ENDPOINT_ARN_PREFIX = 'vpc-endpoint/';
@@ -159,7 +159,11 @@ export const hydrateAwsEc2VpcEndpointActivity = async (
         }
 
         const metricData = await fetchCloudWatchSignals({
-          endTime: new Date(getAwsDiscoveryTimestamp()),
+          ...cloudWatchWindow({
+            endTime: new Date(getAwsDiscoveryTimestamp()),
+            lookbackSeconds: THIRTY_DAYS_IN_SECONDS,
+            mode: 'complete-days',
+          }),
           queries: matchedEndpoints.map((endpoint, index) => ({
             dimensions: [
               { Name: 'Endpoint Type', Value: 'Interface' },
@@ -174,12 +178,11 @@ export const hydrateAwsEc2VpcEndpointActivity = async (
             stat: 'Sum',
           })),
           region,
-          startTime: new Date(getAwsDiscoveryTimestamp() - THIRTY_DAYS_IN_SECONDS * 1000),
         });
 
         interfaceEndpoints.push(
           ...matchedEndpoints.map((endpoint, index) => {
-            const points = metricData.get(`vpce${index}`) ?? [];
+            const points = getCompleteCloudWatchPoints(metricData.get(`vpce${index}`)) ?? [];
 
             return {
               ...endpoint,

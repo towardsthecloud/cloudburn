@@ -2,8 +2,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fetchCloudWatchSignals } from '../../src/providers/aws/resources/cloudwatch.js';
 import { hydrateAwsEc2Instances } from '../../src/providers/aws/resources/ec2.js';
 import { hydrateAwsEc2InstanceUtilization } from '../../src/providers/aws/resources/ec2-utilization.js';
+import { completeMetricEvidence } from '../helpers/cloudwatch.js';
 
-vi.mock('../../src/providers/aws/resources/cloudwatch.js', () => ({
+vi.mock('../../src/providers/aws/resources/cloudwatch.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/providers/aws/resources/cloudwatch.js')>()),
   fetchCloudWatchSignals: vi.fn(),
 }));
 
@@ -32,30 +34,30 @@ describe('hydrateAwsEc2InstanceUtilization', () => {
       new Map([
         [
           'cpu0',
-          [
+          completeMetricEvidence([
             { timestamp: '2026-03-01T00:00:00.000Z', value: 5 },
             { timestamp: '2026-03-02T00:00:00.000Z', value: 4 },
             { timestamp: '2026-03-03T00:00:00.000Z', value: 3 },
             { timestamp: '2026-03-04T00:00:00.000Z', value: 2 },
-          ],
+          ]),
         ],
         [
           'in0',
-          [
+          completeMetricEvidence([
             { timestamp: '2026-03-01T00:00:00.000Z', value: 1024 },
             { timestamp: '2026-03-02T00:00:00.000Z', value: 2048 },
             { timestamp: '2026-03-03T00:00:00.000Z', value: 1024 },
             { timestamp: '2026-03-04T00:00:00.000Z', value: 2048 },
-          ],
+          ]),
         ],
         [
           'out0',
-          [
+          completeMetricEvidence([
             { timestamp: '2026-03-01T00:00:00.000Z', value: 1024 },
             { timestamp: '2026-03-02T00:00:00.000Z', value: 1024 },
             { timestamp: '2026-03-03T00:00:00.000Z', value: 1024 },
             { timestamp: '2026-03-04T00:00:00.000Z', value: 1024 },
-          ],
+          ]),
         ],
       ]),
     );
@@ -68,6 +70,7 @@ describe('hydrateAwsEc2InstanceUtilization', () => {
         instanceId: 'i-123',
         instanceType: 'm6i.large',
         lowUtilizationDays: 4,
+        observedDays: 4,
         region: 'us-east-1',
       },
     ]);
@@ -84,9 +87,9 @@ describe('hydrateAwsEc2InstanceUtilization', () => {
     const points = [1, 2, 3, 4].map((day) => ({ timestamp: `2026-03-0${day}T00:00:00.000Z`, value: 0 }));
     mockedFetchCloudWatchSignals.mockResolvedValue(
       new Map([
-        ['cpu0', points],
-        ['in0', missing === 'both' || missing === 'in' ? [] : points],
-        ['out0', missing === 'both' || missing === 'out' ? [] : points],
+        ['cpu0', completeMetricEvidence(points)],
+        ['in0', completeMetricEvidence(missing === 'both' || missing === 'in' ? [] : points)],
+        ['out0', completeMetricEvidence(missing === 'both' || missing === 'out' ? [] : points)],
       ]),
     );
     expect(await hydrateAwsEc2InstanceUtilization([])).toEqual([]);
@@ -101,14 +104,15 @@ describe('hydrateAwsEc2InstanceUtilization', () => {
     const third = { timestamp: '2026-03-03T00:00:00.000Z', value: 0 };
     mockedFetchCloudWatchSignals.mockResolvedValue(
       new Map([
-        ['cpu0', [first, first, first, first, second, third]],
-        ['in0', [first, second, third]],
-        ['out0', [first, { ...third, value: Number.NaN }]],
+        ['cpu0', completeMetricEvidence([first, first, first, first, second, third])],
+        ['in0', completeMetricEvidence([first, second, third])],
+        ['out0', completeMetricEvidence([first, { ...third, value: Number.NaN }])],
       ]),
     );
     expect(await hydrateAwsEc2InstanceUtilization([])).toEqual([
       expect.objectContaining({
         lowUtilizationDays: 1,
+        observedDays: 1,
         averageCpuUtilizationLast14Days: 0,
         averageDailyNetworkBytesLast14Days: 0,
       }),
@@ -118,12 +122,28 @@ describe('hydrateAwsEc2InstanceUtilization', () => {
     expect(Number(window?.endTime) - Number(window?.startTime)).toBe(14 * 86400 * 1000);
   });
 
+  it('does not infer low utilization from an incomplete CPU response', async () => {
+    mockedHydrateAwsEc2Instances.mockResolvedValue([
+      { accountId: '123456789012', instanceId: 'i-123', instanceType: 'm6i.large', region: 'us-east-1' },
+    ]);
+    const points = [1, 2, 3, 4].map((day) => ({ timestamp: `2026-03-0${day}T00:00:00.000Z`, value: 0 }));
+    mockedFetchCloudWatchSignals.mockResolvedValue(
+      new Map([
+        ['cpu0', completeMetricEvidence(points, { status: 'PartialData' })],
+        ['in0', completeMetricEvidence(points)],
+        ['out0', completeMetricEvidence(points)],
+      ]),
+    );
+
+    await expect(hydrateAwsEc2InstanceUtilization([])).resolves.toEqual([]);
+  });
+
   it('reuses the shared EC2 instance dataset when a discovery context provides preloaded instances', async () => {
     mockedFetchCloudWatchSignals.mockResolvedValue(
       new Map([
-        ['cpu0', [{ timestamp: '2026-03-01T00:00:00.000Z', value: 5 }]],
-        ['in0', [{ timestamp: '2026-03-01T00:00:00.000Z', value: 1024 }]],
-        ['out0', [{ timestamp: '2026-03-01T00:00:00.000Z', value: 1024 }]],
+        ['cpu0', completeMetricEvidence([{ timestamp: '2026-03-01T00:00:00.000Z', value: 5 }])],
+        ['in0', completeMetricEvidence([{ timestamp: '2026-03-01T00:00:00.000Z', value: 1024 }])],
+        ['out0', completeMetricEvidence([{ timestamp: '2026-03-01T00:00:00.000Z', value: 1024 }])],
       ]),
     );
 
@@ -146,6 +166,7 @@ describe('hydrateAwsEc2InstanceUtilization', () => {
         instanceId: 'i-123',
         instanceType: 'm6i.large',
         lowUtilizationDays: 1,
+        observedDays: 1,
         region: 'us-east-1',
       },
     ]);

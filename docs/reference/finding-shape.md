@@ -127,7 +127,13 @@ type EvaluatedResource = Omit<FindingMatch, 'region'> & {
   lastActivityAt?: string;
 };
 
+type LiveEvaluationCoverage = {
+  assessed: FindingMatch[];
+  unknown: FindingMatch[];
+};
+
 type RuleEvaluation = {
+  coverage?: LiveEvaluationCoverage;
   description: string;
   findingCount: number;
   message: string;
@@ -138,7 +144,7 @@ type RuleEvaluation = {
   service: string;
   severity: Severity;
   source: 'discovery';
-  status: 'triggered' | 'passed' | 'not_applicable';
+  status: 'triggered' | 'passed' | 'not_applicable' | 'unknown';
   supports: Source[];
   supersedesRuleIds?: string[];
   reason?: string;
@@ -226,9 +232,27 @@ Every selected discovery rule appears exactly once when evaluation evidence is r
 
 - `triggered` means the rule emitted one or more findings. It remains triggered when generic rule precedence omits an
   identical finding from `providers`, preserving the evaluator's original result for audit evidence.
-- `passed` means evaluation completed without findings; `resources` contains the compliant resources inspected.
+- `passed` means evaluation completed without findings and without unresolved evidence reported by the rule.
+- `unknown` means no finding was established, but required evidence was incomplete for some resources or Regions.
+  `reason` describes the missing coverage. A resource set can still contain the known candidates.
 - `not_applicable` means a required dataset was unavailable; `reason` retains the corresponding diagnostic message and
   no resource set is referenced.
+
+Metric-dependent rules add `coverage` with separate `assessed` and `unknown` resource identities. These arrays are
+specific to the rule: a Lambda function can have known error-rate evidence and unknown duration evidence. Their lengths
+are the assessed and unknown resource counts. An assessed resource has enough evidence for the policy decision; it can
+be compliant or have a finding. A `triggered` rule can still have unknown resources. Shared `resourceSets` describe
+primary inputs and must not be interpreted as a list of fully assessed resources.
+
+Whole-region dataset failures retain the existing skipped diagnostics and exclusion from resource sets. Such a rule
+cannot report `passed`, even when no resource identity could be hydrated for an excluded Region. Complete required
+dataset failures still use `not_applicable`.
+
+Compatibility: `RuleEvaluation.status` adds `unknown`, and `coverage` is optional. Consumers validating status strings
+must accept the new value and inspect coverage before treating a triggered result as fully assessed. Finding groups and
+`evaluateLive(): Finding | null` retain their existing shapes. Config recording-frequency evidence now uses `null` for
+unknown `configurationItemsRecorded`, `estimatedMonthlyConfigurationItemReduction`, and
+`estimatedMonthlyRecordingCostReductionUsd`; callers must check these before calculations.
 
 AWS dataset definitions own evaluated-resource projection. Rule-specific projection overrides belong beside that
 registry, not in host applications. For example, inactive CloudWatch log groups expose the latest event timestamp as

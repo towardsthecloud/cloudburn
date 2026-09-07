@@ -1,4 +1,4 @@
-import type { Finding, FindingMatch, Rule, Source, SourceLocation } from './metadata.js';
+import type { Finding, FindingMatch, LiveEvaluationCoverage, Rule, Source, SourceLocation } from './metadata.js';
 
 // Intent: provide lightweight helper utilities for authoring consistent rules.
 // TODO(cloudburn): add rule ID validation and metadata lint helpers.
@@ -25,6 +25,28 @@ export const createFindingMatch = (
   ...(accountId ? { accountId } : {}),
   ...(location ? { location } : {}),
 });
+
+/**
+ * Partitions resource identities by whether a live policy can establish its result.
+ *
+ * @param resources - Inventory entries considered by the rule, including entries with missing metrics.
+ * @param isAssessed - Whether the rule has sufficient evidence to establish a finding or a non-finding.
+ * @param toMatch - Maps each resource to the same identity used by its findings.
+ * @returns Assessed and unknown resource identities in inventory order.
+ */
+export const createLiveEvaluationCoverage = <Resource>(
+  resources: readonly Resource[],
+  isAssessed: (resource: Resource) => boolean,
+  toMatch: (resource: Resource) => FindingMatch,
+): LiveEvaluationCoverage => {
+  const coverage: LiveEvaluationCoverage = { assessed: [], unknown: [] };
+
+  for (const resource of resources) {
+    coverage[isAssessed(resource) ? 'assessed' : 'unknown'].push(toMatch(resource));
+  }
+
+  return coverage;
+};
 
 /**
  * Checks whether a value is a non-null record.

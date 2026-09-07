@@ -1,4 +1,10 @@
-import { createFinding, createFindingMatch, createRule } from '../../shared/helpers.js';
+import {
+  createFinding,
+  createFindingMatch,
+  createLiveEvaluationCoverage,
+  createRule,
+  getAwsResourceScopeKey,
+} from '../../shared/helpers.js';
 
 const RULE_ID = 'CLDBRN-AWS-RDS-2';
 const RULE_SERVICE = 'rds';
@@ -15,7 +21,29 @@ export const rdsIdleInstanceRule = createRule({
   provider: 'aws',
   service: RULE_SERVICE,
   supports: ['discovery'],
-  discoveryDependencies: ['aws-rds-instance-activity'],
+  discoveryDependencies: ['aws-rds-instances', 'aws-rds-instance-activity'],
+  getLiveEvaluationCoverage: ({ resources }) => {
+    const metricsByResource = new Map(
+      resources
+        .get('aws-rds-instance-activity')
+        .map((metric) => [
+          getAwsResourceScopeKey(metric.accountId, metric.region, metric.dbInstanceIdentifier),
+          metric,
+        ]),
+    );
+
+    return createLiveEvaluationCoverage(
+      resources.get('aws-rds-instances'),
+      (resource) => {
+        const metric = metricsByResource.get(
+          getAwsResourceScopeKey(resource.accountId, resource.region, resource.dbInstanceIdentifier),
+        );
+
+        return metric?.maxDatabaseConnectionsLast7Days != null;
+      },
+      (resource) => createFindingMatch(resource.dbInstanceIdentifier, resource.region, resource.accountId),
+    );
+  },
   evaluateLive: ({ resources }) => {
     const findings = resources
       .get('aws-rds-instance-activity')

@@ -9,7 +9,12 @@ import type {
 import { createComputeOptimizerClient, createLambdaClient } from '../client.js';
 import type { AwsDiscoveryDatasetResolver } from '../discovery-registry.js';
 import { getAwsDiscoveryTimestamp } from '../execution.js';
-import { fetchCloudWatchSignals } from './cloudwatch.js';
+import {
+  type CloudWatchMetricPoint,
+  cloudWatchWindow,
+  fetchCloudWatchSignals,
+  getCompleteCloudWatchPoints,
+} from './cloudwatch.js';
 import { getUnqualifiedLambdaFunctionArn } from './lambda-identity.js';
 import { extractTerminalArnResourceIdentifier, withAwsServiceErrorContext } from './utils.js';
 
@@ -17,11 +22,19 @@ const DEFAULT_LAMBDA_ARCHITECTURES = ['x86_64'];
 const DEFAULT_LAMBDA_MEMORY_MB = 128;
 const DEFAULT_LAMBDA_TIMEOUT_SECONDS = 3;
 const SEVEN_DAYS_IN_SECONDS = 7 * 24 * 60 * 60;
+const LAMBDA_METRIC_PERIOD_IN_SECONDS = 60 * 60;
 
 const getSum = (values: Array<{ value: number }>): number => values.reduce((sum, point) => sum + point.value, 0);
 
-const getAverage = (values: Array<{ value: number }>): number | null =>
-  values.length === 0 ? null : getSum(values) / values.length;
+const getDurationAverage = (
+  sums: CloudWatchMetricPoint[] | undefined,
+  counts: CloudWatchMetricPoint[] | undefined,
+): number | null => {
+  if (!sums?.length || !counts?.length || sums.length !== counts.length) return null;
+  const countsByTimestamp = new Map(counts.map((point) => [point.timestamp, point.value]));
+  if (sums.some((point) => point.value < 0 || (countsByTimestamp.get(point.timestamp) ?? 0) <= 0)) return null;
+  return getSum(sums) / getSum(counts);
+};
 
 const groupLambdaResourcesByRegion = (resources: AwsDiscoveredResource[]): Map<string, AwsDiscoveredResource[]> => {
   const resourcesByRegion = new Map<string, AwsDiscoveredResource[]>();
@@ -180,14 +193,18 @@ export const hydrateAwsLambdaFunctionMetrics = async (
   const hydratedPages = await Promise.all(
     [...functionsByRegion.entries()].map(async ([region, regionFunctions]) => {
       const metricData = await fetchCloudWatchSignals({
-        endTime: new Date(getAwsDiscoveryTimestamp()),
+        ...cloudWatchWindow({
+          endTime: new Date(getAwsDiscoveryTimestamp()),
+          lookbackSeconds: SEVEN_DAYS_IN_SECONDS,
+          mode: 'rolling',
+        }),
         queries: regionFunctions.flatMap((fn, index) => [
           {
             dimensions: [{ Name: 'FunctionName', Value: fn.functionName }],
             id: `invocations${index}`,
             metricName: 'Invocations',
             namespace: 'AWS/Lambda',
-            period: SEVEN_DAYS_IN_SECONDS,
+            period: LAMBDA_METRIC_PERIOD_IN_SECONDS,
             stat: 'Sum' as const,
           },
           {
@@ -195,35 +212,46 @@ export const hydrateAwsLambdaFunctionMetrics = async (
             id: `errors${index}`,
             metricName: 'Errors',
             namespace: 'AWS/Lambda',
-            period: SEVEN_DAYS_IN_SECONDS,
+            period: LAMBDA_METRIC_PERIOD_IN_SECONDS,
             stat: 'Sum' as const,
           },
           {
             dimensions: [{ Name: 'FunctionName', Value: fn.functionName }],
-            id: `duration${index}`,
+            id: `durationSum${index}`,
             metricName: 'Duration',
             namespace: 'AWS/Lambda',
-            period: SEVEN_DAYS_IN_SECONDS,
-            stat: 'Average' as const,
+            period: LAMBDA_METRIC_PERIOD_IN_SECONDS,
+            stat: 'Sum' as const,
+          },
+          {
+            dimensions: [{ Name: 'FunctionName', Value: fn.functionName }],
+            id: `durationCount${index}`,
+            metricName: 'Duration',
+            namespace: 'AWS/Lambda',
+            period: LAMBDA_METRIC_PERIOD_IN_SECONDS,
+            stat: 'SampleCount' as const,
           },
         ]),
         region,
-        startTime: new Date(getAwsDiscoveryTimestamp() - SEVEN_DAYS_IN_SECONDS * 1000),
       });
 
       return regionFunctions.map((fn, index) => {
-        const invocationPoints = metricData.get(`invocations${index}`) ?? [];
-        const errorPoints = metricData.get(`errors${index}`) ?? [];
-        const durationPoints = metricData.get(`duration${index}`) ?? [];
+        const invocationPoints = getCompleteCloudWatchPoints(metricData.get(`invocations${index}`)) ?? [];
+        const errorPoints = getCompleteCloudWatchPoints(metricData.get(`errors${index}`));
+        const durationSums = getCompleteCloudWatchPoints(metricData.get(`durationSum${index}`));
+        const durationCounts = getCompleteCloudWatchPoints(metricData.get(`durationCount${index}`));
         const totalInvocationsLast7Days = invocationPoints.length > 0 ? getSum(invocationPoints) : null;
 
         return {
           accountId: fn.accountId,
           averageDurationMsLast7Days:
-            totalInvocationsLast7Days !== null && totalInvocationsLast7Days > 0 ? getAverage(durationPoints) : null,
+            totalInvocationsLast7Days !== null && totalInvocationsLast7Days > 0
+              ? getDurationAverage(durationSums, durationCounts)
+              : null,
           functionName: fn.functionName,
           region: fn.region,
-          totalErrorsLast7Days: totalInvocationsLast7Days !== null ? getSum(errorPoints) : null,
+          totalErrorsLast7Days:
+            totalInvocationsLast7Days !== null && errorPoints !== undefined ? getSum(errorPoints) : null,
           totalInvocationsLast7Days,
         } satisfies AwsLambdaFunctionMetric;
       });

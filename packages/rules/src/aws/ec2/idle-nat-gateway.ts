@@ -1,4 +1,4 @@
-import { createFinding, createFindingMatch, createRule } from '../../shared/helpers.js';
+import { createFinding, createFindingMatch, createLiveEvaluationCoverage, createRule } from '../../shared/helpers.js';
 
 const RULE_ID = 'CLDBRN-AWS-EC2-11';
 const RULE_SERVICE = 'ec2';
@@ -16,6 +16,14 @@ export const ec2IdleNatGatewayRule = createRule({
   service: RULE_SERVICE,
   supports: ['discovery'],
   discoveryDependencies: ['aws-ec2-nat-gateway-activity'],
+  getLiveEvaluationCoverage: ({ resources }) =>
+    createLiveEvaluationCoverage(
+      resources.get('aws-ec2-nat-gateway-activity'),
+      (gateway) =>
+        gateway.state !== 'available' ||
+        (gateway.bytesInFromDestinationLast7Days != null && gateway.bytesOutToDestinationLast7Days != null),
+      (gateway) => createFindingMatch(gateway.natGatewayId, gateway.region, gateway.accountId),
+    ),
   evaluateLive: ({ resources }) => {
     const findings = resources
       .get('aws-ec2-nat-gateway-activity')

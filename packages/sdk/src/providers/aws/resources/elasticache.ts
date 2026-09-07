@@ -8,7 +8,7 @@ import type {
 import { createElastiCacheClient } from '../client.js';
 import type { AwsDiscoveryDatasetResolver } from '../discovery-registry.js';
 import { getAwsDiscoveryTimestamp } from '../execution.js';
-import { fetchCloudWatchSignals } from './cloudwatch.js';
+import { cloudWatchWindow, fetchCloudWatchSignals, getCompleteCloudWatchPoints } from './cloudwatch.js';
 import { extractTerminalResourceIdentifier, withAwsServiceErrorContext } from './utils.js';
 
 const ELASTICACHE_PAGE_SIZE = 100;
@@ -202,7 +202,11 @@ export const hydrateAwsElastiCacheClusterActivity = async (
       const metricData =
         supportedClusters.length > 0
           ? await fetchCloudWatchSignals({
-              endTime: new Date(getAwsDiscoveryTimestamp()),
+              ...cloudWatchWindow({
+                endTime: new Date(getAwsDiscoveryTimestamp()),
+                lookbackSeconds: FOURTEEN_DAYS_IN_SECONDS,
+                mode: 'complete-days',
+              }),
               queries: supportedClusters.flatMap((cluster, index) => [
                 {
                   dimensions: [{ Name: 'CacheClusterId', Value: cluster.cacheClusterId }],
@@ -230,7 +234,6 @@ export const hydrateAwsElastiCacheClusterActivity = async (
                 },
               ]),
               region,
-              startTime: new Date(getAwsDiscoveryTimestamp() - FOURTEEN_DAYS_IN_SECONDS * 1000),
             })
           : new Map();
 
@@ -251,9 +254,9 @@ export const hydrateAwsElastiCacheClusterActivity = async (
           } satisfies AwsElastiCacheClusterActivity;
         }
 
-        const hitPoints = metricData.get(`hits${supportedIndex}`) ?? [];
-        const missPoints = metricData.get(`misses${supportedIndex}`) ?? [];
-        const connectionPoints = metricData.get(`connections${supportedIndex}`) ?? [];
+        const hitPoints = getCompleteCloudWatchPoints(metricData.get(`hits${supportedIndex}`)) ?? [];
+        const missPoints = getCompleteCloudWatchPoints(metricData.get(`misses${supportedIndex}`)) ?? [];
+        const connectionPoints = getCompleteCloudWatchPoints(metricData.get(`connections${supportedIndex}`)) ?? [];
         const hasCompleteCoverage =
           hitPoints.length >= REQUIRED_ELASTICACHE_DAILY_POINTS &&
           missPoints.length >= REQUIRED_ELASTICACHE_DAILY_POINTS &&

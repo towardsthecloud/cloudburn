@@ -11,13 +11,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createCloudWatchClient, createConfigServiceClient } from '../../src/providers/aws/client.js';
 import { fetchCloudWatchSignals } from '../../src/providers/aws/resources/cloudwatch.js';
 import { hydrateAwsConfigRecordingFrequencyReviews } from '../../src/providers/aws/resources/config.js';
+import { completeMetricEvidence } from '../helpers/cloudwatch.js';
 
 vi.mock('../../src/providers/aws/client.js', () => ({
   createCloudWatchClient: vi.fn(),
   createConfigServiceClient: vi.fn(),
 }));
 
-vi.mock('../../src/providers/aws/resources/cloudwatch.js', () => ({
+vi.mock('../../src/providers/aws/resources/cloudwatch.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/providers/aws/resources/cloudwatch.js')>()),
   fetchCloudWatchSignals: vi.fn(),
 }));
 
@@ -134,7 +136,12 @@ const configureMetrics = (resourceTypes: string[], valuesByType: Record<string, 
       new Map(
         queries.map((query) => [
           query.id,
-          [{ timestamp: '2026-08-28T00:00:00.000Z', value: valuesByType[query.dimensions[0]?.Value ?? ''] ?? 0 }],
+          completeMetricEvidence(
+            Array.from({ length: 14 }, (_, index) => ({
+              timestamp: new Date(Date.UTC(2026, 7, 20 + index)).toISOString(),
+              value: index === 0 ? (valuesByType[query.dimensions[0]?.Value ?? ''] ?? 0) : 0,
+            })),
+          ),
         ]),
       ),
   );
@@ -192,7 +199,7 @@ describe('hydrateAwsConfigRecordingFrequencyReviews', () => {
       },
     ]);
     expect(mockedFetchCloudWatchSignals).toHaveBeenCalledWith({
-      endTime: new Date('2026-09-03T20:00:00.000Z'),
+      endTime: new Date('2026-09-03T00:00:00.000Z'),
       queries: [
         expect.objectContaining({
           dimensions: [{ Name: 'ResourceType', Value: 'AWS::Lambda::Function' }],
@@ -201,8 +208,52 @@ describe('hydrateAwsConfigRecordingFrequencyReviews', () => {
         }),
       ],
       region: 'eu-central-1',
-      startTime: new Date('2026-08-20T20:00:00.000Z'),
+      startTime: new Date('2026-08-20T00:00:00.000Z'),
     });
+  });
+
+  it.each([
+    ['Complete', 0],
+    ['Complete', 13],
+    ['PartialData', 14],
+    ['Forbidden', 14],
+    ['InternalError', 14],
+    ['Missing', 0],
+    ['Unknown', 14],
+  ] as const)('retains unknown resource identities for %s evidence with %i observations', async (status, count) => {
+    const resourceType = 'AWS::Lambda::Function';
+    configureConfigClient({ resourceCounts: [{ count: 5, resourceType }] });
+    configureMetrics([resourceType], { [resourceType]: 2_000 });
+    mockedFetchCloudWatchSignals.mockResolvedValue(
+      new Map([
+        [
+          'config0',
+          completeMetricEvidence(
+            Array.from({ length: count }, (_, index) => ({
+              timestamp: new Date(Date.UTC(2026, 7, 20 + index)).toISOString(),
+              value: 2_000,
+            })),
+            { status },
+          ),
+        ],
+      ]),
+    );
+
+    await expect(
+      hydrateAwsConfigRecordingFrequencyReviews([], {
+        region: 'eu-central-1',
+        resolveAccountId: async () => accountId,
+      }),
+    ).resolves.toEqual([
+      expect.objectContaining({
+        configurationItemsRecorded: null,
+        estimatedMonthlyConfigurationItemReduction: null,
+        estimatedMonthlyRecordingCostReductionUsd: null,
+        recordedResourceCount: 5,
+        resourceType,
+        turnoverEstimateReliable: false,
+      }),
+    ]);
   });
 
   it('skips a recorder whose default frequency is daily', async () => {

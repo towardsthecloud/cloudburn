@@ -7,7 +7,7 @@ import type {
 import { createCloudFrontClient } from '../client.js';
 import type { AwsAccountIdResolver, AwsDiscoveryDatasetResolver } from '../discovery-registry.js';
 import { getAwsDiscoveryTimestamp } from '../execution.js';
-import { fetchCloudWatchSignals } from './cloudwatch.js';
+import { cloudWatchWindow, fetchCloudWatchSignals, getCompleteCloudWatchPoints } from './cloudwatch.js';
 import {
   chunkItems,
   extractTerminalArnResourceIdentifier,
@@ -148,7 +148,11 @@ export const hydrateAwsCloudFrontDistributionRequestActivity = async (
   }
 
   const metricData = await fetchCloudWatchSignals({
-    endTime: new Date(getAwsDiscoveryTimestamp()),
+    ...cloudWatchWindow({
+      endTime: new Date(getAwsDiscoveryTimestamp()),
+      lookbackSeconds: THIRTY_DAYS_IN_SECONDS,
+      mode: 'complete-days',
+    }),
     queries: distributions.map((distribution, index) => ({
       dimensions: [
         { Name: 'DistributionId', Value: distribution.distributionId },
@@ -161,11 +165,10 @@ export const hydrateAwsCloudFrontDistributionRequestActivity = async (
       stat: 'Sum' as const,
     })),
     region: CLOUDFRONT_CONTROL_REGION,
-    startTime: new Date(getAwsDiscoveryTimestamp() - THIRTY_DAYS_IN_SECONDS * 1000),
   });
 
   return distributions.map((distribution, index) => {
-    const requestPoints = metricData.get(`distribution${index}`) ?? [];
+    const requestPoints = getCompleteCloudWatchPoints(metricData.get(`distribution${index}`)) ?? [];
 
     return {
       accountId: distribution.accountId,

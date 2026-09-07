@@ -3,7 +3,7 @@ import type { AwsDiscoveredResource, AwsEmrCluster, AwsEmrClusterMetric } from '
 import { createEmrClient } from '../client.js';
 import type { AwsDiscoveryDatasetResolver } from '../discovery-registry.js';
 import { getAwsDiscoveryTimestamp } from '../execution.js';
-import { fetchCloudWatchSignals } from './cloudwatch.js';
+import { cloudWatchWindow, fetchCloudWatchSignals, getCompleteCloudWatchPoints } from './cloudwatch.js';
 import { extractTerminalArnResourceIdentifier, withAwsServiceErrorContext } from './utils.js';
 
 const EMR_CLUSTER_HYDRATION_CONCURRENCY = 10;
@@ -140,7 +140,11 @@ export const hydrateAwsEmrClusterMetrics = async (
   const hydratedPages = await Promise.all(
     [...clustersByRegion.entries()].map(async ([region, regionClusters]) => {
       const metricData = await fetchCloudWatchSignals({
-        endTime: new Date(getAwsDiscoveryTimestamp()),
+        ...cloudWatchWindow({
+          endTime: new Date(getAwsDiscoveryTimestamp()),
+          lookbackSeconds: EMR_IDLE_LOOKBACK_PERIODS * EMR_IDLE_PERIOD_IN_SECONDS,
+          mode: 'rolling',
+        }),
         queries: regionClusters.map((cluster, index) => ({
           dimensions: [{ Name: 'JobFlowId', Value: cluster.clusterId }],
           id: `idle${index}`,
@@ -150,11 +154,12 @@ export const hydrateAwsEmrClusterMetrics = async (
           stat: 'Average',
         })),
         region,
-        startTime: new Date(getAwsDiscoveryTimestamp() - EMR_IDLE_LOOKBACK_PERIODS * EMR_IDLE_PERIOD_IN_SECONDS * 1000),
       });
 
       return regionClusters.map((cluster, index) => {
-        const points = (metricData.get(`idle${index}`) ?? []).slice(-EMR_IDLE_LOOKBACK_PERIODS);
+        const points = (getCompleteCloudWatchPoints(metricData.get(`idle${index}`)) ?? []).slice(
+          -EMR_IDLE_LOOKBACK_PERIODS,
+        );
 
         return {
           accountId: cluster.accountId,

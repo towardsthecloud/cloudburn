@@ -7,12 +7,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createEc2Client } from '../../src/providers/aws/client.js';
 import { fetchCloudWatchSignals } from '../../src/providers/aws/resources/cloudwatch.js';
 import { hydrateAwsEc2TransitGatewayVpcAttachmentActivity } from '../../src/providers/aws/resources/ec2-transit-gateway-vpc-attachments.js';
+import { completeMetricEvidence } from '../helpers/cloudwatch.js';
 
 vi.mock('../../src/providers/aws/client.js', () => ({
   createEc2Client: vi.fn(),
 }));
 
-vi.mock('../../src/providers/aws/resources/cloudwatch.js', () => ({
+vi.mock('../../src/providers/aws/resources/cloudwatch.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/providers/aws/resources/cloudwatch.js')>()),
   fetchCloudWatchSignals: vi.fn(),
 }));
 
@@ -114,8 +116,8 @@ describe('hydrateAwsEc2TransitGatewayVpcAttachmentActivity', () => {
     });
     mockedFetchCloudWatchSignals.mockResolvedValue(
       new Map([
-        ['tgwIn0', createDailyPoints(30, 0)],
-        ['tgwOut0', createDailyPoints(30, 0)],
+        ['tgwIn0', completeMetricEvidence(createDailyPoints(30, 0))],
+        ['tgwOut0', completeMetricEvidence(createDailyPoints(30, 0))],
       ]),
     );
 
@@ -179,8 +181,8 @@ describe('hydrateAwsEc2TransitGatewayVpcAttachmentActivity', () => {
     mockEc2Attachments();
     mockedFetchCloudWatchSignals.mockResolvedValue(
       new Map([
-        ['tgwIn0', createDailyPoints(29, 0)],
-        ['tgwOut0', createDailyPoints(30, 0)],
+        ['tgwIn0', completeMetricEvidence(createDailyPoints(29, 0))],
+        ['tgwOut0', completeMetricEvidence(createDailyPoints(30, 0))],
       ]),
     );
 
@@ -200,8 +202,8 @@ describe('hydrateAwsEc2TransitGatewayVpcAttachmentActivity', () => {
     const send = mockEc2Attachments();
     mockedFetchCloudWatchSignals.mockResolvedValue(
       new Map([
-        ['tgwIn0', createDailyPoints(30, 0)],
-        ['tgwOut0', createDailyPoints(30, 0)],
+        ['tgwIn0', completeMetricEvidence(createDailyPoints(30, 0))],
+        ['tgwOut0', completeMetricEvidence(createDailyPoints(30, 0))],
       ]),
     );
 
@@ -239,8 +241,8 @@ describe('hydrateAwsEc2TransitGatewayVpcAttachmentActivity', () => {
     });
     mockedFetchCloudWatchSignals.mockResolvedValue(
       new Map([
-        ['tgwIn0', createDailyPoints(30, 0)],
-        ['tgwOut0', createDailyPoints(30, 0)],
+        ['tgwIn0', completeMetricEvidence(createDailyPoints(30, 0))],
+        ['tgwOut0', completeMetricEvidence(createDailyPoints(30, 0))],
       ]),
     );
 
@@ -256,8 +258,8 @@ describe('hydrateAwsEc2TransitGatewayVpcAttachmentActivity', () => {
     mockEc2Attachments();
     mockedFetchCloudWatchSignals.mockResolvedValue(
       new Map([
-        ['tgwIn0', createDailyPoints(30, 0)],
-        ['tgwOut0', createDailyPoints(30, 0)],
+        ['tgwIn0', completeMetricEvidence(createDailyPoints(30, 0))],
+        ['tgwOut0', completeMetricEvidence(createDailyPoints(30, 0))],
       ]),
     );
     vi.mocked(fetch).mockRejectedValue(new Error('Pricing endpoint unavailable'));

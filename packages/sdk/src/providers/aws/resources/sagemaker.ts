@@ -11,7 +11,7 @@ import type {
 } from '@cloudburn/rules';
 import { createSageMakerClient } from '../client.js';
 import { getAwsDiscoveryTimestamp } from '../execution.js';
-import { fetchCloudWatchSignals } from './cloudwatch.js';
+import { cloudWatchWindow, fetchCloudWatchSignals, getCompleteCloudWatchPoints } from './cloudwatch.js';
 import { chunkItems, extractTerminalResourceIdentifier, withAwsServiceErrorContext } from './utils.js';
 
 const NOTEBOOK_INSTANCE_BATCH_SIZE = 10;
@@ -265,7 +265,11 @@ export const hydrateAwsSageMakerEndpointActivity = async (
         const metricData =
           completeEndpoints.length > 0
             ? await fetchCloudWatchSignals({
-                endTime: new Date(getAwsDiscoveryTimestamp()),
+                ...cloudWatchWindow({
+                  endTime: new Date(getAwsDiscoveryTimestamp()),
+                  lookbackSeconds: FOURTEEN_DAYS_IN_SECONDS,
+                  mode: 'complete-days',
+                }),
                 queries: completeEndpoints.flatMap((endpoint, endpointIndex) =>
                   endpoint.productionVariantNames.map((variantName, variantIndex) => ({
                     dimensions: [
@@ -280,7 +284,6 @@ export const hydrateAwsSageMakerEndpointActivity = async (
                   })),
                 ),
                 region,
-                startTime: new Date(getAwsDiscoveryTimestamp() - FOURTEEN_DAYS_IN_SECONDS * 1000),
               })
             : new Map();
 
@@ -289,12 +292,15 @@ export const hydrateAwsSageMakerEndpointActivity = async (
             const totalInvocationsLast14Days =
               endpoint.productionVariantNames.length > 0 &&
               endpoint.productionVariantNames.every((_variantName, variantIndex) => {
-                const points = metricData.get(`endpoint${endpointIndex}variant${variantIndex}`) ?? [];
+                const points =
+                  getCompleteCloudWatchPoints(metricData.get(`endpoint${endpointIndex}variant${variantIndex}`)) ?? [];
 
-                return points.length === 0 || points.length >= REQUIRED_ENDPOINT_DAILY_POINTS;
+                return points.length >= REQUIRED_ENDPOINT_DAILY_POINTS;
               })
                 ? endpoint.productionVariantNames.reduce((sum, _variantName, variantIndex) => {
-                    const points = metricData.get(`endpoint${endpointIndex}variant${variantIndex}`) ?? [];
+                    const points =
+                      getCompleteCloudWatchPoints(metricData.get(`endpoint${endpointIndex}variant${variantIndex}`)) ??
+                      [];
 
                     return (
                       sum + points.reduce((pointSum: number, point: { value: number }) => pointSum + point.value, 0)

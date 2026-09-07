@@ -1,4 +1,4 @@
-import { createFinding, createFindingMatch, createRule } from '../../shared/helpers.js';
+import { createFinding, createFindingMatch, createLiveEvaluationCoverage, createRule } from '../../shared/helpers.js';
 
 const RULE_ID = 'CLDBRN-AWS-EC2-14';
 const RULE_SERVICE = 'ec2';
@@ -17,6 +17,15 @@ export const ec2IdleTransitGatewayVpcAttachmentRule = createRule({
   service: RULE_SERVICE,
   supports: ['discovery'],
   discoveryDependencies: ['aws-ec2-transit-gateway-vpc-attachment-activity'],
+  getLiveEvaluationCoverage: ({ resources }) =>
+    createLiveEvaluationCoverage(
+      resources.get('aws-ec2-transit-gateway-vpc-attachment-activity'),
+      (attachment) =>
+        attachment.state !== 'available' ||
+        (attachment.bytesInLast30Days != null && attachment.bytesOutLast30Days != null),
+      (attachment) =>
+        createFindingMatch(attachment.transitGatewayAttachmentId, attachment.region, attachment.accountId),
+    ),
   evaluateLive: ({ resources }) => {
     const findings = resources
       .get('aws-ec2-transit-gateway-vpc-attachment-activity')

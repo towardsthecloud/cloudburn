@@ -8,13 +8,15 @@ import {
   hydrateAwsDynamoDbTables,
   hydrateAwsDynamoDbTableUtilization,
 } from '../../src/providers/aws/resources/dynamodb.js';
+import { completeMetricEvidence } from '../helpers/cloudwatch.js';
 
 vi.mock('../../src/providers/aws/client.js', () => ({
   createApplicationAutoScalingClient: vi.fn(),
   createDynamoDbClient: vi.fn(),
 }));
 
-vi.mock('../../src/providers/aws/resources/cloudwatch.js', () => ({
+vi.mock('../../src/providers/aws/resources/cloudwatch.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/providers/aws/resources/cloudwatch.js')>()),
   fetchCloudWatchSignals: vi.fn(),
 }));
 
@@ -232,10 +234,12 @@ describe('DynamoDB discovery resources', () => {
         return new Map([
           [
             'read0',
-            Array.from({ length: 30 }, (_, index) => ({
-              timestamp: `2026-03-${String(index + 2).padStart(2, '0')}T00:00:00.000Z`,
-              value: 0,
-            })),
+            completeMetricEvidence(
+              Array.from({ length: 30 }, (_, index) => ({
+                timestamp: `2026-03-${String(index + 2).padStart(2, '0')}T00:00:00.000Z`,
+                value: 0,
+              })),
+            ),
           ],
         ]);
       }
@@ -243,13 +247,12 @@ describe('DynamoDB discovery resources', () => {
       return new Map([
         [
           'write0',
-          [
-            { timestamp: '2026-03-02T00:00:00.000Z', value: 7 },
-            ...Array.from({ length: 30 }, (_, index) => ({
-              timestamp: new Date(Date.UTC(2026, 2, index + 3)).toISOString(),
-              value: 0,
+          completeMetricEvidence(
+            Array.from({ length: 90 }, (_, index) => ({
+              timestamp: new Date(Date.UTC(2026, 0, index + 1)).toISOString(),
+              value: index === 60 ? 7 : 0,
             })),
-          ],
+          ),
         ],
       ]);
     });
@@ -278,16 +281,16 @@ describe('DynamoDB discovery resources', () => {
     ]);
     expect(mockedFetchCloudWatchSignals).toHaveBeenCalledTimes(2);
     expect(mockedFetchCloudWatchSignals).toHaveBeenCalledWith({
-      endTime: new Date('2026-04-01T12:00:00.000Z'),
+      endTime: new Date('2026-04-01T00:00:00.000Z'),
       queries: [expect.objectContaining({ id: 'read0', metricName: 'ConsumedReadCapacityUnits' })],
       region: 'us-east-1',
-      startTime: new Date('2026-03-02T12:00:00.000Z'),
+      startTime: new Date('2026-03-02T00:00:00.000Z'),
     });
     expect(mockedFetchCloudWatchSignals).toHaveBeenCalledWith({
-      endTime: new Date('2026-04-01T12:00:00.000Z'),
+      endTime: new Date('2026-04-01T00:00:00.000Z'),
       queries: [expect.objectContaining({ id: 'write0', metricName: 'ConsumedWriteCapacityUnits' })],
       region: 'us-east-1',
-      startTime: new Date('2026-01-01T12:00:00.000Z'),
+      startTime: new Date('2026-01-01T00:00:00.000Z'),
     });
   });
 
@@ -309,23 +312,23 @@ describe('DynamoDB discovery resources', () => {
         ? new Map([
             [
               'read0',
-              [
+              completeMetricEvidence([
                 {
                   timestamp: '2026-02-01T00:00:00.000Z',
                   value: 0,
                 },
-              ],
+              ]),
             ],
           ])
         : new Map([
             [
               'write0',
-              [
+              completeMetricEvidence([
                 {
                   timestamp: '2026-02-01T00:00:00.000Z',
                   value: 0,
                 },
-              ],
+              ]),
             ],
           ]),
     );
@@ -354,8 +357,60 @@ describe('DynamoDB discovery resources', () => {
     ]);
   });
 
+  it.each([
+    ['Complete', 0],
+    ['Complete', 89],
+    ['PartialData', 90],
+    ['Forbidden', 90],
+    ['Missing', 0],
+  ] as const)('preserves unknown 90-day usage for %s evidence with %i observations', async (status, count) => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-04-01T12:00:00.000Z'));
+    mockedCreateDynamoDbClient.mockReturnValue({
+      send: vi.fn(async () => ({
+        Table: {
+          CreationDateTime: new Date('2025-01-01T00:00:00.000Z'),
+          TableArn: 'arn:aws:dynamodb:us-east-1:123456789012:table/orders',
+          TableName: 'orders',
+          TableStatus: 'ACTIVE',
+        },
+      })),
+    } as never);
+    mockedFetchCloudWatchSignals.mockImplementation(
+      async ({ queries }) =>
+        new Map(
+          queries.map((query) => [
+            query.id,
+            completeMetricEvidence(
+              Array.from({ length: count }, (_, index) => ({
+                timestamp: new Date(Date.UTC(2026, 0, index + 1)).toISOString(),
+                value: 0,
+              })),
+              { status },
+            ),
+          ]),
+        ),
+    );
+
+    await expect(
+      hydrateAwsDynamoDbTableUtilization([
+        {
+          accountId: '123456789012',
+          arn: 'arn:aws:dynamodb:us-east-1:123456789012:table/orders',
+          properties: [],
+          region: 'us-east-1',
+          resourceType: 'dynamodb:table',
+          service: 'dynamodb',
+        },
+      ]),
+    ).resolves.toEqual([expect.objectContaining({ totalConsumedWriteCapacityUnitsLast90Days: null })]);
+  });
+
   it('scopes shared DynamoDB tables to the requested catalog region', async () => {
-    mockedFetchCloudWatchSignals.mockResolvedValue(new Map());
+    mockedFetchCloudWatchSignals.mockImplementation(
+      async ({ queries }) =>
+        new Map(queries.map((query) => [query.id, completeMetricEvidence([], { status: 'Missing' })])),
+    );
     const loadDataset = vi.fn().mockResolvedValue([
       {
         accountId: '123456789012',

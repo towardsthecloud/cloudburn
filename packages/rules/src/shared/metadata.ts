@@ -86,14 +86,17 @@ export type AwsConfigRecordingModeOverride = {
 export type AwsConfigRecordingFrequencyReview = {
   accountId: string;
   allSupported: boolean;
-  configurationItemsRecorded: number;
+  /** `null` means the recording metric window is incomplete or unavailable. */
+  configurationItemsRecorded: number | null;
   configuredResourceTypes: string[];
   continuousRecordingUnitPriceUsd: number;
   currentRecordingFrequency: 'CONTINUOUS';
   dailyRecordingUnitPriceUsd: number;
   defaultRecordingFrequency: 'CONTINUOUS' | 'DAILY';
-  estimatedMonthlyConfigurationItemReduction: number;
-  estimatedMonthlyRecordingCostReductionUsd: number;
+  /** `null` means metric evidence cannot establish a reliable reduction estimate. */
+  estimatedMonthlyConfigurationItemReduction: number | null;
+  /** `null` means metric evidence cannot establish a reliable saving estimate. */
+  estimatedMonthlyRecordingCostReductionUsd: number | null;
   excludedResourceTypes: string[];
   firewallManagerDependent: boolean;
   includeGlobalResourceTypes: boolean;
@@ -838,6 +841,8 @@ export type AwsEc2InstanceUtilization = {
   instanceId: string;
   instanceType: string;
   lowUtilizationDays: number;
+  /** Number of days with complete CPU and network evidence; omitted by legacy custom loaders. */
+  observedDays?: number;
   averageCpuUtilizationLast14Days: number;
   averageDailyNetworkBytesLast14Days: number;
   region: string;
@@ -1565,6 +1570,14 @@ export type FindingMatch = {
   location?: SourceLocation;
 };
 
+/** Resource identities whose live policy result is known or lacks the required evidence. */
+export type LiveEvaluationCoverage = {
+  /** Resources with enough evidence to establish a finding or a non-finding. */
+  assessed: FindingMatch[];
+  /** Resources that cannot be assessed because required evidence is unavailable or incomplete. */
+  unknown: FindingMatch[];
+};
+
 /** A rule-level finding group containing all matched resources for that rule. */
 export type Finding = {
   ruleId: string;
@@ -1592,5 +1605,7 @@ export type Rule = {
   supersedesRuleIds?: string[];
   staticDependencies?: StaticDatasetKey[];
   evaluateLive?: (context: LiveEvaluationContext) => Finding | null;
+  /** Reports resource-level evidence coverage independently of grouped findings. */
+  getLiveEvaluationCoverage?: (context: LiveEvaluationContext) => LiveEvaluationCoverage;
   evaluateStatic?: (context: StaticEvaluationContext) => Finding | null;
 };

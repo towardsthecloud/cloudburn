@@ -7,12 +7,14 @@ import {
   hydrateAwsElastiCacheClusters,
   hydrateAwsElastiCacheReservedNodes,
 } from '../../src/providers/aws/resources/elasticache.js';
+import { completeMetricEvidence } from '../helpers/cloudwatch.js';
 
 vi.mock('../../src/providers/aws/client.js', () => ({
   createElastiCacheClient: vi.fn(),
 }));
 
-vi.mock('../../src/providers/aws/resources/cloudwatch.js', () => ({
+vi.mock('../../src/providers/aws/resources/cloudwatch.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/providers/aws/resources/cloudwatch.js')>()),
   fetchCloudWatchSignals: vi.fn(),
 }));
 
@@ -125,24 +127,30 @@ describe('ElastiCache discovery resources', () => {
       new Map([
         [
           'hits0',
-          Array.from({ length: 14 }, (_, index) => ({
-            timestamp: `2026-03-${String(index + 1).padStart(2, '0')}T00:00:00.000Z`,
-            value: 1,
-          })),
+          completeMetricEvidence(
+            Array.from({ length: 14 }, (_, index) => ({
+              timestamp: `2026-03-${String(index + 1).padStart(2, '0')}T00:00:00.000Z`,
+              value: 1,
+            })),
+          ),
         ],
         [
           'misses0',
-          Array.from({ length: 14 }, (_, index) => ({
-            timestamp: `2026-03-${String(index + 1).padStart(2, '0')}T00:00:00.000Z`,
-            value: 19,
-          })),
+          completeMetricEvidence(
+            Array.from({ length: 14 }, (_, index) => ({
+              timestamp: `2026-03-${String(index + 1).padStart(2, '0')}T00:00:00.000Z`,
+              value: 19,
+            })),
+          ),
         ],
         [
           'connections0',
-          Array.from({ length: 14 }, (_, index) => ({
-            timestamp: `2026-03-${String(index + 1).padStart(2, '0')}T00:00:00.000Z`,
-            value: 1,
-          })),
+          completeMetricEvidence(
+            Array.from({ length: 14 }, (_, index) => ({
+              timestamp: `2026-03-${String(index + 1).padStart(2, '0')}T00:00:00.000Z`,
+              value: 1,
+            })),
+          ),
         ],
       ]),
     );
@@ -187,30 +195,30 @@ describe('ElastiCache discovery resources', () => {
       new Map([
         [
           'hits0',
-          [
+          completeMetricEvidence([
             {
               timestamp: '2026-03-01T00:00:00.000Z',
               value: 1,
             },
-          ],
+          ]),
         ],
         [
           'misses0',
-          [
+          completeMetricEvidence([
             {
               timestamp: '2026-03-01T00:00:00.000Z',
               value: 19,
             },
-          ],
+          ]),
         ],
         [
           'connections0',
-          [
+          completeMetricEvidence([
             {
               timestamp: '2026-03-01T00:00:00.000Z',
               value: 1,
             },
-          ],
+          ]),
         ],
       ]),
     );

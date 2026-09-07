@@ -14,7 +14,7 @@ import { createRedshiftClient } from '../client.js';
 import type { AwsDiscoveryDatasetResolver } from '../discovery-registry.js';
 import { formatAwsAccessDeniedReason, getAwsErrorCode, isAwsAccessDeniedError } from '../errors.js';
 import { getAwsDiscoveryTimestamp } from '../execution.js';
-import { fetchCloudWatchSignals } from './cloudwatch.js';
+import { cloudWatchWindow, fetchCloudWatchSignals, getCompleteCloudWatchPoints } from './cloudwatch.js';
 import { chunkItems, extractTerminalResourceIdentifier, withAwsServiceErrorContext } from './utils.js';
 
 const REDSHIFT_PAGE_SIZE = 100;
@@ -145,7 +145,11 @@ export const hydrateAwsRedshiftClusterMetrics = async (
   const hydratedPages = await Promise.all(
     [...clustersByRegion.entries()].map(async ([region, regionClusters]) => {
       const metricData = await fetchCloudWatchSignals({
-        endTime: new Date(getAwsDiscoveryTimestamp()),
+        ...cloudWatchWindow({
+          endTime: new Date(getAwsDiscoveryTimestamp()),
+          lookbackSeconds: REDSHIFT_CPU_LOOKBACK_DAYS * REDSHIFT_DAILY_PERIOD_IN_SECONDS,
+          mode: 'complete-days',
+        }),
         queries: regionClusters.map((cluster, index) => ({
           dimensions: [{ Name: 'ClusterIdentifier', Value: cluster.clusterIdentifier }],
           id: `cpu${index}`,
@@ -155,13 +159,10 @@ export const hydrateAwsRedshiftClusterMetrics = async (
           stat: 'Average',
         })),
         region,
-        startTime: new Date(
-          getAwsDiscoveryTimestamp() - REDSHIFT_CPU_LOOKBACK_DAYS * REDSHIFT_DAILY_PERIOD_IN_SECONDS * 1000,
-        ),
       });
 
       return regionClusters.map((cluster, index) => {
-        const points = metricData.get(`cpu${index}`) ?? [];
+        const points = getCompleteCloudWatchPoints(metricData.get(`cpu${index}`)) ?? [];
 
         return {
           accountId: cluster.accountId,

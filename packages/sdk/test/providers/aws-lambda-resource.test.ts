@@ -8,13 +8,15 @@ import {
   hydrateAwsLambdaFunctions,
   hydrateAwsLambdaMemoryRecommendations,
 } from '../../src/providers/aws/resources/lambda.js';
+import { completeMetricEvidence } from '../helpers/cloudwatch.js';
 
 vi.mock('../../src/providers/aws/client.js', () => ({
   createComputeOptimizerClient: vi.fn(),
   createLambdaClient: vi.fn(),
 }));
 
-vi.mock('../../src/providers/aws/resources/cloudwatch.js', () => ({
+vi.mock('../../src/providers/aws/resources/cloudwatch.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/providers/aws/resources/cloudwatch.js')>()),
   fetchCloudWatchSignals: vi.fn(),
 }));
 
@@ -351,50 +353,52 @@ describe('hydrateAwsLambdaFunctionMetrics', () => {
     mockedCreateLambdaClient.mockReturnValue({ send } as never);
     mockedFetchCloudWatchSignals.mockResolvedValue(
       new Map([
+        ['durationCount0', completeMetricEvidence([{ timestamp: '2026-03-24T00:00:00.000Z', value: 1 }])],
+        ['durationCount1', completeMetricEvidence([{ timestamp: '2026-03-24T00:00:00.000Z', value: 1 }])],
         [
           'invocations0',
-          [
+          completeMetricEvidence([
             {
               timestamp: '2026-03-24T00:00:00.000Z',
               value: 100,
             },
-          ],
+          ]),
         ],
         [
           'errors0',
-          [
+          completeMetricEvidence([
             {
               timestamp: '2026-03-24T00:00:00.000Z',
               value: 12,
             },
-          ],
+          ]),
         ],
         [
-          'duration0',
-          [
+          'durationSum0',
+          completeMetricEvidence([
             {
               timestamp: '2026-03-24T00:00:00.000Z',
               value: 2_500,
             },
-          ],
+          ]),
         ],
         [
           'invocations1',
-          [
+          completeMetricEvidence([
             {
               timestamp: '2026-03-24T00:00:00.000Z',
               value: 80,
             },
-          ],
+          ]),
         ],
         [
-          'duration1',
-          [
+          'durationSum1',
+          completeMetricEvidence([
             {
               timestamp: '2026-03-24T00:00:00.000Z',
               value: 8_000,
             },
-          ],
+          ]),
         ],
       ]),
     );
@@ -433,7 +437,7 @@ describe('hydrateAwsLambdaFunctionMetrics', () => {
         averageDurationMsLast7Days: 8_000,
         functionName: 'second-function',
         region: 'us-east-1',
-        totalErrorsLast7Days: 0,
+        totalErrorsLast7Days: null,
         totalInvocationsLast7Days: 80,
       },
     ]);
@@ -480,9 +484,11 @@ describe('hydrateAwsLambdaFunctionMetrics', () => {
   it('reuses the shared lambda dataset when a discovery context provides preloaded functions', async () => {
     mockedFetchCloudWatchSignals.mockResolvedValue(
       new Map([
-        ['invocations0', [{ timestamp: '2026-03-24T00:00:00.000Z', value: 100 }]],
-        ['errors0', [{ timestamp: '2026-03-24T00:00:00.000Z', value: 12 }]],
-        ['duration0', [{ timestamp: '2026-03-24T00:00:00.000Z', value: 2_500 }]],
+        ['durationCount0', completeMetricEvidence([{ timestamp: '2026-03-24T00:00:00.000Z', value: 1 }])],
+        ['durationCount1', completeMetricEvidence([{ timestamp: '2026-03-24T00:00:00.000Z', value: 1 }])],
+        ['invocations0', completeMetricEvidence([{ timestamp: '2026-03-24T00:00:00.000Z', value: 100 }])],
+        ['errors0', completeMetricEvidence([{ timestamp: '2026-03-24T00:00:00.000Z', value: 12 }])],
+        ['durationSum0', completeMetricEvidence([{ timestamp: '2026-03-24T00:00:00.000Z', value: 2_500 }])],
       ]),
     );
 

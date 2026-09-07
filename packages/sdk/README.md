@@ -101,7 +101,11 @@ An expired deadline rejects with `TimeoutError`; cancellation rejects with the s
 Set `includeEvaluationResources` when a caller needs audit evidence for checks that did not produce findings. The
 optional `result.evaluations` value contains normalized identities from the primary resource dataset supplied to each
 completed live rule. Shared resource sets are emitted once and referenced by rule entries. Every selected rule is
-represented as `triggered`, `passed`, or `not_applicable`; skipped rules include the reason reported by discovery.
+represented as `triggered`, `passed`, `unknown`, or `not_applicable`; unresolved and skipped rules include a reason.
+Metric-dependent rules include per-rule `coverage.assessed` and `coverage.unknown` resource identities. A triggered
+result can retain unknown resources, and primary resource sets are not a guarantee of complete assessment. Applications
+that validate status strings must accept `unknown`. The [result reference](../../docs/reference/finding-shape.md) describes
+coverage and nullable metric fields.
 Rule entries also carry generic rule and service metadata so callers can select checks and build their own product
 views without re-querying AWS or maintaining a second copy of rule descriptions.
 

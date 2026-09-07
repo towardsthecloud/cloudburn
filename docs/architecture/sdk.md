@@ -92,8 +92,9 @@ Current live-discovery behavior:
 
 - `discover` is the only live scan entrypoint for both the CLI and direct SDK callers.
 - `CloudBurnClient.discover({ includeEvaluationResources: true })` adds a generic evaluation entry for every selected
-  rule. Completed rules reference normalized resource sets and report `triggered` or `passed`; rules skipped because a
-  required dataset was unavailable report `not_applicable` with a reason.
+  rule. Rules reference normalized resource sets and report `triggered`, `passed`, or `unknown`; rules skipped because a
+  required dataset was unavailable report `not_applicable` with a reason. Metric rules return per-resource assessed and
+  unknown coverage independently of their finding output. Partial evidence and excluded Regions cannot produce a full pass.
 - Applications select product-specific checks with `config.discovery.enabledRules` and transform the generic
   `ScanResult` at their own boundary. The SDK does not define product profiles, remediation policy, or persisted
   application schemas.
@@ -139,6 +140,42 @@ Current live-discovery behavior:
 - DynamoDB inactivity uses a complete 90-day consumed-write-capacity window; stream creation timestamps are not treated as table activity.
 - Secrets Manager discovery paginates `ListSecrets` once per selected region and filters the response to the Resource Explorer catalog selection.
 - Live scans require Resource Explorer access plus narrow hydrator permissions such as `application-autoscaling:DescribeScalableTargets`, `application-autoscaling:DescribeScalingPolicies`, `ce:GetCostAndUsage`, `ce:GetSavingsPlansCoverage`, `cloudfront:GetDistribution`, `cloudfront:ListDistributions`, `cloudtrail:DescribeTrails`, `cloudwatch:GetMetricData`, `cloudwatch:ListMetrics`, `compute-optimizer:GetLambdaFunctionRecommendations`, `config:DescribeConfigRules`, `config:DescribeConfigurationRecorders`, `config:DescribeConfigurationRecorderStatus`, `config:GetDiscoveredResourceCounts`, `config:ListConfigurationRecorders`, `config:ListDiscoveredResources`, `cost-optimization-hub:GetRecommendation`, `cost-optimization-hub:ListEnrollmentStatuses`, `cost-optimization-hub:ListRecommendations`, `dynamodb:DescribeTable`, `ecs:DescribeContainerInstances`, `ecs:DescribeServices`, `ec2:DescribeInstances`, `ec2:DescribeNatGateways`, `ec2:DescribeTransitGatewayAttachments`, `ec2:DescribeTransitGatewayVpcAttachments`, `ec2:DescribeVolumes`, `eks:ListNodegroups`, `eks:DescribeNodegroup`, `kms:DescribeKey`, `kms:GetKeyLastUsage`, `kms:ListAliases`, `kms:ListKeyRotations`, `lambda:ListFunctions`, `rds:DescribeDBInstances`, `route53:ListHealthChecks`, `route53:ListHostedZones`, `route53:ListResourceRecordSets`, `s3:GetLifecycleConfiguration`, `s3:GetIntelligentTieringConfiguration`, `sagemaker:DescribeEndpoint`, `sagemaker:DescribeEndpointConfig`, `sagemaker:DescribeNotebookInstance`, and `secretsmanager:ListSecrets`.
+
+### CloudWatch metric evidence
+
+The [metric helper](../../packages/sdk/src/providers/aws/resources/cloudwatch.ts) returns one `CloudWatchMetricEvidence`
+record for every requested query ID. Each record retains the final AWS status, requested start/end and aggregation
+period, normalized points, expected and observed interval counts, request/query messages, and query attempt count.
+An absent series has status `Missing`; a returned series without a status has `Unknown`. `Complete` with no points is
+distinct from both. Coverage counts describe returned intervals; `Complete` means CloudWatch returned all available
+points, not that the service emitted a point in every interval. These semantics follow the AWS
+[MetricDataResult contract](https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_MetricDataResult.html).
+
+Pagination accumulates points until the query finishes. Identical points are deduplicated, conflicting points in one
+aggregation interval make the series incomplete, and out-of-window or malformed values cannot fill coverage gaps.
+Recoverable `PartialData` and `InternalError` results receive up to 3 query attempts. Each attempt follows pagination,
+retries only the unresolved query IDs, and replaces the previous attempt's points while retaining diagnostics.
+`Forbidden`, missing series, and missing status do not trigger query retries. Physical request retries and concurrency
+budgets remain owned by `withAwsServiceErrorContext`; query backoff honors discovery cancellation.
+
+Loaders explicitly choose an observation window independently of `Period`. Daily checks use previous complete UTC
+days. Lambda uses a rolling 7-day window ending at the latest whole minute, with hourly sums and duration sample
+counts. Duration is `sum(Duration Sum) / sum(Duration SampleCount)` for matching observed intervals, avoiding an
+unweighted average of bucket averages. EMR uses a rolling 30-minute window. AWS request rounding is documented in
+[GetMetricData](https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_GetMetricData.html).
+
+Only complete series reach metric summaries. Regular metrics require their full expected daily or five-minute coverage.
+EC2 can establish its low-utilization finding from at least 4 complete daily CPU/network observations; a non-finding
+requires all 14 days, recorded as `observedDays`. DynamoDB inactivity requires 90 observed complete days for an old-enough
+table. SageMaker empty invocation evidence stays unknown. Lambda errors have one narrow sparse-metric exception:
+complete-empty `Errors` can become zero when complete, nonempty `Invocations` establish activity in the same window.
+Missing or failed `Errors` stays unknown. This uses Lambda's documented
+[invocation outcome metrics](https://docs.aws.amazon.com/lambda/latest/dg/monitoring-metrics-types.html).
+
+Unknown metrics remain nullable in normalized datasets. Config retains affected resource-type identities with null
+metric-derived counts and estimates. Rules use the optional pure `getLiveEvaluationCoverage` callback to distinguish
+assessed resources from candidates missing evidence, while `evaluateLive` continues to return `Finding | null`.
+The engine emits skipped diagnostics for unknown resource coverage even when evaluation resources were not requested.
 
 ## Public Result Shape
 

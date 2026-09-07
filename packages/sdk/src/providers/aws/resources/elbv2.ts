@@ -12,7 +12,7 @@ import type {
 } from '@cloudburn/rules';
 import { createElasticLoadBalancingClient, createElasticLoadBalancingV2Client } from '../client.js';
 import { getAwsDiscoveryTimestamp } from '../execution.js';
-import { fetchCloudWatchSignals } from './cloudwatch.js';
+import { cloudWatchWindow, fetchCloudWatchSignals, getCompleteCloudWatchPoints } from './cloudwatch.js';
 import { chunkItems, mapWithConcurrency, withAwsServiceErrorContext } from './utils.js';
 
 const CLASSIC_LOAD_BALANCER_ARN_PREFIX = 'loadbalancer/';
@@ -442,7 +442,11 @@ export const hydrateAwsEc2LoadBalancerRequestActivity = async (
   const hydratedPages = await Promise.all(
     [...loadBalancersByRegion.entries()].map(async ([region, regionLoadBalancers]) => {
       const metricData = await fetchCloudWatchSignals({
-        endTime: new Date(getAwsDiscoveryTimestamp()),
+        ...cloudWatchWindow({
+          endTime: new Date(getAwsDiscoveryTimestamp()),
+          lookbackSeconds: FOURTEEN_DAYS_IN_SECONDS,
+          mode: 'complete-days',
+        }),
         queries: regionLoadBalancers.flatMap((loadBalancer, index) => {
           const dimensionValue = extractLoadBalancerMetricDimensionValue(loadBalancer.loadBalancerArn);
 
@@ -472,11 +476,10 @@ export const hydrateAwsEc2LoadBalancerRequestActivity = async (
           ];
         }),
         region,
-        startTime: new Date(getAwsDiscoveryTimestamp() - FOURTEEN_DAYS_IN_SECONDS * 1000),
       });
 
       return regionLoadBalancers.map((loadBalancer, index) => {
-        const requestPoints = metricData.get(`lb${index}`) ?? [];
+        const requestPoints = getCompleteCloudWatchPoints(metricData.get(`lb${index}`)) ?? [];
 
         return {
           accountId: loadBalancer.accountId,

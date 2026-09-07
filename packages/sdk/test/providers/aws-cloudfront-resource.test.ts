@@ -6,13 +6,15 @@ import {
   hydrateAwsCloudFrontDistributions,
 } from '../../src/providers/aws/resources/cloudfront.js';
 import { fetchCloudWatchSignals } from '../../src/providers/aws/resources/cloudwatch.js';
+import { completeMetricEvidence } from '../helpers/cloudwatch.js';
 
 vi.mock('../../src/providers/aws/client.js', () => ({
   createCloudFrontClient: vi.fn(),
   resolveAwsAccountId: vi.fn(),
 }));
 
-vi.mock('../../src/providers/aws/resources/cloudwatch.js', () => ({
+vi.mock('../../src/providers/aws/resources/cloudwatch.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/providers/aws/resources/cloudwatch.js')>()),
   fetchCloudWatchSignals: vi.fn(),
 }));
 
@@ -100,10 +102,12 @@ describe('hydrateAwsCloudFrontDistributions', () => {
       new Map([
         [
           'distribution0',
-          Array.from({ length: 30 }, (_, index) => ({
-            timestamp: `2026-02-${String(index + 1).padStart(2, '0')}T00:00:00.000Z`,
-            value: 3,
-          })),
+          completeMetricEvidence(
+            Array.from({ length: 30 }, (_, index) => ({
+              timestamp: new Date(Date.UTC(2026, 1, index + 1)).toISOString(),
+              value: 3,
+            })),
+          ),
         ],
       ]),
     );
@@ -133,12 +137,12 @@ describe('hydrateAwsCloudFrontDistributions', () => {
       new Map([
         [
           'distribution0',
-          [
+          completeMetricEvidence([
             {
               timestamp: '2026-02-01T00:00:00.000Z',
               value: 3,
             },
-          ],
+          ]),
         ],
       ]),
     );
