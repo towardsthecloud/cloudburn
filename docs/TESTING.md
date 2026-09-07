@@ -116,7 +116,8 @@ checking types, and package `typecheck` scripts include `src` only.
 
 Keep compiler-backed consumer checks for type contracts. Existing examples are the
 [rules purchase contract](../packages/rules/test/hub-type-contract.test.ts) and
-[SDK upgrade exports](../packages/sdk/test/cost-optimization-hub-upgrade-exports.test.ts), which explicitly run TypeScript.
+[SDK public contracts](../packages/sdk/test/public-contracts.test.ts), which explicitly run TypeScript.
+Keep SDK consumer type assertions in that shared test so they use one compiler program during parallel verification.
 
 ## Fixture privacy
 
