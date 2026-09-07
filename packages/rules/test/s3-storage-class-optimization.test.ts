@@ -54,8 +54,6 @@ describe('s3StorageClassOptimizationRule', () => {
       }),
     });
 
-    expect(s3StorageClassOptimizationRule.discoveryDependencies).toEqual(['aws-s3-bucket-analyses']);
-    expect(s3StorageClassOptimizationRule.staticDependencies).toEqual(['aws-s3-bucket-analyses']);
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-S3-2',
       service: 's3',

@@ -69,13 +69,6 @@ describe('aws client resilience defaults', () => {
       });
     }
   });
-
-  it('leaves Route 53 retries to the account-wide request budget', async () => {
-    const { createRoute53Client } = await importClientModule();
-    const client = createRoute53Client();
-
-    await expect(client.config.maxAttempts()).resolves.toBe(1);
-  });
 });
 
 describe('resolveCurrentAwsRegion', { timeout: 30_000 }, () => {

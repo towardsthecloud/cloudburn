@@ -1,50 +1,37 @@
 # AGENTS.md
 
 CloudBurn is a pnpm/Turborepo monorepo for a CLI, SDK, and pure rule package that detect AWS cost issues in IaC and live
-accounts. Treat repository documentation and executable configuration as the system of record.
+accounts. Dependency direction is `cloudburn CLI -> @cloudburn/sdk -> @cloudburn/rules`.
 
-## Repository knowledge map
+## Start with the task
 
-| Area                | Document                                                                                                  | Use it for                                                  |
-| ------------------- | --------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| Documentation index | [`docs/README.md`](docs/README.md)                                                                        | Complete catalog and documentation policy                   |
-| Architecture        | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)                                                            | Package graph, responsibilities, and scan flows             |
-| Local development   | [`docs/guides/local-development.md`](docs/guides/local-development.md)                                    | Prerequisites, setup, focused work, and validation          |
-| Testing             | [`docs/TESTING.md`](docs/TESTING.md)                                                                      | Test layers, seams, fixtures, and TDD expectations          |
-| Commands            | [`docs/reference/commands.md`](docs/reference/commands.md)                                                | Root commands, Turbo filters, boundaries, and side effects  |
-| Generated files     | [`docs/reference/generated-files.md`](docs/reference/generated-files.md)                                  | Source-to-output ownership and regeneration                 |
-| Rule IDs            | [`docs/reference/rule-ids.md`](docs/reference/rule-ids.md)                                                | Current identifiers, sequence policy, and compatibility gap |
-| CLI package         | [`packages/cloudburn/AGENTS.md`](packages/cloudburn/AGENTS.md) · [`README`](packages/cloudburn/README.md) | CLI boundaries and public usage                             |
-| SDK package         | [`packages/sdk/AGENTS.md`](packages/sdk/AGENTS.md) · [`README`](packages/sdk/README.md)                   | SDK contracts and public usage                              |
-| Rules package       | [`packages/rules/AGENTS.md`](packages/rules/AGENTS.md) · [`README`](packages/rules/README.md)             | Rule authoring constraints and public usage                 |
+- Read the nearest package instructions before editing: [CLI](packages/cloudburn/AGENTS.md),
+  [SDK](packages/sdk/AGENTS.md), or [rules](packages/rules/AGENTS.md).
+- For setup and focused commands, use [local development](docs/guides/local-development.md). For task dependencies,
+  caching, and command side effects, use the [command reference](docs/reference/commands.md).
+- For a new rule, start with [adding a rule](docs/guides/adding-a-rule.md); it routes dataset changes to the SDK guides.
+- For changes across packages, read the [architecture](docs/ARCHITECTURE.md) and [testing strategy](docs/TESTING.md).
+- Before editing build output or reference tables, check [generated-file ownership](docs/reference/generated-files.md).
+- Use the [documentation catalog](docs/README.md) for authoritative sources, documentation maintenance, and deeper pages.
+  Human onboarding starts in [CONTRIBUTING.md](CONTRIBUTING.md).
 
-## Documentation policy
+## Repository constraints
 
-- Keep this file a concise map. Put durable explanations, procedures, and reference facts under `docs/`.
-- Update docs in the same change as behavior, architecture, configuration, commands, generated outputs, or operational
-  procedures.
-- Add every durable document to `docs/README.md`; `pnpm docs:check` enforces links, reachability, aliases, and this file's
-  150-line limit.
-- Preserve each relative `CLAUDE.md -> AGENTS.md` symlink. Do not maintain copied instruction files.
-- Do not commit planning artifacts, implementation plans, or point-in-time design specs such as `docs/superpowers/`.
-
-## Working in this repository
-
-- Dependency direction is `cloudburn CLI -> @cloudburn/sdk -> @cloudburn/rules`; `pnpm exec turbo boundaries` enforces it.
-- Follow the nearest package `AGENTS.md` when changing files under `packages/`.
+- Preserve each relative `CLAUDE.md -> AGENTS.md` symlink; edit the shared `AGENTS.md` source.
+- Update the owning docs with changes to behavior, contracts, commands, or generated outputs; follow the
+  [maintenance policy](docs/README.md#maintenance).
 - Add TSDoc purpose, parameters, and return values to exported code.
 - On non-`main` branches, use red-green TDD for behavior changes and work in vertical slices.
 - For IaC rules, cover both Terraform and CloudFormation inputs.
-- Confirm rule IDs and config shapes in code and references. Current IDs are contiguous by service, but their long-term
-  stability policy is unresolved; see the rule ID reference before changing identifiers.
-- If a search is empty or unexpectedly narrow, retry with a broader pattern before concluding.
+- Before assigning or changing rule IDs, read the [ID convention and compatibility status](docs/reference/rule-ids.md).
+  Public ID stability remains unresolved; do not renumber IDs during unrelated maintenance.
 
 ## Validation
 
 - Documentation only: `pnpm docs:check && pnpm docs:test`.
 - Package boundaries: `pnpm exec turbo boundaries`.
 - Behavior, tests, dependencies, or build configuration: `pnpm verify` plus the smallest relevant focused test.
-- Do not claim completion without a fresh successful check from this worktree.
+- Report fresh validation from the checkout containing the changes.
 
 ## Git and releases
 
@@ -52,7 +39,5 @@ accounts. Treat repository documentation and executable configuration as the sys
   edits with a Conventional Commit; use the package scope for package changes.
 - Pull requests target `main`, use the repository template, and apply `enhancement` for `feat`, `bug` for `fix`, or
   `documentation` for `docs`.
-- Published packages are `cloudburn`, `@cloudburn/sdk`, and `@cloudburn/rules`.
-- User-facing package changes require one directly written changeset per affected package; documentation-only changes do
-  not. Never run versioning or publishing commands in a feature task.
-- See [`docs/guides/releasing.md`](docs/guides/releasing.md) for changeset and automated release behavior.
+- For user-facing package changes, follow the [changeset and release guide](docs/guides/releasing.md).
+  Documentation-only changes do not need changesets. Never run versioning or publishing commands in a feature task.

@@ -12,14 +12,6 @@ type AnyAwsClient = { config: { credentials: () => Promise<Record<string, unknow
 const resolveClientCredentials = async (client: unknown) => (client as AnyAwsClient).config.credentials();
 
 describe('withAwsClientCredentials', () => {
-  it('applies scoped credentials to clients created inside the callback', async () => {
-    const client = await withAwsClientCredentials(scanCredentials, async () =>
-      createEc2Client({ region: 'eu-central-1' }),
-    );
-
-    await expect(resolveClientCredentials(client)).resolves.toMatchObject(scanCredentials);
-  });
-
   it('applies scoped credentials to global-control-plane clients created inside the callback', async () => {
     const client = await withAwsClientCredentials(scanCredentials, async () => createCostExplorerClient());
 

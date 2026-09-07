@@ -59,8 +59,10 @@ describe('config command', () => {
 
     const output = stdout.mock.calls.map(([chunk]) => String(chunk)).join('');
 
-    expect(output).toContain('"contentType": "application/yaml"');
-    expect(output).toContain('"content": "discovery:\\n  format: json\\n"');
+    expect(JSON.parse(output)).toEqual({
+      content: 'discovery:\n  format: json\n',
+      contentType: 'application/yaml',
+    });
   });
 
   it('prints the starter template when requested', async () => {

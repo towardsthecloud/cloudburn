@@ -1,5 +1,8 @@
 # @cloudburn/rules
 
+For package assembly and evaluation contexts, read the [rules architecture](../../docs/architecture/rules.md).
+The [package README](README.md) owns public rule-authoring usage.
+
 ## Rule Authoring
 
 See [`docs/guides/adding-a-rule.md`](../../docs/guides/adding-a-rule.md) for the full end-to-end guide and [`docs/reference/rule-ids.md`](../../docs/reference/rule-ids.md) for ID conventions.

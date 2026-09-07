@@ -2,80 +2,21 @@ import { fileURLToPath } from 'node:url';
 import { awsRules } from '@cloudburn/rules';
 import { describe, expect, it } from 'vitest';
 import { listBuiltInRuleMetadata } from '../src/built-in-rules.js';
-import {
-  type AwsClientCredentials,
-  type AwsCloudFrontDistribution,
-  type AwsCloudTrailTrail,
-  type AwsCloudWatchLogGroup,
-  type AwsCloudWatchLogStream,
-  type AwsCostOptimizationHubReservationRecommendation,
-  type AwsCostOptimizationHubSavingsPlansRecommendation,
-  type AwsCostUsage,
-  type AwsDynamoDbAutoscaling,
-  type AwsDynamoDbTable,
-  type AwsEbsSnapshot,
-  type AwsEbsVolume,
-  type AwsEc2TransitGatewayVpcAttachmentActivity,
-  type AwsEcsClusterMetric,
-  type AwsEksNodegroup,
-  type AwsElastiCacheCluster,
-  type AwsEmrCluster,
-  type AwsKmsAliasPatternGroup,
-  type AwsKmsKeyChurnReview,
-  type AwsKmsKeyUsage,
-  type AwsRdsInstance,
-  type AwsRedshiftCluster,
-  type AwsRoute53HealthCheck,
-  type AwsRoute53Record,
-  type AwsRoute53Zone,
-  type AwsSageMakerEndpointActivity,
-  type AwsSageMakerNotebookInstance,
-  type AwsSageMakerSavingsPlansCoverage,
-  type AwsSecretsManagerSecret,
-  builtInRuleMetadata,
-  parseIaC,
-  type Rule,
-  withAwsClientCredentials,
-} from '../src/index.js';
+import { builtInRuleMetadata, parseIaC, type Rule, withAwsClientCredentials } from '../src/index.js';
+import { getAwsDiscoveryDatasetDefinition } from '../src/providers/aws/discovery-registry.js';
+import { getAwsStaticDatasetDefinition } from '../src/providers/aws/static-registry.js';
 
-const createRuleFixture = (id: string): Rule => ({
+const createRuleFixture = (id: string, overrides: Partial<Rule> = {}): Rule => ({
   description: id,
   id,
   message: id,
   name: id,
   provider: 'aws',
   service: 'ec2',
+  severity: 'medium',
   supports: ['iac'],
+  ...overrides,
 });
-
-const RULE_ID_PATTERN = /^CLDBRN-([A-Z0-9]+)-([A-Z0-9]+)-(\d+)$/;
-
-const toComparableRuleMetadata = (rule: Pick<Rule, 'description' | 'id' | 'provider' | 'service' | 'supports'>) => ({
-  description: rule.description,
-  id: rule.id,
-  provider: rule.provider,
-  service: rule.service,
-  supports: rule.supports,
-});
-
-const sortRulesForMetadata = <TRule extends Pick<Rule, 'id' | 'provider' | 'service'>>(rules: TRule[]): TRule[] =>
-  [...rules].sort((left, right) => {
-    const leftMatch = RULE_ID_PATTERN.exec(left.id);
-    const rightMatch = RULE_ID_PATTERN.exec(right.id);
-
-    if (!leftMatch || !rightMatch) {
-      return left.id.localeCompare(right.id);
-    }
-
-    const [, leftProvider, leftService, leftSuffix] = leftMatch;
-    const [, rightProvider, rightService, rightSuffix] = rightMatch;
-
-    return (
-      leftProvider.localeCompare(rightProvider) ||
-      leftService.localeCompare(rightService) ||
-      Number.parseInt(leftSuffix, 10) - Number.parseInt(rightSuffix, 10)
-    );
-  });
 
 describe('sdk exports', () => {
   it('preserves the array-returning autodetect parser contract at the package root', async () => {
@@ -89,346 +30,81 @@ describe('sdk exports', () => {
   });
 
   it('exports the aws credential scoping helper from the package root', () => {
-    const staticCredentials: AwsClientCredentials = {
-      accessKeyId: 'AKIAEXPORT',
-      secretAccessKey: 'export-secret',
-    };
-
     expect(withAwsClientCredentials).toBeTypeOf('function');
-    expect(staticCredentials.accessKeyId).toBe('AKIAEXPORT');
   });
 
-  it('exports built-in rule metadata in stable provider/service/id order', () => {
-    const expected = sortRulesForMetadata(awsRules).map((rule) => toComparableRuleMetadata(rule));
-
-    expect(builtInRuleMetadata.map((rule) => toComparableRuleMetadata(rule))).toEqual(expected);
+  it('exports the complete projected catalog without sharing mutable arrays', () => {
+    expect(builtInRuleMetadata).toEqual(listBuiltInRuleMetadata(awsRules));
+    for (const rule of awsRules) {
+      const metadata = builtInRuleMetadata.find((candidate) => candidate.id === rule.id);
+      expect(metadata?.supports, rule.id).not.toBe(rule.supports);
+      if (rule.supersedesRuleIds) {
+        expect(metadata?.supersedesRuleIds, rule.id).not.toBe(rule.supersedesRuleIds);
+      }
+    }
   });
 
-  it('sorts numeric rule suffixes in numeric order within the same service', () => {
-    expect(
-      listBuiltInRuleMetadata([
-        createRuleFixture('CLDBRN-AWS-EC2-9'),
-        createRuleFixture('CLDBRN-AWS-EC2-2'),
-        createRuleFixture('CLDBRN-AWS-EC2-1'),
-      ]).map((rule) => rule.id),
-    ).toEqual(['CLDBRN-AWS-EC2-1', 'CLDBRN-AWS-EC2-2', 'CLDBRN-AWS-EC2-9']);
+  it('resolves every built-in dependency to an SDK dataset loader', () => {
+    for (const rule of awsRules) {
+      for (const key of [...(rule.discoveryDependencies ?? []), ...(rule.optionalDiscoveryDependencies ?? [])]) {
+        expect(getAwsDiscoveryDatasetDefinition(key), `${rule.id} discovery dependency ${key}`).toMatchObject({
+          datasetKey: key,
+          load: expect.any(Function),
+        });
+      }
+      for (const key of rule.staticDependencies ?? []) {
+        expect(getAwsStaticDatasetDefinition(key), `${rule.id} static dependency ${key}`).toMatchObject({
+          datasetKey: key,
+          load: expect.any(Function),
+        });
+      }
+    }
   });
 
-  it('exports live dataset types from the package root', () => {
-    const trail: AwsCloudTrailTrail = {
-      accountId: '123456789012',
-      homeRegion: 'us-east-1',
-      isMultiRegionTrail: true,
-      isOrganizationTrail: false,
-      region: 'us-east-1',
-      trailArn: 'arn:aws:cloudtrail:us-east-1:123456789012:trail/org-trail',
-      trailName: 'org-trail',
-    };
-    const logGroup: AwsCloudWatchLogGroup = {
-      accountId: '123456789012',
-      logGroupArn: 'arn:aws:logs:us-east-1:123456789012:log-group:/aws/lambda/app',
-      logGroupName: '/aws/lambda/app',
-      region: 'us-east-1',
-      retentionInDays: 30,
-    };
-    const logStream: AwsCloudWatchLogStream = {
-      accountId: '123456789012',
-      arn: 'arn:aws:logs:us-east-1:123456789012:log-group:/aws/lambda/app:log-stream:2026/03/16/[$LATEST]abc',
-      logGroupName: '/aws/lambda/app',
-      logStreamName: '2026/03/16/[$LATEST]abc',
-      region: 'us-east-1',
-    };
-    const cloudFrontDistribution: AwsCloudFrontDistribution = {
-      accountId: '123456789012',
-      distributionArn: 'arn:aws:cloudfront::123456789012:distribution/E1234567890ABC',
-      distributionId: 'E1234567890ABC',
-      priceClass: 'PriceClass_All',
-      region: 'global',
-    };
-    const costUsage: AwsCostUsage = {
-      accountId: '123456789012',
-      costIncrease: 15,
-      costUnit: 'USD',
-      currentMonthCost: 25,
-      previousMonthCost: 10,
-      serviceName: 'Amazon DynamoDB',
-      serviceSlug: 'amazon-dynamodb',
-    };
-    const kmsAliasPatternGroup: AwsKmsAliasPatternGroup = {
-      keyCount: 10,
-      patternId: 'pattern-123456789abc',
-    };
-    const kmsReview: AwsKmsKeyChurnReview = {
-      accountId: '123456789012',
-      aliasPatternGroups: [kmsAliasPatternGroup],
-      aliasPatternsAvailable: true,
-      creationWindowEnd: '2026-09-01T00:00:00.000Z',
-      creationWindowStart: '2026-08-01T00:00:00.000Z',
-      enabledCustomerManagedKeyCount: 50,
-      estimatedMonthlyStorageCostUsd: 52,
-      keyMetadataComplete: true,
-      keyMetadataUnavailableCount: 0,
-      keys: [],
-      keysCreatedInWindow: 10,
-      multiRegionKeyCount: 2,
-      noKmsUsageSinceCreationKeyCount: 4,
-      region: 'eu-central-1',
-      reviewId: 'kms-key-churn/eu-central-1',
-      rotatedKeyCount: 2,
-      storageCostEstimateComplete: true,
-      unobservedBeforeTrackingKeyCount: 3,
-      usageMetadataUnavailableKeyCount: 1,
-      usedKeyCount: 42,
-    };
-    const kmsKeyUsage: AwsKmsKeyUsage = {
-      accountId: '123456789012',
-      creationDate: '2026-01-01T00:00:00.000Z',
-      estimatedMonthlyStorageCostUsd: 1,
-      keyArn: 'arn:aws:kms:eu-central-1:123456789012:key/key-a',
-      multiRegion: false,
-      region: 'eu-central-1',
-      storageCostEstimateComplete: true,
-      trackingStartDate: '2026-01-01T00:00:00.000Z',
-      usageEvidence: 'no_kms_usage_since_creation',
-    };
-    const dynamoDbTable: AwsDynamoDbTable = {
-      accountId: '123456789012',
-      billingMode: 'PROVISIONED',
-      latestStreamLabel: '2026-01-01T00:00:00.000Z',
-      region: 'us-east-1',
-      tableArn: 'arn:aws:dynamodb:us-east-1:123456789012:table/orders',
-      tableName: 'orders',
-    };
-    const dynamoDbAutoscaling: AwsDynamoDbAutoscaling = {
-      accountId: '123456789012',
-      hasReadTarget: true,
-      hasWriteTarget: false,
-      region: 'us-east-1',
-      tableArn: dynamoDbTable.tableArn,
-      tableName: dynamoDbTable.tableName,
-    };
-    const volume: AwsEbsVolume = {
-      accountId: '123456789012',
-      iops: 3000,
-      region: 'us-east-1',
-      sizeGiB: 128,
-      volumeId: 'vol-123',
-      volumeType: 'gp3',
-    };
-    const snapshot: AwsEbsSnapshot = {
-      accountId: '123456789012',
-      region: 'us-east-1',
-      snapshotId: 'snap-123',
-      startTime: '2025-01-01T00:00:00.000Z',
-      state: 'completed',
-      volumeId: 'vol-123',
-      volumeSizeGiB: 128,
-    };
-    const ecsClusterMetric: AwsEcsClusterMetric = {
-      accountId: '123456789012',
-      averageCpuUtilizationLast14Days: 4.2,
-      clusterArn: 'arn:aws:ecs:us-east-1:123456789012:cluster/production',
-      clusterName: 'production',
-      region: 'us-east-1',
-    };
-    const eksNodegroup: AwsEksNodegroup = {
-      accountId: '123456789012',
-      amiType: 'AL2023_x86_64_STANDARD',
-      clusterArn: 'arn:aws:eks:us-east-1:123456789012:cluster/production',
-      clusterName: 'production',
-      instanceTypes: ['m7i.large'],
-      nodegroupArn: 'arn:aws:eks:us-east-1:123456789012:nodegroup/production/workers/abc123',
-      nodegroupName: 'workers',
-      region: 'us-east-1',
-    };
-    const elastiCacheCluster: AwsElastiCacheCluster = {
-      accountId: '123456789012',
-      cacheClusterCreateTime: '2025-01-01T00:00:00.000Z',
-      cacheClusterId: 'cache-prod',
-      cacheClusterStatus: 'available',
-      cacheNodeType: 'cache.r6g.large',
-      engine: 'redis',
-      numCacheNodes: 2,
-      region: 'us-east-1',
-    };
-    const emrCluster: AwsEmrCluster = {
-      accountId: '123456789012',
-      clusterId: 'j-CLUSTER1',
-      clusterName: 'analytics',
-      instanceTypes: ['m8g.xlarge'],
-      region: 'us-east-1',
-    };
-    const redshiftCluster: AwsRedshiftCluster = {
-      accountId: '123456789012',
-      automatedSnapshotRetentionPeriod: 1,
-      clusterIdentifier: 'warehouse-prod',
-      hasPauseSchedule: false,
-      hasResumeSchedule: true,
-      hsmEnabled: false,
-      nodeType: 'ra3.xlplus',
-      numberOfNodes: 2,
-      region: 'us-east-1',
-      vpcId: 'vpc-123',
-    };
-    const instance: AwsRdsInstance = {
-      accountId: '123456789012',
-      dbInstanceIdentifier: 'legacy-db',
-      instanceClass: 'db.m6i.large',
-      region: 'us-east-1',
-    };
-    const route53Zone: AwsRoute53Zone = {
-      accountId: '123456789012',
-      hostedZoneArn: 'arn:aws:route53:::hostedzone/Z1234567890',
-      hostedZoneId: 'Z1234567890',
-      region: 'global',
-      zoneName: 'example.com.',
-    };
-    const route53Record: AwsRoute53Record = {
-      accountId: '123456789012',
-      healthCheckId: 'abcd1234',
-      hostedZoneId: route53Zone.hostedZoneId,
-      isAlias: false,
-      recordId: 'arn:aws:route53:::hostedzone/Z1234567890/recordset/www.example.com./A',
-      recordName: 'www.example.com.',
-      recordType: 'A',
-      region: 'global',
-      ttl: 300,
-    };
-    const route53HealthCheck: AwsRoute53HealthCheck = {
-      accountId: '123456789012',
-      healthCheckArn: 'arn:aws:route53:::healthcheck/abcd1234',
-      healthCheckId: 'abcd1234',
-      region: 'global',
-    };
-    const secret: AwsSecretsManagerSecret = {
-      accountId: '123456789012',
-      lastAccessedDate: '2026-03-01T00:00:00.000Z',
-      region: 'us-east-1',
-      secretArn: 'arn:aws:secretsmanager:us-east-1:123456789012:secret:db-password-AbCdEf',
-      secretName: 'db-password',
-    };
-    const notebookInstance: AwsSageMakerNotebookInstance = {
-      accountId: '123456789012',
-      instanceType: 'ml.t3.medium',
-      lastModifiedTime: '2026-03-01T00:00:00.000Z',
-      notebookInstanceName: 'analytics-notebook',
-      notebookInstanceStatus: 'InService',
-      region: 'eu-west-1',
-    };
-    const endpointActivity: AwsSageMakerEndpointActivity = {
-      accountId: '123456789012',
-      creationTime: '2026-02-01T00:00:00.000Z',
-      endpointArn: 'arn:aws:sagemaker:eu-west-1:123456789012:endpoint/orders-endpoint',
-      endpointConfigName: 'orders-endpoint-config',
-      endpointName: 'orders-endpoint',
-      endpointStatus: 'InService',
-      lastModifiedTime: '2026-03-01T00:00:00.000Z',
-      region: 'eu-west-1',
-      totalInvocationsLast14Days: 0,
-    };
-    const savingsPlansRecommendation: AwsCostOptimizationHubSavingsPlansRecommendation = {
-      accountId: '123456789012',
-      accountScope: 'LINKED',
-      actionType: 'PurchaseSavingsPlans',
-      currencyCode: 'USD',
-      estimatedMonthlyCost: 200,
-      estimatedMonthlySavings: 50,
-      estimatedSavingsPercentage: 25,
-      hourlyCommitment: 0.25,
-      lastRefreshTimestamp: '2026-09-03T00:00:00.000Z',
-      paymentOption: 'NoUpfront',
-      recommendationId: 'recommendation-1',
-      recommendationSource: 'CostExplorer',
-      savingsPlansType: 'SageMakerSavingsPlans',
-      term: 'OneYear',
-    };
-    const reservationRecommendation: AwsCostOptimizationHubReservationRecommendation = {
-      accountId: '123456789012',
-      actionType: 'PurchaseReservedInstances',
-      configuration: {
-        accountScope: 'LINKED',
-        capacityUnits: 'RCU',
-        numberOfCapacityUnitsToPurchase: 100,
-        paymentOption: 'NoUpfront',
-        term: 'OneYear',
-      },
-      currencyCode: 'USD',
-      estimatedMonthlyCost: 200,
-      estimatedMonthlySavings: 50,
-      estimatedSavingsPercentage: 25,
-      lastRefreshTimestamp: '2026-09-03T00:00:00.000Z',
-      recommendationId: 'reservation-recommendation-1',
-      recommendationSource: 'CostExplorer',
-      reservationType: 'DynamoDbReservedCapacity',
-    };
-    const savingsPlansCoverage: AwsSageMakerSavingsPlansCoverage = {
-      accountId: '123456789012',
-      coveragePercentage: 60,
-      onDemandCost: 100,
-      periodEnd: '2026-09-04',
-      periodStart: '2026-08-05',
-      spendCoveredBySavingsPlans: 150,
-      totalCost: 250,
-    };
-    const transitGatewayAttachment: AwsEc2TransitGatewayVpcAttachmentActivity = {
-      accountId: '123456789012',
-      bytesInLast30Days: 0,
-      bytesOutLast30Days: 0,
-      estimatedMonthlyAttachmentCostUsd: 36.5,
-      hourlyAttachmentCostUsd: 0.05,
-      lookbackDays: 30,
-      region: 'us-east-1',
-      state: 'available',
-      transitGatewayAttachmentId: 'tgw-attach-123',
-      transitGatewayId: 'tgw-123',
-      vpcId: 'vpc-123',
-    };
+  it('orders metadata by provider, service, then numeric rule ID', () => {
+    const metadata = listBuiltInRuleMetadata([
+      createRuleFixture('CLDBRN-AWS-EC2-10'),
+      createRuleFixture('CLDBRN-GCP-COMPUTE-1', { provider: 'gcp', service: 'compute' }),
+      createRuleFixture('CLDBRN-AWS-S3-1', { service: 's3' }),
+      createRuleFixture('CLDBRN-AWS-EC2-2'),
+      createRuleFixture('CLDBRN-AZURE-COMPUTE-1', { provider: 'azure', service: 'compute' }),
+      createRuleFixture('CLDBRN-AWS-EBS-1', { service: 'ebs' }),
+    ]);
 
-    expect(trail.trailName).toBe('org-trail');
-    expect(logGroup.retentionInDays).toBe(30);
-    expect(logStream.logStreamName).toContain('[$LATEST]');
-    expect(cloudFrontDistribution.priceClass).toBe('PriceClass_All');
-    expect(costUsage.costIncrease).toBe(15);
-    expect(kmsReview.aliasPatternGroups).toEqual([kmsAliasPatternGroup]);
-    expect(kmsKeyUsage.usageEvidence).toBe('no_kms_usage_since_creation');
-    expect(dynamoDbTable.tableName).toBe('orders');
-    expect(dynamoDbAutoscaling.hasReadTarget).toBe(true);
-    expect(volume.sizeGiB).toBe(128);
-    expect(snapshot.snapshotId).toBe('snap-123');
-    expect(ecsClusterMetric.averageCpuUtilizationLast14Days).toBe(4.2);
-    expect(eksNodegroup.nodegroupName).toBe('workers');
-    expect(elastiCacheCluster.cacheClusterId).toBe('cache-prod');
-    expect(emrCluster.clusterId).toBe('j-CLUSTER1');
-    expect(instance.dbInstanceIdentifier).toBe('legacy-db');
-    expect(redshiftCluster.clusterIdentifier).toBe('warehouse-prod');
-    expect(route53Zone.zoneName).toBe('example.com.');
-    expect(route53Record.ttl).toBe(300);
-    expect(route53HealthCheck.healthCheckId).toBe('abcd1234');
-    expect(secret.secretName).toBe('db-password');
-    expect(notebookInstance.notebookInstanceStatus).toBe('InService');
-    expect(endpointActivity.totalInvocationsLast14Days).toBe(0);
-    expect(savingsPlansRecommendation.estimatedMonthlySavings).toBe(50);
-    expect(reservationRecommendation.configuration.capacityUnits).toBe('RCU');
-    expect(savingsPlansCoverage.coveragePercentage).toBe(60);
-    expect(transitGatewayAttachment.estimatedMonthlyAttachmentCostUsd).toBe(36.5);
+    expect(metadata.map((rule) => rule.id)).toEqual([
+      'CLDBRN-AWS-EBS-1',
+      'CLDBRN-AWS-EC2-2',
+      'CLDBRN-AWS-EC2-10',
+      'CLDBRN-AWS-S3-1',
+      'CLDBRN-AZURE-COMPUTE-1',
+      'CLDBRN-GCP-COMPUTE-1',
+    ]);
+    expect(metadata[0]).not.toHaveProperty('supersedesRuleIds');
   });
 
-  it('clones supports arrays so metadata consumers cannot mutate source rule definitions', () => {
-    const sourceRule = awsRules.find((rule) => rule.id === 'CLDBRN-AWS-EBS-1');
-    const metadataRule = builtInRuleMetadata.find((rule) => rule.id === 'CLDBRN-AWS-EBS-1');
+  it('projects serializable metadata without exposing evaluators or sharing mutable arrays', () => {
+    const rule = createRuleFixture('CLDBRN-AWS-EC2-1', {
+      description: 'Find older instance types.',
+      message: 'Review this instance type.',
+      name: 'Preferred instance type',
+      staticDependencies: ['aws-ec2-instances'],
+      supersedesRuleIds: ['CLDBRN-AWS-COSTOPTIMIZATIONHUB-5'],
+      evaluateStatic: () => null,
+    });
+    const [metadata] = listBuiltInRuleMetadata([rule]);
 
-    expect(sourceRule).toBeDefined();
-    expect(metadataRule).toBeDefined();
-    expect(metadataRule?.supports).toEqual(sourceRule?.supports);
-    expect(metadataRule?.supports).not.toBe(sourceRule?.supports);
-  });
-
-  it('projects and clones rule precedence metadata', () => {
-    const sourceRule = awsRules.find((rule) => rule.id === 'CLDBRN-AWS-RDS-3');
-    const metadataRule = builtInRuleMetadata.find((rule) => rule.id === 'CLDBRN-AWS-RDS-3');
-
-    expect(sourceRule?.supersedesRuleIds).toEqual(['CLDBRN-AWS-COSTOPTIMIZATIONHUB-2']);
-    expect(metadataRule?.supersedesRuleIds).toEqual(sourceRule?.supersedesRuleIds);
-    expect(metadataRule?.supersedesRuleIds).not.toBe(sourceRule?.supersedesRuleIds);
+    expect(metadata).toEqual({
+      description: 'Find older instance types.',
+      id: 'CLDBRN-AWS-EC2-1',
+      message: 'Review this instance type.',
+      name: 'Preferred instance type',
+      provider: 'aws',
+      service: 'ec2',
+      severity: 'medium',
+      supports: ['iac'],
+      supersedesRuleIds: ['CLDBRN-AWS-COSTOPTIMIZATIONHUB-5'],
+    });
+    expect(metadata.supports).not.toBe(rule.supports);
+    expect(metadata.supersedesRuleIds).not.toBe(rule.supersedesRuleIds);
   });
 });

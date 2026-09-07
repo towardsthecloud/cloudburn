@@ -1,6 +1,7 @@
 # Command reference
 
-The root `package.json` is authoritative for command definitions; `turbo.json` owns task dependencies and caching.
+The [root manifest](../../package.json) owns command definitions; [Turbo configuration](../../turbo.json) owns task
+dependencies and caching. Package manifests own the scripts that Turbo invokes.
 
 | Command                      | Purpose                                              | Notes                                                               |
 | ---------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------- |
@@ -17,7 +18,7 @@ The root `package.json` is authoritative for command definitions; `turbo.json` o
 | `pnpm exec turbo boundaries` | Enforce `cli -> sdk -> rules`                        | This is the supported boundary command                              |
 | `pnpm verify`                | Run documentation, boundaries, lint, typecheck, and all tests | Full local gate; `--affected` limits package tasks                                                     |
 | `pnpm clean`                 | Remove package build output                          | Destructive only to generated `dist/` output                        |
-| `pnpm depupdate`             | Update Corepack and dependencies                     | Mutates manifests and the lockfile                                  |
+| `pnpm depupdate`             | Update the pnpm pin and dependencies                     | Mutates manifests and the lockfile                                  |
 
 ## Discovery timeout
 

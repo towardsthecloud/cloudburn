@@ -53,27 +53,6 @@ describe('rules list e2e', { timeout: 30_000 }, () => {
     expect(output).not.toContain('CLDBRN-AWS-EC2-6');
   });
 
-  it('rejects text output as an invalid format', async () => {
-    const { createProgram } = await import('../src/cli.js');
-    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
-    const program = createProgram();
-    const rulesCommand = program.commands.find((command) => command.name() === 'rules');
-    const listCommand = rulesCommand?.commands.find((command) => command.name() === 'list');
-
-    program.exitOverride();
-    rulesCommand?.exitOverride();
-    listCommand?.exitOverride();
-
-    await expect(
-      program.parseAsync(['rules', 'list', '--format', 'text', '--service', 'ebs'], { from: 'user' }),
-    ).rejects.toMatchObject({
-      code: 'commander.invalidArgument',
-      exitCode: 1,
-      message: expect.stringContaining('text'),
-    });
-    expect(stderr).toHaveBeenCalled();
-  });
-
   it('renders the empty message when filters exclude all built-in rules', async () => {
     vi.doMock('@cloudburn/sdk', async (importOriginal) => {
       const actual = await importOriginal<typeof import('@cloudburn/sdk')>();

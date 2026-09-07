@@ -49,8 +49,6 @@ describe('s3IncompleteMultipartUploadAbortRule', () => {
       }),
     });
 
-    expect(s3IncompleteMultipartUploadAbortRule.discoveryDependencies).toEqual(['aws-s3-bucket-analyses']);
-    expect(s3IncompleteMultipartUploadAbortRule.staticDependencies).toEqual(['aws-s3-bucket-analyses']);
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-S3-3',
       service: 's3',

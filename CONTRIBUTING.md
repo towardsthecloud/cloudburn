@@ -29,7 +29,9 @@ pnpm prepare
 pnpm verify
 ```
 
-This runs lint, typecheck, and test across the monorepo.
+This runs documentation checks, package boundaries, lint, typecheck, and all test suites across the monorepo.
+For documentation-only changes, run `pnpm docs:check && pnpm docs:test`; see the
+[documentation catalog and maintenance policy](docs/README.md#maintenance).
 
 ## Project Boundaries
 

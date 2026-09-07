@@ -36,9 +36,6 @@ describe('ebsHighIopsVolumeRule', () => {
       }),
     });
 
-    expect(ebsHighIopsVolumeRule.supports).toEqual(['discovery', 'iac']);
-    expect(ebsHighIopsVolumeRule.discoveryDependencies).toEqual(['aws-ebs-volumes']);
-    expect(ebsHighIopsVolumeRule.staticDependencies).toEqual(['aws-ebs-volumes']);
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-EBS-5',
       service: 'ebs',

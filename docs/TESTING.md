@@ -15,8 +15,16 @@ Three test layers, all in `packages/rules/test/`:
 | Layer                     | File                    | What it verifies                                                                          |
 | ------------------------- | ----------------------- | ----------------------------------------------------------------------------------------- |
 | **1. Export surface**     | `exports.test.ts`       | `awsRules` is non-empty, preset inclusion policy holds, `azureRules`/`gcpRules` are empty |
-| **2. Metadata contract**  | `rule-metadata.test.ts` | Every rule has non-empty `id`, `name`, `description`, and `supports`                      |
+| **2. Metadata contract**  | `rule-metadata.test.ts` | Catalog fields, IDs, evaluator modes, and declared dataset reads                      |
 | **3. Evaluator behavior** | `{rule-name}.test.ts`   | Full finding payloads for both `evaluateLive` and `evaluateStatic`, plus negative cases   |
+
+Keep catalog invariants and semantic metadata policies in `rule-metadata.test.ts`. It runs each evaluator with empty
+resource bags and checks that dataset reads match declarations in both directions, rejecting undeclared reads and
+unused declarations. Lambda memory recommendations also require inventory for SDK evaluation coverage; an explicit
+assertion pins that dependency pair. SDK export tests verify declared datasets have registered loaders. Evaluator
+fixtures cover data-dependent reads and complete findings. Avoid copying every rule's name, description, and dependency
+list into a second declaration-shaped snapshot; keep exact assertions for decisions
+such as optional evidence or finding precedence.
 
 For static IaC rules, evaluator coverage must include both Terraform-shaped and CloudFormation-shaped resources. A passing test suite for only one source kind is incomplete.
 
@@ -43,7 +51,11 @@ Split static AWS provider tests into two layers:
 1. Static dataset loader tests per dataset
 2. Orchestration tests in `loadAwsStaticResources`
 
-When a new IaC rule or dataset is added, the static provider/scanner coverage should prove both Terraform and CloudFormation inputs reach the expected finding path.
+When adding an IaC rule or dataset, cover Terraform and CloudFormation normalization in provider tests and positive
+and negative findings in evaluator tests. Keep representative full scans for package wiring, plus dedicated scope,
+suppression, diagnostics, configuration, and evaluation-evidence regressions. Add a service-specific scanner test when
+it exercises a distinct integration behavior; repeating every provider and evaluator expectation at the facade adds
+maintenance without testing another scanner path.
 
 Split live AWS provider tests into three layers:
 
@@ -57,7 +69,10 @@ Split live AWS provider tests into three layers:
 
 ### `cloudburn` (CLI)
 
-Command tests (`*.command.test.ts`) mock the SDK boundary to isolate CLI behavior. The separate `test/e2e/` suite runs the built executable against real Terraform and CloudFormation files, without mocking the SDK or parsers.
+Command tests (`*.command.test.ts`) mock the SDK boundary to isolate CLI behavior. Their output assertions also cover
+formatter integration; keep direct formatter tests for distinct layout and serialization edge cases. Shared root option
+parsing needs representative command coverage, while mode-specific configuration and restrictions stay with their commands.
+The separate `test/e2e/` suite runs the built executable against real Terraform and CloudFormation files, without mocking the SDK or parsers.
 
 | Boundary              | Mock strategy                                                        |
 | --------------------- | -------------------------------------------------------------------- |
@@ -87,6 +102,16 @@ Keep the fixture expectations independent of implementation output. Normalize on
 ### Installed-package tests
 
 `pnpm test:packages` builds and packs all three workspace packages, installs the archives into a temporary consumer project, then checks the installed CLI executable and SDK ESM/CommonJS exports with real scans. Nothing is published. Installation can access the public npm registry for runtime dependencies, so this suite is uncached and requires registry connectivity. The temporary consumer uses the repository-pinned pnpm version. The uncached task forwards `HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY` (including lowercase forms), and `NODE_EXTRA_CA_CERTS` through Turbo and into subprocesses for registry connectivity. It does not use AWS credentials or contact AWS.
+
+## Runtime and type contracts
+
+Export tests should exercise values imported from the public package entry point. Constructing a typed object and
+asserting its literal fields does not verify an export or a type contract: Vitest transpiles source tests without
+checking types, and package `typecheck` scripts include `src` only.
+
+Keep compiler-backed consumer checks for type contracts. Existing examples are the
+[rules purchase contract](../packages/rules/test/hub-type-contract.test.ts) and
+[SDK upgrade exports](../packages/sdk/test/cost-optimization-hub-upgrade-exports.test.ts), which explicitly run TypeScript.
 
 ## Fixture privacy
 

@@ -1,6 +1,7 @@
 # Finding and ScanResult Shape Reference
 
-Source of truth: `packages/rules/src/shared/metadata.ts` (rule contracts) and `packages/sdk/src/types.ts` (SDK scan result contracts).
+Public contracts: [rule metadata and finding types](../../packages/rules/src/shared/metadata.ts) and
+[SDK scan result types](../../packages/sdk/src/types.ts). This reference is manually maintained alongside those sources.
 
 ## `Source`
 

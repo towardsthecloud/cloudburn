@@ -47,8 +47,6 @@ describe('ebsAttachedToStoppedInstancesRule', () => {
       }),
     });
 
-    expect(ebsAttachedToStoppedInstancesRule.supports).toEqual(['discovery']);
-    expect(ebsAttachedToStoppedInstancesRule.discoveryDependencies).toEqual(['aws-ebs-volumes', 'aws-ec2-instances']);
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-EBS-3',
       service: 'ebs',

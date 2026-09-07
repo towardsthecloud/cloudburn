@@ -37,8 +37,6 @@ describe('ebsUnattachedVolumeRule', () => {
       }),
     });
 
-    expect(ebsUnattachedVolumeRule.supports).toEqual(['discovery']);
-    expect(ebsUnattachedVolumeRule.discoveryDependencies).toEqual(['aws-ebs-volumes']);
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-EBS-2',
       service: 'ebs',

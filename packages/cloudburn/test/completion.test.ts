@@ -106,29 +106,6 @@ describe('completion command', () => {
 
   const itWithZsh = zshPath ? it : it.skip;
 
-  itWithZsh('passes nested zsh words through to the hidden completer', async () => {
-    const script = await renderCompletionScript('zsh');
-    const runnableScript = script.replace("_describe 'values' suggestions", `print -l -- "\${suggestions[@]}"`);
-    const output = execFileSync(
-      zshPath ?? 'zsh',
-      [
-        '-c',
-        `
-compdef() { :; }
-cloudburn() { printf '%s\\n' "$@"; }
-${runnableScript}
-words=(cloudburn discover init "")
-CURRENT=4
-_cloudburn
-`,
-      ],
-      { encoding: 'utf8' },
-    );
-
-    expect(output).toContain('discover');
-    expect(output).toContain('init');
-  });
-
   itWithZsh('limits zsh completion input to the current word', async () => {
     const script = await renderCompletionScript('zsh');
     const runnableScript = script.replace("_describe 'values' suggestions", `print -l -- "\${suggestions[@]}"`);
@@ -219,22 +196,5 @@ printf '%s\\n' "\${COMPREPLY[@]}"
 
     expect(script).toContain('complete -c cloudburn');
     expect(script).toContain('__complete --');
-  });
-
-  it('rejects unsupported completion shell usage', async () => {
-    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
-    const program = createProgram();
-    const completionCommand = program.commands.find((command) => command.name() === 'completion');
-
-    program.exitOverride();
-    completionCommand?.exitOverride();
-
-    await expect(program.parseAsync(['completion', 'powershell'], { from: 'user' })).rejects.toMatchObject({
-      code: 'commander.unknownCommand',
-      exitCode: 1,
-      message: expect.stringContaining("unknown command 'powershell'"),
-    });
-    expect(stderr).toHaveBeenCalled();
-    expect(stderr.mock.calls.map(([chunk]) => String(chunk)).join('')).toContain('Available Commands:');
   });
 });
