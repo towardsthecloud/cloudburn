@@ -5,7 +5,7 @@ import {
 import type { AwsDiscoveredResource, AwsEc2TransitGatewayVpcAttachmentActivity } from '@cloudburn/rules';
 import { createEc2Client } from '../client.js';
 import { getAwsDiscoveryTimestamp } from '../execution.js';
-import { fetchCloudWatchSignals } from './cloudwatch.js';
+import { fetchCloudWatchSignals, getCompleteCloudWatchPoints } from './cloudwatch.js';
 import { chunkItems, extractTerminalArnResourceIdentifier, withAwsServiceErrorContext } from './utils.js';
 
 const TRANSIT_GATEWAY_ATTACHMENT_DESCRIBE_BATCH_SIZE = 100;
@@ -232,8 +232,8 @@ export const hydrateAwsEc2TransitGatewayVpcAttachmentActivity = async (
 
         attachments.push(
           ...availableAttachments.map((attachment, index) => {
-            const inboundPoints = metricData.get(`tgwIn${index}`) ?? [];
-            const outboundPoints = metricData.get(`tgwOut${index}`) ?? [];
+            const inboundPoints = getCompleteCloudWatchPoints(metricData.get(`tgwIn${index}`)) ?? [];
+            const outboundPoints = getCompleteCloudWatchPoints(metricData.get(`tgwOut${index}`)) ?? [];
             const hasCompleteLookback =
               attachment.creationTime !== null && attachment.creationTime.getTime() <= startTime.getTime();
             return {

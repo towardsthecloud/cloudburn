@@ -1,4 +1,4 @@
-import { createFinding, createFindingMatch, createRule } from '../../shared/helpers.js';
+import { createFinding, createFindingMatch, createLiveEvaluationCoverage, createRule } from '../../shared/helpers.js';
 
 const RULE_ID = 'CLDBRN-AWS-EC2-4';
 const RULE_SERVICE = 'ec2';
@@ -16,6 +16,12 @@ export const ec2InactiveVpcInterfaceEndpointRule = createRule({
   service: RULE_SERVICE,
   supports: ['discovery'],
   discoveryDependencies: ['aws-ec2-vpc-endpoint-activity'],
+  getLiveEvaluationCoverage: ({ resources }) =>
+    createLiveEvaluationCoverage(
+      resources.get('aws-ec2-vpc-endpoint-activity'),
+      (endpoint) => endpoint.bytesProcessedLast30Days != null,
+      (endpoint) => createFindingMatch(endpoint.vpcEndpointId, endpoint.region, endpoint.accountId),
+    ),
   evaluateLive: ({ resources }) => {
     const findings = resources
       .get('aws-ec2-vpc-endpoint-activity')

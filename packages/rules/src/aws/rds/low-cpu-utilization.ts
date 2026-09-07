@@ -1,4 +1,10 @@
-import { createFinding, createFindingMatch, createRule } from '../../shared/helpers.js';
+import {
+  createFinding,
+  createFindingMatch,
+  createLiveEvaluationCoverage,
+  createRule,
+  getAwsResourceScopeKey,
+} from '../../shared/helpers.js';
 
 const RULE_ID = 'CLDBRN-AWS-RDS-5';
 const RULE_SERVICE = 'rds';
@@ -20,6 +26,28 @@ export const rdsLowCpuUtilizationRule = createRule({
   service: RULE_SERVICE,
   supports: ['discovery'],
   discoveryDependencies: ['aws-rds-instances', 'aws-rds-instance-cpu-metrics'],
+  getLiveEvaluationCoverage: ({ resources }) => {
+    const metricsByResource = new Map(
+      resources
+        .get('aws-rds-instance-cpu-metrics')
+        .map((metric) => [
+          getAwsResourceScopeKey(metric.accountId, metric.region, metric.dbInstanceIdentifier),
+          metric,
+        ]),
+    );
+
+    return createLiveEvaluationCoverage(
+      resources.get('aws-rds-instances'),
+      (resource) => {
+        const metric = metricsByResource.get(
+          getAwsResourceScopeKey(resource.accountId, resource.region, resource.dbInstanceIdentifier),
+        );
+
+        return resource.dbInstanceStatus !== 'available' || metric?.averageCpuUtilizationLast30Days != null;
+      },
+      (resource) => createFindingMatch(resource.dbInstanceIdentifier, resource.region, resource.accountId),
+    );
+  },
   evaluateLive: ({ resources }) => {
     const instancesById = new Map(
       resources

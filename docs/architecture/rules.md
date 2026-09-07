@@ -19,6 +19,7 @@ classDiagram
     +string[] supersedesRuleIds?
     +StaticDatasetKey[] staticDependencies?
     +evaluateLive(ctx: LiveEvaluationContext)? Finding
+    +getLiveEvaluationCoverage(ctx: LiveEvaluationContext)? LiveEvaluationCoverage
     +evaluateStatic(ctx: StaticEvaluationContext)? Finding
   }
 
@@ -64,6 +65,23 @@ classDiagram
 ```
 
 Rules return a single grouped `Finding` or `null`. The SDK regroups those rule findings under providers in the public `ScanResult`.
+
+Live rules can also implement `getLiveEvaluationCoverage(context)` to return `assessed` and `unknown` resource
+identities without changing the evaluator's return shape. `assessed` includes both findings and known non-findings;
+`unknown` means required evidence is unavailable or incomplete. Use the same identity as the rule's findings, and
+include the inventory dataset in `discoveryDependencies` when missing metric rows would otherwise hide resources.
+The pure `createLiveEvaluationCoverage` helper partitions an inventory with a rule-specific assessment predicate.
+
+All built-in CloudWatch metric rules report this coverage. Each rule checks its own required normalized metrics, so
+unknown Lambda errors do not prevent duration assessment. A resource that is outside a rule's policy remains
+assessed without metric evidence. EC2's low-utilization rule can establish a finding from four observed idle days;
+a non-finding requires all 14 observed days. The additive `observedDays` field records that count; legacy custom
+EC2 loaders that omit it can still establish findings, but cannot establish a complete non-finding.
+
+Unknown AWS Config recording metrics retain their candidate identities with `null` recorded-item counts and saving
+estimates. Custom consumers of `AwsConfigRecordingFrequencyReview` must check these nullable fields before using
+them in calculations. The SDK exposes the rule's coverage and reports `unknown` rather than a passed evaluation when
+required evidence is missing and no findings were established.
 
 Rules with stronger evidence can declare `supersedesRuleIds`. The live engine removes only findings with the same
 resource namespace, ID, account, and Region, and only when the superseding rule is active and emits that identity.

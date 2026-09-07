@@ -11,7 +11,7 @@ import { createApplicationAutoScalingClient, createDynamoDbClient } from '../cli
 import type { AwsDiscoveryDatasetLoadResult, AwsDiscoveryDatasetResolver } from '../discovery-registry.js';
 import { formatAwsAccessDeniedReason, getAwsErrorCode, isAwsAccessDeniedError } from '../errors.js';
 import { getAwsDiscoveryTimestamp } from '../execution.js';
-import { fetchCloudWatchSignals } from './cloudwatch.js';
+import { cloudWatchWindow, fetchCloudWatchSignals, getCompleteCloudWatchPoints } from './cloudwatch.js';
 import { chunkItems, extractTerminalArnResourceIdentifier, withAwsServiceErrorContext } from './utils.js';
 
 const DYNAMODB_TABLE_CONCURRENCY = 10;
@@ -20,6 +20,7 @@ const THIRTY_DAYS_IN_SECONDS = 30 * 24 * 60 * 60;
 const NINETY_DAYS_IN_SECONDS = 90 * 24 * 60 * 60;
 const DAILY_PERIOD_IN_SECONDS = 24 * 60 * 60;
 const REQUIRED_DYNAMODB_DAILY_POINTS = THIRTY_DAYS_IN_SECONDS / DAILY_PERIOD_IN_SECONDS;
+const REQUIRED_DYNAMODB_NINETY_DAY_POINTS = NINETY_DAYS_IN_SECONDS / DAILY_PERIOD_IN_SECONDS;
 
 type ParsedDynamoDbTable = {
   tableArn: string;
@@ -260,11 +261,12 @@ export const hydrateAwsDynamoDbTableUtilization = async (
 
   const hydratedPages = await Promise.all(
     [...tablesByRegion.entries()].map(async ([region, regionTables]) => {
-      const endTime = new Date(getAwsDiscoveryTimestamp());
-      const ninetyDayStartTime = new Date(endTime.getTime() - NINETY_DAYS_IN_SECONDS * 1000);
+      const { endTime, startTime: ninetyDayStartTime } = cloudWatchWindow({
+        endTime: new Date(getAwsDiscoveryTimestamp()),
+        lookbackSeconds: NINETY_DAYS_IN_SECONDS,
+        mode: 'complete-days',
+      });
       const thirtyDayStartTime = new Date(endTime.getTime() - THIRTY_DAYS_IN_SECONDS * 1000);
-      const thirtyDayStartBucketMs =
-        Math.floor(thirtyDayStartTime.getTime() / (DAILY_PERIOD_IN_SECONDS * 1000)) * DAILY_PERIOD_IN_SECONDS * 1000;
       const [readMetricData, writeMetricData] = await Promise.all([
         fetchCloudWatchSignals({
           endTime,
@@ -297,14 +299,16 @@ export const hydrateAwsDynamoDbTableUtilization = async (
       return regionTables.map((table, index) => {
         const readMetricId = `read${index}`;
         const writeMetricId = `write${index}`;
-        const readPoints = readMetricData.get(readMetricId) ?? [];
-        const writePoints = writeMetricData.get(writeMetricId) ?? [];
-        const recentWritePoints = writePoints.filter((point) => Date.parse(point.timestamp) >= thirtyDayStartBucketMs);
+        const readPoints = getCompleteCloudWatchPoints(readMetricData.get(readMetricId)) ?? [];
+        const writePoints = getCompleteCloudWatchPoints(writeMetricData.get(writeMetricId)) ?? [];
+        const recentWritePoints = writePoints.filter(
+          (point) => Date.parse(point.timestamp) >= thirtyDayStartTime.getTime(),
+        );
         const creationTimeMs = table.creationDateTime ? Date.parse(table.creationDateTime) : Number.NaN;
         const hasCompleteNinetyDayWindow =
           !Number.isNaN(creationTimeMs) &&
           creationTimeMs <= ninetyDayStartTime.getTime() &&
-          writeMetricData.has(writeMetricId);
+          writePoints.length >= REQUIRED_DYNAMODB_NINETY_DAY_POINTS;
 
         return {
           accountId: table.accountId,

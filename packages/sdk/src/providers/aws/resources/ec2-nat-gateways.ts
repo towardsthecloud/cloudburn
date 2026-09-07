@@ -2,7 +2,7 @@ import { DescribeNatGatewaysCommand } from '@aws-sdk/client-ec2';
 import type { AwsDiscoveredResource, AwsEc2NatGatewayActivity } from '@cloudburn/rules';
 import { createEc2Client } from '../client.js';
 import { getAwsDiscoveryTimestamp } from '../execution.js';
-import { fetchCloudWatchSignals } from './cloudwatch.js';
+import { cloudWatchWindow, fetchCloudWatchSignals, getCompleteCloudWatchPoints } from './cloudwatch.js';
 import { chunkItems, withAwsServiceErrorContext } from './utils.js';
 
 const NAT_GATEWAY_ARN_PREFIX = 'natgateway/';
@@ -96,7 +96,11 @@ export const hydrateAwsEc2NatGatewayActivity = async (
         }
 
         const metricData = await fetchCloudWatchSignals({
-          endTime: new Date(getAwsDiscoveryTimestamp()),
+          ...cloudWatchWindow({
+            endTime: new Date(getAwsDiscoveryTimestamp()),
+            lookbackSeconds: SEVEN_DAYS_IN_SECONDS,
+            mode: 'complete-days',
+          }),
           queries: availableNatGateways.flatMap((natGateway, index) => [
             {
               dimensions: [{ Name: 'NatGatewayId', Value: natGateway.natGatewayId }],
@@ -116,13 +120,12 @@ export const hydrateAwsEc2NatGatewayActivity = async (
             },
           ]),
           region,
-          startTime: new Date(getAwsDiscoveryTimestamp() - SEVEN_DAYS_IN_SECONDS * 1000),
         });
 
         natGateways.push(
           ...availableNatGateways.map((natGateway, index) => {
-            const inboundPoints = metricData.get(`natIn${index}`) ?? [];
-            const outboundPoints = metricData.get(`natOut${index}`) ?? [];
+            const inboundPoints = getCompleteCloudWatchPoints(metricData.get(`natIn${index}`)) ?? [];
+            const outboundPoints = getCompleteCloudWatchPoints(metricData.get(`natOut${index}`)) ?? [];
 
             return {
               ...natGateway,

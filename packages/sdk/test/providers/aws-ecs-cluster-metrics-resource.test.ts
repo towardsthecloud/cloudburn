@@ -2,8 +2,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fetchCloudWatchSignals } from '../../src/providers/aws/resources/cloudwatch.js';
 import { hydrateAwsEcsClusters } from '../../src/providers/aws/resources/ecs.js';
 import { hydrateAwsEcsClusterMetrics } from '../../src/providers/aws/resources/ecs-cluster-metrics.js';
+import { completeMetricEvidence } from '../helpers/cloudwatch.js';
 
-vi.mock('../../src/providers/aws/resources/cloudwatch.js', () => ({
+vi.mock('../../src/providers/aws/resources/cloudwatch.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/providers/aws/resources/cloudwatch.js')>()),
   fetchCloudWatchSignals: vi.fn(),
 }));
 
@@ -34,7 +36,9 @@ describe('hydrateAwsEcsClusterMetrics', () => {
         region: 'us-east-1',
       },
     ]);
-    mockedFetchCloudWatchSignals.mockResolvedValue(new Map([['ecsCluster0', createDailyPoints(14, 5)]]));
+    mockedFetchCloudWatchSignals.mockResolvedValue(
+      new Map([['ecsCluster0', completeMetricEvidence(createDailyPoints(14, 5))]]),
+    );
 
     await expect(hydrateAwsEcsClusterMetrics([])).resolves.toEqual([
       {
@@ -56,7 +60,9 @@ describe('hydrateAwsEcsClusterMetrics', () => {
         region: 'us-east-1',
       },
     ]);
-    mockedFetchCloudWatchSignals.mockResolvedValue(new Map([['ecsCluster0', createDailyPoints(13, 5)]]));
+    mockedFetchCloudWatchSignals.mockResolvedValue(
+      new Map([['ecsCluster0', completeMetricEvidence(createDailyPoints(13, 5))]]),
+    );
 
     await expect(hydrateAwsEcsClusterMetrics([])).resolves.toEqual([
       {
@@ -70,7 +76,9 @@ describe('hydrateAwsEcsClusterMetrics', () => {
   });
 
   it('reuses the shared ECS cluster dataset when a discovery context provides preloaded clusters', async () => {
-    mockedFetchCloudWatchSignals.mockResolvedValue(new Map([['ecsCluster0', createDailyPoints(14, 5)]]));
+    mockedFetchCloudWatchSignals.mockResolvedValue(
+      new Map([['ecsCluster0', completeMetricEvidence(createDailyPoints(14, 5))]]),
+    );
 
     await expect(
       hydrateAwsEcsClusterMetrics([], {

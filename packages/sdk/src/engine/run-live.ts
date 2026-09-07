@@ -144,6 +144,24 @@ export const runLiveScan = async (
       });
     }
     const finding = rule.evaluateLive(ruleContext);
+    const coverage = rule.getLiveEvaluationCoverage?.(ruleContext);
+    const unknownCount = coverage?.unknown.length ?? 0;
+    const coverageReason =
+      unknownCount > 0
+        ? `Could not assess ${unknownCount} resource(s) for rule ${rule.id} because required metric evidence was incomplete or unavailable.`
+        : excludedRegions.size > 0
+          ? `Could not assess resources in ${[...excludedRegions].sort().join(', ')} because required discovery evidence was unavailable.`
+          : undefined;
+    if (unknownCount > 0 && coverageReason) {
+      scanDiagnostics.push({
+        message: coverageReason,
+        provider: rule.provider,
+        ruleId: rule.id,
+        service: rule.service,
+        source: 'discovery',
+        status: 'skipped',
+      });
+    }
 
     if (options?.includeEvaluationResources) {
       const evaluationResourceSet = getAwsRuleEvaluationResourceSet(rule, ruleContext.resources);
@@ -153,11 +171,13 @@ export const runLiveScan = async (
       }
       evaluationRules.push({
         ...toRuleEvaluationMetadata(rule),
+        ...(coverage ? { coverage } : {}),
+        ...(coverageReason ? { reason: coverageReason } : {}),
         findingCount: finding?.findings.length ?? 0,
         resourceSetId: evaluationResourceSet.id,
         ruleId: rule.id,
         source: 'discovery',
-        status: finding ? 'triggered' : 'passed',
+        status: finding ? 'triggered' : coverageReason ? 'unknown' : 'passed',
       });
     }
 

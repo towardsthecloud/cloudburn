@@ -20,7 +20,7 @@ import {
 import { createCloudWatchClient, createConfigServiceClient, resolveCurrentAwsRegion } from '../client.js';
 import type { AwsAccountIdResolver, AwsDiscoveryDatasetLoadResult } from '../discovery-registry.js';
 import { getAwsDiscoveryTimestamp } from '../execution.js';
-import { fetchCloudWatchSignals } from './cloudwatch.js';
+import { cloudWatchWindow, fetchCloudWatchSignals, getCompleteCloudWatchPoints } from './cloudwatch.js';
 import { chunkItems, mapWithConcurrency, resolveAwsAccountIdForLoad, withAwsServiceErrorContext } from './utils.js';
 
 const CONFIG_METRIC_NAMESPACE = 'AWS/Config';
@@ -385,8 +385,11 @@ export const hydrateAwsConfigRecordingFrequencyReviews = async (
     return [];
   }
 
-  const endTime = new Date(getAwsDiscoveryTimestamp());
-  const startTime = new Date(endTime.getTime() - OBSERVATION_WINDOW_DAYS * DAY_SECONDS * 1000);
+  const { endTime, startTime } = cloudWatchWindow({
+    endTime: new Date(getAwsDiscoveryTimestamp()),
+    lookbackSeconds: OBSERVATION_WINDOW_DAYS * DAY_SECONDS,
+    mode: 'complete-days',
+  });
   const queries = continuousResourceTypes.map((resourceType, index) => ({
     dimensions: [{ Name: 'ResourceType', Value: resourceType }],
     id: `config${index}`,
@@ -399,11 +402,31 @@ export const hydrateAwsConfigRecordingFrequencyReviews = async (
     fetchCloudWatchSignals({ endTime, queries, region, startTime }),
     getRecordedResourceCounts(configClient, region, continuousResourceTypes),
   ]);
+  const incompleteRecordingFrequencyReviews: Array<
+    Pick<
+      AwsConfigRecordingFrequencyReview,
+      | 'configurationItemsRecorded'
+      | 'estimatedMonthlyConfigurationItemReduction'
+      | 'estimatedMonthlyRecordingCostReductionUsd'
+      | 'recentlyDeletedResourceCount'
+      | 'recordedResourceCount'
+      | 'resourceType'
+      | 'turnoverEstimateReliable'
+    >
+  > = [];
   const potentialRecordingFrequencyReviews = continuousResourceTypes.flatMap((resourceType, index) => {
     const recordedResourceCount = resourceCounts.get(resourceType) ?? 0;
-    const points = metricData.get(`config${index}`);
+    const points = getCompleteCloudWatchPoints(metricData.get(`config${index}`));
 
-    if (!points) {
+    if (!points || points.length < OBSERVATION_WINDOW_DAYS) {
+      incompleteRecordingFrequencyReviews.push({
+        configurationItemsRecorded: null,
+        estimatedMonthlyConfigurationItemReduction: null,
+        estimatedMonthlyRecordingCostReductionUsd: null,
+        recordedResourceCount,
+        resourceType,
+        turnoverEstimateReliable: false,
+      });
       return [];
     }
 
@@ -438,7 +461,7 @@ export const hydrateAwsConfigRecordingFrequencyReviews = async (
     ];
   });
 
-  if (potentialRecordingFrequencyReviews.length === 0) {
+  if (potentialRecordingFrequencyReviews.length === 0 && incompleteRecordingFrequencyReviews.length === 0) {
     return [];
   }
 
@@ -451,32 +474,35 @@ export const hydrateAwsConfigRecordingFrequencyReviews = async (
     })),
     startTime,
   );
-  const recordingFrequencyReviews = potentialRecordingFrequencyReviews.map((review) => {
-    const turnover = recentlyDeletedResourceCounts.get(review.resourceType) ?? { count: 0, reliable: false };
-    const recentlyDeletedResourceCount = turnover.count;
-    const estimatedMonthlyDailyConfigurationItems = Math.min(
-      review.estimatedMonthlyContinuousConfigurationItems,
-      (review.recordedResourceCount + recentlyDeletedResourceCount) * 30,
-    );
-    const estimatedMonthlyConfigurationItemReduction =
-      review.estimatedMonthlyContinuousConfigurationItems - estimatedMonthlyDailyConfigurationItems;
-    const estimatedMonthlyRecordingCostReductionUsd = Number(
-      (
-        review.estimatedMonthlyContinuousConfigurationItems * CONTINUOUS_RECORDING_UNIT_PRICE_USD -
-        estimatedMonthlyDailyConfigurationItems * DAILY_RECORDING_UNIT_PRICE_USD
-      ).toFixed(2),
-    );
+  const recordingFrequencyReviews = [
+    ...incompleteRecordingFrequencyReviews,
+    ...potentialRecordingFrequencyReviews.map((review) => {
+      const turnover = recentlyDeletedResourceCounts.get(review.resourceType) ?? { count: 0, reliable: false };
+      const recentlyDeletedResourceCount = turnover.count;
+      const estimatedMonthlyDailyConfigurationItems = Math.min(
+        review.estimatedMonthlyContinuousConfigurationItems,
+        (review.recordedResourceCount + recentlyDeletedResourceCount) * 30,
+      );
+      const estimatedMonthlyConfigurationItemReduction =
+        review.estimatedMonthlyContinuousConfigurationItems - estimatedMonthlyDailyConfigurationItems;
+      const estimatedMonthlyRecordingCostReductionUsd = Number(
+        (
+          review.estimatedMonthlyContinuousConfigurationItems * CONTINUOUS_RECORDING_UNIT_PRICE_USD -
+          estimatedMonthlyDailyConfigurationItems * DAILY_RECORDING_UNIT_PRICE_USD
+        ).toFixed(2),
+      );
 
-    return {
-      configurationItemsRecorded: review.configurationItemsRecorded,
-      estimatedMonthlyConfigurationItemReduction,
-      estimatedMonthlyRecordingCostReductionUsd,
-      recentlyDeletedResourceCount,
-      recordedResourceCount: review.recordedResourceCount,
-      resourceType: review.resourceType,
-      turnoverEstimateReliable: turnover.reliable,
-    };
-  });
+      return {
+        configurationItemsRecorded: review.configurationItemsRecorded,
+        estimatedMonthlyConfigurationItemReduction,
+        estimatedMonthlyRecordingCostReductionUsd,
+        recentlyDeletedResourceCount,
+        recordedResourceCount: review.recordedResourceCount,
+        resourceType: review.resourceType,
+        turnoverEstimateReliable: turnover.reliable,
+      };
+    }),
+  ];
 
   const [accountId, firewallManagerDependencies, paidServiceLinkedRecorderDependencies] = await Promise.all([
     resolveAwsAccountIdForLoad(context),
@@ -526,6 +552,7 @@ export const hydrateAwsConfigRecordingFrequencyReviews = async (
     .filter(
       (review) =>
         review.turnoverEstimateReliable === false &&
+        review.estimatedMonthlyRecordingCostReductionUsd !== null &&
         review.estimatedMonthlyRecordingCostReductionUsd > AWS_CONFIG_RECORDING_FREQUENCY_MINIMUM_SAVINGS_USD &&
         !review.firewallManagerDependent &&
         !review.paidServiceLinkedRecorderDependent,

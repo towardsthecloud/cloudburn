@@ -1,7 +1,7 @@
 import type { AwsDiscoveredResource, AwsRdsInstanceActivity, AwsRdsInstanceCpuMetric } from '@cloudburn/rules';
 import type { AwsDiscoveryDatasetResolver } from '../discovery-registry.js';
 import { getAwsDiscoveryTimestamp } from '../execution.js';
-import { fetchCloudWatchSignals } from './cloudwatch.js';
+import { cloudWatchWindow, fetchCloudWatchSignals, getCompleteCloudWatchPoints } from './cloudwatch.js';
 import { hydrateAwsRdsInstances } from './rds.js';
 
 const SEVEN_DAYS_IN_SECONDS = 7 * 24 * 60 * 60;
@@ -34,7 +34,11 @@ export const hydrateAwsRdsInstanceActivity = async (
   const hydratedPages = await Promise.all(
     [...instancesByRegion.entries()].map(async ([region, regionInstances]) => {
       const metricData = await fetchCloudWatchSignals({
-        endTime: new Date(getAwsDiscoveryTimestamp()),
+        ...cloudWatchWindow({
+          endTime: new Date(getAwsDiscoveryTimestamp()),
+          lookbackSeconds: SEVEN_DAYS_IN_SECONDS,
+          mode: 'complete-days',
+        }),
         queries: regionInstances.map((instance, index) => ({
           dimensions: [{ Name: 'DBInstanceIdentifier', Value: instance.dbInstanceIdentifier }],
           id: `rds${index}`,
@@ -44,11 +48,10 @@ export const hydrateAwsRdsInstanceActivity = async (
           stat: 'Maximum',
         })),
         region,
-        startTime: new Date(getAwsDiscoveryTimestamp() - SEVEN_DAYS_IN_SECONDS * 1000),
       });
 
       return regionInstances.map((instance, index) => {
-        const points = metricData.get(`rds${index}`) ?? [];
+        const points = getCompleteCloudWatchPoints(metricData.get(`rds${index}`)) ?? [];
 
         return {
           accountId: instance.accountId,
@@ -91,7 +94,11 @@ export const hydrateAwsRdsInstanceCpuMetrics = async (
   const hydratedPages = await Promise.all(
     [...instancesByRegion.entries()].map(async ([region, regionInstances]) => {
       const metricData = await fetchCloudWatchSignals({
-        endTime: new Date(getAwsDiscoveryTimestamp()),
+        ...cloudWatchWindow({
+          endTime: new Date(getAwsDiscoveryTimestamp()),
+          lookbackSeconds: THIRTY_DAYS_IN_SECONDS,
+          mode: 'complete-days',
+        }),
         queries: regionInstances.map((instance, index) => ({
           dimensions: [{ Name: 'DBInstanceIdentifier', Value: instance.dbInstanceIdentifier }],
           id: `cpu${index}`,
@@ -101,11 +108,10 @@ export const hydrateAwsRdsInstanceCpuMetrics = async (
           stat: 'Average',
         })),
         region,
-        startTime: new Date(getAwsDiscoveryTimestamp() - THIRTY_DAYS_IN_SECONDS * 1000),
       });
 
       return regionInstances.map((instance, index) => {
-        const points = metricData.get(`cpu${index}`) ?? [];
+        const points = getCompleteCloudWatchPoints(metricData.get(`cpu${index}`)) ?? [];
 
         return {
           accountId: instance.accountId,

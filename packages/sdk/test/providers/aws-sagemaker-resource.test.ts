@@ -10,12 +10,14 @@ import {
   hydrateAwsSageMakerEndpointActivity,
   hydrateAwsSageMakerNotebookInstances,
 } from '../../src/providers/aws/resources/sagemaker.js';
+import { completeMetricEvidence } from '../helpers/cloudwatch.js';
 
 vi.mock('../../src/providers/aws/client.js', () => ({
   createSageMakerClient: vi.fn(),
 }));
 
-vi.mock('../../src/providers/aws/resources/cloudwatch.js', () => ({
+vi.mock('../../src/providers/aws/resources/cloudwatch.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/providers/aws/resources/cloudwatch.js')>()),
   fetchCloudWatchSignals: vi.fn(),
 }));
 
@@ -109,17 +111,21 @@ describe('hydrateAwsSageMakerNotebookInstances', () => {
       new Map([
         [
           'endpoint0variant0',
-          Array.from({ length: 14 }, (_value, index) => ({
-            timestamp: `2025-12-${String(index + 1).padStart(2, '0')}T00:00:00.000Z`,
-            value: 0,
-          })),
+          completeMetricEvidence(
+            Array.from({ length: 14 }, (_value, index) => ({
+              timestamp: `2025-12-${String(index + 1).padStart(2, '0')}T00:00:00.000Z`,
+              value: 0,
+            })),
+          ),
         ],
         [
           'endpoint0variant1',
-          Array.from({ length: 14 }, (_value, index) => ({
-            timestamp: `2025-12-${String(index + 1).padStart(2, '0')}T00:00:00.000Z`,
-            value: 1,
-          })),
+          completeMetricEvidence(
+            Array.from({ length: 14 }, (_value, index) => ({
+              timestamp: `2025-12-${String(index + 1).padStart(2, '0')}T00:00:00.000Z`,
+              value: 1,
+            })),
+          ),
         ],
       ]),
     );
@@ -225,12 +231,12 @@ describe('hydrateAwsSageMakerNotebookInstances', () => {
       new Map([
         [
           'endpoint0variant0',
-          [
+          completeMetricEvidence([
             {
               timestamp: '2025-12-01T00:00:00.000Z',
               value: 0,
             },
-          ],
+          ]),
         ],
       ]),
     );
@@ -261,7 +267,7 @@ describe('hydrateAwsSageMakerNotebookInstances', () => {
     ]);
   });
 
-  it('treats empty invocation series as zero total for idle endpoints', async () => {
+  it('preserves unknown totals for empty invocation series without dense activity evidence', async () => {
     mockedCreateSageMakerClient.mockReturnValue({
       send: vi.fn(async (command: DescribeEndpointCommand | DescribeEndpointConfigCommand) => {
         const input = command.input as { EndpointConfigName?: string; EndpointName?: string };
@@ -282,7 +288,7 @@ describe('hydrateAwsSageMakerNotebookInstances', () => {
         };
       }),
     } as never);
-    mockedFetchCloudWatchSignals.mockResolvedValue(new Map([['endpoint0variant0', []]]));
+    mockedFetchCloudWatchSignals.mockResolvedValue(new Map([['endpoint0variant0', completeMetricEvidence([])]]));
 
     await expect(
       hydrateAwsSageMakerEndpointActivity([
@@ -305,7 +311,7 @@ describe('hydrateAwsSageMakerNotebookInstances', () => {
         endpointStatus: 'InService',
         lastModifiedTime: '2025-12-15T00:00:00.000Z',
         region: 'eu-west-1',
-        totalInvocationsLast14Days: 0,
+        totalInvocationsLast14Days: null,
       },
     ]);
   });

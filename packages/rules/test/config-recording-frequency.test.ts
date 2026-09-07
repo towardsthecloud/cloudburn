@@ -33,6 +33,49 @@ const createReview = (
 });
 
 describe('configRecordingFrequencyRule', () => {
+  it('retains Config candidates with unknown metrics without masking a proven recording dependency', () => {
+    const context = {
+      catalog: { indexType: 'LOCAL' as const, resources: [], searchRegion: 'eu-central-1' },
+      resources: new LiveResourceBag({
+        'aws-config-recording-frequency-reviews': [
+          createReview({
+            configurationItemsRecorded: null,
+            estimatedMonthlyConfigurationItemReduction: null,
+            estimatedMonthlyRecordingCostReductionUsd: null,
+            turnoverEstimateReliable: false,
+          }),
+          createReview({
+            configurationItemsRecorded: null,
+            estimatedMonthlyConfigurationItemReduction: null,
+            estimatedMonthlyRecordingCostReductionUsd: null,
+            firewallManagerDependent: true,
+            resourceType: 'AWS::EC2::Instance',
+            turnoverEstimateReliable: false,
+          }),
+        ],
+      }),
+    };
+
+    expect(configRecordingFrequencyRule.evaluateLive?.(context)).toBeNull();
+    expect(configRecordingFrequencyRule.getLiveEvaluationCoverage?.(context)).toEqual({
+      assessed: [
+        {
+          accountId: '123456789012',
+          region: 'eu-central-1',
+          resourceId: 'arn:aws:config:eu-central-1:123456789012:configuration-recorder/default/abc#AWS::EC2::Instance',
+        },
+      ],
+      unknown: [
+        {
+          accountId: '123456789012',
+          region: 'eu-central-1',
+          resourceId:
+            'arn:aws:config:eu-central-1:123456789012:configuration-recorder/default/abc#AWS::Lambda::Function',
+        },
+      ],
+    });
+  });
+
   it('recommends a targeted daily override for high-churn continuous resource types', () => {
     const finding = configRecordingFrequencyRule.evaluateLive?.({
       catalog: { indexType: 'LOCAL', resources: [], searchRegion: 'eu-central-1' },

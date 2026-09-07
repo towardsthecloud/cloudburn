@@ -1,4 +1,4 @@
-import { createFinding, createFindingMatch, createRule } from '../../shared/helpers.js';
+import { createFinding, createFindingMatch, createLiveEvaluationCoverage, createRule } from '../../shared/helpers.js';
 
 const RULE_ID = 'CLDBRN-AWS-SAGEMAKER-2';
 const RULE_SERVICE = 'sagemaker';
@@ -20,6 +20,24 @@ export const sagemakerIdleEndpointRule = createRule({
   service: RULE_SERVICE,
   supports: ['discovery'],
   discoveryDependencies: ['aws-sagemaker-endpoint-activity'],
+  getLiveEvaluationCoverage: ({ resources }) => {
+    const cutoff = Date.now() - ENDPOINT_IDLE_WINDOW_DAYS * DAY_MS;
+
+    return createLiveEvaluationCoverage(
+      resources.get('aws-sagemaker-endpoint-activity'),
+      (endpoint) => {
+        if (endpoint.endpointStatus !== 'InService') return true;
+        const creationTime = Date.parse(endpoint.creationTime ?? '');
+
+        return (
+          (Number.isFinite(creationTime) && creationTime > cutoff) ||
+          (endpoint.totalInvocationsLast14Days != null &&
+            (endpoint.totalInvocationsLast14Days > 0 || Number.isFinite(creationTime)))
+        );
+      },
+      (endpoint) => createFindingMatch(endpoint.endpointName, endpoint.region, endpoint.accountId),
+    );
+  },
   evaluateLive: ({ resources }) => {
     const cutoff = Date.now() - ENDPOINT_IDLE_WINDOW_DAYS * DAY_MS;
     const findings = resources

@@ -32,6 +32,7 @@ export { awsCorePreset } from './presets/aws-core.js';
 export {
   createFinding,
   createFindingMatch,
+  createLiveEvaluationCoverage,
   createRule,
   createStaticFindingMatch,
   isRecord,
@@ -161,6 +162,7 @@ export type {
   IaCResource,
   IaCSuppression,
   LiveEvaluationContext,
+  LiveEvaluationCoverage,
   Rule,
   ScanSource,
   Severity,

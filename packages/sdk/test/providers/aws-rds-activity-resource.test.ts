@@ -5,8 +5,10 @@ import {
   hydrateAwsRdsInstanceActivity,
   hydrateAwsRdsInstanceCpuMetrics,
 } from '../../src/providers/aws/resources/rds-activity.js';
+import { completeMetricEvidence } from '../helpers/cloudwatch.js';
 
-vi.mock('../../src/providers/aws/resources/cloudwatch.js', () => ({
+vi.mock('../../src/providers/aws/resources/cloudwatch.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/providers/aws/resources/cloudwatch.js')>()),
   fetchCloudWatchSignals: vi.fn(),
 }));
 
@@ -36,7 +38,9 @@ describe('hydrateAwsRdsInstanceActivity', () => {
         region: 'us-east-1',
       },
     ]);
-    mockedFetchCloudWatchSignals.mockResolvedValue(new Map([['rds0', createDailyPoints(7, 0)]]));
+    mockedFetchCloudWatchSignals.mockResolvedValue(
+      new Map([['rds0', completeMetricEvidence(createDailyPoints(7, 0))]]),
+    );
 
     await expect(hydrateAwsRdsInstanceActivity([])).resolves.toEqual([
       {
@@ -58,7 +62,9 @@ describe('hydrateAwsRdsInstanceActivity', () => {
         region: 'us-east-1',
       },
     ]);
-    mockedFetchCloudWatchSignals.mockResolvedValue(new Map());
+    mockedFetchCloudWatchSignals.mockResolvedValue(
+      new Map([['rds0', completeMetricEvidence([], { status: 'Missing' })]]),
+    );
 
     await expect(hydrateAwsRdsInstanceActivity([])).resolves.toEqual([
       {
@@ -80,7 +86,9 @@ describe('hydrateAwsRdsInstanceActivity', () => {
         region: 'us-east-1',
       },
     ]);
-    mockedFetchCloudWatchSignals.mockResolvedValue(new Map([['rds0', createDailyPoints(6, 0)]]));
+    mockedFetchCloudWatchSignals.mockResolvedValue(
+      new Map([['rds0', completeMetricEvidence(createDailyPoints(6, 0))]]),
+    );
 
     await expect(hydrateAwsRdsInstanceActivity([])).resolves.toEqual([
       {
@@ -93,8 +101,50 @@ describe('hydrateAwsRdsInstanceActivity', () => {
     ]);
   });
 
+  it.each([
+    'PartialData',
+    'Forbidden',
+    'InternalError',
+    'Missing',
+    'Unknown',
+  ] as const)('preserves unknown activity for %s even when seven zero observations are present', async (status) => {
+    mockedHydrateAwsRdsInstances.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        dbInstanceIdentifier: 'legacy-db',
+        instanceClass: 'db.m6i.large',
+        region: 'us-east-1',
+      },
+    ]);
+    mockedFetchCloudWatchSignals.mockResolvedValue(
+      new Map([['rds0', completeMetricEvidence(createDailyPoints(7, 0), { status })]]),
+    );
+
+    await expect(hydrateAwsRdsInstanceActivity([])).resolves.toEqual([
+      expect.objectContaining({ maxDatabaseConnectionsLast7Days: null }),
+    ]);
+  });
+
+  it('preserves unknown activity for a complete response without observations', async () => {
+    mockedHydrateAwsRdsInstances.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        dbInstanceIdentifier: 'legacy-db',
+        instanceClass: 'db.m6i.large',
+        region: 'us-east-1',
+      },
+    ]);
+    mockedFetchCloudWatchSignals.mockResolvedValue(new Map([['rds0', completeMetricEvidence([])]]));
+
+    await expect(hydrateAwsRdsInstanceActivity([])).resolves.toEqual([
+      expect.objectContaining({ maxDatabaseConnectionsLast7Days: null }),
+    ]);
+  });
+
   it('reuses the shared RDS instance dataset when a discovery context provides preloaded instances', async () => {
-    mockedFetchCloudWatchSignals.mockResolvedValue(new Map([['rds0', createDailyPoints(7, 0)]]));
+    mockedFetchCloudWatchSignals.mockResolvedValue(
+      new Map([['rds0', completeMetricEvidence(createDailyPoints(7, 0))]]),
+    );
 
     await expect(
       hydrateAwsRdsInstanceActivity([], {
@@ -135,7 +185,9 @@ describe('hydrateAwsRdsInstanceCpuMetrics', () => {
         region: 'us-east-1',
       },
     ]);
-    mockedFetchCloudWatchSignals.mockResolvedValue(new Map([['cpu0', createDailyPoints(30, 8)]]));
+    mockedFetchCloudWatchSignals.mockResolvedValue(
+      new Map([['cpu0', completeMetricEvidence(createDailyPoints(30, 8))]]),
+    );
 
     await expect(hydrateAwsRdsInstanceCpuMetrics([])).resolves.toEqual([
       {
@@ -156,7 +208,9 @@ describe('hydrateAwsRdsInstanceCpuMetrics', () => {
         region: 'us-east-1',
       },
     ]);
-    mockedFetchCloudWatchSignals.mockResolvedValue(new Map([['cpu0', createDailyPoints(29, 4)]]));
+    mockedFetchCloudWatchSignals.mockResolvedValue(
+      new Map([['cpu0', completeMetricEvidence(createDailyPoints(29, 4))]]),
+    );
 
     await expect(hydrateAwsRdsInstanceCpuMetrics([])).resolves.toEqual([
       {
@@ -169,7 +223,9 @@ describe('hydrateAwsRdsInstanceCpuMetrics', () => {
   });
 
   it('reuses the shared RDS instance dataset for CPU metrics when a discovery context provides preloaded instances', async () => {
-    mockedFetchCloudWatchSignals.mockResolvedValue(new Map([['cpu0', createDailyPoints(30, 8)]]));
+    mockedFetchCloudWatchSignals.mockResolvedValue(
+      new Map([['cpu0', completeMetricEvidence(createDailyPoints(30, 8))]]),
+    );
 
     await expect(
       hydrateAwsRdsInstanceCpuMetrics([], {

@@ -1,4 +1,4 @@
-import { createFinding, createFindingMatch, createRule } from '../../shared/helpers.js';
+import { createFinding, createFindingMatch, createLiveEvaluationCoverage, createRule } from '../../shared/helpers.js';
 import { getTargetCountByArn, hasNoRegisteredTargets } from './shared.js';
 
 const RULE_ID = 'CLDBRN-AWS-ELB-5';
@@ -17,6 +17,28 @@ export const elbIdleRule = createRule({
   service: RULE_SERVICE,
   supports: ['discovery'],
   discoveryDependencies: ['aws-ec2-load-balancer-request-activity', 'aws-ec2-load-balancers', 'aws-ec2-target-groups'],
+  getLiveEvaluationCoverage: ({ resources }) => {
+    const activityByArn = new Map(
+      resources.get('aws-ec2-load-balancer-request-activity').map((activity) => [activity.loadBalancerArn, activity]),
+    );
+    const targetCountByArn = getTargetCountByArn(resources.get('aws-ec2-target-groups'));
+
+    return createLiveEvaluationCoverage(
+      resources.get('aws-ec2-load-balancers'),
+      (loadBalancer) => {
+        const alreadyCoveredByCleanupRule =
+          loadBalancer.loadBalancerType === 'classic'
+            ? loadBalancer.instanceCount === 0
+            : hasNoRegisteredTargets(loadBalancer, targetCountByArn);
+
+        return (
+          alreadyCoveredByCleanupRule ||
+          activityByArn.get(loadBalancer.loadBalancerArn)?.averageRequestsPerDayLast14Days != null
+        );
+      },
+      (loadBalancer) => createFindingMatch(loadBalancer.loadBalancerArn, loadBalancer.region, loadBalancer.accountId),
+    );
+  },
   evaluateLive: ({ resources }) => {
     const loadBalancers = resources.get('aws-ec2-load-balancers');
     const targetCountByArn = getTargetCountByArn(resources.get('aws-ec2-target-groups'));

@@ -1,4 +1,10 @@
-import { createFinding, createFindingMatch, createRule, getAwsResourceScopeKey } from '../../shared/helpers.js';
+import {
+  createFinding,
+  createFindingMatch,
+  createLiveEvaluationCoverage,
+  createRule,
+  getAwsResourceScopeKey,
+} from '../../shared/helpers.js';
 
 const RULE_ID = 'CLDBRN-AWS-EMR-2';
 const RULE_SERVICE = 'emr';
@@ -18,6 +24,29 @@ export const emrIdleClusterRule = createRule({
   service: RULE_SERVICE,
   supports: ['discovery'],
   discoveryDependencies: ['aws-emr-clusters', 'aws-emr-cluster-metrics'],
+  getLiveEvaluationCoverage: ({ resources }) => {
+    const metricsByResource = new Map(
+      resources
+        .get('aws-emr-cluster-metrics')
+        .map((metric) => [getAwsResourceScopeKey(metric.accountId, metric.region, metric.clusterId), metric]),
+    );
+
+    return createLiveEvaluationCoverage(
+      resources.get('aws-emr-clusters'),
+      (resource) => {
+        const metric = metricsByResource.get(
+          getAwsResourceScopeKey(resource.accountId, resource.region, resource.clusterId),
+        );
+
+        return (
+          resource.endDateTime !== undefined ||
+          (resource.state !== 'RUNNING' && resource.state !== 'WAITING') ||
+          metric?.idlePeriodsLast30Minutes != null
+        );
+      },
+      (resource) => createFindingMatch(resource.clusterId, resource.region, resource.accountId),
+    );
+  },
   evaluateLive: ({ resources }) => {
     const clustersById = new Map(
       resources

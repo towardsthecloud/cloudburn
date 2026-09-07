@@ -3,12 +3,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createEc2Client } from '../../src/providers/aws/client.js';
 import { fetchCloudWatchSignals } from '../../src/providers/aws/resources/cloudwatch.js';
 import { hydrateAwsEc2NatGatewayActivity } from '../../src/providers/aws/resources/ec2-nat-gateways.js';
+import { completeMetricEvidence } from '../helpers/cloudwatch.js';
 
 vi.mock('../../src/providers/aws/client.js', () => ({
   createEc2Client: vi.fn(),
 }));
 
-vi.mock('../../src/providers/aws/resources/cloudwatch.js', () => ({
+vi.mock('../../src/providers/aws/resources/cloudwatch.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/providers/aws/resources/cloudwatch.js')>()),
   fetchCloudWatchSignals: vi.fn(),
 }));
 
@@ -45,8 +47,8 @@ describe('hydrateAwsEc2NatGatewayActivity', () => {
     } as never);
     mockedFetchCloudWatchSignals.mockResolvedValue(
       new Map([
-        ['natIn0', createDailyPoints(7, 0)],
-        ['natOut0', createDailyPoints(7, 0)],
+        ['natIn0', completeMetricEvidence(createDailyPoints(7, 0))],
+        ['natOut0', completeMetricEvidence(createDailyPoints(7, 0))],
       ]),
     );
 
@@ -88,8 +90,8 @@ describe('hydrateAwsEc2NatGatewayActivity', () => {
     } as never);
     mockedFetchCloudWatchSignals.mockResolvedValue(
       new Map([
-        ['natIn0', createDailyPoints(6, 0)],
-        ['natOut0', createDailyPoints(7, 0)],
+        ['natIn0', completeMetricEvidence(createDailyPoints(6, 0))],
+        ['natOut0', completeMetricEvidence(createDailyPoints(7, 0))],
       ]),
     );
 

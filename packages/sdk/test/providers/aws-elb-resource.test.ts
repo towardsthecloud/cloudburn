@@ -15,13 +15,15 @@ import {
   hydrateAwsEc2LoadBalancers,
   hydrateAwsEc2TargetGroups,
 } from '../../src/providers/aws/resources/elbv2.js';
+import { completeMetricEvidence } from '../helpers/cloudwatch.js';
 
 vi.mock('../../src/providers/aws/client.js', () => ({
   createElasticLoadBalancingClient: vi.fn(),
   createElasticLoadBalancingV2Client: vi.fn(),
 }));
 
-vi.mock('../../src/providers/aws/resources/cloudwatch.js', () => ({
+vi.mock('../../src/providers/aws/resources/cloudwatch.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/providers/aws/resources/cloudwatch.js')>()),
   fetchCloudWatchSignals: vi.fn(),
 }));
 
@@ -305,17 +307,21 @@ describe('hydrateAwsEc2LoadBalancers', () => {
       new Map([
         [
           'lb0',
-          Array.from({ length: 14 }, (_, index) => ({
-            timestamp: `2026-03-${String(index + 1).padStart(2, '0')}T00:00:00.000Z`,
-            value: 5,
-          })),
+          completeMetricEvidence(
+            Array.from({ length: 14 }, (_, index) => ({
+              timestamp: `2026-03-${String(index + 1).padStart(2, '0')}T00:00:00.000Z`,
+              value: 5,
+            })),
+          ),
         ],
         [
           'lb1',
-          Array.from({ length: 14 }, (_, index) => ({
-            timestamp: `2026-03-${String(index + 1).padStart(2, '0')}T00:00:00.000Z`,
-            value: 14,
-          })),
+          completeMetricEvidence(
+            Array.from({ length: 14 }, (_, index) => ({
+              timestamp: `2026-03-${String(index + 1).padStart(2, '0')}T00:00:00.000Z`,
+              value: 14,
+            })),
+          ),
         ],
       ]),
     );
@@ -383,12 +389,12 @@ describe('hydrateAwsEc2LoadBalancers', () => {
       new Map([
         [
           'lb0',
-          [
+          completeMetricEvidence([
             {
               timestamp: '2026-03-01T00:00:00.000Z',
               value: 5,
             },
-          ],
+          ]),
         ],
       ]),
     );

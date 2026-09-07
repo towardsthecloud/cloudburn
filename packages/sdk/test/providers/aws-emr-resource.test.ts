@@ -1,14 +1,16 @@
 import type { DescribeClusterCommand, ListInstancesCommand } from '@aws-sdk/client-emr';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createEmrClient } from '../../src/providers/aws/client.js';
 import { fetchCloudWatchSignals } from '../../src/providers/aws/resources/cloudwatch.js';
 import { hydrateAwsEmrClusterMetrics, hydrateAwsEmrClusters } from '../../src/providers/aws/resources/emr.js';
+import { completeMetricEvidence } from '../helpers/cloudwatch.js';
 
 vi.mock('../../src/providers/aws/client.js', () => ({
   createEmrClient: vi.fn(),
 }));
 
-vi.mock('../../src/providers/aws/resources/cloudwatch.js', () => ({
+vi.mock('../../src/providers/aws/resources/cloudwatch.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/providers/aws/resources/cloudwatch.js')>()),
   fetchCloudWatchSignals: vi.fn(),
 }));
 
@@ -18,6 +20,12 @@ const mockedFetchCloudWatchSignals = vi.mocked(fetchCloudWatchSignals);
 describe('EMR discovery resources', () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-17T00:30:17.123Z'));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('hydrates discovered EMR clusters from DescribeCluster and ListInstances', async () => {
@@ -108,10 +116,12 @@ describe('EMR discovery resources', () => {
       new Map([
         [
           'idle0',
-          Array.from({ length: 6 }, (_, index) => ({
-            timestamp: `2026-03-17T00:${String(index * 5).padStart(2, '0')}:00.000Z`,
-            value: 1,
-          })),
+          completeMetricEvidence(
+            Array.from({ length: 6 }, (_, index) => ({
+              timestamp: `2026-03-17T00:${String(index * 5).padStart(2, '0')}:00.000Z`,
+              value: 1,
+            })),
+          ),
         ],
       ]),
     );
@@ -135,5 +145,11 @@ describe('EMR discovery resources', () => {
         region: 'us-east-1',
       },
     ]);
+    expect(mockedFetchCloudWatchSignals).toHaveBeenCalledWith(
+      expect.objectContaining({
+        endTime: new Date('2026-03-17T00:30:00.000Z'),
+        startTime: new Date('2026-03-17T00:00:00.000Z'),
+      }),
+    );
   });
 });

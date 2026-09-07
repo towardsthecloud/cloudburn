@@ -67,6 +67,17 @@ per-run credentials, timeouts, retry handling, and shared service budgets.
 Propagate API failures to discovery orchestration. It records diagnostics and marks required evidence unavailable;
 returning an empty successful dataset can make a failed load appear to pass a rule.
 
+For CloudWatch-backed datasets, use `fetchCloudWatchSignals` from the
+[metric helper](../../packages/sdk/src/providers/aws/resources/cloudwatch.ts). Select a rolling or complete-day window
+explicitly with `cloudWatchWindow`; aggregation periods must not shift the observation window. Inspect evidence status
+through `getCompleteCloudWatchPoints`, then enforce the service's required interval coverage. Treat absent, partial,
+forbidden, and failed series as unknown. Do not fill sparse values with zero without a documented service guarantee.
+
+Keep candidate identities when metrics are unknown, using nullable metric fields or a required base inventory dataset.
+Add `getLiveEvaluationCoverage` to dependent rules so those candidates remain visible in evaluation coverage. See the
+[rules architecture](../architecture/rules.md) for the pure coverage callback and the
+[SDK metric evidence contract](../architecture/sdk.md#cloudwatch-metric-evidence) for normalization and retries.
+
 ## 4. Register the Dataset in SDK Discovery
 
 Update `packages/sdk/src/providers/aws/discovery-registry.ts` with:

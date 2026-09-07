@@ -1,4 +1,10 @@
-import { createFinding, createFindingMatch, createRule } from '../../shared/helpers.js';
+import {
+  createFinding,
+  createFindingMatch,
+  createLiveEvaluationCoverage,
+  createRule,
+  getAwsResourceScopeKey,
+} from '../../shared/helpers.js';
 
 const RULE_ID = 'CLDBRN-AWS-CLOUDFRONT-2';
 const RULE_SERVICE = 'cloudfront';
@@ -15,7 +21,26 @@ export const cloudFrontUnusedDistributionRule = createRule({
   provider: 'aws',
   service: RULE_SERVICE,
   supports: ['discovery'],
-  discoveryDependencies: ['aws-cloudfront-distribution-request-activity'],
+  discoveryDependencies: ['aws-cloudfront-distributions', 'aws-cloudfront-distribution-request-activity'],
+  getLiveEvaluationCoverage: ({ resources }) => {
+    const metricsByResource = new Map(
+      resources
+        .get('aws-cloudfront-distribution-request-activity')
+        .map((metric) => [getAwsResourceScopeKey(metric.accountId, metric.region, metric.distributionArn), metric]),
+    );
+
+    return createLiveEvaluationCoverage(
+      resources.get('aws-cloudfront-distributions'),
+      (resource) => {
+        const metric = metricsByResource.get(
+          getAwsResourceScopeKey(resource.accountId, resource.region, resource.distributionArn),
+        );
+
+        return metric?.totalRequestsLast30Days != null;
+      },
+      (resource) => createFindingMatch(resource.distributionArn, resource.region, resource.accountId),
+    );
+  },
   evaluateLive: ({ resources }) => {
     const findings = resources
       .get('aws-cloudfront-distribution-request-activity')

@@ -1,4 +1,10 @@
-import { createFinding, createFindingMatch, createRule } from '../../shared/helpers.js';
+import {
+  createFinding,
+  createFindingMatch,
+  createLiveEvaluationCoverage,
+  createRule,
+  getAwsResourceScopeKey,
+} from '../../shared/helpers.js';
 
 const RULE_ID = 'CLDBRN-AWS-EC2-5';
 const RULE_SERVICE = 'ec2';
@@ -16,7 +22,26 @@ export const ec2LowUtilizationRule = createRule({
   provider: 'aws',
   service: RULE_SERVICE,
   supports: ['discovery'],
-  discoveryDependencies: ['aws-ec2-instance-utilization'],
+  discoveryDependencies: ['aws-ec2-instances', 'aws-ec2-instance-utilization'],
+  getLiveEvaluationCoverage: ({ resources }) => {
+    const metricsByInstance = new Map(
+      resources
+        .get('aws-ec2-instance-utilization')
+        .map((metric) => [getAwsResourceScopeKey(metric.accountId, metric.region, metric.instanceId), metric] as const),
+    );
+
+    return createLiveEvaluationCoverage(
+      resources.get('aws-ec2-instances'),
+      (instance) => {
+        const metric = metricsByInstance.get(
+          getAwsResourceScopeKey(instance.accountId, instance.region, instance.instanceId),
+        );
+
+        return metric !== undefined && (metric.lowUtilizationDays >= 4 || metric.observedDays === 14);
+      },
+      (instance) => createFindingMatch(instance.instanceId, instance.region, instance.accountId),
+    );
+  },
   evaluateLive: ({ resources }) => {
     const findings = resources
       .get('aws-ec2-instance-utilization')

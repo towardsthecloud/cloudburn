@@ -1,4 +1,10 @@
-import { createFinding, createFindingMatch, createRule } from '../../shared/helpers.js';
+import {
+  createFinding,
+  createFindingMatch,
+  createLiveEvaluationCoverage,
+  createRule,
+  getAwsResourceScopeKey,
+} from '../../shared/helpers.js';
 
 const RULE_ID = 'CLDBRN-AWS-DYNAMODB-1';
 const RULE_SERVICE = 'dynamodb';
@@ -15,7 +21,26 @@ export const dynamoDbStaleTableDataRule = createRule({
   provider: 'aws',
   service: RULE_SERVICE,
   supports: ['discovery'],
-  discoveryDependencies: ['aws-dynamodb-table-utilization'],
+  discoveryDependencies: ['aws-dynamodb-tables', 'aws-dynamodb-table-utilization'],
+  getLiveEvaluationCoverage: ({ resources }) => {
+    const metricsByResource = new Map(
+      resources
+        .get('aws-dynamodb-table-utilization')
+        .map((metric) => [getAwsResourceScopeKey(metric.accountId, metric.region, metric.tableArn), metric]),
+    );
+
+    return createLiveEvaluationCoverage(
+      resources.get('aws-dynamodb-tables'),
+      (resource) => {
+        const metric = metricsByResource.get(
+          getAwsResourceScopeKey(resource.accountId, resource.region, resource.tableArn),
+        );
+
+        return metric?.totalConsumedWriteCapacityUnitsLast90Days != null;
+      },
+      (resource) => createFindingMatch(resource.tableArn, resource.region, resource.accountId),
+    );
+  },
   evaluateLive: ({ resources }) => {
     const findings = resources
       .get('aws-dynamodb-table-utilization')

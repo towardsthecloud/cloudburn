@@ -107,6 +107,7 @@ export type {
   EvaluationResourceSet,
   Finding,
   FindingMatch,
+  LiveEvaluationCoverage,
   ProviderFindingGroup,
   RegisteredRules,
   Rule,

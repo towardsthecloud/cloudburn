@@ -1,4 +1,4 @@
-import { createFinding, createFindingMatch, createRule } from '../../shared/helpers.js';
+import { createFinding, createFindingMatch, createLiveEvaluationCoverage, createRule } from '../../shared/helpers.js';
 
 const RULE_ID = 'CLDBRN-AWS-CONFIG-1';
 const RULE_SERVICE = 'config';
@@ -20,12 +20,25 @@ export const configRecordingFrequencyRule = createRule({
   service: RULE_SERVICE,
   supports: ['discovery'],
   discoveryDependencies: ['aws-config-recording-frequency-reviews'],
+  getLiveEvaluationCoverage: ({ resources }) =>
+    createLiveEvaluationCoverage(
+      resources.get('aws-config-recording-frequency-reviews'),
+      (review) =>
+        review.firewallManagerDependent ||
+        review.paidServiceLinkedRecorderDependent ||
+        (review.configurationItemsRecorded != null &&
+          review.estimatedMonthlyConfigurationItemReduction != null &&
+          review.estimatedMonthlyRecordingCostReductionUsd != null &&
+          review.turnoverEstimateReliable !== false),
+      (review) => createFindingMatch(`${review.recorderArn}#${review.resourceType}`, review.region, review.accountId),
+    ),
   evaluateLive: ({ resources }) => {
     const findings = resources
       .get('aws-config-recording-frequency-reviews')
       .filter(
         (review) =>
           review.turnoverEstimateReliable !== false &&
+          review.estimatedMonthlyRecordingCostReductionUsd !== null &&
           review.estimatedMonthlyRecordingCostReductionUsd > AWS_CONFIG_RECORDING_FREQUENCY_MINIMUM_SAVINGS_USD &&
           !review.firewallManagerDependent &&
           !review.paidServiceLinkedRecorderDependent,

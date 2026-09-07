@@ -84,6 +84,10 @@ describe('rule metadata', () => {
           catalog: { resources: [], searchRegion: 'us-east-1', indexType: 'LOCAL' },
           resources,
         });
+        rule.getLiveEvaluationCoverage?.({
+          catalog: { resources: [], searchRegion: 'us-east-1', indexType: 'LOCAL' },
+          resources,
+        });
 
         expect(get.mock.calls.length, rule.id).toBeGreaterThan(0);
         // The SDK uses Lambda inventory to report evaluation coverage, even though this evaluator reads only recommendations.

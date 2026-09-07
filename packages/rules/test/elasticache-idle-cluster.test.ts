@@ -25,6 +25,44 @@ const createActivity = (overrides: Partial<AwsElastiCacheClusterActivity> = {}):
 });
 
 describe('elastiCacheIdleClusterRule', () => {
+  it.each([
+    { accountId: '123456789012', region: 'us-west-2' },
+    { accountId: '210987654321', region: 'us-east-1' },
+  ])('keeps findings aligned with assessment for same-named clusters in $accountId/$region', (otherScope) => {
+    const context = {
+      catalog: { indexType: 'LOCAL' as const, resources: [], searchRegion: 'us-east-1' },
+      resources: new LiveResourceBag({
+        'aws-elasticache-cluster-activity': [createActivity()],
+        'aws-elasticache-clusters': [createCluster(), createCluster(otherScope)],
+      }),
+    };
+
+    expect(elastiCacheIdleClusterRule.evaluateLive?.(context)?.findings).toEqual([
+      { accountId: '123456789012', region: 'us-east-1', resourceId: 'cache-prod' },
+    ]);
+    expect(elastiCacheIdleClusterRule.getLiveEvaluationCoverage?.(context)).toEqual({
+      assessed: [{ accountId: '123456789012', region: 'us-east-1', resourceId: 'cache-prod' }],
+      unknown: [{ ...otherScope, resourceId: 'cache-prod' }],
+    });
+  });
+
+  it('retains an idle finding when a same-named cluster in another Region is being modified', () => {
+    const context = {
+      catalog: { indexType: 'LOCAL' as const, resources: [], searchRegion: 'us-east-1' },
+      resources: new LiveResourceBag({
+        'aws-elasticache-cluster-activity': [createActivity()],
+        'aws-elasticache-clusters': [
+          createCluster(),
+          createCluster({ cacheClusterStatus: 'modifying', region: 'us-west-2' }),
+        ],
+      }),
+    };
+
+    expect(elastiCacheIdleClusterRule.evaluateLive?.(context)?.findings).toEqual([
+      { accountId: '123456789012', region: 'us-east-1', resourceId: 'cache-prod' },
+    ]);
+  });
+
   it('flags available clusters with low hit rates and fewer than 2 average connections', () => {
     const finding = elastiCacheIdleClusterRule.evaluateLive?.({
       catalog: {
