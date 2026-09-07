@@ -19,9 +19,11 @@ Three test layers, all in `packages/rules/test/`:
 | **3. Evaluator behavior** | `{rule-name}.test.ts`   | Full finding payloads for both `evaluateLive` and `evaluateStatic`, plus negative cases   |
 
 Keep catalog invariants and semantic metadata policies in `rule-metadata.test.ts`. It runs each evaluator with empty
-resource bags and checks that every dataset read was declared. SDK export tests verify those declared datasets have
-registered loaders. Evaluator fixtures cover data-dependent reads and complete findings. Avoid copying every rule's
-name, description, and dependency list into a second declaration-shaped snapshot; keep exact assertions for decisions
+resource bags and checks that dataset reads match declarations in both directions, rejecting undeclared reads and
+unused declarations. Lambda memory recommendations also require inventory for SDK evaluation coverage; an explicit
+assertion pins that dependency pair. SDK export tests verify declared datasets have registered loaders. Evaluator
+fixtures cover data-dependent reads and complete findings. Avoid copying every rule's name, description, and dependency
+list into a second declaration-shaped snapshot; keep exact assertions for decisions
 such as optional evidence or finding precedence.
 
 For static IaC rules, evaluator coverage must include both Terraform-shaped and CloudFormation-shaped resources. A passing test suite for only one source kind is incomplete.

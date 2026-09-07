@@ -68,8 +68,8 @@ describe('rule metadata', () => {
     }
   });
 
-  it('declares the datasets its evaluators read', () => {
-    // Trace empty-input lookups here; evaluator fixtures retain coverage of data-dependent branches.
+  it('declares exactly the datasets used by evaluators or SDK coverage', () => {
+    // Empty-input lookups consume all current evaluator dependencies; fixtures cover data-dependent behavior.
     for (const rule of awsRules) {
       if (rule.evaluateLive) {
         const required = rule.discoveryDependencies ?? [];
@@ -86,9 +86,9 @@ describe('rule metadata', () => {
         });
 
         expect(get.mock.calls.length, rule.id).toBeGreaterThan(0);
-        for (const [key] of get.mock.calls) {
-          expect(declared, `${rule.id} reads ${key}`).toContain(key);
-        }
+        // The SDK uses Lambda inventory to report evaluation coverage, even though this evaluator reads only recommendations.
+        const coverageOnly = rule.id === 'CLDBRN-AWS-LAMBDA-4' ? ['aws-lambda-functions'] : [];
+        expect(new Set([...get.mock.calls.map(([key]) => key), ...coverageOnly]), rule.id).toEqual(new Set(declared));
       }
       if (rule.evaluateStatic) {
         const declared = rule.staticDependencies ?? [];
@@ -100,9 +100,7 @@ describe('rule metadata', () => {
         rule.evaluateStatic({ resources });
 
         expect(get.mock.calls.length, rule.id).toBeGreaterThan(0);
-        for (const [key] of get.mock.calls) {
-          expect(declared, `${rule.id} reads ${key}`).toContain(key);
-        }
+        expect(new Set(get.mock.calls.map(([key]) => key)), rule.id).toEqual(new Set(declared));
       }
     }
   });
