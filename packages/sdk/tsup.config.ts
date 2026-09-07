@@ -5,5 +5,6 @@ export default defineConfig({
   format: ['esm', 'cjs'],
   dts: true,
   target: 'node24',
+  removeNodeProtocol: false,
   clean: true,
 });
