@@ -1,5 +1,14 @@
 # cloudburn
 
+## 0.18.1
+
+### Patch Changes
+
+- [#255](https://github.com/towardsthecloud/cloudburn/pull/255) [`b4eff84`](https://github.com/towardsthecloud/cloudburn/commit/b4eff8413f465037eba952b5402582eb5a6fbaaa) Thanks [@axonstone](https://github.com/axonstone)! - Reduce help, version, and static scan startup overhead by using the SDK's deferred AWS imports. Preserve command registration, output, option validation, and exit codes.
+
+- Updated dependencies [[`b4eff84`](https://github.com/towardsthecloud/cloudburn/commit/b4eff8413f465037eba952b5402582eb5a6fbaaa)]:
+  - @cloudburn/sdk@0.35.1
+
 ## 0.18.0
 
 ### Minor Changes

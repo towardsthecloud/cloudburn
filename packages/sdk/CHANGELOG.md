@@ -1,5 +1,11 @@
 # @cloudburn/sdk
 
+## 0.35.1
+
+### Patch Changes
+
+- [#255](https://github.com/towardsthecloud/cloudburn/pull/255) [`b4eff84`](https://github.com/towardsthecloud/cloudburn/commit/b4eff8413f465037eba952b5402582eb5a6fbaaa) Thanks [@axonstone](https://github.com/axonstone)! - Defer live AWS imports until discovery operations need them. Static scans and package imports avoid AWS client and credential-provider loading, while preserving ESM/CommonJS exports, synchronous helpers, and managed credential and cancellation contexts.
+
 ## 0.35.0
 
 ### Minor Changes
