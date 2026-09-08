@@ -21,7 +21,9 @@ version command, or publish command during feature work.
 ## Automated release flow
 
 On `main`, the release workflow uses Changesets to create or update a `chore: version packages` pull request, then applies
-the repository's `release` label. Merging that pull request runs `pnpm release`, which verifies the repository,
+the repository's existing `release` label. Maintainers must create this label in the repository. Labeling failures are
+non-fatal so missing labels or temporary API errors do not fail a successful release run.
+Merging that pull request runs `pnpm release`, which verifies the repository,
 force-builds packages, and publishes changed packages to npm. When the `cloudburn` CLI is published, the same workflow
 updates its formula in the Homebrew tap from the npm tarball.
 

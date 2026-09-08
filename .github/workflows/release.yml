@@ -50,6 +50,7 @@ jobs:
 
       - name: Label release pull request
         if: steps.changesets.outputs.pullRequestNumber != ''
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ steps.changesets.outputs.pullRequestNumber }}
