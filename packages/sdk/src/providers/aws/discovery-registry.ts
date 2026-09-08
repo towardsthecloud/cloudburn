@@ -586,7 +586,8 @@ const awsDiscoveryDatasetRegistry: {
     datasetKey: 'aws-ecr-repositories',
     dependencies: [],
     schemaVersion: '1',
-    loaderVersion: '1',
+    // Version 2 recognizes age-based tagged retention caps (`sinceImagePulled`, `sinceImageTransitioned`).
+    loaderVersion: '2',
     freshness: { ttlMs: 600_000, observation: { kind: 'current' } },
     resourceTypes: ['ecr:repository'],
     service: 'ecr',
@@ -831,8 +832,9 @@ const awsDiscoveryDatasetRegistry: {
   'aws-lambda-function-metrics': {
     datasetKey: 'aws-lambda-function-metrics',
     dependencies: ['aws-lambda-functions'],
-    schemaVersion: '1',
-    loaderVersion: '1',
+    // Version 2 adds the required `assessment` and retains analyzed and unavailable functions.
+    schemaVersion: '2',
+    loaderVersion: '2',
     freshness: { ttlMs: 300_000, observation: { kind: 'window', lookbackMs: 7 * 86_400_000, alignmentMs: 60_000 } },
     resourceTypes: ['lambda:function'],
     service: 'lambda',
@@ -842,8 +844,9 @@ const awsDiscoveryDatasetRegistry: {
     datasetKey: 'aws-lambda-memory-recommendations',
     // The memory rule reports coverage over the function inventory, so evidence assessment needs both datasets.
     dependencies: ['aws-lambda-functions'],
-    schemaVersion: '1',
-    loaderVersion: '1',
+    // Version 2 adds the required `assessment` and retains analyzed and unavailable functions.
+    schemaVersion: '2',
+    loaderVersion: '2',
     freshness: { ttlMs: 600_000, observation: { kind: 'current' } },
     resourceTypes: ['lambda:function'],
     service: 'lambda',
