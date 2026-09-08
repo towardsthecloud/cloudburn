@@ -83,7 +83,7 @@ const auditableResult = await client.discover({
 });
 ```
 
-`discover()` has a five-minute total deadline. Set `timeoutMs` to allow a longer run, or pass an `AbortSignal` to cancel it:
+`discover()`, `getDiscoveryStatus()`, `initializeDiscovery()`, and `listSupportedDiscoveryResourceTypes()` each have a five-minute total deadline. All accept the additive `AwsDiscoveryExecutionOptions`: `timeoutMs`, `signal`, and `aws.credentials`. Set `timeoutMs` to allow a longer operation, or pass an `AbortSignal` to cancel it:
 
 ```typescript
 const controller = new AbortController();
@@ -94,9 +94,9 @@ const result = await client.discover({
 });
 ```
 
-An expired deadline rejects with `TimeoutError`; cancellation rejects with the signal's reason. Both stop queued requests, retry waits, and active AWS requests without returning partial findings. AWS clients and lookup caches belong to one run and are released when it ends.
+An expired deadline rejects with `TimeoutError`; cancellation rejects with the signal's reason. Both stop queued regions, pagination, setup polls, retry waits, and active AWS or public-pricing HTTP requests without returning partial results. Cancellation during initialization stops further setup work; mutations already accepted by AWS remain in place and a later initialization observes that state. AWS clients and lookup caches belong to one run and are released when it ends.
 
-Collector requests share AWS quota limits across scans and independent SDK or CLI processes running as the same OS
+Catalog, control-plane, and collector requests share AWS quota limits across operations and independent SDK or CLI processes running as the same OS
 user. Quotas use the signing caller's account, resolved once per run. If that lookup fails, collectors continue with
 isolated in-memory limits for that run. Shared coordination requires writable local storage. It uses `$XDG_CACHE_HOME/cloudburn/aws-admission-v1` when configured,
 or `~/.cache/cloudburn/aws-admission-v1`, with a shared temporary-directory fallback when a new default cache cannot be
@@ -104,6 +104,13 @@ created. Set `CLOUDBURN_AWS_ADMISSION_DIR` to choose a shared writable path for 
 Existing state errors fail without bypassing coordination. `CLOUDBURN_AWS_QUOTA_OVERRIDES` accepts JSON policies such as
 `{"logs:DescribeLogStreams":{"ratePerSecond":5,"burst":1}}`. See [AWS request scheduling](../../docs/reference/aws-request-scheduling.md)
 for defaults, retry behavior, telemetry, and coordination limits.
+
+Status inspects up to 5 regions concurrently and returns regions sorted by name. Regional status probes make at most
+2 attempts so persistent throttling or transport failures yield status evidence promptly. Initialization retains its existing
+setup verification, local fallback, and default-view tag behavior. Normal discovery and status remain read-only.
+The initial STS identity request uses a separate bounded in-memory budget because the account is not yet known;
+subsequent requests use the resolved account. Transit Gateway public pricing keeps its own 5-second timeout within
+the operation deadline. A pricing-only failure leaves activity evidence usable.
 
 `discover()` defaults to the current AWS region and the AWS Core preset. You can also target one or more explicit AWS regions with `{ target: { mode: 'regions', regions: [...] } }`. Multi-region discovery requires an AWS Resource Explorer aggregator index. Rules that need explicit AWS setup are opt-in through `config.discovery.enabledRules`. `CLDBRN-AWS-TAGGING-1` needs an accessible aggregator, `CLDBRN-AWS-LAMBDA-4` needs AWS Compute Optimizer enrollment, and `CLDBRN-AWS-COSTOPTIMIZATIONHUB-1` needs AWS Cost Optimization Hub enrollment.
 

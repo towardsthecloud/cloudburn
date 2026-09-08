@@ -86,6 +86,22 @@ it.each([
   });
 });
 
+it.each([
+  'ListIndexes',
+  'GetDefaultView',
+  'GetView',
+  'GetIndex',
+  'CreateResourceExplorerSetup',
+  'GetResourceExplorerSetup',
+  'UpdateIndexType',
+  'UpdateView',
+  'ListSupportedResourceTypes',
+])('shares the regional non-search budget for Resource Explorer %s', (operation) => {
+  expect(resolveAwsRequestQuota('AWS Resource Explorer', operation, 'eu-west-1', ACCOUNT_ID)).toEqual(
+    resolveAwsRequestQuota('AWS Resource Explorer', 'ListResources', 'eu-west-1', ACCOUNT_ID),
+  );
+});
+
 it('applies overrides by canonical quota group without changing unrelated policies', () => {
   const overrides = {
     'logs:DescribeLogStreams': { ratePerSecond: 2, burst: 2, concurrency: 2, retryCapacity: 0 },

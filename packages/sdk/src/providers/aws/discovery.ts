@@ -38,7 +38,7 @@ import {
   waitForAwsResourceExplorerIndex,
   waitForAwsResourceExplorerSetup,
 } from './resource-explorer.js';
-import { mapWithConcurrency, withAwsServiceCallBudget } from './resources/utils.js';
+import { mapWithConcurrency } from './resources/utils.js';
 
 const sortUnique = (values: string[]): string[] =>
   [...new Set(values)].sort((left, right) => left.localeCompare(right));
@@ -530,36 +530,22 @@ export const discoverAwsResources = async (
     datasetLoadPromises.set(cacheKey, loadPromise as Promise<AwsDiscoveryDatasetLoad>);
     return loadPromise;
   };
-  // All datasets load in parallel, so the shared budget caps the combined
-  // in-flight AWS calls per service and region for the whole run.
+  // The public operation owns one budget spanning catalog and dataset loads.
   let completedDatasets = 0;
-  const { allDatasetLoads, datasetLoads } = await withAwsServiceCallBudget(
-    async () => {
-      const requestedLoads = await Promise.all(
-        datasetKeys.map(async (datasetKey) => {
-          const loadResult = await loadDataset(datasetKey);
-          completedDatasets += 1;
-          options?.onProgress?.({
-            kind: 'dataset',
-            completedDatasets,
-            datasetKey,
-            totalDatasets: datasetKeys.length,
-          });
-
-          return loadResult;
-        }),
-      );
-
-      return {
-        allDatasetLoads: await Promise.all([...loadedDatasetKeys].map((key) => loadDataset(key))),
-        datasetLoads: requestedLoads,
-      };
-    },
-    {
-      accountId: catalog.resources[0]?.accountId,
-      resolveAccountId,
-    },
+  const datasetLoads = await Promise.all(
+    datasetKeys.map(async (datasetKey) => {
+      const loadResult = await loadDataset(datasetKey);
+      completedDatasets += 1;
+      options?.onProgress?.({
+        kind: 'dataset',
+        completedDatasets,
+        datasetKey,
+        totalDatasets: datasetKeys.length,
+      });
+      return loadResult;
+    }),
   );
+  const allDatasetLoads = await Promise.all([...loadedDatasetKeys].map((key) => loadDataset(key)));
   const resources = new LiveResourceBag(
     Object.fromEntries(datasetLoads.map((loadResult) => loadResult.dataset)) as Partial<DiscoveryDatasetMap>,
   );
@@ -606,7 +592,10 @@ export const getAwsDiscoveryStatus = async (
   emitDebugLog(debugLogger, `aws: collecting discovery status from control region ${selectedRegion}`);
   const enabledRegions = await listEnabledAwsRegions(selectedRegion);
   emitDebugLog(debugLogger, `aws: inspecting discovery status across ${enabledRegions.length} enabled regions`);
-  const statuses = await Promise.all(enabledRegions.map((enabledRegion) => getAwsDiscoveryRegionStatus(enabledRegion)));
+  const statuses = await mapWithConcurrency(enabledRegions, 5, (enabledRegion) => {
+    throwIfAwsExecutionAborted();
+    return getAwsDiscoveryRegionStatus(enabledRegion);
+  });
   const orderedStatuses = [...statuses].sort((left, right) => left.region.localeCompare(right.region));
   const indexedRegionCount = orderedStatuses.filter((status) => status.status === 'indexed').length;
   const accessibleRegionCount = orderedStatuses.filter(

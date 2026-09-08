@@ -30,12 +30,7 @@ import {
   listEnabledAwsRegions,
   resolveCurrentAwsRegion,
 } from './client.js';
-import {
-  AwsDiscoveryError,
-  isAwsAccessDeniedError,
-  RESOURCE_EXPLORER_SETUP_DOCS_URL,
-  wrapAwsServiceError,
-} from './errors.js';
+import { AwsDiscoveryError, isAwsAccessDeniedError, RESOURCE_EXPLORER_SETUP_DOCS_URL } from './errors.js';
 import { memoizeAwsExecution, throwIfAwsExecutionAborted, waitForAwsDelay } from './execution.js';
 import { mapWithConcurrency, withAwsServiceErrorContext } from './resources/utils.js';
 
@@ -135,12 +130,6 @@ const isResourceNotFoundError = (err: unknown): boolean => {
   return candidates.some((value) => value.includes('resourcenotfound') || value.includes('not found'));
 };
 
-const throwResourceExplorerOperationError = (err: unknown, operation: string, region: string): never => {
-  throwIfAwsExecutionAborted();
-  if (err instanceof AwsDiscoveryError) throw err;
-  throw wrapAwsServiceError(err, 'AWS Resource Explorer', operation, region);
-};
-
 const mapProperties = (properties: ResourceProperty[] | undefined): AwsDiscoveredResource['properties'] =>
   (properties ?? []).map((property) => ({
     data: property.Data,
@@ -197,11 +186,13 @@ const listIndexesForRegion = async (region: string, regions?: string[]): Promise
     let nextToken: string | undefined;
 
     do {
-      const response = await client.send(
-        new ListIndexesCommand({
-          NextToken: nextToken,
-          ...(normalizedRegions ? { Regions: normalizedRegions } : {}),
-        }),
+      const response = await withAwsServiceErrorContext('AWS Resource Explorer', 'ListIndexes', validRegion, () =>
+        client.send(
+          new ListIndexesCommand({
+            NextToken: nextToken,
+            ...(normalizedRegions ? { Regions: normalizedRegions } : {}),
+          }),
+        ),
       );
       const mapped = (response.Indexes ?? []).flatMap((index) => {
         const normalized = mapIndex(index);
@@ -225,13 +216,16 @@ const getAwsResourceExplorerIndex = async (region: string): Promise<AwsResourceE
   } | null = null;
 
   try {
-    response = await client.send(new GetIndexCommand({}));
+    response = await withAwsServiceErrorContext('AWS Resource Explorer', 'GetIndex', validRegion, () =>
+      client.send(new GetIndexCommand({})),
+    );
   } catch (err: unknown) {
+    throwIfAwsExecutionAborted();
     if (isResourceNotFoundError(err)) {
       return null;
     }
 
-    throwResourceExplorerOperationError(err, 'GetIndex', validRegion);
+    throw err;
   }
 
   if (!response?.Arn || !response.Type) {
@@ -248,9 +242,7 @@ const getAwsResourceExplorerIndex = async (region: string): Promise<AwsResourceE
 
 const resolveRegionalSearchPlan = async (requestedRegion: string): Promise<SearchPlan> => {
   const validRequestedRegion = assertValidAwsRegion(requestedRegion);
-  const requestedIndexes = await listIndexesForRegion(validRequestedRegion, [validRequestedRegion]).catch(
-    (err: unknown) => throwResourceExplorerOperationError(err, 'ListIndexes', validRequestedRegion),
-  );
+  const requestedIndexes = await listIndexesForRegion(validRequestedRegion, [validRequestedRegion]);
 
   const requestedIndex = requestedIndexes.find((index) => index.region === validRequestedRegion);
 
@@ -287,15 +279,12 @@ const listIndexesForAggregatorLookup = async (region: string): Promise<Aggregato
       indexes: await listIndexesForRegion(region, [region]),
     };
   } catch (err: unknown) {
+    throwIfAwsExecutionAborted();
     if (isAwsAccessDeniedError(err) || isUnsupportedRegionError(err)) {
       return { kind: 'skipped' };
     }
 
-    if (err instanceof AwsDiscoveryError) {
-      throw err;
-    }
-
-    throw wrapAwsServiceError(err, 'AWS Resource Explorer', 'ListIndexes', region);
+    throw err;
   }
 };
 
@@ -498,9 +487,12 @@ const getDefaultResourceExplorerView = async (
 }> =>
   memoizeAwsExecution(JSON.stringify(['resource-explorer-view', searchRegion]), async () => {
     const client = createResourceExplorerClient({ region: searchRegion });
-    const defaultViewResponse = await client
-      .send(new GetDefaultViewCommand({}))
-      .catch((err: unknown) => throwResourceExplorerOperationError(err, 'GetDefaultView', searchRegion));
+    const defaultViewResponse = await withAwsServiceErrorContext(
+      'AWS Resource Explorer',
+      'GetDefaultView',
+      searchRegion,
+      () => client.send(new GetDefaultViewCommand({})),
+    );
     const viewArn = defaultViewResponse.ViewArn;
 
     if (!viewArn) {
@@ -510,13 +502,13 @@ const getDefaultResourceExplorerView = async (
       );
     }
 
-    const viewResponse = await client
-      .send(
+    const viewResponse = await withAwsServiceErrorContext('AWS Resource Explorer', 'GetView', searchRegion, () =>
+      client.send(
         new GetViewCommand({
           ViewArn: viewArn,
         }),
-      )
-      .catch((err: unknown) => throwResourceExplorerOperationError(err, 'GetView', searchRegion));
+      ),
+    );
 
     return { client, view: viewResponse.View, viewArn };
   });
@@ -624,12 +616,17 @@ export const listAwsDiscoveryIndexes = async (controlRegion?: string): Promise<A
 export const getAwsDiscoveryRegionStatus = async (region: string): Promise<AwsDiscoveryRegionStatus> => {
   const validRegion = assertValidAwsRegion(region);
   const client = createResourceExplorerClient({ region: validRegion });
+  // Status is best-effort evidence; keep failed probes from occupying regional
+  // workers for the full catalog/collector retry budget.
+  const requestOptions = { maxAttempts: 2 };
 
   try {
-    const response = await client.send(
-      new ListIndexesCommand({
-        Regions: [validRegion],
-      }),
+    const response = await withAwsServiceErrorContext(
+      'AWS Resource Explorer',
+      'ListIndexes',
+      validRegion,
+      () => client.send(new ListIndexesCommand({ Regions: [validRegion] })),
+      requestOptions,
     );
     const matchedIndex = (response.Indexes ?? [])
       .flatMap((index) => {
@@ -646,7 +643,13 @@ export const getAwsDiscoveryRegionStatus = async (region: string): Promise<AwsDi
     }
 
     try {
-      const defaultViewResponse = await client.send(new GetDefaultViewCommand({}));
+      const defaultViewResponse = await withAwsServiceErrorContext(
+        'AWS Resource Explorer',
+        'GetDefaultView',
+        validRegion,
+        () => client.send(new GetDefaultViewCommand({})),
+        requestOptions,
+      );
       const viewArn = defaultViewResponse.ViewArn;
 
       if (!viewArn) {
@@ -660,10 +663,12 @@ export const getAwsDiscoveryRegionStatus = async (region: string): Promise<AwsDi
         };
       }
 
-      const viewResponse = await client.send(
-        new GetViewCommand({
-          ViewArn: viewArn,
-        }),
+      const viewResponse = await withAwsServiceErrorContext(
+        'AWS Resource Explorer',
+        'GetView',
+        validRegion,
+        () => client.send(new GetViewCommand({ ViewArn: viewArn })),
+        requestOptions,
       );
       const filterString = viewResponse.View?.Filters?.FilterString?.trim();
 
@@ -686,6 +691,7 @@ export const getAwsDiscoveryRegionStatus = async (region: string): Promise<AwsDi
         viewStatus: 'present',
       };
     } catch (err) {
+      throwIfAwsExecutionAborted();
       return {
         region: validRegion,
         indexType: matchedIndex.type,
@@ -697,6 +703,7 @@ export const getAwsDiscoveryRegionStatus = async (region: string): Promise<AwsDi
       };
     }
   } catch (err) {
+    throwIfAwsExecutionAborted();
     if (isAwsAccessDeniedError(err)) {
       return {
         region: validRegion,
@@ -747,11 +754,17 @@ export const waitForAwsResourceExplorerSetup = async (
     let nextToken: string | undefined;
 
     do {
-      const response = await client.send(
-        new GetResourceExplorerSetupCommand({
-          NextToken: nextToken,
-          TaskId: taskId,
-        }),
+      const response = await withAwsServiceErrorContext(
+        'AWS Resource Explorer',
+        'GetResourceExplorerSetup',
+        validRegion,
+        () =>
+          client.send(
+            new GetResourceExplorerSetupCommand({
+              NextToken: nextToken,
+              TaskId: taskId,
+            }),
+          ),
       );
 
       for (const regionStatus of response.Regions ?? []) {
@@ -937,16 +950,16 @@ export const ensureAwsResourceExplorerDefaultViewIncludesTags = async (region: s
   }
 
   includedPropertyNames.add('tags');
-  await client
-    .send(
+  await withAwsServiceErrorContext('AWS Resource Explorer', 'UpdateView', validRegion, () =>
+    client.send(
       new UpdateViewCommand({
         IncludedProperties: [...includedPropertyNames]
           .sort((left, right) => left.localeCompare(right))
           .map((name) => ({ Name: name })),
         ViewArn: viewArn,
       }),
-    )
-    .catch((err: unknown) => throwResourceExplorerOperationError(err, 'UpdateView', validRegion));
+    ),
+  );
 };
 
 /**
@@ -974,12 +987,16 @@ export const createAwsResourceExplorerSetup = async (
     ),
   ].sort((left, right) => left.localeCompare(right));
   const client = createResourceExplorerClient({ region: setupRegion });
-  const response = await client.send(
-    new CreateResourceExplorerSetupCommand({
-      ...(validAggregatorRegion ? { AggregatorRegions: [validAggregatorRegion] } : {}),
-      RegionList: normalizedRegions,
-      ViewName: DEFAULT_RESOURCE_EXPLORER_VIEW_NAME,
-    }),
+  const command = new CreateResourceExplorerSetupCommand({
+    ...(validAggregatorRegion ? { AggregatorRegions: [validAggregatorRegion] } : {}),
+    RegionList: normalizedRegions,
+    ViewName: DEFAULT_RESOURCE_EXPLORER_VIEW_NAME,
+  });
+  const response = await withAwsServiceErrorContext(
+    'AWS Resource Explorer',
+    'CreateResourceExplorerSetup',
+    setupRegion,
+    () => client.send(command),
   );
 
   return {
@@ -1013,14 +1030,14 @@ export const updateAwsResourceExplorerIndexType = async (
   }
 
   const client = createResourceExplorerClient({ region: validRegion });
-  const response = await client
-    .send(
+  const response = await withAwsServiceErrorContext('AWS Resource Explorer', 'UpdateIndexType', validRegion, () =>
+    client.send(
       new UpdateIndexTypeCommand({
         Arn: index.arn,
         Type: type === 'aggregator' ? 'AGGREGATOR' : 'LOCAL',
       }),
-    )
-    .catch((err: unknown) => throwResourceExplorerOperationError(err, 'UpdateIndexType', validRegion));
+    ),
+  );
 
   return {
     region: validRegion,
@@ -1071,7 +1088,12 @@ export const listAwsDiscoverySupportedResourceTypes = async (): Promise<AwsSuppo
   let nextToken: string | undefined;
 
   do {
-    const response = await client.send(new ListSupportedResourceTypesCommand({ NextToken: nextToken }));
+    const response = await withAwsServiceErrorContext(
+      'AWS Resource Explorer',
+      'ListSupportedResourceTypes',
+      currentRegion,
+      () => client.send(new ListSupportedResourceTypesCommand({ NextToken: nextToken })),
+    );
     const mapped = (response.ResourceTypes ?? []).flatMap((resourceType) => {
       const normalized = mapSupportedResourceType(resourceType);
       return normalized ? [normalized] : [];
