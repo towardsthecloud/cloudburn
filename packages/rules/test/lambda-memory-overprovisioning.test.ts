@@ -80,40 +80,4 @@ describe('lambdaMemoryOverprovisioningRule', () => {
 
     expect(finding).toBeNull();
   });
-
-  it('reports functions without a usable Compute Optimizer result as unknown coverage', () => {
-    const coverage = lambdaMemoryOverprovisioningRule.getLiveEvaluationCoverage?.(
-      context({
-        'aws-lambda-functions': [
-          createFunction('overprovisioned'),
-          createFunction('optimized'),
-          createFunction('insufficient-data'),
-          createFunction('pending'),
-          createFunction('no-arn', { functionArn: undefined }),
-        ],
-        'aws-lambda-memory-recommendations': [
-          createRecommendation({ functionArn: functionArn('overprovisioned') }),
-          createRecommendation({ assessment: 'not_overprovisioned', functionArn: functionArn('optimized') }),
-          createRecommendation({ assessment: 'unavailable', functionArn: functionArn('insufficient-data') }),
-        ],
-      }),
-    );
-
-    expect(coverage).toEqual({
-      assessed: [match('overprovisioned'), match('optimized')],
-      unknown: [
-        match('insufficient-data'),
-        match('pending'),
-        { accountId, region, resourceId: 'no-arn', resourceType: 'lambda:function' },
-      ],
-    });
-  });
-
-  it('reports every discovered function as unknown when Compute Optimizer returned nothing', () => {
-    const coverage = lambdaMemoryOverprovisioningRule.getLiveEvaluationCoverage?.(
-      context({ 'aws-lambda-functions': [createFunction('pending')], 'aws-lambda-memory-recommendations': [] }),
-    );
-
-    expect(coverage).toEqual({ assessed: [], unknown: [match('pending')] });
-  });
 });

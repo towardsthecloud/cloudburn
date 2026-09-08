@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type {
   AwsLambdaFunction,
   AwsLambdaFunctionMetric,
+  AwsLambdaMemoryRecommendation,
   DiscoveryDatasetMap,
   LiveEvaluationContext,
 } from '../src/index.js';
@@ -42,6 +43,66 @@ const lambdaMetric = (
   totalErrorsLast7Days: 20,
   totalInvocationsLast7Days: 100,
   ...overrides,
+});
+
+describe('Compute Optimizer memory recommendation coverage', () => {
+  const functionArn = (functionName: string) => `arn:aws:lambda:us-east-1:123456789012:function:${functionName}`;
+  const recommendation = (functionName: string, assessment: AwsLambdaMemoryRecommendation['assessment']) => ({
+    ...scope,
+    assessment,
+    functionArn: functionArn(functionName),
+  });
+  const functionMatch = (functionName: string) => ({
+    ...match(functionArn(functionName)),
+    resourceType: 'lambda:function',
+  });
+
+  it('assesses only functions with an analyzed Compute Optimizer result', () => {
+    const input = context({
+      'aws-lambda-functions': ['overprovisioned', 'optimized', 'insufficient-data', 'pending'].map((name) =>
+        lambdaFunction(name, { functionArn: functionArn(name) }),
+      ),
+      'aws-lambda-memory-recommendations': [
+        recommendation('overprovisioned', 'memory_overprovisioned'),
+        recommendation('optimized', 'not_overprovisioned'),
+        recommendation('insufficient-data', 'unavailable'),
+      ],
+    });
+
+    expect(rule('CLDBRN-AWS-LAMBDA-4').getLiveEvaluationCoverage?.(input)).toEqual({
+      assessed: [functionMatch('overprovisioned'), functionMatch('optimized')],
+      unknown: [functionMatch('insufficient-data'), functionMatch('pending')],
+    });
+  });
+
+  it('keeps functions unknown when Compute Optimizer returned nothing or the inventory lacks an ARN', () => {
+    const input = context({
+      'aws-lambda-functions': [
+        lambdaFunction('pending', { functionArn: functionArn('pending') }),
+        lambdaFunction('no-arn'),
+      ],
+      'aws-lambda-memory-recommendations': [],
+    });
+
+    expect(rule('CLDBRN-AWS-LAMBDA-4').getLiveEvaluationCoverage?.(input)).toEqual({
+      assessed: [],
+      unknown: [functionMatch('pending'), { ...match('no-arn'), resourceType: 'lambda:function' }],
+    });
+  });
+
+  it('scopes recommendation evidence to the function account and Region', () => {
+    const input = context({
+      'aws-lambda-functions': [lambdaFunction('shared', { functionArn: functionArn('shared') })],
+      'aws-lambda-memory-recommendations': [
+        { ...recommendation('shared', 'not_overprovisioned'), accountId: '210987654321' },
+      ],
+    });
+
+    expect(rule('CLDBRN-AWS-LAMBDA-4').getLiveEvaluationCoverage?.(input)).toEqual({
+      assessed: [],
+      unknown: [functionMatch('shared')],
+    });
+  });
 });
 
 describe('live metric evaluation coverage', () => {

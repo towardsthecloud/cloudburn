@@ -840,7 +840,8 @@ const awsDiscoveryDatasetRegistry: {
   },
   'aws-lambda-memory-recommendations': {
     datasetKey: 'aws-lambda-memory-recommendations',
-    dependencies: [],
+    // The memory rule reports coverage over the function inventory, so evidence assessment needs both datasets.
+    dependencies: ['aws-lambda-functions'],
     schemaVersion: '1',
     loaderVersion: '1',
     freshness: { ttlMs: 600_000, observation: { kind: 'current' } },

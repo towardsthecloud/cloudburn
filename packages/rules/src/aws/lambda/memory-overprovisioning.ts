@@ -1,5 +1,11 @@
-import { createFinding, createFindingMatch, createLiveEvaluationCoverage, createRule } from '../../shared/helpers.js';
-import type { AwsLambdaMemoryRecommendation, FindingMatch } from '../../shared/metadata.js';
+import {
+  createFinding,
+  createFindingMatch,
+  createLiveEvaluationCoverage,
+  createRule,
+  getAwsResourceScopeKey,
+} from '../../shared/helpers.js';
+import type { FindingMatch } from '../../shared/metadata.js';
 
 const RULE_ID = 'CLDBRN-AWS-LAMBDA-4';
 const RULE_SERVICE = 'lambda';
@@ -11,11 +17,6 @@ const toFunctionMatch = (functionArn: string, region: string, accountId: string)
   ...createFindingMatch(functionArn, region, accountId),
   resourceType: LAMBDA_FUNCTION_RESOURCE_TYPE,
 });
-
-const toRecommendationsByFunctionArn = (
-  recommendations: readonly AwsLambdaMemoryRecommendation[],
-): Map<string, AwsLambdaMemoryRecommendation> =>
-  new Map(recommendations.map((recommendation) => [recommendation.functionArn, recommendation] as const));
 
 /** Flag Lambda functions that AWS Compute Optimizer identifies as memory-overprovisioned. */
 export const lambdaMemoryOverprovisioningRule = createRule({
@@ -32,16 +33,20 @@ export const lambdaMemoryOverprovisioningRule = createRule({
   // A function is assessed only when Compute Optimizer returned a usable memory result for it. Functions that are
   // absent from the recommendation dataset, or returned without a finding, remain unknown.
   getLiveEvaluationCoverage: ({ resources }) => {
-    const recommendationsByFunctionArn = toRecommendationsByFunctionArn(
-      resources.get('aws-lambda-memory-recommendations'),
+    const assessedFunctionKeys = new Set(
+      resources
+        .get('aws-lambda-memory-recommendations')
+        .filter((recommendation) => recommendation.assessment !== 'unavailable')
+        .map((recommendation) =>
+          getAwsResourceScopeKey(recommendation.accountId, recommendation.region, recommendation.functionArn),
+        ),
     );
 
     return createLiveEvaluationCoverage(
       resources.get('aws-lambda-functions'),
-      (fn) => {
-        const assessment = fn.functionArn ? recommendationsByFunctionArn.get(fn.functionArn)?.assessment : undefined;
-        return assessment !== undefined && assessment !== 'unavailable';
-      },
+      (fn) =>
+        fn.functionArn !== undefined &&
+        assessedFunctionKeys.has(getAwsResourceScopeKey(fn.accountId, fn.region, fn.functionArn)),
       (fn) => toFunctionMatch(fn.functionArn ?? fn.functionName, fn.region, fn.accountId),
     );
   },

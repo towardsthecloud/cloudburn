@@ -1474,6 +1474,17 @@ describe('discoverAwsResources', () => {
       resources: [catalog.resources[3]],
       searchRegion: 'us-east-1',
     });
+    mockedHydrateAwsLambdaFunctions.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        architectures: ['x86_64'],
+        functionArn: 'arn:aws:lambda:us-east-1:123456789012:function:my-func',
+        functionName: 'my-func',
+        memorySizeMb: 512,
+        region: 'us-east-1',
+        timeoutSeconds: 3,
+      },
+    ]);
     mockedHydrateAwsLambdaMemoryRecommendations.mockResolvedValue([
       {
         accountId: '123456789012',
@@ -1493,6 +1504,8 @@ describe('discoverAwsResources', () => {
       { mode: 'regions', regions: ['us-east-1'] },
     );
 
+    // The recommendation dataset depends on the function inventory so evidence coverage spans both.
+    expect(mockedHydrateAwsLambdaFunctions).toHaveBeenCalledWith([catalog.resources[3]], loadContextMatcher);
     expect(mockedHydrateAwsLambdaMemoryRecommendations).toHaveBeenCalledWith(
       [catalog.resources[3]],
       loadContextMatcher,
