@@ -12,22 +12,23 @@ afterEach(() => {
 });
 
 describe('shared AWS request admission', () => {
-  it('hydrates 250 synthetic buckets within 50 seconds while sharing the bucket control-plane rate', async () => {
+  it('hydrates 1,500 synthetic buckets within the discovery deadline while pacing each operation', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(0);
     const controller = new AbortController();
-    const starts: number[] = [];
+    const starts: { operation: string; at: number }[] = [];
     const work = withAwsDiscoveryExecution({ signal: controller.signal }, () =>
       withAwsServiceCallBudget(
         async () => {
           // Match the collector's batches of ten buckets and its two parallel reads per bucket.
-          for (let batch = 0; batch < 25; batch += 1) {
+          for (let batch = 0; batch < 150; batch += 1) {
             await Promise.all(
               Array.from({ length: 10 }, () =>
                 Promise.all(
                   ['GetBucketLifecycleConfiguration', 'ListBucketIntelligentTieringConfigurations'].map((operation) =>
                     withAwsServiceErrorContext('Amazon S3', operation, 'eu-west-1', async () => {
-                      starts.push(Date.now());
+                      starts.push({ operation, at: Date.now() });
+                      await waitForAwsDelay(100);
                     }),
                   ),
                 ),
@@ -43,11 +44,15 @@ describe('shared AWS request admission', () => {
       () => false,
     );
     try {
-      await vi.advanceTimersByTimeAsync(50_000);
-      expect(starts).toHaveLength(500);
-      expect(starts.at(-1)).toBeLessThanOrEqual(49_000);
-      for (const start of starts)
-        expect(starts.filter((time) => time >= start && time < start + 1_000).length).toBeLessThanOrEqual(10);
+      await vi.advanceTimersByTimeAsync(160_000);
+      expect(starts).toHaveLength(3_000);
+      expect(starts.at(-1)?.at).toBeLessThanOrEqual(150_000);
+      for (const start of starts) {
+        expect(
+          starts.filter(({ operation, at }) => operation === start.operation && at >= start.at && at < start.at + 1_000)
+            .length,
+        ).toBeLessThanOrEqual(10);
+      }
       expect(await completed).toBe(true);
       expect(vi.getTimerCount()).toBe(0);
     } finally {
@@ -334,6 +339,74 @@ describe('shared AWS request admission', () => {
     expect(logger.mock.calls.some(([line]) => line.startsWith('aws: attempt '))).toBe(true);
     expect(JSON.stringify([onAttempt.mock.calls, logger.mock.calls])).not.toContain('DO-NOT-LOG');
     expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('admits coarse daily metric pages at their inspectable cost across datasets', async () => {
+    vi.useFakeTimers();
+    const now = Date.parse('2026-09-08T12:00:00Z');
+    vi.setSystemTime(now);
+    const controller = new AbortController();
+    const firstTransport = Promise.withResolvers<void>();
+    const starts: number[] = [];
+    const onAttempt = vi.fn();
+    const request = {
+      StartTime: new Date('2026-08-25T00:00:00Z'),
+      EndTime: new Date('2026-09-08T00:00:00Z'),
+      MetricDataQueries: Array.from({ length: 500 }, (_, index) => ({
+        Id: `daily${index}`,
+        MetricStat: { Metric: { Namespace: 'AWS/EC2', MetricName: 'CPUUtilization' }, Period: 86_400, Stat: 'Average' },
+      })),
+    };
+    const work = withAwsDiscoveryExecution({ signal: controller.signal }, async () => {
+      const client = getAwsClient(
+        'daily-metric-test-client',
+        () =>
+          new CloudWatchClient({
+            region: 'eu-west-1',
+            credentials: { accessKeyId: 'SYNTHETIC', secretAccessKey: 'SYNTHETIC' },
+            requestHandler: {
+              handle: async () => {
+                starts.push(Date.now());
+                firstTransport.resolve();
+                return { response: { statusCode: 200, headers: {}, body: Buffer.from('{"MetricDataResults":[]}') } };
+              },
+            },
+          }),
+      );
+      const store = memoryStore();
+      await Promise.all(
+        ['first', 'second'].map((dataset) =>
+          withAwsServiceCallBudget(
+            async () => {
+              for (let page = 0; page < 10; page += 1) {
+                await withAwsServiceErrorContext('Amazon CloudWatch', 'GetMetricData', 'eu-west-1', () =>
+                  client.send(
+                    new GetMetricDataCommand({ ...request, ...(page > 0 ? { NextToken: `page-${page}` } : {}) }),
+                  ),
+                );
+              }
+            },
+            { accountId: 'daily-metrics-account', store, onAttempt, attribution: { dataset } },
+          ),
+        ),
+      );
+    });
+    const completed = work.then(
+      () => true,
+      () => false,
+    );
+    try {
+      await Promise.race([firstTransport.promise, work]);
+      await vi.advanceTimersByTimeAsync(100);
+      expect(starts).toHaveLength(20);
+      expect(starts.at(-1)).toBeLessThanOrEqual(now + 100);
+      expect(await completed).toBe(true);
+      expect(onAttempt.mock.calls.map(([event]) => event.datapoints?.cost)).toEqual(Array(20).fill(7_000));
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      controller.abort();
+      await completed;
+    }
   });
 
   it('charges each CloudWatch page against shared datapoint throughput before transport', async () => {

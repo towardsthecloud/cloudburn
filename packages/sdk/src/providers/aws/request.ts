@@ -9,6 +9,7 @@ import {
   getAwsExecutionDeadline,
   getAwsExecutionSignal,
   runAwsServiceAttempt,
+  runOutsideAwsExecution,
   throwIfAwsExecutionAborted,
   waitForAwsDelay,
 } from './execution.js';
@@ -72,7 +73,9 @@ export type AwsRequestAttemptTelemetry = {
 
 /** Options shared by wrapped collectors within one scan. */
 export type AwsRequestBudgetOptions = {
+  /** Account identity when no authoritative caller resolver is available. */
   accountId?: string;
+  /** Resolves the signing caller; takes precedence over catalog-derived account hints. */
   resolveAccountId?: () => Promise<string>;
   store?: AwsRequestStore;
   overrides?: AwsQuotaOverrides;
@@ -109,7 +112,7 @@ export const withAwsServiceCallBudget = <T>(
 ): Promise<T> => {
   return budgetContext.run(
     {
-      account: options.accountId,
+      account: options.resolveAccountId ? undefined : options.accountId,
       attribution: { scanId: randomUUID(), ...options.attribution },
       onAttempt: options.onAttempt,
       resolveAccountId: options.resolveAccountId,
@@ -125,7 +128,15 @@ export const withAwsServiceCallBudget = <T>(
 };
 
 const accountIdFor = async (budget: RequestBudget): Promise<string> => {
-  budget.account ??= budget.resolveAccountId?.() ?? budget.fallbackId;
+  budget.account ??= Promise.resolve()
+    .then(() => budget.resolveAccountId?.() ?? budget.fallbackId)
+    .catch(() => {
+      throwIfAwsExecutionAborted();
+      // An unavailable caller lookup must not fail otherwise usable collectors or
+      // attribute their requests to an unrelated resource in an organization catalog.
+      budget.store = createMemoryAwsRequestStore();
+      return budget.fallbackId;
+    });
   return awaitAwsExecution(Promise.resolve(budget.account));
 };
 
@@ -153,7 +164,130 @@ type AttemptOutcome = 'success' | 'retryable' | 'error' | 'cancelled';
 type DatapointQuota = ReturnType<typeof resolveAwsMetricDataQuota>;
 type Admission = {
   dispatch: (datapoints?: DatapointQuota) => Promise<void>;
-  finish: (outcome: AttemptOutcome) => Promise<void>;
+  finish: (outcome: AttemptOutcome, settled?: Promise<void>) => Promise<void>;
+};
+
+type CompletedLease = { readonly id: string; readonly outcome: AttemptOutcome; readonly expiresAt: number };
+type CompletionQueue = Map<string, CompletedLease>;
+const completionQueues = new WeakMap<AwsRequestStore, Map<string, CompletionQueue>>();
+
+const releaseCompletedLeases = (serialized: string | undefined, completed: CompletedLease[]): string => {
+  if (!serialized) throw new Error('AWS admission state is missing during cleanup.');
+  const state: QuotaState = JSON.parse(serialized);
+  const now = Date.now();
+  for (const { id, outcome } of completed) {
+    const lease = state.active[id];
+    if (!lease) continue;
+    delete state.active[id];
+    state.lastUsedAt = now;
+    if (outcome === 'retryable') {
+      state.generation += 1;
+      state.penalty = Math.min(5, state.penalty + 1);
+      state.blockedUntil = Math.max(state.blockedUntil, now + 500 * 2 ** (state.penalty - 1));
+      state.tokens = Math.min(state.tokens, 1);
+      if (state.dispatch) state.dispatch.tokens = Math.min(state.dispatch.tokens, 1);
+    } else if (outcome === 'success') {
+      state.retryRemaining = Math.min(state.policy.retryCapacity, state.retryRemaining + 1);
+      // Earlier in-flight successes are not recovery probes for a newer throttle.
+      if (lease.generation === state.generation) {
+        state.penalty = Math.max(0, state.penalty - 1);
+        state.blockedUntil = 0;
+      }
+    }
+  }
+  return JSON.stringify(state);
+};
+
+const retryCompletedLeases = async (
+  store: AwsRequestStore,
+  key: string,
+  queues: Map<string, CompletionQueue>,
+  queue: CompletionQueue,
+): Promise<void> => {
+  try {
+    while (queue.size) {
+      const now = Date.now();
+      for (const [id, lease] of queue) if (lease.expiresAt <= now) queue.delete(id);
+      if (!queue.size) break;
+      const completed = [...queue.values()];
+      const expiresAt = Math.min(...completed.map((lease) => lease.expiresAt));
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), Math.min(1000, expiresAt - now));
+      timer.unref();
+      let retry = false;
+      try {
+        await store.update(
+          key,
+          (serialized) => ({ state: releaseCompletedLeases(serialized, completed), value: undefined }),
+          controller.signal,
+          { ref: false },
+        );
+        for (const lease of completed) queue.delete(lease.id);
+      } catch {
+        retry = true;
+      } finally {
+        clearTimeout(timer);
+      }
+      if (retry && expiresAt > Date.now()) {
+        await new Promise<void>((resolve) => {
+          setTimeout(resolve, Math.min(100, expiresAt - Date.now())).unref();
+        });
+      }
+    }
+  } finally {
+    queues.delete(key);
+  }
+};
+
+const deferCompletedLease = (store: AwsRequestStore, key: string, lease: CompletedLease): void => {
+  if (lease.expiresAt <= Date.now()) return;
+  let queues = completionQueues.get(store);
+  if (!queues) {
+    queues = new Map();
+    completionQueues.set(store, queues);
+  }
+  let queue = queues.get(key);
+  if (queue) {
+    queue.set(lease.id, lease);
+    return;
+  }
+  queue = new Map([[lease.id, lease]]);
+  queues.set(key, queue);
+  void retryCompletedLeases(store, key, queues, queue);
+};
+
+const finishAdmission = async (
+  store: AwsRequestStore,
+  key: string,
+  lease: CompletedLease,
+  settled: Promise<void>,
+): Promise<void> => {
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      const error = new DOMException('AWS admission cleanup timed out.', 'TimeoutError');
+      controller.abort(error);
+      reject(error);
+    }, 100);
+  });
+  const release = settled.then(async () => {
+    try {
+      await store.update(
+        key,
+        (serialized) => ({ state: releaseCompletedLeases(serialized, [lease]), value: undefined }),
+        controller.signal,
+      );
+    } catch (error) {
+      deferCompletedLease(store, key, lease);
+      throw error;
+    }
+  });
+  try {
+    await Promise.race([release, timeout]);
+  } finally {
+    clearTimeout(timer);
+  }
 };
 
 const initialRateState = (policy: AwsQuotaPolicy, now: number): RateState => ({
@@ -194,6 +328,63 @@ const stricterPolicy = (current: AwsQuotaPolicy, requested: AwsQuotaPolicy): Aws
 const waitForAdmission = (delay: number, deadline: number): Promise<void> =>
   waitForAwsDelay(Math.max(1, Math.min(delay, deadline - Date.now(), 2_147_483_647)));
 
+const admissionQueues = new WeakMap<AwsRequestStore, Map<string, Set<() => void>>>();
+const admissionExpired = (): DOMException => new DOMException('AWS request admission expired.', 'TimeoutError');
+
+const waitForAdmissionTurn = async (store: AwsRequestStore, key: string, deadline: number): Promise<() => void> => {
+  throwIfAwsExecutionAborted();
+  if (Date.now() >= deadline) throw admissionExpired();
+  let queues = admissionQueues.get(store);
+  if (!queues) {
+    queues = new Map();
+    admissionQueues.set(store, queues);
+  }
+  const waiting = queues.get(key);
+  const queue = waiting ?? new Set<() => void>();
+  let released = false;
+  const release = (): void => {
+    if (released) return;
+    released = true;
+    const next = queue.values().next().value;
+    if (next) {
+      queue.delete(next);
+      next();
+    } else {
+      queues.delete(key);
+    }
+  };
+  if (!waiting) {
+    queues.set(key, queue);
+    return release;
+  }
+  return new Promise((resolve, reject) => {
+    const signal = getAwsExecutionSignal();
+    const clear = (): void => {
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', onAbort);
+    };
+    const cancel = (reason: unknown): void => {
+      queue.delete(enter);
+      clear();
+      reject(reason);
+    };
+    const enter = (): void => {
+      clear();
+      if (Date.now() >= deadline) {
+        reject(admissionExpired());
+        release();
+      } else {
+        resolve(release);
+      }
+    };
+    const onAbort = (): void => cancel(signal?.reason);
+    const timer = setTimeout(() => cancel(admissionExpired()), Math.min(deadline - Date.now(), 2_147_483_647));
+    queue.add(enter);
+    signal?.addEventListener('abort', onAbort, { once: true });
+    if (signal?.aborted) onAbort();
+  });
+};
+
 const acquire = async (
   budget: RequestBudget,
   scope: AwsQuotaScope,
@@ -202,59 +393,66 @@ const acquire = async (
 ): Promise<Admission | null> => {
   const key = quotaKey(scope);
   const id = randomUUID();
-  for (;;) {
-    throwIfAwsExecutionAborted();
-    if (Date.now() >= budget.deadline) throw new DOMException('AWS request admission expired.', 'TimeoutError');
-    const wait = await budget.store.update(
-      key,
-      (serialized) => {
-        const now = Date.now();
-        const state: QuotaState = serialized
-          ? JSON.parse(serialized)
-          : {
-              policy,
-              tokens: policy.burst,
-              updatedAt: now,
-              starts: [],
-              active: {},
-              retryRemaining: policy.retryCapacity,
-              penalty: 0,
-              blockedUntil: 0,
-              generation: 0,
-              lastUsedAt: now,
-            };
-        for (const [lease, owner] of Object.entries(state.active))
-          if (owner.expiresAt <= now || !processAlive(owner.pid)) delete state.active[lease];
-        if (!Object.keys(state.active).length && now - state.lastUsedAt >= 60_000 && state.penalty === 0) {
-          state.policy = policy;
-          state.retryRemaining = policy.retryCapacity;
-          state.dispatch = undefined;
-          state.datapoints = undefined;
-        }
-        // Overlapping processes with different overrides use the stricter policy.
-        state.policy = stricterPolicy(state.policy, policy);
-        const effective = state.policy;
-        state.retryRemaining = Math.min(state.retryRemaining, effective.retryCapacity);
-        if (retry && state.retryRemaining <= 0) return { state: JSON.stringify(state), value: -1 };
-        const delay = Math.max(
-          0,
-          state.blockedUntil - now,
-          Object.keys(state.active).length >= effective.concurrency ? 10 : 0,
-          rateWait(state, effective, now, 1, state.penalty),
-        );
-        if (delay <= 0) {
-          consume(state, now, 1);
-          state.active[id] = { pid: process.pid, generation: state.generation, expiresAt: budget.deadline };
-          state.lastUsedAt = now;
-          if (retry) state.retryRemaining -= 1;
-        }
-        return { state: JSON.stringify(state), value: delay };
-      },
-      getAwsExecutionSignal(),
-    );
-    if (wait === -1) return null;
-    if (wait <= 0) break;
-    await waitForAdmission(wait, budget.deadline);
+  const releaseTurn = await waitForAdmissionTurn(budget.store, key, budget.deadline);
+  try {
+    for (;;) {
+      throwIfAwsExecutionAborted();
+      if (Date.now() >= budget.deadline) throw new DOMException('AWS request admission expired.', 'TimeoutError');
+      const wait = await budget.store.update(
+        key,
+        (serialized) => {
+          const now = Date.now();
+          const state: QuotaState = serialized
+            ? JSON.parse(serialized)
+            : {
+                policy,
+                tokens: policy.burst,
+                updatedAt: now,
+                starts: [],
+                active: {},
+                retryRemaining: policy.retryCapacity,
+                penalty: 0,
+                blockedUntil: 0,
+                generation: 0,
+                lastUsedAt: now,
+              };
+          for (const [lease, owner] of Object.entries(state.active))
+            if (owner.expiresAt <= now || !processAlive(owner.pid)) delete state.active[lease];
+          if (!Object.keys(state.active).length && now - state.lastUsedAt >= 60_000 && state.penalty === 0) {
+            state.policy = policy;
+            state.retryRemaining = policy.retryCapacity;
+            state.dispatch = undefined;
+            state.datapoints = undefined;
+          }
+          // Overlapping processes with different overrides use the stricter policy.
+          state.policy = stricterPolicy(state.policy, policy);
+          const effective = state.policy;
+          state.retryRemaining = Math.min(state.retryRemaining, effective.retryCapacity);
+          if (retry && state.retryRemaining <= 0) return { state: JSON.stringify(state), value: -1 };
+          const rate = { tokens: state.tokens, updatedAt: state.updatedAt, starts: state.starts };
+          const delay = Math.max(
+            0,
+            state.blockedUntil - now,
+            Object.keys(state.active).length >= effective.concurrency ? 10 : 0,
+            rateWait(rate, effective, now, 1, state.penalty),
+          );
+          if (delay <= 0) {
+            Object.assign(state, rate);
+            consume(state, now, 1);
+            state.active[id] = { pid: process.pid, generation: state.generation, expiresAt: budget.deadline };
+            state.lastUsedAt = now;
+            if (retry) state.retryRemaining -= 1;
+          }
+          return { state: JSON.stringify(state), value: delay };
+        },
+        getAwsExecutionSignal(),
+      );
+      if (wait === -1) return null;
+      if (wait <= 0) break;
+      await waitForAdmission(wait, budget.deadline);
+    }
+  } finally {
+    releaseTurn();
   }
   return {
     dispatch: async (points) => {
@@ -298,45 +496,12 @@ const acquire = async (
         await waitForAdmission(delay, budget.deadline);
       }
     },
-    finish: async (outcome) => {
-      // Cleanup must still release an uncontended lease after discovery cancellation,
-      // but lock contention must not hold up a response or cancellation for seconds.
-      const controller = new AbortController();
-      const timer = setTimeout(
-        () => controller.abort(new DOMException('AWS admission cleanup timed out.', 'TimeoutError')),
-        100,
-      );
-      try {
-        await budget.store.update(
-          key,
-          (serialized) => {
-            const state: QuotaState = JSON.parse(serialized as string);
-            const lease = state.active[id];
-            if (!lease) return { state: JSON.stringify(state), value: undefined };
-            delete state.active[id];
-            state.lastUsedAt = Date.now();
-            if (outcome === 'retryable') {
-              state.generation += 1;
-              state.penalty = Math.min(5, state.penalty + 1);
-              state.blockedUntil = Math.max(state.blockedUntil, Date.now() + 500 * 2 ** (state.penalty - 1));
-              state.tokens = Math.min(state.tokens, 1);
-              if (state.dispatch) state.dispatch.tokens = Math.min(state.dispatch.tokens, 1);
-            } else if (outcome === 'success') {
-              state.retryRemaining = Math.min(state.policy.retryCapacity, state.retryRemaining + 1);
-              // Earlier in-flight successes are not recovery probes for a newer throttle.
-              if (lease?.generation === state.generation) {
-                state.penalty = Math.max(0, state.penalty - 1);
-                state.blockedUntil = 0;
-              }
-            }
-            return { state: JSON.stringify(state), value: undefined };
-          },
-          controller.signal,
-        );
-      } finally {
-        clearTimeout(timer);
-      }
-    },
+    finish: (outcome, settled = Promise.resolve()) =>
+      budgetContext.exit(() =>
+        runOutsideAwsExecution(() =>
+          finishAdmission(budget.store, key, { id, outcome, expiresAt: budget.deadline }, settled),
+        ),
+      ),
   };
 };
 
@@ -411,6 +576,7 @@ export const runAwsRequest = async <T>(
     let datapoints: DatapointQuota | undefined;
     let managed = false;
     let delayMs = 0;
+    let settled: Promise<void> | undefined;
     try {
       throwIfAwsExecutionAborted();
       admission = budget && quota ? await acquire(budget, quota.scope, quota.policy, attempt > 1) : undefined;
@@ -423,36 +589,40 @@ export const runAwsRequest = async <T>(
       throwIfAwsExecutionAborted();
       transportStartedAt = Date.now();
       event.dispatched = true;
-      const result = await awaitAwsExecution(
-        runAwsServiceAttempt(execute, {
-          beforeRequest: async (input) => {
-            managed = true;
-            event.dispatched = false;
-            transportStartedAt = undefined;
-            if (!budget || !quota || quota.scope.service !== 'cloudwatch' || operation !== 'GetMetricData') return;
-            datapoints = resolveAwsMetricDataQuota(input, region, quota.scope.accountId, Date.now(), budget.overrides);
-            event.datapoints = { quota: datapoints.scope, cost: datapoints.cost };
-          },
-          beforeTransport: async () => {
-            await admission?.dispatch(datapoints);
-          },
-          onDispatch: () => {
-            event.dispatched = true;
-            transportStartedAt = Date.now();
-          },
-          onTransport: ({ durationMs, statusCode }) => {
-            measuredTransport = true;
-            event.transportDurationMs += durationMs;
-            event.statusCode = statusCode;
-          },
-        }),
+      const work = runAwsServiceAttempt(execute, {
+        beforeRequest: async (input) => {
+          managed = true;
+          event.dispatched = false;
+          transportStartedAt = undefined;
+          if (!budget || !quota || quota.scope.service !== 'cloudwatch' || operation !== 'GetMetricData') return;
+          datapoints = resolveAwsMetricDataQuota(input, region, quota.scope.accountId, Date.now(), budget.overrides);
+          event.datapoints = { quota: datapoints.scope, cost: datapoints.cost };
+        },
+        beforeTransport: async () => {
+          await admission?.dispatch(datapoints);
+        },
+        onDispatch: () => {
+          event.dispatched = true;
+          transportStartedAt = Date.now();
+        },
+        onTransport: ({ durationMs, statusCode }) => {
+          measuredTransport = true;
+          event.transportDurationMs += durationMs;
+          event.statusCode = statusCode;
+        },
+      });
+      settled = work.then(
+        () => undefined,
+        () => undefined,
       );
+      const result = await awaitAwsExecution(work);
       outcome = 'success';
       event.outcome = 'success';
       event.statusCode ??= statusCodeOf(result);
       return result;
     } catch (error) {
       throwIfAwsExecutionAborted();
+      if (budget && Date.now() >= budget.deadline) throw error;
       outcome = 'error';
       event.statusCode ??= statusCodeOf(error);
       if (admission === null) throw error;
@@ -478,10 +648,10 @@ export const runAwsRequest = async <T>(
         event.transportDurationMs = Date.now() - transportStartedAt;
       if (admission) {
         try {
-          await admission.finish(outcome);
+          await admission.finish(outcome, settled);
           event.cleanupOutcome = 'released';
         } catch {
-          // Keep the AWS result and emit diagnostics; expiry reclaims a stale lease.
+          // Preserve the AWS result while completed-lease cleanup retries independently.
           event.cleanupOutcome = 'deferred';
         }
       }

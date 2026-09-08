@@ -11,14 +11,16 @@ export type AwsRequestStore = {
    * Reads and replaces one quota key's state without concurrent updates interleaving.
    *
    * @param key - Stable quota identity supplied by the admission scheduler.
-   * @param update - Synchronous, side-effect-free transition returning the next state and result.
+   * @param update - Synchronous, side-effect-free transition; returning the current state skips persistent writes.
    * @param signal - Optional cancellation signal for waiting and the transaction.
-   * @returns The result produced by the committed transition.
+   * @param options - Contention waits keep the process alive by default; set ref to false for background work.
+   * @returns The result produced by the atomic transition.
    */
   update: <T>(
     key: string,
     update: (current: string | undefined) => { state: string; value: T },
     signal?: AbortSignal,
+    options?: { ref?: boolean },
   ) => Promise<T>;
 };
 
@@ -134,7 +136,7 @@ export const createLocalAwsRequestStore = (directory?: string): AwsRequestStore 
   const primary =
     selectedDirectory ?? join(process.env.XDG_CACHE_HOME || join(homedir(), '.cache'), 'cloudburn', 'aws-admission-v1');
   return {
-    update: async (key, update, signal) => {
+    update: async (key, update, signal, options) => {
       signal?.throwIfAborted();
       if (selectedDirectory === undefined) {
         try {
@@ -180,6 +182,8 @@ export const createLocalAwsRequestStore = (directory?: string): AwsRequestStore 
           const next = update(row?.state as string | undefined);
           applyingTransition = false;
           signal?.throwIfAborted();
+          // Refused admission can return unchanged state; the finally block releases its lock without a write commit.
+          if (next.state === row?.state) return next.value;
           database.prepare('INSERT OR REPLACE INTO request_state_v1 (id, state) VALUES (1, ?)').run(next.state);
           signal?.throwIfAborted();
           database.exec('COMMIT');
@@ -211,7 +215,7 @@ export const createLocalAwsRequestStore = (directory?: string): AwsRequestStore 
           }
         }
         try {
-          await wait(10, undefined, { signal });
+          await wait(10, undefined, { signal, ref: options?.ref });
         } catch (error) {
           signal?.throwIfAborted();
           throw error;

@@ -1,4 +1,6 @@
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { EC2Client } from '@aws-sdk/client-ec2';
 import type { HttpRequest } from '@aws-sdk/types';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
@@ -21,11 +23,15 @@ const endpointIdentity = (name: string) => ({
 });
 let endpointNames: string[];
 let unexpected: string[];
+let admissionDirectory: string;
 
 beforeEach(() => {
   endpointNames = ['orders'];
   unexpected = [];
-  vi.useFakeTimers({ toFake: ['Date'] });
+  admissionDirectory = mkdtempSync(join(tmpdir(), 'cloudburn-metric-http-'));
+  vi.stubEnv('CLOUDBURN_AWS_ADMISSION_DIR', admissionDirectory);
+  // Keep the observation date stable while allowing real admission waits to refill quota tokens.
+  vi.useFakeTimers({ toFake: ['Date'], shouldAdvanceTime: true });
   vi.setSystemTime(new Date('2026-09-07T12:00:00.000Z'));
   vi.stubEnv('CI', 'true');
   vi.stubEnv('AWS_REGION', '');
@@ -56,6 +62,15 @@ beforeEach(() => {
           })),
         });
       }
+    }
+    if (request.hostname === 'sts.eu-west-1.amazonaws.com' && operation === 'GetCallerIdentity') {
+      return {
+        response: {
+          statusCode: 200,
+          headers: { 'content-type': 'text/xml' },
+          body: Buffer.from(fixture('caller-identity.xml')),
+        },
+      };
     }
     if (request.hostname === 'ec2.eu-west-1.amazonaws.com' && operation === 'DescribeRegions') {
       return {
@@ -113,6 +128,7 @@ afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllEnvs();
   vi.useRealTimers();
+  rmSync(admissionDirectory, { recursive: true, force: true });
   expect(unexpected).toEqual([]);
 });
 

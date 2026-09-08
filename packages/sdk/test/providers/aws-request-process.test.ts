@@ -30,6 +30,7 @@ describe('AWS request admission across independent processes', () => {
       ),
     );
     await Promise.all(scans.map((scan) => scan.ready));
+    const startedAtMs = Date.now();
     for (const scan of scans) scan.child.send('go');
     await Promise.all(scans.map((scan) => scan.completion));
 
@@ -38,11 +39,11 @@ describe('AWS request admission across independent processes', () => {
       .map((event) => event.at)
       .sort((left, right) => left - right);
     expect(starts).toHaveLength(6);
-    // With a two-request burst, the third start waits at least 250 ms for a token.
-    expect(Number(starts[2]) - Number(starts[0])).toBeGreaterThanOrEqual(200);
-    // At most four requests enter any one-second quota window.
-    expect(Number(starts[4]) - Number(starts[0])).toBeGreaterThanOrEqual(950);
-    expect(Number(starts[5]) - Number(starts[1])).toBeGreaterThanOrEqual(950);
+    // The fresh quota cannot admit before go. Callbacks can resume well after admission,
+    // so their first observed timestamp is not the start of the token refill or rate window.
+    expect(Number(starts[2]) - startedAtMs).toBeGreaterThanOrEqual(250);
+    expect(Number(starts[4]) - startedAtMs).toBeGreaterThanOrEqual(1000);
+    expect(Number(starts[5]) - startedAtMs).toBeGreaterThanOrEqual(1000);
     expect(attempts(events)).toHaveLength(6);
     expect(new Set(attempts(events).map((event) => event.attribution.dataset))).toEqual(
       new Set(['logActivity', 'logRetention']),

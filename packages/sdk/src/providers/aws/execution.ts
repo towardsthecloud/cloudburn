@@ -63,6 +63,15 @@ const executionContext = new AsyncLocalStorage<AwsExecution>();
 const DEFAULT_DISCOVERY_TIMEOUT_MS = 300_000;
 
 /**
+ * Starts bounded cleanup without retaining discovery caches, clients, or attempt callbacks.
+ *
+ * @param execute - Cleanup work that supplies its own cancellation and deadline.
+ * @returns The cleanup result outside the discovery and attempt contexts.
+ */
+export const runOutsideAwsExecution = <T>(execute: () => T): T =>
+  executionContext.exit(() => serviceAttemptContext.exit(execute));
+
+/**
  * Emits sanitized request telemetry without allowing diagnostics to interrupt request cleanup.
  *
  * @param event - Structured attempt metadata that excludes command input and response payloads.

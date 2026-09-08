@@ -123,6 +123,30 @@ it('returns only admission fields from externally supplied overrides', () => {
   });
 });
 
+it('shares S3 operation limits across buckets while allowing independent local overrides', () => {
+  const lifecycle = resolveAwsRequestQuota('Amazon S3', 'GetBucketLifecycleConfiguration', 'eu-west-1', ACCOUNT_ID, {
+    resource: 'first-bucket',
+    overrides: { 's3:GetBucketLifecycleConfiguration': { ratePerSecond: 4, burst: 4, retryCapacity: 0 } },
+  });
+  expect(lifecycle).toMatchObject({
+    scope: { service: 's3', group: 'GetBucketLifecycleConfiguration' },
+    policy: { ratePerSecond: 4, burst: 4, retryCapacity: 0 },
+  });
+  expect(
+    resolveAwsRequestQuota('S3', 'GetBucketLifecycleConfiguration', 'eu-west-1', ACCOUNT_ID, {
+      resource: 'second-bucket',
+    }).scope,
+  ).toEqual(lifecycle.scope);
+  expect(
+    resolveAwsRequestQuota('S3', 'ListBucketIntelligentTieringConfigurations', 'eu-west-1', ACCOUNT_ID, {
+      overrides: { 's3:GetBucketLifecycleConfiguration': { ratePerSecond: 4, burst: 4 } },
+    }),
+  ).toMatchObject({
+    scope: { group: 'ListBucketIntelligentTieringConfigurations' },
+    policy: { ratePerSecond: 10, burst: 10 },
+  });
+});
+
 it.each([
   { ratePerSecond: 0 },
   { ratePerSecond: Number.POSITIVE_INFINITY },
@@ -144,6 +168,23 @@ it.each([
   ).toThrow(RangeError);
 });
 
+it('reserves 7,000 datapoints for 500 daily series over fourteen complete days', () => {
+  const now = Date.parse('2026-09-08T12:00:00Z');
+  const request = {
+    StartTime: new Date('2026-08-25T00:00:00Z'),
+    EndTime: new Date('2026-09-08T00:00:00Z'),
+    MetricDataQueries: Array.from({ length: 500 }, (_, index) => ({
+      Id: `cpu${index}`,
+      MetricStat: {
+        Metric: { Namespace: 'AWS/EC2', MetricName: 'CPUUtilization' },
+        Period: 86_400,
+        Stat: 'Average',
+      },
+    })),
+  };
+  expect(resolveAwsMetricDataQuota(request, 'eu-west-1', ACCOUNT_ID, now).cost).toBe(7_000);
+});
+
 it('charges each metric page to the datapoint bucket selected by the original StartTime', () => {
   const now = Date.parse('2026-09-07T12:00:00Z');
   const input = {
@@ -161,17 +202,153 @@ it('charges each metric page to the datapoint bucket selected by the original St
       group: 'GetMetricData:recent-datapoints',
     },
     policy: { ratePerSecond: 180_000, burst: 180_000, concurrency: 10, retryCapacity: 20 },
-    cost: 100_800,
+    cost: 180,
   });
   const older = { ...input, StartTime: new Date('2026-09-07T08:59:59.999Z'), MaxDatapoints: 50_000 };
   const expected = {
     scope: { group: 'GetMetricData:older-datapoints' },
     policy: { ratePerSecond: 396_000, burst: 396_000 },
-    cost: 50_000,
+    cost: 181,
   };
   expect(resolveAwsMetricDataQuota(older, 'eu-west-1', ACCOUNT_ID, now)).toMatchObject(expected);
   expect(resolveAwsMetricDataQuota({ ...older, NextToken: 'next-page' }, 'eu-west-1', ACCOUNT_ID, now)).toMatchObject(
     expected,
+  );
+});
+
+it.each([
+  ['2026-09-08T11:05:00Z', 6],
+  ['2026-09-08T11:05:00.001Z', 8],
+  ['2026-09-08T11:00:00.001Z', 2],
+])('counts each mixed-period series through the exclusive end %s', (end, expected) => {
+  const request = {
+    StartTime: new Date('2026-09-08T11:00:00Z'),
+    EndTime: new Date(end),
+    MetricDataQueries: [
+      { Id: 'minute', MetricStat: { Period: 60 } },
+      { Id: 'five_minutes', MetricStat: { Period: 300 }, ReturnData: false },
+    ],
+  };
+  expect(resolveAwsMetricDataQuota(request, 'eu-west-1', ACCOUNT_ID, Date.parse('2026-09-08T12:00:00Z')).cost).toBe(
+    expected,
+  );
+});
+
+it.each([
+  [5, 61],
+  [10, 31],
+  [20, 16],
+  [30, 11],
+])('includes the rounded leading high-resolution period of %i seconds', (period, expected) => {
+  const request = {
+    StartTime: new Date('2026-09-08T15:02:17Z'),
+    EndTime: new Date('2026-09-08T15:07:17Z'),
+    MetricDataQueries: [{ Id: 'high_resolution', MetricStat: { Period: period } }],
+  };
+  expect(resolveAwsMetricDataQuota(request, 'eu-west-1', ACCOUNT_ID, Date.parse('2026-09-08T16:00:00Z')).cost).toBe(
+    expected,
+  );
+});
+
+it.each([
+  [0, 1],
+  [15, 3],
+  [63, 38],
+])('covers AWS timestamp rounding for a start %i days old', (ageDays, expected) => {
+  const start = Date.parse('2026-07-01T12:37:59.999Z');
+  const request = {
+    StartTime: new Date(start),
+    EndTime: new Date('2026-07-01T12:38:00Z'),
+    MetricDataQueries: [{ Id: 'signal', MetricStat: { Period: 60 } }],
+  };
+  expect(resolveAwsMetricDataQuota(request, 'eu-west-1', ACCOUNT_ID, start + ageDays * 86_400_000).cost).toBe(expected);
+});
+
+it('includes partial leading and trailing daily periods', () => {
+  const request = {
+    StartTime: new Date('2026-08-25T00:00:00.001Z'),
+    EndTime: new Date('2026-09-08T00:00:00.001Z'),
+    MetricDataQueries: [{ Id: 'daily', MetricStat: { Period: 86_400 } }],
+  };
+  expect(resolveAwsMetricDataQuota(request, 'eu-west-1', ACCOUNT_ID, Date.parse('2026-09-08T12:00:00Z')).cost).toBe(15);
+});
+
+it.each([
+  undefined,
+  null,
+  [],
+  [null],
+  [{}],
+  [{ MetricStat: null }],
+  [{ MetricStat: {} }],
+  [{ MetricStat: { Period: 0 } }],
+  [{ MetricStat: { Period: 2 } }],
+  [{ MetricStat: { Period: 1.5 } }],
+  [{ MetricStat: { Period: '60' } }],
+  [{ MetricStat: { Period: Number.POSITIVE_INFINITY } }],
+  [{ MetricStat: { Period: 60 }, Period: 300 }],
+  [{ Expression: 'SEARCH(...)' }],
+  [{ MetricStat: { Period: 60 } }, { Expression: 'METRICS()' }],
+  [{ MetricStat: { Period: 60 }, Expression: 'signal * 2' }],
+])('uses the page bound for uninspectable metric queries: %j', (MetricDataQueries) => {
+  const request = {
+    StartTime: new Date('2026-09-08T11:00:00Z'),
+    EndTime: new Date('2026-09-08T12:00:00Z'),
+    MetricDataQueries,
+    MaxDatapoints: 50_000,
+  };
+  expect(resolveAwsMetricDataQuota(request, 'eu-west-1', ACCOUNT_ID, Date.parse('2026-09-08T12:00:00Z')).cost).toBe(
+    50_000,
+  );
+});
+
+it.each([
+  [undefined, new Date('2026-09-08T12:00:00Z')],
+  [new Date('2026-09-08T11:00:00Z'), undefined],
+  [new Date('invalid'), new Date('2026-09-08T12:00:00Z')],
+  [new Date('2026-09-08T11:00:00Z'), new Date('invalid')],
+  [new Date('2026-09-08T11:00:00Z'), new Date('2026-09-08T11:00:00Z')],
+  [new Date('2026-09-08T12:00:00Z'), new Date('2026-09-08T11:00:00Z')],
+])('uses the page bound for an uninspectable time window %s to %s', (StartTime, EndTime) => {
+  const request = { StartTime, EndTime, MetricDataQueries: [{ Id: 'signal', MetricStat: { Period: 60 } }] };
+  expect(resolveAwsMetricDataQuota(request, 'eu-west-1', ACCOUNT_ID, Date.parse('2026-09-08T12:00:00Z')).cost).toBe(
+    100_800,
+  );
+});
+
+it.each([
+  [1_000, 1_000],
+  [8_000, 7_000],
+  [200_000, 7_000],
+  [undefined, 7_000],
+  [0, 7_000],
+])('caps each page and retry independently when MaxDatapoints is %s', (MaxDatapoints, expected) => {
+  const request = {
+    StartTime: new Date('2026-08-25T00:00:00Z'),
+    EndTime: new Date('2026-09-08T00:00:00Z'),
+    MetricDataQueries: Array.from({ length: 500 }, (_, index) => ({
+      Id: `daily${index}`,
+      MetricStat: { Period: 86_400 },
+    })),
+    MaxDatapoints,
+  };
+  const now = Date.parse('2026-09-08T12:00:00Z');
+  for (const input of [request, { ...request, NextToken: 'next-page' }, request]) {
+    expect(resolveAwsMetricDataQuota(input, 'eu-west-1', ACCOUNT_ID, now).cost).toBe(expected);
+  }
+});
+
+it('caps dense metric queries at the API maximum', () => {
+  const request = {
+    StartTime: new Date('2026-08-25T00:00:00Z'),
+    EndTime: new Date('2026-09-08T00:00:00Z'),
+    MetricDataQueries: Array.from({ length: 500 }, (_, index) => ({
+      Id: `minute${index}`,
+      MetricStat: { Period: 60 },
+    })),
+  };
+  expect(resolveAwsMetricDataQuota(request, 'eu-west-1', ACCOUNT_ID, Date.parse('2026-09-08T12:00:00Z')).cost).toBe(
+    100_800,
   );
 });
 

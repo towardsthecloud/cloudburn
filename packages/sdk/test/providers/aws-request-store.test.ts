@@ -140,6 +140,67 @@ describe.each([
 });
 
 describe('local AWS request state', () => {
+  it('allows only unreferenced contention waits to finish with the child process', async () => {
+    const directory = createDirectory();
+    const holder = startChild(directory, 'shared-quota', 'hold');
+    await holder.locked;
+    const moduleUrl = new URL('../../src/providers/aws/request-store.ts', import.meta.url).href;
+    const outputs = ['undefined', '{ ref: false }'].map((options) =>
+      execFileSync(
+        process.execPath,
+        [
+          '--input-type=module',
+          '--eval',
+          `
+        const { createLocalAwsRequestStore } = await import(${JSON.stringify(moduleUrl)});
+        void createLocalAwsRequestStore(${JSON.stringify(directory)}).update(
+          'shared-quota', () => ({ state: 'unexpected admission', value: undefined }), undefined, ${options},
+        ).catch(() => undefined);
+        setTimeout(() => {
+          process.stdout.write('waiter-active');
+          process.exit(0);
+        }, 200).unref();
+      `,
+        ],
+        { encoding: 'utf8', timeout: 3_000 },
+      ),
+    );
+
+    expect(outputs).toEqual(['waiter-active', '']);
+    expect(holder.child.exitCode).toBeNull();
+  });
+
+  it('does not rewrite persistent state when concurrent admission checks leave it unchanged', async () => {
+    const directory = createDirectory();
+    const store = createLocalAwsRequestStore(directory);
+    await store.update('shared-quota', () => ({ state: 'lease occupied', value: undefined }));
+    const [filename] = readdirSync(directory);
+    const observer = new DatabaseSync(join(directory, filename as string));
+    try {
+      const before = observer.prepare('PRAGMA data_version').get()?.data_version;
+
+      const decisions = await Promise.all(
+        Array.from({ length: 100 }, () =>
+          store.update('shared-quota', (current) => ({ state: current ?? '', value: 'wait for release' })),
+        ),
+      );
+
+      expect(decisions).toEqual(Array(100).fill('wait for release'));
+      expect(observer.prepare('PRAGMA data_version').get()?.data_version).toBe(before);
+
+      await store.update('shared-quota', () => ({ state: 'lease released', value: undefined }));
+      expect(observer.prepare('PRAGMA data_version').get()?.data_version).not.toBe(before);
+      await expect(
+        createLocalAwsRequestStore(directory).update('shared-quota', (current) => ({
+          state: current ?? '',
+          value: current,
+        })),
+      ).resolves.toBe('lease released');
+    } finally {
+      observer.close();
+    }
+  });
+
   it('fails closed when both default and temporary coordinator locations already exist', async () => {
     const parent = createDirectory();
     const home = join(parent, 'home');

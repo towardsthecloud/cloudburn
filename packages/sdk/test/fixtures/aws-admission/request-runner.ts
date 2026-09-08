@@ -16,6 +16,7 @@ export type RequestProcessConfig = {
   region?: string;
   timeoutMs?: number;
   mode?: 'hold' | 'throttle';
+  stayAliveAfterDone?: boolean;
   overrides?: AwsQuotaOverrides;
 };
 
@@ -60,8 +61,9 @@ export const createRequestProcessFixture = async () => {
      * @returns Worker lifecycle controls and its ordered observations.
      */
     start(config: RequestProcessConfig, state = 'shared') {
+      const stateDirectory = join(directory, state);
       const child = fork(join(directory, 'request.mjs'), [JSON.stringify(config)], {
-        env: { ...process.env, CLOUDBURN_AWS_ADMISSION_DIR: join(directory, state) },
+        env: { ...process.env, CLOUDBURN_AWS_ADMISSION_DIR: stateDirectory },
         execArgv: [],
         stdio: ['ignore', 'ignore', 'pipe', 'ipc'],
       });
@@ -105,6 +107,7 @@ export const createRequestProcessFixture = async () => {
         });
       return {
         child,
+        stateDirectory,
         events,
         completion,
         waitFor,

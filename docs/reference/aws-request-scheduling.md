@@ -12,6 +12,12 @@ different datasets or resources share admission when AWS applies an account quot
 quota groups can progress separately. Credential providers, clients, lookup caches, and dataset caches retain their
 existing isolation. Quota sharing does not grant access to another scan's credentials or results.
 
+Discovery resolves the signing caller's account once per run. That identity takes precedence over account hints from
+catalog resources, which can belong to member accounts in an organization. If caller resolution fails, requests use
+isolated in-memory admission for that run and telemetry identifies the scope as `unresolved:<run-id>`. Pacing and retry
+limits still apply within that run, but cross-scan coordination is unavailable until caller identity can be resolved.
+Cancellation during identity resolution still stops dispatch.
+
 Each attempt reserves concurrency before SDK execution. Final admission atomically charges request capacity and
 CloudWatch datapoints where applicable immediately before physical transport, after SDK preparation. Pagination and
 retries use the same limits. Cancellation removes pending waits and prevents queued attempts from dispatching. Active
@@ -42,7 +48,7 @@ CloudBurn can use a private `cloudburn-<user-id>/aws-admission-v1` directory und
 (including `TMPDIR` on POSIX). This fallback remains shared across processes; it does not switch to in-memory admission.
 An existing temporary coordinator is reused while the primary directory remains absent, even if the home becomes writable.
 
-Writable local storage is required. Errors in explicit admission directories or existing coordinator state fail without
+Shared admission requires writable local storage. Errors in explicit admission directories or existing coordinator state fail without
 selecting a new location. Paths whose state cannot be inspected also fail with an actionable error. If both default and
 temporary locations exist, stop participating processes and select the active state with `CLOUDBURN_AWS_ADMISSION_DIR`.
 Database corruption and lock errors never select a new directory.
@@ -75,24 +81,31 @@ The [policy resolver](../../packages/sdk/src/providers/aws/request-policy.ts) ow
 Defaults were checked against AWS documentation on 2026-09-07. These are conservative local limits; some are lower
 than AWS defaults. Every request policy starts with concurrency `10` and retry allowance `20`.
 
-| Canonical quota                                                            | Requests/second | Burst | Scope and AWS reference                                                                                                                                                                                                                       |
-| -------------------------------------------------------------------------- | --------------: | ----: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `logs:DescribeLogStreams`                                                  |              25 |     1 | Account, region, operation. [CloudWatch Logs quotas](https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/cloudwatch_limits_cwl.html)                                                                                                     |
-| `logs:DescribeLogGroups`                                                   |              10 |     1 | Account, region, operation. [CloudWatch Logs quotas](https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/cloudwatch_limits_cwl.html)                                                                                                     |
-| `route53:all-requests`                                                     |               5 |     5 | Global account budget preserved from earlier CloudBurn behavior. AWS now documents 10/s for the account and default operations. [Route 53 throttling](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/throttling-api-requests.html) |
-| `ec2:<supported read operation>`                                           |              10 |    10 | Separate quota per API, including the smaller unfiltered/unpaginated read allowance. [EC2 throttling](https://docs.aws.amazon.com/ec2/latest/devguide/ec2-api-throttling.html)                                                                |
-| `ecs:service-read`, `ecs:cluster-resource-read`                            |         20 each |     1 | Separate account/region operation groups. [ECS throttling](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/request-throttling.html)                                                                                               |
-| `elasticloadbalancing:all-requests`, `elasticloadbalancingv2:all-requests` |         10 each |     1 | Separate account/region budgets for each API version. [ELB throttling](https://docs.aws.amazon.com/elasticloadbalancing/latest/userguide/elb-api-throttling.html)                                                                             |
-| `dynamodb:control-plane-read`                                              |             100 |     1 | Shared read-control-plane budget across tables. [DynamoDB constraints](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Constraints.html)                                                                                     |
-| `kms:GetKeyLastUsage`                                                      |               5 |     1 | Account/region operation quota across all keys. Other supported KMS reads use 100/s. [KMS quotas](https://docs.aws.amazon.com/kms/latest/developerguide/requests-per-second.html)                                                             |
-| `emr:DescribeCluster`, `emr:ListInstances`                                 |          1, 0.5 |     1 | Separate account/region operation quotas; refill rates differ from AWS burst allowances. [EMR quotas](https://docs.aws.amazon.com/general/latest/gr/emr.html)                                                                                 |
-| `cloudtrail:DescribeTrails`                                                |              10 |     1 | Account, region, operation. [CloudTrail quotas](https://docs.aws.amazon.com/general/latest/gr/ct.html)                                                                                                                                        |
-| `cloudwatch:ListMetrics`, `cloudwatch:GetMetricData`                       |         25, 500 |     1 | Separate account/region request quotas; metric data also consumes the datapoint budget below. [CloudWatch quotas](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/cloudwatch_limits.html)                                      |
-| `lambda:control-plane`                                                     |              15 |     1 | Shared by the supported function/version listing operations. [Lambda quotas](https://docs.aws.amazon.com/lambda/latest/dg/gettingstarted-limits.html).                                                                                        |
-| `resource-explorer-2:non-search`                                           |               3 |     1 | Account/region budget for supported non-search operations, including `ListResources`. [Resource Explorer quotas](https://docs.aws.amazon.com/resource-explorer/latest/userguide/quotas.html).                                                 |
-| `sagemaker:DescribeEndpoint`, `sagemaker:DescribeEndpointConfig`           |          5 each |     1 | Separate account/region operation quotas. [SageMaker quotas](https://docs.aws.amazon.com/general/latest/gr/sagemaker.html).                                                                                                                   |
-| `s3:bucket-control-plane`                                                  |              10 |    10 | Shared local budget for lifecycle and intelligent-tiering configuration reads across buckets; not a verified AWS quota.                                                                                                                       |
-| Other operations                                                           |              10 |    10 | Local fallback per account, applicable region, service, and operation; not a verified AWS quota.                                                                                                                                              |
+| Canonical quota                                                                       | Requests/second | Burst | Scope and AWS reference                                                                                                                                                                                                                       |
+| ------------------------------------------------------------------------------------- | --------------: | ----: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `logs:DescribeLogStreams`                                                             |              25 |     1 | Account, region, operation. [CloudWatch Logs quotas](https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/cloudwatch_limits_cwl.html)                                                                                                     |
+| `logs:DescribeLogGroups`                                                              |              10 |     1 | Account, region, operation. [CloudWatch Logs quotas](https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/cloudwatch_limits_cwl.html)                                                                                                     |
+| `route53:all-requests`                                                                |               5 |     5 | Global account budget preserved from earlier CloudBurn behavior. AWS now documents 10/s for the account and default operations. [Route 53 throttling](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/throttling-api-requests.html) |
+| `ec2:<supported read operation>`                                                      |              10 |    10 | Separate quota per API, including the smaller unfiltered/unpaginated read allowance. [EC2 throttling](https://docs.aws.amazon.com/ec2/latest/devguide/ec2-api-throttling.html)                                                                |
+| `ecs:service-read`, `ecs:cluster-resource-read`                                       |         20 each |     1 | Separate account/region operation groups. [ECS throttling](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/request-throttling.html)                                                                                               |
+| `elasticloadbalancing:all-requests`, `elasticloadbalancingv2:all-requests`            |         10 each |     1 | Separate account/region budgets for each API version. [ELB throttling](https://docs.aws.amazon.com/elasticloadbalancing/latest/userguide/elb-api-throttling.html)                                                                             |
+| `dynamodb:control-plane-read`                                                         |             100 |     1 | Shared read-control-plane budget across tables. [DynamoDB constraints](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Constraints.html)                                                                                     |
+| `kms:GetKeyLastUsage`                                                                 |               5 |     1 | Account/region operation quota across all keys. Other supported KMS reads use 100/s. [KMS quotas](https://docs.aws.amazon.com/kms/latest/developerguide/requests-per-second.html)                                                             |
+| `emr:DescribeCluster`, `emr:ListInstances`                                            |          1, 0.5 |     1 | Separate account/region operation quotas; refill rates differ from AWS burst allowances. [EMR quotas](https://docs.aws.amazon.com/general/latest/gr/emr.html)                                                                                 |
+| `cloudtrail:DescribeTrails`                                                           |              10 |     1 | Account, region, operation. [CloudTrail quotas](https://docs.aws.amazon.com/general/latest/gr/ct.html)                                                                                                                                        |
+| `cloudwatch:ListMetrics`, `cloudwatch:GetMetricData`                                  |         25, 500 |     1 | Separate account/region request quotas; metric data also consumes the datapoint budget below. [CloudWatch quotas](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/cloudwatch_limits.html)                                      |
+| `lambda:control-plane`                                                                |              15 |     1 | Shared by the supported function/version listing operations. [Lambda quotas](https://docs.aws.amazon.com/lambda/latest/dg/gettingstarted-limits.html).                                                                                        |
+| `resource-explorer-2:non-search`                                                      |               3 |     1 | Account/region budget for supported non-search operations, including `ListResources`. [Resource Explorer quotas](https://docs.aws.amazon.com/resource-explorer/latest/userguide/quotas.html).                                                 |
+| `sagemaker:DescribeEndpoint`, `sagemaker:DescribeEndpointConfig`                      |          5 each |     1 | Separate account/region operation quotas. [SageMaker quotas](https://docs.aws.amazon.com/general/latest/gr/sagemaker.html).                                                                                                                   |
+| `s3:GetBucketLifecycleConfiguration`, `s3:ListBucketIntelligentTieringConfigurations` |         10 each |    10 | Separate local operation budgets shared across buckets in the account and region; not verified AWS quotas.                                                                                                                                    |
+| Other operations                                                                      |              10 |    10 | Local fallback per account, applicable region, service, and operation; not a verified AWS quota.                                                                                                                                              |
+
+The S3 [lifecycle](https://docs.aws.amazon.com/AmazonS3/latest/API/API_GetBucketLifecycleConfiguration.html) and
+[intelligent-tiering](https://docs.aws.amazon.com/AmazonS3/latest/API/API_ListBucketIntelligentTieringConfigurations.html)
+API references do not establish a combined request quota for these configuration reads. CloudBurn applies its local
+fallback to each operation independently; calls to the same operation still share admission and retry feedback across
+buckets and scans. Larger workloads can need explicit quota overrides or a longer discovery `timeoutMs`. Local rate
+policies and the default deadline do not guarantee completion for every account size.
 
 ### CloudWatch datapoints
 
@@ -108,10 +121,15 @@ The recent bucket applies when `StartTime` is at most 3 hours old, including exa
 earlier uses the older bucket even when its end includes recent metrics. These are the separate
 [AWS datapoint quotas](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/cloudwatch_limits.html).
 
-Each page and retry reserves its full `MaxDatapoints`, capped at the API maximum of 100,800. Missing or invalid values
-reserve 100,800. Invalid start times use the stricter recent bucket. This avoids estimating sparse data or reproducing
-AWS timestamp rounding. Current collectors submit explicit `MetricStat` queries; Metrics Insights and expression-specific
-quotas are outside their scope. See the [GetMetricData contract](https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_GetMetricData.html).
+For inspectable `MetricStat` queries, each page and retry reserves the sum of the per-series datapoint upper bounds.
+The calculation includes AWS `StartTime` rounding and partial leading periods, honors the exclusive `EndTime`, and
+caps the total at `MaxDatapoints`, up to 100,800. Missing or invalid `MaxDatapoints` uses 100,800 as the cap. For example,
+500 daily series over 14 complete UTC days reserve 7,000 datapoints. Queries with `ReturnData: false` remain included.
+
+Expressions, unknown query shapes, and missing or invalid time windows reserve the full page cap. Invalid start times
+use the stricter recent bucket. Each page and retry uses its own bound; prior responses never reduce the reservation.
+Current collectors submit explicit `MetricStat` queries; Metrics Insights and expression-specific quotas are outside
+their scope. See the [GetMetricData contract](https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_GetMetricData.html).
 
 ## Retries and recovery
 
@@ -135,8 +153,9 @@ on the [AWS retry behavior page](https://docs.aws.amazon.com/sdkref/latest/guide
 The coordinator uses Node's built-in SQLite support and a separate database for each hashed quota key. It requires no
 daemon or Redis. The directory is restricted to mode `0700` and databases to `0600`. Files contain admission state,
 process reservations, and failure feedback; they do not contain credentials, request payloads, or response payloads.
-Each transaction closes its database handle. Pending waits belong to the requesting call and use cancellable timers;
-there is no idle background worker or polling timer.
+Each transaction closes its database handle. Calls sharing a store and quota queue locally so only one waiting caller
+checks admission at a time. Queued callers retain their own cancellation signals and deadlines; cancellation removes
+their pending callbacks and timers. Checks that leave quota state unchanged release the transaction without a write.
 
 SQLite rolls back an interrupted transaction. Reservations record their process, generation, and expiry. Expiry follows
 the discovery deadline: 5 minutes by default, or the caller's `timeoutMs`. Later admission removes reservations whose
@@ -147,10 +166,19 @@ A crash after a committed reservation can conservatively consume rate or retry c
 Persistent files retain quota feedback across runs.
 
 Storage errors during admission prevent dispatch instead of silently bypassing coordination. A database lock held for
-5 seconds produces an actionable error. Final cleanup has a separate 100 ms budget, including after cancellation. A
-cleanup failure preserves the AWS response or original error and emits `cleanupOutcome: "deferred"`; the reservation
-remains until its deadline or process exit allows reclamation. Stop all participating CloudBurn processes before
-repairing corrupted state or removing admission files, and check directory permissions and disk space before retrying.
+5 seconds produces an actionable error. Final cleanup has a separate 100 ms budget, including after cancellation.
+Completion cleanup releases a reservation only after its underlying request settles. A cleanup failure preserves the
+AWS response or original error and emits `cleanupOutcome: "deferred"`.
+
+Completed reservations whose cleanup failed enter a process-local retry queue, grouped by store and quota. The queue
+retries release and failure feedback until storage becomes writable or the original reservation deadline passes.
+These retries can restore capacity for another process while the owner remains alive and idle. Each retry has at most
+1 second to acquire storage, followed by at most 100 ms before another attempt. Cleanup timers are unreferenced, so
+they do not keep the process alive, and clear when the queue drains or expires. The queue retains only the store,
+quota key, reservation ID, outcome, and deadline, outside discovery caches and credential-resolution contexts.
+
+Stop all participating CloudBurn processes before repairing corrupted state or removing admission files, and check
+directory permissions and disk space before retrying.
 
 Coordination supports one OS user on one machine with a shared local filesystem path. Separate users, directories,
 containers without the same local state, or hosts have independent limits. Network filesystems are unsupported. Future
@@ -205,6 +233,6 @@ before dispatch and aborts the first held request. Total queue wait sums overlap
 time. Synthetic transport totals were 0–2 ms; these figures measure coordinator behavior, not AWS network latency.
 
 A separate deterministic large-account regression fixture follows the S3 collector’s batches of 10 buckets with
-2 parallel configuration reads per bucket. For 250 buckets, all 500 synthetic calls complete admission in 49 seconds
-while sharing the 10/s bucket-control-plane budget. This reserves time within the default 300-second discovery deadline
-for transport and other datasets; real network delays, pagination, and throttling can still require a longer timeout.
+2 parallel configuration reads per bucket and 100 ms of simulated transport per read. For 1,500 buckets, all 3,000
+synthetic calls start within 150 seconds while each operation stays within its local 10/s budget. Real network delays,
+pagination, throttling, and larger inventories can still require overrides or a longer discovery timeout.

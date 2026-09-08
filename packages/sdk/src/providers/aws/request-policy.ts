@@ -113,10 +113,6 @@ const REQUEST_LIMITS: Record<string, RequestLimit> = {
   // https://docs.aws.amazon.com/general/latest/gr/sagemaker.html
   'sagemaker:DescribeEndpoint': { ratePerSecond: 5 },
   'sagemaker:DescribeEndpointConfig': { ratePerSecond: 5 },
-  // Local bucket-control-plane budget: object-prefix throughput does not establish
-  // the AWS quota for these configuration reads. Share across both reads and buckets.
-  's3:GetBucketLifecycleConfiguration': { ratePerSecond: 10, burst: 10, group: 'bucket-control-plane' },
-  's3:ListBucketIntelligentTieringConfigurations': { ratePerSecond: 10, burst: 10, group: 'bucket-control-plane' },
 };
 
 const canonicalService = (service: string): string => {
@@ -220,8 +216,50 @@ export const resolveAwsRequestQuota = (
   };
 };
 
+type MetricDataRequest = {
+  StartTime?: unknown;
+  EndTime?: unknown;
+  MaxDatapoints?: unknown;
+  MetricDataQueries?: unknown;
+};
+
+const metricDataCost = (request: MetricDataRequest, now: number, pageLimit: number): number => {
+  const start = request.StartTime instanceof Date ? request.StartTime.getTime() : Number.NaN;
+  const end = request.EndTime instanceof Date ? request.EndTime.getTime() : Number.NaN;
+  const queries = request.MetricDataQueries;
+  if (!Number.isFinite(now) || !Number.isFinite(start) || !Number.isFinite(end) || end <= start) return pageLimit;
+  if (!Array.isArray(queries) || queries.length === 0) return pageLimit;
+
+  // Account for AWS StartTime rounding and partial leading periods. EndTime is
+  // exclusive, so an aligned fourteen-day window has fourteen daily datapoints.
+  // https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_GetMetricData.html
+  const age = now - start;
+  const roundingMs = age >= 63 * 86_400_000 ? 3_600_000 : age >= 15 * 86_400_000 ? 300_000 : 60_000;
+  let cost = 0;
+  for (const query of queries) {
+    if (!query || typeof query !== 'object') return pageLimit;
+    const { MetricStat: metric, Expression: expression, Period: queryPeriod } = query;
+    // Expressions can expand into several time series. Unknown query shapes use
+    // the page bound, including ambiguous top-level and MetricStat periods.
+    if (expression !== undefined || queryPeriod !== undefined || !metric || typeof metric !== 'object')
+      return pageLimit;
+    const period = metric.Period;
+    if (typeof period !== 'number' || !Number.isSafeInteger(period) || period <= 0) return pageLimit;
+    if (![1, 5, 10, 20, 30].includes(period) && period % 60 !== 0) return pageLimit;
+    const periodMs = period * 1_000;
+    if (!Number.isSafeInteger(periodMs)) return pageLimit;
+    const startResolutionMs = age < 3 * 3_600_000 && period > 1 && period < 60 ? periodMs : roundingMs;
+    const roundedStart = Math.floor(start / startResolutionMs) * startResolutionMs;
+    const alignedStart = Math.floor(roundedStart / periodMs) * periodMs;
+    // Count ReturnData:false queries too: suppressing output need not suppress retrieval.
+    cost += Math.ceil((end - alignedStart) / periodMs);
+    if (cost >= pageLimit) return pageLimit;
+  }
+  return cost;
+};
+
 /**
- * Reserves the complete requested CloudWatch page against its regional datapoint quota.
+ * Reserves a conservative CloudWatch page bound against its regional datapoint quota.
  *
  * @param input - SDK GetMetricData input, inspected without retaining query content.
  * @param region - CloudWatch endpoint region.
@@ -237,16 +275,13 @@ export const resolveAwsMetricDataQuota = (
   now: number,
   overrides?: AwsQuotaOverrides,
 ): { scope: AwsQuotaScope; policy: AwsQuotaPolicy; cost: number } => {
-  const request = (input && typeof input === 'object' ? input : {}) as { StartTime?: unknown; MaxDatapoints?: unknown };
+  const request = (input && typeof input === 'object' ? input : {}) as MetricDataRequest;
   const startTime = request.StartTime instanceof Date ? request.StartTime.getTime() : Number.NaN;
   const older = Number.isFinite(now) && Number.isFinite(startTime) && now - startTime > 3 * 60 * 60 * 1_000;
   const group = older ? 'GetMetricData:older-datapoints' : 'GetMetricData:recent-datapoints';
   const ratePerSecond = older ? 396_000 : 180_000;
-  // MaxDatapoints bounds one returned page. Reserving that whole page also handles
-  // sparse metrics and rounded StartTime values without estimating query density.
-  // https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_GetMetricData.html
   const maxDatapoints = request.MaxDatapoints;
-  const cost =
+  const pageLimit =
     typeof maxDatapoints === 'number' && Number.isSafeInteger(maxDatapoints) && maxDatapoints > 0
       ? Math.min(maxDatapoints, 100_800)
       : 100_800;
@@ -257,6 +292,6 @@ export const resolveAwsMetricDataQuota = (
       { ...DEFAULT_POLICY, ratePerSecond, burst: ratePerSecond },
       overrides,
     ),
-    cost,
+    cost: metricDataCost(request, now, pageLimit),
   };
 };

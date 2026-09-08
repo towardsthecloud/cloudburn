@@ -11,10 +11,12 @@ let release: (() => void) | undefined;
 const held = new Promise<void>((resolve) => {
   release = resolve;
 });
+const stopped = Promise.withResolvers<void>();
 
 process.on('message', (message) => {
   if (message === 'cancel') controller.abort(new DOMException('Fixture cancelled.', 'AbortError'));
   if (message === 'release') release?.();
+  if (message === 'stop') stopped.resolve();
 });
 
 send({ type: 'ready' });
@@ -70,5 +72,6 @@ try {
   await pending;
   send({ type: 'done', results: [], error: error instanceof Error ? error.name : String(error) });
 } finally {
+  if (config.stayAliveAfterDone) await stopped.promise;
   process.disconnect?.();
 }
