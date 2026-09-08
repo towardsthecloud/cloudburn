@@ -2,11 +2,13 @@ import { DescribeVpcEndpointsCommand } from '@aws-sdk/client-ec2';
 import type { AwsDiscoveredResource, AwsEc2VpcEndpointActivity } from '@cloudburn/rules';
 import { createEc2Client } from '../client.js';
 import { getAwsDiscoveryTimestamp } from '../execution.js';
-import { cloudWatchWindow, fetchCloudWatchSignals, getCompleteCloudWatchPoints } from './cloudwatch.js';
-import { chunkItems, withAwsServiceErrorContext } from './utils.js';
+import { cloudWatchWindow, getCompleteCloudWatchPoints } from './cloudwatch.js';
+import { collectResourceMetrics } from './resource-metrics.js';
+import { chunkItems, mapWithConcurrency, withAwsServiceErrorContext } from './utils.js';
 
 const VPC_ENDPOINT_ARN_PREFIX = 'vpc-endpoint/';
 const VPC_ENDPOINT_DESCRIBE_BATCH_SIZE = 100;
+const VPC_ENDPOINT_DESCRIBE_CONCURRENCY = 2;
 const THIRTY_DAYS_IN_SECONDS = 30 * 24 * 60 * 60;
 const DAILY_PERIOD_IN_SECONDS = 24 * 60 * 60;
 const REQUIRED_VPC_ENDPOINT_DAILY_POINTS = THIRTY_DAYS_IN_SECONDS / DAILY_PERIOD_IN_SECONDS;
@@ -151,49 +153,55 @@ export const hydrateAwsEc2VpcEndpointActivity = async (
     [...resourcesByRegion.entries()].map(async ([region, regionResources]) => {
       const interfaceEndpoints: AwsEc2VpcEndpointActivity[] = [];
 
-      for (const batch of chunkItems(regionResources, VPC_ENDPOINT_DESCRIBE_BATCH_SIZE)) {
-        const matchedEndpoints = await describeVpcEndpointBatch(region, batch);
+      let metricIndex = 0;
+      await collectResourceMetrics({
+        ...cloudWatchWindow({
+          endTime: new Date(getAwsDiscoveryTimestamp()),
+          lookbackSeconds: THIRTY_DAYS_IN_SECONDS,
+          mode: 'complete-days',
+        }),
+        region,
+        produce: async (emit) => {
+          await mapWithConcurrency(
+            chunkItems(regionResources, VPC_ENDPOINT_DESCRIBE_BATCH_SIZE),
+            VPC_ENDPOINT_DESCRIBE_CONCURRENCY,
+            async (batch) => {
+              const matchedEndpoints = await describeVpcEndpointBatch(region, batch);
 
-        if (matchedEndpoints.length === 0) {
-          continue;
-        }
-
-        const metricData = await fetchCloudWatchSignals({
-          ...cloudWatchWindow({
-            endTime: new Date(getAwsDiscoveryTimestamp()),
-            lookbackSeconds: THIRTY_DAYS_IN_SECONDS,
-            mode: 'complete-days',
-          }),
-          queries: matchedEndpoints.map((endpoint, index) => ({
-            dimensions: [
-              { Name: 'Endpoint Type', Value: 'Interface' },
-              { Name: 'Service Name', Value: endpoint.serviceName },
-              { Name: 'VPC Endpoint Id', Value: endpoint.vpcEndpointId },
-              { Name: 'VPC Id', Value: endpoint.vpcId },
-            ],
-            id: `vpce${index}`,
-            metricName: 'BytesProcessed',
-            namespace: 'AWS/PrivateLinkEndpoints',
-            period: DAILY_PERIOD_IN_SECONDS,
-            stat: 'Sum',
-          })),
-          region,
-        });
-
-        interfaceEndpoints.push(
-          ...matchedEndpoints.map((endpoint, index) => {
-            const points = getCompleteCloudWatchPoints(metricData.get(`vpce${index}`)) ?? [];
-
-            return {
-              ...endpoint,
-              bytesProcessedLast30Days:
-                points.length >= REQUIRED_VPC_ENDPOINT_DAILY_POINTS
-                  ? points.reduce((sum, point) => sum + point.value, 0)
-                  : null,
-            };
-          }),
-        );
-      }
+              for (const endpoint of matchedEndpoints) {
+                const index = metricIndex++;
+                await emit(
+                  [
+                    {
+                      dimensions: [
+                        { Name: 'Endpoint Type', Value: 'Interface' },
+                        { Name: 'Service Name', Value: endpoint.serviceName },
+                        { Name: 'VPC Endpoint Id', Value: endpoint.vpcEndpointId },
+                        { Name: 'VPC Id', Value: endpoint.vpcId },
+                      ],
+                      id: `vpce${index}`,
+                      metricName: 'BytesProcessed',
+                      namespace: 'AWS/PrivateLinkEndpoints',
+                      period: DAILY_PERIOD_IN_SECONDS,
+                      stat: 'Sum',
+                    },
+                  ],
+                  (metricData) => {
+                    const points = getCompleteCloudWatchPoints(metricData.get(`vpce${index}`)) ?? [];
+                    interfaceEndpoints.push({
+                      ...endpoint,
+                      bytesProcessedLast30Days:
+                        points.length >= REQUIRED_VPC_ENDPOINT_DAILY_POINTS
+                          ? points.reduce((sum, point) => sum + point.value, 0)
+                          : null,
+                    });
+                  },
+                );
+              }
+            },
+          );
+        },
+      });
 
       return interfaceEndpoints;
     }),

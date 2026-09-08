@@ -17,6 +17,63 @@ describe('hydrateAwsS3BucketAnalyses', () => {
     vi.resetAllMocks();
   });
 
+  it('fills a free bucket worker while another bucket is slow without exceeding the concurrency limit', async () => {
+    const releases: Array<() => void> = [];
+    const gates = Array.from({ length: 11 }, () => new Promise<void>((resolve) => releases.push(resolve)));
+    const started: string[] = [];
+    let active = 0;
+    let peakActive = 0;
+    mockedCreateS3Client.mockReturnValue({
+      send: vi.fn(
+        async (command: GetBucketLifecycleConfigurationCommand | ListBucketIntelligentTieringConfigurationsCommand) => {
+          if (command.constructor.name !== 'GetBucketLifecycleConfigurationCommand') {
+            return { IntelligentTieringConfigurationList: [] };
+          }
+
+          const bucketName = command.input.Bucket as string;
+          started.push(bucketName);
+          active += 1;
+          peakActive = Math.max(peakActive, active);
+          await gates[Number(bucketName.slice('bucket-'.length))];
+          active -= 1;
+          return { Rules: [] };
+        },
+      ),
+    } as never);
+    const run = hydrateAwsS3BucketAnalyses(
+      Array.from({ length: 11 }, (_, index) => ({
+        accountId: '123456789012',
+        arn: `arn:aws:s3:::bucket-${index}`,
+        region: 'us-east-1',
+        resourceType: 's3:bucket',
+        service: 's3',
+      })),
+    );
+
+    try {
+      await vi.waitFor(() => expect(started).toHaveLength(10));
+      releases[1]?.();
+      await vi.waitFor(() => expect(started).toContain('bucket-10'), { timeout: 1000 });
+      expect(peakActive).toBe(10);
+    } finally {
+      for (const release of releases) release();
+      await run;
+    }
+    expect((await run).map((bucket) => bucket.bucketName)).toEqual([
+      'bucket-0',
+      'bucket-1',
+      'bucket-10',
+      'bucket-2',
+      'bucket-3',
+      'bucket-4',
+      'bucket-5',
+      'bucket-6',
+      'bucket-7',
+      'bucket-8',
+      'bucket-9',
+    ]);
+  });
+
   it('hydrates buckets with no lifecycle configuration as empty lifecycle signal', async () => {
     const send = vi.fn(
       async (command: GetBucketLifecycleConfigurationCommand | ListBucketIntelligentTieringConfigurationsCommand) => {

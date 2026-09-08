@@ -11,11 +11,17 @@ import type {
 } from '@cloudburn/rules';
 import { createSageMakerClient } from '../client.js';
 import { getAwsDiscoveryTimestamp } from '../execution.js';
-import { cloudWatchWindow, fetchCloudWatchSignals, getCompleteCloudWatchPoints } from './cloudwatch.js';
-import { chunkItems, extractTerminalResourceIdentifier, withAwsServiceErrorContext } from './utils.js';
+import { cloudWatchWindow, getCompleteCloudWatchPoints } from './cloudwatch.js';
+import { collectResourceMetrics } from './resource-metrics.js';
+import {
+  chunkItems,
+  extractTerminalResourceIdentifier,
+  mapWithConcurrency,
+  withAwsServiceErrorContext,
+} from './utils.js';
 
 const NOTEBOOK_INSTANCE_BATCH_SIZE = 10;
-const ENDPOINT_BATCH_SIZE = 10;
+const ENDPOINT_HYDRATION_CONCURRENCY = 10;
 const FOURTEEN_DAYS_IN_SECONDS = 14 * 24 * 60 * 60;
 const DAILY_PERIOD_IN_SECONDS = 24 * 60 * 60;
 const REQUIRED_ENDPOINT_DAILY_POINTS = FOURTEEN_DAYS_IN_SECONDS / DAILY_PERIOD_IN_SECONDS;
@@ -208,120 +214,116 @@ export const hydrateAwsSageMakerEndpointActivity = async (
         return configPromise;
       };
 
-      for (const batch of chunkItems(regionResources, ENDPOINT_BATCH_SIZE)) {
-        const hydratedBatch = await Promise.all(
-          batch.map(async (resource) => {
-            try {
-              const endpointResponse = await withAwsServiceErrorContext(
-                'Amazon SageMaker',
-                'DescribeEndpoint',
-                region,
-                () =>
-                  client.send(
-                    new DescribeEndpointCommand({
-                      EndpointName: resource.endpointName,
-                    }),
-                  ),
-                {
-                  passthrough: isEndpointMissingError,
-                },
-              );
-
-              if (
-                !endpointResponse.EndpointArn ||
-                !endpointResponse.EndpointName ||
-                !endpointResponse.EndpointStatus ||
-                !endpointResponse.EndpointConfigName
-              ) {
-                return null;
-              }
-
-              const endpointConfigResponse = await describeEndpointConfigOnce(endpointResponse.EndpointConfigName);
-
-              return {
-                accountId: resource.accountId,
-                creationTime: endpointResponse.CreationTime?.toISOString(),
-                endpointArn: endpointResponse.EndpointArn,
-                endpointConfigName: endpointResponse.EndpointConfigName,
-                endpointName: endpointResponse.EndpointName,
-                endpointStatus: endpointResponse.EndpointStatus,
-                lastModifiedTime: endpointResponse.LastModifiedTime?.toISOString(),
-                productionVariantNames: (endpointConfigResponse.ProductionVariants ?? []).flatMap((variant) =>
-                  variant.VariantName ? [variant.VariantName] : [],
-                ),
-              };
-            } catch (error) {
-              if (isEndpointMissingError(error) || isEndpointConfigMissingError(error)) {
-                return null;
-              }
-
-              throw error;
-            }
-          }),
-        );
-
-        const completeEndpoints = hydratedBatch.flatMap((endpoint) => (endpoint ? [endpoint] : []));
-
-        const metricData =
-          completeEndpoints.length > 0
-            ? await fetchCloudWatchSignals({
-                ...cloudWatchWindow({
-                  endTime: new Date(getAwsDiscoveryTimestamp()),
-                  lookbackSeconds: FOURTEEN_DAYS_IN_SECONDS,
-                  mode: 'complete-days',
+      const hydrateEndpoint = async (resource: (typeof regionResources)[number]) => {
+        try {
+          const endpointResponse = await withAwsServiceErrorContext(
+            'Amazon SageMaker',
+            'DescribeEndpoint',
+            region,
+            () =>
+              client.send(
+                new DescribeEndpointCommand({
+                  EndpointName: resource.endpointName,
                 }),
-                queries: completeEndpoints.flatMap((endpoint, endpointIndex) =>
-                  endpoint.productionVariantNames.map((variantName, variantIndex) => ({
-                    dimensions: [
-                      { Name: 'EndpointName', Value: endpoint.endpointName },
-                      { Name: 'VariantName', Value: variantName },
-                    ],
-                    id: `endpoint${endpointIndex}variant${variantIndex}`,
-                    metricName: 'Invocations',
-                    namespace: 'AWS/SageMaker',
-                    period: DAILY_PERIOD_IN_SECONDS,
-                    stat: 'Sum' as const,
-                  })),
-                ),
-                region,
-              })
-            : new Map();
+              ),
+            {
+              passthrough: isEndpointMissingError,
+            },
+          );
 
-        endpoints.push(
-          ...completeEndpoints.map((endpoint, endpointIndex) => {
-            const totalInvocationsLast14Days =
-              endpoint.productionVariantNames.length > 0 &&
-              endpoint.productionVariantNames.every((_variantName, variantIndex) => {
-                const points =
-                  getCompleteCloudWatchPoints(metricData.get(`endpoint${endpointIndex}variant${variantIndex}`)) ?? [];
+          if (
+            !endpointResponse.EndpointArn ||
+            !endpointResponse.EndpointName ||
+            !endpointResponse.EndpointStatus ||
+            !endpointResponse.EndpointConfigName
+          ) {
+            return null;
+          }
 
-                return points.length >= REQUIRED_ENDPOINT_DAILY_POINTS;
-              })
-                ? endpoint.productionVariantNames.reduce((sum, _variantName, variantIndex) => {
+          const endpointConfigResponse = await describeEndpointConfigOnce(endpointResponse.EndpointConfigName);
+
+          return {
+            accountId: resource.accountId,
+            creationTime: endpointResponse.CreationTime?.toISOString(),
+            endpointArn: endpointResponse.EndpointArn,
+            endpointConfigName: endpointResponse.EndpointConfigName,
+            endpointName: endpointResponse.EndpointName,
+            endpointStatus: endpointResponse.EndpointStatus,
+            lastModifiedTime: endpointResponse.LastModifiedTime?.toISOString(),
+            productionVariantNames: (endpointConfigResponse.ProductionVariants ?? []).flatMap((variant) =>
+              variant.VariantName ? [variant.VariantName] : [],
+            ),
+          };
+        } catch (error) {
+          if (isEndpointMissingError(error) || isEndpointConfigMissingError(error)) {
+            return null;
+          }
+
+          throw error;
+        }
+      };
+
+      await collectResourceMetrics({
+        region,
+        ...cloudWatchWindow({
+          endTime: new Date(getAwsDiscoveryTimestamp()),
+          lookbackSeconds: FOURTEEN_DAYS_IN_SECONDS,
+          mode: 'complete-days',
+        }),
+        produce: async (emit) => {
+          await mapWithConcurrency(regionResources, ENDPOINT_HYDRATION_CONCURRENCY, async (resource, endpointIndex) => {
+            const endpoint = await hydrateEndpoint(resource);
+            if (!endpoint) return;
+            await emit(
+              endpoint.productionVariantNames.map((variantName, variantIndex) => ({
+                dimensions: [
+                  { Name: 'EndpointName', Value: endpoint.endpointName },
+                  { Name: 'VariantName', Value: variantName },
+                ],
+                id: `endpoint${endpointIndex}variant${variantIndex}`,
+                metricName: 'Invocations',
+                namespace: 'AWS/SageMaker',
+                period: DAILY_PERIOD_IN_SECONDS,
+                stat: 'Sum' as const,
+              })),
+              (metricData) => {
+                const totalInvocationsLast14Days =
+                  endpoint.productionVariantNames.length > 0 &&
+                  endpoint.productionVariantNames.every((_variantName, variantIndex) => {
                     const points =
                       getCompleteCloudWatchPoints(metricData.get(`endpoint${endpointIndex}variant${variantIndex}`)) ??
                       [];
 
-                    return (
-                      sum + points.reduce((pointSum: number, point: { value: number }) => pointSum + point.value, 0)
-                    );
-                  }, 0)
-                : null;
+                    return points.length >= REQUIRED_ENDPOINT_DAILY_POINTS;
+                  })
+                    ? endpoint.productionVariantNames.reduce((sum, _variantName, variantIndex) => {
+                        const points =
+                          getCompleteCloudWatchPoints(
+                            metricData.get(`endpoint${endpointIndex}variant${variantIndex}`),
+                          ) ?? [];
 
-            return {
-              accountId: endpoint.accountId,
-              creationTime: endpoint.creationTime,
-              endpointArn: endpoint.endpointArn,
-              endpointConfigName: endpoint.endpointConfigName,
-              endpointName: endpoint.endpointName,
-              endpointStatus: endpoint.endpointStatus,
-              lastModifiedTime: endpoint.lastModifiedTime,
-              region,
-              totalInvocationsLast14Days,
-            } satisfies AwsSageMakerEndpointActivity;
-          }),
-        );
-      }
+                        return (
+                          sum + points.reduce((pointSum: number, point: { value: number }) => pointSum + point.value, 0)
+                        );
+                      }, 0)
+                    : null;
+
+                endpoints.push({
+                  accountId: endpoint.accountId,
+                  creationTime: endpoint.creationTime,
+                  endpointArn: endpoint.endpointArn,
+                  endpointConfigName: endpoint.endpointConfigName,
+                  endpointName: endpoint.endpointName,
+                  endpointStatus: endpoint.endpointStatus,
+                  lastModifiedTime: endpoint.lastModifiedTime,
+                  region,
+                  totalInvocationsLast14Days,
+                } satisfies AwsSageMakerEndpointActivity);
+              },
+            );
+          });
+        },
+      });
 
       return endpoints;
     }),
