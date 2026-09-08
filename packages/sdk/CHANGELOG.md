@@ -1,5 +1,13 @@
 # @cloudburn/sdk
 
+## 0.35.0
+
+### Minor Changes
+
+- [#253](https://github.com/towardsthecloud/cloudburn/pull/253) [`779d55f`](https://github.com/towardsthecloud/cloudburn/commit/779d55f66ff594844a2e7088b7ae2c4d92a81108) Thanks [@axonstone](https://github.com/axonstone)! - Pipeline independent account collection and complete catalog scopes, and report provisional evaluated rule findings through discovery progress. Preserve final precedence, partial-region evidence, and cancellation semantics while reusing the established evidence cache.
+
+- [#252](https://github.com/towardsthecloud/cloudburn/pull/252) [`52305f9`](https://github.com/towardsthecloud/cloudburn/commit/52305f9667d1b11c8431d02a34726e11a45b4cac) Thanks [@axonstone](https://github.com/axonstone)! - Reuse complete historical CloudWatch metric intervals across scans and combine compatible pending queries across datasets. Refresh recent intervals for late data while preserving exact observation windows, sample-weighted aggregates, per-series status, and independent cancellation.
+
 ## 0.34.0
 
 ### Minor Changes
