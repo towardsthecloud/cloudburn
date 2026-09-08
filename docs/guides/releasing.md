@@ -20,9 +20,10 @@ version command, or publish command during feature work.
 
 ## Automated release flow
 
-On `main`, the release workflow uses Changesets to create or update a `chore: version packages` pull request. Merging that
-pull request runs `pnpm release`, which verifies the repository, force-builds packages, and publishes changed packages to
-npm. When the `cloudburn` CLI is published, the same workflow updates its formula in the Homebrew tap from the npm tarball.
+On `main`, the release workflow uses Changesets to create or update a `chore: version packages` pull request, then applies
+the repository's `release` label. Merging that pull request runs `pnpm release`, which verifies the repository,
+force-builds packages, and publishes changed packages to npm. When the `cloudburn` CLI is published, the same workflow
+updates its formula in the Homebrew tap from the npm tarball.
 
 The workflow and `.changeset/config.json` are authoritative for release automation. Maintainers may dispatch the workflow
 manually; local versioning and publishing require an explicit maintenance task. Changesets uses its GitHub changelog
