@@ -665,13 +665,11 @@ describe('discoverAwsResources', () => {
       { mode: 'regions', regions: ['us-east-1'] },
     );
 
-    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith({ mode: 'regions', regions: ['us-east-1'] }, [
-      'ec2:instance',
-      'ec2:volume',
-      'ecr:repository',
-      'lambda:function',
-      's3:bucket',
-    ]);
+    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith(
+      { mode: 'regions', regions: ['us-east-1'] },
+      ['ec2:instance', 'ec2:volume', 'ecr:repository', 'lambda:function', 's3:bucket'],
+      expect.objectContaining({ onResourceTypeReady: expect.any(Function) }),
+    );
     expect(mockedHydrateAwsEbsVolumes).toHaveBeenCalledWith([catalog.resources[0]], loadContextMatcher);
     expect(mockedHydrateAwsEc2Instances).toHaveBeenCalledWith([catalog.resources[1]], loadContextMatcher);
     expect(mockedHydrateAwsEcrRepositories).toHaveBeenCalledWith([catalog.resources[2]], loadContextMatcher);
@@ -909,13 +907,17 @@ describe('discoverAwsResources', () => {
       { mode: 'regions', regions: ['us-east-1'] },
     );
 
-    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith({ mode: 'regions', regions: ['us-east-1'] }, [
-      'cloudfront:distribution',
-      'dynamodb:table',
-      'route53:healthcheck',
-      'route53:hostedzone',
-      'secretsmanager:secret',
-    ]);
+    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith(
+      { mode: 'regions', regions: ['us-east-1'] },
+      [
+        'cloudfront:distribution',
+        'dynamodb:table',
+        'route53:healthcheck',
+        'route53:hostedzone',
+        'secretsmanager:secret',
+      ],
+      expect.objectContaining({ onResourceTypeReady: expect.any(Function) }),
+    );
     expect(mockedHydrateAwsCloudFrontDistributions).toHaveBeenCalledWith(
       [extendedCatalog.resources[1]],
       loadContextMatcher,
@@ -1391,9 +1393,11 @@ describe('discoverAwsResources', () => {
       { mode: 'regions', regions: ['us-east-1'] },
     );
 
-    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith({ mode: 'regions', regions: ['us-east-1'] }, [
-      'cloudtrail:trail',
-    ]);
+    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith(
+      { mode: 'regions', regions: ['us-east-1'] },
+      ['cloudtrail:trail'],
+      expect.objectContaining({ onResourceTypeReady: expect.any(Function) }),
+    );
     expect(mockedHydrateAwsCloudTrailTrails).toHaveBeenCalledWith([catalog.resources[6]], loadContextMatcher);
     expect(result.resources.get('aws-cloudtrail-trails')).toEqual([
       {
@@ -1445,9 +1449,11 @@ describe('discoverAwsResources', () => {
       { mode: 'regions', regions: ['us-east-1'] },
     );
 
-    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith({ mode: 'regions', regions: ['us-east-1'] }, [
-      'lambda:function',
-    ]);
+    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith(
+      { mode: 'regions', regions: ['us-east-1'] },
+      ['lambda:function'],
+      expect.objectContaining({ onResourceTypeReady: expect.any(Function) }),
+    );
     expect(mockedHydrateAwsLambdaFunctions).toHaveBeenCalledWith([catalog.resources[3]], loadContextMatcher);
     expect(mockedHydrateAwsLambdaFunctionMetrics).toHaveBeenCalledWith([catalog.resources[3]], loadContextMatcher);
     expect(result.resources.get('aws-lambda-function-metrics')).toEqual([
@@ -1926,12 +1932,11 @@ describe('discoverAwsResources', () => {
       { mode: 'regions', regions: ['us-east-1'] },
     );
 
-    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith({ mode: 'regions', regions: ['us-east-1'] }, [
-      'ecs:cluster',
-      'ecs:container-instance',
-      'ecs:service',
-      'eks:cluster',
-    ]);
+    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith(
+      { mode: 'regions', regions: ['us-east-1'] },
+      ['ecs:cluster', 'ecs:container-instance', 'ecs:service', 'eks:cluster'],
+      expect.objectContaining({ onResourceTypeReady: expect.any(Function) }),
+    );
     expect(mockedHydrateAwsEcsContainerInstances).toHaveBeenCalledWith([catalog.resources[11]], loadContextMatcher);
     expect(mockedHydrateAwsEcsClusters).toHaveBeenCalledWith([catalog.resources[12]], loadContextMatcher);
     expect(mockedHydrateAwsEcsClusterMetrics).toHaveBeenCalledWith([catalog.resources[12]], loadContextMatcher);
@@ -2110,12 +2115,11 @@ describe('discoverAwsResources', () => {
       { mode: 'regions', regions: ['us-east-1'] },
     );
 
-    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith({ mode: 'regions', regions: ['us-east-1'] }, [
-      'elasticache:cluster',
-      'elasticache:reserved-instance',
-      'elasticmapreduce:cluster',
-      'redshift:cluster',
-    ]);
+    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith(
+      { mode: 'regions', regions: ['us-east-1'] },
+      ['elasticache:cluster', 'elasticache:reserved-instance', 'elasticmapreduce:cluster', 'redshift:cluster'],
+      expect.objectContaining({ onResourceTypeReady: expect.any(Function) }),
+    );
     expect(mockedHydrateAwsElastiCacheClusters).toHaveBeenCalledWith([catalog.resources[15]], loadContextMatcher);
     expect(mockedHydrateAwsElastiCacheReservedNodes).toHaveBeenCalledWith([catalog.resources[16]], loadContextMatcher);
     expect(mockedHydrateAwsEmrClusters).toHaveBeenCalledWith([catalog.resources[17]], loadContextMatcher);
@@ -2155,9 +2159,11 @@ describe('discoverAwsResources', () => {
       { mode: 'regions', regions: ['us-east-1'] },
     );
 
-    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith({ mode: 'regions', regions: ['us-east-1'] }, [
-      'logs:log-group',
-    ]);
+    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith(
+      { mode: 'regions', regions: ['us-east-1'] },
+      ['logs:log-group'],
+      expect.objectContaining({ onResourceTypeReady: expect.any(Function) }),
+    );
     expect(mockedHydrateAwsCloudWatchLogGroups).toHaveBeenCalledWith([catalog.resources[7]], loadContextMatcher);
     expect(result.resources.get('aws-cloudwatch-log-groups')).toEqual([
       {
@@ -2208,9 +2214,11 @@ describe('discoverAwsResources', () => {
       { mode: 'regions', regions: ['us-east-1'] },
     );
 
-    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith({ mode: 'regions', regions: ['us-east-1'] }, [
-      'logs:log-group',
-    ]);
+    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith(
+      { mode: 'regions', regions: ['us-east-1'] },
+      ['logs:log-group'],
+      expect.objectContaining({ onResourceTypeReady: expect.any(Function) }),
+    );
     expect(mockedHydrateAwsCloudWatchLogGroups).toHaveBeenCalledWith([catalog.resources[7]], loadContextMatcher);
     expect(mockedHydrateAwsCloudWatchLogStreams).toHaveBeenCalledWith([catalog.resources[7]], loadContextMatcher);
     expect(result.resources.get('aws-cloudwatch-log-groups')).toEqual([
@@ -2274,9 +2282,11 @@ describe('discoverAwsResources', () => {
       { mode: 'regions', regions: ['us-east-1'] },
     );
 
-    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith({ mode: 'regions', regions: ['us-east-1'] }, [
-      'logs:log-group',
-    ]);
+    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith(
+      { mode: 'regions', regions: ['us-east-1'] },
+      ['logs:log-group'],
+      expect.objectContaining({ onResourceTypeReady: expect.any(Function) }),
+    );
     expect(mockedHydrateAwsCloudWatchLogGroups).toHaveBeenCalledWith([catalog.resources[7]], loadContextMatcher);
     expect(mockedHydrateAwsCloudWatchLogGroupRecentStreamActivity).toHaveBeenCalledWith(
       [catalog.resources[7]],
@@ -2354,9 +2364,11 @@ describe('discoverAwsResources', () => {
       { mode: 'regions', regions: ['us-east-1'] },
     );
 
-    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith({ mode: 'regions', regions: ['us-east-1'] }, [
-      'kms:key',
-    ]);
+    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith(
+      { mode: 'regions', regions: ['us-east-1'] },
+      ['kms:key'],
+      expect.objectContaining({ onResourceTypeReady: expect.any(Function) }),
+    );
     expect(mockedHydrateAwsKmsKeyChurnReviews).toHaveBeenCalledWith([kmsResource], loadContextMatcher);
     expect(mockedHydrateAwsKmsKeyChurnReviews).toHaveBeenCalledTimes(1);
     expect(mockedHydrateAwsKmsKeyUsage).toHaveBeenCalledTimes(1);
@@ -2393,9 +2405,11 @@ describe('discoverAwsResources', () => {
       { mode: 'regions', regions: ['us-east-1'] },
     );
 
-    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith({ mode: 'regions', regions: ['us-east-1'] }, [
-      's3:bucket',
-    ]);
+    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith(
+      { mode: 'regions', regions: ['us-east-1'] },
+      ['s3:bucket'],
+      expect.objectContaining({ onResourceTypeReady: expect.any(Function) }),
+    );
     expect(mockedHydrateAwsS3BucketAnalyses).toHaveBeenCalledWith([catalog.resources[4]], loadContextMatcher);
     expect(mockedHydrateAwsEbsVolumes).not.toHaveBeenCalled();
     expect(mockedHydrateAwsEc2Instances).not.toHaveBeenCalled();
@@ -2453,14 +2467,18 @@ describe('discoverAwsResources', () => {
       { mode: 'regions', regions: ['us-east-1'] },
     );
 
-    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith({ mode: 'regions', regions: ['us-east-1'] }, [
-      'ec2:reserved-instances',
-      'elasticloadbalancing:loadbalancer',
-      'elasticloadbalancing:loadbalancer/app',
-      'elasticloadbalancing:loadbalancer/gwy',
-      'elasticloadbalancing:loadbalancer/net',
-      'elasticloadbalancing:targetgroup',
-    ]);
+    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith(
+      { mode: 'regions', regions: ['us-east-1'] },
+      [
+        'ec2:reserved-instances',
+        'elasticloadbalancing:loadbalancer',
+        'elasticloadbalancing:loadbalancer/app',
+        'elasticloadbalancing:loadbalancer/gwy',
+        'elasticloadbalancing:loadbalancer/net',
+        'elasticloadbalancing:targetgroup',
+      ],
+      expect.objectContaining({ onResourceTypeReady: expect.any(Function) }),
+    );
     expect(mockedHydrateAwsEc2ReservedInstances).toHaveBeenCalledWith([catalog.resources[8]], loadContextMatcher);
     expect(mockedHydrateAwsEc2LoadBalancers).toHaveBeenCalledWith([catalog.resources[9]], loadContextMatcher);
     expect(mockedHydrateAwsEc2TargetGroups).toHaveBeenCalledWith([catalog.resources[10]], loadContextMatcher);
@@ -2522,9 +2540,11 @@ describe('discoverAwsResources', () => {
       { mode: 'regions', regions: ['us-east-1'] },
     );
 
-    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith({ mode: 'regions', regions: ['us-east-1'] }, [
-      'rds:db',
-    ]);
+    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith(
+      { mode: 'regions', regions: ['us-east-1'] },
+      ['rds:db'],
+      expect.objectContaining({ onResourceTypeReady: expect.any(Function) }),
+    );
     expect(mockedHydrateAwsRdsInstances).toHaveBeenCalledWith([catalog.resources[5]], loadContextMatcher);
     expect(result.resources.get('aws-rds-instances' as never)).toEqual([
       {
@@ -2575,9 +2595,11 @@ describe('discoverAwsResources', () => {
       { mode: 'regions', regions: ['us-east-1'] },
     );
 
-    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith({ mode: 'regions', regions: ['us-east-1'] }, [
-      'rds:db',
-    ]);
+    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith(
+      { mode: 'regions', regions: ['us-east-1'] },
+      ['rds:db'],
+      expect.objectContaining({ onResourceTypeReady: expect.any(Function) }),
+    );
     expect(mockedHydrateAwsRdsInstances).toHaveBeenCalledWith([catalog.resources[5]], loadContextMatcher);
     expect(mockedHydrateAwsRdsInstanceCpuMetrics).toHaveBeenCalledWith([catalog.resources[5]], loadContextMatcher);
     expect(result.resources.get('aws-rds-instance-cpu-metrics')).toEqual([
@@ -2619,9 +2641,11 @@ describe('discoverAwsResources', () => {
       { mode: 'regions', regions: ['us-east-1'] },
     );
 
-    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith({ mode: 'regions', regions: ['us-east-1'] }, [
-      'rds:db',
-    ]);
+    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith(
+      { mode: 'regions', regions: ['us-east-1'] },
+      ['rds:db'],
+      expect.objectContaining({ onResourceTypeReady: expect.any(Function) }),
+    );
     expect(mockedHydrateAwsRdsReservedInstances).toHaveBeenCalledWith([catalog.resources[5]], loadContextMatcher);
     expect(result.resources.get('aws-rds-reserved-instances')).toEqual([
       {
@@ -2674,9 +2698,11 @@ describe('discoverAwsResources', () => {
       { mode: 'regions', regions: ['us-east-1'] },
     );
 
-    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith({ mode: 'regions', regions: ['us-east-1'] }, [
-      'ec2:instance',
-    ]);
+    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith(
+      { mode: 'regions', regions: ['us-east-1'] },
+      ['ec2:instance'],
+      expect.objectContaining({ onResourceTypeReady: expect.any(Function) }),
+    );
     expect(mockedHydrateAwsEc2Instances).toHaveBeenCalledWith([catalog.resources[1]], loadContextMatcher);
     expect(mockedHydrateAwsEc2InstanceUtilization).toHaveBeenCalledWith([catalog.resources[1]], loadContextMatcher);
     expect(result.resources.get('aws-ec2-instance-utilization')).toEqual([
@@ -2729,9 +2755,11 @@ describe('discoverAwsResources', () => {
       { mode: 'regions', regions: ['us-east-1'] },
     );
 
-    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith({ mode: 'regions', regions: ['us-east-1'] }, [
-      'ec2:natgateway',
-    ]);
+    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith(
+      { mode: 'regions', regions: ['us-east-1'] },
+      ['ec2:natgateway'],
+      expect.objectContaining({ onResourceTypeReady: expect.any(Function) }),
+    );
     expect(mockedHydrateAwsEc2NatGatewayActivity).toHaveBeenCalledWith(
       [
         {
@@ -2798,9 +2826,11 @@ describe('discoverAwsResources', () => {
       { mode: 'regions', regions: ['us-east-1'] },
     );
 
-    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith({ mode: 'regions', regions: ['us-east-1'] }, [
-      'ec2:transit-gateway-attachment',
-    ]);
+    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith(
+      { mode: 'regions', regions: ['us-east-1'] },
+      ['ec2:transit-gateway-attachment'],
+      expect.objectContaining({ onResourceTypeReady: expect.any(Function) }),
+    );
     expect(mockedHydrateAwsEc2TransitGatewayVpcAttachmentActivity).toHaveBeenCalledWith(
       [attachmentResource],
       loadContextMatcher,
@@ -2845,9 +2875,11 @@ describe('discoverAwsResources', () => {
       { mode: 'regions', regions: ['us-east-1'] },
     );
 
-    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith({ mode: 'regions', regions: ['us-east-1'] }, [
-      'rds:db',
-    ]);
+    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith(
+      { mode: 'regions', regions: ['us-east-1'] },
+      ['rds:db'],
+      expect.objectContaining({ onResourceTypeReady: expect.any(Function) }),
+    );
     expect(mockedHydrateAwsRdsInstances).toHaveBeenCalledWith([catalog.resources[5]], loadContextMatcher);
     expect(mockedHydrateAwsRdsInstanceActivity).toHaveBeenCalledWith([catalog.resources[5]], loadContextMatcher);
     expect(result.resources.get('aws-rds-instance-activity')).toEqual([
@@ -2889,9 +2921,11 @@ describe('discoverAwsResources', () => {
       { mode: 'regions', regions: ['us-east-1'] },
     );
 
-    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith({ mode: 'regions', regions: ['us-east-1'] }, [
-      'ec2:snapshot',
-    ]);
+    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith(
+      { mode: 'regions', regions: ['us-east-1'] },
+      ['ec2:snapshot'],
+      expect.objectContaining({ onResourceTypeReady: expect.any(Function) }),
+    );
     expect(mockedHydrateAwsEbsSnapshots).toHaveBeenCalledWith([catalog.resources[19]], loadContextMatcher);
     expect(result.resources.get('aws-ebs-snapshots')).toEqual([
       {
@@ -2933,9 +2967,11 @@ describe('discoverAwsResources', () => {
       { mode: 'regions', regions: ['us-east-1'] },
     );
 
-    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith({ mode: 'regions', regions: ['us-east-1'] }, [
-      'rds:snapshot',
-    ]);
+    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith(
+      { mode: 'regions', regions: ['us-east-1'] },
+      ['rds:snapshot'],
+      expect.objectContaining({ onResourceTypeReady: expect.any(Function) }),
+    );
     expect(mockedHydrateAwsRdsSnapshots).toHaveBeenCalledWith([catalog.resources[20]], loadContextMatcher);
     expect(result.resources.get('aws-rds-snapshots')).toEqual([
       {
@@ -2985,9 +3021,11 @@ describe('discoverAwsResources', () => {
       { mode: 'regions', regions: ['eu-west-1'] },
     );
 
-    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith({ mode: 'regions', regions: ['eu-west-1'] }, [
-      'sagemaker:notebook-instance',
-    ]);
+    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith(
+      { mode: 'regions', regions: ['eu-west-1'] },
+      ['sagemaker:notebook-instance'],
+      expect.objectContaining({ onResourceTypeReady: expect.any(Function) }),
+    );
     expect(mockedHydrateAwsSageMakerNotebookInstances).toHaveBeenCalledWith(
       [
         {
@@ -3052,9 +3090,11 @@ describe('discoverAwsResources', () => {
       { mode: 'regions', regions: ['eu-west-1'] },
     );
 
-    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith({ mode: 'regions', regions: ['eu-west-1'] }, [
-      'sagemaker:endpoint',
-    ]);
+    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith(
+      { mode: 'regions', regions: ['eu-west-1'] },
+      ['sagemaker:endpoint'],
+      expect.objectContaining({ onResourceTypeReady: expect.any(Function) }),
+    );
     expect(mockedHydrateAwsSageMakerEndpointActivity).toHaveBeenCalledWith(
       [
         {

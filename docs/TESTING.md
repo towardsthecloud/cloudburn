@@ -82,6 +82,12 @@ actual CloudWatch request windows with cache provenance and verify dependency-ve
 suite uses real child processes for concurrent refresh, owner crashes, lease expiry, and old-writer fencing, plus
 synthetic loaders for corruption, invalidation, bounded eviction, and value isolation. No AWS access is needed.
 
+Pipeline tests gate synthetic catalog pages and hydration responses through `CloudBurnClient.discover()`.
+They assert that account evidence starts during catalog preparation, a cached catalog type releases before an unrelated
+miss, and useful provisional results precede final completion. Empty pages with continuation tokens cannot produce a
+pass. Cancellation after progress stops transport and later events and rejects the final result. Engine integration
+coverage retains selected optional evidence, finding precedence, and partial-region evaluation semantics.
+
 ### `cloudburn` (CLI)
 
 Command tests (`*.command.test.ts`) mock the SDK boundary to isolate CLI behavior. Their output assertions also cover

@@ -152,6 +152,20 @@ export type AwsDiscoveryProgressEvent =
       completedDatasets: number;
       datasetKey: DiscoveryDatasetKey;
       totalDatasets: number;
+    }
+  | {
+      kind: 'rule';
+      ruleId: string;
+      /** Every progress result is provisional; only the resolved scan applies final precedence. */
+      provisional: true;
+      status: RuleEvaluation['status'];
+      findingCount: number;
+      findings: FindingMatch[];
+      reason?: string;
+      completedRules: number;
+      totalRules: number;
+      /** Elapsed milliseconds since rule selection completed. */
+      elapsedMs: number;
     };
 
 /** Describes one enabled Resource Explorer index region. */

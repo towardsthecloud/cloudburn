@@ -90,6 +90,30 @@ type ProviderFindingGroup = {
 
 This is the provider-level group returned by the SDK scan engines.
 
+## AwsDiscoveryProgressEvent
+
+`CloudBurnClient.discover({ onProgress })` accepts a synchronous callback. Its discriminated union now includes
+`kind: 'rule'` alongside the existing `catalog` and `dataset` events. Consumers that switch exhaustively over `kind`
+should handle this additive variant.
+
+| Kind | Fields | Meaning |
+| ---- | ------ | ------- |
+| `catalog` | `resourceCount`, `searchRegion` | The entire requested catalog finished. |
+| `dataset` | `datasetKey`, `completedDatasets`, `totalDatasets` | One requested dataset settled, including unavailable evidence. This is not a pass result. |
+| `rule` | `ruleId`, `status`, `findingCount`, `findings`, `reason?`, `provisional: true`, `completedRules`, `totalRules`, `elapsedMs` | Required and selected optional evidence settled and the rule was evaluated. |
+
+Rule `status` uses the same `triggered | passed | unknown | not_applicable` values as `RuleEvaluation`.
+`findings` contains normalized `FindingMatch[]` before cross-rule precedence, and `findingCount` is its length.
+Unavailable required datasets produce `not_applicable`; incomplete resource or regional coverage cannot become a
+full pass. `elapsedMs` starts after rule selection and excludes public-call configuration and identity setup.
+
+Rule events are optional, emitted at most once per selected rule, and ordered by evidence completion. They can precede
+`catalog`. Counts report settled work, including skipped rules. All events are provisional feedback for an in-progress
+scan: precedence or a later catalog failure can change the final output. The SDK re-evaluates the completed context
+and applies precedence before resolving `ScanResult`, preserving deterministic final providers, rules, and findings.
+The resolved promise is the final signal; there is no final-progress event. On cancellation, discard the provisional
+state because the promise rejects without a successful partial result. Callback errors also reject discovery.
+
 ## `ScanResult`
 
 ```ts

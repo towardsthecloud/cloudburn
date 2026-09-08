@@ -9,6 +9,7 @@ import type {
   AwsCostOptimizationHubRdsStorageUpgradeConfiguration,
   AwsCostOptimizationHubRdsUpgradeConfiguration,
   AwsCostOptimizationHubUpgradeRecommendation,
+  AwsDiscoveryProgressEvent,
   AwsEvidenceCacheOptions,
   AwsEvidenceProvenance,
   CloudBurnClient,
@@ -33,6 +34,28 @@ const reusableScan = async (
   return result.evidence;
 };
 void reusableScan;
+
+const consumeDiscoveryProgress = (event: AwsDiscoveryProgressEvent): number => {
+  switch (event.kind) {
+    case 'catalog':
+      return event.resourceCount;
+    case 'dataset':
+      return event.completedDatasets;
+    case 'rule': {
+      const status: RuleEvaluation['status'] = event.status;
+      const provisional: true = event.provisional;
+      // @ts-expect-error Progress can never claim to be an authoritative final result.
+      const final: false = event.provisional;
+      void [status, provisional, final];
+      return event.findingCount + event.findings.length + event.elapsedMs;
+    }
+    default: {
+      const exhaustive: never = event;
+      return exhaustive;
+    }
+  }
+};
+void consumeDiscoveryProgress;
 
 describe('public SDK contracts', () => {
   it('exports compiler-checked upgrade configurations, evaluation coverage and Config evidence', () => {

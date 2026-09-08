@@ -5,7 +5,7 @@ import { STSClient } from '@aws-sdk/client-sts';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { createMemoryEvidenceCacheStore } from '../../src/evidence-cache.js';
 import * as clientModule from '../../src/providers/aws/client.js';
-import { withAwsEvidenceCache } from '../../src/providers/aws/evidence.js';
+import { getAwsEvidenceProvenance, withAwsEvidenceCache } from '../../src/providers/aws/evidence.js';
 import { getAwsExecutionSignal, withAwsDiscoveryExecution } from '../../src/providers/aws/execution.js';
 import { buildAwsDiscoveryCatalog, listAwsResourcesByFilter } from '../../src/providers/aws/resource-explorer.js';
 
@@ -24,6 +24,85 @@ afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllEnvs();
   rmSync(admissionDirectory, { recursive: true, force: true });
+});
+
+it.each([false, true])('releases complete types before unrelated packed plans finish (cache: %s)', async (cached) => {
+  vi.spyOn(STSClient.prototype, 'send').mockResolvedValue({
+    Account: '123456789012',
+    Arn: 'arn:aws:iam::123456789012:user/test',
+    UserId: 'test',
+  } as never);
+  const firstType = `ec2:a${'a'.repeat(1100)}`;
+  const secondType = `ec2:z${'z'.repeat(1100)}`;
+  const pagination = Promise.withResolvers<void>();
+  const unrelated = Promise.withResolvers<void>();
+  const startedPagination = Promise.withResolvers<void>();
+  const startedUnrelated = Promise.withResolvers<void>();
+  let resourceLists = 0;
+  vi.spyOn(clientModule, 'createResourceExplorerClient').mockImplementation(
+    () =>
+      ({
+        send: vi.fn(async (command) => {
+          if (command.input.Regions) return { Indexes: [{ Region: 'eu-west-1', Type: 'AGGREGATOR' }] };
+          if (command.input.Filters) {
+            resourceLists += 1;
+            if (command.input.Filters.FilterString.includes(secondType)) {
+              startedUnrelated.resolve();
+              await unrelated.promise;
+              return { Resources: [] };
+            }
+            if (!command.input.NextToken) return { Resources: [], NextToken: 'last-page' };
+            startedPagination.resolve();
+            await pagination.promise;
+            return {
+              Resources: [
+                {
+                  Arn: 'arn:aws:ec2:eu-west-1:123456789012:instance/example',
+                  OwningAccountId: '123456789012',
+                  Region: 'eu-west-1',
+                  Service: 'ec2',
+                  ResourceType: firstType,
+                },
+              ],
+            };
+          }
+          return { ViewArn: 'view', View: { Filters: { FilterString: '' } } };
+        }),
+      }) as never,
+  );
+  const cache = { store: createMemoryEvidenceCacheStore(), authorizationContext: 'test-policy-v1' };
+  const target = { mode: 'region' as const, region: 'eu-west-1' };
+  const ready = vi.fn((resourceType, catalog) => {
+    expect(catalog).toMatchObject({ searchRegion: 'eu-west-1', indexType: 'AGGREGATOR', viewArn: 'view' });
+    if (cached)
+      expect(getAwsEvidenceProvenance()).toContainEqual(
+        expect.objectContaining({ datasetKey: `catalog:${resourceType}`, complete: true }),
+      );
+  });
+  const collect = () => buildAwsDiscoveryCatalog(target, [firstType, secondType], { onResourceTypeReady: ready });
+  const run = clientModule.withAwsClientCredentials({ accessKeyId: 'SYNTHETIC', secretAccessKey: 'SYNTHETIC' }, () =>
+    withAwsDiscoveryExecution({}, () => (cached ? withAwsEvidenceCache({ cache, target }, collect) : collect())),
+  );
+  try {
+    await startedPagination.promise;
+    expect(ready).not.toHaveBeenCalled();
+    pagination.resolve();
+    await startedUnrelated.promise;
+    await vi.waitFor(() => expect(ready).toHaveBeenCalledTimes(1));
+    expect(ready.mock.calls[0]).toEqual([
+      firstType,
+      expect.objectContaining({ resources: [expect.objectContaining({ resourceType: firstType })] }),
+    ]);
+    unrelated.resolve();
+    expect((await run).resources).toHaveLength(1);
+    expect(ready).toHaveBeenCalledTimes(2);
+    expect(ready.mock.calls[1]).toEqual([secondType, expect.objectContaining({ resources: [] })]);
+    expect(resourceLists).toBe(3);
+  } finally {
+    pagination.resolve();
+    unrelated.resolve();
+    await run;
+  }
 });
 
 it('reuses each catalog resource type across scans while checking the current view', { timeout: 30_000 }, async () => {
@@ -220,17 +299,21 @@ it.each([
   );
   const cache = { store: createMemoryEvidenceCacheStore(), authorizationContext: 'test-policy-v1' };
   const target = { mode: 'region' as const, region: 'eu-west-1' };
-  const scan = (types: string[], signal: AbortSignal) =>
+  const scan = (types: string[], signal: AbortSignal, onResourceTypeReady: ReturnType<typeof vi.fn>) =>
     clientModule.withAwsClientCredentials({ accessKeyId: 'SYNTHETIC', secretAccessKey: 'SYNTHETIC' }, () =>
       withAwsDiscoveryExecution({ signal }, () =>
-        withAwsEvidenceCache({ cache, target }, () => buildAwsDiscoveryCatalog(target, types)),
+        withAwsEvidenceCache({ cache, target }, () => buildAwsDiscoveryCatalog(target, types, { onResourceTypeReady })),
       ),
     );
   const firstController = new AbortController();
   const lastController = new AbortController();
-  const first = scan(['ec2:volume', 'ec2:instance'], firstController.signal).catch((error: unknown) => error);
+  const firstReady = vi.fn();
+  const lastReady = vi.fn();
+  const first = scan(['ec2:volume', 'ec2:instance'], firstController.signal, firstReady).catch(
+    (error: unknown) => error,
+  );
   await batchStarted;
-  const last = scan(['ec2:instance'], lastController.signal).catch((error: unknown) => error);
+  const last = scan(['ec2:instance'], lastController.signal, lastReady).catch((error: unknown) => error);
   try {
     await vi.waitFor(() => expect(viewRequests).toBe(2));
     // Let the second scan complete its cache probe and attach to the type flight.
@@ -242,11 +325,14 @@ it.each([
       lastController.abort(new Error('last caller cancelled'));
       expect(await last).toMatchObject({ message: 'last caller cancelled' });
       await vi.waitFor(() => expect(batchSignal?.aborted).toBe(true));
+      expect(lastReady).not.toHaveBeenCalled();
     } else {
       releaseBatch();
       expect(await last).toMatchObject({ resources: [{ resourceType: 'ec2:instance' }] });
+      expect(lastReady).toHaveBeenCalledOnce();
     }
     expect(resourceLists).toBe(1);
+    expect(firstReady).not.toHaveBeenCalled();
   } finally {
     releaseBatch();
     await Promise.all([first, last]);

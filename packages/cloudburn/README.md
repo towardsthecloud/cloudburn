@@ -158,6 +158,10 @@ access, or incomplete configurations produce diagnostics. The SDK exposes both t
 `includeEvaluationResources: true`; the CLI prints finding identities and diagnostics.
 `CLDBRN-AWS-SAGEMAKER-3` uses Cost Explorer coverage data and remains available when Cost Optimization Hub is unavailable.
 Use `--debug` to print SDK and provider execution tracing to `stderr` without changing the normal `stdout` format.
+On interactive terminals, discovery prints catalog and dataset progress plus provisional rule results to `stderr` as
+rules finish. Each rule line includes its ID, status, and finding count. Provisional results describe work completed so
+far; the final report and exit code are authoritative. Progress is silent when `stderr` is not a terminal or `--debug`
+is enabled. `--format json` writes one final JSON result to `stdout`.
 
 ## Shell Completion
 

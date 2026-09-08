@@ -6,7 +6,7 @@ import { ResourceExplorer2Client } from '@aws-sdk/client-resource-explorer-2';
 import { STSClient } from '@aws-sdk/client-sts';
 import type { HttpRequest } from '@aws-sdk/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { CloudBurnClient, withAwsClientCredentials } from '../src/index.js';
+import { type AwsDiscoveryProgressEvent, CloudBurnClient, withAwsClientCredentials } from '../src/index.js';
 
 const fixture = (name: string): string =>
   readFileSync(new URL(`./fixtures/aws-discovery/${name}`, import.meta.url), 'utf8');
@@ -59,6 +59,7 @@ let debugMessages: string[];
 let admissionDirectory: string;
 let enabledRegions: string[] | undefined;
 let holdOperation: string | undefined;
+let holdLastCatalogPage: boolean;
 let failOperation: string | undefined;
 let transientOperation: string | undefined;
 let transientStatusCode: number;
@@ -70,6 +71,7 @@ beforeEach(() => {
   authorizations = [];
   enabledRegions = undefined;
   holdOperation = undefined;
+  holdLastCatalogPage = false;
   failOperation = undefined;
   transientOperation = undefined;
   transientStatusCode = 500;
@@ -121,7 +123,7 @@ beforeEach(() => {
         },
       };
     }
-    if (operation === holdOperation) {
+    if (operation === holdOperation && (!holdLastCatalogPage || JSON.parse(body).NextToken)) {
       return new Promise((resolve, reject) => {
         const signal = options?.abortSignal as AbortSignal;
         const onAbort = () => reject(signal.reason);
@@ -139,12 +141,17 @@ beforeEach(() => {
                       headers: { 'content-type': 'text/xml' },
                       body: Buffer.from(fixture('volumes.xml')),
                     }
-                  : { statusCode: 200, headers: { 'content-type': 'application/json' }, body: Buffer.from('{}') },
+                  : {
+                      statusCode: 200,
+                      headers: { 'content-type': 'application/json' },
+                      body: Buffer.from(operation === 'ListResources' ? fixture('resources-last.json') : '{}'),
+                    },
             });
           },
         });
       });
     }
+    if (operation === 'GetAnomalyMonitors') return jsonResponse({ AnomalyMonitors: [] });
     if (request.hostname === 'resource-explorer-2.eu-west-1.amazonaws.com') {
       if (operation === 'ListSupportedResourceTypes') {
         const input = body ? JSON.parse(body) : request.query;
@@ -194,6 +201,7 @@ beforeEach(() => {
         }
         const input = body ? JSON.parse(body) : request.query;
         const value = JSON.parse(fixture(input.NextToken ? 'resources-last.json' : 'resources-first.json'));
+        if (holdLastCatalogPage && !input.NextToken) value.Resources = [];
         if (includeNewVolume && input.NextToken)
           value.Resources.push({
             ...value.Resources[0],
@@ -343,6 +351,189 @@ it('discovers through real AWS serialization, catalog pagination, hydration and 
   expect(requests.filter((request) => request.operation === 'GetCallerIdentity')).toHaveLength(1);
   // Findings retain their resource account; quotas use the signing caller's account.
   expect(volumeAttempt()).toMatchObject({ quota: { accountId: '222222222222' } });
+});
+
+// Public cancellation rejects promptly; let the detached request release its
+// SQLite lease before this fixture deletes its private admission directory.
+const waitForCancelledCatalogCleanup = async () => {
+  if (held.length === 0) return;
+  await vi.waitFor(() =>
+    expect(
+      debugMessages
+        .filter((message) => message.startsWith('aws: attempt '))
+        .map((message) => JSON.parse(message.slice('aws: attempt '.length)))
+        .some(
+          (attempt) =>
+            attempt.operation === 'ListResources' &&
+            attempt.outcome === 'cancelled' &&
+            attempt.cleanupOutcome === 'released',
+        ),
+    ).toBe(true),
+  );
+};
+
+it('collects independent account evidence while catalog pagination is blocked', async () => {
+  holdOperation = 'ListResources';
+  const controller = new AbortController();
+  const scan = new CloudBurnClient({ debugLogger: (message) => debugMessages.push(message) }).discover({
+    signal: controller.signal,
+    aws: { credentials: { accessKeyId: 'SYNTHETIC', secretAccessKey: 'synthetic-test-key' } },
+    target: { mode: 'region', region },
+    config: { discovery: { enabledRules: ['CLDBRN-AWS-EBS-1', 'CLDBRN-AWS-COSTGUARDRAILS-2'] } },
+  });
+  const outcome = scan.catch((error: unknown) => error);
+  try {
+    await vi.waitFor(() => expect(held.length).toBeGreaterThan(0), { timeout: 4000 });
+    await vi.waitFor(() => expect(requests.some(({ operation }) => operation === 'GetAnomalyMonitors')).toBe(true));
+  } finally {
+    controller.abort();
+    await outcome;
+    await waitForCancelledCatalogCleanup();
+  }
+});
+
+it('reports provisional evaluated findings before unrelated hydration completes', async () => {
+  holdOperation = 'DescribeVolumes';
+  const events: AwsDiscoveryProgressEvent[] = [];
+  const controller = new AbortController();
+  const scan = new CloudBurnClient({ debugLogger: (message) => debugMessages.push(message) }).discover({
+    signal: controller.signal,
+    aws: { credentials: { accessKeyId: 'SYNTHETIC', secretAccessKey: 'synthetic-test-key' } },
+    target: { mode: 'region', region },
+    config: { discovery: { enabledRules: ['CLDBRN-AWS-EBS-1', 'CLDBRN-AWS-COSTGUARDRAILS-2'] } },
+    includeEvaluationResources: true,
+    onProgress: (event) => events.push(event),
+  });
+  const outcome = scan.catch((error: unknown) => error);
+  try {
+    await vi.waitFor(() => expect(held.length).toBeGreaterThan(0), { timeout: 4000 });
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        kind: 'rule',
+        ruleId: 'CLDBRN-AWS-COSTGUARDRAILS-2',
+        provisional: true,
+        status: 'triggered',
+        findingCount: 1,
+      }),
+    );
+    expect(events.filter((event) => event.kind === 'rule')).toHaveLength(1);
+    held[0]?.release();
+    const result = await scan;
+    expect(result.providers.flatMap((provider) => provider.rules).map((rule) => rule.ruleId)).toEqual([
+      'CLDBRN-AWS-COSTGUARDRAILS-2',
+      'CLDBRN-AWS-EBS-1',
+    ]);
+    expect(events.filter((event) => event.kind === 'rule')).toHaveLength(2);
+    const timingLog = debugMessages.find((message) => message.startsWith('sdk: live scan timing '));
+    expect(timingLog).toBeDefined();
+    const timing = JSON.parse(timingLog?.slice('sdk: live scan timing '.length) ?? '{}');
+    expect(timing.firstRuleMs).toBe(events.find((event) => event.kind === 'rule')?.elapsedMs);
+    expect(timing.totalMs).toBeGreaterThan(timing.firstRuleMs);
+  } finally {
+    controller.abort();
+    await outcome;
+  }
+});
+
+it('evaluates a cached catalog scope while an unrelated catalog miss is blocked', async () => {
+  const client = new CloudBurnClient({ debugLogger: (message) => debugMessages.push(message) });
+  const cache = { directory: join(admissionDirectory, 'evidence'), authorizationContext: 'synthetic-policy-v1' };
+  const aws = { credentials: { accessKeyId: 'SYNTHETIC', secretAccessKey: 'synthetic-test-key' } };
+  await client.discover({
+    cache,
+    aws,
+    target: { mode: 'region', region },
+    config: { discovery: { enabledRules: ['CLDBRN-AWS-EBS-1'] } },
+  });
+  holdOperation = 'ListResources';
+  const controller = new AbortController();
+  const events: AwsDiscoveryProgressEvent[] = [];
+  const scan = client.discover({
+    cache,
+    aws,
+    signal: controller.signal,
+    target: { mode: 'region', region },
+    config: { discovery: { enabledRules: ['CLDBRN-AWS-EBS-1', 'CLDBRN-AWS-CLOUDWATCH-1'] } },
+    onProgress: (event) => events.push(event),
+  });
+  const outcome = scan.catch((error: unknown) => error);
+  try {
+    await vi.waitFor(() => expect(held.length).toBeGreaterThan(0), { timeout: 4000 });
+    await vi.waitFor(() =>
+      expect(events).toContainEqual(
+        expect.objectContaining({
+          kind: 'rule',
+          ruleId: 'CLDBRN-AWS-EBS-1',
+          status: 'triggered',
+          findingCount: 1,
+        }),
+      ),
+    );
+    expect(events.some((event) => event.kind === 'catalog')).toBe(false);
+  } finally {
+    controller.abort();
+    await outcome;
+    await waitForCancelledCatalogCleanup();
+  }
+});
+
+it('never evaluates absence from an empty catalog page with more pages pending', async () => {
+  holdOperation = 'ListResources';
+  holdLastCatalogPage = true;
+  const events: AwsDiscoveryProgressEvent[] = [];
+  const controller = new AbortController();
+  const scan = new CloudBurnClient().discover({
+    signal: controller.signal,
+    aws: { credentials: { accessKeyId: 'SYNTHETIC', secretAccessKey: 'synthetic-test-key' } },
+    target: { mode: 'region', region },
+    config: { discovery: { enabledRules: ['CLDBRN-AWS-EBS-1'] } },
+    onProgress: (event) => events.push(event),
+  });
+  const outcome = scan.catch((error: unknown) => error);
+  try {
+    await vi.waitFor(() => expect(held).toHaveLength(1), { timeout: 4000 });
+    expect(events).toEqual([]);
+    expect(requests.some(({ operation }) => operation === 'DescribeVolumes')).toBe(false);
+    held[0]?.release();
+    const result = await scan;
+    expect(result.providers[0]?.rules[0]?.findings).toEqual([
+      { accountId, region, resourceId: 'vol-legacy', resourceType: 'ec2:volume' },
+    ]);
+    expect(events).toContainEqual(expect.objectContaining({ kind: 'rule', status: 'triggered', findingCount: 1 }));
+  } finally {
+    controller.abort();
+    await outcome;
+  }
+});
+
+it('rejects cancellation after useful progress and stops active transport and later events', async () => {
+  holdOperation = 'DescribeVolumes';
+  const controller = new AbortController();
+  const events: AwsDiscoveryProgressEvent[] = [];
+  const scan = new CloudBurnClient().discover({
+    signal: controller.signal,
+    aws: { credentials: { accessKeyId: 'SYNTHETIC', secretAccessKey: 'synthetic-test-key' } },
+    target: { mode: 'region', region },
+    config: { discovery: { enabledRules: ['CLDBRN-AWS-EBS-1', 'CLDBRN-AWS-COSTGUARDRAILS-2'] } },
+    onProgress: (event) => events.push(event),
+  });
+  const outcome = scan.catch((error: unknown) => error);
+  try {
+    await vi.waitFor(() => expect(held).toHaveLength(1), { timeout: 4000 });
+    expect(events.some((event) => event.kind === 'rule')).toBe(true);
+    const eventCount = events.length;
+    const requestCount = requests.length;
+    controller.abort();
+    expect(await outcome).toMatchObject({ name: 'AbortError' });
+    expect(held[0]?.signal.aborted).toBe(true);
+    held[0]?.release();
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(events).toHaveLength(eventCount);
+    expect(requests).toHaveLength(requestCount);
+  } finally {
+    controller.abort();
+    await outcome;
+  }
 });
 
 it('reuses complete evidence across scans while re-evaluating rule selection', async () => {

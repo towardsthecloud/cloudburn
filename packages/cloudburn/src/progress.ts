@@ -20,6 +20,13 @@ export const resolveCliDiscoveryProgressLogger = (
   }
 
   return (event: AwsDiscoveryProgressEvent) => {
+    if (event.kind === 'rule') {
+      process.stderr.write(
+        `discover: rules ${event.completedRules}/${event.totalRules} (${event.ruleId}: ${event.status}, findings: ${event.findingCount}, provisional)\n`,
+      );
+      return;
+    }
+
     process.stderr.write(
       event.kind === 'catalog'
         ? `discover: catalog ready with ${event.resourceCount} resources from ${event.searchRegion}\n`
