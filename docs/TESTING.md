@@ -124,6 +124,14 @@ Keep the fixture expectations independent of implementation output. Normalize on
 
 `pnpm test:packages` builds and packs all three workspace packages, installs the archives into a temporary consumer project, then checks the installed CLI executable and SDK ESM/CommonJS exports with real scans. Nothing is published. Installation can access the public npm registry for runtime dependencies, so this suite is uncached and requires registry connectivity. The temporary consumer uses the repository-pinned pnpm version. The uncached task forwards `HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY` (including lowercase forms), and `NODE_EXTRA_CA_CERTS` through Turbo and into subprocesses for registry connectivity. It does not use AWS credentials or contact AWS.
 
+The built CLI template suite installs a module-resolution guard that rejects AWS SDK and Smithy dependencies, including
+credential providers. Help/version and static fixture scans must complete with the guard active. Installed ESM and CommonJS
+SDK consumers use the same guard to check static scans, synchronous region helpers, credential-scope Promise identity, and
+pre-cancelled discovery methods. A separate installed consumer drives real live chunks in both formats with synthetic HTTP
+responses, checking signed scoped credentials, findings, owned client disposal, and active cancellation. A module-resolution
+hook also cancels the first AWS import and checks that late import completion never resolves credentials. These structural
+checks enforce import independence without machine-specific timing gates.
+
 ## Runtime and type contracts
 
 Export tests should exercise values imported from the public package entry point. Constructing a typed object and

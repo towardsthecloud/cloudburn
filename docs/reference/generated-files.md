@@ -14,6 +14,7 @@ Coverage is opt-in; no root coverage script is defined. Select a workspace packa
 
 The CLI build starts at `packages/cloudburn/src/cli.ts` and publishes `dist/cli.js`. The SDK and rules builds start at
 their `src/index.ts` files and publish ESM, CommonJS, and declaration output described by their package manifests.
+The SDK also emits internal chunks for deferred live imports in both formats; publish the complete `dist/` directory.
 
 The reference pages for [rule IDs](rule-ids.md), [configuration](config-schema.md), and [finding shapes](finding-shape.md)
 are manually maintained from the code sources named at the top of each page. No generator currently updates them; change

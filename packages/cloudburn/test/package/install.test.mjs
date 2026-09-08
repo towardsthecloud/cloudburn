@@ -77,6 +77,12 @@ before(() => {
   const installedSdk = createRequire(consumer.resolve('@cloudburn/sdk'));
   assert.equal(installedCli.resolve('@cloudburn/sdk'), consumer.resolve('@cloudburn/sdk'));
   assert.equal(installedSdk.resolve('@cloudburn/rules'), consumer.resolve('@cloudburn/rules'));
+  copyFileSync(
+    new URL('./cancel-loading-consumer.cjs', import.meta.url),
+    join(directory, 'cancel-loading-consumer.cjs'),
+  );
+  copyFileSync(new URL('./discovery-consumer.cjs', import.meta.url), join(directory, 'discovery-consumer.cjs'));
+  copyFileSync(new URL('../block-aws.cjs', import.meta.url), join(directory, 'block-aws.cjs'));
   copyFileSync(new URL('../e2e/fixtures/ebs/terraform/main.tf', import.meta.url), join(directory, 'main.tf'));
   copyFileSync(
     new URL('../e2e/fixtures/ebs/cloudformation/template.yaml', import.meta.url),
@@ -110,14 +116,41 @@ test('the installed CLI scans Terraform through its installed dependencies', () 
 });
 
 for (const format of ['module', 'commonjs']) {
-  test(`the installed SDK ${format} export scans CloudFormation`, () => {
+  test(`the installed SDK ${format} cancels while its first AWS module loads`, () => {
+    const result = run(process.execPath, ['cancel-loading-consumer.cjs', format], directory);
+    assert.equal(result.stdout, 'ok\n');
+    assert.equal(result.stderr, '');
+  });
+
+  test(`the installed SDK ${format} live chunks retain credentials, disposal, and cancellation`, () => {
+    const result = run(process.execPath, ['discovery-consumer.cjs', format], directory);
+    assert.equal(result.stdout, 'ok\n');
+    assert.equal(result.stderr, '');
+  });
+
+  test(`the installed SDK ${format} export keeps synchronous helpers and scans without AWS imports`, () => {
     const load = format === 'module' ? "await import('@cloudburn/sdk')" : "require('@cloudburn/sdk')";
     const source = `(async () => {
-      const { CloudBurnClient } = ${load};
-      const result = await new CloudBurnClient().scanStatic('template.yaml', { iac: { enabledRules: ['CLDBRN-AWS-EBS-1'] } });
+      const assert = ${format === 'module' ? "await import('node:assert/strict')" : "require('node:assert/strict')"};
+      const { CloudBurnClient, assertValidAwsRegion, assertSupportedAwsRegion, withAwsClientCredentials } = ${load};
+      assert.equal(assertValidAwsRegion('eu-west-1'), 'eu-west-1');
+      assert.equal(assertSupportedAwsRegion('us-east-1'), 'us-east-1');
+      assert.throws(() => assertSupportedAwsRegion('bad-region'), /Invalid AWS region/);
+      const value = Promise.resolve('scoped');
+      assert.equal(withAwsClientCredentials(() => { throw new Error('Credentials must stay unresolved'); }, () => value), value);
+      const scanner = new CloudBurnClient();
+      const reason = new Error('cancel before live modules load');
+      for (const operation of ['discover', 'getDiscoveryStatus', 'initializeDiscovery', 'listSupportedDiscoveryResourceTypes']) {
+        await assert.rejects(scanner[operation]({ signal: AbortSignal.abort(reason) }), error => error === reason);
+      }
+      const result = await scanner.scanStatic('template.yaml', { iac: { enabledRules: ['CLDBRN-AWS-EBS-1'] } });
       process.stdout.write(JSON.stringify(result.providers.flatMap(p => p.rules.flatMap(r => r.findings))));
     })().catch(error => { console.error(error); process.exitCode = 1; });`;
-    const result = run(process.execPath, ['--input-type', format, '--eval', source], directory);
+    const result = run(
+      process.execPath,
+      ['--require', './block-aws.cjs', '--input-type', format, '--eval', source],
+      directory,
+    );
     assert.equal(result.stderr, '');
     assert.deepEqual(JSON.parse(result.stdout), [
       { resourceId: 'Legacy', location: { path: 'template.yaml', line: 6, column: 7 } },

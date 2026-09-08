@@ -16,13 +16,9 @@ export type {
 export { createEvidenceCache, createMemoryEvidenceCacheStore } from './evidence-cache.js';
 export { parseIaC } from './parsers/index.js';
 export { evaluateScanPolicy } from './policy.js';
-export {
-  type AwsClientCredentials,
-  assertSupportedAwsRegion,
-  assertValidAwsRegion,
-  withAwsClientCredentials,
-} from './providers/aws/client.js';
+export { type AwsClientCredentials, withAwsClientCredentials } from './providers/aws/credentials.js';
 export { isAwsDiscoveryErrorCode } from './providers/aws/errors.js';
+export { assertSupportedAwsRegion, assertValidAwsRegion } from './providers/aws/regions.js';
 export { CloudBurnClient } from './scanner.js';
 export type {
   AwsCloudFrontDistribution,
