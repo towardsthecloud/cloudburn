@@ -38,10 +38,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Hosted runners have 4 vCPUs. Turbo's default concurrency runs every package's Vitest suite, the CLI
+      # end-to-end tests, lint, and typecheck at once, which stretches timer-paced integration tests past their budgets.
       - name: Verify affected packages and repository checks
         if: github.event_name == 'pull_request'
-        run: pnpm verify --affected
+        run: pnpm verify --affected --concurrency=2
 
       - name: Verify the complete workspace
         if: github.event_name != 'pull_request'
-        run: pnpm verify
+        run: pnpm verify --concurrency=2
