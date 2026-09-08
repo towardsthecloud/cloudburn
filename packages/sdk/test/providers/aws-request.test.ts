@@ -1,7 +1,7 @@
 import { CloudWatchClient, GetMetricDataCommand } from '@aws-sdk/client-cloudwatch';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { withAwsClientCredentials } from '../../src/providers/aws/client.js';
-import { getAwsClient, withAwsDiscoveryExecution } from '../../src/providers/aws/execution.js';
+import { getAwsClient, waitForAwsDelay, withAwsDiscoveryExecution } from '../../src/providers/aws/execution.js';
 import { createMemoryAwsRequestStore as memoryStore } from '../../src/providers/aws/request-store.js';
 import { withAwsServiceCallBudget, withAwsServiceErrorContext } from '../../src/providers/aws/resources/utils.js';
 
@@ -12,6 +12,159 @@ afterEach(() => {
 });
 
 describe('shared AWS request admission', () => {
+  it('hydrates 250 synthetic buckets within 50 seconds while sharing the bucket control-plane rate', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    const controller = new AbortController();
+    const starts: number[] = [];
+    const work = withAwsDiscoveryExecution({ signal: controller.signal }, () =>
+      withAwsServiceCallBudget(
+        async () => {
+          // Match the collector's batches of ten buckets and its two parallel reads per bucket.
+          for (let batch = 0; batch < 25; batch += 1) {
+            await Promise.all(
+              Array.from({ length: 10 }, () =>
+                Promise.all(
+                  ['GetBucketLifecycleConfiguration', 'ListBucketIntelligentTieringConfigurations'].map((operation) =>
+                    withAwsServiceErrorContext('Amazon S3', operation, 'eu-west-1', async () => {
+                      starts.push(Date.now());
+                    }),
+                  ),
+                ),
+              ),
+            );
+          }
+        },
+        { accountId: 'large-bucket-account', store: memoryStore() },
+      ),
+    );
+    const completed = work.then(
+      () => true,
+      () => false,
+    );
+    try {
+      await vi.advanceTimersByTimeAsync(50_000);
+      expect(starts).toHaveLength(500);
+      expect(starts.at(-1)).toBeLessThanOrEqual(49_000);
+      for (const start of starts)
+        expect(starts.filter((time) => time >= start && time < start + 1_000).length).toBeLessThanOrEqual(10);
+      expect(await completed).toBe(true);
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      controller.abort();
+      await completed;
+    }
+  });
+
+  it.each([
+    'success',
+    'error',
+  ] as const)('preserves the AWS %s and telemetry when releasing admission fails', async (outcome) => {
+    const store = memoryStore();
+    const update = store.update;
+    vi.spyOn(store, 'update').mockImplementationOnce(update).mockRejectedValue(new Error('DO-NOT-LOG-STATE'));
+    const onAttempt = vi.fn();
+    const logger = vi.fn();
+    const response = { $metadata: { httpStatusCode: 200 }, data: 'DO-NOT-LOG-RESPONSE' };
+    const failure = new Error('Original AWS failure');
+    const request = withAwsDiscoveryExecution({ debugLogger: logger }, () =>
+      withAwsServiceCallBudget(
+        () =>
+          withAwsServiceErrorContext(
+            'Amazon CloudWatch Logs',
+            'DescribeLogStreams',
+            'eu-west-1',
+            async () => {
+              if (outcome === 'error') throw failure;
+              return response;
+            },
+            { passthrough: () => true },
+          ),
+        { accountId: 'cleanup-account', store, onAttempt },
+      ),
+    );
+
+    if (outcome === 'success') await expect(request).resolves.toBe(response);
+    else await expect(request).rejects.toBe(failure);
+    expect(onAttempt).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ outcome, cleanupOutcome: 'deferred' }));
+    expect(logger).toHaveBeenCalledWith(expect.stringContaining('"cleanupOutcome":"deferred"'));
+    expect(JSON.stringify([logger.mock.calls, onAttempt.mock.calls])).not.toContain('DO-NOT-LOG');
+  });
+
+  it('bounds contended cleanup and clears its timer without losing a successful response', async () => {
+    vi.useFakeTimers();
+    const store = memoryStore();
+    const update = store.update;
+    vi.spyOn(store, 'update')
+      .mockImplementationOnce(update)
+      .mockImplementationOnce(
+        async (_key, _update, signal) =>
+          new Promise<never>((_resolve, reject) =>
+            signal?.addEventListener('abort', () => reject(signal.reason), { once: true }),
+          ),
+      );
+    const onAttempt = vi.fn();
+    const request = withAwsServiceCallBudget(
+      () =>
+        withAwsServiceErrorContext('Amazon CloudWatch Logs', 'DescribeLogStreams', 'eu-west-1', async () => 'response'),
+      { accountId: 'contended-cleanup', store, onAttempt },
+    );
+
+    await vi.advanceTimersByTimeAsync(100);
+    expect(onAttempt).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ outcome: 'success', cleanupOutcome: 'deferred' }),
+    );
+    await expect(request).resolves.toBe('response');
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('releases an admitted slot after cancellation so a fresh scan can progress immediately', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    const controller = new AbortController();
+    const started = Promise.withResolvers<void>();
+    const reason = new DOMException('Caller cancelled discovery.', 'AbortError');
+    const onAttempt = vi.fn();
+    const options = {
+      accountId: 'cancelled-cleanup',
+      store: memoryStore(),
+      onAttempt,
+      overrides: { 'logs:DescribeLogStreams': { concurrency: 1, ratePerSecond: 10, burst: 10 } },
+    };
+    let request: Promise<void> | undefined;
+    const scan = withAwsDiscoveryExecution({ signal: controller.signal }, () => {
+      request = withAwsServiceCallBudget(
+        () =>
+          withAwsServiceErrorContext('Amazon CloudWatch Logs', 'DescribeLogStreams', 'eu-west-1', async () => {
+            started.resolve();
+            await waitForAwsDelay(1_000);
+          }),
+        options,
+      );
+      return request;
+    });
+    const scanOutcome = scan.catch((error) => error);
+    await started.promise;
+    const requestOutcome = request?.catch((error) => error);
+    controller.abort(reason);
+    expect(await scanOutcome).toBe(reason);
+    expect(await requestOutcome).toBe(reason);
+    expect(onAttempt).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ outcome: 'cancelled', cleanupOutcome: 'released' }),
+    );
+
+    const execute = vi.fn(async () => 'fresh response');
+    const next = withAwsServiceCallBudget(
+      () => withAwsServiceErrorContext('Amazon CloudWatch Logs', 'DescribeLogStreams', 'eu-west-1', execute),
+      options,
+    );
+    await vi.advanceTimersByTimeAsync(0);
+    expect(execute).toHaveBeenCalledOnce();
+    await expect(next).resolves.toBe('fresh response');
+    expect(Date.now()).toBe(0);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
   it.each([
     'null',
     '[]',

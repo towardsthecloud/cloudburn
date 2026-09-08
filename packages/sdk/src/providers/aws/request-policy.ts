@@ -19,7 +19,8 @@ export type AwsQuotaPolicy = {
 /** Explicit local limits indexed by the canonical `service:group` quota name. */
 export type AwsQuotaOverrides = Record<string, Partial<AwsQuotaPolicy>>;
 
-const DEFAULT_POLICY: AwsQuotaPolicy = { ratePerSecond: 1, burst: 1, concurrency: 10, retryCapacity: 20 };
+// An explicit local fallback, not a claim about an undocumented AWS quota.
+const DEFAULT_POLICY: AwsQuotaPolicy = { ratePerSecond: 10, burst: 10, concurrency: 10, retryCapacity: 20 };
 
 const GLOBAL_SERVICES = new Set(['route53', 'cloudfront', 'budgets', 'cost-explorer', 'cost-optimization-hub']);
 const KNOWN_SERVICES = new Set([
@@ -52,7 +53,8 @@ const KNOWN_SERVICES = new Set([
 
 type RequestLimit = { ratePerSecond: number; burst?: number; group?: string };
 
-// Verified 2026-09-07. Local bursts are deliberately below AWS burst allowances.
+// AWS references checked 2026-09-07. Unverified local limits are labeled below.
+// Local bursts for verified quotas are deliberately below AWS burst allowances.
 // https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/cloudwatch_limits_cwl.html
 // https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/cloudwatch_limits.html
 const REQUEST_LIMITS: Record<string, RequestLimit> = {
@@ -102,6 +104,19 @@ const REQUEST_LIMITS: Record<string, RequestLimit> = {
   'emr:ListInstances': { ratePerSecond: 0.5 },
   // https://docs.aws.amazon.com/general/latest/gr/ct.html
   'cloudtrail:DescribeTrails': { ratePerSecond: 10 },
+  // Shared remainder-control-plane quota; excludes operations with dedicated limits.
+  // https://docs.aws.amazon.com/lambda/latest/dg/gettingstarted-limits.html
+  'lambda:ListFunctions': { ratePerSecond: 15, group: 'control-plane' },
+  'lambda:ListVersionsByFunction': { ratePerSecond: 15, group: 'control-plane' },
+  // https://docs.aws.amazon.com/resource-explorer/latest/userguide/quotas.html
+  'resource-explorer-2:ListResources': { ratePerSecond: 3, group: 'non-search' },
+  // https://docs.aws.amazon.com/general/latest/gr/sagemaker.html
+  'sagemaker:DescribeEndpoint': { ratePerSecond: 5 },
+  'sagemaker:DescribeEndpointConfig': { ratePerSecond: 5 },
+  // Local bucket-control-plane budget: object-prefix throughput does not establish
+  // the AWS quota for these configuration reads. Share across both reads and buckets.
+  's3:GetBucketLifecycleConfiguration': { ratePerSecond: 10, burst: 10, group: 'bucket-control-plane' },
+  's3:ListBucketIntelligentTieringConfigurations': { ratePerSecond: 10, burst: 10, group: 'bucket-control-plane' },
 };
 
 const canonicalService = (service: string): string => {
@@ -116,6 +131,7 @@ const canonicalService = (service: string): string => {
   if (name === 'elastic-load-balancing-v2') return 'elasticloadbalancingv2';
   if (name === 'secrets-manager') return 'secretsmanager';
   if (name === 'application-auto-scaling') return 'application-autoscaling';
+  if (name === 'resource-explorer') return 'resource-explorer-2';
   return name;
 };
 
@@ -194,7 +210,11 @@ export const resolveAwsRequestQuota = (
     },
     policy: applyOverrides(
       `${name}:${group}`,
-      { ...DEFAULT_POLICY, ratePerSecond: limit?.ratePerSecond ?? 1, burst: limit?.burst ?? 1 },
+      {
+        ...DEFAULT_POLICY,
+        ratePerSecond: limit?.ratePerSecond ?? DEFAULT_POLICY.ratePerSecond,
+        burst: limit ? (limit.burst ?? 1) : DEFAULT_POLICY.burst,
+      },
       options.overrides,
     ),
   };

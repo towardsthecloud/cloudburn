@@ -97,8 +97,10 @@ const result = await client.discover({
 An expired deadline rejects with `TimeoutError`; cancellation rejects with the signal's reason. Both stop queued requests, retry waits, and active AWS requests without returning partial findings. AWS clients and lookup caches belong to one run and are released when it ends.
 
 Collector requests share AWS quota limits across scans and independent SDK or CLI processes running as the same OS
-user. Local coordination uses `~/.cache/cloudburn/aws-admission-v1`; set `CLOUDBURN_AWS_ADMISSION_DIR` to choose another
-shared local directory. `CLOUDBURN_AWS_QUOTA_OVERRIDES` accepts JSON policies such as
+user. Coordination requires writable local storage. It uses `$XDG_CACHE_HOME/cloudburn/aws-admission-v1` when configured,
+or `~/.cache/cloudburn/aws-admission-v1`, with a shared temporary-directory fallback when a new default cache cannot be
+created. Set `CLOUDBURN_AWS_ADMISSION_DIR` to choose a shared writable path for containers or other constrained environments.
+Existing state errors fail without bypassing coordination. `CLOUDBURN_AWS_QUOTA_OVERRIDES` accepts JSON policies such as
 `{"logs:DescribeLogStreams":{"ratePerSecond":5,"burst":1}}`. See [AWS request scheduling](../../docs/reference/aws-request-scheduling.md)
 for defaults, retry behavior, telemetry, and coordination limits.
 

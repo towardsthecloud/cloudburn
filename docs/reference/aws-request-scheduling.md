@@ -30,10 +30,23 @@ also outside its control, so AWS can still throttle a locally admitted request.
 These environment variables apply to both CLI discovery and SDK discovery. They do not change AWS account quotas,
 and CloudBurn does not call Service Quotas to discover account-specific increases.
 
-| Variable                        | Default                               | Meaning                                                                   |
-| ------------------------------- | ------------------------------------- | ------------------------------------------------------------------------- |
-| `CLOUDBURN_AWS_ADMISSION_DIR`   | `~/.cache/cloudburn/aws-admission-v1` | Private local directory shared by all processes that should coordinate.   |
-| `CLOUDBURN_AWS_QUOTA_OVERRIDES` | Unset                                 | JSON object of partial policies keyed by canonical `service:group` names. |
+| Variable                        | Default                                                       | Meaning                                                                   |
+| ------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `CLOUDBURN_AWS_ADMISSION_DIR`   | Platform cache or shared temporary directory, described below | Private local directory shared by all processes that should coordinate.   |
+| `CLOUDBURN_AWS_QUOTA_OVERRIDES` | Unset                                                         | JSON object of partial policies keyed by canonical `service:group` names. |
+
+Without an explicit admission directory, CloudBurn uses `$XDG_CACHE_HOME/cloudburn/aws-admission-v1` when
+`XDG_CACHE_HOME` is set, or `~/.cache/cloudburn/aws-admission-v1` otherwise. If a new cache cannot be initialized because
+of permissions, a read-only filesystem, or an unusable home path,
+CloudBurn can use a private `cloudburn-<user-id>/aws-admission-v1` directory under the system temporary directory
+(including `TMPDIR` on POSIX). This fallback remains shared across processes; it does not switch to in-memory admission.
+An existing temporary coordinator is reused while the primary directory remains absent, even if the home becomes writable.
+
+Writable local storage is required. Errors in explicit admission directories or existing coordinator state fail without
+selecting a new location. Paths whose state cannot be inspected also fail with an actionable error. If both default and
+temporary locations exist, stop participating processes and select the active state with `CLOUDBURN_AWS_ADMISSION_DIR`.
+Database corruption and lock errors never select a new directory.
+Set `CLOUDBURN_AWS_ADMISSION_DIR` to the same writable local path in every participating container or SDK process.
 
 For example, this policy reserves a smaller share of the account's log-stream quota:
 
@@ -75,7 +88,11 @@ than AWS defaults. Every request policy starts with concurrency `10` and retry a
 | `emr:DescribeCluster`, `emr:ListInstances`                                 |          1, 0.5 |     1 | Separate account/region operation quotas; refill rates differ from AWS burst allowances. [EMR quotas](https://docs.aws.amazon.com/general/latest/gr/emr.html)                                                                                 |
 | `cloudtrail:DescribeTrails`                                                |              10 |     1 | Account, region, operation. [CloudTrail quotas](https://docs.aws.amazon.com/general/latest/gr/ct.html)                                                                                                                                        |
 | `cloudwatch:ListMetrics`, `cloudwatch:GetMetricData`                       |         25, 500 |     1 | Separate account/region request quotas; metric data also consumes the datapoint budget below. [CloudWatch quotas](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/cloudwatch_limits.html)                                      |
-| Other operations                                                           |               1 |     1 | Conservative local fallback per account, applicable region, service, and operation; not a verified AWS quota.                                                                                                                                 |
+| `lambda:control-plane`                                                     |              15 |     1 | Shared by the supported function/version listing operations. [Lambda quotas](https://docs.aws.amazon.com/lambda/latest/dg/gettingstarted-limits.html).                                                                                        |
+| `resource-explorer-2:non-search`                                           |               3 |     1 | Account/region budget for supported non-search operations, including `ListResources`. [Resource Explorer quotas](https://docs.aws.amazon.com/resource-explorer/latest/userguide/quotas.html).                                                 |
+| `sagemaker:DescribeEndpoint`, `sagemaker:DescribeEndpointConfig`           |          5 each |     1 | Separate account/region operation quotas. [SageMaker quotas](https://docs.aws.amazon.com/general/latest/gr/sagemaker.html).                                                                                                                   |
+| `s3:bucket-control-plane`                                                  |              10 |    10 | Shared local budget for lifecycle and intelligent-tiering configuration reads across buckets; not a verified AWS quota.                                                                                                                       |
+| Other operations                                                           |              10 |    10 | Local fallback per account, applicable region, service, and operation; not a verified AWS quota.                                                                                                                                              |
 
 ### CloudWatch datapoints
 
@@ -129,9 +146,11 @@ Managed SDK transport requires an owned, unexpired reservation and receives the 
 A crash after a committed reservation can conservatively consume rate or retry capacity even if transport never started.
 Persistent files retain quota feedback across runs.
 
-Storage errors fail the affected attempt instead of silently bypassing coordination. A database lock held for 5 seconds
-produces an actionable error. Stop all participating CloudBurn processes before repairing corrupted state or removing
-admission files, and check directory permissions and disk space before retrying.
+Storage errors during admission prevent dispatch instead of silently bypassing coordination. A database lock held for
+5 seconds produces an actionable error. Final cleanup has a separate 100 ms budget, including after cancellation. A
+cleanup failure preserves the AWS response or original error and emits `cleanupOutcome: "deferred"`; the reservation
+remains until its deadline or process exit allows reclamation. Stop all participating CloudBurn processes before
+repairing corrupted state or removing admission files, and check directory permissions and disk space before retrying.
 
 Coordination supports one OS user on one machine with a shared local filesystem path. Separate users, directories,
 containers without the same local state, or hosts have independent limits. Network filesystems are unsupported. Future
@@ -149,6 +168,7 @@ Debug logging emits `aws: attempt` followed by one JSON object for each admissio
 | `queueDurationMs`, `transportDurationMs`, `dispatched`, `statusCode` | Pre-transport wait, measured HTTP duration, dispatch status, and available HTTP status.               |
 | `outcome`, `retryOutcome`                                            | Success, failure, throttle, cancellation, or exhaustion and the retry decision.                       |
 | `attribution`                                                        | Generated `scanId` and collector identity; `dataset` appears only when the budget caller supplies it. |
+| `cleanupOutcome`                                                     | `released` after successful finalization, or `deferred` when storage failed or cleanup timed out.     |
 | `datapoints`                                                         | Optional CloudWatch datapoint scope and charged cost.                                                 |
 
 Discovery orchestration does not currently add dataset attribution. Telemetry excludes request bodies, headers,
@@ -183,3 +203,8 @@ The concurrent fixture splits requests between `logActivity` and `logRetention` 
 Throttling produces 6 attempt observations, including 2 exhausted retry admissions. Cancellation stops 7 requests
 before dispatch and aborts the first held request. Total queue wait sums overlapping waits, so it can exceed elapsed
 time. Synthetic transport totals were 0–2 ms; these figures measure coordinator behavior, not AWS network latency.
+
+A separate deterministic large-account regression fixture follows the S3 collector’s batches of 10 buckets with
+2 parallel configuration reads per bucket. For 250 buckets, all 500 synthetic calls complete admission in 49 seconds
+while sharing the 10/s bucket-control-plane budget. This reserves time within the default 300-second discovery deadline
+for transport and other datasets; real network delays, pagination, and throttling can still require a longer timeout.

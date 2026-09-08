@@ -66,6 +66,7 @@ export type AwsRequestAttemptTelemetry = {
   statusCode?: number;
   outcome: 'success' | 'throttled' | 'transient_error' | 'error' | 'cancelled' | 'retry_exhausted';
   retryOutcome: 'none' | 'scheduled' | 'exhausted' | 'not_retryable';
+  cleanupOutcome?: 'released' | 'deferred';
   datapoints?: { quota: AwsQuotaScope; cost: number };
 };
 
@@ -255,7 +256,6 @@ const acquire = async (
     if (wait <= 0) break;
     await waitForAdmission(wait, budget.deadline);
   }
-  let completion: Promise<void> | undefined;
   return {
     dispatch: async (points) => {
       for (;;) {
@@ -298,30 +298,44 @@ const acquire = async (
         await waitForAdmission(delay, budget.deadline);
       }
     },
-    finish: (outcome) => {
-      completion ??= budget.store.update(key, (serialized) => {
-        const state: QuotaState = JSON.parse(serialized as string);
-        const lease = state.active[id];
-        if (!lease) return { state: JSON.stringify(state), value: undefined };
-        delete state.active[id];
-        state.lastUsedAt = Date.now();
-        if (outcome === 'retryable') {
-          state.generation += 1;
-          state.penalty = Math.min(5, state.penalty + 1);
-          state.blockedUntil = Math.max(state.blockedUntil, Date.now() + 500 * 2 ** (state.penalty - 1));
-          state.tokens = Math.min(state.tokens, 1);
-          if (state.dispatch) state.dispatch.tokens = Math.min(state.dispatch.tokens, 1);
-        } else if (outcome === 'success') {
-          state.retryRemaining = Math.min(state.policy.retryCapacity, state.retryRemaining + 1);
-          // Earlier in-flight successes are not recovery probes for a newer throttle.
-          if (lease?.generation === state.generation) {
-            state.penalty = Math.max(0, state.penalty - 1);
-            state.blockedUntil = 0;
-          }
-        }
-        return { state: JSON.stringify(state), value: undefined };
-      });
-      return completion;
+    finish: async (outcome) => {
+      // Cleanup must still release an uncontended lease after discovery cancellation,
+      // but lock contention must not hold up a response or cancellation for seconds.
+      const controller = new AbortController();
+      const timer = setTimeout(
+        () => controller.abort(new DOMException('AWS admission cleanup timed out.', 'TimeoutError')),
+        100,
+      );
+      try {
+        await budget.store.update(
+          key,
+          (serialized) => {
+            const state: QuotaState = JSON.parse(serialized as string);
+            const lease = state.active[id];
+            if (!lease) return { state: JSON.stringify(state), value: undefined };
+            delete state.active[id];
+            state.lastUsedAt = Date.now();
+            if (outcome === 'retryable') {
+              state.generation += 1;
+              state.penalty = Math.min(5, state.penalty + 1);
+              state.blockedUntil = Math.max(state.blockedUntil, Date.now() + 500 * 2 ** (state.penalty - 1));
+              state.tokens = Math.min(state.tokens, 1);
+              if (state.dispatch) state.dispatch.tokens = Math.min(state.dispatch.tokens, 1);
+            } else if (outcome === 'success') {
+              state.retryRemaining = Math.min(state.policy.retryCapacity, state.retryRemaining + 1);
+              // Earlier in-flight successes are not recovery probes for a newer throttle.
+              if (lease?.generation === state.generation) {
+                state.penalty = Math.max(0, state.penalty - 1);
+                state.blockedUntil = 0;
+              }
+            }
+            return { state: JSON.stringify(state), value: undefined };
+          },
+          controller.signal,
+        );
+      } finally {
+        clearTimeout(timer);
+      }
     },
   };
 };
@@ -462,7 +476,15 @@ export const runAwsRequest = async <T>(
         event.queueDurationMs = (transportStartedAt ?? Date.now()) - event.startedAtMs;
       if (!measuredTransport && transportStartedAt !== undefined)
         event.transportDurationMs = Date.now() - transportStartedAt;
-      await admission?.finish(outcome);
+      if (admission) {
+        try {
+          await admission.finish(outcome);
+          event.cleanupOutcome = 'released';
+        } catch {
+          // Keep the AWS result and emit diagnostics; expiry reclaims a stale lease.
+          event.cleanupOutcome = 'deferred';
+        }
+      }
       emitAwsRequestTelemetry({ ...event });
       try {
         budget?.onAttempt?.({ ...event });

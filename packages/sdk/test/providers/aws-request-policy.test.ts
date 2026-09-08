@@ -74,6 +74,11 @@ it.each([
   ['AWS CloudTrail', 'DescribeTrails', 'cloudtrail', 'DescribeTrails', 10, 1],
   ['Amazon CloudWatch', 'ListMetrics', 'cloudwatch', 'ListMetrics', 25, 1],
   ['Amazon CloudWatch', 'GetMetricData', 'cloudwatch', 'GetMetricData', 500, 1],
+  ['AWS Lambda', 'ListFunctions', 'lambda', 'control-plane', 15, 1],
+  ['AWS Lambda', 'ListVersionsByFunction', 'lambda', 'control-plane', 15, 1],
+  ['AWS Resource Explorer', 'ListResources', 'resource-explorer-2', 'non-search', 3, 1],
+  ['Amazon SageMaker', 'DescribeEndpoint', 'sagemaker', 'DescribeEndpoint', 5, 1],
+  ['Amazon SageMaker', 'DescribeEndpointConfig', 'sagemaker', 'DescribeEndpointConfig', 5, 1],
 ] as const)('uses the documented request quota group for %s %s across resources', (label, operation, service, group, ratePerSecond, burst) => {
   expect(resolveAwsRequestQuota(label, operation, 'eu-west-1', ACCOUNT_ID, { resource: 'a-resource' })).toEqual({
     scope: { accountId: ACCOUNT_ID, partition: 'aws', region: 'eu-west-1', service, group },
@@ -208,7 +213,7 @@ it('caps the metric page reservation at the API maximum and applies independent 
   });
 });
 
-it('uses conservative fallback limits and keeps global service quotas independent of the selected scan region', () => {
+it('uses bounded local fallback limits and keeps global service quotas independent of the selected scan region', () => {
   const fallback = resolveAwsRequestQuota('Uncataloged Service', 'ReadResource', 'eu-west-1', ACCOUNT_ID);
   expect(fallback).toEqual({
     scope: {
@@ -218,7 +223,7 @@ it('uses conservative fallback limits and keeps global service quotas independen
       service: 'uncataloged-service',
       group: 'ReadResource',
     },
-    policy: { ratePerSecond: 1, burst: 1, concurrency: 10, retryCapacity: 20 },
+    policy: { ratePerSecond: 10, burst: 10, concurrency: 10, retryCapacity: 20 },
   });
   expect(
     resolveAwsRequestQuota('Uncataloged Service', 'ReadResource', 'eu-west-1', ACCOUNT_ID, { resource: 'resource-a' })
