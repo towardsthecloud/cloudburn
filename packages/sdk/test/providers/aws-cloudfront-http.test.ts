@@ -1,5 +1,6 @@
 import { CloudFrontClient } from '@aws-sdk/client-cloudfront';
 import type { HttpRequest } from '@aws-sdk/types';
+import { awsRules, LiveResourceBag } from '@cloudburn/rules';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { withAwsClientCredentials } from '../../src/providers/aws/client.js';
 import { withAwsDiscoveryExecution } from '../../src/providers/aws/execution.js';
@@ -203,6 +204,41 @@ it('hydrates 100 fallback distributions with one list request and no detail requ
   expect(requests).toHaveLength(1);
 });
 
+it.each(['catalog', 'fallback'])('excludes unsupported tenant-only price classes from %s findings', async (source) => {
+  const fields = new Map([
+    ['EALL', '<ConnectionMode>direct</ConnectionMode><PriceClass>PriceClass_All</PriceClass>'],
+    ['ETENANTALL', '<ConnectionMode>tenant-only</ConnectionMode><PriceClass>PriceClass_All</PriceClass>'],
+    ['ETENANTNONE', '<ConnectionMode>tenant-only</ConnectionMode><PriceClass>None</PriceClass>'],
+  ]);
+  respond = (request) => {
+    if (request.path === '/2020-05-31/distribution') {
+      return page([...fields].map(([id, config]) => summary(id, config)).join(''));
+    }
+    const config = fields.get(request.path.split('/').at(-1) ?? '');
+    if (!config) throw new Error('Unexpected distribution detail request');
+    return xml(`<Distribution><DistributionConfig>${config}</DistributionConfig></Distribution>`);
+  };
+
+  const distributions = await run(() =>
+    source === 'catalog' ? hydrateAwsCloudFrontDistributions([...fields.keys()].map(catalogResource)) : hydrate(),
+  );
+  const finding = awsRules
+    .find((rule) => rule.id === 'CLDBRN-AWS-CLOUDFRONT-1')
+    ?.evaluateLive?.({
+      catalog: { indexType: 'LOCAL', resources: [], searchRegion: 'us-east-1' },
+      resources: new LiveResourceBag({ 'aws-cloudfront-distributions': distributions }),
+    });
+
+  expect(finding?.findings).toEqual([{ accountId, region: 'global', resourceId: arn('EALL') }]);
+  expect(distributions.map((distribution) => distribution.priceClass)).toEqual([
+    'PriceClass_All',
+    undefined,
+    undefined,
+  ]);
+  expect(requests).toHaveLength(source === 'catalog' ? 3 : 1);
+  expect(details()).toHaveLength(source === 'catalog' ? 3 : 0);
+});
+
 it('uses ten continuous detail workers while preserving the exact catalog selection', async () => {
   const gates = Array.from({ length: 12 }, () => Promise.withResolvers<void>());
   const ids = Array.from({ length: 12 }, (_, index) => `E${String(index).padStart(3, '0')}`);
@@ -251,7 +287,7 @@ it('retains paginated summary evidence and only fetches a missing standard price
       return request.query?.Marker
         ? page(
             summary('E200', '<PriceClass>PriceClass_200</PriceClass>') +
-              summary('ENONE', '<PriceClass>None</PriceClass><ConnectionMode>tenant-only</ConnectionMode>') +
+              summary('ENONE', '<PriceClass>None</PriceClass>') +
               summary('ETENANT', '<ConnectionMode>tenant-only</ConnectionMode>') +
               summary('EMISSING', '<LastModifiedTime>2026-09-01T12:00:00Z</LastModifiedTime>') +
               summary('EALL') +

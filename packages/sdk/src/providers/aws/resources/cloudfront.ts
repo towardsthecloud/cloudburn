@@ -1,4 +1,4 @@
-import { GetDistributionCommand, ListDistributionsCommand } from '@aws-sdk/client-cloudfront';
+import { type DistributionConfig, GetDistributionCommand, ListDistributionsCommand } from '@aws-sdk/client-cloudfront';
 import type {
   AwsCloudFrontDistribution,
   AwsCloudFrontDistributionRequestActivity,
@@ -25,6 +25,9 @@ type DistributionSeed = Pick<
   AwsCloudFrontDistribution,
   'distributionArn' | 'distributionId' | 'priceClass' | 'lastModifiedTime'
 > & { connectionMode?: string };
+
+const supportedPriceClass = (config?: Pick<DistributionConfig, 'ConnectionMode' | 'PriceClass'>): string | undefined =>
+  config?.ConnectionMode === 'tenant-only' ? undefined : config?.PriceClass;
 
 const listDistributionSeeds = async (): Promise<DistributionSeed[]> => {
   const client = createCloudFrontClient();
@@ -54,7 +57,7 @@ const listDistributionSeeds = async (): Promise<DistributionSeed[]> => {
         distributionArn: distribution.ARN,
         distributionId: distribution.Id,
         lastModifiedTime: distribution.LastModifiedTime?.toISOString(),
-        priceClass: distribution.PriceClass,
+        priceClass: supportedPriceClass(distribution),
       });
     }
 
@@ -118,7 +121,7 @@ export const hydrateAwsCloudFrontDistributions = async (
       return {
         ...distribution,
         lastModifiedTime: response.Distribution?.LastModifiedTime?.toISOString() ?? distribution.lastModifiedTime,
-        priceClass: response.Distribution?.DistributionConfig?.PriceClass,
+        priceClass: supportedPriceClass(response.Distribution?.DistributionConfig),
       } satisfies AwsCloudFrontDistribution;
     },
   );

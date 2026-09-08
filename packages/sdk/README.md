@@ -261,8 +261,9 @@ lookup. Pagination retains all listed distributions; a nonempty catalog selectio
 selected IDs and never lists additional distributions.
 
 Grant `cloudfront:ListDistributions` for fallback discovery and `cloudfront:GetDistribution` for catalog hydration or
-fallback standard distributions missing their price class. `PriceClass: None` is retained, and tenant-only summaries
-do not require a price-class lookup. These variants follow the AWS
+fallback standard distributions missing their price class. Standard distributions retain supplied price classes, including
+`None`. Tenant-only distributions omit price-class evidence from both summary and detail responses because AWS does
+not support that setting for this variant; tenant-only summaries do not require a price-class lookup. These variants follow the AWS
 [DistributionSummary contract](https://docs.aws.amazon.com/cloudfront/latest/APIReference/API_DistributionSummary.html).
 Fallback account identity uses `sts:GetCallerIdentity`; request activity also requires `cloudwatch:GetMetricData` in
 `us-east-1`. Necessary detail requests use at most 10 workers and retain the usual retry and cancellation behavior.
