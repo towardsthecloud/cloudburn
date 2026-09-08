@@ -8,10 +8,6 @@ import type { HttpRequest } from '@aws-sdk/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { type AwsDiscoveryProgressEvent, CloudBurnClient, withAwsClientCredentials } from '../src/index.js';
 
-// These scans pace admission and retries with real timers, so a single case takes seconds even on an idle machine.
-// A generous budget keeps loaded CI runners from timing out and leaking in-flight requests into later cases.
-vi.setConfig({ testTimeout: 60_000 });
-
 const fixture = (name: string): string =>
   readFileSync(new URL(`./fixtures/aws-discovery/${name}`, import.meta.url), 'utf8');
 const jsonResponse = (body: unknown) => ({
