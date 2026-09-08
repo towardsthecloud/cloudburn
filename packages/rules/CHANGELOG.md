@@ -1,5 +1,11 @@
 # @cloudburn/rules
 
+## 0.32.3
+
+### Patch Changes
+
+- [#248](https://github.com/towardsthecloud/cloudburn/pull/248) [`3b6876f`](https://github.com/towardsthecloud/cloudburn/commit/3b6876f8e5d897e5e48913f7e45cc2b4c71e3772) Thanks [@axonstone](https://github.com/axonstone)! - Restrict the ELB idle request threshold to Application Load Balancers and Classic Load Balancers with verified HTTP/HTTPS listeners. Keep unsupported and incomplete activity in unknown coverage while preserving empty-target cleanup precedence. Add optional Classic listener protocols and request activity status to ELB evidence types.
+
 ## 0.32.2
 
 ### Patch Changes

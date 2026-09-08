@@ -1,5 +1,18 @@
 # @cloudburn/sdk
 
+## 0.34.0
+
+### Minor Changes
+
+- [#251](https://github.com/towardsthecloud/cloudburn/pull/251) [`ee068c6`](https://github.com/towardsthecloud/cloudburn/commit/ee068c6cd09ed9507c124d486b821e4fbfc12cca) Thanks [@axonstone](https://github.com/axonstone)! - Add explicitly configured reusable AWS evidence with versioned dependencies, credential-session scopes, local persistent storage, process coordination, freshness provenance, and refresh/off controls. Preserve incomplete coverage and re-evaluate rules and configuration on each scan.
+
+### Patch Changes
+
+- [#248](https://github.com/towardsthecloud/cloudburn/pull/248) [`3b6876f`](https://github.com/towardsthecloud/cloudburn/commit/3b6876f8e5d897e5e48913f7e45cc2b4c71e3772) Thanks [@axonstone](https://github.com/axonstone)! - Reuse ELB inventory for request activity, follow target-group pagination, and preserve later-page relationships. Restrict HTTP request metrics to ALBs and HTTP-only Classic listeners, retaining unsupported or incomplete activity as unknown evidence.
+
+- Updated dependencies [[`3b6876f`](https://github.com/towardsthecloud/cloudburn/commit/3b6876f8e5d897e5e48913f7e45cc2b4c71e3772)]:
+  - @cloudburn/rules@0.32.3
+
 ## 0.33.0
 
 ### Minor Changes
