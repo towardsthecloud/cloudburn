@@ -49,6 +49,7 @@ describe('hydrateAwsEc2LoadBalancers', () => {
           {
             Instances: [{ InstanceId: 'i-123' }],
             LoadBalancerName: 'classic-lb',
+            ListenerDescriptions: [{ Listener: { Protocol: 'HTTP' } }],
           },
         ],
       }));
@@ -119,9 +120,65 @@ describe('hydrateAwsEc2LoadBalancers', () => {
         loadBalancerArn: 'arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/classic-lb',
         loadBalancerName: 'classic-lb',
         loadBalancerType: 'classic',
+        listenerProtocols: ['HTTP'],
         region: 'us-east-1',
       },
     ]);
+  });
+
+  it('preserves target-group associations returned on later load-balancer lookup pages', async () => {
+    const arn = 'arn:aws:elasticloadbalancing:us-east-1:111111111111:loadbalancer/app/alb/123';
+    const targetArn = 'arn:aws:elasticloadbalancing:us-east-1:111111111111:targetgroup/later/123';
+    const send = vi.fn(async (command: DescribeLoadBalancersV2Command | DescribeTargetGroupsCommand) => {
+      const input = command.input as { LoadBalancerArn?: string; Marker?: string };
+      if (input.LoadBalancerArn) {
+        return input.Marker === 'page-2'
+          ? { TargetGroups: [{ TargetGroupArn: targetArn, LoadBalancerArns: [arn] }] }
+          : { TargetGroups: [], NextMarker: 'page-2' };
+      }
+      return { LoadBalancers: [{ LoadBalancerArn: arn, LoadBalancerName: 'alb', Type: 'application' }] };
+    });
+    mockedCreateElasticLoadBalancingV2Client.mockReturnValue({ send } as never);
+
+    const result = await hydrateAwsEc2LoadBalancers([
+      {
+        accountId: '111111111111',
+        arn,
+        properties: [],
+        region: 'us-east-1',
+        resourceType: 'elasticloadbalancing:loadbalancer/app',
+        service: 'elasticloadbalancing',
+      },
+    ]);
+
+    expect(result[0]?.attachedTargetGroupArns).toEqual([targetArn]);
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({ input: { LoadBalancerArn: arn, Marker: 'page-2' } }));
+  });
+
+  it('does not turn a load balancer disappearing during pagination into an empty-target resource', async () => {
+    const arn = 'arn:aws:elasticloadbalancing:us-east-1:111111111111:loadbalancer/app/deleted/123';
+    mockedCreateElasticLoadBalancingV2Client.mockReturnValue({
+      send: vi.fn(async (command) => {
+        if ('LoadBalancerArn' in command.input) {
+          if (command.input.Marker) throw Object.assign(new Error('deleted'), { name: 'LoadBalancerNotFound' });
+          return { TargetGroups: [], NextMarker: 'page-2' };
+        }
+        return { LoadBalancers: [{ LoadBalancerArn: arn, LoadBalancerName: 'deleted', Type: 'application' }] };
+      }),
+    } as never);
+
+    await expect(
+      hydrateAwsEc2LoadBalancers([
+        {
+          accountId: '111111111111',
+          arn,
+          properties: [],
+          region: 'us-east-1',
+          resourceType: 'elasticloadbalancing:loadbalancer/app',
+          service: 'elasticloadbalancing',
+        },
+      ]),
+    ).resolves.toEqual([]);
   });
 
   it('skips stale v2 load balancer arns while preserving valid load balancers', async () => {
@@ -229,6 +286,7 @@ describe('hydrateAwsEc2LoadBalancers', () => {
             {
               Instances: [{ InstanceId: 'i-123' }],
               LoadBalancerName: 'classic-lb',
+              ListenerDescriptions: [{ Listener: { Protocol: 'HTTP' } }],
             },
           ],
         };
@@ -264,6 +322,7 @@ describe('hydrateAwsEc2LoadBalancers', () => {
         loadBalancerArn: 'arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/classic-lb',
         loadBalancerName: 'classic-lb',
         loadBalancerType: 'classic',
+        listenerProtocols: ['HTTP'],
         region: 'us-east-1',
       },
     ]);
@@ -276,6 +335,7 @@ describe('hydrateAwsEc2LoadBalancers', () => {
           {
             Instances: [{ InstanceId: 'i-123' }],
             LoadBalancerName: 'classic-lb',
+            ListenerDescriptions: [{ Listener: { Protocol: 'HTTP' } }],
           },
         ],
       }));
@@ -349,16 +409,104 @@ describe('hydrateAwsEc2LoadBalancers', () => {
       {
         accountId: '123456789012',
         averageRequestsPerDayLast14Days: 5,
+        requestActivityStatus: 'complete',
         loadBalancerArn: 'arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/app/alb/123',
         region: 'us-east-1',
       },
       {
         accountId: '123456789012',
         averageRequestsPerDayLast14Days: 14,
+        requestActivityStatus: 'complete',
         loadBalancerArn: 'arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/classic-lb',
         region: 'us-east-1',
       },
     ]);
+  });
+
+  it('queries HTTP requests only for ALBs and HTTP-only Classic listeners', async () => {
+    const classic = (name: string, protocols?: string[]) => ({
+      LoadBalancerName: name,
+      Instances: [{ InstanceId: 'i-example' }],
+      ListenerDescriptions: protocols?.map((Protocol) => ({ Listener: { Protocol } })),
+    });
+    mockedCreateElasticLoadBalancingClient.mockReturnValue({
+      send: vi.fn(async () => ({
+        LoadBalancerDescriptions: [
+          classic('http', ['HTTP', 'HTTPS']),
+          classic('tcp', ['TCP']),
+          classic('mixed', ['HTTPS', 'SSL']),
+          classic('unknown'),
+        ],
+      })),
+    } as never);
+    mockedCreateElasticLoadBalancingV2Client.mockReturnValue({
+      send: vi.fn(async (command) => {
+        if ('LoadBalancerArn' in command.input) return { TargetGroups: [] };
+        return {
+          LoadBalancers: [
+            ['app', 'application'],
+            ['net', 'network'],
+            ['gwy', 'gateway'],
+          ].map(([prefix, Type]) => ({
+            LoadBalancerArn: `arn:aws:elasticloadbalancing:us-east-1:111111111111:loadbalancer/${prefix}/example/123`,
+            LoadBalancerName: 'example',
+            Type,
+          })),
+        };
+      }),
+    } as never);
+    mockedFetchCloudWatchSignals.mockImplementation(
+      async ({ queries }) =>
+        new Map(
+          queries.map((query) => [
+            query.id,
+            completeMetricEvidence(
+              Array.from({ length: 14 }, (_, index) => ({
+                timestamp: `2026-03-${String(index + 1).padStart(2, '0')}T00:00:00.000Z`,
+                value: 5,
+              })),
+            ),
+          ]),
+        ),
+    );
+    const resource = (suffix: string, type: string) => ({
+      accountId: '111111111111',
+      arn: `arn:aws:elasticloadbalancing:us-east-1:111111111111:loadbalancer/${suffix}`,
+      properties: [],
+      region: 'us-east-1',
+      resourceType: type,
+      service: 'elasticloadbalancing',
+    });
+    const result = await hydrateAwsEc2LoadBalancerRequestActivity([
+      ...['http', 'tcp', 'mixed', 'unknown'].map((name) => resource(name, 'elasticloadbalancing:loadbalancer')),
+      ...['app', 'net', 'gwy'].map((prefix) =>
+        resource(`${prefix}/example/123`, `elasticloadbalancing:loadbalancer/${prefix}`),
+      ),
+    ]);
+
+    expect(mockedFetchCloudWatchSignals.mock.calls[0]?.[0].queries).toEqual([
+      expect.objectContaining({
+        metricName: 'RequestCount',
+        namespace: 'AWS/ApplicationELB',
+        stat: 'Sum',
+        period: 86400,
+        dimensions: [{ Name: 'LoadBalancer', Value: 'app/example/123' }],
+      }),
+      expect.objectContaining({
+        metricName: 'RequestCount',
+        namespace: 'AWS/ELB',
+        stat: 'Sum',
+        period: 86400,
+        dimensions: [{ Name: 'LoadBalancerName', Value: 'http' }],
+      }),
+    ]);
+    expect(result.filter((activity) => activity.averageRequestsPerDayLast14Days === 5)).toHaveLength(2);
+    expect(result.filter((activity) => activity.requestActivityStatus === 'unsupported')).toHaveLength(5);
+    expect(
+      result
+        .filter((activity) => activity.requestActivityStatus === 'unsupported')
+        .every((activity) => activity.averageRequestsPerDayLast14Days === null),
+    ).toBe(true);
   });
 
   it('preserves incomplete ELB request coverage as null averages', async () => {
@@ -414,6 +562,7 @@ describe('hydrateAwsEc2LoadBalancers', () => {
       {
         accountId: '123456789012',
         averageRequestsPerDayLast14Days: null,
+        requestActivityStatus: 'unknown',
         loadBalancerArn: 'arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/app/alb/123',
         region: 'us-east-1',
       },
@@ -530,6 +679,42 @@ describe('hydrateAwsEc2TargetGroups', () => {
         targetGroupArn: 'arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/alb/123',
       },
     ]);
+  });
+
+  it('hydrates selected target groups and their relationships from later pages', async () => {
+    const arn = 'arn:aws:elasticloadbalancing:us-east-1:111111111111:targetgroup/later/123';
+    const lbArn = 'arn:aws:elasticloadbalancing:us-east-1:111111111111:loadbalancer/app/alb/123';
+    const send = vi.fn(async (command: DescribeTargetGroupsCommand | DescribeTargetHealthCommand) => {
+      const input = command.input as { TargetGroupArn?: string; Marker?: string };
+      if (input.TargetGroupArn) return { TargetHealthDescriptions: [{ Target: { Id: 'i-example' } }] };
+      return input.Marker === 'page-2'
+        ? { TargetGroups: [{ TargetGroupArn: arn, LoadBalancerArns: [lbArn] }, { TargetGroupArn: 'unselected' }] }
+        : { TargetGroups: [], NextMarker: 'page-2' };
+    });
+    mockedCreateElasticLoadBalancingV2Client.mockReturnValue({ send } as never);
+
+    const result = await hydrateAwsEc2TargetGroups([
+      {
+        accountId: '111111111111',
+        arn,
+        properties: [],
+        region: 'us-east-1',
+        resourceType: 'elasticloadbalancing:targetgroup',
+        service: 'elasticloadbalancing',
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        accountId: '111111111111',
+        targetGroupArn: arn,
+        region: 'us-east-1',
+        loadBalancerArns: [lbArn],
+        registeredTargetCount: 1,
+      },
+    ]);
+    expect(send).toHaveBeenCalledTimes(3);
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({ input: { TargetGroupArns: [arn], Marker: 'page-2' } }));
   });
 
   it('skips resources with invalid target-group arns', async () => {

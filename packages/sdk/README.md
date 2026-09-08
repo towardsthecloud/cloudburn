@@ -133,6 +133,12 @@ Firewall Manager or paid service-linked recorder dependency. If bounded turnover
 eligible above-threshold review, discovery emits a diagnostic and reports the rule as `not_applicable` instead of
 `passed`.
 
+`CLDBRN-AWS-ELB-5` evaluates HTTP request activity for Application Load Balancers and Classic Load Balancers with
+HTTP/HTTPS listeners only. Network, Gateway, and Classic TCP/SSL or unverified listeners remain in unknown coverage
+unless an empty-target cleanup rule already covers them. Missing or incomplete daily metrics cannot produce an idle
+finding. See [ELB inventory and request activity](../../docs/architecture/sdk.md#elb-inventory-and-request-activity)
+for metric contracts and inventory reuse.
+
 `CLDBRN-AWS-KMS-1` reports a regional count of enabled customer-managed keys, the previous-full-month creation count,
 the UTC window boundaries, estimated monthly storage cost, repeated alias-pattern hashes, multi-Region and rotation
 counts, key-metadata completeness, and usage-evidence coverage. The SDK never returns raw aliases in this dataset.

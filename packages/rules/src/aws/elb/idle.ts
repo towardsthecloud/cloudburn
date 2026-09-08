@@ -1,4 +1,5 @@
 import { createFinding, createFindingMatch, createLiveEvaluationCoverage, createRule } from '../../shared/helpers.js';
+import type { AwsEc2LoadBalancer } from '../../shared/metadata.js';
 import { getTargetCountByArn, hasNoRegisteredTargets } from './shared.js';
 
 const RULE_ID = 'CLDBRN-AWS-ELB-5';
@@ -6,12 +7,19 @@ const RULE_SERVICE = 'elb';
 const RULE_SEVERITY = 'medium' as const;
 const RULE_MESSAGE = 'Load balancers with consistently low request volume should be reviewed for cleanup.';
 
-/** Flag load balancers with low 14-day request activity unless a stricter empty-target rule already covers them. */
+const supportsHttpRequestActivity = (loadBalancer: AwsEc2LoadBalancer): boolean =>
+  loadBalancer.loadBalancerType === 'application' ||
+  (loadBalancer.loadBalancerType === 'classic' &&
+    (loadBalancer.listenerProtocols?.length ?? 0) > 0 &&
+    loadBalancer.listenerProtocols?.every((protocol) => protocol === 'HTTP' || protocol === 'HTTPS') === true);
+
+/** Flag HTTP load balancers with low 14-day request activity unless a stricter empty-target rule covers them. */
 export const elbIdleRule = createRule({
   severity: RULE_SEVERITY,
   id: RULE_ID,
   name: 'Load Balancer Idle',
-  description: 'Flag load balancers whose 14-day average request count stays below 10 requests per day.',
+  description:
+    'Flag Application Load Balancers and HTTP/HTTPS-only Classic Load Balancers whose 14-day average request count stays below 10 requests per day.',
   message: RULE_MESSAGE,
   provider: 'aws',
   service: RULE_SERVICE,
@@ -30,10 +38,13 @@ export const elbIdleRule = createRule({
           loadBalancer.loadBalancerType === 'classic'
             ? loadBalancer.instanceCount === 0
             : hasNoRegisteredTargets(loadBalancer, targetCountByArn);
+        const activity = activityByArn.get(loadBalancer.loadBalancerArn);
 
         return (
           alreadyCoveredByCleanupRule ||
-          activityByArn.get(loadBalancer.loadBalancerArn)?.averageRequestsPerDayLast14Days != null
+          (supportsHttpRequestActivity(loadBalancer) &&
+            (activity?.requestActivityStatus === undefined || activity.requestActivityStatus === 'complete') &&
+            activity?.averageRequestsPerDayLast14Days != null)
         );
       },
       (loadBalancer) => createFindingMatch(loadBalancer.loadBalancerArn, loadBalancer.region, loadBalancer.accountId),
@@ -49,12 +60,14 @@ export const elbIdleRule = createRule({
       .get('aws-ec2-load-balancer-request-activity')
       .filter(
         (activity) =>
-          activity.averageRequestsPerDayLast14Days !== null && activity.averageRequestsPerDayLast14Days < 10,
+          (activity.requestActivityStatus === undefined || activity.requestActivityStatus === 'complete') &&
+          activity.averageRequestsPerDayLast14Days !== null &&
+          activity.averageRequestsPerDayLast14Days < 10,
       )
       .flatMap((activity) => {
         const loadBalancer = loadBalancerByArn.get(activity.loadBalancerArn);
 
-        if (!loadBalancer) {
+        if (!loadBalancer || !supportsHttpRequestActivity(loadBalancer)) {
           return [];
         }
 
