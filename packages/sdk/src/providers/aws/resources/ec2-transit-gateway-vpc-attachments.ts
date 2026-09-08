@@ -4,6 +4,7 @@ import {
 } from '@aws-sdk/client-ec2';
 import type { AwsDiscoveredResource, AwsEc2TransitGatewayVpcAttachmentActivity } from '@cloudburn/rules';
 import { createEc2Client } from '../client.js';
+import { getAwsEvidenceTtl, isAwsEvidenceCacheEnabled, loadAwsCachedEvidence } from '../evidence.js';
 import {
   emitAwsRequestTelemetry,
   getAwsDiscoveryTimestamp,
@@ -19,6 +20,14 @@ const DAILY_PERIOD_SECONDS = 24 * 60 * 60;
 const LOOKBACK_SECONDS = LOOKBACK_DAYS * DAILY_PERIOD_SECONDS;
 const ESTIMATED_MONTHLY_HOURS = 730;
 const PRICE_LIST_TIMEOUT_MS = 5_000;
+const PRICE_LIST_TTL_MS = 12 * 60 * 60 * 1_000;
+const PRICE_DATASET_KEY = 'public-pricing:AmazonVPC:TransitGatewayVPC';
+
+type VpcAttachmentPrice = {
+  hourlyCostUsd: number;
+  sourceVersion?: string;
+  publicationDate?: string;
+};
 
 type PriceListProduct = {
   attributes?: Record<string, string>;
@@ -30,6 +39,8 @@ type PriceDimension = {
 };
 
 type PriceList = {
+  version?: string;
+  publicationDate?: string;
   products?: Record<string, PriceListProduct>;
   terms?: {
     OnDemand?: Record<string, Record<string, { priceDimensions?: Record<string, PriceDimension> }>>;
@@ -74,7 +85,7 @@ const readHourlyVpcAttachmentPrice = (priceList: PriceList, region: string): num
   return null;
 };
 
-const loadHourlyVpcAttachmentPrice = async (region: string): Promise<number | null> => {
+const fetchVpcAttachmentPrice = async (region: string): Promise<VpcAttachmentPrice | null> => {
   throwIfAwsExecutionAborted();
   const executionSignal = getAwsExecutionSignal();
   const timeoutSignal = AbortSignal.timeout(PRICE_LIST_TIMEOUT_MS);
@@ -97,7 +108,15 @@ const loadHourlyVpcAttachmentPrice = async (region: string): Promise<number | nu
     throwIfAwsExecutionAborted();
     const price = readHourlyVpcAttachmentPrice(priceList, region);
     outcome = price === null ? 'unavailable' : 'success';
-    return price;
+    return price === null
+      ? null
+      : {
+          hourlyCostUsd: price,
+          ...(typeof priceList.version === 'string' ? { sourceVersion: priceList.version } : {}),
+          ...(typeof priceList.publicationDate === 'string' && Number.isFinite(Date.parse(priceList.publicationDate))
+            ? { publicationDate: new Date(priceList.publicationDate).toISOString() }
+            : {}),
+        };
   } catch {
     throwIfAwsExecutionAborted();
     return null;
@@ -110,6 +129,46 @@ const loadHourlyVpcAttachmentPrice = async (region: string): Promise<number | nu
       outcome: executionSignal?.aborted ? 'cancelled' : outcome,
       ...(statusCode === undefined ? {} : { statusCode }),
     });
+  }
+};
+
+const loadHourlyVpcAttachmentPrice = async (region: string): Promise<number | null> => {
+  if (!isAwsEvidenceCacheEnabled(true)) return (await fetchVpcAttachmentPrice(region))?.hourlyCostUsd ?? null;
+  try {
+    const result = await loadAwsCachedEvidence({
+      datasetKey: PRICE_DATASET_KEY,
+      region,
+      public: true,
+      key: {
+        kind: 'public-pricing',
+        offer: 'AmazonVPC',
+        operation: 'TransitGatewayVPC',
+        attachmentType: 'VPC',
+        region,
+        currency: 'USD',
+        versionPolicy: 'current-v1',
+      },
+      ttlMs: getAwsEvidenceTtl(PRICE_DATASET_KEY, PRICE_LIST_TTL_MS),
+      load: async () => {
+        const value = await fetchVpcAttachmentPrice(region);
+        return {
+          value,
+          complete: value !== null,
+          ...(value?.publicationDate ? { observedAt: value.publicationDate } : {}),
+        };
+      },
+      validate: (value): value is VpcAttachmentPrice | null =>
+        value !== null &&
+        typeof value === 'object' &&
+        'hourlyCostUsd' in value &&
+        typeof value.hourlyCostUsd === 'number' &&
+        Number.isFinite(value.hourlyCostUsd) &&
+        value.hourlyCostUsd >= 0,
+    });
+    return result.value?.hourlyCostUsd ?? null;
+  } catch {
+    throwIfAwsExecutionAborted();
+    return null;
   }
 };
 

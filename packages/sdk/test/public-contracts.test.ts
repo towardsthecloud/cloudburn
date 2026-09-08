@@ -9,9 +9,30 @@ import type {
   AwsCostOptimizationHubRdsStorageUpgradeConfiguration,
   AwsCostOptimizationHubRdsUpgradeConfiguration,
   AwsCostOptimizationHubUpgradeRecommendation,
+  AwsEvidenceCacheOptions,
+  AwsEvidenceProvenance,
+  CloudBurnClient,
+  EvidenceCacheStore,
   LiveEvaluationCoverage,
   RuleEvaluation,
 } from '../src/index.js';
+
+const reusableScan = async (
+  client: CloudBurnClient,
+  store: EvidenceCacheStore,
+): Promise<AwsEvidenceProvenance[] | undefined> => {
+  const cache: AwsEvidenceCacheOptions = {
+    store,
+    authorizationContext: 'policy-v2',
+    mode: 'refresh',
+    ttlMs: { catalog: 180_000, datasets: { 'aws-ebs-volumes': 600_000 }, pricing: 43_200_000 },
+  };
+  const result = await client.discover({ cache });
+  // @ts-expect-error An unsupported cache mode must not silently become normal mode.
+  void client.discover({ cache: { mode: 'stale' } });
+  return result.evidence;
+};
+void reusableScan;
 
 describe('public SDK contracts', () => {
   it('exports compiler-checked upgrade configurations, evaluation coverage and Config evidence', () => {

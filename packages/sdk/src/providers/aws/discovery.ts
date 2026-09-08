@@ -17,7 +17,13 @@ import type {
   ScanDiagnostic,
 } from '../../types.js';
 import { assertValidAwsRegion, listEnabledAwsRegions, resolveAwsAccountId, resolveCurrentAwsRegion } from './client.js';
-import { type AwsDiscoveryDatasetLoadContext, getAwsDiscoveryDatasetDefinition } from './discovery-registry.js';
+import {
+  type AwsDiscoveryDatasetLoadContext,
+  assessAwsDiscoveryDatasetEvidence,
+  getAwsDiscoveryDatasetDefinition,
+  resolveAwsDiscoveryDatasetDependencies,
+  resolveAwsDiscoveryObservationWindow,
+} from './discovery-registry.js';
 import {
   AwsDiscoveryError,
   formatAwsAccessDeniedReason,
@@ -25,12 +31,21 @@ import {
   isAwsAccessDeniedError,
   isAwsThrottlingError,
 } from './errors.js';
-import { throwIfAwsExecutionAborted } from './execution.js';
+import {
+  annotateAwsEvidence,
+  fingerprintAwsEvidence,
+  getAwsEvidenceProvenance,
+  getAwsEvidenceTtl,
+  isAwsEvidenceCacheEnabled,
+  loadAwsCachedEvidence,
+} from './evidence.js';
+import { getAwsDiscoveryTimestamp, throwIfAwsExecutionAborted } from './execution.js';
 import {
   buildAwsDiscoveryCatalog,
   createAwsResourceExplorerSetup,
   ensureAwsResourceExplorerDefaultViewIncludesTags,
   getAwsDiscoveryRegionStatus,
+  getAwsResourceExplorerEvidenceScope,
   listAwsDiscoveryIndexes,
   listAwsDiscoverySupportedResourceTypes,
   listAwsResourcesByFilter,
@@ -203,6 +218,8 @@ type AwsDiscoveryDatasetLoad<K extends DiscoveryDatasetKey = DiscoveryDatasetKey
   diagnostics: ScanDiagnostic[];
   unavailable: boolean;
   unavailableDiagnostics?: ScanDiagnostic[];
+  fingerprint?: string;
+  coverage?: import('../../types.js').LiveEvaluationCoverage;
 };
 
 class UnavailableDiscoveryDatasetError extends Error {
@@ -342,7 +359,7 @@ export const discoverAwsResources = async (
     };
   }
 
-  const datasetDefinitions = datasetKeys.map((datasetKey) => {
+  const datasetDefinitions = resolveAwsDiscoveryDatasetDependencies(datasetKeys).map((datasetKey) => {
     const definition = getAwsDiscoveryDatasetDefinition(datasetKey);
 
     if (!definition) {
@@ -400,26 +417,47 @@ export const discoverAwsResources = async (
     });
   }
   const resourcesByType = buildResourcesByTypeIndex(catalog.resources);
+  const catalogScope =
+    isAwsEvidenceCacheEnabled() && resourceTypes.length > 0 && !catalogFailureDiagnostic
+      ? await getAwsResourceExplorerEvidenceScope(target)
+      : undefined;
   const datasetLoadPromises = new Map<string, Promise<AwsDiscoveryDatasetLoad>>();
   const loadedDatasetKeys = new Set<DiscoveryDatasetKey>();
   const unavailableRegions = new Map<DiscoveryDatasetKey, Set<string>>();
   let accountIdPromise: Promise<string> | undefined;
   const resolveAccountId = (): Promise<string> => (accountIdPromise ??= resolveAwsAccountId(catalog.searchRegion));
   const datasetRegion = await resolveAccountScopedDatasetRegion(target);
-  const createLoadContext = (region?: string): AwsDiscoveryDatasetLoadContext => ({
+  const queryIdentity = (
+    filterString: string,
+    queryOptions?: { requiredViewProperties?: string[]; scope?: 'target' | 'account' },
+  ) =>
+    JSON.stringify([
+      filterString,
+      queryOptions?.scope ?? 'target',
+      [...(queryOptions?.requiredViewProperties ?? [])].sort(),
+    ]);
+  const createLoadContext = (
+    parentKey: DiscoveryDatasetKey,
+    dependencies: Map<DiscoveryDatasetKey, AwsDiscoveryDatasetLoad>,
+    queries: Map<string, AwsDiscoveredResource[]>,
+    region?: string,
+  ): AwsDiscoveryDatasetLoadContext => ({
     loadDataset: async <K extends DiscoveryDatasetKey>(datasetKey: K): Promise<DiscoveryDatasetMap[K]> => {
-      const result = await loadDataset(datasetKey, region);
+      if (!getAwsDiscoveryDatasetDefinition(parentKey)?.dependencies.includes(datasetKey)) {
+        throw new Error(`Dataset '${parentKey}' attempted undeclared dependency '${datasetKey}'.`);
+      }
+      const result = dependencies.get(datasetKey);
+      if (!result) throw new Error(`Dataset dependency '${datasetKey}' has not been resolved.`);
       if (result.unavailable) {
         throw new UnavailableDiscoveryDatasetError(datasetKey, result.unavailableDiagnostics ?? result.diagnostics);
       }
-      return result.dataset[1];
+      return result.dataset[1] as DiscoveryDatasetMap[K];
     },
-    listResourcesByFilter: (filterString, filterOptions) =>
-      listAwsResourcesByFilter(
-        target,
-        filterString,
-        options?.debugLogger ? { ...filterOptions, debugLogger: options.debugLogger } : filterOptions,
-      ),
+    listResourcesByFilter: async (filterString, filterOptions) => {
+      const resources = queries.get(queryIdentity(filterString, filterOptions));
+      if (!resources) throw new Error(`Dataset '${parentKey}' attempted an undeclared catalog query.`);
+      return resources;
+    },
     resolveAccountId,
     region: region ?? datasetRegion,
     ...(region
@@ -485,8 +523,120 @@ export const discoverAwsResources = async (
           options?.debugLogger,
           `aws: loading dataset ${datasetKey}${region ? ` in ${region} from ${regionResources.length} resources` : ''}`,
         );
-        const loaded = normalizeDatasetLoadResult(await definition.load(regionResources, createLoadContext(region)));
-        load = result(loaded.resources, loaded.diagnostics, loaded.unavailable);
+        const dependencyKeys = resolveAwsDiscoveryDatasetDependencies(definition.dependencies);
+        const dependencyLoads = await Promise.all(dependencyKeys.map((key) => loadDataset(key, region)));
+        const dependencies = new Map(dependencyLoads.map((dependency) => [dependency.dataset[0], dependency]));
+        const unavailableDependency = dependencyLoads.find((dependency) => dependency.unavailable);
+        if (unavailableDependency) {
+          throw new UnavailableDiscoveryDatasetError(
+            unavailableDependency.dataset[0],
+            unavailableDependency.diagnostics,
+          );
+        }
+        const queryLoads = await Promise.all(
+          (definition.catalogQueries ?? []).map(async (query) => ({
+            identity: queryIdentity(query.filterString, query),
+            scope: isAwsEvidenceCacheEnabled()
+              ? await getAwsResourceExplorerEvidenceScope(target, query.scope, query.requiredViewProperties)
+              : undefined,
+            resources: await listAwsResourcesByFilter(target, query.filterString, {
+              scope: query.scope,
+              requiredViewProperties: query.requiredViewProperties,
+              ...(options?.debugLogger ? { debugLogger: options.debugLogger } : {}),
+            }),
+          })),
+        );
+        const queries = new Map(queryLoads.map((query) => [query.identity, query.resources]));
+        const incompleteCatalog =
+          getAwsEvidenceProvenance()?.some(
+            (entry) =>
+              !entry.complete &&
+              (definition.resourceTypes.some((type) => entry.datasetKey === `catalog:${type}`) ||
+                (queryLoads.length > 0 && entry.datasetKey === 'catalog:filter')),
+          ) ?? false;
+        const ttlMs = getAwsEvidenceTtl(datasetKey, definition.freshness.ttlMs);
+        const runTimestamp = getAwsDiscoveryTimestamp();
+        // Freeze rolling observations to a freshness bucket. The loader receives this exact timestamp,
+        // so cache identity always describes its actual request interval.
+        const observationTimestamp =
+          isAwsEvidenceCacheEnabled() &&
+          ttlMs > 0 &&
+          definition.freshness.observation.kind === 'window' &&
+          definition.freshness.observation.alignmentMs < ttlMs
+            ? Math.floor(runTimestamp / ttlMs) * ttlMs
+            : runTimestamp;
+        const window = resolveAwsDiscoveryObservationWindow(definition.freshness.observation, observationTimestamp);
+        const observationWindow = window ? { start: window.startTime, end: window.endTime } : undefined;
+        const evidence = await loadAwsCachedEvidence({
+          datasetKey,
+          region,
+          ttlMs,
+          observationTimestamp,
+          key: {
+            datasetKey,
+            region: region ?? datasetRegion,
+            schemaVersion: definition.schemaVersion,
+            loaderVersion: definition.loaderVersion,
+            catalog: { scope: catalogScope, viewArn: catalog.viewArn, resources: regionResources, queries: queryLoads },
+            observationWindow,
+            dependencies: dependencyLoads.map((dependency) => [
+              dependency.dataset[0],
+              dependency.fingerprint ?? fingerprintAwsEvidence(dependency),
+            ]),
+          },
+          load: async () => {
+            const loaded = normalizeDatasetLoadResult(
+              await definition.load(regionResources, createLoadContext(datasetKey, dependencies, queries, region)),
+            );
+            const coverage = assessAwsDiscoveryDatasetEvidence(
+              datasetKey,
+              {
+                ...Object.fromEntries(dependencyLoads.map((dependency) => dependency.dataset)),
+                [datasetKey]: loaded.resources,
+              },
+              {
+                ...catalog,
+                resources: region
+                  ? catalog.resources.filter((resource) => resource.region === region)
+                  : catalog.resources,
+              },
+            );
+            const value = { ...result(loaded.resources, loaded.diagnostics, loaded.unavailable), coverage };
+            return {
+              value,
+              complete:
+                !loaded.unavailable &&
+                !incompleteCatalog &&
+                loaded.diagnostics.length === 0 &&
+                coverage.unknown.length === 0 &&
+                dependencyLoads.every(
+                  (dependency) => !dependency.coverage?.unknown.length && dependency.diagnostics.length === 0,
+                ),
+              observedAt: observationWindow?.end ?? new Date(observationTimestamp).toISOString(),
+              observationWindow,
+            };
+          },
+          validate: (value): value is AwsDiscoveryDatasetLoad<K> =>
+            !!value &&
+            typeof value === 'object' &&
+            'dataset' in value &&
+            Array.isArray(value.dataset) &&
+            value.dataset[0] === datasetKey &&
+            Array.isArray(value.dataset[1]) &&
+            'diagnostics' in value &&
+            Array.isArray(value.diagnostics) &&
+            'unavailable' in value &&
+            value.unavailable === false,
+        });
+        load = {
+          ...evidence.value,
+          fingerprint: fingerprintAwsEvidence([
+            definition.schemaVersion,
+            definition.loaderVersion,
+            observationWindow,
+            evidence.fingerprint,
+          ]),
+        };
       } catch (err) {
         throwIfAwsExecutionAborted();
         emitDebugLog(
@@ -516,6 +666,7 @@ export const discoverAwsResources = async (
           load = result([], [buildDatasetFailureDiagnostic(definition.service, region, err)], true);
         }
       }
+      annotateAwsEvidence(datasetKey, region, { coverage: load.coverage, diagnostics: load.diagnostics });
       if (region && load.unavailable) {
         const failedRegions = unavailableRegions.get(datasetKey) ?? new Set<string>();
         failedRegions.add(region);

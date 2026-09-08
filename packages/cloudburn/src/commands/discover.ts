@@ -1,6 +1,9 @@
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 import {
   type AwsDiscoveryProgressEvent,
   type AwsDiscoveryTarget,
+  type AwsEvidenceCacheOptions,
   type AwsRegion,
   assertSupportedAwsRegion,
   CloudBurnClient,
@@ -17,6 +20,9 @@ import { resolveCliDiscoveryProgressLogger } from '../progress.js';
 import { parseRuleIdList, parseServiceList, parseSeverity, validateServiceList } from './config-options.js';
 
 type DiscoverOptions = {
+  cache?: 'normal' | 'refresh' | 'off';
+  cacheDir?: string;
+  cacheContext?: string;
   config?: string;
   disabledRules?: string[];
   enabledRules?: string[];
@@ -33,6 +39,13 @@ const parseDiscoveryTimeout = (value: string): number => {
     throw new InvalidArgumentError('Timeout must be a whole number of seconds between 1 and 2147483.');
   }
   return seconds;
+};
+
+const parseCacheMode = (value: string): 'normal' | 'refresh' | 'off' => {
+  if (value === 'normal' || value === 'refresh' || value === 'off') {
+    return value;
+  }
+  throw new InvalidArgumentError('Cache mode must be normal, refresh, or off.');
 };
 
 const parseDiscoveryServiceList = (value: string): string[] =>
@@ -216,6 +229,12 @@ export const registerDiscoverCommand = (program: Command): void => {
       )
       .option('--config <path>', 'Explicit CloudBurn config file to load (required for config files in CI)')
       .option('--timeout <seconds>', 'Maximum discovery duration in seconds (default: 300).', parseDiscoveryTimeout)
+      .option('--cache <mode>', 'Evidence cache mode: normal, refresh, or off (default: normal).', parseCacheMode)
+      .option(
+        '--cache-dir <path>',
+        'Evidence cache directory (default: $XDG_CACHE_HOME/cloudburn/evidence or ~/.cache/cloudburn/evidence).',
+      )
+      .option('--cache-context <id>', 'Effective authorization/session-policy revision for evidence reuse.')
       .option(
         '--enabled-rules <ruleIds>',
         'Comma-separated rule IDs to enable. When set, CloudBurn checks only these rules. By default, AWS Core preset rules are enabled.',
@@ -241,12 +260,20 @@ export const registerDiscoverCommand = (program: Command): void => {
           const configOverride = toDiscoveryConfigOverride(options);
           const loadedConfig = await scanner.loadConfig(options.config);
           const discoveryOptions: {
+            cache: AwsEvidenceCacheOptions;
             target: AwsDiscoveryTarget;
             config?: ReturnType<typeof toDiscoveryConfigOverride>;
             configPath?: string;
             onProgress?: (event: AwsDiscoveryProgressEvent) => void;
             timeoutMs?: number;
           } = {
+            cache: {
+              mode: options.cache ?? 'normal',
+              directory:
+                options.cacheDir ??
+                join(process.env.XDG_CACHE_HOME ?? join(homedir(), '.cache'), 'cloudburn', 'evidence'),
+              ...(options.cacheContext === undefined ? {} : { authorizationContext: options.cacheContext }),
+            },
             target: resolveDiscoveryTarget(options.region),
           };
 
@@ -287,6 +314,7 @@ export const registerDiscoverCommand = (program: Command): void => {
     [
       'cloudburn discover',
       'cloudburn discover --region eu-central-1',
+      'cloudburn discover --cache refresh',
       'cloudburn discover status',
       'cloudburn discover init',
     ],

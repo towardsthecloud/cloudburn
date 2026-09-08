@@ -193,22 +193,36 @@ const renderTable = (response: CliResponse): string => {
       const findingRows = projectFindingRows(response.result);
       const diagnosticRows = projectDiagnosticRows(response.result);
       const suppressedCount = response.result.suppressed?.length ?? 0;
-      const withSuppressedCount = (content: string): string =>
-        suppressedCount > 0 ? `${content}\n\nSuppressed: ${suppressedCount}` : content;
+      const withScanSummary = (content: string): string => {
+        const sections = [content];
+        if (suppressedCount > 0) {
+          sections.push(`Suppressed: ${suppressedCount}`);
+        }
+        const evidence = response.result.evidence ?? [];
+        if (evidence.length > 0) {
+          const cachedCount = evidence.filter((entry) => entry.source === 'cache').length;
+          const incompleteCount = evidence.filter((entry) => !entry.complete).length;
+          const oldestObservation = evidence.map((entry) => entry.observedAt).sort()[0];
+          sections.push(
+            `Evidence: ${cachedCount} cached, ${evidence.length - cachedCount} collected; ${incompleteCount} incomplete.\nOldest observation: ${oldestObservation}`,
+          );
+        }
+        return sections.join('\n\n');
+      };
 
       if (findingRows.length === 0 && diagnosticRows.length === 0) {
-        return withSuppressedCount(suppressedCount > 0 ? 'No active findings.' : 'No findings.');
+        return withScanSummary(suppressedCount > 0 ? 'No active findings.' : 'No findings.');
       }
 
       if (findingRows.length === 0) {
-        return withSuppressedCount(`Diagnostics\n${renderAsciiTable(diagnosticRows, diagnosticColumns)}`);
+        return withScanSummary(`Diagnostics\n${renderAsciiTable(diagnosticRows, diagnosticColumns)}`);
       }
 
       if (diagnosticRows.length === 0) {
-        return withSuppressedCount(renderAsciiTable(findingRows, scanColumns));
+        return withScanSummary(renderAsciiTable(findingRows, scanColumns));
       }
 
-      return withSuppressedCount(
+      return withScanSummary(
         `${renderAsciiTable(findingRows, scanColumns)}\n\nDiagnostics\n${renderAsciiTable(diagnosticRows, diagnosticColumns)}`,
       );
     }

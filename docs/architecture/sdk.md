@@ -79,10 +79,11 @@ Static rule evaluation retains those scopes, including joins between datasets su
 
 1. Build the rule registry.
 2. Collect unique `discoveryDependencies` from active discovery rules.
-3. Resolve those dataset keys through the AWS discovery dataset registry.
+3. Expand declarative dependencies and catalog queries through the AWS discovery dataset registry.
 4. Union required Resource Explorer `resourceTypes` from the resolved dataset definitions.
 5. Build one AWS discovery catalog through Resource Explorer filter-only list queries.
-6. Load only the required datasets (including hydrator-backed loaders when needed).
+6. Load only the required datasets, reusing fresh versioned evidence when explicitly configured. Cache keys include
+   authorization scope, selected catalog membership/view, observation interval, and dependency fingerprints.
 7. Build `LiveEvaluationContext` with `{ catalog, resources: LiveResourceBag }`.
 8. Invoke each live evaluator.
 9. When requested, resolve each rule's evaluated resource projection through the SDK-owned AWS evaluation registry.
@@ -90,6 +91,10 @@ Static rule evaluation retains those scopes, including joins between datasets su
 
 Current live-discovery behavior:
 
+- The SDK-owned [evidence cache](../reference/evidence-cache.md) stores normalized successful evidence, diagnostics,
+  resource coverage, and collection provenance. It never stores clients, credentials, rule findings, or configuration.
+  The SDK opts into memory/local/custom-store reuse explicitly; the CLI configures private local persistence.
+  Shared refreshes own isolated AWS execution and retain independent waiter cancellation. All scans evaluate rules again.
 - `discover` is the only live scan entrypoint for both the CLI and direct SDK callers.
 - `CloudBurnClient.discover({ includeEvaluationResources: true })` adds a generic evaluation entry for every selected
   rule. Rules reference normalized resource sets and report `triggered`, `passed`, or `unknown`; rules skipped because a
@@ -161,12 +166,12 @@ requests per day. It requires complete CloudWatch evidence with all 14 daily poi
 and failed evidence remains unknown; missing days are never filled with zero. Empty-target cleanup rules retain
 precedence and can establish an assessed result independently of activity evidence.
 
-| Load balancer | HTTP activity contract |
-| --- | --- |
-| Application | `AWS/ApplicationELB`, `RequestCount`, `LoadBalancer=app/name/id` |
-| Classic, HTTP/HTTPS listeners only | `AWS/ELB`, `RequestCount`, `LoadBalancerName=name` |
-| Classic with TCP/SSL, mixed, empty, or unknown listeners | Unsupported for the HTTP request threshold; retained as unknown coverage |
-| Network and Gateway | Unsupported for the HTTP request threshold; retained as unknown coverage without HTTP metric queries |
+| Load balancer                                            | HTTP activity contract                                                                               |
+| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Application                                              | `AWS/ApplicationELB`, `RequestCount`, `LoadBalancer=app/name/id`                                     |
+| Classic, HTTP/HTTPS listeners only                       | `AWS/ELB`, `RequestCount`, `LoadBalancerName=name`                                                   |
+| Classic with TCP/SSL, mixed, empty, or unknown listeners | Unsupported for the HTTP request threshold; retained as unknown coverage                             |
+| Network and Gateway                                      | Unsupported for the HTTP request threshold; retained as unknown coverage without HTTP metric queries |
 
 Classic inventory includes `listenerProtocols` from the existing describe response. AWS defines Classic
 [`RequestCount`](https://docs.aws.amazon.com/elasticloadbalancing/latest/classic/elb-cloudwatch-metrics.html) as requests

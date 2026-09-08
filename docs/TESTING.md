@@ -15,7 +15,7 @@ Three test layers, all in `packages/rules/test/`:
 | Layer                     | File                    | What it verifies                                                                          |
 | ------------------------- | ----------------------- | ----------------------------------------------------------------------------------------- |
 | **1. Export surface**     | `exports.test.ts`       | `awsRules` is non-empty, preset inclusion policy holds, `azureRules`/`gcpRules` are empty |
-| **2. Metadata contract**  | `rule-metadata.test.ts` | Catalog fields, IDs, evaluator modes, and declared dataset reads                      |
+| **2. Metadata contract**  | `rule-metadata.test.ts` | Catalog fields, IDs, evaluator modes, and declared dataset reads                          |
 | **3. Evaluator behavior** | `{rule-name}.test.ts`   | Full finding payloads for both `evaluateLive` and `evaluateStatic`, plus negative cases   |
 
 Keep catalog invariants and semantic metadata policies in `rule-metadata.test.ts`. It runs each evaluator with empty
@@ -75,6 +75,12 @@ that unsupported types and failed metric series remain visible in unknown covera
 discovery pipeline. Partial SageMaker invocation data cannot emit an idle finding, and mixed complete/unknown endpoints
 retain both valid findings and unknown coverage. Provider tests cover status/pagination/retry behavior and Lambda's
 rolling windows and weighted duration summaries using synthetic AWS responses and fixed clocks.
+
+Reusable evidence tests run through those same HTTP pipelines: unchanged scans, rule selection, credential sessions,
+view changes, new catalog membership, partial coverage, strict refresh, and independent cancellation. Lambda tests compare
+actual CloudWatch request windows with cache provenance and verify dependency-version invalidation. The generic cache
+suite uses real child processes for concurrent refresh, owner crashes, lease expiry, and old-writer fencing, plus
+synthetic loaders for corruption, invalidation, bounded eviction, and value isolation. No AWS access is needed.
 
 ### `cloudburn` (CLI)
 

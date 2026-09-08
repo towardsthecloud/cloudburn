@@ -1,7 +1,10 @@
 import {
   type AwsDiscoveredResource,
+  type AwsDiscoveryCatalog,
   type AwsKmsKeyChurnReview,
+  awsRules,
   createFindingMatch,
+  createLiveEvaluationCoverage,
   type DiscoveryDatasetKey,
   type DiscoveryDatasetMap,
   type FindingMatch,
@@ -13,7 +16,8 @@ import {
   getAwsCostOptimizationHubUpgradeResourceId,
   getAwsCostOptimizationHubUpgradeResourceType,
   gravitonResourceTypes,
-  type LiveResourceBag,
+  type LiveEvaluationCoverage,
+  LiveResourceBag,
   type Rule,
 } from '@cloudburn/rules';
 import type { EvaluatedResource, ScanDiagnostic } from '../../types.js';
@@ -130,9 +134,31 @@ export type AwsDiscoveryDatasetLoadContext = AwsDiscoveryDatasetResolver &
     regions?: string[];
   };
 
+/** Observation interval used by a dataset's loader, independently of cache freshness. */
+export type AwsDiscoveryObservationPolicy =
+  | { kind: 'current' }
+  | { kind: 'window'; lookbackMs: number; alignmentMs: number }
+  | { kind: 'calendar-months'; months: number };
+
 /** Declarative definition for one rule-facing AWS discovery dataset. */
 export type AwsDiscoveryDatasetDefinition<K extends DiscoveryDatasetKey = DiscoveryDatasetKey> = {
   datasetKey: K;
+  /** Required datasets resolved before this loader runs. */
+  dependencies: DiscoveryDatasetKey[];
+  /** Filtered catalog evidence resolved and fingerprinted before dataset cache lookup. */
+  catalogQueries?: Array<{
+    filterString: string;
+    requiredViewProperties?: string[];
+    scope?: 'target' | 'account';
+  }>;
+  /** Increment when the normalized evidence shape changes. */
+  schemaVersion: string;
+  /** Increment when collection or normalization behavior changes. */
+  loaderVersion: string;
+  /** Initial TTLs are tunable freshness proposals, not measured source guarantees. */
+  freshness: { ttlMs: number; observation: AwsDiscoveryObservationPolicy };
+  /** Dataset completeness when rule coverage also depends on unrelated policy or evidence. */
+  getEvidenceCoverage?: (resources: LiveResourceBag) => LiveEvaluationCoverage;
   toEvaluationResources?: (resources: DiscoveryDatasetMap[K]) => EvaluationResourceProjection[];
   resourceTypes: string[];
   service:
@@ -250,6 +276,10 @@ const awsDiscoveryDatasetRegistry: {
 } = {
   'aws-cloudtrail-trails': {
     datasetKey: 'aws-cloudtrail-trails',
+    dependencies: [],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: { ttlMs: 600_000, observation: { kind: 'current' } },
     resourceTypes: ['cloudtrail:trail'],
     service: 'cloudtrail',
     load: hydrateAwsCloudTrailTrails,
@@ -257,6 +287,10 @@ const awsDiscoveryDatasetRegistry: {
   },
   'aws-cloudfront-distributions': {
     datasetKey: 'aws-cloudfront-distributions',
+    dependencies: [],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: { ttlMs: 600_000, observation: { kind: 'current' } },
     resourceTypes: ['cloudfront:distribution'],
     service: 'cloudfront',
     load: hydrateAwsCloudFrontDistributions,
@@ -265,6 +299,13 @@ const awsDiscoveryDatasetRegistry: {
   },
   'aws-cloudfront-distribution-request-activity': {
     datasetKey: 'aws-cloudfront-distribution-request-activity',
+    dependencies: ['aws-cloudfront-distributions'],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: {
+      ttlMs: 300_000,
+      observation: { kind: 'window', lookbackMs: 30 * 86_400_000, alignmentMs: 86_400_000 },
+    },
     resourceTypes: ['cloudfront:distribution'],
     service: 'cloudfront',
     load: hydrateAwsCloudFrontDistributionRequestActivity,
@@ -273,6 +314,10 @@ const awsDiscoveryDatasetRegistry: {
   },
   'aws-cloudwatch-log-groups': {
     datasetKey: 'aws-cloudwatch-log-groups',
+    dependencies: [],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: { ttlMs: 600_000, observation: { kind: 'current' } },
     resourceTypes: ['logs:log-group'],
     service: 'cloudwatch',
     load: hydrateAwsCloudWatchLogGroups,
@@ -288,6 +333,10 @@ const awsDiscoveryDatasetRegistry: {
   },
   'aws-cloudwatch-log-group-recent-stream-activity': {
     datasetKey: 'aws-cloudwatch-log-group-recent-stream-activity',
+    dependencies: [],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: { ttlMs: 300_000, observation: { kind: 'current' } },
     resourceTypes: ['logs:log-group'],
     service: 'cloudwatch',
     load: hydrateAwsCloudWatchLogGroupRecentStreamActivity,
@@ -306,12 +355,23 @@ const awsDiscoveryDatasetRegistry: {
   },
   'aws-cloudwatch-log-streams': {
     datasetKey: 'aws-cloudwatch-log-streams',
+    dependencies: [],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: { ttlMs: 600_000, observation: { kind: 'current' } },
     resourceTypes: ['logs:log-group'],
     service: 'cloudwatch',
     load: hydrateAwsCloudWatchLogStreams,
   },
   'aws-config-recording-frequency-reviews': {
     datasetKey: 'aws-config-recording-frequency-reviews',
+    dependencies: [],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: {
+      ttlMs: 300_000,
+      observation: { kind: 'window', lookbackMs: 14 * 86_400_000, alignmentMs: 86_400_000 },
+    },
     resourceTypes: [],
     service: 'config',
     load: hydrateAwsConfigRecordingFrequencyReviews,
@@ -329,6 +389,10 @@ const awsDiscoveryDatasetRegistry: {
   },
   'aws-cost-usage': {
     datasetKey: 'aws-cost-usage',
+    dependencies: [],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: { ttlMs: 21_600_000, observation: { kind: 'calendar-months', months: 2 } },
     resourceTypes: [],
     service: 'costexplorer',
     load: hydrateAwsCostUsage,
@@ -336,6 +400,10 @@ const awsDiscoveryDatasetRegistry: {
   },
   'aws-cost-anomaly-monitors': {
     datasetKey: 'aws-cost-anomaly-monitors',
+    dependencies: [],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: { ttlMs: 600_000, observation: { kind: 'current' } },
     resourceTypes: [],
     service: 'costguardrails',
     load: hydrateAwsCostAnomalyMonitors,
@@ -343,6 +411,10 @@ const awsDiscoveryDatasetRegistry: {
   },
   'aws-cost-guardrail-budgets': {
     datasetKey: 'aws-cost-guardrail-budgets',
+    dependencies: [],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: { ttlMs: 600_000, observation: { kind: 'current' } },
     resourceTypes: [],
     service: 'costguardrails',
     load: hydrateAwsCostGuardrailBudgets,
@@ -350,12 +422,23 @@ const awsDiscoveryDatasetRegistry: {
   },
   'aws-dynamodb-autoscaling': {
     datasetKey: 'aws-dynamodb-autoscaling',
+    dependencies: [],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: { ttlMs: 600_000, observation: { kind: 'current' } },
     resourceTypes: ['dynamodb:table'],
     service: 'dynamodb',
     load: hydrateAwsDynamoDbAutoscaling,
   },
   'aws-dynamodb-table-utilization': {
     datasetKey: 'aws-dynamodb-table-utilization',
+    dependencies: ['aws-dynamodb-tables'],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: {
+      ttlMs: 300_000,
+      observation: { kind: 'window', lookbackMs: 90 * 86_400_000, alignmentMs: 86_400_000 },
+    },
     resourceTypes: ['dynamodb:table'],
     service: 'dynamodb',
     load: hydrateAwsDynamoDbTableUtilization,
@@ -363,6 +446,10 @@ const awsDiscoveryDatasetRegistry: {
   },
   'aws-dynamodb-tables': {
     datasetKey: 'aws-dynamodb-tables',
+    dependencies: [],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: { ttlMs: 600_000, observation: { kind: 'current' } },
     resourceTypes: ['dynamodb:table'],
     service: 'dynamodb',
     load: hydrateAwsDynamoDbTables,
@@ -370,6 +457,10 @@ const awsDiscoveryDatasetRegistry: {
   },
   'aws-ebs-snapshots': {
     datasetKey: 'aws-ebs-snapshots',
+    dependencies: [],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: { ttlMs: 600_000, observation: { kind: 'current' } },
     resourceTypes: ['ec2:snapshot'],
     service: 'ebs',
     load: hydrateAwsEbsSnapshots,
@@ -384,6 +475,10 @@ const awsDiscoveryDatasetRegistry: {
   },
   'aws-ebs-volumes': {
     datasetKey: 'aws-ebs-volumes',
+    dependencies: [],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: { ttlMs: 600_000, observation: { kind: 'current' } },
     resourceTypes: ['ec2:volume'],
     service: 'ebs',
     load: hydrateAwsEbsVolumes,
@@ -398,6 +493,10 @@ const awsDiscoveryDatasetRegistry: {
   },
   'aws-elasticache-clusters': {
     datasetKey: 'aws-elasticache-clusters',
+    dependencies: [],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: { ttlMs: 600_000, observation: { kind: 'current' } },
     resourceTypes: ['elasticache:cluster'],
     service: 'elasticache',
     load: hydrateAwsElastiCacheClusters,
@@ -405,30 +504,56 @@ const awsDiscoveryDatasetRegistry: {
   },
   'aws-elasticache-cluster-activity': {
     datasetKey: 'aws-elasticache-cluster-activity',
+    dependencies: ['aws-elasticache-clusters'],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: {
+      ttlMs: 300_000,
+      observation: { kind: 'window', lookbackMs: 14 * 86_400_000, alignmentMs: 86_400_000 },
+    },
     resourceTypes: ['elasticache:cluster'],
     service: 'elasticache',
     load: hydrateAwsElastiCacheClusterActivity,
   },
   'aws-elasticache-reserved-nodes': {
     datasetKey: 'aws-elasticache-reserved-nodes',
+    dependencies: [],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: { ttlMs: 600_000, observation: { kind: 'current' } },
     resourceTypes: ['elasticache:reserved-instance'],
     service: 'elasticache',
     load: hydrateAwsElastiCacheReservedNodes,
   },
   'aws-ecs-autoscaling': {
     datasetKey: 'aws-ecs-autoscaling',
+    dependencies: [],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: { ttlMs: 600_000, observation: { kind: 'current' } },
     resourceTypes: ['ecs:service'],
     service: 'ecs',
     load: hydrateAwsEcsAutoscaling,
   },
   'aws-ecs-cluster-metrics': {
     datasetKey: 'aws-ecs-cluster-metrics',
+    dependencies: ['aws-ecs-clusters'],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: {
+      ttlMs: 300_000,
+      observation: { kind: 'window', lookbackMs: 14 * 86_400_000, alignmentMs: 86_400_000 },
+    },
     resourceTypes: ['ecs:cluster'],
     service: 'ecs',
     load: hydrateAwsEcsClusterMetrics,
   },
   'aws-ecs-clusters': {
     datasetKey: 'aws-ecs-clusters',
+    dependencies: [],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: { ttlMs: 600_000, observation: { kind: 'current' } },
     resourceTypes: ['ecs:cluster'],
     service: 'ecs',
     load: hydrateAwsEcsClusters,
@@ -436,6 +561,10 @@ const awsDiscoveryDatasetRegistry: {
   },
   'aws-ecs-container-instances': {
     datasetKey: 'aws-ecs-container-instances',
+    dependencies: [],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: { ttlMs: 600_000, observation: { kind: 'current' } },
     resourceTypes: ['ecs:container-instance'],
     service: 'ecs',
     load: hydrateAwsEcsContainerInstances,
@@ -444,6 +573,10 @@ const awsDiscoveryDatasetRegistry: {
   },
   'aws-ecs-services': {
     datasetKey: 'aws-ecs-services',
+    dependencies: [],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: { ttlMs: 600_000, observation: { kind: 'current' } },
     resourceTypes: ['ecs:service'],
     service: 'ecs',
     load: hydrateAwsEcsServices,
@@ -451,6 +584,10 @@ const awsDiscoveryDatasetRegistry: {
   },
   'aws-ecr-repositories': {
     datasetKey: 'aws-ecr-repositories',
+    dependencies: [],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: { ttlMs: 600_000, observation: { kind: 'current' } },
     resourceTypes: ['ecr:repository'],
     service: 'ecr',
     load: hydrateAwsEcrRepositories,
@@ -459,6 +596,10 @@ const awsDiscoveryDatasetRegistry: {
   },
   'aws-ec2-elastic-ips': {
     datasetKey: 'aws-ec2-elastic-ips',
+    dependencies: [],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: { ttlMs: 600_000, observation: { kind: 'current' } },
     resourceTypes: ['ec2:elastic-ip'],
     service: 'ec2',
     load: hydrateAwsEc2ElasticIps,
@@ -466,6 +607,10 @@ const awsDiscoveryDatasetRegistry: {
   },
   'aws-ec2-instances': {
     datasetKey: 'aws-ec2-instances',
+    dependencies: [],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: { ttlMs: 600_000, observation: { kind: 'current' } },
     resourceTypes: ['ec2:instance'],
     service: 'ec2',
     load: hydrateAwsEc2Instances,
@@ -480,6 +625,13 @@ const awsDiscoveryDatasetRegistry: {
   },
   'aws-ec2-instance-utilization': {
     datasetKey: 'aws-ec2-instance-utilization',
+    dependencies: ['aws-ec2-instances'],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: {
+      ttlMs: 300_000,
+      observation: { kind: 'window', lookbackMs: 14 * 86_400_000, alignmentMs: 86_400_000 },
+    },
     resourceTypes: ['ec2:instance'],
     service: 'ec2',
     load: hydrateAwsEc2InstanceUtilization,
@@ -487,6 +639,10 @@ const awsDiscoveryDatasetRegistry: {
   },
   'aws-ec2-nat-gateway-activity': {
     datasetKey: 'aws-ec2-nat-gateway-activity',
+    dependencies: [],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: { ttlMs: 300_000, observation: { kind: 'window', lookbackMs: 7 * 86_400_000, alignmentMs: 86_400_000 } },
     resourceTypes: ['ec2:natgateway'],
     service: 'ec2',
     load: hydrateAwsEc2NatGatewayActivity,
@@ -494,6 +650,13 @@ const awsDiscoveryDatasetRegistry: {
   },
   'aws-ec2-transit-gateway-vpc-attachment-activity': {
     datasetKey: 'aws-ec2-transit-gateway-vpc-attachment-activity',
+    dependencies: [],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: {
+      ttlMs: 300_000,
+      observation: { kind: 'window', lookbackMs: 30 * 86_400_000, alignmentMs: 86_400_000 },
+    },
     resourceTypes: ['ec2:transit-gateway-attachment'],
     service: 'ec2',
     load: hydrateAwsEc2TransitGatewayVpcAttachmentActivity,
@@ -517,6 +680,10 @@ const awsDiscoveryDatasetRegistry: {
   },
   'aws-ec2-load-balancers': {
     datasetKey: 'aws-ec2-load-balancers',
+    dependencies: [],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: { ttlMs: 600_000, observation: { kind: 'current' } },
     resourceTypes: [
       'elasticloadbalancing:loadbalancer',
       'elasticloadbalancing:loadbalancer/app',
@@ -538,6 +705,13 @@ const awsDiscoveryDatasetRegistry: {
   },
   'aws-ec2-load-balancer-request-activity': {
     datasetKey: 'aws-ec2-load-balancer-request-activity',
+    dependencies: ['aws-ec2-load-balancers'],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: {
+      ttlMs: 300_000,
+      observation: { kind: 'window', lookbackMs: 14 * 86_400_000, alignmentMs: 86_400_000 },
+    },
     resourceTypes: [
       'elasticloadbalancing:loadbalancer',
       'elasticloadbalancing:loadbalancer/app',
@@ -546,11 +720,33 @@ const awsDiscoveryDatasetRegistry: {
     ],
     service: 'elb',
     load: hydrateAwsEc2LoadBalancerRequestActivity,
+    getEvidenceCoverage: (resources) => {
+      const key = (value: { accountId: string; region: string; loadBalancerArn: string }): string =>
+        JSON.stringify([value.accountId, value.region, value.loadBalancerArn]);
+      const activityByIdentity = new Map(
+        resources.get('aws-ec2-load-balancer-request-activity').map((activity) => [key(activity), activity]),
+      );
+      return createLiveEvaluationCoverage(
+        resources.get('aws-ec2-load-balancers'),
+        (loadBalancer) => {
+          const activity = activityByIdentity.get(key(loadBalancer));
+          return (
+            (activity?.requestActivityStatus === undefined || activity.requestActivityStatus === 'complete') &&
+            Number.isFinite(activity?.averageRequestsPerDayLast14Days)
+          );
+        },
+        (loadBalancer) => createFindingMatch(loadBalancer.loadBalancerArn, loadBalancer.region, loadBalancer.accountId),
+      );
+    },
     toEvaluationResources: (loadBalancers) =>
       mapEvaluationResources(loadBalancers, (loadBalancer) => loadBalancer.loadBalancerArn),
   },
   'aws-ec2-reserved-instances': {
     datasetKey: 'aws-ec2-reserved-instances',
+    dependencies: [],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: { ttlMs: 600_000, observation: { kind: 'current' } },
     resourceTypes: ['ec2:reserved-instances'],
     service: 'ec2',
     load: hydrateAwsEc2ReservedInstances,
@@ -558,12 +754,23 @@ const awsDiscoveryDatasetRegistry: {
   },
   'aws-ec2-target-groups': {
     datasetKey: 'aws-ec2-target-groups',
+    dependencies: [],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: { ttlMs: 600_000, observation: { kind: 'current' } },
     resourceTypes: ['elasticloadbalancing:targetgroup'],
     service: 'elb',
     load: hydrateAwsEc2TargetGroups,
   },
   'aws-ec2-vpc-endpoint-activity': {
     datasetKey: 'aws-ec2-vpc-endpoint-activity',
+    dependencies: [],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: {
+      ttlMs: 300_000,
+      observation: { kind: 'window', lookbackMs: 30 * 86_400_000, alignmentMs: 86_400_000 },
+    },
     resourceTypes: ['ec2:vpc-endpoint'],
     service: 'ec2',
     load: hydrateAwsEc2VpcEndpointActivity,
@@ -571,6 +778,10 @@ const awsDiscoveryDatasetRegistry: {
   },
   'aws-eks-nodegroups': {
     datasetKey: 'aws-eks-nodegroups',
+    dependencies: [],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: { ttlMs: 600_000, observation: { kind: 'current' } },
     resourceTypes: ['eks:cluster'],
     service: 'eks',
     load: hydrateAwsEksNodegroups,
@@ -587,6 +798,10 @@ const awsDiscoveryDatasetRegistry: {
   },
   'aws-emr-clusters': {
     datasetKey: 'aws-emr-clusters',
+    dependencies: [],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: { ttlMs: 600_000, observation: { kind: 'current' } },
     resourceTypes: ['elasticmapreduce:cluster'],
     service: 'emr',
     load: hydrateAwsEmrClusters,
@@ -594,12 +809,20 @@ const awsDiscoveryDatasetRegistry: {
   },
   'aws-emr-cluster-metrics': {
     datasetKey: 'aws-emr-cluster-metrics',
+    dependencies: ['aws-emr-clusters'],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: { ttlMs: 300_000, observation: { kind: 'window', lookbackMs: 30 * 60_000, alignmentMs: 60_000 } },
     resourceTypes: ['elasticmapreduce:cluster'],
     service: 'emr',
     load: hydrateAwsEmrClusterMetrics,
   },
   'aws-lambda-functions': {
     datasetKey: 'aws-lambda-functions',
+    dependencies: [],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: { ttlMs: 600_000, observation: { kind: 'current' } },
     resourceTypes: ['lambda:function'],
     service: 'lambda',
     load: hydrateAwsLambdaFunctions,
@@ -607,12 +830,20 @@ const awsDiscoveryDatasetRegistry: {
   },
   'aws-lambda-function-metrics': {
     datasetKey: 'aws-lambda-function-metrics',
+    dependencies: ['aws-lambda-functions'],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: { ttlMs: 300_000, observation: { kind: 'window', lookbackMs: 7 * 86_400_000, alignmentMs: 60_000 } },
     resourceTypes: ['lambda:function'],
     service: 'lambda',
     load: hydrateAwsLambdaFunctionMetrics,
   },
   'aws-lambda-memory-recommendations': {
     datasetKey: 'aws-lambda-memory-recommendations',
+    dependencies: [],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: { ttlMs: 600_000, observation: { kind: 'current' } },
     resourceTypes: ['lambda:function'],
     service: 'lambda',
     load: hydrateAwsLambdaMemoryRecommendations,
@@ -621,6 +852,10 @@ const awsDiscoveryDatasetRegistry: {
   },
   'aws-kms-key-churn-reviews': {
     datasetKey: 'aws-kms-key-churn-reviews',
+    dependencies: [],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: { ttlMs: 600_000, observation: { kind: 'calendar-months', months: 1 } },
     resourceTypes: ['kms:key'],
     service: 'kms',
     load: hydrateAwsKmsKeyChurnReviews,
@@ -633,6 +868,10 @@ const awsDiscoveryDatasetRegistry: {
   },
   'aws-kms-key-usage': {
     datasetKey: 'aws-kms-key-usage',
+    dependencies: ['aws-kms-key-churn-reviews'],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: { ttlMs: 600_000, observation: { kind: 'calendar-months', months: 1 } },
     resourceTypes: ['kms:key'],
     service: 'kms',
     load: hydrateAwsKmsKeyUsage,
@@ -650,6 +889,10 @@ const awsDiscoveryDatasetRegistry: {
   },
   'aws-rds-instance-activity': {
     datasetKey: 'aws-rds-instance-activity',
+    dependencies: ['aws-rds-instances'],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: { ttlMs: 300_000, observation: { kind: 'window', lookbackMs: 7 * 86_400_000, alignmentMs: 86_400_000 } },
     resourceTypes: ['rds:db'],
     service: 'rds',
     load: hydrateAwsRdsInstanceActivity,
@@ -658,12 +901,23 @@ const awsDiscoveryDatasetRegistry: {
   },
   'aws-rds-instance-cpu-metrics': {
     datasetKey: 'aws-rds-instance-cpu-metrics',
+    dependencies: ['aws-rds-instances'],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: {
+      ttlMs: 300_000,
+      observation: { kind: 'window', lookbackMs: 30 * 86_400_000, alignmentMs: 86_400_000 },
+    },
     resourceTypes: ['rds:db'],
     service: 'rds',
     load: hydrateAwsRdsInstanceCpuMetrics,
   },
   'aws-rds-instances': {
     datasetKey: 'aws-rds-instances',
+    dependencies: [],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: { ttlMs: 600_000, observation: { kind: 'current' } },
     resourceTypes: ['rds:db'],
     service: 'rds',
     load: hydrateAwsRdsInstances,
@@ -678,6 +932,10 @@ const awsDiscoveryDatasetRegistry: {
   },
   'aws-rds-reserved-instances': {
     datasetKey: 'aws-rds-reserved-instances',
+    dependencies: [],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: { ttlMs: 600_000, observation: { kind: 'current' } },
     // Resource Explorer does not surface RDS reserved instances, so DB
     // resources seed the regions we need to query with DescribeReservedDBInstances.
     resourceTypes: ['rds:db'],
@@ -686,6 +944,10 @@ const awsDiscoveryDatasetRegistry: {
   },
   'aws-rds-snapshots': {
     datasetKey: 'aws-rds-snapshots',
+    dependencies: [],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: { ttlMs: 600_000, observation: { kind: 'current' } },
     resourceTypes: ['rds:snapshot'],
     service: 'rds',
     load: hydrateAwsRdsSnapshots,
@@ -700,6 +962,10 @@ const awsDiscoveryDatasetRegistry: {
   },
   'aws-redshift-clusters': {
     datasetKey: 'aws-redshift-clusters',
+    dependencies: [],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: { ttlMs: 600_000, observation: { kind: 'current' } },
     resourceTypes: ['redshift:cluster'],
     service: 'redshift',
     load: hydrateAwsRedshiftClusters,
@@ -707,12 +973,23 @@ const awsDiscoveryDatasetRegistry: {
   },
   'aws-redshift-cluster-metrics': {
     datasetKey: 'aws-redshift-cluster-metrics',
+    dependencies: ['aws-redshift-clusters'],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: {
+      ttlMs: 300_000,
+      observation: { kind: 'window', lookbackMs: 14 * 86_400_000, alignmentMs: 86_400_000 },
+    },
     resourceTypes: ['redshift:cluster'],
     service: 'redshift',
     load: hydrateAwsRedshiftClusterMetrics,
   },
   'aws-redshift-reserved-nodes': {
     datasetKey: 'aws-redshift-reserved-nodes',
+    dependencies: [],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: { ttlMs: 600_000, observation: { kind: 'current' } },
     // Resource Explorer does not surface Redshift reserved nodes, so cluster
     // resources seed the regions we need to query with DescribeReservedNodes.
     resourceTypes: ['redshift:cluster'],
@@ -721,6 +998,10 @@ const awsDiscoveryDatasetRegistry: {
   },
   'aws-route53-health-checks': {
     datasetKey: 'aws-route53-health-checks',
+    dependencies: [],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: { ttlMs: 600_000, observation: { kind: 'current' } },
     resourceTypes: ['route53:healthcheck'],
     service: 'route53',
     load: hydrateAwsRoute53HealthChecks,
@@ -729,6 +1010,10 @@ const awsDiscoveryDatasetRegistry: {
   },
   'aws-route53-records': {
     datasetKey: 'aws-route53-records',
+    dependencies: [],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: { ttlMs: 600_000, observation: { kind: 'current' } },
     // Hosted zones seed record-set enumeration because Route 53 record sets are scoped to a zone.
     resourceTypes: ['route53:hostedzone'],
     service: 'route53',
@@ -745,12 +1030,20 @@ const awsDiscoveryDatasetRegistry: {
   },
   'aws-route53-zones': {
     datasetKey: 'aws-route53-zones',
+    dependencies: [],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: { ttlMs: 600_000, observation: { kind: 'current' } },
     resourceTypes: ['route53:hostedzone'],
     service: 'route53',
     load: hydrateAwsRoute53Zones,
   },
   'aws-s3-bucket-analyses': {
     datasetKey: 'aws-s3-bucket-analyses',
+    dependencies: [],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: { ttlMs: 600_000, observation: { kind: 'current' } },
     resourceTypes: ['s3:bucket'],
     service: 's3',
     load: hydrateAwsS3BucketAnalyses,
@@ -758,6 +1051,13 @@ const awsDiscoveryDatasetRegistry: {
   },
   'aws-sagemaker-endpoint-activity': {
     datasetKey: 'aws-sagemaker-endpoint-activity',
+    dependencies: [],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: {
+      ttlMs: 300_000,
+      observation: { kind: 'window', lookbackMs: 14 * 86_400_000, alignmentMs: 86_400_000 },
+    },
     resourceTypes: ['sagemaker:endpoint'],
     service: 'sagemaker',
     load: hydrateAwsSageMakerEndpointActivity,
@@ -774,6 +1074,10 @@ const awsDiscoveryDatasetRegistry: {
   },
   'aws-sagemaker-notebook-instances': {
     datasetKey: 'aws-sagemaker-notebook-instances',
+    dependencies: [],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: { ttlMs: 600_000, observation: { kind: 'current' } },
     resourceTypes: ['sagemaker:notebook-instance'],
     service: 'sagemaker',
     load: hydrateAwsSageMakerNotebookInstances,
@@ -788,6 +1092,10 @@ const awsDiscoveryDatasetRegistry: {
   },
   'aws-cost-optimization-hub-savings-plans-recommendations': {
     datasetKey: 'aws-cost-optimization-hub-savings-plans-recommendations',
+    dependencies: [],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: { ttlMs: 21_600_000, observation: { kind: 'current' } },
     resourceTypes: [],
     service: 'costoptimizationhub',
     load: hydrateAwsCostOptimizationHubSavingsPlansRecommendations,
@@ -803,6 +1111,10 @@ const awsDiscoveryDatasetRegistry: {
   },
   'aws-cost-optimization-hub-reservation-recommendations': {
     datasetKey: 'aws-cost-optimization-hub-reservation-recommendations',
+    dependencies: [],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: { ttlMs: 21_600_000, observation: { kind: 'current' } },
     resourceTypes: [],
     service: 'costoptimizationhub',
     load: hydrateAwsCostOptimizationHubReservationRecommendations,
@@ -822,6 +1134,10 @@ const awsDiscoveryDatasetRegistry: {
   },
   'aws-cost-optimization-hub-rightsizing-recommendations': {
     datasetKey: 'aws-cost-optimization-hub-rightsizing-recommendations',
+    dependencies: [],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: { ttlMs: 21_600_000, observation: { kind: 'current' } },
     resourceTypes: [],
     service: 'costoptimizationhub',
     load: hydrateAwsCostOptimizationHubRightsizingRecommendations,
@@ -839,6 +1155,10 @@ const awsDiscoveryDatasetRegistry: {
   },
   'aws-cost-optimization-hub-idle-recommendations': {
     datasetKey: 'aws-cost-optimization-hub-idle-recommendations',
+    dependencies: [],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: { ttlMs: 21_600_000, observation: { kind: 'current' } },
     resourceTypes: [],
     service: 'costoptimizationhub',
     load: hydrateAwsCostOptimizationHubIdleRecommendations,
@@ -852,6 +1172,10 @@ const awsDiscoveryDatasetRegistry: {
   },
   'aws-cost-optimization-hub-upgrade-recommendations': {
     datasetKey: 'aws-cost-optimization-hub-upgrade-recommendations',
+    dependencies: [],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: { ttlMs: 21_600_000, observation: { kind: 'current' } },
     resourceTypes: [],
     service: 'costoptimizationhub',
     load: hydrateAwsCostOptimizationHubUpgradeRecommendations,
@@ -864,6 +1188,10 @@ const awsDiscoveryDatasetRegistry: {
   },
   'aws-cost-optimization-hub-graviton-recommendations': {
     datasetKey: 'aws-cost-optimization-hub-graviton-recommendations',
+    dependencies: [],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: { ttlMs: 21_600_000, observation: { kind: 'current' } },
     resourceTypes: [],
     service: 'costoptimizationhub',
     load: hydrateAwsCostOptimizationHubGravitonRecommendations,
@@ -880,6 +1208,13 @@ const awsDiscoveryDatasetRegistry: {
   },
   'aws-sagemaker-savings-plans-coverage': {
     datasetKey: 'aws-sagemaker-savings-plans-coverage',
+    dependencies: [],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: {
+      ttlMs: 21_600_000,
+      observation: { kind: 'window', lookbackMs: 30 * 86_400_000, alignmentMs: 86_400_000 },
+    },
     resourceTypes: [],
     service: 'sagemaker',
     load: hydrateAwsSageMakerSavingsPlansCoverage,
@@ -895,6 +1230,13 @@ const awsDiscoveryDatasetRegistry: {
   },
   'aws-resource-explorer-untagged-resources': {
     datasetKey: 'aws-resource-explorer-untagged-resources',
+    dependencies: [],
+    catalogQueries: [
+      { filterString: 'resourcetype.supports:tags tag:none', requiredViewProperties: ['tags'], scope: 'account' },
+    ],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: { ttlMs: 600_000, observation: { kind: 'current' } },
     resourceTypes: [],
     service: 'tagging',
     load: hydrateAwsUntaggedResources,
@@ -907,6 +1249,10 @@ const awsDiscoveryDatasetRegistry: {
   },
   'aws-secretsmanager-secrets': {
     datasetKey: 'aws-secretsmanager-secrets',
+    dependencies: [],
+    schemaVersion: '1',
+    loaderVersion: '1',
+    freshness: { ttlMs: 600_000, observation: { kind: 'current' } },
     resourceTypes: ['secretsmanager:secret'],
     service: 'secretsmanager',
     load: hydrateAwsSecretsManagerSecrets,
@@ -924,6 +1270,65 @@ const awsDiscoveryDatasetRegistry: {
 };
 
 /**
+ * Resolves the exact inclusive start and exclusive end used by an observation policy.
+ *
+ * @param policy - Loader observation alignment and lookback semantics.
+ * @param timestampMs - Stable observation timestamp used by the discovery run.
+ * @returns The actual observed interval, or undefined for a current-state snapshot.
+ */
+export const resolveAwsDiscoveryObservationWindow = (
+  policy: AwsDiscoveryObservationPolicy,
+  timestampMs: number,
+): { startTime: string; endTime: string } | undefined => {
+  if (policy.kind === 'current') return undefined;
+  if (policy.kind === 'window') {
+    const endMs = Math.floor(timestampMs / policy.alignmentMs) * policy.alignmentMs;
+    return { startTime: new Date(endMs - policy.lookbackMs).toISOString(), endTime: new Date(endMs).toISOString() };
+  }
+  const end = new Date(timestampMs);
+  const month = Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), 1);
+  return {
+    startTime: new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth() - policy.months, 1)).toISOString(),
+    endTime: new Date(month).toISOString(),
+  };
+};
+
+/**
+ * Validates dataset dependencies before discovery starts loading evidence.
+ *
+ * @param definitions - Dataset keys and their required dependencies.
+ * @returns Nothing when every dependency exists and the graph is acyclic.
+ * @throws When a definition requires an unknown dataset or contains a cycle.
+ */
+export const validateAwsDiscoveryDatasetDependencies = (
+  definitions: readonly { datasetKey: string; dependencies: readonly string[] }[],
+): void => {
+  const keys = new Set(definitions.map((definition) => definition.datasetKey));
+  for (const definition of definitions) {
+    for (const dependency of definition.dependencies) {
+      if (!keys.has(dependency)) {
+        throw new Error(
+          `Unknown AWS discovery dataset dependency "${dependency}" required by "${definition.datasetKey}"`,
+        );
+      }
+    }
+  }
+  const graph = new Map(definitions.map((definition) => [definition.datasetKey, definition.dependencies]));
+  const visited = new Set<string>();
+  const visit = (key: string, path: string[]): void => {
+    if (path.includes(key)) {
+      throw new Error(
+        `AWS discovery dataset dependency cycle: ${[...path.slice(path.indexOf(key)), key].join(' -> ')}`,
+      );
+    }
+    if (visited.has(key)) return;
+    for (const dependency of graph.get(key) ?? []) visit(dependency, [...path, key]);
+    visited.add(key);
+  };
+  for (const key of keys) visit(key, []);
+};
+
+/**
  * Returns the dataset loader definition for a stable discovery dataset key.
  *
  * @param datasetKey - Rule-facing live discovery dataset key.
@@ -937,6 +1342,100 @@ export const getAwsDiscoveryDatasetDefinition = (datasetKey: string): AwsDiscove
   return awsDiscoveryDatasetRegistry[
     datasetKey as DiscoveryDatasetKey
   ] as AwsDiscoveryDatasetDefinition<DiscoveryDatasetKey>;
+};
+
+/**
+ * Expands requested datasets into a deduplicated dependency-first loading plan.
+ *
+ * @param datasetKeys - Dataset keys requested by active rules.
+ * @returns Required base and requested datasets in dependency order.
+ * @throws When a requested dataset is unknown.
+ */
+export const resolveAwsDiscoveryDatasetDependencies = (datasetKeys: readonly string[]): DiscoveryDatasetKey[] => {
+  const resolved = new Set<DiscoveryDatasetKey>();
+  const visit = (key: string): void => {
+    const definition = getAwsDiscoveryDatasetDefinition(key);
+    if (!definition) throw new Error(`Unknown AWS discovery dataset "${key}"`);
+    if (resolved.has(definition.datasetKey)) return;
+    for (const dependency of definition.dependencies) visit(dependency);
+    resolved.add(definition.datasetKey);
+  };
+  for (const key of datasetKeys) visit(key);
+  return [...resolved];
+};
+
+validateAwsDiscoveryDatasetDependencies(Object.values(awsDiscoveryDatasetRegistry));
+
+/**
+ * Retains resource-level evidence coverage independently of the current rule selection.
+ *
+ * @param datasetKey - Dataset whose normalized evidence is being cached.
+ * @param values - Loaded dataset and its declarative dependencies.
+ * @param catalog - Resource catalog used for the load.
+ * @returns Assessed and unknown identities across all applicable built-in evidence contracts.
+ */
+export const assessAwsDiscoveryDatasetEvidence = (
+  datasetKey: DiscoveryDatasetKey,
+  values: Partial<DiscoveryDatasetMap>,
+  catalog: AwsDiscoveryCatalog,
+): LiveEvaluationCoverage => {
+  const dependencies = new Set(resolveAwsDiscoveryDatasetDependencies([datasetKey]));
+  const resources = new LiveResourceBag(values);
+  const definition = getAwsDiscoveryDatasetDefinition(datasetKey);
+  if (definition?.getEvidenceCoverage) return definition.getEvidenceCoverage(resources);
+  const coverageRules = awsRules.filter(
+    (rule) =>
+      rule.getLiveEvaluationCoverage &&
+      rule.discoveryDependencies?.includes(datasetKey) &&
+      rule.discoveryDependencies.every((key) => dependencies.has(key)),
+  );
+  if (coverageRules.length === 0) {
+    const assessed = definition?.toEvaluationResources?.(resources.get(datasetKey)) ?? [];
+    const scopeKey = (
+      accountId: string | undefined,
+      region: string | undefined,
+      resourceType: string,
+      id: string,
+    ): string => JSON.stringify([accountId, region, resourceType, id]);
+    const assessedIdentities = new Set(
+      assessed.flatMap((match) =>
+        [match.resourceId, ...(match.arn ? [match.arn] : [])].map((id) =>
+          scopeKey(match.accountId, match.region, match.resourceType ?? '*', id),
+        ),
+      ),
+    );
+    const unknown = catalog.resources
+      .filter((candidate) => {
+        if (!definition?.resourceTypes.includes(candidate.resourceType)) return false;
+        // A projection may expose the full ARN or its resource identifier. Keep
+        // account/region/type scope when comparing names shared by many resources.
+        const resource = candidate.arn.split(':').slice(5).join(':').replace(/:\*$/u, '');
+        const identifiers = [candidate.arn, resource];
+        const typeSeparator = resource.search(/[/:]/u);
+        if (typeSeparator >= 0) identifiers.push(resource.slice(typeSeparator + 1));
+        return !identifiers.some((id) =>
+          [candidate.resourceType, '*'].some((resourceType) =>
+            assessedIdentities.has(scopeKey(candidate.accountId, candidate.region, resourceType, id)),
+          ),
+        );
+      })
+      .map((candidate) => ({
+        ...createFindingMatch(candidate.arn, candidate.region, candidate.accountId),
+        resourceType: candidate.resourceType,
+      }));
+    return { assessed, unknown };
+  }
+  const assessed = new Map<string, FindingMatch>();
+  const unknown = new Map<string, FindingMatch>();
+  const identity = (match: FindingMatch): string =>
+    JSON.stringify([match.accountId, match.region, match.resourceType, match.resourceId]);
+  for (const rule of coverageRules) {
+    const coverage = rule.getLiveEvaluationCoverage?.({ catalog, resources });
+    for (const match of coverage?.assessed ?? []) assessed.set(identity(match), match);
+    for (const match of coverage?.unknown ?? []) unknown.set(identity(match), match);
+  }
+  for (const key of unknown.keys()) assessed.delete(key);
+  return { assessed: [...assessed.values()], unknown: [...unknown.values()] };
 };
 
 /**

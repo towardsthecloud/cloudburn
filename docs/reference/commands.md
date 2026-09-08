@@ -3,26 +3,47 @@
 The [root manifest](../../package.json) owns command definitions; [Turbo configuration](../../turbo.json) owns task
 dependencies and caching. Package manifests own the scripts that Turbo invokes.
 
-| Command                      | Purpose                                              | Notes                                                               |
-| ---------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------- |
-| `pnpm dev`                   | Run package watch tasks                              | Persistent and uncached                                             |
-| `pnpm build`                 | Build all packages                                   | Produces package `dist/` directories                                |
-| `pnpm typecheck`             | Type-check all packages                              | Depends on upstream builds                                          |
-| `pnpm test`                  | Run documentation, source, built CLI, and installed-package tests | Artifact suites build their dependencies                             |
-| `pnpm test:e2e`              | Run the built CLI against real template fixtures      | Builds the CLI and its dependencies; does not contact AWS            |
-| `pnpm test:packages`         | Install local package archives and verify public entry points | Builds packages; requires public npm access; uncached; never publishes |
-| `pnpm lint`                  | Check package source and tests with Biome            | Read-only                                                           |
-| `pnpm lint:fix`              | Apply Biome fixes                                    | Mutates files and is uncached                                       |
-| `pnpm docs:check`            | Check the repository knowledge system                | Validates links, fragments, aliases, reachability, and entry points |
-| `pnpm docs:test`             | Test the public documentation checker CLI            | Uses dependency-free `node:test` fixtures                           |
-| `pnpm exec turbo boundaries` | Enforce `cli -> sdk -> rules`                        | This is the supported boundary command                              |
-| `pnpm verify`                | Run documentation, boundaries, lint, typecheck, and all tests | Full local gate; `--affected` limits package tasks                                                     |
-| `pnpm clean`                 | Remove package build output                          | Destructive only to generated `dist/` output                        |
-| `pnpm depupdate`             | Update the pnpm pin and dependencies                     | Mutates manifests and the lockfile                                  |
+| Command                      | Purpose                                                           | Notes                                                                  |
+| ---------------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `pnpm dev`                   | Run package watch tasks                                           | Persistent and uncached                                                |
+| `pnpm build`                 | Build all packages                                                | Produces package `dist/` directories                                   |
+| `pnpm typecheck`             | Type-check all packages                                           | Depends on upstream builds                                             |
+| `pnpm test`                  | Run documentation, source, built CLI, and installed-package tests | Artifact suites build their dependencies                               |
+| `pnpm test:e2e`              | Run the built CLI against real template fixtures                  | Builds the CLI and its dependencies; does not contact AWS              |
+| `pnpm test:packages`         | Install local package archives and verify public entry points     | Builds packages; requires public npm access; uncached; never publishes |
+| `pnpm lint`                  | Check package source and tests with Biome                         | Read-only                                                              |
+| `pnpm lint:fix`              | Apply Biome fixes                                                 | Mutates files and is uncached                                          |
+| `pnpm docs:check`            | Check the repository knowledge system                             | Validates links, fragments, aliases, reachability, and entry points    |
+| `pnpm docs:test`             | Test the public documentation checker CLI                         | Uses dependency-free `node:test` fixtures                              |
+| `pnpm exec turbo boundaries` | Enforce `cli -> sdk -> rules`                                     | This is the supported boundary command                                 |
+| `pnpm verify`                | Run documentation, boundaries, lint, typecheck, and all tests     | Full local gate; `--affected` limits package tasks                     |
+| `pnpm clean`                 | Remove package build output                                       | Destructive only to generated `dist/` output                           |
+| `pnpm depupdate`             | Update the pnpm pin and dependencies                              | Mutates manifests and the lockfile                                     |
 
 ## Discovery timeout
 
 `cloudburn discover --timeout <seconds>` sets the total discovery deadline (default: 300 seconds). The value must be an integer from 1 to 2147483. An expired deadline stops AWS work and exits with code 2. SDK callers can set `timeoutMs` and provide an `AbortSignal` to `CloudBurnClient.discover()`.
+
+## Discovery evidence cache
+
+| Option                 | Default                                                                | Behavior                                                                                                                                                            |
+| ---------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--cache normal`       | `normal`                                                               | Reuse fresh, complete evidence; load missing or expired evidence. Rules and configuration are evaluated on every run.                                               |
+| `--cache refresh`      |                                                                        | Collect current evidence without falling back to cached evidence if collection fails. Only complete successful loads replace entries.                               |
+| `--cache off`          |                                                                        | Bypass persistent evidence reads and writes.                                                                                                                        |
+| `--cache-dir <path>`   | `$XDG_CACHE_HOME/cloudburn/evidence`, or `~/.cache/cloudburn/evidence` | Select local persistent storage for normalized AWS evidence and independent public pricing artifacts.                                                               |
+| `--cache-context <id>` | Temporary AWS credential session scope when derivable                  | Identify the effective authorization and session-policy revision. Change this value when those permissions change; an account ID or role ARN alone is insufficient. |
+
+Without a safe temporary credential scope or an explicit context, customer evidence reuse is disabled. Public pricing
+can still be reused independently. Cache entries never include credentials. `--cache off` also disables public pricing
+persistence. A cache read does not prove AWS discovery coverage: source delays and unknown resources remain visible
+through evidence completeness, coverage, and diagnostics.
+
+Table output summarizes cached and newly collected evidence, incomplete entries, and the oldest observation timestamp.
+JSON output preserves the full `evidence` array, including collection and observation times, cache source, and coverage.
+Freshness TTLs are tunable starting policies, not measured optimal defaults; use the SDK cache options to tune them, or
+`--cache refresh` when a run needs newly collected evidence. See the [SDK README](../../packages/sdk/README.md) for
+freshness policies and configured SDK reuse.
 
 ## Turbo filters
 
