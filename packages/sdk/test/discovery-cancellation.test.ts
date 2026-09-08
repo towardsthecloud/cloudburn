@@ -25,10 +25,15 @@ it('rejects stalled discovery when its total deadline expires', async () => {
 it('cancels a running discovery with the caller’s reason', async () => {
   const controller = new AbortController();
   const reason = new Error('stop this scan');
-  vi.mocked(runLiveScan).mockImplementation(() => new Promise(() => undefined));
+  const started = Promise.withResolvers<void>();
+  vi.mocked(runLiveScan).mockImplementation(() => {
+    started.resolve();
+    return new Promise(() => undefined);
+  });
   const run = new CloudBurnClient().discover({ signal: controller.signal });
   const assertion = expect(run).rejects.toBe(reason);
-  await vi.waitFor(() => expect(runLiveScan).toHaveBeenCalledOnce());
+  // Lazy AWS imports are setup; synchronize on provider readiness before testing cancellation.
+  await started.promise;
   controller.abort(reason);
   await assertion;
-}, 1000);
+});

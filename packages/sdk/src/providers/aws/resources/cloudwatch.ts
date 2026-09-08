@@ -2,6 +2,7 @@ import { GetMetricDataCommand, type MessageData } from '@aws-sdk/client-cloudwat
 import { createCloudWatchClient } from '../client.js';
 import { waitForAwsDelay } from '../execution.js';
 import { fetchCachedCloudWatchSignals } from '../metric-cache.js';
+import { withAwsMetricQueryAttribution } from '../request-attribution.js';
 import { chunkItems, mapWithConcurrency, withAwsServiceErrorContext } from './utils.js';
 
 const CLOUDWATCH_METRIC_QUERY_BATCH_SIZE = 500;
@@ -142,25 +143,29 @@ const fetchCloudWatchSignalsLive = async (options: {
     const seenTokens = new Set<string>();
     let nextToken: string | undefined;
     do {
-      const response = await withAwsServiceErrorContext('Amazon CloudWatch', 'GetMetricData', options.region, () =>
-        client.send(
-          new GetMetricDataCommand({
-            EndTime: options.endTime,
-            MaxDatapoints: CLOUDWATCH_MAX_DATAPOINTS,
-            MetricDataQueries: queries.map((query) => ({
-              Id: query.id,
-              MetricStat: {
-                Metric: { Dimensions: query.dimensions, MetricName: query.metricName, Namespace: query.namespace },
-                Period: query.period,
-                Stat: query.stat,
-              },
-              ReturnData: true,
-            })),
-            NextToken: nextToken,
-            ScanBy: 'TimestampAscending',
-            StartTime: options.startTime,
-          }),
-        ),
+      const response = await withAwsMetricQueryAttribution(
+        queries.map((query) => query.id),
+        () =>
+          withAwsServiceErrorContext('Amazon CloudWatch', 'GetMetricData', options.region, () =>
+            client.send(
+              new GetMetricDataCommand({
+                EndTime: options.endTime,
+                MaxDatapoints: CLOUDWATCH_MAX_DATAPOINTS,
+                MetricDataQueries: queries.map((query) => ({
+                  Id: query.id,
+                  MetricStat: {
+                    Metric: { Dimensions: query.dimensions, MetricName: query.metricName, Namespace: query.namespace },
+                    Period: query.period,
+                    Stat: query.stat,
+                  },
+                  ReturnData: true,
+                })),
+                NextToken: nextToken,
+                ScanBy: 'TimestampAscending',
+                StartTime: options.startTime,
+              }),
+            ),
+          ),
       );
       for (const evidence of results.values()) appendMessages(evidence, response.Messages, 'request');
       for (const result of response.MetricDataResults ?? []) {

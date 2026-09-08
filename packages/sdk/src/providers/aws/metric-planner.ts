@@ -9,6 +9,12 @@ import {
   throwIfAwsExecutionAborted,
   withAwsDiscoveryExecution,
 } from './execution.js';
+import {
+  type AwsRequestDatasetSource,
+  getAwsRequestDatasetSource,
+  getAwsRequestDatasets,
+  withAwsMetricAttribution,
+} from './request-attribution.js';
 import type { CloudWatchMetricEvidence, CloudWatchMetricQuery } from './resources/cloudwatch.js';
 
 const MAX_RETAINED_QUERIES = 8192;
@@ -32,6 +38,7 @@ type Waiter = {
   observationTimestamp: number;
   deadline?: number;
   debugLogger?: (message: string) => void;
+  datasets: AwsRequestDatasetSource;
   onSettled: Set<() => void>;
   runInContext: <T>(run: () => T) => T;
 };
@@ -42,11 +49,42 @@ type Planner = {
   queued: Segment[][];
   active: number;
   retainedQueries: number;
+  datasetConsumers: Map<string, Map<string, number>>;
   capacity: ReturnType<typeof createCapacityNotification>;
   capacityScheduled: boolean;
   timer?: ReturnType<typeof setTimeout>;
 };
 const context = new AsyncLocalStorage<Planner>();
+
+/**
+ * Retains same-scan consumers before the evidence cache selects one loader for an identical metric bucket.
+ * @param key - Serialized versioned metric bucket key, including its Region, identity and exact interval.
+ * @returns A live dataset source and an idempotent release for this caller's registration.
+ */
+export const registerCloudWatchMetricDatasets = (
+  key: string,
+): { datasets: AwsRequestDatasetSource; release: () => void } => {
+  const planner = context.getStore();
+  const datasets = new Set(getAwsRequestDatasets() ?? []);
+  if (!planner || datasets.size === 0) return { datasets: () => [...datasets], release: () => {} };
+  const consumers = planner.datasetConsumers.get(key) ?? new Map<string, number>();
+  planner.datasetConsumers.set(key, consumers);
+  for (const dataset of datasets) consumers.set(dataset, (consumers.get(dataset) ?? 0) + 1);
+  let released = false;
+  return {
+    datasets: () => [...consumers.keys()],
+    release: () => {
+      if (released) return;
+      released = true;
+      for (const dataset of datasets) {
+        const remaining = (consumers.get(dataset) ?? 0) - 1;
+        if (remaining > 0) consumers.set(dataset, remaining);
+        else consumers.delete(dataset);
+      }
+      if (consumers.size === 0) planner.datasetConsumers.delete(key);
+    },
+  };
+};
 
 const createCapacityNotification = (): { promise: Promise<void>; resolve: () => void } => {
   let resolve = () => {};
@@ -157,12 +195,21 @@ const executeWindow = async (segments: Segment[]): Promise<void> => {
             timeoutMs: Math.max(1, Math.min(2_147_483_647, deadline - Date.now())),
           },
           () =>
-            first.fetch({
-              region: first.request.region,
-              startTime: new Date(firstSegment.start),
-              endTime: new Date(firstSegment.end),
-              queries: segments.map((segment, index) => ({ ...segment.query, id: `m${index}` })),
-            }),
+            withAwsMetricAttribution(
+              new Map(
+                segments.map((segment, index) => [
+                  `m${index}`,
+                  segment.consumers.flatMap((consumer) => consumer.waiter.datasets()),
+                ]),
+              ),
+              () =>
+                first.fetch({
+                  region: first.request.region,
+                  startTime: new Date(firstSegment.start),
+                  endTime: new Date(firstSegment.end),
+                  queries: segments.map((segment, index) => ({ ...segment.query, id: `m${index}` })),
+                }),
+            ),
         ),
       ),
     );
@@ -241,6 +288,7 @@ export const withCloudWatchMetricPlanning = <T>(run: () => Promise<T>): Promise<
       queued: [],
       active: 0,
       retainedQueries: 0,
+      datasetConsumers: new Map(),
       capacity: createCapacityNotification(),
       capacityScheduled: false,
     },
@@ -336,6 +384,7 @@ export const planCloudWatchSignals = async (
       observationTimestamp: getAwsDiscoveryTimestamp(),
       deadline: getAwsExecutionDeadline(),
       debugLogger: getAwsExecutionDebugLogger(),
+      datasets: getAwsRequestDatasetSource() ?? (() => []),
       resolve: (result) => {
         if (settle()) resolve(result);
       },

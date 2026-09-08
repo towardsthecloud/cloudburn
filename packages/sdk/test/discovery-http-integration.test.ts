@@ -370,7 +370,10 @@ it('discovers through real AWS serialization, catalog pagination, hydration and 
   expect(requests.filter((request) => request.operation === 'DescribeVolumes')).toHaveLength(1);
   expect(requests.filter((request) => request.operation === 'GetCallerIdentity')).toHaveLength(1);
   // Findings retain their resource account; quotas use the signing caller's account.
-  expect(volumeAttempt()).toMatchObject({ quota: { accountId: '222222222222' } });
+  expect(volumeAttempt()).toMatchObject({
+    quota: { accountId: '222222222222' },
+    attribution: { dataset: 'aws-ebs-volumes', datasets: ['aws-ebs-volumes'] },
+  });
 });
 
 // Public cancellation rejects promptly; let the detached request release its

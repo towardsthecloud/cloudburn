@@ -220,7 +220,7 @@ Debug logging emits `aws: attempt` followed by one JSON object for each admissio
 | `preparationCount`                                                   | SDK preparations for this attempt, including signature refreshes before dispatch; absent for unmanaged callbacks. |
 | `queueDurationMs`, `transportDurationMs`, `dispatched`, `statusCode` | Pre-transport wait, measured HTTP duration, dispatch status, and available HTTP status.                           |
 | `outcome`, `retryOutcome`                                            | Success, failure, throttle, cancellation, or exhaustion and the retry decision.                                   |
-| `attribution`                                                        | Generated `scanId` and collector identity; `dataset` appears only when the budget caller supplies it.             |
+| `attribution`                                                        | Generated budget `scanId`, collector identity, and sorted, deduplicated `datasets` when known. `dataset` is also present for a single dataset. |
 | `cleanupOutcome`                                                     | `released` after successful finalization, or `deferred` when storage failed or cleanup timed out.                 |
 | `datapoints`                                                         | Optional CloudWatch datapoint scope and charged cost.                                                             |
 
@@ -228,9 +228,19 @@ Public pricing emits a separate `aws: attempt` record with `service: "AWS Public
 `operation: "GetPublicPriceList"`, `region`, `durationMs`, optional `statusCode`, and
 `outcome: "success" | "unavailable" | "cancelled"`. It does not emit an account quota or use AWS SDK retries.
 
-Discovery orchestration does not currently add dataset attribution. Telemetry excludes request bodies, headers,
-credentials, and raw error payloads. Queue duration includes admission, credential preparation, and signing. Cancellation
-before physical dispatch reports `dispatched: false` and zero transport duration.
+Discovery attributes each dataset load and its dependency loads independently, including uncached collection and cache
+refreshes. CloudWatch planning retains the datasets contributing to each remapped query, including same-scan consumers
+that share an identical metric cache miss before collection starts. Each physical batch, page, or
+retry reports only the datasets associated with its selected queries. A shared attempt produces one event with multiple
+`datasets`; it does not duplicate request counts for each consumer. Cancelled queued consumers are excluded before the
+planner starts work. Once work starts, attribution records the datasets that caused that work, even if a consumer later
+cancels. Cache hits produce no AWS attempt, and consumers of an existing shared evidence refresh do not produce additional
+attempts. `scanId` identifies the owning request budget; shared refreshes can own a separate budget from the calling scan.
+Catalog and control-plane requests outside dataset loads may omit dataset attribution.
+
+Telemetry excludes request bodies, headers, credentials, and raw error payloads. Queue duration includes admission,
+credential preparation, and signing. Cancellation before physical dispatch reports `dispatched: false` and zero transport
+duration.
 
 ## Offline performance fixtures
 

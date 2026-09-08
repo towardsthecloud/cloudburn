@@ -40,6 +40,7 @@ import {
   loadAwsCachedEvidence,
 } from './evidence.js';
 import { getAwsDiscoveryTimestamp, throwIfAwsExecutionAborted } from './execution.js';
+import { withAwsDatasetAttribution } from './request-attribution.js';
 import {
   buildAwsDiscoveryCatalog,
   createAwsResourceExplorerSetup,
@@ -533,7 +534,7 @@ export const discoverAwsResources = async (
     if (cachedLoad) return cachedLoad as Promise<AwsDiscoveryDatasetLoad<K>>;
     loadedDatasetKeys.add(datasetKey);
     const startedAtMs = Date.now();
-    const loadPromise = (async (): Promise<AwsDiscoveryDatasetLoad<K>> => {
+    const loadPromise = withAwsDatasetAttribution(datasetKey, async (): Promise<AwsDiscoveryDatasetLoad<K>> => {
       const { catalog: inputCatalog, resources: matchingResources } = await resolveDatasetCatalog(
         definition.resourceTypes,
       );
@@ -735,7 +736,7 @@ export const discoverAwsResources = async (
         `aws: completed dataset ${datasetKey}${region ? ` in ${region}` : ''} with ${load.dataset[1].length} resources in ${formatElapsedMs(startedAtMs)}`,
       );
       return load;
-    })();
+    });
     datasetLoadPromises.set(cacheKey, loadPromise as Promise<AwsDiscoveryDatasetLoad>);
     return loadPromise;
   };
