@@ -199,7 +199,7 @@ const evaluateLiveRules = (
     const unknownCount = coverage?.unknown.length ?? 0;
     const coverageReason =
       unknownCount > 0
-        ? `Could not assess ${unknownCount} resource(s) for rule ${rule.id} because required metric evidence was incomplete or unavailable.`
+        ? `Could not assess ${unknownCount} resource(s) for rule ${rule.id} because required evidence was incomplete or unavailable.`
         : excludedRegions.size > 0
           ? `Could not assess resources in ${[...excludedRegions].sort().join(', ')} because required discovery evidence was unavailable.`
           : undefined;

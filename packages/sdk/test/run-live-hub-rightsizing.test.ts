@@ -44,9 +44,9 @@ it('keeps rightsizing alongside a generation or architecture policy for the same
   );
 });
 it.each([
-  { functionArn: `${resourceId}-other`, accountId, region },
-  { functionArn: resourceId, accountId: '999999999999', region },
-  { functionArn: resourceId, accountId, region: 'us-east-1' },
+  { functionArn: `${resourceId}-other`, accountId, region, assessment: 'memory_overprovisioned' as const },
+  { functionArn: resourceId, accountId: '999999999999', region, assessment: 'memory_overprovisioned' as const },
+  { functionArn: resourceId, accountId, region: 'us-east-1', assessment: 'memory_overprovisioned' as const },
 ])('keeps a Hub recommendation when the native identity differs: %j', async (native) => {
   vi.mocked(discoverAwsResources).mockResolvedValue({
     catalog: { resources: [], indexType: 'LOCAL', searchRegion: region },
@@ -115,7 +115,9 @@ it.each([
     resources: new LiveResourceBag({
       'aws-cost-optimization-hub-rightsizing-recommendations': [recommendation],
       'aws-lambda-functions': [],
-      'aws-lambda-memory-recommendations': [{ functionArn: resourceId, accountId, region }],
+      'aws-lambda-memory-recommendations': [
+        { functionArn: resourceId, accountId, region, assessment: 'memory_overprovisioned' },
+      ],
     }),
   });
   const result = await runLiveScan(

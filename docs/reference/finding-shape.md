@@ -267,8 +267,10 @@ Every selected discovery rule appears exactly once when evaluation evidence is r
 - `not_applicable` means a required dataset was unavailable; `reason` retains the corresponding diagnostic message and
   no resource set is referenced.
 
-Metric-dependent rules add `coverage` with separate `assessed` and `unknown` resource identities. These arrays are
-specific to the rule: a Lambda function can have known error-rate evidence and unknown duration evidence. Their lengths
+Metric-dependent rules, the ECR lifecycle-content rules (`CLDBRN-AWS-ECR-2`, `CLDBRN-AWS-ECR-3`), and the Compute
+Optimizer memory rule (`CLDBRN-AWS-LAMBDA-4`) add `coverage` with separate `assessed` and `unknown` resource identities.
+These arrays are specific to the rule: a Lambda function can have known error-rate evidence and unknown duration
+evidence, and a repository whose lifecycle policy could not be parsed is unknown for both ECR content rules. Their lengths
 are the assessed and unknown resource counts. An assessed resource has enough evidence for the policy decision; it can
 be compliant or have a finding. A `triggered` rule can still have unknown resources. Shared `resourceSets` describe
 primary inputs and must not be interpreted as a list of fully assessed resources.

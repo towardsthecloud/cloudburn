@@ -7,6 +7,15 @@ export type EcrLifecyclePolicyTraits = {
   hasUntaggedImageExpiry: boolean | null;
 };
 
+// Lowercased ECR `countType` values that bound tagged image retention by count or age.
+// See https://docs.aws.amazon.com/AmazonECR/latest/userguide/lifecycle_policy_parameters.html
+const TAGGED_RETENTION_CAP_COUNT_TYPES = new Set([
+  'imagecountmorethan',
+  'sinceimagepushed',
+  'sinceimagepulled',
+  'sinceimagetransitioned',
+]);
+
 const parsePolicy = (value: unknown): Record<string, unknown> | null => {
   if (isRecord(value)) {
     return value;
@@ -69,7 +78,8 @@ export const getEcrLifecyclePolicyTraits = (policyText: unknown): EcrLifecyclePo
       const countNumber = getLiteralNumberish(selection.countNumber ?? selection.CountNumber);
 
       if (
-        (countType === 'imagecountmorethan' || countType === 'sinceimagepushed') &&
+        countType !== null &&
+        TAGGED_RETENTION_CAP_COUNT_TYPES.has(countType) &&
         countNumber !== null &&
         countNumber > 0
       ) {

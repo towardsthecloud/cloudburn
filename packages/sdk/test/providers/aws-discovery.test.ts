@@ -1477,9 +1477,8 @@ describe('discoverAwsResources', () => {
     mockedHydrateAwsLambdaMemoryRecommendations.mockResolvedValue([
       {
         accountId: '123456789012',
-        currentMemorySizeMb: 512,
+        assessment: 'memory_overprovisioned',
         functionArn: 'arn:aws:lambda:us-east-1:123456789012:function:my-func',
-        recommendedMemorySizeMb: 256,
         region: 'us-east-1',
       },
     ]);

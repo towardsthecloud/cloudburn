@@ -72,7 +72,11 @@ identities without changing the evaluator's return shape. `assessed` includes bo
 include the inventory dataset in `discoveryDependencies` when missing metric rows would otherwise hide resources.
 The pure `createLiveEvaluationCoverage` helper partitions an inventory with a rule-specific assessment predicate.
 
-All built-in CloudWatch metric rules report this coverage. Each rule checks its own required normalized metrics, so
+All built-in CloudWatch metric rules report this coverage, as do the ECR lifecycle-content rules and the Compute
+Optimizer Lambda memory rule. ECR repositories with a lifecycle policy whose traits could not be parsed stay unknown,
+while repositories without a policy remain assessed. Lambda functions are assessed only when the memory
+recommendation dataset carries a `memory_overprovisioned` or `not_overprovisioned` assessment for their ARN; absent or
+`unavailable` assessments stay unknown. Each rule checks its own required normalized metrics, so
 unknown Lambda errors do not prevent duration assessment. A resource that is outside a rule's policy remains
 assessed without metric evidence. EC2's low-utilization rule can establish a finding from four observed idle days;
 a non-finding requires all 14 observed days. The additive `observedDays` field records that count; legacy custom

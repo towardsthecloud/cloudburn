@@ -1,4 +1,4 @@
-import { createFinding, createFindingMatch, createRule } from '../../shared/helpers.js';
+import { createFinding, createFindingMatch, createLiveEvaluationCoverage, createRule } from '../../shared/helpers.js';
 
 const RULE_ID = 'CLDBRN-AWS-ECR-2';
 const RULE_SERVICE = 'ecr';
@@ -17,6 +17,14 @@ export const ecrMissingUntaggedImageExpiryRule = createRule({
   supports: ['iac', 'discovery'],
   discoveryDependencies: ['aws-ecr-repositories'],
   staticDependencies: ['aws-ecr-repositories'],
+  // Repositories without a lifecycle policy are outside this policy and count as assessed. A repository whose policy
+  // exists but could not be parsed into the `hasUntaggedImageExpiry` trait has no usable evidence and stays unknown.
+  getLiveEvaluationCoverage: ({ resources }) =>
+    createLiveEvaluationCoverage(
+      resources.get('aws-ecr-repositories'),
+      (repository) => !repository.hasLifecyclePolicy || typeof repository.hasUntaggedImageExpiry === 'boolean',
+      (repository) => createFindingMatch(repository.repositoryName, repository.region, repository.accountId),
+    ),
   evaluateLive: ({ resources }) => {
     const findings = resources
       .get('aws-ecr-repositories')

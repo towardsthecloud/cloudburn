@@ -124,14 +124,15 @@ describe('AWS discovery registry', () => {
     ]);
   });
   it('does not mistake a terminal path segment for a complete resource name', () => {
+    // Log groups have no coverage callback, so catalog reconciliation decides their unknown identities.
     expect(
       assessAwsDiscoveryDatasetEvidence(
-        'aws-ecr-repositories',
+        'aws-cloudwatch-log-groups',
         {
-          'aws-ecr-repositories': [
+          'aws-cloudwatch-log-groups': [
             {
-              repositoryName: 'images',
-              repositoryArn: 'arn:aws:ecr:us-east-1:123456789012:repository/images',
+              logGroupName: 'images',
+              logGroupArn: 'arn:aws:logs:us-east-1:123456789012:log-group:images',
               accountId: '123456789012',
               region: 'us-east-1',
             },
@@ -140,11 +141,11 @@ describe('AWS discovery registry', () => {
         {
           resources: [
             {
-              arn: 'arn:aws:ecr:us-east-1:123456789012:repository/team/images',
+              arn: 'arn:aws:logs:us-east-1:123456789012:log-group:/team/images',
               accountId: '123456789012',
               region: 'us-east-1',
-              service: 'ecr',
-              resourceType: 'ecr:repository',
+              service: 'logs',
+              resourceType: 'logs:log-group',
               properties: [],
             },
           ],
@@ -152,7 +153,7 @@ describe('AWS discovery registry', () => {
           indexType: 'LOCAL',
         },
       ).unknown,
-    ).toMatchObject([{ resourceId: 'arn:aws:ecr:us-east-1:123456789012:repository/team/images' }]);
+    ).toMatchObject([{ resourceId: 'arn:aws:logs:us-east-1:123456789012:log-group:/team/images' }]);
   });
   it('does not use another account or region to satisfy a missing inventory identity', () => {
     const unknown = assessAwsDiscoveryDatasetEvidence(

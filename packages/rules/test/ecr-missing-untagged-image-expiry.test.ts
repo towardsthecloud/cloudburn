@@ -75,6 +75,35 @@ describe('ecrMissingUntaggedImageExpiryRule', () => {
     expect(finding).toBeNull();
   });
 
+  it('reports repositories whose lifecycle policy lacks a usable hasUntaggedImageExpiry trait as unknown coverage', () => {
+    const coverage = ecrMissingUntaggedImageExpiryRule.getLiveEvaluationCoverage?.({
+      catalog: {
+        indexType: 'LOCAL',
+        resources: [],
+        searchRegion: 'us-east-1',
+      },
+      resources: new LiveResourceBag({
+        'aws-ecr-repositories': [
+          createLiveRepository({ repositoryName: 'flagged' }),
+          createLiveRepository({ hasUntaggedImageExpiry: true, repositoryName: 'covered' }),
+          createLiveRepository({
+            hasLifecyclePolicy: false,
+            hasUntaggedImageExpiry: null,
+            repositoryName: 'no-policy',
+          }),
+          createLiveRepository({ hasUntaggedImageExpiry: null, repositoryName: 'malformed' }),
+          createLiveRepository({ hasUntaggedImageExpiry: undefined, repositoryName: 'legacy' }),
+        ],
+      }),
+    });
+
+    const match = (resourceId: string) => ({ accountId: '123456789012', region: 'us-east-1', resourceId });
+    expect(coverage).toEqual({
+      assessed: [match('flagged'), match('covered'), match('no-policy')],
+      unknown: [match('malformed'), match('legacy')],
+    });
+  });
+
   it('flags Terraform repositories whose lifecycle policy does not expire untagged images', () => {
     const finding = ecrMissingUntaggedImageExpiryRule.evaluateStatic?.({
       resources: new StaticResourceBag({

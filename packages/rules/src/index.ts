@@ -114,6 +114,7 @@ export type {
   AwsKmsKeyUsageEvidence,
   AwsLambdaFunction,
   AwsLambdaFunctionMetric,
+  AwsLambdaMemoryAssessment,
   AwsLambdaMemoryRecommendation,
   AwsRdsInstance,
   AwsRdsInstanceActivity,

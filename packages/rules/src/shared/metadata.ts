@@ -381,9 +381,25 @@ export type AwsLambdaFunctionMetric = {
   accountId: string;
 };
 
-/** AWS Compute Optimizer evidence for a Lambda function whose memory can be reduced. */
+/**
+ * Normalized AWS Compute Optimizer memory assessment for one discovered Lambda function.
+ *
+ * - `memory_overprovisioned`: Compute Optimizer returned a `MemoryOverprovisioned` finding reason.
+ * - `not_overprovisioned`: Compute Optimizer analyzed the function and did not report overprovisioned memory.
+ * - `unavailable`: Compute Optimizer returned the function without a usable finding, such as insufficient or
+ *   inconclusive data.
+ */
+export type AwsLambdaMemoryAssessment = 'memory_overprovisioned' | 'not_overprovisioned' | 'unavailable';
+
+/**
+ * AWS Compute Optimizer memory evidence for a discovered Lambda function.
+ *
+ * Functions absent from this dataset were not returned by Compute Optimizer, so their assessment is unknown.
+ */
 export type AwsLambdaMemoryRecommendation = {
   functionArn: string;
+  /** Whether Compute Optimizer established a memory result for the function. */
+  assessment: AwsLambdaMemoryAssessment;
   region: string;
   accountId: string;
 };

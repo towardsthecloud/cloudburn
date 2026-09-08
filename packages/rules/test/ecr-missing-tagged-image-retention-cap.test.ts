@@ -75,6 +75,35 @@ describe('ecrMissingTaggedImageRetentionCapRule', () => {
     expect(finding).toBeNull();
   });
 
+  it('reports repositories whose lifecycle policy lacks a usable hasTaggedImageRetentionCap trait as unknown coverage', () => {
+    const coverage = ecrMissingTaggedImageRetentionCapRule.getLiveEvaluationCoverage?.({
+      catalog: {
+        indexType: 'LOCAL',
+        resources: [],
+        searchRegion: 'us-east-1',
+      },
+      resources: new LiveResourceBag({
+        'aws-ecr-repositories': [
+          createLiveRepository({ repositoryName: 'flagged' }),
+          createLiveRepository({ hasTaggedImageRetentionCap: true, repositoryName: 'covered' }),
+          createLiveRepository({
+            hasLifecyclePolicy: false,
+            hasTaggedImageRetentionCap: null,
+            repositoryName: 'no-policy',
+          }),
+          createLiveRepository({ hasTaggedImageRetentionCap: null, repositoryName: 'malformed' }),
+          createLiveRepository({ hasTaggedImageRetentionCap: undefined, repositoryName: 'legacy' }),
+        ],
+      }),
+    });
+
+    const match = (resourceId: string) => ({ accountId: '123456789012', region: 'us-east-1', resourceId });
+    expect(coverage).toEqual({
+      assessed: [match('flagged'), match('covered'), match('no-policy')],
+      unknown: [match('malformed'), match('legacy')],
+    });
+  });
+
   it('flags Terraform repositories whose lifecycle policy does not cap tagged image retention', () => {
     const finding = ecrMissingTaggedImageRetentionCapRule.evaluateStatic?.({
       resources: new StaticResourceBag({

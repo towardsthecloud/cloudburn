@@ -1,9 +1,13 @@
-import { GetLambdaFunctionRecommendationsCommand } from '@aws-sdk/client-compute-optimizer';
+import {
+  GetLambdaFunctionRecommendationsCommand,
+  type LambdaFunctionRecommendation,
+} from '@aws-sdk/client-compute-optimizer';
 import { ListFunctionsCommand } from '@aws-sdk/client-lambda';
 import type {
   AwsDiscoveredResource,
   AwsLambdaFunction,
   AwsLambdaFunctionMetric,
+  AwsLambdaMemoryAssessment,
   AwsLambdaMemoryRecommendation,
 } from '@cloudburn/rules';
 import { createComputeOptimizerClient, createLambdaClient } from '../client.js';
@@ -105,11 +109,39 @@ export const hydrateAwsLambdaFunctions = async (resources: AwsDiscoveredResource
   return hydratedPages.flat().sort((left, right) => left.functionName.localeCompare(right.functionName));
 };
 
+const LAMBDA_MEMORY_ASSESSMENT_PRECEDENCE: Record<AwsLambdaMemoryAssessment, number> = {
+  memory_overprovisioned: 2,
+  not_overprovisioned: 1,
+  unavailable: 0,
+};
+
 /**
- * Loads AWS Compute Optimizer recommendations for memory-overprovisioned Lambda functions.
+ * Normalizes one Compute Optimizer Lambda recommendation into a memory assessment.
+ *
+ * @param recommendation - Raw Compute Optimizer recommendation for one function version.
+ * @returns The strongest memory result the recommendation establishes.
+ */
+const toLambdaMemoryAssessment = (recommendation: LambdaFunctionRecommendation): AwsLambdaMemoryAssessment => {
+  if (recommendation.findingReasonCodes?.includes('MemoryOverprovisioned')) {
+    return 'memory_overprovisioned';
+  }
+
+  // `Optimized` and `NotOptimized` are analyzed results; `Unavailable` covers insufficient or inconclusive data.
+  return recommendation.finding === 'Optimized' || recommendation.finding === 'NotOptimized'
+    ? 'not_overprovisioned'
+    : 'unavailable';
+};
+
+/**
+ * Loads AWS Compute Optimizer memory assessments for selected Lambda functions.
+ *
+ * Every recommendation Compute Optimizer returns for a selected function is retained with its normalized assessment,
+ * so consumers can distinguish overprovisioned, analyzed, and unavailable results. Functions absent from the result
+ * were not returned by Compute Optimizer; the memory rule treats them as unknown rather than assessed. Multiple
+ * function versions collapse to one unqualified ARN, keeping the strongest assessment.
  *
  * @param resources - Catalog resources filtered to Lambda functions.
- * @returns Memory recommendations for selected functions that Compute Optimizer marks overprovisioned.
+ * @returns Memory assessments for selected functions that Compute Optimizer returned.
  */
 export const hydrateAwsLambdaMemoryRecommendations = async (
   resources: AwsDiscoveredResource[],
@@ -120,7 +152,7 @@ export const hydrateAwsLambdaMemoryRecommendations = async (
     [...resourcesByRegion.entries()].map(async ([region, regionResources]) => {
       const client = createComputeOptimizerClient({ region });
       const resourcesByArn = new Map(regionResources.map((resource) => [resource.arn, resource]));
-      const recommendations: AwsLambdaMemoryRecommendation[] = [];
+      const recommendationsByArn = new Map<string, AwsLambdaMemoryRecommendation>();
       let nextToken: string | undefined;
 
       do {
@@ -128,18 +160,7 @@ export const hydrateAwsLambdaMemoryRecommendations = async (
           'AWS Compute Optimizer',
           'GetLambdaFunctionRecommendations',
           region,
-          () =>
-            client.send(
-              new GetLambdaFunctionRecommendationsCommand({
-                filters: [
-                  {
-                    name: 'FindingReasonCode',
-                    values: ['MemoryOverprovisioned'],
-                  },
-                ],
-                nextToken,
-              }),
-            ),
+          () => client.send(new GetLambdaFunctionRecommendationsCommand({ nextToken })),
         );
 
         for (const recommendation of page.lambdaFunctionRecommendations ?? []) {
@@ -148,12 +169,23 @@ export const hydrateAwsLambdaMemoryRecommendations = async (
             : undefined;
           const resource = functionArn ? resourcesByArn.get(functionArn) : undefined;
 
-          if (!functionArn || !resource || !recommendation.findingReasonCodes?.includes('MemoryOverprovisioned')) {
+          if (!functionArn || !resource) {
             continue;
           }
 
-          recommendations.push({
+          const assessment = toLambdaMemoryAssessment(recommendation);
+          const existing = recommendationsByArn.get(functionArn);
+
+          if (
+            existing &&
+            LAMBDA_MEMORY_ASSESSMENT_PRECEDENCE[existing.assessment] >= LAMBDA_MEMORY_ASSESSMENT_PRECEDENCE[assessment]
+          ) {
+            continue;
+          }
+
+          recommendationsByArn.set(functionArn, {
             accountId: recommendation.accountId ?? resource.accountId,
+            assessment,
             functionArn,
             region,
           });
@@ -162,7 +194,7 @@ export const hydrateAwsLambdaMemoryRecommendations = async (
         nextToken = page.nextToken;
       } while (nextToken);
 
-      return recommendations;
+      return [...recommendationsByArn.values()];
     }),
   );
 
