@@ -67,14 +67,14 @@ Split live AWS provider tests into three layers:
 
 `packages/sdk/test/discovery-http-integration.test.ts` runs the public `CloudBurnClient.discover()` method with the real catalog, hydrators, AWS serialization/deserialization, and rule evaluation. Only the AWS HTTP transport is intercepted. Synthetic JSON and XML responses cover pagination, catalog deduplication, hydration scope, findings, and denied required evidence. Unexpected requests fail the test before reaching the network. Keep focused provider unit tests for exhaustive service behavior.
 
+The same suite verifies ELB inventory reuse through the public pipeline.
+It counts load-balancer and target-group metadata calls separately from target-health and metric requests, and checks
+that unsupported types and failed metric series remain visible in unknown coverage alongside valid findings.
+
 `packages/sdk/test/discovery-metric-http-integration.test.ts` exercises CloudWatch evidence through the real public
 discovery pipeline. Partial SageMaker invocation data cannot emit an idle finding, and mixed complete/unknown endpoints
 retain both valid findings and unknown coverage. Provider tests cover status/pagination/retry behavior and Lambda's
 rolling windows and weighted duration summaries using synthetic AWS responses and fixed clocks.
-
-`packages/sdk/test/discovery-elb-http-integration.test.ts` verifies ELB inventory reuse through the same public pipeline.
-It counts load-balancer and target-group metadata calls separately from target-health and metric requests, and checks
-that unsupported types and failed metric series remain visible in unknown coverage alongside valid findings.
 
 ### `cloudburn` (CLI)
 
