@@ -30,7 +30,8 @@ import { SecretsManagerClient } from '@aws-sdk/client-secrets-manager';
 import { GetCallerIdentityCommand, STSClient } from '@aws-sdk/client-sts';
 import type { AwsCredentialIdentity, AwsCredentialIdentityProvider } from '@aws-sdk/types';
 import { AwsDiscoveryError } from './errors.js';
-import { getAwsClient } from './execution.js';
+import { getAwsClient, memoizeAwsExecution } from './execution.js';
+import { runAwsRequest, withAwsServiceCallBudget } from './request.js';
 
 export type AwsClientCredentials = AwsCredentialIdentity | AwsCredentialIdentityProvider;
 
@@ -63,8 +64,8 @@ const AWS_ROUTE53_CLIENT_MAX_ATTEMPTS = 1;
 const AWS_CLIENT_CONNECTION_TIMEOUT_MS = 5_000;
 const AWS_CLIENT_REQUEST_TIMEOUT_MS = 30_000;
 
-// Direct control-plane calls retain SDK retries. Wrapped service calls use
-// one SDK attempt so their outer budget owns every retry and backoff. Node
+// Scheduled calls use one SDK attempt so the request budget owns every retry
+// and backoff. Unscheduled clients retain normal SDK retries. Node
 // sockets have no default timeout, so without explicit request timeouts a hung
 // connection would stall a discovery run indefinitely.
 const baseAwsClientConfig = () => ({
@@ -515,19 +516,26 @@ export const resolveCurrentAwsRegion = async (): Promise<AwsRegion> => {
  * @param region - Explicit discovery control region, or the ambient region when omitted.
  * @returns The caller account ID.
  */
-export const resolveAwsAccountId = async (region?: string): Promise<string> => {
-  const client = getAwsClient(
-    JSON.stringify(['STSClient', region]),
-    () => new STSClient({ ...baseAwsClientConfig(), region, credentials: resolveAwsClientCredentials() }),
-  );
-  const { Account } = await client.send(new GetCallerIdentityCommand({}));
+export const resolveAwsAccountId = async (region?: string): Promise<string> =>
+  memoizeAwsExecution('caller-identity', async () => {
+    const client = getAwsClient(
+      JSON.stringify(['STSClient', region]),
+      () => new STSClient({ ...baseAwsClientConfig(), region, credentials: resolveAwsClientCredentials() }),
+    );
+    // Identity bootstraps the account budget, so it must not recursively resolve
+    // itself. Its bounded in-memory budget applies before the account is known.
+    const { Account } = await withAwsServiceCallBudget(() =>
+      runAwsRequest('STS', 'GetCallerIdentity', region ?? 'us-east-1', () =>
+        client.send(new GetCallerIdentityCommand({})),
+      ),
+    );
 
-  if (!Account) {
-    throw new Error('Unable to resolve AWS account ID from STS GetCallerIdentity');
-  }
+    if (!Account) {
+      throw new Error('Unable to resolve AWS account ID from STS GetCallerIdentity');
+    }
 
-  return Account;
-};
+    return Account;
+  });
 
 /**
  * Lists enabled EC2 regions for the current account.
@@ -539,7 +547,10 @@ export const listEnabledAwsRegions = async (region?: string): Promise<AwsRegion[
   const client = createEc2Client({
     ...(region ? { region: assertValidAwsRegion(region) } : {}),
   });
-  const { Regions } = await client.send(new DescribeRegionsCommand({ AllRegions: false }));
+  const requestRegion = region ?? (await resolveCurrentAwsRegion());
+  const { Regions } = await runAwsRequest('EC2', 'DescribeRegions', requestRegion, () =>
+    client.send(new DescribeRegionsCommand({ AllRegions: false })),
+  );
 
   return (Regions ?? []).flatMap((region) => (region.RegionName ? [assertValidAwsRegion(region.RegionName)] : []));
 };

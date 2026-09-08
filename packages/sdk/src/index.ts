@@ -50,6 +50,7 @@ export type {
   AwsCostUsage,
   AwsDiscoveredResource,
   AwsDiscoveryCatalog,
+  AwsDiscoveryExecutionOptions,
   AwsDiscoveryInitialization,
   AwsDiscoveryProgressEvent,
   AwsDiscoveryRegion,

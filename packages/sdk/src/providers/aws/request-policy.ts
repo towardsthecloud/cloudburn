@@ -110,6 +110,15 @@ const REQUEST_LIMITS: Record<string, RequestLimit> = {
   'lambda:ListVersionsByFunction': { ratePerSecond: 15, group: 'control-plane' },
   // https://docs.aws.amazon.com/resource-explorer/latest/userguide/quotas.html
   'resource-explorer-2:ListResources': { ratePerSecond: 3, group: 'non-search' },
+  'resource-explorer-2:ListIndexes': { ratePerSecond: 3, group: 'non-search' },
+  'resource-explorer-2:GetDefaultView': { ratePerSecond: 3, group: 'non-search' },
+  'resource-explorer-2:GetView': { ratePerSecond: 3, group: 'non-search' },
+  'resource-explorer-2:GetIndex': { ratePerSecond: 3, group: 'non-search' },
+  'resource-explorer-2:CreateResourceExplorerSetup': { ratePerSecond: 3, group: 'non-search' },
+  'resource-explorer-2:GetResourceExplorerSetup': { ratePerSecond: 3, group: 'non-search' },
+  'resource-explorer-2:UpdateIndexType': { ratePerSecond: 3, group: 'non-search' },
+  'resource-explorer-2:UpdateView': { ratePerSecond: 3, group: 'non-search' },
+  'resource-explorer-2:ListSupportedResourceTypes': { ratePerSecond: 3, group: 'non-search' },
   // https://docs.aws.amazon.com/general/latest/gr/sagemaker.html
   'sagemaker:DescribeEndpoint': { ratePerSecond: 5 },
   'sagemaker:DescribeEndpointConfig': { ratePerSecond: 5 },

@@ -93,7 +93,7 @@ import type {
   StaticDatasetMap,
   StaticResourceBag,
 } from '@cloudburn/rules';
-import type { AwsRegion } from './providers/aws/client.js';
+import type { AwsClientCredentials, AwsRegion } from './providers/aws/client.js';
 
 export type { AwsRegion, LiveEvaluationCoverage };
 
@@ -400,4 +400,14 @@ export type {
   StaticDatasetKey,
   StaticDatasetMap,
   StaticResourceBag,
+};
+
+/** Execution controls shared by every public AWS discovery operation. */
+export type AwsDiscoveryExecutionOptions = {
+  /** AWS credentials instead of the ambient credential provider chain. */
+  aws?: { credentials?: AwsClientCredentials };
+  /** Cancels active requests, retries, pagination, and queued work. */
+  signal?: AbortSignal;
+  /** Total operation deadline in milliseconds; defaults to five minutes. */
+  timeoutMs?: number;
 };
