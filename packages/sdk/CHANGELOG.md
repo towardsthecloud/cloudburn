@@ -1,5 +1,11 @@
 # @cloudburn/sdk
 
+## 0.35.2
+
+### Patch Changes
+
+- [#258](https://github.com/towardsthecloud/cloudburn/pull/258) [`27dc6ef`](https://github.com/towardsthecloud/cloudburn/commit/27dc6ef300c7d1a4801a9ac7f2543f7630120380) Thanks [@axonstone](https://github.com/axonstone)! - Include dataset attribution in discovery request telemetry, including uncached loads and shared CloudWatch batches. Report contributing datasets once per attempt and narrow attribution when retrying selected metric queries.
+
 ## 0.35.1
 
 ### Patch Changes
