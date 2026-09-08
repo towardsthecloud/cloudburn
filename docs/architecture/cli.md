@@ -24,6 +24,14 @@ graph TD
   Estimate -.- EstimateFlags["--server url"]
 ```
 
+## Startup
+
+Command registration stays synchronous so help, option validation, and shell completion use the same complete command
+tree. The SDK defers live AWS imports behind its asynchronous discovery methods. Help, version, and static scans therefore
+avoid loading AWS clients or credential providers without changing command output or exit codes.
+[Startup benchmarks](../reference/startup-benchmarks.md) record fresh-process distributions for both module formats and
+representative commands.
+
 ## Formatter Pipeline
 
 ```mermaid

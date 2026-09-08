@@ -23,6 +23,21 @@ generic rule metadata, and evaluated-resource projection; applications own produ
 mode config sets `failOn`, the facade evaluates it after the engine returns and attaches the threshold, qualifying
 count, and violation status to `ScanResult.policy`.
 
+### Module loading
+
+The SDK entry point keeps region validation and credential scoping in lightweight modules. Region validators remain
+synchronous, and `withAwsClientCredentials()` returns its callback's Promise without resolving credentials. Static scans,
+metadata access, and config loading do not import AWS clients or credential providers.
+
+Live facade methods load the AWS client, request, cache, and discovery modules inside managed execution. The deadline and
+cancellation signal cover that loading; each import continuation checks cancellation before starting work. Node may finish
+an import after cancellation, but its continuation cannot resolve credentials or dispatch requests. The shared credential
+scope remains available to lazily loaded clients, including calls wrapped in the public credential helper.
+
+Both ESM and CommonJS builds split the live graph into internal chunks. Package export paths and method signatures stay
+unchanged, and the published `dist/` directory includes those chunks. See the [startup benchmark](../reference/startup-benchmarks.md)
+for the measured cost and reproduction command.
+
 ## Engine Flow
 
 ```mermaid

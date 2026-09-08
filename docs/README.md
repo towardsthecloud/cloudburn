@@ -27,6 +27,7 @@ adding, moving, or retiring durable documentation.
 ## Reference
 
 - [Commands](reference/commands.md) — supported root commands, Turbo filters, and side effects.
+- [Startup benchmarks](reference/startup-benchmarks.md): fresh-process CLI and SDK timing distributions and module loading.
 - [Generated files](reference/generated-files.md) — authoritative inputs and regeneration commands.
 - [Configuration schema](reference/config-schema.md) — fields, defaults, loading, validation, and merge behavior.
 - [AWS request scheduling](reference/aws-request-scheduling.md): quota scopes, local coordination, retries, environment overrides, and attempt telemetry.

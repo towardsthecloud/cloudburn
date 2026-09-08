@@ -1,19 +1,11 @@
 import { loadConfig } from './config/loader.js';
 import { mergeConfig } from './config/merge.js';
 import { emitDebugLog } from './debug.js';
-import { runLiveScan } from './engine/run-live.js';
 import { runStaticScan } from './engine/run-static.js';
 import { createMemoryEvidenceCacheStore, type EvidenceCacheStore } from './evidence-cache.js';
 import { evaluateScanPolicy } from './policy.js';
-import { resolveAwsAccountId, resolveCurrentAwsRegion, withAwsClientCredentials } from './providers/aws/client.js';
-import {
-  getAwsDiscoveryStatus,
-  initializeAwsDiscovery,
-  listSupportedAwsResourceTypes,
-} from './providers/aws/discovery.js';
-import { withAwsEvidenceCache } from './providers/aws/evidence.js';
-import { withAwsDiscoveryExecution } from './providers/aws/execution.js';
-import { withAwsServiceCallBudget } from './providers/aws/request.js';
+import { withAwsClientCredentials } from './providers/aws/credentials.js';
+import { throwIfAwsExecutionAborted, withAwsDiscoveryExecution } from './providers/aws/execution.js';
 import type {
   AwsDiscoveryExecutionOptions,
   AwsDiscoveryInitialization,
@@ -97,6 +89,8 @@ export class CloudBurnClient {
   ): Promise<ScanResult> {
     emitDebugLog(this.options?.debugLogger, 'sdk: starting live discovery scan');
     const run = async () => {
+      const { runLiveScan } = await import('./engine/run-live.js');
+      throwIfAwsExecutionAborted();
       const effectiveConfig = await this.getEffectiveConfig(options?.config, options?.configPath);
       const result = await runLiveScan(effectiveConfig, options?.target ?? { mode: 'current' }, {
         debugLogger: this.options?.debugLogger,
@@ -116,15 +110,18 @@ export class CloudBurnClient {
     const cacheSettings = cache && !cache.directory && !cache.store ? { ...cache, store: this.evidenceStore } : cache;
     return this.runDiscoveryOperation(
       options,
-      () =>
-        withAwsEvidenceCache(
+      async () => {
+        const { withAwsEvidenceCache } = await import('./providers/aws/evidence.js');
+        throwIfAwsExecutionAborted();
+        return withAwsEvidenceCache(
           {
             cache: cacheSettings,
             target: target ?? { mode: 'current' },
             debugLogger: this.options?.debugLogger,
           },
           run,
-        ),
+        );
+      },
       region,
     );
   }
@@ -137,7 +134,13 @@ export class CloudBurnClient {
   ): Promise<T> {
     return withAwsDiscoveryExecution(
       { signal: options?.signal, timeoutMs: options?.timeoutMs, debugLogger: this.options?.debugLogger },
-      () => {
+      async () => {
+        const [{ resolveAwsAccountId, resolveCurrentAwsRegion }, { withAwsServiceCallBudget }] = await Promise.all([
+          import('./providers/aws/client.js'),
+          import('./providers/aws/request.js'),
+        ]);
+        // Loading can outlive cancellation. Never start credentials or work after it settles.
+        throwIfAwsExecutionAborted();
         const execute = () =>
           withAwsServiceCallBudget(run, {
             resolveAccountId: async () => resolveAwsAccountId(region ?? (await resolveCurrentAwsRegion())),
@@ -160,10 +163,13 @@ export class CloudBurnClient {
 
     return this.runDiscoveryOperation(
       options,
-      () =>
-        this.options?.debugLogger === undefined
+      async () => {
+        const { getAwsDiscoveryStatus } = await import('./providers/aws/discovery.js');
+        throwIfAwsExecutionAborted();
+        return this.options?.debugLogger === undefined
           ? getAwsDiscoveryStatus(options?.region)
-          : getAwsDiscoveryStatus(options?.region, this.options.debugLogger),
+          : getAwsDiscoveryStatus(options?.region, this.options.debugLogger);
+      },
       options?.region,
     );
   }
@@ -181,10 +187,13 @@ export class CloudBurnClient {
 
     return this.runDiscoveryOperation(
       options,
-      () =>
-        this.options?.debugLogger === undefined
+      async () => {
+        const { initializeAwsDiscovery } = await import('./providers/aws/discovery.js');
+        throwIfAwsExecutionAborted();
+        return this.options?.debugLogger === undefined
           ? initializeAwsDiscovery(options?.region)
-          : initializeAwsDiscovery(options?.region, this.options.debugLogger),
+          : initializeAwsDiscovery(options?.region, this.options.debugLogger);
+      },
       options?.region,
     );
   }
@@ -199,7 +208,11 @@ export class CloudBurnClient {
     options?: AwsDiscoveryExecutionOptions,
   ): Promise<AwsSupportedResourceType[]> {
     emitDebugLog(this.options?.debugLogger, 'sdk: listing supported Resource Explorer resource types');
-    return this.runDiscoveryOperation(options, () => listSupportedAwsResourceTypes());
+    return this.runDiscoveryOperation(options, async () => {
+      const { listSupportedAwsResourceTypes } = await import('./providers/aws/discovery.js');
+      throwIfAwsExecutionAborted();
+      return listSupportedAwsResourceTypes();
+    });
   }
 
   /**

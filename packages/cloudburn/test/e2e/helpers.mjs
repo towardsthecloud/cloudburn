@@ -6,6 +6,7 @@ import { delimiter, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const cliPath = fileURLToPath(new URL('../../dist/cli.js', import.meta.url));
+const blockAwsPath = fileURLToPath(new URL('../block-aws.cjs', import.meta.url));
 const fixturesPath = fileURLToPath(new URL('./fixtures/', import.meta.url));
 
 /**
@@ -21,7 +22,7 @@ export const setupCli = (t, fixture) => {
   return {
     directory,
     run: (...args) => {
-      const result = spawnSync(process.execPath, [cliPath, ...args], {
+      const result = spawnSync(process.execPath, ['--require', blockAwsPath, cliPath, ...args], {
         cwd: directory,
         encoding: 'utf8',
         timeout: 15_000,
