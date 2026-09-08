@@ -1,5 +1,16 @@
 # cloudburn
 
+## 0.18.0
+
+### Minor Changes
+
+- [#253](https://github.com/towardsthecloud/cloudburn/pull/253) [`779d55f`](https://github.com/towardsthecloud/cloudburn/commit/779d55f66ff594844a2e7088b7ae2c4d92a81108) Thanks [@axonstone](https://github.com/axonstone)! - Show provisional rule results as discovery rules finish on interactive terminals. Progress goes to stderr; the final report and exit code remain authoritative, and JSON output stays a single final result on stdout.
+
+### Patch Changes
+
+- Updated dependencies [[`779d55f`](https://github.com/towardsthecloud/cloudburn/commit/779d55f66ff594844a2e7088b7ae2c4d92a81108), [`52305f9`](https://github.com/towardsthecloud/cloudburn/commit/52305f9667d1b11c8431d02a34726e11a45b4cac)]:
+  - @cloudburn/sdk@0.35.0
+
 ## 0.17.0
 
 ### Minor Changes
