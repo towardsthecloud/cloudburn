@@ -107,6 +107,7 @@ import {
 } from '../../src/providers/aws/resources/sagemaker.js';
 import { hydrateAwsSageMakerSavingsPlansCoverage } from '../../src/providers/aws/resources/savings-plans-coverage.js';
 import { hydrateAwsSecretsManagerSecrets } from '../../src/providers/aws/resources/secretsmanager.js';
+import { CloudBurnClient } from '../../src/scanner.js';
 
 vi.mock('../../src/providers/aws/client.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../src/providers/aws/client.js')>();
@@ -1622,20 +1623,16 @@ describe('discoverAwsResources', () => {
       return [];
     });
 
-    const rules = [
-      createRule({
-        discoveryDependencies: ['aws-cost-usage'],
-        service: 'costexplorer',
-      }),
-      createRule({
-        id: 'CLDBRN-AWS-TEST-2',
-        discoveryDependencies: ['aws-cost-guardrail-budgets'],
-        service: 'costguardrails',
-      }),
-    ];
+    // Admission now belongs to the public operation, before catalog collection.
+    // The provider remains responsible for concurrent dataset loading.
+    mockedResolveAwsAccountId.mockRejectedValue(new Error('Synthetic unavailable identity'));
+    await new CloudBurnClient().discover({
+      target: { mode: 'current' },
+      config: { discovery: { enabledRules: ['CLDBRN-AWS-COSTEXPLORER-1', 'CLDBRN-AWS-COSTGUARDRAILS-3'] } },
+    });
 
-    await discoverAwsResources(rules, { mode: 'current' });
-
+    expect(mockedHydrateAwsCostUsage).toHaveBeenCalledOnce();
+    expect(mockedHydrateAwsCostGuardrailBudgets).toHaveBeenCalledOnce();
     expect(maxInFlight).toBeGreaterThan(1);
     expect(maxInFlight).toBeLessThanOrEqual(10);
   });

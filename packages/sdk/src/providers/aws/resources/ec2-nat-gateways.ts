@@ -2,11 +2,13 @@ import { DescribeNatGatewaysCommand } from '@aws-sdk/client-ec2';
 import type { AwsDiscoveredResource, AwsEc2NatGatewayActivity } from '@cloudburn/rules';
 import { createEc2Client } from '../client.js';
 import { getAwsDiscoveryTimestamp } from '../execution.js';
-import { cloudWatchWindow, fetchCloudWatchSignals, getCompleteCloudWatchPoints } from './cloudwatch.js';
-import { chunkItems, withAwsServiceErrorContext } from './utils.js';
+import { cloudWatchWindow, getCompleteCloudWatchPoints } from './cloudwatch.js';
+import { collectResourceMetrics } from './resource-metrics.js';
+import { chunkItems, mapWithConcurrency, withAwsServiceErrorContext } from './utils.js';
 
 const NAT_GATEWAY_ARN_PREFIX = 'natgateway/';
 const NAT_GATEWAY_DESCRIBE_BATCH_SIZE = 100;
+const NAT_GATEWAY_DESCRIBE_CONCURRENCY = 2;
 const SEVEN_DAYS_IN_SECONDS = 7 * 24 * 60 * 60;
 const DAILY_PERIOD_IN_SECONDS = 24 * 60 * 60;
 const REQUIRED_NAT_GATEWAY_DAILY_POINTS = SEVEN_DAYS_IN_SECONDS / DAILY_PERIOD_IN_SECONDS;
@@ -56,92 +58,97 @@ export const hydrateAwsEc2NatGatewayActivity = async (
       const client = createEc2Client({ region });
       const natGateways: AwsEc2NatGatewayActivity[] = [];
 
-      for (const batch of chunkItems(regionResources, NAT_GATEWAY_DESCRIBE_BATCH_SIZE)) {
-        const response = await withAwsServiceErrorContext('Amazon EC2', 'DescribeNatGateways', region, () =>
-          client.send(
-            new DescribeNatGatewaysCommand({
-              NatGatewayIds: batch.map(({ natGatewayId }) => natGatewayId),
-            }),
-          ),
-        );
+      let metricIndex = 0;
+      await collectResourceMetrics({
+        ...cloudWatchWindow({
+          endTime: new Date(getAwsDiscoveryTimestamp()),
+          lookbackSeconds: SEVEN_DAYS_IN_SECONDS,
+          mode: 'complete-days',
+        }),
+        region,
+        produce: async (emit) => {
+          await mapWithConcurrency(
+            chunkItems(regionResources, NAT_GATEWAY_DESCRIBE_BATCH_SIZE),
+            NAT_GATEWAY_DESCRIBE_CONCURRENCY,
+            async (batch) => {
+              const response = await withAwsServiceErrorContext('Amazon EC2', 'DescribeNatGateways', region, () =>
+                client.send(
+                  new DescribeNatGatewaysCommand({
+                    NatGatewayIds: batch.map(({ natGatewayId }) => natGatewayId),
+                  }),
+                ),
+              );
 
-        const availableNatGateways = (response.NatGateways ?? []).flatMap((natGateway) => {
-          if (
-            !natGateway.NatGatewayId ||
-            !natGateway.SubnetId ||
-            !natGateway.State ||
-            natGateway.State !== 'available'
-          ) {
-            return [];
-          }
+              const availableNatGateways = (response.NatGateways ?? []).flatMap((natGateway) => {
+                if (
+                  !natGateway.NatGatewayId ||
+                  !natGateway.SubnetId ||
+                  !natGateway.State ||
+                  natGateway.State !== 'available'
+                ) {
+                  return [];
+                }
 
-          const discoveredResource = batch.find(({ natGatewayId }) => natGatewayId === natGateway.NatGatewayId);
+                const discoveredResource = batch.find(({ natGatewayId }) => natGatewayId === natGateway.NatGatewayId);
 
-          if (!discoveredResource) {
-            return [];
-          }
+                if (!discoveredResource) {
+                  return [];
+                }
 
-          return [
-            {
-              accountId: discoveredResource.accountId,
-              natGatewayId: natGateway.NatGatewayId,
-              state: natGateway.State,
-              subnetId: natGateway.SubnetId,
+                return [
+                  {
+                    accountId: discoveredResource.accountId,
+                    natGatewayId: natGateway.NatGatewayId,
+                    state: natGateway.State,
+                    subnetId: natGateway.SubnetId,
+                  },
+                ];
+              });
+
+              for (const natGateway of availableNatGateways) {
+                const index = metricIndex++;
+                await emit(
+                  [
+                    {
+                      dimensions: [{ Name: 'NatGatewayId', Value: natGateway.natGatewayId }],
+                      id: `natIn${index}`,
+                      metricName: 'BytesInFromDestination',
+                      namespace: 'AWS/NATGateway',
+                      period: DAILY_PERIOD_IN_SECONDS,
+                      stat: 'Sum',
+                    },
+                    {
+                      dimensions: [{ Name: 'NatGatewayId', Value: natGateway.natGatewayId }],
+                      id: `natOut${index}`,
+                      metricName: 'BytesOutToDestination',
+                      namespace: 'AWS/NATGateway',
+                      period: DAILY_PERIOD_IN_SECONDS,
+                      stat: 'Sum',
+                    },
+                  ],
+                  (metricData) => {
+                    const inboundPoints = getCompleteCloudWatchPoints(metricData.get(`natIn${index}`)) ?? [];
+                    const outboundPoints = getCompleteCloudWatchPoints(metricData.get(`natOut${index}`)) ?? [];
+
+                    natGateways.push({
+                      ...natGateway,
+                      bytesInFromDestinationLast7Days:
+                        inboundPoints.length >= REQUIRED_NAT_GATEWAY_DAILY_POINTS
+                          ? inboundPoints.reduce((sum, point) => sum + point.value, 0)
+                          : null,
+                      bytesOutToDestinationLast7Days:
+                        outboundPoints.length >= REQUIRED_NAT_GATEWAY_DAILY_POINTS
+                          ? outboundPoints.reduce((sum, point) => sum + point.value, 0)
+                          : null,
+                      region,
+                    });
+                  },
+                );
+              }
             },
-          ];
-        });
-
-        if (availableNatGateways.length === 0) {
-          continue;
-        }
-
-        const metricData = await fetchCloudWatchSignals({
-          ...cloudWatchWindow({
-            endTime: new Date(getAwsDiscoveryTimestamp()),
-            lookbackSeconds: SEVEN_DAYS_IN_SECONDS,
-            mode: 'complete-days',
-          }),
-          queries: availableNatGateways.flatMap((natGateway, index) => [
-            {
-              dimensions: [{ Name: 'NatGatewayId', Value: natGateway.natGatewayId }],
-              id: `natIn${index}`,
-              metricName: 'BytesInFromDestination',
-              namespace: 'AWS/NATGateway',
-              period: DAILY_PERIOD_IN_SECONDS,
-              stat: 'Sum' as const,
-            },
-            {
-              dimensions: [{ Name: 'NatGatewayId', Value: natGateway.natGatewayId }],
-              id: `natOut${index}`,
-              metricName: 'BytesOutToDestination',
-              namespace: 'AWS/NATGateway',
-              period: DAILY_PERIOD_IN_SECONDS,
-              stat: 'Sum' as const,
-            },
-          ]),
-          region,
-        });
-
-        natGateways.push(
-          ...availableNatGateways.map((natGateway, index) => {
-            const inboundPoints = getCompleteCloudWatchPoints(metricData.get(`natIn${index}`)) ?? [];
-            const outboundPoints = getCompleteCloudWatchPoints(metricData.get(`natOut${index}`)) ?? [];
-
-            return {
-              ...natGateway,
-              bytesInFromDestinationLast7Days:
-                inboundPoints.length >= REQUIRED_NAT_GATEWAY_DAILY_POINTS
-                  ? inboundPoints.reduce((sum, point) => sum + point.value, 0)
-                  : null,
-              bytesOutToDestinationLast7Days:
-                outboundPoints.length >= REQUIRED_NAT_GATEWAY_DAILY_POINTS
-                  ? outboundPoints.reduce((sum, point) => sum + point.value, 0)
-                  : null,
-              region,
-            } satisfies AwsEc2NatGatewayActivity;
-          }),
-        );
-      }
+          );
+        },
+      });
 
       return natGateways;
     }),

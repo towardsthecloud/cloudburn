@@ -1,6 +1,6 @@
 # AWS request scheduling
 
-Wrapped AWS collector requests share rate, burst, concurrency, and retry limits across discovery scans. Independent
+Catalog, control-plane, and collector requests share rate, burst, concurrency, and retry limits across public discovery operations. Independent
 CLI or SDK processes coordinate when they run as the same OS user and use the same admission directory on one machine.
 This page owns the configuration and guarantees for [the request module](../../packages/sdk/src/providers/aws/request.ts).
 
@@ -16,7 +16,10 @@ Discovery resolves the signing caller's account once per run. That identity take
 catalog resources, which can belong to member accounts in an organization. If caller resolution fails, requests use
 isolated in-memory admission for that run and telemetry identifies the scope as `unresolved:<run-id>`. Pacing and retry
 limits still apply within that run, but cross-scan coordination is unavailable until caller identity can be resolved.
-Cancellation during identity resolution still stops dispatch.
+Cancellation during identity resolution still stops dispatch. The initial STS `GetCallerIdentity` request has its own
+bounded in-memory budget, deadline, cancellation, and retry owner. Its account is unknown until it completes, so this
+bootstrap request cannot participate in account-scoped cross-process admission. STS results, including failures, are
+memoized only for the active operation.
 
 Each attempt reserves concurrency before SDK execution. Final admission atomically charges request capacity and
 CloudWatch datapoints where applicable immediately before physical transport, after SDK preparation. Pagination and
@@ -32,10 +35,18 @@ and cancellation signal continue to bound preparation and admission.
 Admission enforces both a token bucket and a rolling window. The window spans 1 second for rates of at least 1/s;
 lower rates allow at most 1 start in `1 / ratePerSecond` seconds.
 
-The guarantee covers collectors running inside the shared request budget. Direct hydrator calls outside that budget
-keep their existing unpaced behavior and wrapper-owned retries. Catalog, setup, credential-resolution, and other
-auxiliary AWS calls have not been migrated into this coordinator. Other applications using the same AWS account are
-also outside its control, so AWS can still throttle a locally admitted request.
+The public facade starts one request budget before catalog collection and retains it through dataset loading.
+Status, initialization, and supported-resource-type listing use the same lifecycle. Resource Explorer catalog reads,
+setup mutations, and polls all share its regional `non-search` quota; EC2 region listing uses `DescribeRegions` admission.
+Status limits regional work to 5 workers and preserves sorted output. Each regional `ListIndexes`, `GetDefaultView`,
+and `GetView` status probe makes at most 2 physical attempts before reporting unavailable status evidence; both
+attempts still acquire the shared quota. Catalog collection and setup mutations retain their separate retry budgets. Direct internal hydrator calls outside a budget
+keep wrapper-owned retries without shared admission. Other applications using the same AWS account are outside this
+coordinator's control, so AWS can still throttle a locally admitted request.
+
+Public Transit Gateway pricing uses unauthenticated HTTP and has no AWS account quota. Its 5-second timeout is composed
+with operation cancellation, including response-body reads. An HTTP or pricing-only timeout failure keeps pricing
+optional; operation cancellation stops discovery. Unused error response bodies are cancelled.
 
 ## Configuration
 
@@ -103,7 +114,7 @@ than AWS defaults. Every request policy starts with concurrency `10` and retry a
 | `cloudtrail:DescribeTrails`                                                           |              10 |     1 | Account, region, operation. [CloudTrail quotas](https://docs.aws.amazon.com/general/latest/gr/ct.html)                                                                                                                                        |
 | `cloudwatch:ListMetrics`, `cloudwatch:GetMetricData`                                  |         25, 500 |     1 | Separate account/region request quotas; metric data also consumes the datapoint budget below. [CloudWatch quotas](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/cloudwatch_limits.html)                                      |
 | `lambda:control-plane`                                                                |              15 |     1 | Shared by the supported function/version listing operations. [Lambda quotas](https://docs.aws.amazon.com/lambda/latest/dg/gettingstarted-limits.html).                                                                                        |
-| `resource-explorer-2:non-search`                                                      |               3 |     1 | Account/region budget for supported non-search operations, including `ListResources`. [Resource Explorer quotas](https://docs.aws.amazon.com/resource-explorer/latest/userguide/quotas.html).                                                 |
+| `resource-explorer-2:non-search`                                                      |               3 |     1 | Account/region budget for supported non-search operations, including catalog reads, status, supported types, setup mutations, and polls. [Resource Explorer quotas](https://docs.aws.amazon.com/resource-explorer/latest/userguide/quotas.html).                                                 |
 | `sagemaker:DescribeEndpoint`, `sagemaker:DescribeEndpointConfig`                      |          5 each |     1 | Separate account/region operation quotas. [SageMaker quotas](https://docs.aws.amazon.com/general/latest/gr/sagemaker.html).                                                                                                                   |
 | `s3:GetBucketLifecycleConfiguration`, `s3:ListBucketIntelligentTieringConfigurations` |         10 each |    10 | Separate local operation budgets shared across buckets in the account and region; not verified AWS quotas.                                                                                                                                    |
 | Other operations                                                                      |              10 |    10 | Local fallback per account, applicable region, service, and operation; not a verified AWS quota.                                                                                                                                              |
@@ -212,6 +223,10 @@ Debug logging emits `aws: attempt` followed by one JSON object for each admissio
 | `attribution`                                                        | Generated `scanId` and collector identity; `dataset` appears only when the budget caller supplies it.             |
 | `cleanupOutcome`                                                     | `released` after successful finalization, or `deferred` when storage failed or cleanup timed out.                 |
 | `datapoints`                                                         | Optional CloudWatch datapoint scope and charged cost.                                                             |
+
+Public pricing emits a separate `aws: attempt` record with `service: "AWS Public Pricing"`,
+`operation: "GetPublicPriceList"`, `region`, `durationMs`, optional `statusCode`, and
+`outcome: "success" | "unavailable" | "cancelled"`. It does not emit an account quota or use AWS SDK retries.
 
 Discovery orchestration does not currently add dataset attribution. Telemetry excludes request bodies, headers,
 credentials, and raw error payloads. Queue duration includes admission, credential preparation, and signing. Cancellation

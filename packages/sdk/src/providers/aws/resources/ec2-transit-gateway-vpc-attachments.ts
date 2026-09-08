@@ -4,7 +4,12 @@ import {
 } from '@aws-sdk/client-ec2';
 import type { AwsDiscoveredResource, AwsEc2TransitGatewayVpcAttachmentActivity } from '@cloudburn/rules';
 import { createEc2Client } from '../client.js';
-import { getAwsDiscoveryTimestamp } from '../execution.js';
+import {
+  emitAwsRequestTelemetry,
+  getAwsDiscoveryTimestamp,
+  getAwsExecutionSignal,
+  throwIfAwsExecutionAborted,
+} from '../execution.js';
 import { fetchCloudWatchSignals, getCompleteCloudWatchPoints } from './cloudwatch.js';
 import { chunkItems, extractTerminalArnResourceIdentifier, withAwsServiceErrorContext } from './utils.js';
 
@@ -70,18 +75,41 @@ const readHourlyVpcAttachmentPrice = (priceList: PriceList, region: string): num
 };
 
 const loadHourlyVpcAttachmentPrice = async (region: string): Promise<number | null> => {
+  throwIfAwsExecutionAborted();
+  const executionSignal = getAwsExecutionSignal();
+  const timeoutSignal = AbortSignal.timeout(PRICE_LIST_TIMEOUT_MS);
+  const signal = executionSignal ? AbortSignal.any([executionSignal, timeoutSignal]) : timeoutSignal;
+  const startedAtMs = Date.now();
+  let statusCode: number | undefined;
+  let outcome = 'unavailable';
   try {
     const response = await fetch(
       `https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonVPC/current/${encodeURIComponent(region)}/index.json`,
-      { signal: AbortSignal.timeout(PRICE_LIST_TIMEOUT_MS) },
+      { signal },
     );
+    statusCode = response.status;
     if (!response.ok) {
+      await response.body?.cancel();
       return null;
     }
 
-    return readHourlyVpcAttachmentPrice((await response.json()) as PriceList, region);
+    const priceList = (await response.json()) as PriceList;
+    throwIfAwsExecutionAborted();
+    const price = readHourlyVpcAttachmentPrice(priceList, region);
+    outcome = price === null ? 'unavailable' : 'success';
+    return price;
   } catch {
+    throwIfAwsExecutionAborted();
     return null;
+  } finally {
+    emitAwsRequestTelemetry({
+      service: 'AWS Public Pricing',
+      operation: 'GetPublicPriceList',
+      region,
+      durationMs: Date.now() - startedAtMs,
+      outcome: executionSignal?.aborted ? 'cancelled' : outcome,
+      ...(statusCode === undefined ? {} : { statusCode }),
+    });
   }
 };
 

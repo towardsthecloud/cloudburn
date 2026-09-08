@@ -155,6 +155,8 @@ export type AwsCloudWatchLogGroupRecentStreamActivity = {
 export type AwsCloudFrontDistribution = {
   distributionArn: string;
   distributionId: string;
+  /** ISO 8601 modification timestamp when supplied by CloudFront; not a creation timestamp. */
+  lastModifiedTime?: string;
   priceClass?: string;
   region: string;
   accountId: string;

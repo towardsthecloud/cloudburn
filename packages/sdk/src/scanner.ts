@@ -4,14 +4,16 @@ import { emitDebugLog } from './debug.js';
 import { runLiveScan } from './engine/run-live.js';
 import { runStaticScan } from './engine/run-static.js';
 import { evaluateScanPolicy } from './policy.js';
-import { type AwsClientCredentials, withAwsClientCredentials } from './providers/aws/client.js';
+import { resolveAwsAccountId, resolveCurrentAwsRegion, withAwsClientCredentials } from './providers/aws/client.js';
 import {
   getAwsDiscoveryStatus,
   initializeAwsDiscovery,
   listSupportedAwsResourceTypes,
 } from './providers/aws/discovery.js';
 import { withAwsDiscoveryExecution } from './providers/aws/execution.js';
+import { withAwsServiceCallBudget } from './providers/aws/request.js';
 import type {
+  AwsDiscoveryExecutionOptions,
   AwsDiscoveryInitialization,
   AwsDiscoveryProgressEvent,
   AwsDiscoveryStatus,
@@ -79,16 +81,15 @@ export class CloudBurnClient {
    *   (default five minutes). Cancelled or timed-out runs reject without a partial result.
    * @returns Grouped live scan findings.
    */
-  public async discover(options?: {
-    target?: AwsDiscoveryTarget;
-    config?: Partial<CloudBurnConfig>;
-    configPath?: string;
-    aws?: { credentials?: AwsClientCredentials };
-    includeEvaluationResources?: boolean;
-    onProgress?: (event: AwsDiscoveryProgressEvent) => void;
-    signal?: AbortSignal;
-    timeoutMs?: number;
-  }): Promise<ScanResult> {
+  public async discover(
+    options?: AwsDiscoveryExecutionOptions & {
+      target?: AwsDiscoveryTarget;
+      config?: Partial<CloudBurnConfig>;
+      configPath?: string;
+      includeEvaluationResources?: boolean;
+      onProgress?: (event: AwsDiscoveryProgressEvent) => void;
+    },
+  ): Promise<ScanResult> {
     emitDebugLog(this.options?.debugLogger, 'sdk: starting live discovery scan');
     const run = async () => {
       const effectiveConfig = await this.getEffectiveConfig(options?.config, options?.configPath);
@@ -102,48 +103,83 @@ export class CloudBurnClient {
       return threshold === undefined ? result : { ...result, policy: evaluateScanPolicy(result, threshold) };
     };
 
+    const target = options?.target;
+    const region =
+      target?.mode === 'region' ? target.region : target?.mode === 'regions' ? target.regions[0] : undefined;
+    return this.runDiscoveryOperation(options, run, region);
+  }
+
+  /** Owns credentials, clients, deadlines, and the request budget for one public operation. */
+  private runDiscoveryOperation<T>(
+    options: AwsDiscoveryExecutionOptions | undefined,
+    run: () => Promise<T>,
+    region?: string,
+  ): Promise<T> {
     return withAwsDiscoveryExecution(
       { signal: options?.signal, timeoutMs: options?.timeoutMs, debugLogger: this.options?.debugLogger },
-      () => (options?.aws?.credentials ? withAwsClientCredentials(options.aws.credentials, run) : run()),
+      () => {
+        const execute = () =>
+          withAwsServiceCallBudget(run, {
+            resolveAccountId: async () => resolveAwsAccountId(region ?? (await resolveCurrentAwsRegion())),
+          });
+        return options?.aws?.credentials ? withAwsClientCredentials(options.aws.credentials, execute) : execute();
+      },
     );
   }
 
   /**
    * Retrieves observed AWS Resource Explorer status across enabled regions.
    *
-   * @param options - Optional explicit region to use as the preferred control region.
+   * @param options - Optional control region, credentials, cancellation signal, and total deadline (default five minutes).
    * @returns The observed discovery status.
    */
-  public async getDiscoveryStatus(options?: { region?: string }): Promise<AwsDiscoveryStatus> {
+  public async getDiscoveryStatus(
+    options?: AwsDiscoveryExecutionOptions & { region?: string },
+  ): Promise<AwsDiscoveryStatus> {
     emitDebugLog(this.options?.debugLogger, 'sdk: requesting discovery status');
 
-    return this.options?.debugLogger === undefined
-      ? getAwsDiscoveryStatus(options?.region)
-      : getAwsDiscoveryStatus(options?.region, this.options.debugLogger);
+    return this.runDiscoveryOperation(
+      options,
+      () =>
+        this.options?.debugLogger === undefined
+          ? getAwsDiscoveryStatus(options?.region)
+          : getAwsDiscoveryStatus(options?.region, this.options.debugLogger),
+      options?.region,
+    );
   }
 
   /**
    * Bootstraps AWS Resource Explorer in the selected aggregator region.
    *
-   * @param options - Optional explicit region to use as the aggregator region.
+   * @param options - Optional aggregator region, credentials, cancellation signal, and total deadline (default five minutes).
    * @returns The initialization result.
    */
-  public async initializeDiscovery(options?: { region?: string }): Promise<AwsDiscoveryInitialization> {
+  public async initializeDiscovery(
+    options?: AwsDiscoveryExecutionOptions & { region?: string },
+  ): Promise<AwsDiscoveryInitialization> {
     emitDebugLog(this.options?.debugLogger, 'sdk: initializing discovery');
 
-    return this.options?.debugLogger === undefined
-      ? initializeAwsDiscovery(options?.region)
-      : initializeAwsDiscovery(options?.region, this.options.debugLogger);
+    return this.runDiscoveryOperation(
+      options,
+      () =>
+        this.options?.debugLogger === undefined
+          ? initializeAwsDiscovery(options?.region)
+          : initializeAwsDiscovery(options?.region, this.options.debugLogger),
+      options?.region,
+    );
   }
 
   /**
    * Lists the AWS resource types supported by Resource Explorer.
    *
+   * @param options - Optional credentials, cancellation signal, and total deadline (default five minutes).
    * @returns Supported AWS resource types.
    */
-  public async listSupportedDiscoveryResourceTypes(): Promise<AwsSupportedResourceType[]> {
+  public async listSupportedDiscoveryResourceTypes(
+    options?: AwsDiscoveryExecutionOptions,
+  ): Promise<AwsSupportedResourceType[]> {
     emitDebugLog(this.options?.debugLogger, 'sdk: listing supported Resource Explorer resource types');
-    return listSupportedAwsResourceTypes();
+    return this.runDiscoveryOperation(options, () => listSupportedAwsResourceTypes());
   }
 
   /**
