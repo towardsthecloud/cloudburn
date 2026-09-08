@@ -892,6 +892,8 @@ export type AwsEc2LoadBalancer = {
   loadBalancerArn: string;
   loadBalancerName: string;
   loadBalancerType: 'application' | 'classic' | 'gateway' | 'network';
+  /** Classic listener protocols; absent or empty means HTTP-only request semantics are unverified. */
+  listenerProtocols?: string[];
   attachedTargetGroupArns: string[];
   instanceCount: number;
   region: string;
@@ -901,8 +903,10 @@ export type AwsEc2LoadBalancer = {
 /** Discovered Elastic Load Balancer with 14-day request activity coverage. */
 export type AwsEc2LoadBalancerRequestActivity = {
   loadBalancerArn: string;
-  /** `null` means CloudWatch returned incomplete datapoints for the 14-day lookback window. */
+  /** `null` means unsupported HTTP request semantics or incomplete evidence for the 14-day window. */
   averageRequestsPerDayLast14Days: number | null;
+  /** SDK collection outcome; optional for compatibility with existing custom dataset producers. */
+  requestActivityStatus?: 'complete' | 'unknown' | 'unsupported';
   region: string;
   accountId: string;
 };

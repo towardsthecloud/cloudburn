@@ -141,6 +141,42 @@ Current live-discovery behavior:
 - Secrets Manager discovery paginates `ListSecrets` once per selected region and filters the response to the Resource Explorer catalog selection.
 - Live scans require Resource Explorer access plus narrow hydrator permissions such as `application-autoscaling:DescribeScalableTargets`, `application-autoscaling:DescribeScalingPolicies`, `ce:GetCostAndUsage`, `ce:GetSavingsPlansCoverage`, `cloudfront:GetDistribution`, `cloudfront:ListDistributions`, `cloudtrail:DescribeTrails`, `cloudwatch:GetMetricData`, `cloudwatch:ListMetrics`, `compute-optimizer:GetLambdaFunctionRecommendations`, `config:DescribeConfigRules`, `config:DescribeConfigurationRecorders`, `config:DescribeConfigurationRecorderStatus`, `config:GetDiscoveredResourceCounts`, `config:ListConfigurationRecorders`, `config:ListDiscoveredResources`, `cost-optimization-hub:GetRecommendation`, `cost-optimization-hub:ListEnrollmentStatuses`, `cost-optimization-hub:ListRecommendations`, `dynamodb:DescribeTable`, `ecs:DescribeContainerInstances`, `ecs:DescribeServices`, `ec2:DescribeInstances`, `ec2:DescribeNatGateways`, `ec2:DescribeTransitGatewayAttachments`, `ec2:DescribeTransitGatewayVpcAttachments`, `ec2:DescribeVolumes`, `eks:ListNodegroups`, `eks:DescribeNodegroup`, `kms:DescribeKey`, `kms:GetKeyLastUsage`, `kms:ListAliases`, `kms:ListKeyRotations`, `lambda:ListFunctions`, `rds:DescribeDBInstances`, `route53:ListHealthChecks`, `route53:ListHostedZones`, `route53:ListResourceRecordSets`, `s3:GetLifecycleConfiguration`, `s3:GetIntelligentTieringConfiguration`, `sagemaker:DescribeEndpoint`, `sagemaker:DescribeEndpointConfig`, `sagemaker:DescribeNotebookInstance`, and `secretsmanager:ListSecrets`.
 
+### ELB inventory and request activity
+
+The ELB activity loader resolves `aws-ec2-load-balancers` through the per-run dataset context. Inventory and activity
+share load-balancer descriptions and attached target-group ARNs. For 10 ALBs in one Region, loading both datasets uses
+10 load-balancer-scoped `DescribeTargetGroups` calls and 1 `DescribeLoadBalancers` call, absent pagination or retries.
+CloudWatch queries, target-group dataset descriptions, and target-health requests are separate from those 11 calls.
+Both target-group lookup paths follow `NextMarker`, retaining relationships from later pages and the selected catalog
+scope. Deleted load balancers are skipped, including deletion during relationship pagination.
+See the [DescribeTargetGroups contract](https://docs.aws.amazon.com/elasticloadbalancing/latest/APIReference/API_DescribeTargetGroups.html).
+
+`CLDBRN-AWS-ELB-5` uses daily `Sum` values over the previous 14 complete UTC days and flags an average below 10 HTTP
+requests per day. It requires complete CloudWatch evidence with all 14 daily points. Missing, empty, partial, forbidden,
+and failed evidence remains unknown; missing days are never filled with zero. Empty-target cleanup rules retain
+precedence and can establish an assessed result independently of activity evidence.
+
+| Load balancer | HTTP activity contract |
+| --- | --- |
+| Application | `AWS/ApplicationELB`, `RequestCount`, `LoadBalancer=app/name/id` |
+| Classic, HTTP/HTTPS listeners only | `AWS/ELB`, `RequestCount`, `LoadBalancerName=name` |
+| Classic with TCP/SSL, mixed, empty, or unknown listeners | Unsupported for the HTTP request threshold; retained as unknown coverage |
+| Network and Gateway | Unsupported for the HTTP request threshold; retained as unknown coverage without HTTP metric queries |
+
+Classic inventory includes `listenerProtocols` from the existing describe response. AWS defines Classic
+[`RequestCount`](https://docs.aws.amazon.com/elasticloadbalancing/latest/classic/elb-cloudwatch-metrics.html) as requests
+for HTTP listeners and connections for TCP listeners, so an HTTP-only listener set is required.
+[Application metrics](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-cloudwatch-metrics.html)
+count requests for which a target was selected. Network and Gateway expose flow counts in
+[`AWS/NetworkELB`](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/load-balancer-cloudwatch-metrics.html)
+and [`AWS/GatewayELB`](https://docs.aws.amazon.com/elasticloadbalancing/latest/gateway/cloudwatch-metrics.html).
+Flow counts do not have an established idle threshold in this rule and are never stored as HTTP request counts.
+
+The SDK populates `requestActivityStatus` as `complete`, `unknown`, or `unsupported` on normalized activity rows.
+`averageRequestsPerDayLast14Days` stays nullable. Both the status and Classic listener metadata are additive optional
+fields for existing custom dataset producers. An absent status retains numeric evidence compatibility for supported
+inventories; absent Classic listener metadata cannot establish HTTP-only support.
+
 ### CloudWatch metric evidence
 
 The [metric helper](../../packages/sdk/src/providers/aws/resources/cloudwatch.ts) returns one `CloudWatchMetricEvidence`

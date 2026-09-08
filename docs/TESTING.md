@@ -72,6 +72,10 @@ discovery pipeline. Partial SageMaker invocation data cannot emit an idle findin
 retain both valid findings and unknown coverage. Provider tests cover status/pagination/retry behavior and Lambda's
 rolling windows and weighted duration summaries using synthetic AWS responses and fixed clocks.
 
+`packages/sdk/test/discovery-elb-http-integration.test.ts` verifies ELB inventory reuse through the same public pipeline.
+It counts load-balancer and target-group metadata calls separately from target-health and metric requests, and checks
+that unsupported types and failed metric series remain visible in unknown coverage alongside valid findings.
+
 ### `cloudburn` (CLI)
 
 Command tests (`*.command.test.ts`) mock the SDK boundary to isolate CLI behavior. Their output assertions also cover

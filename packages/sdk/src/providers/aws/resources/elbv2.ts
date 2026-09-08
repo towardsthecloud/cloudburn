@@ -11,6 +11,7 @@ import type {
   AwsEc2TargetGroup,
 } from '@cloudburn/rules';
 import { createElasticLoadBalancingClient, createElasticLoadBalancingV2Client } from '../client.js';
+import type { AwsDiscoveryDatasetResolver } from '../discovery-registry.js';
 import { getAwsDiscoveryTimestamp } from '../execution.js';
 import { cloudWatchWindow, fetchCloudWatchSignals, getCompleteCloudWatchPoints } from './cloudwatch.js';
 import { chunkItems, mapWithConcurrency, withAwsServiceErrorContext } from './utils.js';
@@ -86,6 +87,12 @@ const extractLoadBalancerMetricDimensionValue = (loadBalancerArn: string): strin
 
   return resourceSegment.slice(CLASSIC_LOAD_BALANCER_ARN_PREFIX.length) || null;
 };
+
+const supportsHttpRequestActivity = (loadBalancer: AwsEc2LoadBalancer): boolean =>
+  loadBalancer.loadBalancerType === 'application' ||
+  (loadBalancer.loadBalancerType === 'classic' &&
+    (loadBalancer.listenerProtocols?.length ?? 0) > 0 &&
+    loadBalancer.listenerProtocols?.every((protocol) => protocol === 'HTTP' || protocol === 'HTTPS') === true);
 
 const describeClassicLoadBalancersSafely = async (options: {
   client: ReturnType<typeof createElasticLoadBalancingClient>;
@@ -216,27 +223,23 @@ const loadTargetGroupArnsByLoadBalancer = async (
     TARGET_GROUP_LOOKUP_CONCURRENCY,
     async (loadBalancerArn): Promise<readonly [string, string[]] | null> => {
       try {
-        const response = await withAwsServiceErrorContext(
-          'Elastic Load Balancing v2',
-          'DescribeTargetGroups',
-          region,
-          () =>
-            client.send(
-              new DescribeTargetGroupsCommand({
-                LoadBalancerArn: loadBalancerArn,
-              }),
-            ),
-          {
-            passthrough: isLoadBalancerMissingError,
-          },
-        );
+        const targetGroupArns = new Set<string>();
+        let marker: string | undefined;
+        do {
+          const response = await withAwsServiceErrorContext(
+            'Elastic Load Balancing v2',
+            'DescribeTargetGroups',
+            region,
+            () => client.send(new DescribeTargetGroupsCommand({ LoadBalancerArn: loadBalancerArn, Marker: marker })),
+            { passthrough: isLoadBalancerMissingError },
+          );
+          for (const targetGroup of response.TargetGroups ?? []) {
+            if (targetGroup.TargetGroupArn) targetGroupArns.add(targetGroup.TargetGroupArn);
+          }
+          marker = response.NextMarker;
+        } while (marker);
 
-        return [
-          loadBalancerArn,
-          (response.TargetGroups ?? []).flatMap((targetGroup) =>
-            targetGroup.TargetGroupArn ? [targetGroup.TargetGroupArn] : [],
-          ),
-        ] as const;
+        return [loadBalancerArn, [...targetGroupArns]] as const;
       } catch (error) {
         if (!isLoadBalancerMissingError(error)) {
           throw error;
@@ -261,23 +264,26 @@ const describeTargetGroupsSafely = async (options: {
   region: string;
   targetGroupArns: string[];
 }) => {
-  try {
-    const response = await withAwsServiceErrorContext(
-      'Elastic Load Balancing v2',
-      'DescribeTargetGroups',
-      options.region,
-      () =>
-        options.client.send(
-          new DescribeTargetGroupsCommand({
-            TargetGroupArns: options.targetGroupArns,
-          }),
-        ),
-      {
-        passthrough: isTargetGroupMissingError,
-      },
-    );
+  const describePages = async (targetGroupArns: string[]) => {
+    const targetGroups = [];
+    let marker: string | undefined;
+    do {
+      const response = await withAwsServiceErrorContext(
+        'Elastic Load Balancing v2',
+        'DescribeTargetGroups',
+        options.region,
+        () =>
+          options.client.send(new DescribeTargetGroupsCommand({ TargetGroupArns: targetGroupArns, Marker: marker })),
+        { passthrough: isTargetGroupMissingError },
+      );
+      targetGroups.push(...(response.TargetGroups ?? []));
+      marker = response.NextMarker;
+    } while (marker);
+    return targetGroups;
+  };
 
-    return response.TargetGroups ?? [];
+  try {
+    return await describePages(options.targetGroupArns);
   } catch (error) {
     if (!isTargetGroupMissingError(error)) {
       throw error;
@@ -288,21 +294,7 @@ const describeTargetGroupsSafely = async (options: {
     // Resource Explorer can return stale target groups, so retry per ARN and skip the missing ones.
     for (const targetGroupArn of options.targetGroupArns) {
       try {
-        const response = await withAwsServiceErrorContext(
-          'Elastic Load Balancing v2',
-          'DescribeTargetGroups',
-          options.region,
-          () =>
-            options.client.send(
-              new DescribeTargetGroupsCommand({
-                TargetGroupArns: [targetGroupArn],
-              }),
-            ),
-          {
-            passthrough: isTargetGroupMissingError,
-          },
-        );
-        targetGroups.push(...(response.TargetGroups ?? []));
+        targetGroups.push(...(await describePages([targetGroupArn])));
       } catch (innerError) {
         if (!isTargetGroupMissingError(innerError)) {
           throw innerError;
@@ -367,6 +359,9 @@ export const hydrateAwsEc2LoadBalancers = async (resources: AwsDiscoveredResourc
               loadBalancerArn: discoveredResource.arn,
               loadBalancerName: loadBalancer.LoadBalancerName,
               loadBalancerType: 'classic',
+              listenerProtocols: (loadBalancer.ListenerDescriptions ?? []).map(
+                (description) => description.Listener?.Protocol ?? 'unknown',
+              ),
               region,
             });
           }
@@ -397,7 +392,7 @@ export const hydrateAwsEc2LoadBalancers = async (resources: AwsDiscoveredResourc
 
             const accountId = accountIdByLoadBalancerArn.get(loadBalancer.LoadBalancerArn);
 
-            if (!accountId) {
+            if (!accountId || !targetGroupArnsByLoadBalancer.has(loadBalancer.LoadBalancerArn)) {
               continue;
             }
 
@@ -425,12 +420,16 @@ export const hydrateAwsEc2LoadBalancers = async (resources: AwsDiscoveredResourc
  * Hydrates discovered load balancers with 14-day request-activity coverage.
  *
  * @param resources - Catalog resources filtered to ELB resource types.
+ * @param context - Per-run resolver used to reuse base inventory and target-group relationships.
  * @returns Request activity summaries for load balancers.
  */
 export const hydrateAwsEc2LoadBalancerRequestActivity = async (
   resources: AwsDiscoveredResource[],
+  context?: AwsDiscoveryDatasetResolver,
 ): Promise<AwsEc2LoadBalancerRequestActivity[]> => {
-  const loadBalancers = await hydrateAwsEc2LoadBalancers(resources);
+  const loadBalancers = context
+    ? await context.loadDataset('aws-ec2-load-balancers')
+    : await hydrateAwsEc2LoadBalancers(resources);
   const loadBalancersByRegion = new Map<string, AwsEc2LoadBalancer[]>();
 
   for (const loadBalancer of loadBalancers) {
@@ -450,7 +449,7 @@ export const hydrateAwsEc2LoadBalancerRequestActivity = async (
         queries: regionLoadBalancers.flatMap((loadBalancer, index) => {
           const dimensionValue = extractLoadBalancerMetricDimensionValue(loadBalancer.loadBalancerArn);
 
-          if (!dimensionValue) {
+          if (!dimensionValue || !supportsHttpRequestActivity(loadBalancer)) {
             return [];
           }
 
@@ -464,12 +463,7 @@ export const hydrateAwsEc2LoadBalancerRequestActivity = async (
               ],
               id: `lb${index}`,
               metricName: 'RequestCount',
-              namespace:
-                loadBalancer.loadBalancerType === 'classic'
-                  ? 'AWS/ELB'
-                  : loadBalancer.loadBalancerType === 'application'
-                    ? 'AWS/ApplicationELB'
-                    : 'AWS/NetworkELB',
+              namespace: loadBalancer.loadBalancerType === 'classic' ? 'AWS/ELB' : 'AWS/ApplicationELB',
               period: DAILY_PERIOD_IN_SECONDS,
               stat: 'Sum' as const,
             },
@@ -479,14 +473,16 @@ export const hydrateAwsEc2LoadBalancerRequestActivity = async (
       });
 
       return regionLoadBalancers.map((loadBalancer, index) => {
-        const requestPoints = getCompleteCloudWatchPoints(metricData.get(`lb${index}`)) ?? [];
+        const supported = supportsHttpRequestActivity(loadBalancer);
+        const requestPoints = supported ? (getCompleteCloudWatchPoints(metricData.get(`lb${index}`)) ?? []) : [];
+        const complete = requestPoints.length >= REQUIRED_ELB_DAILY_POINTS;
 
         return {
           accountId: loadBalancer.accountId,
-          averageRequestsPerDayLast14Days:
-            requestPoints.length >= REQUIRED_ELB_DAILY_POINTS
-              ? requestPoints.reduce((sum, point) => sum + point.value, 0) / requestPoints.length
-              : null,
+          averageRequestsPerDayLast14Days: complete
+            ? requestPoints.reduce((sum, point) => sum + point.value, 0) / requestPoints.length
+            : null,
+          requestActivityStatus: !supported ? 'unsupported' : complete ? 'complete' : 'unknown',
           loadBalancerArn: loadBalancer.loadBalancerArn,
           region: loadBalancer.region,
         } satisfies AwsEc2LoadBalancerRequestActivity;
