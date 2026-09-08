@@ -1,5 +1,16 @@
 # cloudburn
 
+## 0.17.0
+
+### Minor Changes
+
+- [#251](https://github.com/towardsthecloud/cloudburn/pull/251) [`ee068c6`](https://github.com/towardsthecloud/cloudburn/commit/ee068c6cd09ed9507c124d486b821e4fbfc12cca) Thanks [@axonstone](https://github.com/axonstone)! - Reuse fresh AWS discovery evidence in per-user storage, with normal, refresh, and off cache modes, an explicit cache directory and authorization context, and evidence freshness in table and JSON output.
+
+### Patch Changes
+
+- Updated dependencies [[`3b6876f`](https://github.com/towardsthecloud/cloudburn/commit/3b6876f8e5d897e5e48913f7e45cc2b4c71e3772), [`ee068c6`](https://github.com/towardsthecloud/cloudburn/commit/ee068c6cd09ed9507c124d486b821e4fbfc12cca)]:
+  - @cloudburn/sdk@0.34.0
+
 ## 0.16.2
 
 ### Patch Changes
