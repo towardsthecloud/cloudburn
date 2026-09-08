@@ -1,4 +1,4 @@
-import { GetDistributionCommand, ListDistributionsCommand } from '@aws-sdk/client-cloudfront';
+import { type DistributionConfig, GetDistributionCommand, ListDistributionsCommand } from '@aws-sdk/client-cloudfront';
 import type {
   AwsCloudFrontDistribution,
   AwsCloudFrontDistributionRequestActivity,
@@ -9,8 +9,8 @@ import type { AwsAccountIdResolver, AwsDiscoveryDatasetResolver } from '../disco
 import { getAwsDiscoveryTimestamp } from '../execution.js';
 import { cloudWatchWindow, fetchCloudWatchSignals, getCompleteCloudWatchPoints } from './cloudwatch.js';
 import {
-  chunkItems,
   extractTerminalArnResourceIdentifier,
+  mapWithConcurrency,
   resolveAwsAccountIdForLoad,
   withAwsServiceErrorContext,
 } from './utils.js';
@@ -21,11 +21,17 @@ const THIRTY_DAYS_IN_SECONDS = 30 * 24 * 60 * 60;
 const DAILY_PERIOD_IN_SECONDS = 24 * 60 * 60;
 const REQUIRED_CLOUDFRONT_DAILY_POINTS = THIRTY_DAYS_IN_SECONDS / DAILY_PERIOD_IN_SECONDS;
 
-const listDistributionSeeds = async (): Promise<
-  Array<Pick<AwsCloudFrontDistribution, 'distributionArn' | 'distributionId'>>
-> => {
+type DistributionSeed = Pick<
+  AwsCloudFrontDistribution,
+  'distributionArn' | 'distributionId' | 'priceClass' | 'lastModifiedTime'
+> & { connectionMode?: string };
+
+const supportedPriceClass = (config?: Pick<DistributionConfig, 'ConnectionMode' | 'PriceClass'>): string | undefined =>
+  config?.ConnectionMode === 'tenant-only' ? undefined : config?.PriceClass;
+
+const listDistributionSeeds = async (): Promise<DistributionSeed[]> => {
   const client = createCloudFrontClient();
-  const distributions: Array<Pick<AwsCloudFrontDistribution, 'distributionArn' | 'distributionId'>> = [];
+  const distributions: DistributionSeed[] = [];
   let marker: string | undefined;
 
   do {
@@ -47,8 +53,11 @@ const listDistributionSeeds = async (): Promise<
       }
 
       distributions.push({
+        connectionMode: distribution.ConnectionMode,
         distributionArn: distribution.ARN,
         distributionId: distribution.Id,
+        lastModifiedTime: distribution.LastModifiedTime?.toISOString(),
+        priceClass: supportedPriceClass(distribution),
       });
     }
 
@@ -59,7 +68,7 @@ const listDistributionSeeds = async (): Promise<
 };
 
 /**
- * Hydrates discovered CloudFront distributions with price-class metadata.
+ * Hydrates discovered CloudFront distributions with price-class and modification evidence.
  *
  * @param resources - Optional catalog resources filtered to CloudFront distributions.
  * @param context - Optional discovery-run context for shared account identity resolution.
@@ -69,7 +78,7 @@ export const hydrateAwsCloudFrontDistributions = async (
   resources: AwsDiscoveredResource[],
   context?: AwsAccountIdResolver,
 ): Promise<AwsCloudFrontDistribution[]> => {
-  const distributionSeeds =
+  const distributionSeeds: Array<DistributionSeed & Pick<AwsCloudFrontDistribution, 'accountId' | 'region'>> =
     resources.length > 0
       ? resources.flatMap((resource) => {
           const distributionId = extractTerminalArnResourceIdentifier(resource.arn);
@@ -87,44 +96,35 @@ export const hydrateAwsCloudFrontDistributions = async (
         })
       : (([distributions, accountId]) =>
           distributions.map((distribution) => ({
+            ...distribution,
             accountId,
-            distributionArn: distribution.distributionArn,
-            distributionId: distribution.distributionId,
             region: 'global',
           })))(await Promise.all([listDistributionSeeds(), resolveAwsAccountIdForLoad(context)]));
   const uniqueSeeds = [
     ...new Map(distributionSeeds.map((distribution) => [distribution.distributionId, distribution])).values(),
   ];
   const client = createCloudFrontClient();
-  const distributions: AwsCloudFrontDistribution[] = [];
+  const distributions = await mapWithConcurrency(
+    uniqueSeeds,
+    CLOUDFRONT_DISTRIBUTION_CONCURRENCY,
+    async ({ connectionMode, ...distribution }) => {
+      // Multi-tenant distributions do not support a configurable price class.
+      if (distribution.priceClass || connectionMode === 'tenant-only') return distribution;
 
-  for (const batch of chunkItems(uniqueSeeds, CLOUDFRONT_DISTRIBUTION_CONCURRENCY)) {
-    const hydratedBatch = await Promise.all(
-      batch.map(async (distribution) => {
-        const response = await withAwsServiceErrorContext(
-          'Amazon CloudFront',
-          'GetDistribution',
-          CLOUDFRONT_CONTROL_REGION,
-          () =>
-            client.send(
-              new GetDistributionCommand({
-                Id: distribution.distributionId,
-              }),
-            ),
-        );
+      const response = await withAwsServiceErrorContext(
+        'Amazon CloudFront',
+        'GetDistribution',
+        CLOUDFRONT_CONTROL_REGION,
+        () => client.send(new GetDistributionCommand({ Id: distribution.distributionId })),
+      );
 
-        return {
-          accountId: distribution.accountId,
-          distributionArn: distribution.distributionArn,
-          distributionId: distribution.distributionId,
-          priceClass: response.Distribution?.DistributionConfig?.PriceClass,
-          region: distribution.region,
-        } satisfies AwsCloudFrontDistribution;
-      }),
-    );
-
-    distributions.push(...hydratedBatch);
-  }
+      return {
+        ...distribution,
+        lastModifiedTime: response.Distribution?.LastModifiedTime?.toISOString() ?? distribution.lastModifiedTime,
+        priceClass: supportedPriceClass(response.Distribution?.DistributionConfig),
+      } satisfies AwsCloudFrontDistribution;
+    },
+  );
 
   return distributions.sort((left, right) => left.distributionArn.localeCompare(right.distributionArn));
 };
