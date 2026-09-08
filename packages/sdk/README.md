@@ -96,6 +96,15 @@ const result = await client.discover({
 
 An expired deadline rejects with `TimeoutError`; cancellation rejects with the signal's reason. Both stop queued requests, retry waits, and active AWS requests without returning partial findings. AWS clients and lookup caches belong to one run and are released when it ends.
 
+Collector requests share AWS quota limits across scans and independent SDK or CLI processes running as the same OS
+user. Quotas use the signing caller's account, resolved once per run. If that lookup fails, collectors continue with
+isolated in-memory limits for that run. Shared coordination requires writable local storage. It uses `$XDG_CACHE_HOME/cloudburn/aws-admission-v1` when configured,
+or `~/.cache/cloudburn/aws-admission-v1`, with a shared temporary-directory fallback when a new default cache cannot be
+created. Set `CLOUDBURN_AWS_ADMISSION_DIR` to choose a shared writable path for containers or other constrained environments.
+Existing state errors fail without bypassing coordination. `CLOUDBURN_AWS_QUOTA_OVERRIDES` accepts JSON policies such as
+`{"logs:DescribeLogStreams":{"ratePerSecond":5,"burst":1}}`. See [AWS request scheduling](../../docs/reference/aws-request-scheduling.md)
+for defaults, retry behavior, telemetry, and coordination limits.
+
 `discover()` defaults to the current AWS region and the AWS Core preset. You can also target one or more explicit AWS regions with `{ target: { mode: 'regions', regions: [...] } }`. Multi-region discovery requires an AWS Resource Explorer aggregator index. Rules that need explicit AWS setup are opt-in through `config.discovery.enabledRules`. `CLDBRN-AWS-TAGGING-1` needs an accessible aggregator, `CLDBRN-AWS-LAMBDA-4` needs AWS Compute Optimizer enrollment, and `CLDBRN-AWS-COSTOPTIMIZATIONHUB-1` needs AWS Cost Optimization Hub enrollment.
 
 Set `includeEvaluationResources` when a caller needs audit evidence for checks that did not produce findings. The

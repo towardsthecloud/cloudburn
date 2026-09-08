@@ -10,7 +10,19 @@ import type {
 } from '@aws-sdk/types';
 import { emitDebugLog } from '../../debug.js';
 
-const serviceAttemptContext = new AsyncLocalStorage<boolean>();
+/** Hooks that admit one AWS attempt and observe its physical transport. */
+export type AwsServiceAttemptOptions = {
+  /** Inspects command input before AWS serialization. */
+  beforeRequest?: (input: unknown) => Promise<void>;
+  /** Confirms admission after request preparation, immediately before physical dispatch. */
+  beforeTransport?: () => Promise<void>;
+  /** Marks physical dispatch after admission and the final cancellation checks. */
+  onDispatch?: () => void;
+  /** Reports handler time, excluding request preparation and admission waits. */
+  onTransport?: (details: { durationMs: number; statusCode?: number }) => void;
+};
+
+const serviceAttemptContext = new AsyncLocalStorage<AwsServiceAttemptOptions>();
 const singleAttemptStrategy: RetryStrategyV2 = {
   acquireInitialRetryToken: async () => ({
     getRetryCount: () => 0,
@@ -23,11 +35,18 @@ const singleAttemptStrategy: RetryStrategyV2 = {
   recordSuccess: () => undefined,
 };
 
+type AwsInitializeMiddleware = <Input extends object, Output>(
+  next: (args: { input: Input }) => Promise<Output>,
+) => (args: { input: Input }) => Promise<Output>;
+
 type ManagedAwsClient = {
   config: {
     maxAttempts: () => Promise<number>;
     retryStrategy: () => Promise<RetryStrategy | RetryStrategyV2>;
     requestHandler: RequestHandler<HttpRequest, HttpResponse, HttpHandlerOptions>;
+  };
+  middlewareStack?: {
+    add: (middleware: AwsInitializeMiddleware, options: { step: 'initialize'; name: string }) => void;
   };
   destroy: () => void;
 };
@@ -43,8 +62,38 @@ type AwsExecution = {
 const executionContext = new AsyncLocalStorage<AwsExecution>();
 const DEFAULT_DISCOVERY_TIMEOUT_MS = 300_000;
 
+/**
+ * Starts bounded cleanup without retaining discovery caches, clients, or attempt callbacks.
+ *
+ * @param execute - Cleanup work that supplies its own cancellation and deadline.
+ * @returns The cleanup result outside the discovery and attempt contexts.
+ */
+export const runOutsideAwsExecution = <T>(execute: () => T): T =>
+  executionContext.exit(() => serviceAttemptContext.exit(execute));
+
+/**
+ * Emits sanitized request telemetry without allowing diagnostics to interrupt request cleanup.
+ *
+ * @param event - Structured attempt metadata that excludes command input and response payloads.
+ * @returns Nothing.
+ */
+export const emitAwsRequestTelemetry = (event: Record<string, unknown>): void => {
+  try {
+    emitDebugLog(executionContext.getStore()?.debugLogger, `aws: attempt ${JSON.stringify(event)}`);
+  } catch {
+    // Request cleanup must still run when a caller's debug logger fails.
+  }
+};
+
 /** Returns the active discovery cancellation signal, when a run is in progress. */
 export const getAwsExecutionSignal = (): AbortSignal | undefined => executionContext.getStore()?.controller.signal;
+
+/**
+ * Returns the deadline that bounds the active discovery execution and its request leases.
+ *
+ * @returns The deadline as a Unix timestamp in milliseconds, or undefined outside discovery.
+ */
+export const getAwsExecutionDeadline = (): number | undefined => executionContext.getStore()?.deadlineMs;
 
 /** Returns a stable timestamp for all observation windows in one discovery run. */
 export const getAwsDiscoveryTimestamp = (): number => executionContext.getStore()?.startedAtMs ?? Date.now();
@@ -174,10 +223,13 @@ export const withAwsDiscoveryExecution = async <T>(
  * Runs one physical request under a service wrapper's retry budget.
  *
  * @param execute - AWS SDK call whose retries are owned by its caller.
+ * @param options - Optional admission and transport hooks for this attempt.
  * @returns The single-attempt response or error.
  */
-export const runAwsServiceAttempt = <T>(execute: () => Promise<T>): Promise<T> =>
-  serviceAttemptContext.run(true, execute);
+export const runAwsServiceAttempt = <T>(
+  execute: () => Promise<T>,
+  options: AwsServiceAttemptOptions = {},
+): Promise<T> => serviceAttemptContext.run(options, execute);
 
 /**
  * Configures retry ownership for an AWS client.
@@ -197,29 +249,50 @@ export const getAwsClient = <T extends ManagedAwsClient>(key: string, create: ()
   client.config.retryStrategy = () =>
     serviceAttemptContext.getStore() ? Promise.resolve(singleAttemptStrategy) : retryStrategy();
   client.config.maxAttempts = () => (serviceAttemptContext.getStore() ? Promise.resolve(1) : maxAttempts());
-  if (execution) {
-    const handler = client.config.requestHandler;
+  client.middlewareStack?.add(
+    (next) => async (args) => {
+      throwIfAwsExecutionAborted();
+      await serviceAttemptContext.getStore()?.beforeRequest?.(args.input);
+      throwIfAwsExecutionAborted();
+      return next(args);
+    },
+    { step: 'initialize', name: 'cloudburnAwsAttemptAdmission' },
+  );
+  const handler = client.config.requestHandler;
+  if (handler) {
     const handle = handler.handle.bind(handler);
     handler.handle = async (request, options) => {
       throwIfAwsExecutionAborted();
-      execution.controller.signal.throwIfAborted();
+      const requestExecution = execution ?? executionContext.getStore();
+      requestExecution?.controller.signal.throwIfAborted();
+      const attempt = serviceAttemptContext.getStore();
+      await attempt?.beforeTransport?.();
+      throwIfAwsExecutionAborted();
+      requestExecution?.controller.signal.throwIfAborted();
+      attempt?.onDispatch?.();
       const startedAtMs = Date.now();
+      let statusCode: number | undefined;
       try {
         const result = await handle(request, {
           ...options,
-          abortSignal: options?.abortSignal ?? execution.controller.signal,
+          abortSignal: options?.abortSignal ?? requestExecution?.controller.signal,
         });
-        emitDebugLog(
-          execution.debugLogger,
-          `aws: transport ${key} returned HTTP ${result.response.statusCode} in ${Date.now() - startedAtMs}ms`,
-        );
+        statusCode = result.response.statusCode;
         return result;
-      } catch (error) {
-        emitDebugLog(execution.debugLogger, `aws: transport ${key} failed in ${Date.now() - startedAtMs}ms`);
-        throw error;
+      } finally {
+        const durationMs = Date.now() - startedAtMs;
+        attempt?.onTransport?.(statusCode === undefined ? { durationMs } : { durationMs, statusCode });
+        if (requestExecution) {
+          emitDebugLog(
+            requestExecution.debugLogger,
+            statusCode === undefined
+              ? `aws: transport ${key} failed in ${durationMs}ms`
+              : `aws: transport ${key} returned HTTP ${statusCode} in ${durationMs}ms`,
+          );
+        }
       }
     };
-    execution.clients.set(key, client);
   }
+  if (execution) execution.clients.set(key, client);
   return client;
 };

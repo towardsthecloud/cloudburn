@@ -29,6 +29,7 @@ adding, moving, or retiring durable documentation.
 - [Commands](reference/commands.md) — supported root commands, Turbo filters, and side effects.
 - [Generated files](reference/generated-files.md) — authoritative inputs and regeneration commands.
 - [Configuration schema](reference/config-schema.md) — fields, defaults, loading, validation, and merge behavior.
+- [AWS request scheduling](reference/aws-request-scheduling.md): quota scopes, local coordination, retries, environment overrides, and attempt telemetry.
 - [Rule IDs](reference/rule-ids.md) — current rules, sequence convention, preset, and compatibility status.
 - [Finding shape](reference/finding-shape.md) — public finding and scan result contracts.
 
@@ -55,6 +56,7 @@ Update that page in the same change as its source. Link to it from other entry p
 | Public findings or scan results | [Finding reference](reference/finding-shape.md), [SDK README](../packages/sdk/README.md) | [Rule contracts](../packages/rules/src/shared/metadata.ts), [SDK types](../packages/sdk/src/types.ts), and [engine](../packages/sdk/src/engine/) |
 | Generated output or releases | [Generated files](reference/generated-files.md), [release guide](guides/releasing.md) | Package build configs, [Changesets config](../.changeset/config.json), and [release workflow](../.github/workflows/release.yml) |
 | Validation or documentation checks | [Testing](TESTING.md), [commands](reference/commands.md) | [CI workflow](../.github/workflows/ci.yml), [checker](../scripts/check-docs.mjs), and [checker tests](../test/docs-check.test.mjs) |
+| AWS request admission, retries, or telemetry | [AWS request scheduling](reference/aws-request-scheduling.md) | [Request module](../packages/sdk/src/providers/aws/request.ts), [policies](../packages/sdk/src/providers/aws/request-policy.ts), and [local state](../packages/sdk/src/providers/aws/request-store.ts) |
 
 ## Maintenance
 

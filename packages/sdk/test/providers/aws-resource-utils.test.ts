@@ -1,9 +1,16 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createMemoryAwsRequestStore } from '../../src/providers/aws/request-store.js';
 import {
   mapWithConcurrency,
-  withAwsServiceCallBudget,
   withAwsServiceErrorContext,
+  withAwsServiceCallBudget as withBudget,
 } from '../../src/providers/aws/resources/utils.js';
+
+let store = createMemoryAwsRequestStore();
+beforeEach(() => {
+  store = createMemoryAwsRequestStore();
+});
+const withAwsServiceCallBudget: typeof withBudget = (fn, options) => withBudget(fn, { store, ...options });
 
 const createThrottlingError = (): Error =>
   Object.assign(new Error('Rate exceeded'), {
@@ -157,21 +164,34 @@ describe('withAwsServiceCallBudget', () => {
       };
     };
 
-    await withAwsServiceCallBudget(async () => {
-      await Promise.all([
-        ...Array.from({ length: 15 }, () =>
-          withAwsServiceErrorContext('Amazon EC2', 'DescribeVolumes', 'eu-central-1', trackedCombinedCall(ec2Tracker)),
-        ),
-        ...Array.from({ length: 15 }, () =>
-          withAwsServiceErrorContext(
-            'Amazon RDS',
-            'DescribeDBInstances',
-            'eu-central-1',
-            trackedCombinedCall(rdsTracker),
+    await withAwsServiceCallBudget(
+      async () => {
+        await Promise.all([
+          ...Array.from({ length: 15 }, () =>
+            withAwsServiceErrorContext(
+              'Amazon EC2',
+              'DescribeVolumes',
+              'eu-central-1',
+              trackedCombinedCall(ec2Tracker),
+            ),
           ),
-        ),
-      ]);
-    });
+          ...Array.from({ length: 15 }, () =>
+            withAwsServiceErrorContext(
+              'Amazon RDS',
+              'DescribeDBInstances',
+              'eu-central-1',
+              trackedCombinedCall(rdsTracker),
+            ),
+          ),
+        ]);
+      },
+      {
+        overrides: {
+          'ec2:DescribeVolumes': { ratePerSecond: 100, burst: 100 },
+          'rds:DescribeDBInstances': { ratePerSecond: 100, burst: 100 },
+        },
+      },
+    );
 
     expect(ec2Tracker.max).toBeLessThanOrEqual(10);
     expect(rdsTracker.max).toBeLessThanOrEqual(10);
@@ -190,14 +210,15 @@ describe('withAwsServiceCallBudget', () => {
     expect(tracker.max).toBe(30);
   });
 
-  it('resolves account identity lazily only for account-scoped call policies', async () => {
+  it('resolves account identity once when the first quota needs it', async () => {
     vi.useFakeTimers();
     const resolveAccountId = vi.fn().mockResolvedValue('123456789012');
 
     await withAwsServiceCallBudget(
       async () => {
-        await withAwsServiceErrorContext('Display label', 'RegionalOperation', 'eu-central-1', async () => 'ok');
         expect(resolveAccountId).not.toHaveBeenCalled();
+        await withAwsServiceErrorContext('Display label', 'RegionalOperation', 'eu-central-1', async () => 'ok');
+        expect(resolveAccountId).toHaveBeenCalledOnce();
 
         await withAwsServiceErrorContext('Another display label', 'GlobalOperation', 'us-east-1', async () => 'ok', {
           callPolicy: 'route53',
@@ -216,40 +237,49 @@ describe('withAwsServiceCallBudget', () => {
 
     let throttledOnce = false;
     const started: string[] = [];
+    const retryScheduled = Promise.withResolvers<void>();
 
-    const budgetRun = withAwsServiceCallBudget(async () => {
-      const throttledCall = withAwsServiceErrorContext('Amazon EC2', 'DescribeVolumes', 'eu-central-1', async () => {
-        started.push('throttled');
+    const budgetRun = withAwsServiceCallBudget(
+      async () => {
+        const throttledCall = withAwsServiceErrorContext(
+          'Amazon EC2',
+          'DescribeVolumes',
+          'eu-central-1',
+          async () => {
+            started.push('throttled');
 
-        if (!throttledOnce) {
-          throttledOnce = true;
-          throw createThrottlingError();
-        }
+            if (!throttledOnce) {
+              throttledOnce = true;
+              throw createThrottlingError();
+            }
 
-        return 'throttled-ok';
-      });
-      const followUpCalls = Promise.all(
-        Array.from({ length: 10 }, (_value, index) =>
-          withAwsServiceErrorContext('Amazon EC2', 'DescribeVolumes', 'eu-central-1', async () => {
-            started.push(`follow-up-${index}`);
+            return 'throttled-ok';
+          },
+          { initialDelayMs: 5_000, onRetry: () => retryScheduled.resolve() },
+        );
+        await retryScheduled.promise;
+        const followUpCall = withAwsServiceErrorContext('Amazon EC2', 'DescribeVolumes', 'eu-central-1', async () => {
+          started.push('follow-up');
 
-            return 'ok';
-          }),
-        ),
-      );
+          return 'ok';
+        });
 
-      await Promise.all([throttledCall, followUpCalls]);
-    });
+        await Promise.all([throttledCall, followUpCall]);
+      },
+      { overrides: { 'ec2:DescribeVolumes': { concurrency: 1 } } },
+    );
 
-    // While the throttled call sleeps out its backoff, all ten follow-up
-    // calls must be able to start — the sleeping call may not hold a slot.
-    await vi.advanceTimersByTimeAsync(0);
-    expect(started.filter((name) => name.startsWith('follow-up'))).toHaveLength(10);
-
-    await vi.advanceTimersByTimeAsync(10_000);
+    // Fresh work observes the shared cooldown, then uses the sole slot during retry backoff.
+    await vi.advanceTimersByTimeAsync(499);
+    expect(started).toEqual(['throttled']);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(started).toEqual(['throttled', 'follow-up']);
+    await vi.advanceTimersByTimeAsync(4_499);
+    expect(started).toEqual(['throttled', 'follow-up']);
+    await vi.advanceTimersByTimeAsync(1);
     await budgetRun;
-
-    expect(started.filter((name) => name === 'throttled')).toHaveLength(2);
+    expect(started).toEqual(['throttled', 'follow-up', 'throttled']);
+    expect(vi.getTimerCount()).toBe(0);
   });
 
   it('rate limits Route 53 retries alongside concurrent operations', async () => {
@@ -257,6 +287,11 @@ describe('withAwsServiceCallBudget', () => {
     vi.spyOn(Math, 'random').mockReturnValue(0);
 
     const requestStarts: number[] = [];
+    const initialBatch = Promise.withResolvers<void>();
+    const recordStart = (): void => {
+      requestStarts.push(Date.now());
+      if (requestStarts.length === 5) initialBatch.resolve();
+    };
     let shouldThrottle = true;
     const run = withAwsServiceCallBudget(async () => {
       const retryingCall = withAwsServiceErrorContext(
@@ -264,9 +299,10 @@ describe('withAwsServiceCallBudget', () => {
         'ListHealthChecks',
         'us-east-1',
         async () => {
-          requestStarts.push(Date.now());
+          recordStart();
 
           if (shouldThrottle) {
+            await initialBatch.promise;
             shouldThrottle = false;
             throw createThrottlingError();
           }
@@ -282,7 +318,7 @@ describe('withAwsServiceCallBudget', () => {
             `ConcurrentOperation${index}`,
             'us-east-1',
             async () => {
-              requestStarts.push(Date.now());
+              recordStart();
 
               return 'ok';
             },
@@ -351,6 +387,11 @@ describe('withAwsServiceCallBudget', () => {
     vi.spyOn(Math, 'random').mockReturnValue(0);
 
     const requestStarts: number[] = [];
+    const initialBatch = Promise.withResolvers<void>();
+    const recordStart = (): void => {
+      requestStarts.push(Date.now());
+      if (requestStarts.length === 5) initialBatch.resolve();
+    };
     let shouldFail = true;
     const run = withAwsServiceCallBudget(
       async () => {
@@ -359,9 +400,10 @@ describe('withAwsServiceCallBudget', () => {
           'ListHostedZones',
           'us-east-1',
           async () => {
-            requestStarts.push(Date.now());
+            recordStart();
 
             if (shouldFail) {
+              await initialBatch.promise;
               shouldFail = false;
               throw createTransientError();
             }
@@ -377,7 +419,7 @@ describe('withAwsServiceCallBudget', () => {
               `ConcurrentOperation${index}`,
               'us-east-1',
               async () => {
-                requestStarts.push(Date.now());
+                recordStart();
 
                 return 'ok';
               },
@@ -404,7 +446,7 @@ describe('withAwsServiceCallBudget', () => {
     expect(requestStarts).toHaveLength(6);
   });
 
-  it('releases an idle Route 53 account budget after its rolling window expires', async () => {
+  it('retains no idle timers and admits Route 53 work after its rolling window expires', async () => {
     vi.useFakeTimers();
 
     const requestStarts: number[] = [];
@@ -431,7 +473,7 @@ describe('withAwsServiceCallBudget', () => {
       );
 
     await runCalls(5);
-    expect(vi.getTimerCount()).toBe(1);
+    expect(vi.getTimerCount()).toBe(0);
 
     await vi.advanceTimersByTimeAsync(1_000);
     expect(vi.getTimerCount()).toBe(0);

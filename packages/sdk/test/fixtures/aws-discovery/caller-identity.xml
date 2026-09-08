@@ -1,0 +1,8 @@
+<GetCallerIdentityResponse xmlns="https://sts.amazonaws.com/doc/2011-06-15/">
+  <GetCallerIdentityResult>
+    <Arn>arn:aws:iam::222222222222:user/synthetic-caller</Arn>
+    <UserId>SYNTHETIC</UserId>
+    <Account>222222222222</Account>
+  </GetCallerIdentityResult>
+  <ResponseMetadata><RequestId>synthetic-request</RequestId></ResponseMetadata>
+</GetCallerIdentityResponse>
