@@ -14,6 +14,48 @@ describe('resource explorer discovery', () => {
     vi.restoreAllMocks();
   });
 
+  it('waits for every selected region before reporting an empty resource type scope', async () => {
+    vi.spyOn(clientModule, 'listEnabledAwsRegions').mockResolvedValue(['eu-west-1', 'eu-central-1']);
+    const resourceType = `ec2:${'a'.repeat(2006)}`;
+    const lastRegion = Promise.withResolvers<void>();
+    const lastRegionStarted = Promise.withResolvers<void>();
+    let queries = 0;
+    vi.spyOn(clientModule, 'createResourceExplorerClient').mockImplementation(
+      ({ region }) =>
+        ({
+          send: vi.fn(async (command) => {
+            if (command.input.Regions)
+              return { Indexes: [{ Region: region, Type: region === 'eu-west-1' ? 'AGGREGATOR' : 'LOCAL' }] };
+            if (command.input.Filters) {
+              queries += 1;
+              expect(command.input.Filters.FilterString.length).toBeLessThanOrEqual(2048);
+              if (queries === 2) {
+                lastRegionStarted.resolve();
+                await lastRegion.promise;
+              }
+              return { Resources: [] };
+            }
+            return { ViewArn: 'view', View: { Filters: { FilterString: '' } } };
+          }),
+        }) as never,
+    );
+    const ready = vi.fn();
+    const run = buildAwsDiscoveryCatalog({ mode: 'regions', regions: ['eu-west-1', 'eu-central-1'] }, [resourceType], {
+      onResourceTypeReady: ready,
+    });
+    try {
+      await lastRegionStarted.promise;
+      expect(ready).not.toHaveBeenCalled();
+      lastRegion.resolve();
+      await run;
+      expect(ready).toHaveBeenCalledExactlyOnceWith(resourceType, expect.objectContaining({ resources: [] }));
+      expect(queries).toBe(2);
+    } finally {
+      lastRegion.resolve();
+      await run;
+    }
+  });
+
   it('checks other regions while a slow regional index lookup is still in flight', async () => {
     const regions = ['eu-west-1', 'eu-central-1', 'us-east-1'];
     vi.spyOn(clientModule, 'listEnabledAwsRegions').mockResolvedValue(regions);

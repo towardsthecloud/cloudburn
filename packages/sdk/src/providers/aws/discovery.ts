@@ -335,6 +335,7 @@ const buildEmptyLocalCatalog = async (searchRegion: string): Promise<AwsDiscover
  *
  * @param rules - Active rules that declare their discovery dataset requirements.
  * @param target - Discovery target controlling current-region, explicit-region, or all-region behavior.
+ * @param options - Logging and callbacks for settled datasets and dependency-ready rule snapshots.
  * @returns Hydrated live evaluation context.
  */
 export const discoverAwsResources = async (
@@ -343,6 +344,7 @@ export const discoverAwsResources = async (
   options?: {
     debugLogger?: (message: string) => void;
     onProgress?: (event: AwsDiscoveryProgressEvent) => void;
+    onRuleReady?: (rule: Rule, context: LiveDiscoveryContext) => void;
   },
 ): Promise<LiveDiscoveryContext> => {
   const datasetKeys = collectDiscoveryDependencies(rules);
@@ -375,58 +377,107 @@ export const discoverAwsResources = async (
     options?.debugLogger,
     `aws: resolved Resource Explorer resource types ${resourceTypes.length === 0 ? 'none' : resourceTypes.join(', ')}`,
   );
-  let catalog: AwsDiscoveryCatalog;
+  const datasetRegion = await resolveAccountScopedDatasetRegion(target);
+  const accountCatalog = await buildEmptyLocalCatalog(datasetRegion);
+  let catalog = accountCatalog;
+  const catalogInputs = new Map(
+    resourceTypes.map((type) => {
+      let resolve!: (catalog: AwsDiscoveryCatalog) => void;
+      const promise = new Promise<AwsDiscoveryCatalog>((fulfill) => {
+        resolve = fulfill;
+      });
+      return [type, { promise, resolve }] as const;
+    }),
+  );
+  const readyCatalogs = new Map<string, AwsDiscoveryCatalog>();
+  let catalogScopePromise: Promise<Awaited<ReturnType<typeof getAwsResourceExplorerEvidenceScope>>> | undefined;
+  const resolveCatalogScope = () => (catalogScopePromise ??= getAwsResourceExplorerEvidenceScope(target));
   let catalogFailureDiagnostic: ScanDiagnostic | undefined;
 
-  if (resourceTypes.length === 0) {
-    catalog = await buildEmptyLocalCatalog(await resolveAccountScopedDatasetRegion(target));
-  } else {
-    try {
-      catalog =
-        options?.debugLogger === undefined
-          ? await buildAwsDiscoveryCatalog(target, resourceTypes)
-          : await buildAwsDiscoveryCatalog(target, resourceTypes, { debugLogger: options.debugLogger });
-    } catch (err) {
-      throwIfAwsExecutionAborted();
-      const hasAccountScopedDatasets = datasetDefinitions.some((definition) => definition.resourceTypes.length === 0);
+  const catalogReady = (async () => {
+    if (resourceTypes.length > 0) {
+      try {
+        catalog = await buildAwsDiscoveryCatalog(target, resourceTypes, {
+          debugLogger: options?.debugLogger,
+          onResourceTypeReady: (resourceType, readyCatalog) => {
+            throwIfAwsExecutionAborted();
+            readyCatalogs.set(resourceType, readyCatalog);
+            catalogInputs.get(resourceType)?.resolve(readyCatalog);
+          },
+        });
+      } catch (err) {
+        throwIfAwsExecutionAborted();
+        const hasAccountScopedDatasets = datasetDefinitions.some((definition) => definition.resourceTypes.length === 0);
 
-      // With no account-scoped datasets in the run, nothing can load without
-      // the catalog, so the failure stays fatal and keeps its actionable error.
-      if (!hasAccountScopedDatasets) {
-        throw err;
+        // Without account-scoped evidence, catalog errors remain fatal even if
+        // a completed type already produced provisional feedback.
+        if (!hasAccountScopedDatasets) {
+          throw err;
+        }
+
+        emitDebugLog(
+          options?.debugLogger,
+          `aws: catalog build failed, degrading to account-scoped datasets: ${err instanceof Error ? err.message : String(err)}`,
+        );
+        catalogFailureDiagnostic = buildCatalogFailureDiagnostic(err);
+        catalog = accountCatalog;
       }
-
-      emitDebugLog(
-        options?.debugLogger,
-        `aws: catalog build failed, degrading to account-scoped datasets: ${err instanceof Error ? err.message : String(err)}`,
-      );
-      catalogFailureDiagnostic = buildCatalogFailureDiagnostic(err);
-      catalog = await buildEmptyLocalCatalog(await resolveAccountScopedDatasetRegion(target));
     }
-  }
-  emitDebugLog(
-    options?.debugLogger,
-    `aws: catalog ready with ${catalog.resources.length} resources from ${catalog.searchRegion}`,
-  );
+    emitDebugLog(
+      options?.debugLogger,
+      `aws: catalog ready with ${catalog.resources.length} resources from ${catalog.searchRegion}`,
+    );
 
-  if (resourceTypes.length > 0 && !catalogFailureDiagnostic) {
-    options?.onProgress?.({
-      kind: 'catalog',
-      resourceCount: catalog.resources.length,
-      searchRegion: catalog.searchRegion,
+    if (resourceTypes.length > 0 && !catalogFailureDiagnostic) {
+      options?.onProgress?.({
+        kind: 'catalog',
+        resourceCount: catalog.resources.length,
+        searchRegion: catalog.searchRegion,
+      });
+    }
+  })();
+  // Observe catalog failure immediately while independent collection starts.
+  void catalogReady.catch(() => undefined);
+  // Share each completed selection across datasets and regional workers instead of
+  // rebuilding and retaining a full catalog copy for every regional load.
+  const catalogSelections = new Map<
+    string,
+    Promise<{ catalog: AwsDiscoveryCatalog; resources: AwsDiscoveredResource[] }>
+  >();
+  const resolveDatasetCatalog = (types: string[]) => {
+    const key = JSON.stringify(types);
+    const existing = catalogSelections.get(key);
+    if (existing) return existing;
+    const selection = Promise.all(
+      types.map((type) =>
+        Promise.race([
+          catalogInputs.get(type)?.promise ?? catalogReady.then(() => catalog),
+          catalogReady.then(() => catalog),
+        ]),
+      ),
+    ).then((inputs) => {
+      const resourcesByType = buildResourcesByTypeIndex(inputs.flatMap((input) => input.resources));
+      const resources = [
+        ...new Map(
+          types.flatMap((type) => resourcesByType.get(type) ?? []).map((resource) => [resource.arn, resource]),
+        ).values(),
+      ];
+      return {
+        catalog: {
+          ...(inputs[0] ?? accountCatalog),
+          resources: [...resources].sort((left, right) => left.arn.localeCompare(right.arn)),
+        },
+        resources,
+      };
     });
-  }
-  const resourcesByType = buildResourcesByTypeIndex(catalog.resources);
-  const catalogScope =
-    isAwsEvidenceCacheEnabled() && resourceTypes.length > 0 && !catalogFailureDiagnostic
-      ? await getAwsResourceExplorerEvidenceScope(target)
-      : undefined;
+    catalogSelections.set(key, selection);
+    return selection;
+  };
   const datasetLoadPromises = new Map<string, Promise<AwsDiscoveryDatasetLoad>>();
   const loadedDatasetKeys = new Set<DiscoveryDatasetKey>();
   const unavailableRegions = new Map<DiscoveryDatasetKey, Set<string>>();
   let accountIdPromise: Promise<string> | undefined;
-  const resolveAccountId = (): Promise<string> => (accountIdPromise ??= resolveAwsAccountId(catalog.searchRegion));
-  const datasetRegion = await resolveAccountScopedDatasetRegion(target);
+  const resolveAccountId = (): Promise<string> => (accountIdPromise ??= resolveAwsAccountId(datasetRegion));
   const queryIdentity = (
     filterString: string,
     queryOptions?: { requiredViewProperties?: string[]; scope?: 'target' | 'account' },
@@ -483,6 +534,9 @@ export const discoverAwsResources = async (
     loadedDatasetKeys.add(datasetKey);
     const startedAtMs = Date.now();
     const loadPromise = (async (): Promise<AwsDiscoveryDatasetLoad<K>> => {
+      const { catalog: inputCatalog, resources: matchingResources } = await resolveDatasetCatalog(
+        definition.resourceTypes,
+      );
       const result = (
         resources: unknown[],
         diagnostics: ScanDiagnostic[],
@@ -495,7 +549,6 @@ export const discoverAwsResources = async (
         ...(unavailableDiagnostics?.length ? { unavailableDiagnostics } : {}),
       });
       if (!accountScoped && catalogFailureDiagnostic) return result([], [], true);
-      const matchingResources = definition.resourceTypes.flatMap((type) => resourcesByType.get(type) ?? []);
       if (!accountScoped && region === undefined) {
         emitDebugLog(options?.debugLogger, `aws: loading dataset ${datasetKey}`);
         const groups = groupResourcesByRegion(matchingResources);
@@ -577,7 +630,12 @@ export const discoverAwsResources = async (
             region: region ?? datasetRegion,
             schemaVersion: definition.schemaVersion,
             loaderVersion: definition.loaderVersion,
-            catalog: { scope: catalogScope, viewArn: catalog.viewArn, resources: regionResources, queries: queryLoads },
+            catalog: {
+              scope: !accountScoped && isAwsEvidenceCacheEnabled() ? await resolveCatalogScope() : undefined,
+              viewArn: inputCatalog.viewArn,
+              resources: regionResources,
+              queries: queryLoads,
+            },
             observationWindow,
             dependencies: dependencyLoads.map((dependency) => [
               dependency.dataset[0],
@@ -595,10 +653,10 @@ export const discoverAwsResources = async (
                 [datasetKey]: loaded.resources,
               },
               {
-                ...catalog,
+                ...inputCatalog,
                 resources: region
-                  ? catalog.resources.filter((resource) => resource.region === region)
-                  : catalog.resources,
+                  ? inputCatalog.resources.filter((resource) => resource.region === region)
+                  : inputCatalog.resources,
               },
             );
             const value = { ...result(loaded.resources, loaded.diagnostics, loaded.unavailable), coverage };
@@ -681,22 +739,85 @@ export const discoverAwsResources = async (
     datasetLoadPromises.set(cacheKey, loadPromise as Promise<AwsDiscoveryDatasetLoad>);
     return loadPromise;
   };
+  const finalizeLoad = (load: AwsDiscoveryDatasetLoad): AwsDiscoveryDatasetLoad => {
+    if (!catalogFailureDiagnostic) return load;
+    const needsCatalog = resolveAwsDiscoveryDatasetDependencies([load.dataset[0]]).some(
+      (key) => (getAwsDiscoveryDatasetDefinition(key)?.resourceTypes.length ?? 0) > 0,
+    );
+    return needsCatalog
+      ? {
+          dataset: [load.dataset[0], []],
+          diagnostics: [],
+          unavailable: true,
+          unavailableDiagnostics: [catalogFailureDiagnostic],
+        }
+      : load;
+  };
   // The public operation owns one budget spanning catalog and dataset loads.
+  const completedLoads = new Map<DiscoveryDatasetKey, AwsDiscoveryDatasetLoad>();
+  const reportedRules = new Set<string>();
+  const notifyReadyRules = () => {
+    if (!options?.onRuleReady) return;
+    const readyRules = rules.filter((rule) => {
+      if (reportedRules.has(rule.id) || !rule.evaluateLive || !rule.supports.includes('discovery')) return false;
+      const dependencies = [
+        ...(rule.discoveryDependencies ?? []),
+        ...(rule.optionalDiscoveryDependencies ?? []).filter((key) => datasetKeys.includes(key)),
+      ];
+      return dependencies.every((key) => completedLoads.has(key));
+    });
+    if (readyRules.length === 0) return;
+    const snapshotLoads = [...completedLoads.values()].map(finalizeLoad);
+    const snapshot: LiveDiscoveryContext = {
+      catalog: catalogFailureDiagnostic
+        ? catalog
+        : {
+            ...([...readyCatalogs.values()][0] ?? catalog),
+            resources: [...readyCatalogs.values()]
+              .flatMap((input) => input.resources)
+              .sort((left, right) => left.arn.localeCompare(right.arn)),
+          },
+      diagnostics: [],
+      resources: new LiveResourceBag(
+        Object.fromEntries(snapshotLoads.map((load) => load.dataset)) as Partial<DiscoveryDatasetMap>,
+      ),
+      unavailableDatasets: new Map(
+        snapshotLoads
+          .filter((load) => load.unavailable)
+          .map((load) => [load.dataset[0], load.unavailableDiagnostics ?? load.diagnostics]),
+      ),
+      unavailableRegions,
+    };
+    for (const rule of readyRules) {
+      throwIfAwsExecutionAborted();
+      reportedRules.add(rule.id);
+      options.onRuleReady(rule, snapshot);
+    }
+  };
   let completedDatasets = 0;
-  const datasetLoads = await Promise.all(
-    datasetKeys.map(async (datasetKey) => {
-      const loadResult = await loadDataset(datasetKey);
-      completedDatasets += 1;
-      options?.onProgress?.({
-        kind: 'dataset',
-        completedDatasets,
-        datasetKey,
-        totalDatasets: datasetKeys.length,
-      });
-      return loadResult;
-    }),
-  );
-  const allDatasetLoads = await Promise.all([...loadedDatasetKeys].map((key) => loadDataset(key)));
+  const [, collectedDatasetLoads] = await Promise.all([
+    catalogReady,
+    Promise.all(
+      datasetKeys.map(async (datasetKey) => {
+        const loadResult = await loadDataset(datasetKey);
+        throwIfAwsExecutionAborted();
+        completedLoads.set(datasetKey, loadResult);
+        completedDatasets += 1;
+        options?.onProgress?.({
+          kind: 'dataset',
+          completedDatasets,
+          datasetKey,
+          totalDatasets: datasetKeys.length,
+        });
+        notifyReadyRules();
+        return loadResult;
+      }),
+    ),
+  ]);
+  const datasetLoads = collectedDatasetLoads.map(finalizeLoad);
+  const allDatasetLoads = (
+    await Promise.all((sortUnique([...loadedDatasetKeys]) as DiscoveryDatasetKey[]).map((key) => loadDataset(key)))
+  ).map(finalizeLoad);
   const resources = new LiveResourceBag(
     Object.fromEntries(datasetLoads.map((loadResult) => loadResult.dataset)) as Partial<DiscoveryDatasetMap>,
   );

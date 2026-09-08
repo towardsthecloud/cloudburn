@@ -43,8 +43,13 @@ graph TD
     LR[buildRuleRegistry] --> LD[collect discoveryDependencies]
     LD --> LRg[resolve dataset registry entries]
     LRg --> LC[buildAwsDiscoveryCatalog]
-    LC --> LL[load required datasets]
-    LL --> LX[build LiveEvaluationContext]
+    LRg --> AL[load independent account datasets]
+    LC -->|complete type scope| LL[load dependency-ready datasets]
+    AL --> RP[optional provisional rule evaluation]
+    LL --> RP
+    LC --> LX[build final LiveEvaluationContext]
+    AL --> LX
+    LL --> LX
     LX --> LE["rule.evaluateLive() => Finding | null"]
     LE --> LA{includeEvaluationResources?}
     LA -->|yes| LP[project normalized resources and rule status]
@@ -81,11 +86,16 @@ Static rule evaluation retains those scopes, including joins between datasets su
 2. Collect unique `discoveryDependencies` from active discovery rules.
 3. Expand declarative dependencies and catalog queries through the AWS discovery dataset registry.
 4. Union required Resource Explorer `resourceTypes` from the resolved dataset definitions.
-5. Build one AWS discovery catalog through Resource Explorer filter-only list queries.
-6. Load only the required datasets, reusing fresh versioned evidence when explicitly configured. Cache keys include
-   authorization scope, selected catalog membership/view, observation interval, and dependency fingerprints.
-7. Build `LiveEvaluationContext` with `{ catalog, resources: LiveResourceBag }`.
-8. Invoke each live evaluator.
+5. Prepare one AWS discovery catalog through Resource Explorer filter-only list queries alongside independent
+   account-scoped collection. Keep packed queries and release each resource type only after its complete selected scope
+   finishes pagination; cached scopes can release before unrelated misses.
+6. Load only required datasets after their declared catalog inputs and dependencies settle, reusing fresh versioned
+   evidence when explicitly configured. Cache keys retain authorization scope, observation interval, and dependency
+   fingerprints. Catalog-backed keys retain selected membership/view; account-only keys omit unrelated catalog metadata.
+7. Optionally evaluate dependency-ready rules for provisional progress, waiting for selected optional evidence too.
+   Catalog scope tracking is bounded by the selected registry types; existing regional workers and request limits apply.
+8. Build the final `LiveEvaluationContext` with `{ catalog, resources: LiveResourceBag }` and invoke live evaluators
+   against that completed context, then apply finding precedence. Progress never replaces final evaluation.
 9. When requested, resolve each rule's evaluated resource projection through the SDK-owned AWS evaluation registry.
 10. Group non-null rule findings under `providers -> rules -> findings` and attach evaluation evidence to `evaluations`.
 
@@ -125,7 +135,10 @@ Current live-discovery behavior:
 - Wrapped service calls use one AWS SDK attempt per outer attempt, with at most six physical attempts by default. The request module owns admission, shared retry allowance, throttling feedback, and recovery. Catalog and control-plane requests use that same retry owner, including setup mutations and polls.
 - One public-operation budget spans catalog construction and all dataset loads. Catalog, status, initialization, supported types, and collectors share account quota state across operations and independent processes using the same local admission directory. Limits follow the service's operation groups and applicable region; Route 53 keeps its global five-per-second budget, and CloudWatch metric calls also reserve datapoint throughput. Credential and cache isolation remain per run. [AWS request scheduling](../reference/aws-request-scheduling.md) owns policies, overrides, telemetry, crash recovery, and the boundary for calls outside the budget.
 - `mapWithConcurrency` preserves input order and starts the next item whenever a worker is free. The first mapper failure stops that pool's queued work and rejects immediately with the original reason. Active mapper calls keep running and their late rejections remain observed. Discovery cancellation reaches the pool through mapper rejection. Resource-level errors deliberately caught and returned as diagnostics allow mapping to continue.
-- `CloudBurnClient.discover({ onProgress })` streams `AwsDiscoveryProgressEvent` values (catalog ready, per-dataset completion counts) while the run executes, so callers can render live feedback without waiting for the final result.
+- `CloudBurnClient.discover({ onProgress })` streams catalog readiness, per-dataset completion counts, and provisional
+  evaluated rule results. Required and selected optional evidence must settle first. Events follow completion order;
+  only the final resolved scan is authoritative. [Progress semantics](../reference/finding-shape.md#awsdiscoveryprogressevent)
+  cover precedence, incomplete evidence, cancellation, and separate first-result/final-completion timing.
 - Resource Explorer catalog failures degrade when the run also requested account-scoped datasets: the SDK records one catalog diagnostic, marks every catalog-backed dataset unavailable (skipping the rules that need them), and still evaluates account-scoped datasets. When every requested dataset needs the catalog, the failure stays fatal so the actionable Resource Explorer error reaches the user.
 - CloudWatch metric requests group matching periods and batch up to 500 queries or 100,800 estimated datapoints. Observation windows are chosen independently of aggregation periods. Two batches can run concurrently within the shared service budget; pagination retains each batch’s fixed window and incomplete series retain their evidence status. See the [GetMetricData API limits](https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_GetMetricData.html).
 - SageMaker endpoint, NAT gateway, and VPC endpoint collectors use a [bounded resource metric stage](../../packages/sdk/src/providers/aws/resources/resource-metrics.ts). Metadata hydration has 10 endpoint workers or 2 network describe-batch workers per region. Queries accumulate across metadata completions, with at most 500 queries or 100,800 estimated datapoints per flush. One flush runs at a time and backpressures producers; the last partial batch flushes when metadata production ends. Pending work is bounded by that metric batch plus the active metadata workers. SageMaker config lookups remain deduplicated per region, and resource summaries consume and release each completed batch’s evidence. Input catalogs, normalized outputs, and the config lookup cache still scale with inventory size.

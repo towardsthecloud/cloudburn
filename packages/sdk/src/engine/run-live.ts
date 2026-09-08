@@ -1,4 +1,4 @@
-import { type DiscoveryDatasetMap, LiveResourceBag } from '@cloudburn/rules';
+import { type DiscoveryDatasetMap, LiveResourceBag, type Rule } from '@cloudburn/rules';
 import { toBuiltInRuleMetadata } from '../built-in-rules.js';
 import { emitDebugLog } from '../debug.js';
 import { discoverAwsResources } from '../providers/aws/discovery.js';
@@ -14,6 +14,13 @@ const toRuleEvaluationMetadata = (rule: Parameters<typeof toBuiltInRuleMetadata>
   return metadata;
 };
 
+/**
+ * Collects selected live evidence and evaluates rules, optionally reporting provisional results.
+ * @param config - Effective rule selection and discovery configuration.
+ * @param target - AWS catalog and account collection scope.
+ * @param options - Debug logging, optional evaluation projection, and provisional progress callback.
+ * @returns Authoritative results after all evidence and finding precedence are resolved.
+ */
 export const runLiveScan = async (
   config: CloudBurnConfig,
   target: AwsDiscoveryTarget,
@@ -25,15 +32,58 @@ export const runLiveScan = async (
 ): Promise<ScanResult> => {
   const registry = buildRuleRegistry(config, 'discovery');
   emitDebugLog(options?.debugLogger, `sdk: resolved ${registry.activeRules.length} active discovery rules`);
-  const {
-    diagnostics = [],
-    unavailableDatasets = new Map(),
-    unavailableRegions = new Map(),
-    ...liveContext
-  } = await discoverAwsResources(registry.activeRules, target, {
+  const startedAtMs = Date.now();
+  let completedRules = 0;
+  let firstRuleMs: number | undefined;
+  const context = await discoverAwsResources(registry.activeRules, target, {
     debugLogger: options?.debugLogger,
     onProgress: options?.onProgress,
+    ...(options?.onProgress
+      ? {
+          onRuleReady: (rule: Rule, context: Awaited<ReturnType<typeof discoverAwsResources>>) => {
+            const result = evaluateLiveRules([rule], context, { includeEvaluationStatus: true });
+            const evaluation = result.evaluations?.rules[0];
+            if (!evaluation) return;
+            completedRules += 1;
+            const elapsedMs = Date.now() - startedAtMs;
+            firstRuleMs ??= elapsedMs;
+            options.onProgress?.({
+              kind: 'rule',
+              ruleId: rule.id,
+              provisional: true,
+              status: evaluation.status,
+              findingCount: evaluation.findingCount,
+              findings: result.providers.flatMap((provider) => provider.rules.flatMap((finding) => finding.findings)),
+              ...(evaluation.reason ? { reason: evaluation.reason } : {}),
+              completedRules,
+              totalRules: registry.activeRules.length,
+              elapsedMs,
+            });
+          },
+        }
+      : {}),
   });
+  const result = evaluateLiveRules(registry.activeRules, context, options);
+  emitDebugLog(
+    options?.debugLogger,
+    `sdk: live scan timing ${JSON.stringify({ firstRuleMs: firstRuleMs ?? null, totalMs: Date.now() - startedAtMs })}`,
+  );
+  return {
+    ...result,
+    ...(getAwsEvidenceProvenance() ? { evidence: getAwsEvidenceProvenance() } : {}),
+  };
+};
+
+// The same evaluation path handles provisional snapshots and the authoritative final context.
+// Re-evaluate at completion so a later catalog failure or precedence winner cannot leave stale output.
+const evaluateLiveRules = (
+  rules: Rule[],
+  context: Awaited<ReturnType<typeof discoverAwsResources>>,
+  options?: { includeEvaluationResources?: boolean; includeEvaluationStatus?: boolean },
+): ScanResult => {
+  const includeEvaluationResources = options?.includeEvaluationResources;
+  const includeEvaluations = includeEvaluationResources || options?.includeEvaluationStatus;
+  const { diagnostics = [], unavailableDatasets = new Map(), unavailableRegions = new Map(), ...liveContext } = context;
   const unresolvedUnavailableDatasets: unknown = unavailableDatasets;
   const unavailableDatasetDiagnostics =
     unresolvedUnavailableDatasets instanceof Map
@@ -46,7 +96,7 @@ export const runLiveScan = async (
   const scanDiagnostics = [...diagnostics];
   const evaluationRules: NonNullable<ScanResult['evaluations']>['rules'] = [];
   const evaluationResourceSets = new Map<string, NonNullable<ScanResult['evaluations']>['resourceSets'][number]>();
-  const evaluatedRules = registry.activeRules.map((rule): EvaluatedRuleFinding => {
+  const evaluatedRules = rules.map((rule): EvaluatedRuleFinding => {
     if (!rule.supports.includes('discovery') || !rule.evaluateLive) {
       return {
         provider: rule.provider,
@@ -76,7 +126,7 @@ export const runLiveScan = async (
         status: 'skipped' as const,
       };
       scanDiagnostics.push(skippedRuleDiagnostic);
-      if (options?.includeEvaluationResources) {
+      if (includeEvaluations) {
         evaluationRules.push({
           ...toRuleEvaluationMetadata(rule),
           findingCount: 0,
@@ -164,18 +214,22 @@ export const runLiveScan = async (
       });
     }
 
-    if (options?.includeEvaluationResources) {
-      const evaluationResourceSet = getAwsRuleEvaluationResourceSet(rule, ruleContext.resources);
-      if (excludedRegions.size > 0) evaluationResourceSet.id += `:excluding:${[...excludedRegions].sort().join(',')}`;
-      if (!evaluationResourceSets.has(evaluationResourceSet.id)) {
-        evaluationResourceSets.set(evaluationResourceSet.id, evaluationResourceSet);
+    if (includeEvaluations) {
+      const evaluationResourceSet = includeEvaluationResources
+        ? getAwsRuleEvaluationResourceSet(rule, ruleContext.resources)
+        : undefined;
+      if (evaluationResourceSet) {
+        if (excludedRegions.size > 0) evaluationResourceSet.id += `:excluding:${[...excludedRegions].sort().join(',')}`;
+        if (!evaluationResourceSets.has(evaluationResourceSet.id)) {
+          evaluationResourceSets.set(evaluationResourceSet.id, evaluationResourceSet);
+        }
       }
       evaluationRules.push({
         ...toRuleEvaluationMetadata(rule),
         ...(coverage ? { coverage } : {}),
         ...(coverageReason ? { reason: coverageReason } : {}),
         findingCount: finding?.findings.length ?? 0,
-        resourceSetId: evaluationResourceSet.id,
+        ...(evaluationResourceSet ? { resourceSetId: evaluationResourceSet.id } : {}),
         ruleId: rule.id,
         source: 'discovery',
         status: finding ? 'triggered' : coverageReason ? 'unknown' : 'passed',
@@ -193,9 +247,8 @@ export const runLiveScan = async (
   const findings = groupFindingsByProvider(consolidatedRules);
 
   return {
-    ...(getAwsEvidenceProvenance() ? { evidence: getAwsEvidenceProvenance() } : {}),
     ...(scanDiagnostics.length > 0 ? { diagnostics: scanDiagnostics } : {}),
-    ...(options?.includeEvaluationResources
+    ...(includeEvaluations
       ? { evaluations: { resourceSets: [...evaluationResourceSets.values()], rules: evaluationRules } }
       : {}),
     providers: findings,

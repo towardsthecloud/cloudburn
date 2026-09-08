@@ -28,7 +28,7 @@ The [package README](README.md) owns public SDK usage and AWS permissions; the
   enrichment or rule-specific resource parsing to interpret a discovery result.
 - SDK owns `.cloudburn.yml` / `.cloudburn.yaml` loading, upward config discovery, mode-specific config validation, and rule registry filtering for `iac` and `discovery`.
 - Static IaC scanning is dataset-driven. Parse only the source kinds required by active `staticDependencies`, then load the requested datasets into `StaticResourceBag`.
-- Live AWS discovery is Resource Explorer first and dataset-driven. Build one catalog, then load only the datasets required by active rules.
+- Live AWS discovery is Resource Explorer first and dataset-driven. Prepare one catalog alongside independent account collection; load required datasets only after their declared catalog inputs are complete.
 - Rules declare dataset keys through `staticDependencies`, `discoveryDependencies`, and optional supporting evidence in
   `optionalDiscoveryDependencies`. SDK owns dataset-to-resource-type mapping and dataset loader wiring.
 - Keep mode and service filtering in registry selection so excluded rules cannot trigger dataset loading.

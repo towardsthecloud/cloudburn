@@ -57,7 +57,7 @@ without rerunning the scan. SDK policy evaluation reports state; it does not cha
 
 ### Live discovery
 
-Use `initializeDiscovery()` first to set up AWS Resource Explorer. CloudBurn uses it as the live service catalog before it runs discovery rules.
+Use `initializeDiscovery()` first to set up AWS Resource Explorer. CloudBurn uses it to select catalog-backed resources; independent account collection can run alongside catalog preparation.
 
 ```ts
 import { CloudBurnClient } from '@cloudburn/sdk';
@@ -95,6 +95,38 @@ const result = await client.discover({
 ```
 
 An expired deadline rejects with `TimeoutError`; cancellation rejects with the signal's reason. Both stop work owned exclusively by that caller without returning partial results. A shared evidence refresh continues while another caller still needs it. Cancellation during initialization stops further setup work; mutations already accepted by AWS remain in place and a later initialization observes that state. AWS clients and lookup caches belong to their managed execution and are released when it ends.
+
+#### Discovery progress
+
+Pass `onProgress` to receive catalog, dataset, and provisional rule events while discovery runs:
+
+```typescript
+const startedAt = performance.now();
+let firstResultMs: number | undefined;
+const result = await client.discover({
+  onProgress(event) {
+    if (event.kind !== 'rule') return;
+    firstResultMs ??= performance.now() - startedAt;
+    console.error(`${event.ruleId}: ${event.status}, ${event.findingCount} findings (provisional)`);
+  },
+});
+console.error({ firstResultMs, totalMs: performance.now() - startedAt });
+```
+
+A rule event includes normalized `findings`, `status`, an optional `reason`, completion counts, and `elapsedMs` since
+rule selection. Events arrive in completion order. Every rule event has `provisional: true`: another rule may supersede
+its findings, or a later catalog failure may invalidate its scope. Replace progress state with the resolved `ScanResult`;
+never persist provisional events as final scan results. Cancellation rejects even when events were already delivered.
+
+Required evidence and any optional evidence selected by the scan must finish before a rule event. Optional dependencies
+alone do not trigger extra collection. Empty catalog pages with continuation tokens never release a rule. A resource
+type becomes ready only after all its selected-region queries finish pagination; a shared packed query releases its
+types together. Cached types can become ready while unrelated cache misses are still loading.
+
+Debug logging reports `sdk: live scan timing` with `firstRuleMs` and `totalMs`, measured from rule selection.
+`firstRuleMs` is `null` when no provisional evaluation was requested or emitted. The example above measures the entire
+public call, including setup, so its values can differ. See the [progress reference](../../docs/reference/finding-shape.md#awsdiscoveryprogressevent)
+for the event fields and compatibility notes.
 
 #### Reusable evidence
 

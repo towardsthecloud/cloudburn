@@ -358,6 +358,45 @@ describe('discover command', () => {
     expect(process.exitCode).toBe(0);
   });
 
+  it('reports provisional rule results on stderr before writing one final JSON result', async () => {
+    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    let progressBeforeCompletion = '';
+    let stdoutCallsBeforeCompletion = 0;
+    vi.spyOn(CloudBurnClient.prototype, 'discover').mockImplementation(
+      async (options?: { onProgress?: (event: unknown) => void }) => {
+        options?.onProgress?.({
+          kind: 'rule',
+          ruleId: 'CLDBRN-AWS-EBS-1',
+          provisional: true,
+          status: 'triggered',
+          findingCount: 1,
+          findings: [{ resourceId: 'vol-123', region: 'us-east-1' }],
+          completedRules: 1,
+          totalRules: 2,
+          elapsedMs: 40,
+        });
+
+        progressBeforeCompletion = stderr.mock.calls.map(([chunk]) => String(chunk)).join('');
+        stdoutCallsBeforeCompletion = stdout.mock.calls.length;
+
+        return liveScanResult;
+      },
+    );
+
+    await withStderrTty(true, async () => {
+      await createProgram().parseAsync(['discover', '--format', 'json', '--exit-code'], { from: 'user' });
+    });
+
+    expect(progressBeforeCompletion).toContain(
+      'discover: rules 1/2 (CLDBRN-AWS-EBS-1: triggered, findings: 1, provisional)',
+    );
+    expect(stdoutCallsBeforeCompletion).toBe(0);
+    expect(stdout).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(String(stdout.mock.calls[0]?.[0]))).toEqual(liveScanResult);
+    expect(process.exitCode).toBe(1);
+  });
+
   it('keeps stderr quiet when discover output is not attached to a terminal', async () => {
     const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     vi.spyOn(process.stdout, 'write').mockImplementation(() => true);

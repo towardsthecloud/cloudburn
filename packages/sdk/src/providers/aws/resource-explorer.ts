@@ -881,6 +881,7 @@ const listResourceExplorerResources = async (options: {
   queryLabel?: string;
   searchRegion: string;
   viewArn: string;
+  onQueryComplete?: (queryIndex: number, resources: AwsDiscoveredResource[], complete: boolean) => void;
 }): Promise<{ resources: AwsDiscoveredResource[]; complete: boolean }> => {
   const client = createResourceExplorerClient({ region: options.searchRegion });
   let complete = true;
@@ -890,6 +891,7 @@ const listResourceExplorerResources = async (options: {
   for (const [queryIndex, filterString] of options.filters.entries()) {
     let nextToken: string | undefined;
     let page = 1;
+    let queryComplete = true;
 
     do {
       emitDebugLog(
@@ -928,18 +930,60 @@ const listResourceExplorerResources = async (options: {
           resourcesByArn.set(normalized.arn, normalized);
         } else {
           complete = false;
+          queryComplete = false;
         }
       }
 
       nextToken = response.NextToken;
       page += 1;
     } while (nextToken);
+    throwIfAwsExecutionAborted();
+    options.onQueryComplete?.(queryIndex, [...resourcesByArn.values()], queryComplete);
   }
 
   return { resources: [...resourcesByArn.values()].sort((left, right) => left.arn.localeCompare(right.arn)), complete };
 };
 
 type CatalogMissResult = { value: AwsDiscoveredResource[]; complete: boolean };
+
+// A type is ready only when every plan covering its selected regions has drained.
+// Packed filters remain intact, including when one type spans several plans.
+const listCatalogResourceTypes = (options: {
+  searchPlan: SearchPlan;
+  resourceTypes: string[];
+  viewArn: string;
+  debugLogger?: (message: string) => void;
+  onResourceTypeReady: (resourceType: string, result: CatalogMissResult) => void;
+}): Promise<{ resources: AwsDiscoveredResource[]; complete: boolean }> => {
+  const plans = planListResourcesQueries(options.resourceTypes, options.searchPlan.regionFilters);
+  const remaining = new Map<string, number>();
+  const completeness = new Map<string, boolean>();
+  for (const plan of plans) {
+    for (const type of plan.resourceTypes) remaining.set(type, (remaining.get(type) ?? 0) + 1);
+  }
+  return listResourceExplorerResources({
+    debugLogger: options.debugLogger,
+    filters: plans.map((plan) => buildFilterString(plan.resourceTypes, plan.regionFilters)),
+    searchRegion: options.searchPlan.searchRegion,
+    viewArn: options.viewArn,
+    onQueryComplete: (index, resources, complete) => {
+      for (const type of plans[index]?.resourceTypes ?? []) {
+        const count = (remaining.get(type) ?? 1) - 1;
+        remaining.set(type, count);
+        completeness.set(type, (completeness.get(type) ?? true) && complete);
+        if (count === 0) {
+          options.onResourceTypeReady(type, {
+            value: resources
+              .filter((resource) => resource.resourceType === type)
+              .sort((left, right) => left.arn.localeCompare(right.arn)),
+            complete: completeness.get(type) ?? false,
+          });
+        }
+      }
+    },
+  });
+};
+
 type CatalogMiss = {
   resourceType: string;
   settled: boolean;
@@ -974,27 +1018,23 @@ const createCatalogMissBatcher = (options: {
       // The batch owns its clients and lifetime. In particular, cancellation of
       // the first type's detached cache loader cannot end another type's work.
       // Pinned credentials and the stable account request budget remain inherited.
-      const listed = await runOutsideAwsExecution(() =>
+      await runOutsideAwsExecution(() =>
         withAwsDiscoveryExecution(
           { signal: controller.signal, observationTimestamp, debugLogger: options.debugLogger },
           () =>
-            listResourceExplorerResources({
+            listCatalogResourceTypes({
               debugLogger: options.debugLogger,
-              filters: planListResourcesQueries(
-                batch.map((request) => request.resourceType),
-                options.searchPlan.regionFilters,
-              ).map((plan) => buildFilterString(plan.resourceTypes, plan.regionFilters)),
-              searchRegion: options.searchPlan.searchRegion,
+              resourceTypes: batch.map((request) => request.resourceType),
+              searchPlan: options.searchPlan,
               viewArn: options.viewArn,
+              onResourceTypeReady: (resourceType, result) => {
+                for (const request of batch) {
+                  if (request.resourceType === resourceType) request.finish(result);
+                }
+              },
             }),
         ),
       );
-      for (const request of batch) {
-        request.finish({
-          value: listed.resources.filter((resource) => resource.resourceType === request.resourceType),
-          complete: listed.complete,
-        });
-      }
     } catch (error) {
       for (const request of batch) request.finish(error as Error, true);
     }
@@ -1038,12 +1078,16 @@ const createCatalogMissBatcher = (options: {
  *
  * @param target - Discovery target that controls region or aggregator behavior.
  * @param resourceTypes - Resource Explorer resource types required by active rules.
+ * @param options - Logging and notification when a type's complete selected catalog scope is available.
  * @returns Catalog of discovered AWS resources plus search metadata.
  */
 export const buildAwsDiscoveryCatalog = async (
   target: AwsDiscoveryTarget,
   resourceTypes: string[],
-  options?: { debugLogger?: (message: string) => void },
+  options?: {
+    debugLogger?: (message: string) => void;
+    onResourceTypeReady?: (resourceType: string, catalog: AwsDiscoveryCatalog) => void;
+  },
 ): Promise<AwsDiscoveryCatalog> => {
   const searchPlan = await resolveCachedSearchPlan(target);
   emitDebugLog(
@@ -1053,6 +1097,15 @@ export const buildAwsDiscoveryCatalog = async (
     }`,
   );
   const viewArn = await resolveSearchViewArn(searchPlan.searchRegion);
+  const onResourceTypeReady = (resourceType: string, resources: AwsDiscoveredResource[]): void => {
+    throwIfAwsExecutionAborted();
+    options?.onResourceTypeReady?.(resourceType, {
+      resources,
+      searchRegion: searchPlan.searchRegion,
+      indexType: searchPlan.indexType,
+      viewArn,
+    });
+  };
   const queryPlans = planListResourcesQueries(resourceTypes, searchPlan.regionFilters);
   emitDebugLog(
     options?.debugLogger,
@@ -1076,6 +1129,7 @@ export const buildAwsDiscoveryCatalog = async (
           load: () => loadMissingType(resourceType),
           validate: isResourceList,
         });
+        onResourceTypeReady(resourceType, result.value);
         return result.value;
       }),
     );
@@ -1084,11 +1138,12 @@ export const buildAwsDiscoveryCatalog = async (
     );
   } else {
     resources = (
-      await listResourceExplorerResources({
+      await listCatalogResourceTypes({
         debugLogger: options?.debugLogger,
-        filters: queryPlans.map((queryPlan) => buildFilterString(queryPlan.resourceTypes, queryPlan.regionFilters)),
-        searchRegion: searchPlan.searchRegion,
+        resourceTypes,
+        searchPlan,
         viewArn,
+        onResourceTypeReady: (resourceType, result) => onResourceTypeReady(resourceType, result.value),
       })
     ).resources;
   }
