@@ -2,6 +2,7 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import { randomUUID } from 'node:crypto';
 import type { SdkError } from '@aws-sdk/types';
 import { isTransientError } from '@smithy/service-error-classification';
+import { withAwsClientCredentials } from './client.js';
 import { AwsDiscoveryError, isAwsThrottlingError, wrapAwsServiceError } from './errors.js';
 import {
   awaitAwsExecution,
@@ -60,6 +61,7 @@ export type AwsRequestAttemptTelemetry = {
   attribution: { scanId: string; dataset?: string; collector: string };
   attempt: number;
   retryCount: number;
+  preparationCount?: number;
   startedAtMs: number;
   queueDurationMs: number;
   transportDurationMs: number;
@@ -162,12 +164,24 @@ const quotaKey = (scope: AwsQuotaScope): string =>
 
 type AttemptOutcome = 'success' | 'retryable' | 'error' | 'cancelled';
 type DatapointQuota = ReturnType<typeof resolveAwsMetricDataQuota>;
-type Admission = {
-  dispatch: (datapoints?: DatapointQuota) => Promise<void>;
-  finish: (outcome: AttemptOutcome, settled?: Promise<void>) => Promise<void>;
+const MAX_SIGNED_WAIT_MS = 240_000;
+class RequestPreparationExpiredError extends Error {}
+
+const checkPreparationDeadline = (deadline: number): void => {
+  if (Date.now() >= deadline) throw new RequestPreparationExpiredError('AWS request needs a fresh signature.');
 };
 
-type CompletedLease = { readonly id: string; readonly outcome: AttemptOutcome; readonly expiresAt: number };
+type Admission = {
+  dispatch: (datapoints: DatapointQuota | undefined, preparationDeadline: number) => Promise<void>;
+  finish: (outcome: AttemptOutcome, settled: Promise<void> | undefined, dispatched: boolean) => Promise<void>;
+};
+
+type CompletedLease = {
+  readonly id: string;
+  readonly outcome: AttemptOutcome;
+  readonly expiresAt: number;
+  readonly refundRetry: boolean;
+};
 type CompletionQueue = Map<string, CompletedLease>;
 const completionQueues = new WeakMap<AwsRequestStore, Map<string, CompletionQueue>>();
 
@@ -175,11 +189,12 @@ const releaseCompletedLeases = (serialized: string | undefined, completed: Compl
   if (!serialized) throw new Error('AWS admission state is missing during cleanup.');
   const state: QuotaState = JSON.parse(serialized);
   const now = Date.now();
-  for (const { id, outcome } of completed) {
+  for (const { id, outcome, refundRetry } of completed) {
     const lease = state.active[id];
     if (!lease) continue;
     delete state.active[id];
     state.lastUsedAt = now;
+    if (refundRetry) state.retryRemaining = Math.min(state.policy.retryCapacity, state.retryRemaining + 1);
     if (outcome === 'retryable') {
       state.generation += 1;
       state.penalty = Math.min(5, state.penalty + 1);
@@ -455,13 +470,15 @@ const acquire = async (
     releaseTurn();
   }
   return {
-    dispatch: async (points) => {
+    dispatch: async (points, preparationDeadline) => {
       for (;;) {
         throwIfAwsExecutionAborted();
+        checkPreparationDeadline(preparationDeadline);
         const delay = await budget.store.update(
           key,
           (serialized) => {
             const now = Date.now();
+            checkPreparationDeadline(preparationDeadline);
             const state: QuotaState = JSON.parse(serialized as string);
             const owner = state.active[id];
             if (!owner || owner.expiresAt <= now)
@@ -493,13 +510,21 @@ const acquire = async (
           getAwsExecutionSignal(),
         );
         if (delay <= 0) return;
-        await waitForAdmission(delay, budget.deadline);
+        await waitForAdmission(delay, Math.min(budget.deadline, preparationDeadline));
       }
     },
-    finish: (outcome, settled = Promise.resolve()) =>
+    finish: (outcome, settled = Promise.resolve(), dispatched) =>
       budgetContext.exit(() =>
-        runOutsideAwsExecution(() =>
-          finishAdmission(budget.store, key, { id, outcome, expiresAt: budget.deadline }, settled),
+        // Cleanup can outlive the caller's explicit credential scope.
+        withAwsClientCredentials(undefined, () =>
+          runOutsideAwsExecution(() =>
+            finishAdmission(
+              budget.store,
+              key,
+              { id, outcome, expiresAt: budget.deadline, refundRetry: retry && !dispatched },
+              settled,
+            ),
+          ),
         ),
       ),
   };
@@ -555,6 +580,7 @@ export const runAwsRequest = async <T>(
     throw new RangeError('AWS maxAttempts must be a positive integer and initialDelayMs a finite nonnegative number.');
   }
   let lastError: unknown;
+  let hasDispatched = false;
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     const event: AwsRequestAttemptTelemetry = {
       operation,
@@ -579,7 +605,7 @@ export const runAwsRequest = async <T>(
     let settled: Promise<void> | undefined;
     try {
       throwIfAwsExecutionAborted();
-      admission = budget && quota ? await acquire(budget, quota.scope, quota.policy, attempt > 1) : undefined;
+      admission = budget && quota ? await acquire(budget, quota.scope, quota.policy, hasDispatched) : undefined;
       event.queueDurationMs = Date.now() - event.startedAtMs;
       if (admission === null) {
         event.outcome = 'retry_exhausted';
@@ -589,37 +615,55 @@ export const runAwsRequest = async <T>(
       throwIfAwsExecutionAborted();
       transportStartedAt = Date.now();
       event.dispatched = true;
-      const work = runAwsServiceAttempt(execute, {
-        beforeRequest: async (input) => {
-          managed = true;
-          event.dispatched = false;
-          transportStartedAt = undefined;
-          if (!budget || !quota || quota.scope.service !== 'cloudwatch' || operation !== 'GetMetricData') return;
-          datapoints = resolveAwsMetricDataQuota(input, region, quota.scope.accountId, Date.now(), budget.overrides);
-          event.datapoints = { quota: datapoints.scope, cost: datapoints.cost };
-        },
-        beforeTransport: async () => {
-          await admission?.dispatch(datapoints);
-        },
-        onDispatch: () => {
-          event.dispatched = true;
-          transportStartedAt = Date.now();
-        },
-        onTransport: ({ durationMs, statusCode }) => {
-          measuredTransport = true;
-          event.transportDurationMs += durationMs;
-          event.statusCode = statusCode;
-        },
-      });
-      settled = work.then(
-        () => undefined,
-        () => undefined,
-      );
-      const result = await awaitAwsExecution(work);
-      outcome = 'success';
-      event.outcome = 'success';
-      event.statusCode ??= statusCodeOf(result);
-      return result;
+      for (;;) {
+        throwIfAwsExecutionAborted();
+        if (budget && Date.now() >= budget.deadline) throw admissionExpired();
+        try {
+          const work = runAwsServiceAttempt(execute, {
+            beforeRequest: async (input) => {
+              managed = true;
+              event.preparationCount = (event.preparationCount ?? 0) + 1;
+              event.dispatched = false;
+              transportStartedAt = undefined;
+              if (!budget || !quota || quota.scope.service !== 'cloudwatch' || operation !== 'GetMetricData') return;
+              datapoints = resolveAwsMetricDataQuota(
+                input,
+                region,
+                quota.scope.accountId,
+                Date.now(),
+                budget.overrides,
+              );
+              event.datapoints = { quota: datapoints.scope, cost: datapoints.cost };
+            },
+            beforeTransport: async () => {
+              const preparationDeadline = Date.now() + MAX_SIGNED_WAIT_MS;
+              await admission?.dispatch(datapoints, preparationDeadline);
+              checkPreparationDeadline(preparationDeadline);
+            },
+            onDispatch: () => {
+              event.dispatched = true;
+              transportStartedAt = Date.now();
+            },
+            onTransport: ({ durationMs, statusCode }) => {
+              measuredTransport = true;
+              event.transportDurationMs += durationMs;
+              event.statusCode = statusCode;
+            },
+          });
+          settled = work.then(
+            () => undefined,
+            () => undefined,
+          );
+          const result = await awaitAwsExecution(work);
+          outcome = event.dispatched ? 'success' : 'error';
+          event.outcome = 'success';
+          event.statusCode ??= statusCodeOf(result);
+          return result;
+        } catch (error) {
+          if (!(error instanceof RequestPreparationExpiredError)) throw error;
+          // Re-sign without another reservation or retry: no HTTP request was sent.
+        }
+      }
     } catch (error) {
       throwIfAwsExecutionAborted();
       if (budget && Date.now() >= budget.deadline) throw error;
@@ -633,7 +677,7 @@ export const runAwsRequest = async <T>(
         event.retryOutcome = 'not_retryable';
         throw error;
       }
-      if (retryable) outcome = 'retryable';
+      if (retryable && event.dispatched) outcome = 'retryable';
       if (attempt >= maxAttempts || !retryable) {
         event.retryOutcome = retryable ? 'exhausted' : 'not_retryable';
         throw wrapAwsServiceError(error, service, operation, region);
@@ -642,13 +686,14 @@ export const runAwsRequest = async <T>(
       event.retryOutcome = 'scheduled';
       delayMs = Math.min(30_000, Math.round(initialDelayMs * 2 ** (attempt - 1) * (1 + Math.random())));
     } finally {
+      hasDispatched ||= event.dispatched;
       if (managed || transportStartedAt === undefined)
         event.queueDurationMs = (transportStartedAt ?? Date.now()) - event.startedAtMs;
       if (!measuredTransport && transportStartedAt !== undefined)
         event.transportDurationMs = Date.now() - transportStartedAt;
       if (admission) {
         try {
-          await admission.finish(outcome, settled);
+          await admission.finish(outcome, settled, event.dispatched);
           event.cleanupOutcome = 'released';
         } catch {
           // Preserve the AWS result while completed-lease cleanup retries independently.

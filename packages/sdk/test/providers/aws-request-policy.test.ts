@@ -111,6 +111,35 @@ it('applies overrides by canonical quota group without changing unrelated polici
   ).toBe(10);
 });
 
+it.each([
+  ['EC2', 'DescribeInstances', 'ec2:DescribeInstances', 5, 5],
+  ['Route53', 'ListHostedZones', 'route53:all-requests', 2, 2],
+  ['S3', 'GetBucketLifecycleConfiguration', 's3:GetBucketLifecycleConfiguration', 3, 3],
+  ['S3', 'ListBucketIntelligentTieringConfigurations', 's3:ListBucketIntelligentTieringConfigurations', 0.25, 1],
+  ['Uncataloged Service', 'ReadResource', 'uncataloged-service:ReadResource', 0.5, 1],
+  ['EC2', 'DescribeInstances', 'ec2:DescribeInstances', 20, 10],
+] as const)('keeps the inherited burst valid for a rate-only override of %s %s', (service, operation, key, ratePerSecond, burst) => {
+  expect(
+    resolveAwsRequestQuota(service, operation, 'eu-west-1', ACCOUNT_ID, {
+      overrides: { [key]: { ratePerSecond } },
+    }).policy,
+  ).toEqual({ ratePerSecond, burst, concurrency: 10, retryCapacity: 20 });
+});
+
+it.each([
+  { ratePerSecond: 5, burst: 6 },
+  { ratePerSecond: 0.5, burst: 2 },
+  { ratePerSecond: 5, burst: 0.5 },
+  { ratePerSecond: 5, burst: Number.NaN },
+  { ratePerSecond: 5, burst: Number.POSITIVE_INFINITY },
+])('rejects an explicitly invalid burst instead of clamping it: %j', (policy) => {
+  expect(() =>
+    resolveAwsRequestQuota('EC2', 'DescribeInstances', 'eu-west-1', ACCOUNT_ID, {
+      overrides: { 'ec2:DescribeInstances': policy },
+    }),
+  ).toThrow(RangeError);
+});
+
 it('returns only admission fields from externally supplied overrides', () => {
   const overrides = {
     'logs:DescribeLogStreams': { ratePerSecond: 2, accessKeyId: 'never-copy-override-content' },

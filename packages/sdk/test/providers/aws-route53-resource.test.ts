@@ -12,7 +12,8 @@ import {
 } from '../../src/providers/aws/resources/route53.js';
 import { withAwsServiceCallBudget } from '../../src/providers/aws/resources/utils.js';
 
-vi.mock('../../src/providers/aws/client.js', () => ({
+vi.mock('../../src/providers/aws/client.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/providers/aws/client.js')>()),
   createRoute53Client: vi.fn(),
   resolveAwsAccountId: vi.fn(),
 }));
@@ -189,6 +190,7 @@ describe('Route 53 discovery resources', () => {
       },
     ];
 
+    const onAttempt = vi.fn();
     const discovery = withAwsServiceCallBudget(
       async () =>
         Promise.all([
@@ -196,7 +198,7 @@ describe('Route 53 discovery resources', () => {
           hydrateAwsRoute53Records(zoneResources),
           hydrateAwsRoute53HealthChecks(healthCheckResources),
         ]),
-      { accountId: 'route53-resource-test-account' },
+      { accountId: 'route53-resource-test-account', onAttempt },
     );
 
     await vi.advanceTimersByTimeAsync(0);
@@ -208,6 +210,7 @@ describe('Route 53 discovery resources', () => {
     await vi.advanceTimersByTimeAsync(1);
     await vi.runAllTimersAsync();
     await discovery;
+    expect(onAttempt.mock.calls.every(([event]) => event.cleanupOutcome === 'released')).toBe(true);
 
     for (const windowStart of requestStarts) {
       const callsInRollingSecond = requestStarts.filter(

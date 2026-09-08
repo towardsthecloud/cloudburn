@@ -142,7 +142,10 @@ const applyOverrides = (key: string, policy: AwsQuotaPolicy, overrides?: AwsQuot
   const merged = { ...policy, ...override };
   const result = {
     ratePerSecond: merged.ratePerSecond,
-    burst: merged.burst,
+    burst:
+      override && Object.hasOwn(override, 'burst')
+        ? merged.burst
+        : Math.min(policy.burst, Math.max(1, merged.ratePerSecond)),
     concurrency: merged.concurrency,
     retryCapacity: merged.retryCapacity,
   };

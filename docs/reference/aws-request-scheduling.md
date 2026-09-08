@@ -23,6 +23,12 @@ CloudWatch datapoints where applicable immediately before physical transport, af
 retries use the same limits. Cancellation removes pending waits and prevents queued attempts from dispatching. Active
 requests receive the discovery cancellation signal, and completed work releases its concurrency reservation.
 
+Final admission waits at most 4 minutes with a prepared signature, leaving a margin within the usual
+[5-minute AWS signing window](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_sigv.html). Longer waits
+restart SDK preparation to obtain a fresh signature while retaining the same concurrency reservation. This refresh
+does not send an HTTP request, spend retry allowance, or advance the physical attempt count. The discovery deadline
+and cancellation signal continue to bound preparation and admission.
+
 Admission enforces both a token bucket and a rolling window. The window spans 1 second for rates of at least 1/s;
 lower rates allow at most 1 start in `1 / ratePerSecond` seconds.
 
@@ -67,7 +73,9 @@ export CLOUDBURN_AWS_QUOTA_OVERRIDES='{"logs:DescribeLogStreams":{"ratePerSecond
 | `concurrency`   | Positive safe integer                                  | Maximum concurrent reservations for the quota.                                 |
 | `retryCapacity` | Nonnegative safe integer                               | Shared allowance for additional attempts. `0` disables retries for that quota. |
 
-Unspecified fields retain their defaults. Overlapping processes with different policies use the strictest value of
+Unspecified fields retain their defaults, except an inherited burst is capped at `max(1, ratePerSecond)` when the rate
+is lowered. For example, setting only an EC2 read rate to 5/s also lowers its default burst from 10 to 5. Explicit burst
+values must satisfy the validation above. Overlapping processes with different policies use the strictest value of
 each field. A healthy quota can adopt a less restrictive policy after 60 seconds without active reservations. Changing
 the directory starts a separate coordinator, so all participating processes must use the same path. Keep shared state
 in place while scans are active. The idle reset also applies to CloudWatch datapoint policies.
@@ -137,6 +145,11 @@ The wrapper owns retries and permits at most 6 physical attempts by default. Eac
 so SDK retries cannot multiply that limit. A retry must reacquire admission and consumes 1 unit from the shared allowance.
 Exhausting the allowance stops retries while allowing newly admitted initial requests to probe for recovery.
 
+Retryable failures before physical dispatch, including credential timeouts, retain bounded per-call retries without
+publishing shared failure feedback. A retry reservation is required only after the call has dispatched a request;
+cleanup returns that unit if preparation fails before its next dispatch. Preparations that do not reach transport
+also do not count as successful recovery probes.
+
 Throttling and retryable transient failures halve the affected quota's effective refill rate, down to 1/32
 of the configured rate. They also apply a shared cooldown starting at 500 ms and doubling to 8 seconds. Individual retries
 retain exponential backoff with jitter. Successful attempts replenish 1 retry unit. A success admitted after the latest
@@ -175,7 +188,7 @@ retries release and failure feedback until storage becomes writable or the origi
 These retries can restore capacity for another process while the owner remains alive and idle. Each retry has at most
 1 second to acquire storage, followed by at most 100 ms before another attempt. Cleanup timers are unreferenced, so
 they do not keep the process alive, and clear when the queue drains or expires. The queue retains only the store,
-quota key, reservation ID, outcome, and deadline, outside discovery caches and credential-resolution contexts.
+quota key, reservation ID, outcome, retry-refund flag, and deadline, outside discovery caches and credential-resolution contexts.
 
 Stop all participating CloudBurn processes before repairing corrupted state or removing admission files, and check
 directory permissions and disk space before retrying.
@@ -189,15 +202,16 @@ the local store does not provide that guarantee.
 
 Debug logging emits `aws: attempt` followed by one JSON object for each admission or physical attempt.
 
-| Fields                                                               | Meaning                                                                                               |
-| -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `operation`, `quota`                                                 | Operation and canonical quota scope; `quota` is `null` outside a request budget.                      |
-| `attempt`, `retryCount`, `startedAtMs`                               | Attempt number, completed retry count, and attempt start timestamp.                                   |
-| `queueDurationMs`, `transportDurationMs`, `dispatched`, `statusCode` | Pre-transport wait, measured HTTP duration, dispatch status, and available HTTP status.               |
-| `outcome`, `retryOutcome`                                            | Success, failure, throttle, cancellation, or exhaustion and the retry decision.                       |
-| `attribution`                                                        | Generated `scanId` and collector identity; `dataset` appears only when the budget caller supplies it. |
-| `cleanupOutcome`                                                     | `released` after successful finalization, or `deferred` when storage failed or cleanup timed out.     |
-| `datapoints`                                                         | Optional CloudWatch datapoint scope and charged cost.                                                 |
+| Fields                                                               | Meaning                                                                                                           |
+| -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `operation`, `quota`                                                 | Operation and canonical quota scope; `quota` is `null` outside a request budget.                                  |
+| `attempt`, `retryCount`, `startedAtMs`                               | Attempt number, completed retry count, and attempt start timestamp.                                               |
+| `preparationCount`                                                   | SDK preparations for this attempt, including signature refreshes before dispatch; absent for unmanaged callbacks. |
+| `queueDurationMs`, `transportDurationMs`, `dispatched`, `statusCode` | Pre-transport wait, measured HTTP duration, dispatch status, and available HTTP status.                           |
+| `outcome`, `retryOutcome`                                            | Success, failure, throttle, cancellation, or exhaustion and the retry decision.                                   |
+| `attribution`                                                        | Generated `scanId` and collector identity; `dataset` appears only when the budget caller supplies it.             |
+| `cleanupOutcome`                                                     | `released` after successful finalization, or `deferred` when storage failed or cleanup timed out.                 |
+| `datapoints`                                                         | Optional CloudWatch datapoint scope and charged cost.                                                             |
 
 Discovery orchestration does not currently add dataset attribution. Telemetry excludes request bodies, headers,
 credentials, and raw error payloads. Queue duration includes admission, credential preparation, and signing. Cancellation
