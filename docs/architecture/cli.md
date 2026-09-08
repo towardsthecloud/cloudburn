@@ -20,7 +20,7 @@ graph TD
 
   Root -.- RootFlags["--debug\n--format json|table"]
   Scan -.- ScanFlags["--config path\n--enabled-rules ids\n--disabled-rules ids\n--exit-code\n--fail-on severity"]
-  Discover -.- DiscoverFlags["--region region\n--config path\n--enabled-rules ids\n--disabled-rules ids\n--exit-code\n--fail-on severity"]
+  Discover -.- DiscoverFlags["--region region\n--cache normal|refresh|off\n--cache-dir path\n--cache-context id\n--config path\n--enabled-rules ids\n--disabled-rules ids\n--exit-code\n--fail-on severity"]
   Estimate -.- EstimateFlags["--server url"]
 ```
 
@@ -47,7 +47,9 @@ All stdout-producing commands return a typed `CliResponse` and share the same fo
 
 - `scan [path]` is static IaC only. It accepts a Terraform file, CloudFormation template, or directory and calls `CloudBurnClient.scanStatic(path, config?, { configPath? })`.
 - `scan` accepts `--config`, `--enabled-rules`, `--disabled-rules`, and `--service` as one-off overrides on top of the config file defaults.
-- `discover` runs live AWS discovery and rule evaluation through `CloudBurnClient.discover({ target, config?, configPath? })`.
+- `discover` runs live AWS discovery and rule evaluation through `CloudBurnClient.discover({ target, cache, config?, configPath? })`.
+- `discover` enables per-user evidence persistence by default and accepts `--cache normal|refresh|off`, `--cache-dir`, and `--cache-context`; the SDK owns safe scope resolution, freshness, and storage. See the [cache options](../reference/commands.md#discovery-evidence-cache).
+- Discovery table output summarizes evidence source, completeness, and the oldest observation. JSON preserves the SDK's full evidence provenance.
 - `discover` accepts `--config`, `--enabled-rules`, `--disabled-rules`, and `--service` for one-off overrides of discovery config.
 - `discover --region <region>` overrides the current AWS region resolved from `AWS_REGION`, `AWS_DEFAULT_REGION`, `aws_region`, then the AWS SDK region provider chain.
 - The CLI targets one explicit AWS region per discover run.
@@ -85,6 +87,7 @@ cloudburn scan ./iac --service ec2,s3
 cloudburn scan ./iac --fail-on high
 cloudburn discover
 cloudburn discover --region eu-central-1
+cloudburn discover --cache refresh
 cloudburn discover --config .cloudburn.yml --disabled-rules CLDBRN-AWS-S3-1
 cloudburn discover --service ec2,s3
 cloudburn discover --fail-on medium

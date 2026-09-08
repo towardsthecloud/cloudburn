@@ -117,6 +117,25 @@ The discovery config equivalent is `discovery.fail-on`.
 
 Discovery has a five-minute deadline. Use `--timeout <seconds>` to change it, for example `cloudburn discover --timeout 600`. If the deadline expires, the command exits with code 2 and reports the timeout.
 
+Discovery reuses fresh, complete evidence from a per-user cache at `$XDG_CACHE_HOME/cloudburn/evidence`, or
+`~/.cache/cloudburn/evidence` when `XDG_CACHE_HOME` is unset. Rules and configuration are evaluated on every run.
+
+```bash
+cloudburn discover --cache refresh
+cloudburn discover --cache off
+cloudburn discover --cache-dir /path/to/evidence --cache-context policy-revision-2
+```
+
+`--cache refresh` collects current evidence and never silently falls back when collection fails. `--cache off` bypasses
+persistent reads and writes. Customer evidence reuse requires a safe temporary AWS credential session scope or an
+explicit `--cache-context` identifying the effective authorization and session-policy revision. An account ID or role
+ARN alone is insufficient. Change the context when permissions change. Public pricing is cached independently of
+customer evidence, and credentials are never stored.
+
+Table output includes a freshness summary; `--format json` includes full evidence provenance and coverage. TTLs are
+tunable starting policies rather than measured optimal defaults. See the [cache options](../../docs/reference/commands.md#discovery-evidence-cache)
+and [SDK README](../sdk/README.md) for modes, defaults, and freshness tradeoffs.
+
 The CLI targets one region per run. Multi-region discovery remains available through the SDK and still needs an AWS Resource Explorer aggregator plus an unfiltered default view in the aggregator region.
 `CLDBRN-AWS-TAGGING-1` is opt-in and requires an accessible aggregator; a local-only setup cannot run account-wide tagging discovery.
 `CLDBRN-AWS-LAMBDA-4` is opt-in and requires AWS Compute Optimizer enrollment.

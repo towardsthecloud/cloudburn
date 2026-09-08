@@ -3,6 +3,7 @@ import { toBuiltInRuleMetadata } from '../built-in-rules.js';
 import { emitDebugLog } from '../debug.js';
 import { discoverAwsResources } from '../providers/aws/discovery.js';
 import { getAwsRuleEvaluationResourceSet } from '../providers/aws/discovery-registry.js';
+import { getAwsEvidenceProvenance } from '../providers/aws/evidence.js';
 import type { AwsDiscoveryProgressEvent, AwsDiscoveryTarget, CloudBurnConfig, ScanResult } from '../types.js';
 import { applyFindingPrecedence, type EvaluatedRuleFinding } from './finding-precedence.js';
 import { groupFindingsByProvider } from './group-findings.js';
@@ -192,6 +193,7 @@ export const runLiveScan = async (
   const findings = groupFindingsByProvider(consolidatedRules);
 
   return {
+    ...(getAwsEvidenceProvenance() ? { evidence: getAwsEvidenceProvenance() } : {}),
     ...(scanDiagnostics.length > 0 ? { diagnostics: scanDiagnostics } : {}),
     ...(options?.includeEvaluationResources
       ? { evaluations: { resourceSets: [...evaluationResourceSets.values()], rules: evaluationRules } }

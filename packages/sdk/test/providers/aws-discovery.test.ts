@@ -1414,6 +1414,16 @@ describe('discoverAwsResources', () => {
       resources: [catalog.resources[3]],
       searchRegion: 'us-east-1',
     });
+    mockedHydrateAwsLambdaFunctions.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        architectures: ['x86_64'],
+        functionName: 'my-func',
+        memorySizeMb: 512,
+        region: 'us-east-1',
+        timeoutSeconds: 60,
+      },
+    ]);
     mockedHydrateAwsLambdaFunctionMetrics.mockResolvedValue([
       {
         accountId: '123456789012',
@@ -1438,6 +1448,7 @@ describe('discoverAwsResources', () => {
     expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith({ mode: 'regions', regions: ['us-east-1'] }, [
       'lambda:function',
     ]);
+    expect(mockedHydrateAwsLambdaFunctions).toHaveBeenCalledWith([catalog.resources[3]], loadContextMatcher);
     expect(mockedHydrateAwsLambdaFunctionMetrics).toHaveBeenCalledWith([catalog.resources[3]], loadContextMatcher);
     expect(result.resources.get('aws-lambda-function-metrics')).toEqual([
       {
@@ -2536,6 +2547,15 @@ describe('discoverAwsResources', () => {
       resources: [catalog.resources[5]],
       searchRegion: 'us-east-1',
     });
+    mockedHydrateAwsRdsInstances.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        dbInstanceIdentifier: 'legacy-db',
+        dbInstanceStatus: 'available',
+        instanceClass: 'db.m6i.large',
+        region: 'us-east-1',
+      },
+    ]);
     mockedHydrateAwsRdsInstanceCpuMetrics.mockResolvedValue([
       {
         accountId: '123456789012',
@@ -2558,6 +2578,7 @@ describe('discoverAwsResources', () => {
     expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith({ mode: 'regions', regions: ['us-east-1'] }, [
       'rds:db',
     ]);
+    expect(mockedHydrateAwsRdsInstances).toHaveBeenCalledWith([catalog.resources[5]], loadContextMatcher);
     expect(mockedHydrateAwsRdsInstanceCpuMetrics).toHaveBeenCalledWith([catalog.resources[5]], loadContextMatcher);
     expect(result.resources.get('aws-rds-instance-cpu-metrics')).toEqual([
       {
@@ -2622,6 +2643,15 @@ describe('discoverAwsResources', () => {
       resources: [catalog.resources[1]],
       searchRegion: 'us-east-1',
     });
+    mockedHydrateAwsEc2Instances.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        instanceId: 'i-123',
+        instanceType: 'c6i.large',
+        state: 'running',
+        region: 'us-east-1',
+      },
+    ]);
     mockedHydrateAwsEc2InstanceUtilization.mockResolvedValue([
       {
         accountId: '123456789012',
@@ -2647,6 +2677,7 @@ describe('discoverAwsResources', () => {
     expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith({ mode: 'regions', regions: ['us-east-1'] }, [
       'ec2:instance',
     ]);
+    expect(mockedHydrateAwsEc2Instances).toHaveBeenCalledWith([catalog.resources[1]], loadContextMatcher);
     expect(mockedHydrateAwsEc2InstanceUtilization).toHaveBeenCalledWith([catalog.resources[1]], loadContextMatcher);
     expect(result.resources.get('aws-ec2-instance-utilization')).toEqual([
       {
@@ -2785,6 +2816,15 @@ describe('discoverAwsResources', () => {
       resources: [catalog.resources[5]],
       searchRegion: 'us-east-1',
     });
+    mockedHydrateAwsRdsInstances.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        dbInstanceIdentifier: 'legacy-db',
+        dbInstanceStatus: 'available',
+        instanceClass: 'db.m6i.large',
+        region: 'us-east-1',
+      },
+    ]);
     mockedHydrateAwsRdsInstanceActivity.mockResolvedValue([
       {
         accountId: '123456789012',
@@ -2808,6 +2848,7 @@ describe('discoverAwsResources', () => {
     expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith({ mode: 'regions', regions: ['us-east-1'] }, [
       'rds:db',
     ]);
+    expect(mockedHydrateAwsRdsInstances).toHaveBeenCalledWith([catalog.resources[5]], loadContextMatcher);
     expect(mockedHydrateAwsRdsInstanceActivity).toHaveBeenCalledWith([catalog.resources[5]], loadContextMatcher);
     expect(result.resources.get('aws-rds-instance-activity')).toEqual([
       {
@@ -3172,6 +3213,15 @@ describe('discoverAwsResources', () => {
       resources: [catalog.resources[1]],
       searchRegion: 'us-east-1',
     });
+    mockedHydrateAwsEc2Instances.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        instanceId: 'i-123',
+        instanceType: 'c6i.large',
+        state: 'running',
+        region: 'us-east-1',
+      },
+    ]);
     const accessDeniedCause = Object.assign(new Error('User is not authorized to perform: cloudwatch:GetMetricData'), {
       code: 'AccessDeniedException',
       name: 'AccessDeniedException',
@@ -3199,6 +3249,7 @@ describe('discoverAwsResources', () => {
       { mode: 'regions', regions: ['us-east-1'] },
     );
 
+    expect(mockedHydrateAwsEc2Instances).toHaveBeenCalledWith([catalog.resources[1]], loadContextMatcher);
     expect(result.resources.get('aws-ec2-instance-utilization')).toEqual([]);
     expect(result.diagnostics).toEqual([
       {

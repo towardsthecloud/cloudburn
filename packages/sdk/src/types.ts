@@ -277,10 +277,38 @@ export type ScanEvaluations = {
 /** Result of a scan execution containing provider-grouped lean rule findings. */
 export type ScanResult = {
   diagnostics?: ScanDiagnostic[];
+  /** Collection freshness and resource coverage when evidence cache controls are configured. */
+  evidence?: AwsEvidenceProvenance[];
   evaluations?: ScanEvaluations;
   policy?: ScanPolicyResult;
   providers: ProviderFindingGroup[];
   suppressed?: SuppressedFinding[];
+};
+
+/** Explicit reusable discovery evidence controls. Omit to disable cross-scan reuse. */
+export type AwsEvidenceCacheOptions = {
+  /** Normal reuses fresh evidence; refresh requires collection; off bypasses all reuse and storage. */
+  mode?: 'normal' | 'refresh' | 'off';
+  /** Local private persistence directory. Omit for process memory only. */
+  directory?: string;
+  /** Alternative persistence and atomic coordination supplied by a hosted consumer. */
+  store?: import('./evidence-cache.js').EvidenceCacheStore;
+  /** Effective permission/session-policy revision. Required for reuse with long-term credentials. */
+  authorizationContext?: string;
+  /** Maximum durable entry count (default 1000). */
+  maxEntries?: number;
+  /** Maximum durable serialized bytes (default 128 MiB). */
+  maxBytes?: number;
+  /** Tunable freshness proposals in milliseconds; zero disables reuse for that evidence. */
+  ttlMs?: { catalog?: number; datasets?: Record<string, number>; pricing?: number };
+};
+
+/** Freshness, source, and assessment coverage of one collected evidence artifact. */
+export type AwsEvidenceProvenance = import('./evidence-cache.js').EvidenceCacheProvenance & {
+  datasetKey: string;
+  region?: string;
+  coverage?: LiveEvaluationCoverage;
+  diagnostics?: ScanDiagnostic[];
 };
 
 /** One resource-level IaC match retained for audit after an inline suppression. */

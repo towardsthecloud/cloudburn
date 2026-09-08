@@ -3,13 +3,18 @@ import {
   type TransitGatewayAttachment,
   type TransitGatewayVpcAttachment,
 } from '@aws-sdk/client-ec2';
+import { STSClient } from '@aws-sdk/client-sts';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createEc2Client } from '../../src/providers/aws/client.js';
+import { createMemoryEvidenceCacheStore } from '../../src/evidence-cache.js';
+import { createEc2Client, withAwsClientCredentials } from '../../src/providers/aws/client.js';
+import { withAwsEvidenceCache } from '../../src/providers/aws/evidence.js';
+import { withAwsDiscoveryExecution } from '../../src/providers/aws/execution.js';
 import { fetchCloudWatchSignals } from '../../src/providers/aws/resources/cloudwatch.js';
 import { hydrateAwsEc2TransitGatewayVpcAttachmentActivity } from '../../src/providers/aws/resources/ec2-transit-gateway-vpc-attachments.js';
 import { completeMetricEvidence } from '../helpers/cloudwatch.js';
 
-vi.mock('../../src/providers/aws/client.js', () => ({
+vi.mock('../../src/providers/aws/client.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/providers/aws/client.js')>()),
   createEc2Client: vi.fn(),
 }));
 
@@ -98,8 +103,46 @@ describe('hydrateAwsEc2TransitGatewayVpcAttachmentActivity', () => {
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     vi.useRealTimers();
     vi.unstubAllGlobals();
+  });
+
+  it('reuses public attachment prices across accounts independently of activity collection', async () => {
+    mockEc2Attachments();
+    mockedFetchCloudWatchSignals.mockResolvedValue(new Map());
+    const fetchPrice = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({ ...priceList, version: '20260901000000', publicationDate: '2026-09-01T00:00:00Z' }),
+          { status: 200 },
+        ),
+    );
+    vi.stubGlobal('fetch', fetchPrice);
+    const identity = vi.spyOn(STSClient.prototype, 'send').mockResolvedValue({
+      Account: '123456789012',
+      Arn: 'arn:aws:iam::123456789012:user/test',
+      UserId: 'first',
+    } as never);
+    const cache = { store: createMemoryEvidenceCacheStore(), authorizationContext: 'test-policy-v1' };
+    const scan = () =>
+      withAwsClientCredentials({ accessKeyId: 'SYNTHETIC', secretAccessKey: 'SYNTHETIC' }, () =>
+        withAwsDiscoveryExecution({}, () =>
+          withAwsEvidenceCache({ cache, target: { mode: 'region', region: 'us-east-1' } }, () =>
+            hydrateAwsEc2TransitGatewayVpcAttachmentActivity([discoveredAttachment]),
+          ),
+        ),
+      );
+    const first = await scan();
+    identity.mockResolvedValue({
+      Account: '999999999999',
+      Arn: 'arn:aws:iam::999999999999:user/test',
+      UserId: 'second',
+    } as never);
+    expect(await scan()).toEqual(first);
+    expect(first[0]?.hourlyAttachmentCostUsd).toBe(0.05);
+    expect(fetchPrice).toHaveBeenCalledOnce();
+    expect(mockedFetchCloudWatchSignals).toHaveBeenCalledTimes(2);
   });
 
   it('hydrates available VPC attachments with 30-day traffic totals and the public attachment price', async () => {

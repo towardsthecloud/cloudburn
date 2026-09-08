@@ -57,6 +57,7 @@ type AwsExecution = {
   controller: AbortController;
   debugLogger?: (message: string) => void;
   startedAtMs: number;
+  observationTimestamp: number;
   deadlineMs: number;
 };
 const executionContext = new AsyncLocalStorage<AwsExecution>();
@@ -96,7 +97,7 @@ export const getAwsExecutionSignal = (): AbortSignal | undefined => executionCon
 export const getAwsExecutionDeadline = (): number | undefined => executionContext.getStore()?.deadlineMs;
 
 /** Returns a stable timestamp for all observation windows in one discovery run. */
-export const getAwsDiscoveryTimestamp = (): number => executionContext.getStore()?.startedAtMs ?? Date.now();
+export const getAwsDiscoveryTimestamp = (): number => executionContext.getStore()?.observationTimestamp ?? Date.now();
 
 /** Throws the caller's cancellation reason or the expired discovery deadline. */
 export const throwIfAwsExecutionAborted = (): void => {
@@ -175,7 +176,12 @@ export const memoizeAwsExecution = <T>(key: string, load: () => Promise<T>): Pro
  * @returns The completed result; cancelled runs reject instead of returning partial findings.
  */
 export const withAwsDiscoveryExecution = async <T>(
-  options: { signal?: AbortSignal; timeoutMs?: number; debugLogger?: (message: string) => void },
+  options: {
+    signal?: AbortSignal;
+    timeoutMs?: number;
+    observationTimestamp?: number;
+    debugLogger?: (message: string) => void;
+  },
   execute: () => Promise<T>,
 ): Promise<T> => {
   const timeoutMs = options.timeoutMs ?? DEFAULT_DISCOVERY_TIMEOUT_MS;
@@ -191,6 +197,7 @@ export const withAwsDiscoveryExecution = async <T>(
     cache: new Map(),
     controller,
     startedAtMs,
+    observationTimestamp: options.observationTimestamp ?? startedAtMs,
     deadlineMs: startedAtMs + timeoutMs,
     debugLogger: options.debugLogger,
   };

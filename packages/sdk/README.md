@@ -94,7 +94,40 @@ const result = await client.discover({
 });
 ```
 
-An expired deadline rejects with `TimeoutError`; cancellation rejects with the signal's reason. Both stop queued regions, pagination, setup polls, retry waits, and active AWS or public-pricing HTTP requests without returning partial results. Cancellation during initialization stops further setup work; mutations already accepted by AWS remain in place and a later initialization observes that state. AWS clients and lookup caches belong to one run and are released when it ends.
+An expired deadline rejects with `TimeoutError`; cancellation rejects with the signal's reason. Both stop work owned exclusively by that caller without returning partial results. A shared evidence refresh continues while another caller still needs it. Cancellation during initialization stops further setup work; mutations already accepted by AWS remain in place and a later initialization observes that state. AWS clients and lookup caches belong to their managed execution and are released when it ends.
+
+#### Reusable evidence
+
+SDK reuse is off unless you configure `cache`. A configured cache without a directory uses memory on this client;
+provide a private directory to reuse evidence across clients and local processes:
+
+```typescript
+const result = await client.discover({
+  target: { mode: 'regions', regions: ['eu-west-1'] },
+  cache: {
+    directory: '/home/example/.cache/cloudburn/evidence',
+    mode: 'normal',
+    authorizationContext: 'production-readonly-policy-v3',
+    ttlMs: { catalog: 180_000, datasets: { 'aws-ebs-volumes': 600_000 } },
+  },
+});
+console.log(result.evidence);
+```
+
+Temporary credentials derive a session-specific reuse scope. Long-term credentials require an explicit permission
+context revision; an account or role ARN alone is insufficient. Every scan validates its identity and current Resource
+Explorer view. Change `authorizationContext` when effective permissions or relevant execution conditions change.
+Use `refresh` to require recollection, or `off` to bypass all evidence reuse and storage. Failed refreshes block reuse
+of older evidence until a complete refresh succeeds.
+
+Rules, configuration, and precedence run again on every scan. `evidence` reports source, collection/observation times,
+completeness, and resource-level assessed/unknown coverage. Initial freshness policies are tunable proposals:
+catalogs 3 minutes, inventory 10 minutes, activity 5 minutes, billing/recommendations 6 hours, and public pricing 12 hours.
+Some datasets use complete days or months; rolling windows align to freshness intervals. See the
+[cache reference](../../docs/reference/evidence-cache.md) for exact scope, freshness tradeoffs, cancellation,
+local leases, limits, and the `EvidenceCacheStore` contract for hosted consumers.
+
+#### Request scheduling and service coverage
 
 Catalog, control-plane, and collector requests share AWS quota limits across operations and independent SDK or CLI processes running as the same OS
 user. Quotas use the signing caller's account, resolved once per run. If that lookup fails, collectors continue with

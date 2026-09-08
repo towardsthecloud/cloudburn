@@ -95,12 +95,17 @@ This is the provider-level group returned by the SDK scan engines.
 ```ts
 type ScanResult = {
   diagnostics?: ScanDiagnostic[];
+  evidence?: AwsEvidenceProvenance[];
   evaluations?: ScanEvaluations;
   policy?: ScanPolicyResult;
   providers: ProviderFindingGroup[];
   suppressed?: SuppressedFinding[];
 };
 ```
+
+`evidence` is present when live discovery cache controls are configured, including cache-off mode. It describes
+catalog, dataset, and supporting pricing collection independently of findings: source, timestamps, actual observation
+interval, completeness, and dataset coverage/diagnostics. See the [evidence cache reference](evidence-cache.md#result-provenance).
 
 `evaluations` is opt-in for live discovery through `includeEvaluationResources`. It records the primary input resource
 set supplied to completed rules, including rules that returned no findings. Shared sets are emitted once:

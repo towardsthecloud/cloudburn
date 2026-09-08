@@ -2,6 +2,18 @@
 // TODO(cloudburn): stabilize API before first public release.
 export { awsCorePreset, SEVERITIES } from '@cloudburn/rules';
 export { builtInRuleMetadata } from './built-in-rules.js';
+export type {
+  EvidenceCache,
+  EvidenceCacheLoad,
+  EvidenceCacheMode,
+  EvidenceCacheOptions,
+  EvidenceCacheProvenance,
+  EvidenceCacheRequest,
+  EvidenceCacheResult,
+  EvidenceCacheState,
+  EvidenceCacheStore,
+} from './evidence-cache.js';
+export { createEvidenceCache, createMemoryEvidenceCacheStore } from './evidence-cache.js';
 export { parseIaC } from './parsers/index.js';
 export { evaluateScanPolicy } from './policy.js';
 export {
@@ -76,6 +88,8 @@ export type {
   AwsElastiCacheReservedNode,
   AwsEmrCluster,
   AwsEmrClusterMetric,
+  AwsEvidenceCacheOptions,
+  AwsEvidenceProvenance,
   AwsKmsAliasPatternGroup,
   AwsKmsKeyChurnReview,
   AwsKmsKeyUsage,

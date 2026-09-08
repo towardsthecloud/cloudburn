@@ -3,6 +3,7 @@ import { mergeConfig } from './config/merge.js';
 import { emitDebugLog } from './debug.js';
 import { runLiveScan } from './engine/run-live.js';
 import { runStaticScan } from './engine/run-static.js';
+import { createMemoryEvidenceCacheStore, type EvidenceCacheStore } from './evidence-cache.js';
 import { evaluateScanPolicy } from './policy.js';
 import { resolveAwsAccountId, resolveCurrentAwsRegion, withAwsClientCredentials } from './providers/aws/client.js';
 import {
@@ -10,6 +11,7 @@ import {
   initializeAwsDiscovery,
   listSupportedAwsResourceTypes,
 } from './providers/aws/discovery.js';
+import { withAwsEvidenceCache } from './providers/aws/evidence.js';
 import { withAwsDiscoveryExecution } from './providers/aws/execution.js';
 import { withAwsServiceCallBudget } from './providers/aws/request.js';
 import type {
@@ -18,6 +20,7 @@ import type {
   AwsDiscoveryProgressEvent,
   AwsDiscoveryStatus,
   AwsDiscoveryTarget,
+  AwsEvidenceCacheOptions,
   AwsSupportedResourceType,
   CloudBurnConfig,
   ScanResult,
@@ -27,6 +30,7 @@ import type {
  * High-level SDK facade for CloudBurn scans and config loading.
  */
 export class CloudBurnClient {
+  private evidenceStore?: EvidenceCacheStore;
   public constructor(private readonly options?: { debugLogger?: (message: string) => void }) {}
 
   /**
@@ -88,6 +92,7 @@ export class CloudBurnClient {
       configPath?: string;
       includeEvaluationResources?: boolean;
       onProgress?: (event: AwsDiscoveryProgressEvent) => void;
+      cache?: AwsEvidenceCacheOptions;
     },
   ): Promise<ScanResult> {
     emitDebugLog(this.options?.debugLogger, 'sdk: starting live discovery scan');
@@ -106,7 +111,22 @@ export class CloudBurnClient {
     const target = options?.target;
     const region =
       target?.mode === 'region' ? target.region : target?.mode === 'regions' ? target.regions[0] : undefined;
-    return this.runDiscoveryOperation(options, run, region);
+    const cache = options?.cache;
+    if (cache && !cache.directory && !cache.store) this.evidenceStore ??= createMemoryEvidenceCacheStore();
+    const cacheSettings = cache && !cache.directory && !cache.store ? { ...cache, store: this.evidenceStore } : cache;
+    return this.runDiscoveryOperation(
+      options,
+      () =>
+        withAwsEvidenceCache(
+          {
+            cache: cacheSettings,
+            target: target ?? { mode: 'current' },
+            debugLogger: this.options?.debugLogger,
+          },
+          run,
+        ),
+      region,
+    );
   }
 
   /** Owns credentials, clients, deadlines, and the request budget for one public operation. */

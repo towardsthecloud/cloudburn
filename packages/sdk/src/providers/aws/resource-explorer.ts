@@ -31,9 +31,19 @@ import {
   resolveCurrentAwsRegion,
 } from './client.js';
 import { AwsDiscoveryError, isAwsAccessDeniedError, RESOURCE_EXPLORER_SETUP_DOCS_URL } from './errors.js';
-import { memoizeAwsExecution, throwIfAwsExecutionAborted, waitForAwsDelay } from './execution.js';
+import { getAwsEvidenceTtl, isAwsEvidenceCacheEnabled, loadAwsCachedEvidence } from './evidence.js';
+import {
+  getAwsDiscoveryTimestamp,
+  getAwsExecutionSignal,
+  memoizeAwsExecution,
+  runOutsideAwsExecution,
+  throwIfAwsExecutionAborted,
+  waitForAwsDelay,
+  withAwsDiscoveryExecution,
+} from './execution.js';
 import { mapWithConcurrency, withAwsServiceErrorContext } from './resources/utils.js';
 
+const CATALOG_TTL_MS = 180_000;
 const DEFAULT_RESOURCE_EXPLORER_VIEW_NAME = 'cloudburn-default';
 const TERMINAL_OPERATION_STATUSES = new Set(['FAILED', 'SKIPPED', 'SUCCEEDED']);
 const RESOURCE_EXPLORER_FILTER_STRING_MAX_LENGTH = 2048;
@@ -561,6 +571,80 @@ const resolveSearchPlan = async (target: AwsDiscoveryTarget): Promise<SearchPlan
   return resolveRegionalSearchPlan(await resolveCurrentAwsRegion());
 };
 
+const resolveCachedSearchPlan = async (
+  target: AwsDiscoveryTarget,
+  scope: 'target' | 'account' = 'target',
+): Promise<SearchPlan> => {
+  const load = () =>
+    scope === 'account'
+      ? resolveAccountSearchPlan(
+          target.mode === 'region'
+            ? assertValidAwsRegion(target.region)
+            : target.mode === 'regions' && target.regions[0]
+              ? assertValidAwsRegion(target.regions[0])
+              : undefined,
+        )
+      : resolveSearchPlan(target);
+  if (!isAwsEvidenceCacheEnabled()) return load();
+  const result = await loadAwsCachedEvidence({
+    datasetKey: 'catalog:search-plan',
+    key: { kind: 'resource-explorer-search-plan', scope, target },
+    ttlMs: getAwsEvidenceTtl('catalog:search-plan', CATALOG_TTL_MS),
+    load: async () => ({ value: await load(), complete: true }),
+    validate: (value): value is SearchPlan => {
+      if (!value || typeof value !== 'object') return false;
+      const plan = value as SearchPlan;
+      return (
+        typeof plan.searchRegion === 'string' &&
+        ['LOCAL', 'AGGREGATOR'].includes(plan.indexType) &&
+        (plan.regionFilters === undefined ||
+          (Array.isArray(plan.regionFilters) && plan.regionFilters.every((region) => typeof region === 'string')))
+      );
+    },
+  });
+  return result.value;
+};
+
+// Revalidate the current view each scan before reading customer resource evidence.
+// A completed catalog covers this indexed view only, never all account resources.
+const getSearchViewScope = async (searchRegion: string) => {
+  const { view, viewArn } = await getDefaultResourceExplorerView(searchRegion);
+  return {
+    viewArn,
+    scope: view?.Scope,
+    filter: view?.Filters?.FilterString?.trim() ?? '',
+    includedProperties: sortUniqueStrings([...getIncludedPropertyNames(view)]),
+  };
+};
+
+/**
+ * Resolves the indexed search and current view scope that bound reusable AWS evidence.
+ *
+ * @param target - Discovery target controlling regional index selection.
+ * @param scope - Whether the query uses the target or the accessible account aggregator.
+ * @param requiredProperties - View properties required by the dependent dataset.
+ * @returns Normalized index and view identity without AWS clients or account-wide completeness claims.
+ */
+export const getAwsResourceExplorerEvidenceScope = async (
+  target: AwsDiscoveryTarget,
+  scope: 'target' | 'account' = 'target',
+  requiredProperties: string[] = [],
+): Promise<{ searchPlan: SearchPlan; viewScope: Awaited<ReturnType<typeof getSearchViewScope>> }> => {
+  const searchPlan = await resolveCachedSearchPlan(target, scope);
+  await resolveSearchViewArn(searchPlan.searchRegion, requiredProperties);
+  return { searchPlan, viewScope: await getSearchViewScope(searchPlan.searchRegion) };
+};
+
+const isResourceList = (value: unknown): value is AwsDiscoveredResource[] =>
+  Array.isArray(value) &&
+  value.every(
+    (resource) =>
+      resource !== null &&
+      typeof resource === 'object' &&
+      ['arn', 'accountId', 'region', 'service', 'resourceType'].every((key) => typeof resource[key] === 'string') &&
+      Array.isArray(resource.properties),
+  );
+
 const buildScopedFilterString = (filterString: string, regionFilters?: AwsRegion[]): string => {
   const normalizedFilter = filterString.trim();
 
@@ -797,8 +881,9 @@ const listResourceExplorerResources = async (options: {
   queryLabel?: string;
   searchRegion: string;
   viewArn: string;
-}): Promise<AwsDiscoveredResource[]> => {
+}): Promise<{ resources: AwsDiscoveredResource[]; complete: boolean }> => {
   const client = createResourceExplorerClient({ region: options.searchRegion });
+  let complete = true;
   const resourcesByArn = new Map<string, AwsDiscoveredResource>();
   const queryLabel = options.queryLabel ? `${options.queryLabel} ` : '';
 
@@ -841,6 +926,8 @@ const listResourceExplorerResources = async (options: {
 
         if (normalized) {
           resourcesByArn.set(normalized.arn, normalized);
+        } else {
+          complete = false;
         }
       }
 
@@ -849,7 +936,101 @@ const listResourceExplorerResources = async (options: {
     } while (nextToken);
   }
 
-  return [...resourcesByArn.values()].sort((left, right) => left.arn.localeCompare(right.arn));
+  return { resources: [...resourcesByArn.values()].sort((left, right) => left.arn.localeCompare(right.arn)), complete };
+};
+
+type CatalogMissResult = { value: AwsDiscoveredResource[]; complete: boolean };
+type CatalogMiss = {
+  resourceType: string;
+  settled: boolean;
+  onAbandon: () => void;
+  finish: (result: CatalogMissResult | Error, failed?: boolean) => void;
+};
+
+// Cache lookups retain independent type ownership. Only their missing loaders join
+// this scan's packed AWS query; a warm type never enters the batch.
+const createCatalogMissBatcher = (options: {
+  searchPlan: SearchPlan;
+  viewArn: string;
+  debugLogger?: (message: string) => void;
+}): ((resourceType: string) => Promise<CatalogMissResult>) => {
+  let pending: CatalogMiss[] = [];
+  let scheduled = false;
+  const observationTimestamp = getAwsDiscoveryTimestamp();
+  const flush = async (): Promise<void> => {
+    const batch = pending.filter((request) => !request.settled);
+    pending = [];
+    scheduled = false;
+    if (batch.length === 0) return;
+    const controller = new AbortController();
+    for (const request of batch) {
+      request.onAbandon = () => {
+        if (batch.every((participant) => participant.settled)) {
+          controller.abort(new DOMException('All catalog refresh participants cancelled.', 'AbortError'));
+        }
+      };
+    }
+    try {
+      // The batch owns its clients and lifetime. In particular, cancellation of
+      // the first type's detached cache loader cannot end another type's work.
+      // Pinned credentials and the stable account request budget remain inherited.
+      const listed = await runOutsideAwsExecution(() =>
+        withAwsDiscoveryExecution(
+          { signal: controller.signal, observationTimestamp, debugLogger: options.debugLogger },
+          () =>
+            listResourceExplorerResources({
+              debugLogger: options.debugLogger,
+              filters: planListResourcesQueries(
+                batch.map((request) => request.resourceType),
+                options.searchPlan.regionFilters,
+              ).map((plan) => buildFilterString(plan.resourceTypes, plan.regionFilters)),
+              searchRegion: options.searchPlan.searchRegion,
+              viewArn: options.viewArn,
+            }),
+        ),
+      );
+      for (const request of batch) {
+        request.finish({
+          value: listed.resources.filter((resource) => resource.resourceType === request.resourceType),
+          complete: listed.complete,
+        });
+      }
+    } catch (error) {
+      for (const request of batch) request.finish(error as Error, true);
+    }
+  };
+  return (resourceType) =>
+    new Promise<CatalogMissResult>((resolve, reject) => {
+      const signal = getAwsExecutionSignal();
+      const request: CatalogMiss = {
+        resourceType,
+        settled: false,
+        onAbandon: () => undefined,
+        finish: (result, failed = false) => {
+          if (request.settled) return;
+          request.settled = true;
+          signal?.removeEventListener('abort', onAbort);
+          if (failed) reject(result);
+          else resolve(result as CatalogMissResult);
+        },
+      };
+      const onAbort = () => {
+        request.finish(signal?.reason, true);
+        request.onAbandon();
+      };
+      signal?.addEventListener('abort', onAbort, { once: true });
+      if (signal?.aborted) {
+        onAbort();
+        return;
+      }
+      pending.push(request);
+      if (!scheduled) {
+        scheduled = true;
+        setTimeout(() => {
+          void flush();
+        }, 0);
+      }
+    });
 };
 
 /**
@@ -864,7 +1045,7 @@ export const buildAwsDiscoveryCatalog = async (
   resourceTypes: string[],
   options?: { debugLogger?: (message: string) => void },
 ): Promise<AwsDiscoveryCatalog> => {
-  const searchPlan = await resolveSearchPlan(target);
+  const searchPlan = await resolveCachedSearchPlan(target);
   emitDebugLog(
     options?.debugLogger,
     `aws: Resource Explorer using ${searchPlan.indexType.toLowerCase()} control plane ${searchPlan.searchRegion}${
@@ -878,12 +1059,39 @@ export const buildAwsDiscoveryCatalog = async (
     `aws: planned ${queryPlans.length} Resource Explorer quer${queryPlans.length === 1 ? 'y' : 'ies'} for ${resourceTypes.length} resource types`,
   );
 
-  const resources = await listResourceExplorerResources({
-    debugLogger: options?.debugLogger,
-    filters: queryPlans.map((queryPlan) => buildFilterString(queryPlan.resourceTypes, queryPlan.regionFilters)),
-    searchRegion: searchPlan.searchRegion,
-    viewArn,
-  });
+  let resources: AwsDiscoveredResource[];
+  if (isAwsEvidenceCacheEnabled()) {
+    const viewScope = await getSearchViewScope(searchPlan.searchRegion);
+    const loadMissingType = createCatalogMissBatcher({ searchPlan, viewArn, debugLogger: options?.debugLogger });
+    const pages = await Promise.all(
+      sortUniqueStrings(resourceTypes).map(async (resourceType) => {
+        const filters = planListResourcesQueries([resourceType], searchPlan.regionFilters).map((plan) =>
+          buildFilterString(plan.resourceTypes, plan.regionFilters),
+        );
+        const result = await loadAwsCachedEvidence({
+          datasetKey: `catalog:${resourceType}`,
+          region: searchPlan.searchRegion,
+          key: { kind: 'resource-explorer-catalog', searchPlan, viewScope, resourceType, filters },
+          ttlMs: getAwsEvidenceTtl(`catalog:${resourceType}`, CATALOG_TTL_MS),
+          load: () => loadMissingType(resourceType),
+          validate: isResourceList,
+        });
+        return result.value;
+      }),
+    );
+    resources = [...new Map(pages.flat().map((resource) => [resource.arn, resource])).values()].sort((left, right) =>
+      left.arn.localeCompare(right.arn),
+    );
+  } else {
+    resources = (
+      await listResourceExplorerResources({
+        debugLogger: options?.debugLogger,
+        filters: queryPlans.map((queryPlan) => buildFilterString(queryPlan.resourceTypes, queryPlan.regionFilters)),
+        searchRegion: searchPlan.searchRegion,
+        viewArn,
+      })
+    ).resources;
+  }
 
   emitDebugLog(options?.debugLogger, `aws: Resource Explorer catalog collected ${resources.length} unique resources`);
 
@@ -912,26 +1120,38 @@ export const listAwsResourcesByFilter = async (
     scope?: 'target' | 'account';
   },
 ): Promise<AwsDiscoveredResource[]> => {
-  const searchPlan =
-    options?.scope === 'account'
-      ? await resolveAccountSearchPlan(
-          target.mode === 'region'
-            ? assertValidAwsRegion(target.region)
-            : target.mode === 'regions' && target.regions[0]
-              ? assertValidAwsRegion(target.regions[0])
-              : undefined,
-        )
-      : await resolveSearchPlan(target);
+  const searchPlan = await resolveCachedSearchPlan(target, options?.scope ?? 'target');
   const viewArn = await resolveSearchViewArn(searchPlan.searchRegion, options?.requiredViewProperties);
   const scopedFilters = planScopedFilters(filterString, searchPlan.regionFilters);
-
-  return listResourceExplorerResources({
-    debugLogger: options?.debugLogger,
-    filters: scopedFilters,
-    queryLabel: 'filtered',
-    searchRegion: searchPlan.searchRegion,
-    viewArn,
+  const load = () =>
+    listResourceExplorerResources({
+      debugLogger: options?.debugLogger,
+      filters: scopedFilters,
+      queryLabel: 'filtered',
+      searchRegion: searchPlan.searchRegion,
+      viewArn,
+    });
+  if (!isAwsEvidenceCacheEnabled()) return (await load()).resources;
+  const viewScope = await getSearchViewScope(searchPlan.searchRegion);
+  const result = await loadAwsCachedEvidence({
+    datasetKey: 'catalog:filter',
+    region: searchPlan.searchRegion,
+    key: {
+      kind: 'resource-explorer-filter',
+      searchPlan,
+      viewScope,
+      scopedFilters,
+      scope: options?.scope ?? 'target',
+      requiredProperties: sortUniqueStrings(options?.requiredViewProperties ?? []),
+    },
+    ttlMs: getAwsEvidenceTtl('catalog:filter', CATALOG_TTL_MS),
+    load: async () => {
+      const listed = await load();
+      return { value: listed.resources, complete: listed.complete };
+    },
+    validate: isResourceList,
   });
+  return result.value;
 };
 
 /**

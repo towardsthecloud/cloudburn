@@ -1,5 +1,5 @@
 import { CloudBurnClient } from '@cloudburn/sdk';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createProgram } from '../src/cli.js';
 
 const liveScanResult = {
@@ -38,6 +38,26 @@ const liveScanResultWithDiagnostic = {
       service: 'lambda',
       source: 'discovery' as const,
       status: 'access_denied' as const,
+    },
+  ],
+};
+
+const liveScanResultWithEvidence = {
+  ...liveScanResult,
+  evidence: [
+    {
+      datasetKey: 'aws-ec2-instances',
+      source: 'cache' as const,
+      collectedAt: '2026-09-08T10:00:00.000Z',
+      observedAt: '2026-09-08T10:00:00.000Z',
+      complete: true,
+    },
+    {
+      datasetKey: 'aws-ec2-instance-cpu-utilization',
+      source: 'live' as const,
+      collectedAt: '2026-09-08T10:04:00.000Z',
+      observedAt: '2026-09-08T10:04:00.000Z',
+      complete: false,
     },
   ],
 };
@@ -104,12 +124,57 @@ const observedLocalStatus = {
 };
 
 describe('discover command', () => {
+  beforeEach(() => {
+    vi.stubEnv('XDG_CACHE_HOME', '/tmp/cloudburn-user-cache');
+  });
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllEnvs();
     process.exitCode = undefined;
     delete process.env.AWS_REGION;
     delete process.env.AWS_DEFAULT_REGION;
     delete process.env.aws_region;
+  });
+
+  it('uses per-user persistent evidence caching by default', async () => {
+    vi.stubEnv('XDG_CACHE_HOME', '/tmp/cloudburn-user-cache');
+    const discover = vi.spyOn(CloudBurnClient.prototype, 'discover').mockResolvedValue({ providers: [] });
+
+    await createProgram().parseAsync(['discover'], { from: 'user' });
+
+    expect(discover).toHaveBeenCalledWith({
+      target: { mode: 'current' },
+      cache: { mode: 'normal', directory: '/tmp/cloudburn-user-cache/cloudburn/evidence' },
+    });
+  });
+
+  it('rejects an unsupported cache mode before invoking the sdk', async () => {
+    vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    const discover = vi.spyOn(CloudBurnClient.prototype, 'discover');
+
+    await expect(createProgram().parseAsync(['discover', '--cache', 'stale'], { from: 'user' })).rejects.toMatchObject({
+      code: 'commander.invalidArgument',
+      message: expect.stringContaining('Cache mode must be normal, refresh, or off.'),
+    });
+    expect(discover).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    'normal',
+    'refresh',
+    'off',
+  ])('accepts cache mode %s with an explicit directory and authorization context', async (mode) => {
+    const discover = vi.spyOn(CloudBurnClient.prototype, 'discover').mockResolvedValue({ providers: [] });
+
+    await createProgram().parseAsync(
+      ['discover', '--cache', mode, '--cache-dir', '/tmp/team-evidence', '--cache-context', 'session-policy-v2'],
+      { from: 'user' },
+    );
+
+    expect(discover).toHaveBeenCalledWith({
+      target: { mode: 'current' },
+      cache: { mode, directory: '/tmp/team-evidence', authorizationContext: 'session-policy-v2' },
+    });
   });
 
   it('prints live findings as json and leaves a success exit code', async () => {
@@ -118,7 +183,10 @@ describe('discover command', () => {
 
     await createProgram().parseAsync(['discover', '--format', 'json'], { from: 'user' });
 
-    expect(discover).toHaveBeenCalledWith({ target: { mode: 'current' } });
+    expect(discover).toHaveBeenCalledWith({
+      cache: { mode: 'normal', directory: '/tmp/cloudburn-user-cache/cloudburn/evidence' },
+      target: { mode: 'current' },
+    });
     expect(stdout).toHaveBeenCalledWith(`{
   "providers": [
     {
@@ -144,13 +212,37 @@ describe('discover command', () => {
     expect(process.exitCode).toBe(0);
   });
 
+  it('shows cache freshness and incomplete evidence alongside findings in table output', async () => {
+    const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    vi.spyOn(CloudBurnClient.prototype, 'discover').mockResolvedValue(liveScanResultWithEvidence);
+
+    await createProgram().parseAsync(['discover'], { from: 'user' });
+
+    const output = stdout.mock.calls.map(([chunk]) => String(chunk)).join('');
+    expect(output).toContain('vol-123');
+    expect(output).toContain('Evidence: 1 cached, 1 collected; 1 incomplete.');
+    expect(output).toContain('Oldest observation: 2026-09-08T10:00:00.000Z');
+  });
+
+  it('preserves full evidence provenance in json output', async () => {
+    const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    vi.spyOn(CloudBurnClient.prototype, 'discover').mockResolvedValue(liveScanResultWithEvidence);
+
+    await createProgram().parseAsync(['discover', '--format', 'json'], { from: 'user' });
+
+    expect(JSON.parse(String(stdout.mock.calls[0]?.[0]))).toEqual(liveScanResultWithEvidence);
+  });
+
   it('accepts the global root format flag for discovery scans', async () => {
     const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
     const discover = vi.spyOn(CloudBurnClient.prototype, 'discover').mockResolvedValue(liveScanResult);
 
     await createProgram().parseAsync(['--format', 'json', 'discover'], { from: 'user' });
 
-    expect(discover).toHaveBeenCalledWith({ target: { mode: 'current' } });
+    expect(discover).toHaveBeenCalledWith({
+      cache: { mode: 'normal', directory: '/tmp/cloudburn-user-cache/cloudburn/evidence' },
+      target: { mode: 'current' },
+    });
     expect(stdout).toHaveBeenCalledWith(expect.stringContaining('"source": "discovery"'));
     expect(process.exitCode).toBe(0);
   });
@@ -160,7 +252,10 @@ describe('discover command', () => {
 
     await createProgram().parseAsync(['discover', '--region', 'eu-central-1'], { from: 'user' });
 
-    expect(discover).toHaveBeenCalledWith({ target: { mode: 'regions', regions: ['eu-central-1'] } });
+    expect(discover).toHaveBeenCalledWith({
+      cache: { mode: 'normal', directory: '/tmp/cloudburn-user-cache/cloudburn/evidence' },
+      target: { mode: 'regions', regions: ['eu-central-1'] },
+    });
     expect(process.exitCode).toBe(0);
   });
 
@@ -169,7 +264,11 @@ describe('discover command', () => {
 
     await createProgram().parseAsync(['discover', '--timeout', '600'], { from: 'user' });
 
-    expect(discover).toHaveBeenCalledWith({ target: { mode: 'current' }, timeoutMs: 600_000 });
+    expect(discover).toHaveBeenCalledWith({
+      cache: { mode: 'normal', directory: '/tmp/cloudburn-user-cache/cloudburn/evidence' },
+      target: { mode: 'current' },
+      timeoutMs: 600_000,
+    });
   });
 
   it.each(['0', '-1', 'abc', '1.5', '2147484'])('rejects invalid discovery timeout %s', async (timeout) => {
@@ -268,7 +367,10 @@ describe('discover command', () => {
       await createProgram().parseAsync(['discover'], { from: 'user' });
     });
 
-    expect(discover).toHaveBeenCalledWith({ target: { mode: 'current' } });
+    expect(discover).toHaveBeenCalledWith({
+      cache: { mode: 'normal', directory: '/tmp/cloudburn-user-cache/cloudburn/evidence' },
+      target: { mode: 'current' },
+    });
     expect(stderr).not.toHaveBeenCalled();
   });
 
@@ -411,6 +513,7 @@ describe('discover command', () => {
     );
 
     expect(discover).toHaveBeenCalledWith({
+      cache: { mode: 'normal', directory: '/tmp/cloudburn-user-cache/cloudburn/evidence' },
       config: {
         discovery: {
           disabledRules: ['CLDBRN-AWS-S3-1'],
@@ -433,6 +536,7 @@ describe('discover command', () => {
     await createProgram().parseAsync(['discover', '--service', 'ec2,s3'], { from: 'user' });
 
     expect(discover).toHaveBeenCalledWith({
+      cache: { mode: 'normal', directory: '/tmp/cloudburn-user-cache/cloudburn/evidence' },
       config: {
         discovery: {
           services: ['ec2', 's3'],

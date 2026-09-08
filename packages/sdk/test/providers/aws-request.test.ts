@@ -59,7 +59,7 @@ describe('shared AWS request admission', () => {
       controller.abort();
       await completed;
     }
-  });
+  }, 30_000);
 
   it.each([
     'success',

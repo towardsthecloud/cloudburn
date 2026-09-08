@@ -517,6 +517,14 @@ export const resolveCurrentAwsRegion = async (): Promise<AwsRegion> => {
  * @returns The caller account ID.
  */
 export const resolveAwsAccountId = async (region?: string): Promise<string> =>
+  (await resolveAwsCallerIdentity(region)).accountId;
+
+/**
+ * Resolves the signing caller identity without treating its ARN as a permission scope.
+ * @param region - STS control region.
+ * @returns Account and partition identity for this execution.
+ */
+export const resolveAwsCallerIdentity = async (region?: string): Promise<{ accountId: string; arn?: string }> =>
   memoizeAwsExecution('caller-identity', async () => {
     const client = getAwsClient(
       JSON.stringify(['STSClient', region]),
@@ -524,7 +532,7 @@ export const resolveAwsAccountId = async (region?: string): Promise<string> =>
     );
     // Identity bootstraps the account budget, so it must not recursively resolve
     // itself. Its bounded in-memory budget applies before the account is known.
-    const { Account } = await withAwsServiceCallBudget(() =>
+    const { Account, Arn } = await withAwsServiceCallBudget(() =>
       runAwsRequest('STS', 'GetCallerIdentity', region ?? 'us-east-1', () =>
         client.send(new GetCallerIdentityCommand({})),
       ),
@@ -534,8 +542,22 @@ export const resolveAwsAccountId = async (region?: string): Promise<string> =>
       throw new Error('Unable to resolve AWS account ID from STS GetCallerIdentity');
     }
 
-    return Account;
+    return { accountId: Account, arn: Arn };
   });
+
+/**
+ * Resolves credentials once so cache scope and physical AWS requests use the same session.
+ * @param region - Credential resolver control region.
+ * @returns Resolved credentials held only in memory for the managed execution.
+ */
+export const resolveAwsEvidenceCredentials = async (region: string): Promise<AwsCredentialIdentity> => {
+  const client = new STSClient({ ...baseAwsClientConfig(), region, credentials: resolveAwsClientCredentials() });
+  try {
+    return await client.config.credentials();
+  } finally {
+    client.destroy();
+  }
+};
 
 /**
  * Lists enabled EC2 regions for the current account.

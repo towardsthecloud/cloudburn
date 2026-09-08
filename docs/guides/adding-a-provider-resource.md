@@ -85,12 +85,20 @@ Update `packages/sdk/src/providers/aws/discovery-registry.ts` with:
 - `datasetKey`
 - `service` (extend the `AwsDiscoveryDatasetDefinition` service union for a new service)
 - required `resourceTypes`
+- `dependencies`, including every dataset requested through the loader context
+- `catalogQueries` for additional filtered catalog evidence requested through `context.listResourcesByFilter`
+- `schemaVersion` for normalized evidence shape and `loaderVersion` for collection semantics
+- `freshness.ttlMs` and `freshness.observation` matching the loader's actual observation window
 - `load` function
 - `toEvaluationResources` when callers need auditable discovery results
 
 ```ts
 'aws-ec2-instances': {
   datasetKey: 'aws-ec2-instances',
+  dependencies: [],
+  schemaVersion: '1',
+  loaderVersion: '1',
+  freshness: { ttlMs: 600_000, observation: { kind: 'current' } },
   service: 'ec2',
   resourceTypes: ['ec2:instance'],
   load: hydrateAwsEc2Instances,
@@ -100,6 +108,43 @@ Update `packages/sdk/src/providers/aws/discovery-registry.ts` with:
     })),
 }
 ```
+
+Declare derived dataset dependencies in the registry even when a loader already calls `context.loadDataset`.
+Discovery resolves them before loading the derived dataset, includes their resource types in catalog selection,
+and fingerprints their evidence for cache invalidation. Unknown dependencies and cycles are rejected before loading.
+Keep optional rule evidence in `optionalDiscoveryDependencies`; it is distinct from a loader's required dependencies.
+For filtered Resource Explorer evidence, declare the exact `filterString`, `requiredViewProperties`, and `scope`
+in `catalogQueries`. Discovery resolves and fingerprints these queries before dataset cache lookup so a cached
+dataset cannot skip view authorization checks or catalog membership refresh. For example, the untagged-resource
+dataset declares `resourcetype.supports:tags tag:none` with the `tags` view property and `account` scope.
+
+Use `{ kind: 'current' }` for current inventory, configuration, and provider-defined recommendation snapshots.
+For fixed lookback windows, declare `{ kind: 'window', lookbackMs, alignmentMs }`: complete UTC days use
+`alignmentMs: 86_400_000`, while rolling CloudWatch windows use `alignmentMs: 60_000`.
+Calendar billing periods use `{ kind: 'calendar-months', months }` for complete months preceding the current month.
+The resolved start and end must match the timestamps actually used by the loader. For multiple windows sharing an
+end, declare the longest lookback and increment `loaderVersion` whenever the other windows change.
+
+Increment `schemaVersion` when the normalized evidence contract changes and `loaderVersion` when collection,
+normalization, or observation semantics change. Both versions participate in cache identity. Initial freshness
+proposals are 10 minutes for inventory/configuration, 5 minutes for activity, and 6 hours for billing and
+recommendations; they are tunable policies, not measured optimal defaults. The observation window can expire
+before the TTL when an aligned time boundary changes.
+
+Cache coverage uses every applicable built-in `getLiveEvaluationCoverage` contract whose required datasets are
+within the dataset's dependency closure, independently of the scan's selected rules. Unknown coverage takes
+precedence when contracts disagree. Keep these callbacks accurate when adding or changing normalized evidence;
+missing optional enrichment such as public pricing must not make otherwise complete activity unknown.
+When rule coverage depends on unrelated datasets or policy exemptions, declare `getEvidenceCoverage` on the
+dataset to assess its evidence directly. ELB request activity uses this override because cleanup rules can
+assess an empty load balancer without complete request metrics; target-health data is not a dependency of
+request-activity collection. The override keeps unsupported, missing, or incomplete request metrics unknown.
+For inventory without a coverage callback, discovery reconciles the normalized projection with matching catalog
+resources using account, region, resource type, and ARN or resource identifier. Catalog candidates missing from
+hydration remain unknown. Enumeration seeds that project into multiple child identities, filtered resource
+variants, and datasets without identity projections remain conservatively unknown when their completeness
+cannot be established this way; those results are not reused as complete cache evidence. Successful empty
+account-scoped datasets with no catalog candidates remain valid.
 
 The projection owns stable identity, `resourceType`, and available display evidence such as ARN, name, creation time,
 or last activity. Use a rule evaluation override only when a rule evaluates a different identity or joins multiple
