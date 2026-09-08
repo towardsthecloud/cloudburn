@@ -14,6 +14,7 @@ import {
   throwIfAwsExecutionAborted,
   waitForAwsDelay,
 } from './execution.js';
+import { getAwsRequestDatasetSource, getAwsRequestDatasets, withAwsDatasetAttribution } from './request-attribution.js';
 import {
   type AwsQuotaOverrides,
   type AwsQuotaPolicy,
@@ -58,7 +59,7 @@ const budgetContext = new AsyncLocalStorage<RequestBudget>();
 export type AwsRequestAttemptTelemetry = {
   operation: string;
   quota: AwsQuotaScope | null;
-  attribution: { scanId: string; dataset?: string; collector: string };
+  attribution: { scanId: string; dataset?: string; datasets?: readonly string[]; collector: string };
   attempt: number;
   retryCount: number;
   preparationCount?: number;
@@ -112,21 +113,27 @@ export const withAwsServiceCallBudget = <T>(
   fn: () => Promise<T>,
   options: AwsRequestBudgetOptions = {},
 ): Promise<T> => {
-  return budgetContext.run(
-    {
-      account: options.resolveAccountId ? undefined : options.accountId,
-      attribution: { scanId: randomUUID(), ...options.attribution },
-      onAttempt: options.onAttempt,
-      resolveAccountId: options.resolveAccountId,
-      fallbackId: `unresolved:${randomUUID()}`,
-      deadline: getAwsExecutionDeadline() ?? Date.now() + 300_000,
-      store:
-        options.store ??
-        (options.accountId || options.resolveAccountId ? createLocalAwsRequestStore() : createMemoryAwsRequestStore()),
-      overrides: resolveOverrides(options.overrides),
-    },
-    fn,
-  );
+  const run = () =>
+    budgetContext.run(
+      {
+        account: options.resolveAccountId ? undefined : options.accountId,
+        attribution: { scanId: randomUUID(), ...options.attribution },
+        onAttempt: options.onAttempt,
+        resolveAccountId: options.resolveAccountId,
+        fallbackId: `unresolved:${randomUUID()}`,
+        deadline: getAwsExecutionDeadline() ?? Date.now() + 300_000,
+        store:
+          options.store ??
+          (options.accountId || options.resolveAccountId
+            ? createLocalAwsRequestStore()
+            : createMemoryAwsRequestStore()),
+        overrides: resolveOverrides(options.overrides),
+      },
+      fn,
+    );
+  return options.attribution?.dataset && !getAwsRequestDatasetSource()
+    ? withAwsDatasetAttribution(options.attribution.dataset, run)
+    : run();
 };
 
 const accountIdFor = async (budget: RequestBudget): Promise<string> => {
@@ -569,10 +576,12 @@ export const runAwsRequest = async <T>(
         overrides: budget.overrides,
       })
     : undefined;
+  const datasets = getAwsRequestDatasets() ?? (budget?.attribution.dataset ? [budget.attribution.dataset] : []);
   const attribution = {
     scanId: budget?.attribution.scanId ?? randomUUID(),
     collector: budget?.attribution.collector ?? `${quota?.scope.service ?? service}:${operation}`,
-    ...(budget?.attribution.dataset ? { dataset: budget.attribution.dataset } : {}),
+    ...(datasets.length === 1 ? { dataset: datasets[0] } : {}),
+    ...(datasets.length > 0 ? { datasets } : {}),
   };
   const maxAttempts = options.maxAttempts ?? 6;
   const initialDelayMs = options.initialDelayMs ?? 500;

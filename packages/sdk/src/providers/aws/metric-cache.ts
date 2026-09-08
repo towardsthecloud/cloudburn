@@ -1,6 +1,7 @@
 import { getAwsEvidenceTtl, isAwsEvidenceCacheEnabled, loadAwsCachedEvidence } from './evidence.js';
 import { emitAwsRequestTelemetry, getAwsDiscoveryTimestamp } from './execution.js';
-import { planCloudWatchSignals } from './metric-planner.js';
+import { planCloudWatchSignals, registerCloudWatchMetricDatasets } from './metric-planner.js';
+import { withAwsRequestDatasetSource } from './request-attribution.js';
 import type { CloudWatchMetricEvidence, CloudWatchMetricQuery } from './resources/cloudwatch.js';
 import { mapWithConcurrency } from './resources/utils.js';
 
@@ -81,8 +82,13 @@ export const fetchCachedCloudWatchSignals = async (
   const results = await mapWithConcurrency(request.queries, concurrency, async (query) => {
     const { id, ...metric } = query;
     const identity = {
-      ...metric,
-      dimensions: [...metric.dimensions].sort((a, b) => a.Name.localeCompare(b.Name) || a.Value.localeCompare(b.Value)),
+      namespace: metric.namespace,
+      metricName: metric.metricName,
+      dimensions: metric.dimensions
+        .map(({ Name, Value }) => ({ Name, Value }))
+        .sort((a, b) => a.Name.localeCompare(b.Name) || a.Value.localeCompare(b.Value)),
+      period: metric.period,
+      stat: metric.stat,
     };
     const windows = intervals(request.startTime.getTime(), request.endTime.getTime(), query.period * 1000);
     const segments = await Promise.all(
@@ -90,32 +96,45 @@ export const fetchCachedCloudWatchSignals = async (
         const start = window.startTime.toISOString();
         const end = window.endTime.toISOString();
         const recent = timestamp - window.endTime.getTime() < RECENT_OVERLAP_MS;
-        const result = await loadAwsCachedEvidence({
-          datasetKey: 'metric-buckets',
-          region: request.region,
-          key: ['cloudwatch-metric-buckets-v1', request.region, identity, start, end],
-          ttlMs: getAwsEvidenceTtl('metric-buckets', recent ? RECENT_TTL_MS : HISTORICAL_TTL_MS),
-          validate: (value): value is CloudWatchMetricEvidence =>
-            validEvidence(value) &&
-            value.window.startTime === start &&
-            value.window.endTime === end &&
-            value.window.periodSeconds === query.period,
-          load: async () => {
-            const values = await planCloudWatchSignals({ ...request, ...window, queries: [query] }, fetch);
-            const value = values.get(id);
-            if (!value) throw new Error(`CloudWatch evidence missing for requested query ${id}.`);
-            return { value, complete: value.status === 'Complete', observedAt: end, observationWindow: { start, end } };
-          },
-        });
-        if (result.provenance.source === 'cache') {
-          cacheHits += 1;
-          datapointsReused += result.value.points.length;
-          queryDatapointsAvoided += result.value.coverage.expectedPoints;
-        } else {
-          allIntervalsReused = false;
-          datapointsFetched += result.value.points.length;
+        const key = ['cloudwatch-metric-buckets-v1', request.region, identity, start, end];
+        const consumers = registerCloudWatchMetricDatasets(JSON.stringify(key));
+        try {
+          const result = await loadAwsCachedEvidence({
+            datasetKey: 'metric-buckets',
+            region: request.region,
+            key,
+            ttlMs: getAwsEvidenceTtl('metric-buckets', recent ? RECENT_TTL_MS : HISTORICAL_TTL_MS),
+            validate: (value): value is CloudWatchMetricEvidence =>
+              validEvidence(value) &&
+              value.window.startTime === start &&
+              value.window.endTime === end &&
+              value.window.periodSeconds === query.period,
+            load: async () => {
+              const values = await withAwsRequestDatasetSource(consumers.datasets, () =>
+                planCloudWatchSignals({ ...request, ...window, queries: [query] }, fetch),
+              );
+              const value = values.get(id);
+              if (!value) throw new Error(`CloudWatch evidence missing for requested query ${id}.`);
+              return {
+                value,
+                complete: value.status === 'Complete',
+                observedAt: end,
+                observationWindow: { start, end },
+              };
+            },
+          });
+          if (result.provenance.source === 'cache') {
+            cacheHits += 1;
+            datapointsReused += result.value.points.length;
+            queryDatapointsAvoided += result.value.coverage.expectedPoints;
+          } else {
+            allIntervalsReused = false;
+            datapointsFetched += result.value.points.length;
+          }
+          return result.value;
+        } finally {
+          consumers.release();
         }
-        return result.value;
       }),
     );
     const points = segments.flatMap((segment) => segment.points);
