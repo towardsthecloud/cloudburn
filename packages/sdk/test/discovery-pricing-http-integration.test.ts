@@ -77,8 +77,8 @@ beforeEach(() => {
       const startTime = input.StartTime;
       return response(
         JSON.stringify({
-          MetricDataResults: ['tgwIn0', 'tgwOut0'].map((Id) => ({
-            Id,
+          MetricDataResults: input.MetricDataQueries.map((query: { Id: string }) => ({
+            Id: query.Id,
             StatusCode: 'Complete',
             Timestamps: Array.from({ length: 30 }, (_, index) => startTime + index * 86_400),
             Values: Array.from({ length: 30 }, () => 0),

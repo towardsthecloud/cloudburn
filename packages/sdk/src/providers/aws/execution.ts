@@ -90,6 +90,13 @@ export const emitAwsRequestTelemetry = (event: Record<string, unknown>): void =>
 export const getAwsExecutionSignal = (): AbortSignal | undefined => executionContext.getStore()?.controller.signal;
 
 /**
+ * Retains the caller's diagnostic sink when shared work owns an independent execution.
+ * @returns The current execution logger, or undefined when diagnostics are disabled.
+ */
+export const getAwsExecutionDebugLogger = (): ((message: string) => void) | undefined =>
+  executionContext.getStore()?.debugLogger;
+
+/**
  * Returns the deadline that bounds the active discovery execution and its request leases.
  *
  * @returns The deadline as a Unix timestamp in milliseconds, or undefined outside discovery.
