@@ -616,14 +616,17 @@ export const listAwsDiscoveryIndexes = async (controlRegion?: string): Promise<A
 export const getAwsDiscoveryRegionStatus = async (region: string): Promise<AwsDiscoveryRegionStatus> => {
   const validRegion = assertValidAwsRegion(region);
   const client = createResourceExplorerClient({ region: validRegion });
+  // Status is best-effort evidence; keep failed probes from occupying regional
+  // workers for the full catalog/collector retry budget.
+  const requestOptions = { maxAttempts: 2 };
 
   try {
-    const response = await withAwsServiceErrorContext('AWS Resource Explorer', 'ListIndexes', validRegion, () =>
-      client.send(
-        new ListIndexesCommand({
-          Regions: [validRegion],
-        }),
-      ),
+    const response = await withAwsServiceErrorContext(
+      'AWS Resource Explorer',
+      'ListIndexes',
+      validRegion,
+      () => client.send(new ListIndexesCommand({ Regions: [validRegion] })),
+      requestOptions,
     );
     const matchedIndex = (response.Indexes ?? [])
       .flatMap((index) => {
@@ -645,6 +648,7 @@ export const getAwsDiscoveryRegionStatus = async (region: string): Promise<AwsDi
         'GetDefaultView',
         validRegion,
         () => client.send(new GetDefaultViewCommand({})),
+        requestOptions,
       );
       const viewArn = defaultViewResponse.ViewArn;
 
@@ -659,12 +663,12 @@ export const getAwsDiscoveryRegionStatus = async (region: string): Promise<AwsDi
         };
       }
 
-      const viewResponse = await withAwsServiceErrorContext('AWS Resource Explorer', 'GetView', validRegion, () =>
-        client.send(
-          new GetViewCommand({
-            ViewArn: viewArn,
-          }),
-        ),
+      const viewResponse = await withAwsServiceErrorContext(
+        'AWS Resource Explorer',
+        'GetView',
+        validRegion,
+        () => client.send(new GetViewCommand({ ViewArn: viewArn })),
+        requestOptions,
       );
       const filterString = viewResponse.View?.Filters?.FilterString?.trim();
 

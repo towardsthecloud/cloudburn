@@ -105,7 +105,8 @@ Existing state errors fail without bypassing coordination. `CLOUDBURN_AWS_QUOTA_
 `{"logs:DescribeLogStreams":{"ratePerSecond":5,"burst":1}}`. See [AWS request scheduling](../../docs/reference/aws-request-scheduling.md)
 for defaults, retry behavior, telemetry, and coordination limits.
 
-Status inspects up to 5 regions concurrently and returns regions sorted by name. Initialization retains its existing
+Status inspects up to 5 regions concurrently and returns regions sorted by name. Regional status probes make at most
+2 attempts so persistent throttling or transport failures yield status evidence promptly. Initialization retains its existing
 setup verification, local fallback, and default-view tag behavior. Normal discovery and status remain read-only.
 The initial STS identity request uses a separate bounded in-memory budget because the account is not yet known;
 subsequent requests use the resolved account. Transit Gateway public pricing keeps its own 5-second timeout within

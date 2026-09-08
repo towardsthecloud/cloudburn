@@ -38,7 +38,9 @@ lower rates allow at most 1 start in `1 / ratePerSecond` seconds.
 The public facade starts one request budget before catalog collection and retains it through dataset loading.
 Status, initialization, and supported-resource-type listing use the same lifecycle. Resource Explorer catalog reads,
 setup mutations, and polls all share its regional `non-search` quota; EC2 region listing uses `DescribeRegions` admission.
-Status limits regional work to 5 workers and preserves sorted output. Direct internal hydrator calls outside a budget
+Status limits regional work to 5 workers and preserves sorted output. Each regional `ListIndexes`, `GetDefaultView`,
+and `GetView` status probe makes at most 2 physical attempts before reporting unavailable status evidence; both
+attempts still acquire the shared quota. Catalog collection and setup mutations retain their separate retry budgets. Direct internal hydrator calls outside a budget
 keep wrapper-owned retries without shared admission. Other applications using the same AWS account are outside this
 coordinator's control, so AWS can still throttle a locally admitted request.
 

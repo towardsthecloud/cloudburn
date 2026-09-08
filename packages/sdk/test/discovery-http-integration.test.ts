@@ -23,6 +23,9 @@ let admissionDirectory: string;
 let enabledRegions: string[] | undefined;
 let holdOperation: string | undefined;
 let failOperation: string | undefined;
+let transientOperation: string | undefined;
+let transientStatusCode: number;
+let transientFailures: number;
 let held: Array<{ region: string; signal: AbortSignal; release: () => void }>;
 
 beforeEach(() => {
@@ -30,6 +33,9 @@ beforeEach(() => {
   enabledRegions = undefined;
   holdOperation = undefined;
   failOperation = undefined;
+  transientOperation = undefined;
+  transientStatusCode = 500;
+  transientFailures = Number.POSITIVE_INFINITY;
   held = [];
   denyVolumes = false;
   denyIdentity = false;
@@ -54,6 +60,16 @@ beforeEach(() => {
     const body = request.body ? String(request.body) : '';
     const operation = request.path === '/' ? (new URLSearchParams(body).get('Action') ?? '') : request.path.slice(1);
     requests.push({ hostname: request.hostname, operation });
+    if (operation === transientOperation && transientFailures-- > 0) {
+      const errorType = transientStatusCode === 429 ? 'ThrottlingException' : 'InternalServerException';
+      return {
+        response: {
+          statusCode: transientStatusCode,
+          headers: { 'content-type': 'application/json', 'x-amzn-errortype': errorType },
+          body: Buffer.from(JSON.stringify({ message: 'Synthetic retryable failure' })),
+        },
+      };
+    }
     if (operation === failOperation) {
       return {
         response: {
@@ -151,6 +167,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.restoreAllMocks();
   vi.unstubAllEnvs();
   rmSync(admissionDirectory, { recursive: true, force: true });
@@ -374,4 +391,57 @@ it('preserves credentials supplied through the existing public credential scope'
   );
   expect(authorizations.length).toBeGreaterThan(0);
   expect(authorizations.every((header) => header.includes('Credential=SCOPED/'))).toBe(true);
+});
+
+it.each([
+  ['ListIndexes', 500],
+  ['GetDefaultView', 500],
+  ['GetView', 500],
+  ['ListIndexes', 429],
+  ['GetDefaultView', 429],
+  ['GetView', 429],
+] as const)('bounds status probe %s to two physical attempts after HTTP %i', async (operation, statusCode) => {
+  vi.useFakeTimers();
+  // Failed identity uses the existing in-memory fallback, making admission clock-driven.
+  denyIdentity = true;
+  transientOperation = operation;
+  transientStatusCode = statusCode;
+  const result = new CloudBurnClient({ debugLogger: (message) => debugMessages.push(message) }).getDiscoveryStatus();
+  await vi.waitFor(() => expect(requests.some((request) => request.operation === operation)).toBe(true));
+  await vi.advanceTimersByTimeAsync(120_000);
+  const status = await result;
+  expect(status.regions).toEqual([
+    expect.objectContaining(
+      operation === 'ListIndexes'
+        ? { region: 'eu-west-1', status: 'error' }
+        : { region: 'eu-west-1', status: 'indexed', viewStatus: 'error' },
+    ),
+  ]);
+  expect(requests.filter((request) => request.operation === operation)).toHaveLength(2);
+  const attempts = debugMessages
+    .filter((message) => message.startsWith('aws: attempt '))
+    .map((message) => JSON.parse(message.slice(13)))
+    .filter((attempt) => attempt.operation === operation);
+  expect(attempts.map((attempt) => attempt.retryOutcome)).toEqual(['scheduled', 'exhausted']);
+  expect(attempts.every((attempt) => attempt.quota?.group === 'non-search')).toBe(true);
+  expect(vi.getTimerCount()).toBe(0);
+});
+
+it.each([
+  'ListIndexes',
+  'GetDefaultView',
+  'GetView',
+])('recovers status probe %s on its second attempt', async (operation) => {
+  vi.useFakeTimers();
+  denyIdentity = true;
+  transientOperation = operation;
+  transientFailures = 1;
+  const result = new CloudBurnClient().getDiscoveryStatus();
+  await vi.waitFor(() => expect(requests.some((request) => request.operation === operation)).toBe(true));
+  await vi.advanceTimersByTimeAsync(10_000);
+  expect((await result).regions).toEqual([
+    expect.objectContaining({ region: 'eu-west-1', status: 'indexed', viewStatus: 'present' }),
+  ]);
+  expect(requests.filter((request) => request.operation === operation)).toHaveLength(2);
+  expect(vi.getTimerCount()).toBe(0);
 });
