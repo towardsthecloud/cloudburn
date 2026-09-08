@@ -189,6 +189,12 @@ inventories; absent Classic listener metadata cannot establish HTTP-only support
 
 ### CloudWatch metric evidence
 
+With evidence caching configured, metric collectors reuse complete historical intervals through the existing scoped
+cache. A bounded planner coalesces compatible pending queries across datasets and gives shared requests independent
+cancellation ownership. Requested windows, per-series status, and raw Sum/SampleCount inputs remain intact. See
+[incremental metrics](../reference/evidence-cache.md#incremental-cloudwatch-metrics) for revalidation, storage sizing,
+planning limits, telemetry, and measured synthetic request savings.
+
 The [metric helper](../../packages/sdk/src/providers/aws/resources/cloudwatch.ts) returns one `CloudWatchMetricEvidence`
 record for every requested query ID. Each record retains the final AWS status, requested start/end and aggregation
 period, normalized points, expected and observed interval counts, request/query messages, and query attempt count.

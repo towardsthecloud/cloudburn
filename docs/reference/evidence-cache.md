@@ -119,6 +119,60 @@ Supporting provenance survives reuse of its parent dataset. For example, unknown
 complete activity evidence is cached. CLI JSON preserves the array; table output summarizes sources, incompleteness, and
 the oldest observation. Existing `evaluations` retain rule-specific assessed/unknown coverage on every scan.
 
+## Incremental CloudWatch metrics
+
+The [metric cache](../../packages/sdk/src/providers/aws/metric-cache.ts) consumes the same scoped `load` contract as
+catalog and dataset evidence. It stores complete raw metric points in daily intervals, retaining exact partial edges
+and aggregation phase. Keys include namespace, metric name, sorted dimensions, statistic, period, Region, and interval,
+plus the existing partition/account/authorization/target scope. Caller query IDs do not affect reuse. A different
+statistic or authorization context cannot reuse an incompatible interval.
+
+When a derived dataset expires or its observation window moves, fresh complete intervals can still be reused. Intervals
+ending within the previous 3 days have a 5-minute TTL; older intervals have a 7-day TTL. These are initial policies,
+not an AWS guarantee that history becomes immutable. Expired recent intervals are recollected and replaced, including
+late or revised points. Older history is periodically revalidated too. Missing, partial, forbidden, malformed, and
+failed series cannot publish complete intervals. A complete empty series retains the existing sparse-metric semantics;
+missing datapoints never become zero values.
+
+`ttlMs.datasets['metric-buckets']` overrides both interval TTLs. Set it to zero to recollect all requested metric
+intervals. A zero TTL on an individual derived dataset only expires that dataset; its reusable supporting evidence
+retains its own policy. `refresh` recollects all requested intervals, and `off` bypasses metric persistence. Existing
+invalidation, leases, and independent waiter cancellation apply without a separate cache interface.
+
+The [planner](../../packages/sdk/src/providers/aws/metric-planner.ts) merges adjacent missing/revalidation intervals of
+the same metric and combines metrics with identical resulting windows across pending dataset requests in one scan.
+It does not expand windows or query unselected metrics. Partial-period aggregates only combine when their exact windows match. The collection delay is at most 5 ms before queueing for
+admission. At most 8192 query references are admitted and 2 combined collectors run concurrently; excess callers wait
+for capacity with cancellation. The existing collector still enforces 500 queries and 100,800 datapoints per request
+page, pagination, retries, and shared request/datapoint quotas. A combined request owns its execution independently of
+its first waiter. Cancelling all consumers removes queued work and aborts transport; cancelling one consumer preserves
+work still needed by another, including a cache waiter in another scan.
+
+Daily intervals align to the requested aggregation phase. A moving rolling-window edge may require a separate narrow
+request, and changing the phase (for example, moving an hourly Lambda window from 12:00 to 12:05) prevents historical
+reuse. The requested window is never silently rounded to obtain a cache hit. Windows requiring more than 512 intervals
+per series use the original paginated collector without incremental persistence to bound cache fan-out.
+
+Interval entries share `maxEntries` and `maxBytes` with other evidence. Size these limits for the working set: 100 Lambda
+functions with 4 metric series and 8 daily/edge intervals need about 3200 metric entries, plus catalog and dataset
+entries. The default 1000-entry limit can evict useful intervals in larger fleets and reduce reuse. Storage limits
+remain enforced; this feature does not increase the established defaults. Sum and SampleCount points remain separate,
+so Lambda duration stays sample-weighted when reused and newly collected intervals are combined.
+
+Metric usage appears through the existing `aws: attempt` diagnostic sink with `type: 'metric-cache'`: `cacheHits` counts
+reused intervals, `datapointsReused` and `datapointsFetched` count logical points delivered from reused and collected
+intervals, and `queryDatapointsAvoided` counts expected metric-period slots supplied by cache. `requestsAvoided` is a
+conservative lower bound: the original initial-request count when the whole metric call is reused, otherwise zero.
+It excludes pagination, retries, and additional savings from cross-dataset coalescing. Existing physical attempt events
+remain authoritative for actual request and quota costs. Metric telemetry does not include names, dimensions,
+credentials, or datapoint values.
+
+A synthetic HTTP comparison with 2 ALBs over 14 complete days collected 28 datapoints in 1 cold request. Repeating the
+same window added no CloudWatch request, even with the derived dataset TTL set to zero. The next day collected 6
+missing/revalidation datapoints in 1 request, versus 28 in full-window collection. A late revised activity point changed
+the finding, and final providers, evaluations, and diagnostics matched the uncached result. This fixture demonstrates
+request reuse and a 78.6% rollover datapoint reduction; it is not a live-account latency benchmark.
+
 ## Public pricing
 
 Public pricing has no customer authorization key. The current implementation caches the normalized AmazonVPC VPC

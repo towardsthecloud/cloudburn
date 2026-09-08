@@ -22,6 +22,7 @@ import {
   throwIfAwsExecutionAborted,
   withAwsDiscoveryExecution,
 } from './execution.js';
+import { withCloudWatchMetricPlanning } from './metric-planner.js';
 import { withAwsServiceCallBudget } from './request.js';
 
 type EvidenceContext = {
@@ -45,13 +46,14 @@ export const fingerprintAwsEvidence = (value: unknown): string =>
 /**
  * Configures explicit reusable evidence under a resolved, immutable credential session.
  * @param options - Cache policy, selected target, and diagnostic logger.
- * @param run - Scan whose rules are evaluated independently of evidence reuse.
+ * @param execute - Scan whose rules are evaluated independently of evidence reuse.
  * @returns The scan result under its own authorization context.
  */
 export const withAwsEvidenceCache = async <T>(
   options: { cache?: AwsEvidenceCacheOptions; target: AwsDiscoveryTarget; debugLogger?: (message: string) => void },
-  run: () => Promise<T>,
+  execute: () => Promise<T>,
 ): Promise<T> => {
+  const run = () => withCloudWatchMetricPlanning(execute);
   if (!options.cache) return run();
   const settings = options.cache;
   for (const ttl of [

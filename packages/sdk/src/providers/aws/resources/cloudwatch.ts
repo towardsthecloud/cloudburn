@@ -1,6 +1,7 @@
 import { GetMetricDataCommand, type MessageData } from '@aws-sdk/client-cloudwatch';
 import { createCloudWatchClient } from '../client.js';
 import { waitForAwsDelay } from '../execution.js';
+import { fetchCachedCloudWatchSignals } from '../metric-cache.js';
 import { chunkItems, mapWithConcurrency, withAwsServiceErrorContext } from './utils.js';
 
 const CLOUDWATCH_METRIC_QUERY_BATCH_SIZE = 500;
@@ -106,7 +107,7 @@ const appendMessages = (
  * @param options - Region, explicit observation window, and queries with unique caller-owned IDs.
  * @returns One evidence record per query, with status, normalized points, coverage and AWS diagnostics.
  */
-export const fetchCloudWatchSignals = async (options: {
+const fetchCloudWatchSignalsLive = async (options: {
   region: string;
   startTime: Date;
   endTime: Date;
@@ -254,4 +255,19 @@ export const fetchCloudWatchSignals = async (options: {
       return [query.id, evidence];
     }),
   );
+};
+
+/**
+ * Retrieves exact-window metric evidence with scoped incremental reuse and bounded query planning.
+ * @param options - Region, observation window, and queries with unique caller-owned IDs.
+ * @returns One complete or explicitly incomplete evidence record per requested query.
+ */
+export const fetchCloudWatchSignals = async (options: {
+  region: string;
+  startTime: Date;
+  endTime: Date;
+  queries: CloudWatchMetricQuery[];
+}): Promise<Map<string, CloudWatchMetricEvidence>> => {
+  const batches = createMetricBatches(options.queries, options.startTime, options.endTime);
+  return fetchCachedCloudWatchSignals(options, fetchCloudWatchSignalsLive, batches.length);
 };

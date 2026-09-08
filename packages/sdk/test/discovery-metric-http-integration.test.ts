@@ -254,7 +254,7 @@ it('reuses a rolling observation window across minutes and refreshes at its fres
   );
 });
 
-it('recollects derived metrics when the inventory loader version changes with identical normalized inventory', {
+it('rebuilds derived metrics after inventory version changes while reusing compatible metric buckets', {
   timeout: 20_000,
 }, async () => {
   metricScenario = 'lambda';
@@ -267,10 +267,7 @@ it('recollects derived metrics when the inventory loader version changes with id
     definition.loaderVersion = `${originalVersion}-test-revision`;
     const second = await discoverCachedLambda();
     expect(lambdaInventoryCalls).toBe(2);
-    expect(metricWindows).toEqual([
-      { start: '2026-08-31T12:00:00.000Z', end: '2026-09-07T12:00:00.000Z' },
-      { start: '2026-08-31T12:00:00.000Z', end: '2026-09-07T12:00:00.000Z' },
-    ]);
+    expect(metricWindows).toEqual([{ start: '2026-08-31T12:00:00.000Z', end: '2026-09-07T12:00:00.000Z' }]);
     expect(second.evidence).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -278,6 +275,7 @@ it('recollects derived metrics when the inventory loader version changes with id
           source: 'live',
           complete: true,
         }),
+        expect.objectContaining({ datasetKey: 'metric-buckets', source: 'cache', complete: true }),
       ]),
     );
   } finally {

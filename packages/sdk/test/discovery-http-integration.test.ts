@@ -38,7 +38,12 @@ const xmlResponse = (operation: string, content: string) => ({
     ),
   },
 });
-type ElbScenario = { names: string[]; includeTargets: boolean; metricCases: Record<string, string> };
+type ElbScenario = {
+  names: string[];
+  includeTargets: boolean;
+  metricCases: Record<string, string>;
+  metricValue?: (name: string, timestamp: number) => number;
+};
 let elbScenario: ElbScenario | undefined;
 const useElbScenario = (names = Array.from({ length: 10 }, (_, index) => `alb-${index}`)): ElbScenario => {
   // Freeze the observation date while allowing admission waits to refill quota tokens.
@@ -54,6 +59,7 @@ let denyIdentity: boolean;
 let includeNewVolume: boolean;
 let viewScope: string | undefined;
 let requests: Array<{ hostname: string; operation: string }>;
+let metricRequests: Array<{ start: number; end: number; queryCount: number; datapoints: number }>;
 let unexpected: string[];
 let debugMessages: string[];
 let admissionDirectory: string;
@@ -80,6 +86,7 @@ beforeEach(() => {
   includeNewVolume = false;
   viewScope = undefined;
   requests = [];
+  metricRequests = [];
   unexpected = [];
   debugMessages = [];
   admissionDirectory = mkdtempSync(join(tmpdir(), 'cloudburn-discovery-http-'));
@@ -276,29 +283,42 @@ beforeEach(() => {
       }
     }
     if (elbScenario && request.hostname === 'monitoring.eu-west-1.amazonaws.com' && operation === 'GetMetricData') {
-      const { metricCases } = elbScenario;
+      const { metricCases, metricValue } = elbScenario;
       const input = JSON.parse(body) as {
+        StartTime: number;
+        EndTime: number;
         MetricDataQueries: Array<{
           Id: string;
-          MetricStat: { Metric: { Dimensions: Array<{ Name: string; Value: string }> } };
+          MetricStat: { Period: number; Metric: { Dimensions: Array<{ Name: string; Value: string }> } };
         }>;
       };
-      return jsonResponse({
+      const response = {
         MetricDataResults: input.MetricDataQueries.flatMap((query) => {
           const name = query.MetricStat.Metric.Dimensions[0]?.Value.split('/')[1] ?? '';
           const status = metricCases[name] ?? 'Complete';
           if (status === 'Missing') return [];
+          const timestamps =
+            status === 'Empty'
+              ? []
+              : Array.from(
+                  { length: Math.ceil((input.EndTime - input.StartTime) / query.MetricStat.Period) },
+                  (_, index) => input.StartTime + index * query.MetricStat.Period,
+                );
           return {
             Id: query.Id,
             StatusCode: status === 'Empty' ? 'Complete' : status,
-            Timestamps:
-              status === 'Empty'
-                ? []
-                : Array.from({ length: 14 }, (_, index) => Date.parse('2026-08-24T00:00:00Z') / 1000 + index * 86_400),
-            Values: status === 'Empty' ? [] : Array.from({ length: 14 }, () => 5),
+            Timestamps: timestamps,
+            Values: timestamps.map((timestamp) => metricValue?.(name, timestamp) ?? 5),
           };
         }),
+      };
+      metricRequests.push({
+        start: input.StartTime,
+        end: input.EndTime,
+        queryCount: input.MetricDataQueries.length,
+        datapoints: response.MetricDataResults.reduce((sum, result) => sum + result.Values.length, 0),
       });
+      return jsonResponse(response);
     }
     const description = `${request.method} ${request.hostname}${request.path}`;
     unexpected.push(description);
@@ -545,6 +565,77 @@ it('reports denied required AWS evidence as unavailable rather than a passed che
 });
 
 describe('ELB request activity', () => {
+  it('reuses historical metrics on rollover while late activity matches a full-window scan', {
+    timeout: 20_000,
+  }, async () => {
+    const scenario = useElbScenario(['idle', 'late-activity']);
+    scenario.includeTargets = true;
+    const client = new CloudBurnClient({ debugLogger: (message) => debugMessages.push(message) });
+    const scan = {
+      target: { mode: 'region' as const, region },
+      cache: {
+        directory: join(admissionDirectory, 'metric-evidence'),
+        authorizationContext: 'synthetic-policy-v1',
+        ttlMs: { datasets: { 'aws-ec2-load-balancer-request-activity': 0 } },
+      },
+      config: { discovery: { enabledRules: ['CLDBRN-AWS-ELB-5'] } },
+      includeEvaluationResources: true,
+    };
+    const first = await client.discover(scan);
+    expect(first.providers[0]?.rules[0]?.findings).toEqual([identity('idle'), identity('late-activity')]);
+    expect(metricRequests).toEqual([
+      {
+        start: Date.parse('2026-08-24T00:00:00Z') / 1000,
+        end: Date.parse('2026-09-07T00:00:00Z') / 1000,
+        queryCount: 2,
+        datapoints: 28,
+      },
+    ]);
+
+    const repeated = await client.discover(scan);
+    expect(repeated.providers).toEqual(first.providers);
+    expect(repeated.evaluations).toEqual(first.evaluations);
+    expect(metricRequests).toHaveLength(1);
+
+    // A revised closed day changes the late-activity ALB's 14-day average from 5 to above 10.
+    scenario.metricValue = (name, timestamp) =>
+      name === 'late-activity' && timestamp === Date.parse('2026-09-06T00:00:00Z') / 1000 ? 200 : 5;
+    vi.setSystemTime(new Date('2026-09-08T12:00:00Z'));
+    const incremental = await client.discover(scan);
+    expect(incremental.providers[0]?.rules[0]?.findings).toEqual([identity('idle')]);
+    expect(metricRequests).toHaveLength(2);
+    expect(metricRequests[1]).toEqual({
+      start: Date.parse('2026-09-05T00:00:00Z') / 1000,
+      end: Date.parse('2026-09-08T00:00:00Z') / 1000,
+      queryCount: 2,
+      datapoints: 6,
+    });
+    expect(
+      debugMessages
+        .filter((message) => message.startsWith('aws: attempt '))
+        .map((message) => JSON.parse(message.slice(13))),
+    ).toContainEqual(
+      expect.objectContaining({
+        type: 'metric-cache',
+        cacheHits: 22,
+        datapointsReused: 22,
+        datapointsFetched: 6,
+      }),
+    );
+
+    const baseline = await client.discover({ ...scan, cache: { ...scan.cache, mode: 'off' } });
+    expect(incremental.providers).toEqual(baseline.providers);
+    expect(incremental.evaluations).toEqual(baseline.evaluations);
+    expect(incremental.diagnostics).toEqual(baseline.diagnostics);
+    expect(metricRequests).toHaveLength(3);
+    expect(metricRequests[2]).toEqual({
+      start: Date.parse('2026-08-25T00:00:00Z') / 1000,
+      end: Date.parse('2026-09-08T00:00:00Z') / 1000,
+      queryCount: 2,
+      datapoints: 28,
+    });
+  });
+
   it('loads inventory plus activity for ten ALBs with eleven metadata calls, counting health and metrics separately', async () => {
     useElbScenario();
     const result = await discover('CLDBRN-AWS-ELB-5');
