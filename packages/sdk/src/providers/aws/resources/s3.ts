@@ -6,7 +6,7 @@ import {
 import type { AwsDiscoveredResource, AwsS3BucketAnalysis } from '@cloudburn/rules';
 import { createS3Client } from '../client.js';
 import { buildS3BucketAnalysisFlags } from './s3-analysis.js';
-import { chunkItems, withAwsServiceErrorContext } from './utils.js';
+import { mapWithConcurrency, withAwsServiceErrorContext } from './utils.js';
 
 const S3_HYDRATION_CONCURRENCY = 10;
 
@@ -107,39 +107,29 @@ export const hydrateAwsS3BucketAnalyses = async (
     [...resourcesByRegion.entries()].map(async ([region, regionResources]) => {
       const client = clientsByRegion.get(region) ?? createS3Client({ region });
       clientsByRegion.set(region, client);
-      const analyses: AwsS3BucketAnalysis[] = [];
+      const analyses = await mapWithConcurrency(regionResources, S3_HYDRATION_CONCURRENCY, async (resource) => {
+        const bucketName = extractBucketName(resource);
 
-      for (const batch of chunkItems(regionResources, S3_HYDRATION_CONCURRENCY)) {
-        const hydratedBatch = await Promise.all(
-          batch.flatMap((resource) => {
-            const bucketName = extractBucketName(resource);
+        if (!bucketName) {
+          return [];
+        }
 
-            if (!bucketName) {
-              return [];
-            }
+        const [lifecycleRules, intelligentTieringConfigurations] = await Promise.all([
+          loadBucketLifecycleRules(client, bucketName, region),
+          loadBucketIntelligentTieringConfigurations(client, bucketName, region),
+        ]);
 
-            return [
-              (async (): Promise<AwsS3BucketAnalysis> => {
-                const [lifecycleRules, intelligentTieringConfigurations] = await Promise.all([
-                  loadBucketLifecycleRules(client, bucketName, region),
-                  loadBucketIntelligentTieringConfigurations(client, bucketName, region),
-                ]);
+        return [
+          {
+            accountId: resource.accountId,
+            bucketName,
+            region: resource.region,
+            ...buildS3BucketAnalysisFlags(lifecycleRules, intelligentTieringConfigurations),
+          },
+        ];
+      });
 
-                return {
-                  accountId: resource.accountId,
-                  bucketName,
-                  region: resource.region,
-                  ...buildS3BucketAnalysisFlags(lifecycleRules, intelligentTieringConfigurations),
-                };
-              })(),
-            ];
-          }),
-        );
-
-        analyses.push(...hydratedBatch);
-      }
-
-      return analyses;
+      return analyses.flat();
     }),
   );
 

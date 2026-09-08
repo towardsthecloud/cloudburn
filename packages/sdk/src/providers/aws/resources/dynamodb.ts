@@ -12,7 +12,12 @@ import type { AwsDiscoveryDatasetLoadResult, AwsDiscoveryDatasetResolver } from 
 import { formatAwsAccessDeniedReason, getAwsErrorCode, isAwsAccessDeniedError } from '../errors.js';
 import { getAwsDiscoveryTimestamp } from '../execution.js';
 import { cloudWatchWindow, fetchCloudWatchSignals, getCompleteCloudWatchPoints } from './cloudwatch.js';
-import { chunkItems, extractTerminalArnResourceIdentifier, withAwsServiceErrorContext } from './utils.js';
+import {
+  chunkItems,
+  extractTerminalArnResourceIdentifier,
+  mapWithConcurrency,
+  withAwsServiceErrorContext,
+} from './utils.js';
 
 const DYNAMODB_TABLE_CONCURRENCY = 10;
 const APPLICATION_AUTO_SCALING_BATCH_SIZE = 50;
@@ -71,62 +76,58 @@ export const hydrateAwsDynamoDbTables = async (
       const diagnostics: ScanDiagnostic[] = [];
       let firstAccessDeniedError: unknown;
 
-      for (const batch of chunkItems(regionTables, DYNAMODB_TABLE_CONCURRENCY)) {
-        const hydratedBatch = await Promise.all(
-          batch.map(async (table) => {
-            try {
-              const response = await withAwsServiceErrorContext('Amazon DynamoDB', 'DescribeTable', region, () =>
-                client.send(
-                  new DescribeTableCommand({
-                    TableName: table.tableName,
-                  }),
-                ),
-              );
-              const describedTable = response.Table;
+      const hydratedTables = await mapWithConcurrency(regionTables, DYNAMODB_TABLE_CONCURRENCY, async (table) => {
+        try {
+          const response = await withAwsServiceErrorContext('Amazon DynamoDB', 'DescribeTable', region, () =>
+            client.send(
+              new DescribeTableCommand({
+                TableName: table.tableName,
+              }),
+            ),
+          );
+          const describedTable = response.Table;
 
-              return {
-                resource: {
-                  accountId: table.accountId,
-                  billingMode:
-                    describedTable?.BillingModeSummary?.BillingMode ??
-                    (describedTable?.ProvisionedThroughput ? 'PROVISIONED' : undefined),
-                  creationDateTime: describedTable?.CreationDateTime?.toISOString(),
-                  latestStreamLabel: describedTable?.LatestStreamLabel,
-                  region,
-                  tableArn: describedTable?.TableArn ?? table.tableArn,
-                  tableName: describedTable?.TableName ?? table.tableName,
-                  tableStatus: describedTable?.TableStatus,
-                } satisfies AwsDynamoDbTable,
-              };
-            } catch (err) {
-              if (!isAwsAccessDeniedError(err)) {
-                throw err;
-              }
-
-              firstAccessDeniedError ??= err;
-
-              return {
-                diagnostic: {
-                  code: getAwsErrorCode(err),
-                  details: err instanceof Error ? err.message : String(err),
-                  message: `Skipped DynamoDB table ${table.tableName} in ${region} because access is denied by ${formatAwsAccessDeniedReason(err)}.`,
-                  provider: 'aws',
-                  region,
-                  service: 'dynamodb',
-                  source: 'discovery',
-                  status: 'access_denied',
-                } satisfies ScanDiagnostic,
-              };
-            }
-          }),
-        );
-
-        for (const result of hydratedBatch) {
-          if (result.resource) {
-            tables.push(result.resource);
-          } else if (result.diagnostic) {
-            diagnostics.push(result.diagnostic);
+          return {
+            resource: {
+              accountId: table.accountId,
+              billingMode:
+                describedTable?.BillingModeSummary?.BillingMode ??
+                (describedTable?.ProvisionedThroughput ? 'PROVISIONED' : undefined),
+              creationDateTime: describedTable?.CreationDateTime?.toISOString(),
+              latestStreamLabel: describedTable?.LatestStreamLabel,
+              region,
+              tableArn: describedTable?.TableArn ?? table.tableArn,
+              tableName: describedTable?.TableName ?? table.tableName,
+              tableStatus: describedTable?.TableStatus,
+            } satisfies AwsDynamoDbTable,
+          };
+        } catch (err) {
+          if (!isAwsAccessDeniedError(err)) {
+            throw err;
           }
+
+          firstAccessDeniedError ??= err;
+
+          return {
+            diagnostic: {
+              code: getAwsErrorCode(err),
+              details: err instanceof Error ? err.message : String(err),
+              message: `Skipped DynamoDB table ${table.tableName} in ${region} because access is denied by ${formatAwsAccessDeniedReason(err)}.`,
+              provider: 'aws',
+              region,
+              service: 'dynamodb',
+              source: 'discovery',
+              status: 'access_denied',
+            } satisfies ScanDiagnostic,
+          };
+        }
+      });
+
+      for (const result of hydratedTables) {
+        if (result.resource) {
+          tables.push(result.resource);
+        } else if (result.diagnostic) {
+          diagnostics.push(result.diagnostic);
         }
       }
 

@@ -33,6 +33,58 @@ describe('DynamoDB discovery resources', () => {
     vi.useRealTimers();
   });
 
+  it('fills a free table worker while another table is slow without exceeding the concurrency limit', async () => {
+    const releases: Array<() => void> = [];
+    const gates = Array.from({ length: 11 }, () => new Promise<void>((resolve) => releases.push(resolve)));
+    const started: string[] = [];
+    let active = 0;
+    let peakActive = 0;
+    mockedCreateDynamoDbClient.mockReturnValue({
+      send: vi.fn(async (command: DescribeTableCommand) => {
+        const tableName = command.input.TableName as string;
+        started.push(tableName);
+        active += 1;
+        peakActive = Math.max(peakActive, active);
+        await gates[Number(tableName.slice('table-'.length))];
+        active -= 1;
+        return { Table: { TableName: tableName } };
+      }),
+    } as never);
+    const run = hydrateAwsDynamoDbTables(
+      Array.from({ length: 11 }, (_, index) => ({
+        accountId: '123456789012',
+        arn: `arn:aws:dynamodb:us-east-1:123456789012:table/table-${index}`,
+        region: 'us-east-1',
+        resourceType: 'dynamodb:table',
+        service: 'dynamodb',
+      })),
+    );
+
+    try {
+      await vi.waitFor(() => expect(started).toHaveLength(10));
+      releases[1]?.();
+      await vi.waitFor(() => expect(started).toContain('table-10'), { timeout: 1000 });
+      expect(peakActive).toBe(10);
+    } finally {
+      for (const release of releases) release();
+      await run;
+    }
+    const result = await run;
+    expect(Array.isArray(result) ? result.map((table) => table.tableName) : result).toEqual([
+      'table-0',
+      'table-1',
+      'table-10',
+      'table-2',
+      'table-3',
+      'table-4',
+      'table-5',
+      'table-6',
+      'table-7',
+      'table-8',
+      'table-9',
+    ]);
+  });
+
   it('hydrates DynamoDB tables with billing mode and latest stream label metadata', async () => {
     mockedCreateDynamoDbClient.mockReturnValue({
       send: vi.fn(async (command: DescribeTableCommand) => {
