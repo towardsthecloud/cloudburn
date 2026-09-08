@@ -9,6 +9,7 @@ import { createMemoryEvidenceCacheStore } from '../../src/evidence-cache.js';
 import { withAwsClientCredentials } from '../../src/providers/aws/client.js';
 import { withAwsEvidenceCache } from '../../src/providers/aws/evidence.js';
 import { getAwsExecutionSignal, withAwsDiscoveryExecution } from '../../src/providers/aws/execution.js';
+import { withAwsDatasetAttribution } from '../../src/providers/aws/request-attribution.js';
 import { type CloudWatchMetricQuery, fetchCloudWatchSignals } from '../../src/providers/aws/resources/cloudwatch.js';
 import { hydrateAwsLambdaFunctionMetrics } from '../../src/providers/aws/resources/lambda.js';
 import type { AwsEvidenceCacheOptions } from '../../src/types.js';
@@ -104,6 +105,42 @@ describe('incremental CloudWatch evidence', () => {
     vi.unstubAllEnvs();
     rmSync(admissionDirectory, { recursive: true, force: true });
     vi.useRealTimers();
+  });
+
+  it('retains both dataset consumers when an identical metric cache miss shares one loader', async () => {
+    await inScan(() =>
+      Promise.all(
+        ['aws-ec2-instance-utilization', 'aws-ec2-instance-network'].map((dataset, index) =>
+          withAwsDatasetAttribution(dataset, () =>
+            fetchCloudWatchSignals({
+              region: 'eu-west-1',
+              startTime,
+              endTime,
+              queries: [
+                index === 0
+                  ? query
+                  : {
+                      stat: query.stat,
+                      period: query.period,
+                      dimensions: query.dimensions.map(({ Name, Value }) => ({ Value, Name })),
+                      metricName: query.metricName,
+                      namespace: query.namespace,
+                      id: query.id,
+                    },
+              ],
+            }),
+          ),
+        ),
+      ),
+    );
+    const attempts = debugMessages
+      .filter((line) => line.startsWith('aws: attempt '))
+      .map((line) => JSON.parse(line.slice(13)))
+      .filter((event) => event.operation === 'GetMetricData');
+    expect(requests).toHaveLength(1);
+    expect(attempts).toHaveLength(1);
+    expect(attempts[0].attribution.datasets).toEqual(['aws-ec2-instance-network', 'aws-ec2-instance-utilization']);
+    expect(attempts[0].attribution.dataset).toBeUndefined();
   });
 
   it('reuses the same window and fetches only recent overlap plus the missing day on rollover', async () => {

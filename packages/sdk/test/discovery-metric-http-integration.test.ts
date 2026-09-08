@@ -190,8 +190,8 @@ const discover = () =>
     includeEvaluationResources: true,
   });
 
-const discoverCachedLambda = () =>
-  new CloudBurnClient().discover({
+const discoverCachedLambda = (debugLogger?: (message: string) => void) =>
+  new CloudBurnClient({ debugLogger }).discover({
     target: { mode: 'regions', regions: ['eu-west-1'] },
     config: { discovery: { enabledRules: ['CLDBRN-AWS-LAMBDA-2'] } },
     aws: { credentials: { accessKeyId: 'SYNTHETIC', secretAccessKey: 'synthetic-test-key' } },
@@ -204,7 +204,17 @@ it('reuses a rolling observation window across minutes and refreshes at its fres
 }, async () => {
   metricScenario = 'lambda';
   vi.setSystemTime(new Date('2026-09-07T12:01:30.000Z'));
-  const first = await discoverCachedLambda();
+  const messages: string[] = [];
+  const first = await discoverCachedLambda((message) => messages.push(message));
+  const metricAttempts = messages
+    .filter((message) => message.startsWith('aws: attempt '))
+    .map((message) => JSON.parse(message.slice(13)))
+    .filter((attempt) => attempt.operation === 'GetMetricData');
+  expect(metricAttempts).toHaveLength(1);
+  expect(metricAttempts[0].attribution).toMatchObject({
+    dataset: 'aws-lambda-function-metrics',
+    datasets: ['aws-lambda-function-metrics'],
+  });
   // Reuse fixes the actual AWS query end at the start of the five-minute
   // freshness interval, so provenance must disclose 12:00 rather than 12:01:30.
   const firstWindow = { start: '2026-08-31T12:00:00.000Z', end: '2026-09-07T12:00:00.000Z' };
