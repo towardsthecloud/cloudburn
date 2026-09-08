@@ -1,5 +1,15 @@
 # @cloudburn/rules
 
+## 0.32.2
+
+### Patch Changes
+
+- [#247](https://github.com/towardsthecloud/cloudburn/pull/247) [`c0503a6`](https://github.com/towardsthecloud/cloudburn/commit/c0503a691d687e5416034aa9ad6b6656a64f56ec) Thanks [@axonstone](https://github.com/axonstone)! - Expose optional lastModifiedTime evidence on discovered CloudFront distributions for consumers of the normalized dataset.
+
+- [#237](https://github.com/towardsthecloud/cloudburn/pull/237) [`761df29`](https://github.com/towardsthecloud/cloudburn/commit/761df293ff815b86ed49d9ac229d77109a87922d) Thanks [@axonstone](https://github.com/axonstone)! - Add optional live evaluation coverage so metric rules distinguish assessed resources from resources with incomplete
+  or missing evidence. Preserve existing grouped finding returns, track observed EC2 utilization days, and allow
+  unknown AWS Config metric counts and savings estimates to remain null.
+
 ## 0.32.1
 
 ### Patch Changes

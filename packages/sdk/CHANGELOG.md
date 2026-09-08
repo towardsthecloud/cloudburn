@@ -1,5 +1,26 @@
 # @cloudburn/sdk
 
+## 0.33.0
+
+### Minor Changes
+
+- [#239](https://github.com/towardsthecloud/cloudburn/pull/239) [`5b984b7`](https://github.com/towardsthecloud/cloudburn/commit/5b984b7262f1627abfbf95dd9cf59de907627b3a) Thanks [@axonstone](https://github.com/axonstone)! - Share AWS request pacing, concurrency, and retry feedback across scans and local processes. Meter CloudWatch datapoint throughput, support explicit quota overrides, and report attributed request timing in discovery debug logs.
+
+### Patch Changes
+
+- [#249](https://github.com/towardsthecloud/cloudburn/pull/249) [`bbd31f9`](https://github.com/towardsthecloud/cloudburn/commit/bbd31f9f7e2341b7b8d0f8d1d5fd839374176e23) Thanks [@axonstone](https://github.com/axonstone)! - Manage deadlines, cancellation, credentials, and client disposal across discovery status, initialization, supported resource types, catalog collection, and public pricing. Share catalog and control-plane request admission with discovery collectors, and bound regional status workers and probe retries while preserving setup behavior.
+
+- [#237](https://github.com/towardsthecloud/cloudburn/pull/237) [`761df29`](https://github.com/towardsthecloud/cloudburn/commit/761df293ff815b86ed49d9ac229d77109a87922d) Thanks [@axonstone](https://github.com/axonstone)! - Preserve CloudWatch completeness across every metric loader to prevent false idle findings. Correct Lambda's rolling 7-day window and weight duration by sample counts. Discovery evaluations now include assessed and unknown metric resource coverage and can report `unknown`; callers validating status strings must accept this value. Config metric counts and estimates remain null when evidence is unavailable.
+
+- [#246](https://github.com/towardsthecloud/cloudburn/pull/246) [`68b2ba0`](https://github.com/towardsthecloud/cloudburn/commit/68b2ba0e00fb54708e5f2756049de0652296ac38) Thanks [@axonstone](https://github.com/axonstone)! - Batch SageMaker, NAT gateway, and VPC endpoint metrics across resource lookups to reduce CloudWatch requests while preserving complete evidence and selected resource scope. Bound pending metric work and let S3 and DynamoDB hydration workers continue as individual lookups finish.
+
+- [#247](https://github.com/towardsthecloud/cloudburn/pull/247) [`c0503a6`](https://github.com/towardsthecloud/cloudburn/commit/c0503a691d687e5416034aa9ad6b6656a64f56ec) Thanks [@axonstone](https://github.com/axonstone)! - Reuse CloudFront list-summary price classes and modification timestamps, avoiding redundant distribution detail requests during fallback discovery. Preserve catalog selection and use bounded continuous workers for required detail lookups. Exclude unsupported tenant-only price-class evidence from both summary and detail responses to prevent false pricing findings.
+
+- [#236](https://github.com/towardsthecloud/cloudburn/pull/236) [`61f70d7`](https://github.com/towardsthecloud/cloudburn/commit/61f70d747f909de16178f06fea2bd8c52b7db493) Thanks [@axonstone](https://github.com/axonstone)! - Stop queued discovery work after a fatal mapper failure while preserving prompt cancellation and observing active worker failures.
+
+- Updated dependencies [[`c0503a6`](https://github.com/towardsthecloud/cloudburn/commit/c0503a691d687e5416034aa9ad6b6656a64f56ec), [`761df29`](https://github.com/towardsthecloud/cloudburn/commit/761df293ff815b86ed49d9ac229d77109a87922d)]:
+  - @cloudburn/rules@0.32.2
+
 ## 0.32.1
 
 ### Patch Changes
