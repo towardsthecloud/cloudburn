@@ -255,6 +255,23 @@ The SDK does not define product profiles, remediation effort, commands, or persi
 the discovery rules that fit their use case through `config.discovery.enabledRules` and transform the generic result
 at their own product boundary.
 
+CloudFront discovery reuses `ListDistributions` summaries when the catalog has no distribution seeds. A page of 100
+distributions with price-class evidence needs 1 list request and 0 `GetDistribution` requests, excluding account identity
+lookup. Pagination retains all listed distributions; a nonempty catalog selection uses detail requests only for those
+selected IDs and never lists additional distributions.
+
+Grant `cloudfront:ListDistributions` for fallback discovery and `cloudfront:GetDistribution` for catalog hydration or
+fallback standard distributions missing their price class. `PriceClass: None` is retained, and tenant-only summaries
+do not require a price-class lookup. These variants follow the AWS
+[DistributionSummary contract](https://docs.aws.amazon.com/cloudfront/latest/APIReference/API_DistributionSummary.html).
+Fallback account identity uses `sts:GetCallerIdentity`; request activity also requires `cloudwatch:GetMetricData` in
+`us-east-1`. Necessary detail requests use at most 10 workers and retain the usual retry and cancellation behavior.
+
+CloudFront distribution evidence includes optional `lastModifiedTime` as an ISO 8601 timestamp when AWS supplies it.
+Its absence does not trigger a detail request. Modification time does not establish creation time or replace the
+30 complete daily observations required for a known request total. Incomplete, missing, and empty request evidence
+remains unknown.
+
 ### Lower-level helpers
 
 If you need more control, the SDK also exposes a lower-level parser:
