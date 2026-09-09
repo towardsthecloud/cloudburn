@@ -156,7 +156,7 @@ describe('hydrateAwsRdsInstanceActivity', () => {
             region: 'us-east-1',
           },
         ],
-      }),
+      } as unknown as Parameters<typeof hydrateAwsRdsInstanceActivity>[1]),
     ).resolves.toEqual([
       {
         accountId: '123456789012',
@@ -237,7 +237,7 @@ describe('hydrateAwsRdsInstanceCpuMetrics', () => {
             region: 'us-east-1',
           },
         ],
-      }),
+      } as unknown as Parameters<typeof hydrateAwsRdsInstanceCpuMetrics>[1]),
     ).resolves.toEqual([
       {
         accountId: '123456789012',

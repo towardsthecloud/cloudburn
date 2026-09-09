@@ -70,6 +70,7 @@ describe('network resource metric batching', () => {
         region: 'us-east-1',
         service: 'ec2',
         resourceType: 'ec2:natgateway',
+        properties: [],
       })),
     );
 
@@ -121,6 +122,7 @@ describe('network resource metric batching', () => {
         region: 'us-east-1',
         service: 'ec2',
         resourceType: 'ec2:vpc-endpoint',
+        properties: [],
       })),
     );
 

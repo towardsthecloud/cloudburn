@@ -1,6 +1,7 @@
-import type { AwsDiscoveryCatalog, Rule } from '@cloudburn/rules';
+import type { AwsDiscoveredResource, AwsDiscoveryCatalog, DiscoveryDatasetKey, Rule } from '@cloudburn/rules';
 import { LiveResourceBag } from '@cloudburn/rules';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { AwsRegion } from '../../src/providers/aws/client.js';
 import { listEnabledAwsRegions, resolveAwsAccountId, resolveCurrentAwsRegion } from '../../src/providers/aws/client.js';
 import {
   discoverAwsResources,
@@ -554,6 +555,16 @@ const catalog: AwsDiscoveryCatalog = {
   searchRegion: 'us-east-1',
 };
 
+const catalogResource = (index: number): AwsDiscoveredResource => {
+  const resource = catalog.resources[index];
+
+  if (!resource) {
+    throw new Error(`Missing catalog resource ${index}`);
+  }
+
+  return resource;
+};
+
 const createRule = (overrides: Partial<Rule> = {}): Rule => ({
   description: 'test rule',
   evaluateLive: () => null,
@@ -562,11 +573,17 @@ const createRule = (overrides: Partial<Rule> = {}): Rule => ({
   name: 'test rule',
   provider: 'aws',
   service: 'ec2',
+  severity: 'medium',
   supports: ['discovery'],
   ...overrides,
 });
 
-const mockObservedStatus = (regions: Parameters<typeof mockedGetAwsDiscoveryRegionStatus.mockResolvedValue>[0][]) => {
+type ObservedRegionStatus = Omit<
+  Parameters<typeof mockedGetAwsDiscoveryRegionStatus.mockResolvedValue>[0],
+  'region'
+> & { region: AwsRegion };
+
+const mockObservedStatus = (regions: ObservedRegionStatus[]) => {
   mockedListEnabledAwsRegions.mockResolvedValue(regions.map((region) => region.region));
   mockedGetAwsDiscoveryRegionStatus.mockImplementation(async (region) => {
     const match = regions.find((entry) => entry.region === region);
@@ -627,6 +644,7 @@ describe('discoverAwsResources', () => {
       {
         accountId: '123456789012',
         bucketName: 'logs-bucket',
+        hasAbortIncompleteMultipartUploadAfter7Days: false,
         hasAlternativeStorageClassTransition: false,
         hasCostFocusedLifecycle: false,
         hasIntelligentTieringConfiguration: false,
@@ -670,11 +688,11 @@ describe('discoverAwsResources', () => {
       ['ec2:instance', 'ec2:volume', 'ecr:repository', 'lambda:function', 's3:bucket'],
       expect.objectContaining({ onResourceTypeReady: expect.any(Function) }),
     );
-    expect(mockedHydrateAwsEbsVolumes).toHaveBeenCalledWith([catalog.resources[0]], loadContextMatcher);
-    expect(mockedHydrateAwsEc2Instances).toHaveBeenCalledWith([catalog.resources[1]], loadContextMatcher);
-    expect(mockedHydrateAwsEcrRepositories).toHaveBeenCalledWith([catalog.resources[2]], loadContextMatcher);
-    expect(mockedHydrateAwsLambdaFunctions).toHaveBeenCalledWith([catalog.resources[3]], loadContextMatcher);
-    expect(mockedHydrateAwsS3BucketAnalyses).toHaveBeenCalledWith([catalog.resources[4]], loadContextMatcher);
+    expect(mockedHydrateAwsEbsVolumes).toHaveBeenCalledWith([catalogResource(0)], loadContextMatcher);
+    expect(mockedHydrateAwsEc2Instances).toHaveBeenCalledWith([catalogResource(1)], loadContextMatcher);
+    expect(mockedHydrateAwsEcrRepositories).toHaveBeenCalledWith([catalogResource(2)], loadContextMatcher);
+    expect(mockedHydrateAwsLambdaFunctions).toHaveBeenCalledWith([catalogResource(3)], loadContextMatcher);
+    expect(mockedHydrateAwsS3BucketAnalyses).toHaveBeenCalledWith([catalogResource(4)], loadContextMatcher);
     expect(result.catalog).toEqual(catalog);
     expect(result.resources).toBeInstanceOf(LiveResourceBag);
     expect(result.resources.get('aws-ebs-volumes')).toEqual([
@@ -718,6 +736,7 @@ describe('discoverAwsResources', () => {
       {
         accountId: '123456789012',
         bucketName: 'logs-bucket',
+        hasAbortIncompleteMultipartUploadAfter7Days: false,
         hasAlternativeStorageClassTransition: false,
         hasCostFocusedLifecycle: false,
         hasIntelligentTieringConfiguration: false,
@@ -1368,7 +1387,7 @@ describe('discoverAwsResources', () => {
   it('hydrates CloudTrail trails when an active rule requires the CloudTrail dataset', async () => {
     mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
       indexType: 'LOCAL',
-      resources: [catalog.resources[6]],
+      resources: [catalogResource(6)],
       searchRegion: 'us-east-1',
     });
     mockedHydrateAwsCloudTrailTrails.mockResolvedValue([
@@ -1398,7 +1417,7 @@ describe('discoverAwsResources', () => {
       ['cloudtrail:trail'],
       expect.objectContaining({ onResourceTypeReady: expect.any(Function) }),
     );
-    expect(mockedHydrateAwsCloudTrailTrails).toHaveBeenCalledWith([catalog.resources[6]], loadContextMatcher);
+    expect(mockedHydrateAwsCloudTrailTrails).toHaveBeenCalledWith([catalogResource(6)], loadContextMatcher);
     expect(result.resources.get('aws-cloudtrail-trails')).toEqual([
       {
         accountId: '123456789012',
@@ -1415,7 +1434,7 @@ describe('discoverAwsResources', () => {
   it('hydrates Lambda function metrics when an active rule requires the metrics dataset', async () => {
     mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
       indexType: 'LOCAL',
-      resources: [catalog.resources[3]],
+      resources: [catalogResource(3)],
       searchRegion: 'us-east-1',
     });
     mockedHydrateAwsLambdaFunctions.mockResolvedValue([
@@ -1454,8 +1473,8 @@ describe('discoverAwsResources', () => {
       ['lambda:function'],
       expect.objectContaining({ onResourceTypeReady: expect.any(Function) }),
     );
-    expect(mockedHydrateAwsLambdaFunctions).toHaveBeenCalledWith([catalog.resources[3]], loadContextMatcher);
-    expect(mockedHydrateAwsLambdaFunctionMetrics).toHaveBeenCalledWith([catalog.resources[3]], loadContextMatcher);
+    expect(mockedHydrateAwsLambdaFunctions).toHaveBeenCalledWith([catalogResource(3)], loadContextMatcher);
+    expect(mockedHydrateAwsLambdaFunctionMetrics).toHaveBeenCalledWith([catalogResource(3)], loadContextMatcher);
     expect(result.resources.get('aws-lambda-function-metrics')).toEqual([
       {
         accountId: '123456789012',
@@ -1471,7 +1490,7 @@ describe('discoverAwsResources', () => {
   it('hydrates Compute Optimizer recommendations when the Lambda memory rule requires them', async () => {
     mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
       indexType: 'LOCAL',
-      resources: [catalog.resources[3]],
+      resources: [catalogResource(3)],
       searchRegion: 'us-east-1',
     });
     mockedHydrateAwsLambdaFunctions.mockResolvedValue([
@@ -1505,18 +1524,15 @@ describe('discoverAwsResources', () => {
     );
 
     // The recommendation dataset depends on the function inventory so evidence coverage spans both.
-    expect(mockedHydrateAwsLambdaFunctions).toHaveBeenCalledWith([catalog.resources[3]], loadContextMatcher);
-    expect(mockedHydrateAwsLambdaMemoryRecommendations).toHaveBeenCalledWith(
-      [catalog.resources[3]],
-      loadContextMatcher,
-    );
+    expect(mockedHydrateAwsLambdaFunctions).toHaveBeenCalledWith([catalogResource(3)], loadContextMatcher);
+    expect(mockedHydrateAwsLambdaMemoryRecommendations).toHaveBeenCalledWith([catalogResource(3)], loadContextMatcher);
     expect(result.resources.get('aws-lambda-memory-recommendations')).toHaveLength(1);
   });
 
   it('reuses memoized base datasets when metrics and base datasets are requested together', async () => {
     mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
       indexType: 'LOCAL',
-      resources: [catalog.resources[3]],
+      resources: [catalogResource(3)],
       searchRegion: 'us-east-1',
     });
     mockedHydrateAwsLambdaFunctions.mockResolvedValue([
@@ -1530,6 +1546,10 @@ describe('discoverAwsResources', () => {
       },
     ]);
     mockedHydrateAwsLambdaFunctionMetrics.mockImplementation(async (_resources, context) => {
+      if (!context) {
+        throw new Error('Expected a discovery dataset context');
+      }
+
       const functions = await context.loadDataset('aws-lambda-functions');
 
       return functions.map((fn) => ({
@@ -1553,9 +1573,9 @@ describe('discoverAwsResources', () => {
     );
 
     expect(mockedHydrateAwsLambdaFunctions).toHaveBeenCalledTimes(1);
-    expect(mockedHydrateAwsLambdaFunctions).toHaveBeenCalledWith([catalog.resources[3]], loadContextMatcher);
+    expect(mockedHydrateAwsLambdaFunctions).toHaveBeenCalledWith([catalogResource(3)], loadContextMatcher);
     expect(mockedHydrateAwsLambdaFunctionMetrics).toHaveBeenCalledWith(
-      [catalog.resources[3]],
+      [catalogResource(3)],
       expect.objectContaining({
         loadDataset: expect.any(Function),
       }),
@@ -1808,7 +1828,7 @@ describe('discoverAwsResources', () => {
   it('emits dataset completion timing in debug mode so slow hydrators are visible', async () => {
     mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
       indexType: 'LOCAL',
-      resources: [catalog.resources[3]],
+      resources: [catalogResource(3)],
       searchRegion: 'us-east-1',
     });
     mockedHydrateAwsLambdaFunctions.mockResolvedValue([
@@ -1851,7 +1871,7 @@ describe('discoverAwsResources', () => {
   it('hydrates ECS and EKS datasets from their discovery resource types', async () => {
     mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
       indexType: 'LOCAL',
-      resources: [catalog.resources[11], catalog.resources[12], catalog.resources[13], catalog.resources[14]],
+      resources: [catalogResource(11), catalogResource(12), catalogResource(13), catalogResource(14)],
       searchRegion: 'us-east-1',
     });
     mockedHydrateAwsEcsContainerInstances.mockResolvedValue([
@@ -1949,12 +1969,12 @@ describe('discoverAwsResources', () => {
       ['ecs:cluster', 'ecs:container-instance', 'ecs:service', 'eks:cluster'],
       expect.objectContaining({ onResourceTypeReady: expect.any(Function) }),
     );
-    expect(mockedHydrateAwsEcsContainerInstances).toHaveBeenCalledWith([catalog.resources[11]], loadContextMatcher);
-    expect(mockedHydrateAwsEcsClusters).toHaveBeenCalledWith([catalog.resources[12]], loadContextMatcher);
-    expect(mockedHydrateAwsEcsClusterMetrics).toHaveBeenCalledWith([catalog.resources[12]], loadContextMatcher);
-    expect(mockedHydrateAwsEcsServices).toHaveBeenCalledWith([catalog.resources[13]], loadContextMatcher);
-    expect(mockedHydrateAwsEcsAutoscaling).toHaveBeenCalledWith([catalog.resources[13]], loadContextMatcher);
-    expect(mockedHydrateAwsEksNodegroups).toHaveBeenCalledWith([catalog.resources[14]], loadContextMatcher);
+    expect(mockedHydrateAwsEcsContainerInstances).toHaveBeenCalledWith([catalogResource(11)], loadContextMatcher);
+    expect(mockedHydrateAwsEcsClusters).toHaveBeenCalledWith([catalogResource(12)], loadContextMatcher);
+    expect(mockedHydrateAwsEcsClusterMetrics).toHaveBeenCalledWith([catalogResource(12)], loadContextMatcher);
+    expect(mockedHydrateAwsEcsServices).toHaveBeenCalledWith([catalogResource(13)], loadContextMatcher);
+    expect(mockedHydrateAwsEcsAutoscaling).toHaveBeenCalledWith([catalogResource(13)], loadContextMatcher);
+    expect(mockedHydrateAwsEksNodegroups).toHaveBeenCalledWith([catalogResource(14)], loadContextMatcher);
     expect(result.resources.get('aws-ecs-container-instances')).toEqual([
       {
         accountId: '123456789012',
@@ -2024,7 +2044,7 @@ describe('discoverAwsResources', () => {
   it('hydrates ElastiCache, EMR, and Redshift datasets when active rules require them', async () => {
     mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
       indexType: 'LOCAL',
-      resources: [catalog.resources[15], catalog.resources[16], catalog.resources[17], catalog.resources[18]],
+      resources: [catalogResource(15), catalogResource(16), catalogResource(17), catalogResource(18)],
       searchRegion: 'us-east-1',
     });
     mockedHydrateAwsElastiCacheClusters.mockResolvedValue([
@@ -2068,21 +2088,23 @@ describe('discoverAwsResources', () => {
         region: 'us-east-1',
       },
     ]);
-    mockedHydrateAwsRedshiftClusters.mockResolvedValue([
-      {
-        accountId: '123456789012',
-        automatedSnapshotRetentionPeriod: 1,
-        clusterIdentifier: 'warehouse-prod',
-        clusterStatus: 'available',
-        hasPauseSchedule: false,
-        hasResumeSchedule: true,
-        hsmEnabled: false,
-        nodeType: 'ra3.xlplus',
-        numberOfNodes: 2,
-        region: 'us-east-1',
-        vpcId: 'vpc-123',
-      },
-    ]);
+    mockedHydrateAwsRedshiftClusters.mockResolvedValue({
+      resources: [
+        {
+          accountId: '123456789012',
+          automatedSnapshotRetentionPeriod: 1,
+          clusterIdentifier: 'warehouse-prod',
+          clusterStatus: 'available',
+          hasPauseSchedule: false,
+          hasResumeSchedule: true,
+          hsmEnabled: false,
+          nodeType: 'ra3.xlplus',
+          numberOfNodes: 2,
+          region: 'us-east-1',
+          vpcId: 'vpc-123',
+        },
+      ],
+    });
     mockedHydrateAwsRedshiftClusterMetrics.mockResolvedValue([
       {
         accountId: '123456789012',
@@ -2132,13 +2154,13 @@ describe('discoverAwsResources', () => {
       ['elasticache:cluster', 'elasticache:reserved-instance', 'elasticmapreduce:cluster', 'redshift:cluster'],
       expect.objectContaining({ onResourceTypeReady: expect.any(Function) }),
     );
-    expect(mockedHydrateAwsElastiCacheClusters).toHaveBeenCalledWith([catalog.resources[15]], loadContextMatcher);
-    expect(mockedHydrateAwsElastiCacheReservedNodes).toHaveBeenCalledWith([catalog.resources[16]], loadContextMatcher);
-    expect(mockedHydrateAwsEmrClusters).toHaveBeenCalledWith([catalog.resources[17]], loadContextMatcher);
-    expect(mockedHydrateAwsEmrClusterMetrics).toHaveBeenCalledWith([catalog.resources[17]], loadContextMatcher);
-    expect(mockedHydrateAwsRedshiftClusters).toHaveBeenCalledWith([catalog.resources[18]], loadContextMatcher);
-    expect(mockedHydrateAwsRedshiftClusterMetrics).toHaveBeenCalledWith([catalog.resources[18]], loadContextMatcher);
-    expect(mockedHydrateAwsRedshiftReservedNodes).toHaveBeenCalledWith([catalog.resources[18]], loadContextMatcher);
+    expect(mockedHydrateAwsElastiCacheClusters).toHaveBeenCalledWith([catalogResource(15)], loadContextMatcher);
+    expect(mockedHydrateAwsElastiCacheReservedNodes).toHaveBeenCalledWith([catalogResource(16)], loadContextMatcher);
+    expect(mockedHydrateAwsEmrClusters).toHaveBeenCalledWith([catalogResource(17)], loadContextMatcher);
+    expect(mockedHydrateAwsEmrClusterMetrics).toHaveBeenCalledWith([catalogResource(17)], loadContextMatcher);
+    expect(mockedHydrateAwsRedshiftClusters).toHaveBeenCalledWith([catalogResource(18)], loadContextMatcher);
+    expect(mockedHydrateAwsRedshiftClusterMetrics).toHaveBeenCalledWith([catalogResource(18)], loadContextMatcher);
+    expect(mockedHydrateAwsRedshiftReservedNodes).toHaveBeenCalledWith([catalogResource(18)], loadContextMatcher);
     expect(result.resources.get('aws-elasticache-clusters')).toHaveLength(1);
     expect(result.resources.get('aws-emr-cluster-metrics')).toHaveLength(1);
     expect(result.resources.get('aws-redshift-reserved-nodes')).toHaveLength(1);
@@ -2147,7 +2169,7 @@ describe('discoverAwsResources', () => {
   it('hydrates CloudWatch log groups when an active rule requires the log-group dataset', async () => {
     mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
       indexType: 'LOCAL',
-      resources: [catalog.resources[7]],
+      resources: [catalogResource(7)],
       searchRegion: 'us-east-1',
     });
     mockedHydrateAwsCloudWatchLogGroups.mockResolvedValue([
@@ -2176,7 +2198,7 @@ describe('discoverAwsResources', () => {
       ['logs:log-group'],
       expect.objectContaining({ onResourceTypeReady: expect.any(Function) }),
     );
-    expect(mockedHydrateAwsCloudWatchLogGroups).toHaveBeenCalledWith([catalog.resources[7]], loadContextMatcher);
+    expect(mockedHydrateAwsCloudWatchLogGroups).toHaveBeenCalledWith([catalogResource(7)], loadContextMatcher);
     expect(result.resources.get('aws-cloudwatch-log-groups')).toEqual([
       {
         accountId: '123456789012',
@@ -2192,7 +2214,7 @@ describe('discoverAwsResources', () => {
   it('hydrates CloudWatch log groups and log streams from the same log-group catalog resources', async () => {
     mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
       indexType: 'LOCAL',
-      resources: [catalog.resources[7]],
+      resources: [catalogResource(7)],
       searchRegion: 'us-east-1',
     });
     mockedHydrateAwsCloudWatchLogGroups.mockResolvedValue([
@@ -2231,8 +2253,8 @@ describe('discoverAwsResources', () => {
       ['logs:log-group'],
       expect.objectContaining({ onResourceTypeReady: expect.any(Function) }),
     );
-    expect(mockedHydrateAwsCloudWatchLogGroups).toHaveBeenCalledWith([catalog.resources[7]], loadContextMatcher);
-    expect(mockedHydrateAwsCloudWatchLogStreams).toHaveBeenCalledWith([catalog.resources[7]], loadContextMatcher);
+    expect(mockedHydrateAwsCloudWatchLogGroups).toHaveBeenCalledWith([catalogResource(7)], loadContextMatcher);
+    expect(mockedHydrateAwsCloudWatchLogStreams).toHaveBeenCalledWith([catalogResource(7)], loadContextMatcher);
     expect(result.resources.get('aws-cloudwatch-log-groups')).toEqual([
       {
         accountId: '123456789012',
@@ -2258,7 +2280,7 @@ describe('discoverAwsResources', () => {
   it('hydrates CloudWatch log-group recent stream activity from log-group catalog resources', async () => {
     mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
       indexType: 'LOCAL',
-      resources: [catalog.resources[7]],
+      resources: [catalogResource(7)],
       searchRegion: 'us-east-1',
     });
     mockedHydrateAwsCloudWatchLogGroups.mockResolvedValue([
@@ -2299,9 +2321,9 @@ describe('discoverAwsResources', () => {
       ['logs:log-group'],
       expect.objectContaining({ onResourceTypeReady: expect.any(Function) }),
     );
-    expect(mockedHydrateAwsCloudWatchLogGroups).toHaveBeenCalledWith([catalog.resources[7]], loadContextMatcher);
+    expect(mockedHydrateAwsCloudWatchLogGroups).toHaveBeenCalledWith([catalogResource(7)], loadContextMatcher);
     expect(mockedHydrateAwsCloudWatchLogGroupRecentStreamActivity).toHaveBeenCalledWith(
-      [catalog.resources[7]],
+      [catalogResource(7)],
       loadContextMatcher,
     );
     expect(result.resources.get('aws-cloudwatch-log-group-recent-stream-activity')).toEqual([
@@ -2397,6 +2419,7 @@ describe('discoverAwsResources', () => {
       {
         accountId: '123456789012',
         bucketName: 'logs-bucket',
+        hasAbortIncompleteMultipartUploadAfter7Days: false,
         hasAlternativeStorageClassTransition: false,
         hasCostFocusedLifecycle: false,
         hasIntelligentTieringConfiguration: false,
@@ -2422,7 +2445,7 @@ describe('discoverAwsResources', () => {
       ['s3:bucket'],
       expect.objectContaining({ onResourceTypeReady: expect.any(Function) }),
     );
-    expect(mockedHydrateAwsS3BucketAnalyses).toHaveBeenCalledWith([catalog.resources[4]], loadContextMatcher);
+    expect(mockedHydrateAwsS3BucketAnalyses).toHaveBeenCalledWith([catalogResource(4)], loadContextMatcher);
     expect(mockedHydrateAwsEbsVolumes).not.toHaveBeenCalled();
     expect(mockedHydrateAwsEc2Instances).not.toHaveBeenCalled();
     expect(mockedHydrateAwsLambdaFunctions).not.toHaveBeenCalled();
@@ -2431,7 +2454,7 @@ describe('discoverAwsResources', () => {
   it('hydrates reserved instances and ELB datasets when active rules require them', async () => {
     mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
       indexType: 'LOCAL',
-      resources: [catalog.resources[8], catalog.resources[9], catalog.resources[10]],
+      resources: [catalogResource(8), catalogResource(9), catalogResource(10)],
       searchRegion: 'us-east-1',
     });
     mockedHydrateAwsEc2ReservedInstances.mockResolvedValue([
@@ -2491,9 +2514,9 @@ describe('discoverAwsResources', () => {
       ],
       expect.objectContaining({ onResourceTypeReady: expect.any(Function) }),
     );
-    expect(mockedHydrateAwsEc2ReservedInstances).toHaveBeenCalledWith([catalog.resources[8]], loadContextMatcher);
-    expect(mockedHydrateAwsEc2LoadBalancers).toHaveBeenCalledWith([catalog.resources[9]], loadContextMatcher);
-    expect(mockedHydrateAwsEc2TargetGroups).toHaveBeenCalledWith([catalog.resources[10]], loadContextMatcher);
+    expect(mockedHydrateAwsEc2ReservedInstances).toHaveBeenCalledWith([catalogResource(8)], loadContextMatcher);
+    expect(mockedHydrateAwsEc2LoadBalancers).toHaveBeenCalledWith([catalogResource(9)], loadContextMatcher);
+    expect(mockedHydrateAwsEc2TargetGroups).toHaveBeenCalledWith([catalogResource(10)], loadContextMatcher);
     expect(result.resources.get('aws-ec2-reserved-instances')).toEqual([
       {
         accountId: '123456789012',
@@ -2545,7 +2568,7 @@ describe('discoverAwsResources', () => {
     const result = await discoverAwsResources(
       [
         createRule({
-          discoveryDependencies: ['aws-rds-instances' as Rule['discoveryDependencies'][number]],
+          discoveryDependencies: ['aws-rds-instances' as DiscoveryDatasetKey],
           service: 'rds',
         }),
       ],
@@ -2557,7 +2580,7 @@ describe('discoverAwsResources', () => {
       ['rds:db'],
       expect.objectContaining({ onResourceTypeReady: expect.any(Function) }),
     );
-    expect(mockedHydrateAwsRdsInstances).toHaveBeenCalledWith([catalog.resources[5]], loadContextMatcher);
+    expect(mockedHydrateAwsRdsInstances).toHaveBeenCalledWith([catalogResource(5)], loadContextMatcher);
     expect(result.resources.get('aws-rds-instances' as never)).toEqual([
       {
         accountId: '123456789012',
@@ -2576,7 +2599,7 @@ describe('discoverAwsResources', () => {
   it('hydrates RDS CPU summaries when an active rule requires low-utilization data', async () => {
     mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
       indexType: 'LOCAL',
-      resources: [catalog.resources[5]],
+      resources: [catalogResource(5)],
       searchRegion: 'us-east-1',
     });
     mockedHydrateAwsRdsInstances.mockResolvedValue([
@@ -2612,8 +2635,8 @@ describe('discoverAwsResources', () => {
       ['rds:db'],
       expect.objectContaining({ onResourceTypeReady: expect.any(Function) }),
     );
-    expect(mockedHydrateAwsRdsInstances).toHaveBeenCalledWith([catalog.resources[5]], loadContextMatcher);
-    expect(mockedHydrateAwsRdsInstanceCpuMetrics).toHaveBeenCalledWith([catalog.resources[5]], loadContextMatcher);
+    expect(mockedHydrateAwsRdsInstances).toHaveBeenCalledWith([catalogResource(5)], loadContextMatcher);
+    expect(mockedHydrateAwsRdsInstanceCpuMetrics).toHaveBeenCalledWith([catalogResource(5)], loadContextMatcher);
     expect(result.resources.get('aws-rds-instance-cpu-metrics')).toEqual([
       {
         accountId: '123456789012',
@@ -2627,7 +2650,7 @@ describe('discoverAwsResources', () => {
   it('hydrates RDS reserved instances when an active rule requires reserved coverage data', async () => {
     mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
       indexType: 'LOCAL',
-      resources: [catalog.resources[5]],
+      resources: [catalogResource(5)],
       searchRegion: 'us-east-1',
     });
     mockedHydrateAwsRdsReservedInstances.mockResolvedValue([
@@ -2658,7 +2681,7 @@ describe('discoverAwsResources', () => {
       ['rds:db'],
       expect.objectContaining({ onResourceTypeReady: expect.any(Function) }),
     );
-    expect(mockedHydrateAwsRdsReservedInstances).toHaveBeenCalledWith([catalog.resources[5]], loadContextMatcher);
+    expect(mockedHydrateAwsRdsReservedInstances).toHaveBeenCalledWith([catalogResource(5)], loadContextMatcher);
     expect(result.resources.get('aws-rds-reserved-instances')).toEqual([
       {
         accountId: '123456789012',
@@ -2676,7 +2699,7 @@ describe('discoverAwsResources', () => {
   it('hydrates EC2 low-utilization summaries when an active rule requires utilization data', async () => {
     mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
       indexType: 'LOCAL',
-      resources: [catalog.resources[1]],
+      resources: [catalogResource(1)],
       searchRegion: 'us-east-1',
     });
     mockedHydrateAwsEc2Instances.mockResolvedValue([
@@ -2715,8 +2738,8 @@ describe('discoverAwsResources', () => {
       ['ec2:instance'],
       expect.objectContaining({ onResourceTypeReady: expect.any(Function) }),
     );
-    expect(mockedHydrateAwsEc2Instances).toHaveBeenCalledWith([catalog.resources[1]], loadContextMatcher);
-    expect(mockedHydrateAwsEc2InstanceUtilization).toHaveBeenCalledWith([catalog.resources[1]], loadContextMatcher);
+    expect(mockedHydrateAwsEc2Instances).toHaveBeenCalledWith([catalogResource(1)], loadContextMatcher);
+    expect(mockedHydrateAwsEc2InstanceUtilization).toHaveBeenCalledWith([catalogResource(1)], loadContextMatcher);
     expect(result.resources.get('aws-ec2-instance-utilization')).toEqual([
       {
         accountId: '123456789012',
@@ -2855,7 +2878,7 @@ describe('discoverAwsResources', () => {
   it('hydrates RDS activity summaries when an active rule requires idle-instance data', async () => {
     mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
       indexType: 'LOCAL',
-      resources: [catalog.resources[5]],
+      resources: [catalogResource(5)],
       searchRegion: 'us-east-1',
     });
     mockedHydrateAwsRdsInstances.mockResolvedValue([
@@ -2892,8 +2915,8 @@ describe('discoverAwsResources', () => {
       ['rds:db'],
       expect.objectContaining({ onResourceTypeReady: expect.any(Function) }),
     );
-    expect(mockedHydrateAwsRdsInstances).toHaveBeenCalledWith([catalog.resources[5]], loadContextMatcher);
-    expect(mockedHydrateAwsRdsInstanceActivity).toHaveBeenCalledWith([catalog.resources[5]], loadContextMatcher);
+    expect(mockedHydrateAwsRdsInstances).toHaveBeenCalledWith([catalogResource(5)], loadContextMatcher);
+    expect(mockedHydrateAwsRdsInstanceActivity).toHaveBeenCalledWith([catalogResource(5)], loadContextMatcher);
     expect(result.resources.get('aws-rds-instance-activity')).toEqual([
       {
         accountId: '123456789012',
@@ -2908,7 +2931,7 @@ describe('discoverAwsResources', () => {
   it('hydrates EBS snapshots from snapshot catalog resources', async () => {
     mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
       indexType: 'LOCAL',
-      resources: [catalog.resources[19]],
+      resources: [catalogResource(19)],
       searchRegion: 'us-east-1',
     });
     mockedHydrateAwsEbsSnapshots.mockResolvedValue([
@@ -2938,7 +2961,7 @@ describe('discoverAwsResources', () => {
       ['ec2:snapshot'],
       expect.objectContaining({ onResourceTypeReady: expect.any(Function) }),
     );
-    expect(mockedHydrateAwsEbsSnapshots).toHaveBeenCalledWith([catalog.resources[19]], loadContextMatcher);
+    expect(mockedHydrateAwsEbsSnapshots).toHaveBeenCalledWith([catalogResource(19)], loadContextMatcher);
     expect(result.resources.get('aws-ebs-snapshots')).toEqual([
       {
         accountId: '123456789012',
@@ -2955,7 +2978,7 @@ describe('discoverAwsResources', () => {
   it('hydrates RDS snapshots from snapshot catalog resources', async () => {
     mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
       indexType: 'LOCAL',
-      resources: [catalog.resources[20]],
+      resources: [catalogResource(20)],
       searchRegion: 'us-east-1',
     });
     mockedHydrateAwsRdsSnapshots.mockResolvedValue([
@@ -2984,7 +3007,7 @@ describe('discoverAwsResources', () => {
       ['rds:snapshot'],
       expect.objectContaining({ onResourceTypeReady: expect.any(Function) }),
     );
-    expect(mockedHydrateAwsRdsSnapshots).toHaveBeenCalledWith([catalog.resources[20]], loadContextMatcher);
+    expect(mockedHydrateAwsRdsSnapshots).toHaveBeenCalledWith([catalogResource(20)], loadContextMatcher);
     expect(result.resources.get('aws-rds-snapshots')).toEqual([
       {
         accountId: '123456789012',
@@ -3208,7 +3231,7 @@ describe('discoverAwsResources', () => {
   it('records a non-fatal diagnostic when ECR hydration is access denied', async () => {
     mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
       indexType: 'LOCAL',
-      resources: [catalog.resources[2]],
+      resources: [catalogResource(2)],
       searchRegion: 'us-east-1',
     });
     const accessDeniedCause = Object.assign(
@@ -3262,7 +3285,7 @@ describe('discoverAwsResources', () => {
   it('records a non-fatal diagnostic when EC2 utilization hydration is access denied', async () => {
     mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
       indexType: 'LOCAL',
-      resources: [catalog.resources[1]],
+      resources: [catalogResource(1)],
       searchRegion: 'us-east-1',
     });
     mockedHydrateAwsEc2Instances.mockResolvedValue([
@@ -3301,7 +3324,7 @@ describe('discoverAwsResources', () => {
       { mode: 'regions', regions: ['us-east-1'] },
     );
 
-    expect(mockedHydrateAwsEc2Instances).toHaveBeenCalledWith([catalog.resources[1]], loadContextMatcher);
+    expect(mockedHydrateAwsEc2Instances).toHaveBeenCalledWith([catalogResource(1)], loadContextMatcher);
     expect(result.resources.get('aws-ec2-instance-utilization')).toEqual([]);
     expect(result.diagnostics).toEqual([
       {
@@ -3321,7 +3344,7 @@ describe('discoverAwsResources', () => {
   it('marks a derived dataset unavailable when its base dataset is access denied', async () => {
     mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
       indexType: 'LOCAL',
-      resources: [catalog.resources[1]],
+      resources: [catalogResource(1)],
       searchRegion: 'us-east-1',
     });
     const accessDeniedCause = Object.assign(new Error('User is not authorized to perform: ec2:DescribeInstances'), {
@@ -3362,7 +3385,7 @@ describe('discoverAwsResources', () => {
   it('records loader-supplied diagnostics without dropping the loaded dataset', async () => {
     mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
       indexType: 'LOCAL',
-      resources: [catalog.resources[18]],
+      resources: [catalogResource(18)],
       searchRegion: 'us-east-1',
     });
     mockedHydrateAwsRedshiftClusters.mockResolvedValue({
@@ -3684,7 +3707,7 @@ describe('discoverAwsResources', () => {
   it('merges very large dataset loads without overflowing the call stack', async () => {
     mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
       indexType: 'LOCAL',
-      resources: [catalog.resources[7]],
+      resources: [catalogResource(7)],
       searchRegion: 'us-east-1',
     });
     mockedHydrateAwsCloudWatchLogStreams.mockResolvedValue(
@@ -3711,7 +3734,7 @@ describe('discoverAwsResources', () => {
       { mode: 'regions', regions: ['us-east-1'] },
     );
 
-    expect(mockedHydrateAwsCloudWatchLogStreams).toHaveBeenCalledWith([catalog.resources[7]], loadContextMatcher);
+    expect(mockedHydrateAwsCloudWatchLogStreams).toHaveBeenCalledWith([catalogResource(7)], loadContextMatcher);
     expect(result.resources.get('aws-cloudwatch-log-streams')).toHaveLength(150_000);
   });
 
@@ -3743,7 +3766,7 @@ describe('discoverAwsResources', () => {
   it('emits dataset completion timing to the debug logger', async () => {
     mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
       indexType: 'LOCAL',
-      resources: [catalog.resources[1]],
+      resources: [catalogResource(1)],
       searchRegion: 'us-east-1',
     });
     mockedHydrateAwsEc2Instances.mockResolvedValue([
@@ -3784,9 +3807,9 @@ describe('discoverAwsResources', () => {
     mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
       indexType: 'AGGREGATOR',
       resources: [
-        catalog.resources[1],
+        catalogResource(1),
         {
-          ...catalog.resources[1],
+          ...catalogResource(1),
           arn: 'arn:aws:ec2:eu-west-1:123456789012:instance/i-456',
           region: 'eu-west-1',
         },
@@ -3833,7 +3856,7 @@ describe('discoverAwsResources', () => {
   it('emits dataset failure timing when a dataset is downgraded into a non-fatal diagnostic', async () => {
     mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
       indexType: 'LOCAL',
-      resources: [catalog.resources[1]],
+      resources: [catalogResource(1)],
       searchRegion: 'us-east-1',
     });
     mockedHydrateAwsEc2Instances.mockRejectedValue(new Error('boom'));
@@ -3893,7 +3916,7 @@ describe('discoverAwsResources', () => {
       discoverAwsResources(
         [
           createRule({
-            discoveryDependencies: ['aws-missing-dataset' as Rule['discoveryDependencies'][number]],
+            discoveryDependencies: ['aws-missing-dataset' as DiscoveryDatasetKey],
           }),
         ],
         { mode: 'current' },
@@ -3908,7 +3931,7 @@ describe('discoverAwsResources', () => {
       discoverAwsResources(
         [
           createRule({
-            discoveryDependencies: ['__proto__' as Rule['discoveryDependencies'][number]],
+            discoveryDependencies: ['__proto__' as DiscoveryDatasetKey],
           }),
         ],
         { mode: 'current' },
@@ -4317,7 +4340,6 @@ describe('discovery support commands', () => {
         regions: ['eu-central-1'],
         status: 'CREATED',
         taskId: 'task-456',
-        warning: 'Cross-region Resource Explorer setup could not be created; using a local index in eu-central-1.',
       });
     mockedWaitForAwsResourceExplorerSetup.mockResolvedValue('verified');
     mockedListEnabledAwsRegions.mockResolvedValue(['eu-central-1', 'eu-west-1']);

@@ -157,7 +157,7 @@ describe('hydrateAwsEc2InstanceUtilization', () => {
             region: 'us-east-1',
           },
         ],
-      }),
+      } as unknown as Parameters<typeof hydrateAwsEc2InstanceUtilization>[1]),
     ).resolves.toEqual([
       {
         accountId: '123456789012',

@@ -18,6 +18,7 @@ describe('hydrateAwsUntaggedResources', () => {
       hydrateAwsUntaggedResources([], {
         listResourcesByFilter,
         loadDataset: vi.fn(),
+        resolveAccountId: vi.fn().mockResolvedValue('123456789012'),
       }),
     ).resolves.toEqual([
       {

@@ -47,6 +47,7 @@ describe('hydrateAwsS3BucketAnalyses', () => {
         region: 'us-east-1',
         resourceType: 's3:bucket',
         service: 's3',
+        properties: [],
       })),
     );
 

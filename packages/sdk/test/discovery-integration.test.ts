@@ -20,7 +20,7 @@ it('evaluates account-scoped rules using the explicit target when no ambient reg
     expect(await this.config.region()).toBe('eu-west-1');
     return { Account: '123456789012' };
   });
-  vi.spyOn(BudgetsClient.prototype, 'send').mockResolvedValue({ Budgets: [] });
+  vi.spyOn(BudgetsClient.prototype, 'send').mockResolvedValue({ Budgets: [] } as never);
 
   const result = await new CloudBurnClient().discover({
     target: { mode: 'region', region: 'eu-west-1' },

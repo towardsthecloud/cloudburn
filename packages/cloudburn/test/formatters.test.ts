@@ -93,20 +93,22 @@ const withStdoutColumns = (columns: number, run: () => void): void => {
     if (descriptor) {
       Object.defineProperty(process.stdout, 'columns', descriptor);
     } else {
-      delete (process.stdout as NodeJS.WriteStream & { columns?: number }).columns;
+      Reflect.deleteProperty(process.stdout, 'columns');
     }
   }
 };
 
 describe('renderResponse', () => {
   it('shows the exact recommendation action in table output', () => {
+    const baseRule = resultWithoutLocation.providers[0]?.rules[0];
+    if (!baseRule) throw new Error('Missing base rule fixture');
     const result = {
       providers: [
         {
           provider: 'aws' as const,
           rules: [
             {
-              ...resultWithoutLocation.providers[0].rules[0],
+              ...baseRule,
               findings: [{ resourceId: 'database', actionType: 'Delete' }],
             },
           ],

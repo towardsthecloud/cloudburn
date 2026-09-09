@@ -44,9 +44,10 @@ describe('upgrade discovery orchestration', () => {
       resources: new LiveResourceBag({
         [datasetKey]: [{ ...recommendation, resourceId: recommendation.resourceArn }],
         'aws-ebs-volumes': [
-          { accountId, region, volumeId: 'vol-example', volumeType: 'io1', size: 100, state: 'in-use' },
+          { accountId, region, volumeId: 'vol-example', volumeType: 'io1', sizeGiB: 100, state: 'in-use' },
         ],
       }),
+      diagnostics: [],
     });
     const result = await scan(enabled ? [ruleId, 'CLDBRN-AWS-EBS-1'] : [ruleId]);
     expect(result.providers.flatMap((provider) => provider.rules).some((rule) => rule.ruleId === ruleId)).toBe(
@@ -59,10 +60,18 @@ describe('upgrade discovery orchestration', () => {
       resources: new LiveResourceBag({
         [datasetKey]: [recommendation],
         'aws-ebs-volumes': [
-          { accountId, region, volumeId: 'vol-other', volumeType: 'io1', size: 100, state: 'in-use' },
-          { accountId: '999999999999', region, volumeId: 'vol-example', volumeType: 'io1', size: 100, state: 'in-use' },
+          { accountId, region, volumeId: 'vol-other', volumeType: 'io1', sizeGiB: 100, state: 'in-use' },
+          {
+            accountId: '999999999999',
+            region,
+            volumeId: 'vol-example',
+            volumeType: 'io1',
+            sizeGiB: 100,
+            state: 'in-use',
+          },
         ],
       }),
+      diagnostics: [],
     });
     expect(
       (await scan([ruleId, 'CLDBRN-AWS-EBS-1'])).providers
@@ -103,6 +112,7 @@ describe('upgrade discovery orchestration', () => {
           },
         ],
       }),
+      diagnostics: [],
     });
     const hub = (await scan([ruleId, 'CLDBRN-AWS-RDS-11'])).providers
       .flatMap((provider) => provider.rules)
@@ -116,6 +126,7 @@ describe('upgrade discovery orchestration', () => {
     vi.mocked(discoverAwsResources).mockResolvedValue({
       catalog,
       resources: new LiveResourceBag({ [datasetKey]: [recommendation] }),
+      diagnostics: [],
     });
     const result = await scan();
     expect(result.providers.flatMap((provider) => provider.rules)).toEqual([
@@ -157,6 +168,7 @@ describe('upgrade discovery orchestration', () => {
       catalog,
       resources: new LiveResourceBag(),
       unavailableDatasets: new Map([[datasetKey, [diagnostic]]]),
+      diagnostics: [],
     });
     expect((await scan()).evaluations?.rules).toEqual([expect.objectContaining({ ruleId, status: 'not_applicable' })]);
   });

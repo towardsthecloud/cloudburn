@@ -32,6 +32,7 @@ const run = (enabledRules: string[]) =>
 const setup = (nativeAccount = accountId, nativeRegion = region, attachments: [] | [{ instanceId: string }] = []) => {
   vi.mocked(discoverAwsResources).mockResolvedValue({
     catalog: { resources: [], searchRegion: region, indexType: 'LOCAL' },
+    diagnostics: [],
     resources: new LiveResourceBag({
       'aws-cost-optimization-hub-idle-recommendations': [recommendation],
       'aws-ebs-volumes': [
@@ -81,6 +82,7 @@ describe('idle capacity orchestration and evidence', () => {
   it('marks unavailable evidence not applicable and clean empty evidence passed', async () => {
     const base = {
       catalog: { resources: [], searchRegion: region, indexType: 'LOCAL' as const },
+      diagnostics: [],
       resources: new LiveResourceBag({}),
     };
     vi.mocked(discoverAwsResources).mockResolvedValue({

@@ -31,9 +31,18 @@ it('keeps rightsizing alongside a generation or architecture policy for the same
     resources: new LiveResourceBag({
       'aws-cost-optimization-hub-rightsizing-recommendations': [recommendation],
       'aws-lambda-functions': [
-        { functionName: 'example', functionArn: resourceId, accountId, region, architectures: ['x86_64'] },
+        {
+          functionName: 'example',
+          functionArn: resourceId,
+          accountId,
+          region,
+          architectures: ['x86_64'],
+          memorySizeMb: 1024,
+          timeoutSeconds: 30,
+        },
       ],
     }),
+    diagnostics: [],
   });
   const result = await runLiveScan(
     { discovery: { enabledRules: ['CLDBRN-AWS-COSTOPTIMIZATIONHUB-4', 'CLDBRN-AWS-LAMBDA-1'] }, iac: {} },
@@ -55,6 +64,7 @@ it.each([
       'aws-lambda-functions': [],
       'aws-lambda-memory-recommendations': [native],
     }),
+    diagnostics: [],
   });
   const result = await runLiveScan(
     { discovery: { enabledRules: ['CLDBRN-AWS-COSTOPTIMIZATIONHUB-4', 'CLDBRN-AWS-LAMBDA-4'] }, iac: {} },
@@ -98,6 +108,7 @@ it('reports enrolled accounts without recommendations as passed', async () => {
   vi.mocked(discoverAwsResources).mockResolvedValue({
     catalog: { resources: [], indexType: 'LOCAL', searchRegion: region },
     resources: new LiveResourceBag({ 'aws-cost-optimization-hub-rightsizing-recommendations': [] }),
+    diagnostics: [],
   });
   const result = await runLiveScan(
     { discovery: { enabledRules: ['CLDBRN-AWS-COSTOPTIMIZATIONHUB-4'] }, iac: {} },
@@ -119,6 +130,7 @@ it.each([
         { functionArn: resourceId, accountId, region, assessment: 'memory_overprovisioned' },
       ],
     }),
+    diagnostics: [],
   });
   const result = await runLiveScan(
     {

@@ -358,6 +358,7 @@ describe('hydrateAwsCloudWatchLogGroupRecentStreamActivity', () => {
         service: 'logs',
         resourceType: 'logs:log-group',
         arn: `arn:aws:logs:us-east-1:123456789012:log-group:group-${index}`,
+        properties: [],
       })),
     );
     try {

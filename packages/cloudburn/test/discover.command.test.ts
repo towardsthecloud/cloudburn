@@ -2,6 +2,9 @@ import { CloudBurnClient } from '@cloudburn/sdk';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createProgram } from '../src/cli.js';
 
+type DebugLoggingClient = { options?: { debugLogger?: (message: string) => void } };
+type DiscoverOptions = Parameters<CloudBurnClient['discover']>[0];
+
 const liveScanResult = {
   providers: [
     {
@@ -286,20 +289,16 @@ describe('discover command', () => {
   it('writes sdk debug tracing to stderr without adding cli-originated debug lines', async () => {
     const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
-    vi.spyOn(CloudBurnClient.prototype, 'loadConfig').mockImplementation(async function () {
-      (this as { options?: { debugLogger?: (message: string) => void } }).options?.debugLogger?.(
-        'sdk: loading config from default search path',
-      );
+    vi.spyOn(CloudBurnClient.prototype, 'loadConfig').mockImplementation(async function (this: DebugLoggingClient) {
+      this.options?.debugLogger?.('sdk: loading config from default search path');
 
       return {
         discovery: {},
         iac: {},
       };
     });
-    vi.spyOn(CloudBurnClient.prototype, 'discover').mockImplementation(async function () {
-      (this as { options?: { debugLogger?: (message: string) => void } }).options?.debugLogger?.(
-        'sdk: starting live discovery scan',
-      );
+    vi.spyOn(CloudBurnClient.prototype, 'discover').mockImplementation(async function (this: DebugLoggingClient) {
+      this.options?.debugLogger?.('sdk: starting live discovery scan');
 
       return { providers: [] };
     });
@@ -332,19 +331,17 @@ describe('discover command', () => {
   it('streams discovery progress to stderr when attached to a terminal', async () => {
     const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
-    vi.spyOn(CloudBurnClient.prototype, 'discover').mockImplementation(
-      async (options?: { onProgress?: (event: unknown) => void }) => {
-        options?.onProgress?.({ kind: 'catalog', resourceCount: 245, searchRegion: 'eu-central-1' });
-        options?.onProgress?.({
-          kind: 'dataset',
-          completedDatasets: 1,
-          datasetKey: 'aws-ec2-instances',
-          totalDatasets: 2,
-        });
+    vi.spyOn(CloudBurnClient.prototype, 'discover').mockImplementation(async (options?: DiscoverOptions) => {
+      options?.onProgress?.({ kind: 'catalog', resourceCount: 245, searchRegion: 'eu-central-1' });
+      options?.onProgress?.({
+        kind: 'dataset',
+        completedDatasets: 1,
+        datasetKey: 'aws-ec2-instances',
+        totalDatasets: 2,
+      });
 
-        return { providers: [] };
-      },
-    );
+      return { providers: [] };
+    });
 
     await withStderrTty(true, async () => {
       await createProgram().parseAsync(['discover'], { from: 'user' });
@@ -363,26 +360,24 @@ describe('discover command', () => {
     const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
     let progressBeforeCompletion = '';
     let stdoutCallsBeforeCompletion = 0;
-    vi.spyOn(CloudBurnClient.prototype, 'discover').mockImplementation(
-      async (options?: { onProgress?: (event: unknown) => void }) => {
-        options?.onProgress?.({
-          kind: 'rule',
-          ruleId: 'CLDBRN-AWS-EBS-1',
-          provisional: true,
-          status: 'triggered',
-          findingCount: 1,
-          findings: [{ resourceId: 'vol-123', region: 'us-east-1' }],
-          completedRules: 1,
-          totalRules: 2,
-          elapsedMs: 40,
-        });
+    vi.spyOn(CloudBurnClient.prototype, 'discover').mockImplementation(async (options?: DiscoverOptions) => {
+      options?.onProgress?.({
+        kind: 'rule',
+        ruleId: 'CLDBRN-AWS-EBS-1',
+        provisional: true,
+        status: 'triggered',
+        findingCount: 1,
+        findings: [{ resourceId: 'vol-123', region: 'us-east-1' }],
+        completedRules: 1,
+        totalRules: 2,
+        elapsedMs: 40,
+      });
 
-        progressBeforeCompletion = stderr.mock.calls.map(([chunk]) => String(chunk)).join('');
-        stdoutCallsBeforeCompletion = stdout.mock.calls.length;
+      progressBeforeCompletion = stderr.mock.calls.map(([chunk]) => String(chunk)).join('');
+      stdoutCallsBeforeCompletion = stdout.mock.calls.length;
 
-        return liveScanResult;
-      },
-    );
+      return liveScanResult;
+    });
 
     await withStderrTty(true, async () => {
       await createProgram().parseAsync(['discover', '--format', 'json', '--exit-code'], { from: 'user' });

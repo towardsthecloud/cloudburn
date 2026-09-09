@@ -77,7 +77,7 @@ describe('CLDBRN-AWS-COSTOPTIMIZATIONHUB-2', () => {
       }),
     );
 
-    expect(evaluate([...recommendations, recommendations[0]])).toEqual({
+    expect(evaluate([...recommendations, ...recommendations.slice(0, 1)])).toEqual({
       findings: resourceTypes.map((reservationType, index) => ({
         accountId: '123456789012',
         region: 'eu-west-1',

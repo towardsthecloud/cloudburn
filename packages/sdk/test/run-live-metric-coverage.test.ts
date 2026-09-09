@@ -16,6 +16,7 @@ describe('metric rule evaluation coverage', () => {
   const setup = (errors: number | null) =>
     vi.mocked(discoverAwsResources).mockResolvedValue({
       catalog: { indexType: 'LOCAL', resources: [], searchRegion: region },
+      diagnostics: [],
       resources: new LiveResourceBag({
         'aws-lambda-functions': ['known', 'unknown'].map((functionName) => ({
           accountId,
@@ -78,6 +79,7 @@ describe('metric rule evaluation coverage', () => {
   it('never reports a complete pass when required evidence excluded an entire region', async () => {
     vi.mocked(discoverAwsResources).mockResolvedValue({
       catalog: { indexType: 'LOCAL', resources: [], searchRegion: region },
+      diagnostics: [],
       resources: new LiveResourceBag({}),
       unavailableRegions: new Map([['aws-lambda-function-metrics', new Set([region])]]),
     });

@@ -90,7 +90,7 @@ describe('hydrateAwsEcsClusterMetrics', () => {
             region: 'us-east-1',
           },
         ],
-      }),
+      } as unknown as Parameters<typeof hydrateAwsEcsClusterMetrics>[1]),
     ).resolves.toEqual([
       {
         accountId: '123456789012',

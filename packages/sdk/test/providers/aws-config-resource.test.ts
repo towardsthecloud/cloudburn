@@ -99,13 +99,17 @@ const configureConfigClient = (options: {
     }
 
     if (command instanceof ListDiscoveredResourcesCommand) {
-      const pages = options.resourceIdentifierPagesByType?.[command.input.resourceType];
+      const resourceType = command.input.resourceType;
+      if (!resourceType) {
+        throw new Error('Missing resourceType on ListDiscoveredResourcesCommand');
+      }
+      const pages = options.resourceIdentifierPagesByType?.[resourceType];
       if (pages) {
-        const pageIndex = listPageByType.get(command.input.resourceType) ?? 0;
-        listPageByType.set(command.input.resourceType, pageIndex + 1);
+        const pageIndex = listPageByType.get(resourceType) ?? 0;
+        listPageByType.set(resourceType, pageIndex + 1);
         return pages[pageIndex] ?? { resourceIdentifiers: [] };
       }
-      return { resourceIdentifiers: options.resourceIdentifiersByType?.[command.input.resourceType] ?? [] };
+      return { resourceIdentifiers: options.resourceIdentifiersByType?.[resourceType] ?? [] };
     }
 
     if (command instanceof DescribeConfigRulesCommand) {

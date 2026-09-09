@@ -57,6 +57,7 @@ describe('DynamoDB discovery resources', () => {
         region: 'us-east-1',
         resourceType: 'dynamodb:table',
         service: 'dynamodb',
+        properties: [],
       })),
     );
 

@@ -20,11 +20,12 @@ beforeEach(() => {
       resourceType: 'ec2:instance',
       service: 'ec2',
       arn: `arn:aws:ec2:${region}:123456789012:instance/i-test`,
+      properties: [],
     })),
   });
   vi.spyOn(EC2Client.prototype, 'send').mockResolvedValue({
     Reservations: [{ Instances: [{ InstanceId: 'i-test', InstanceType: 'm5.24xlarge' }] }],
-  });
+  } as never);
 });
 afterEach(() => {
   vi.restoreAllMocks();
@@ -40,7 +41,7 @@ it('loads each regional metric series once through real derived dataset orchestr
       Timestamps: [1, 2, 3, 4].map((day) => new Date(`2026-09-0${day}T00:00:00Z`)),
     })),
   }));
-  const result = await runLiveScan({ discovery: { enabledRules: ['CLDBRN-AWS-EC2-5'] } }, { mode: 'all' });
+  const result = await runLiveScan({ discovery: { enabledRules: ['CLDBRN-AWS-EC2-5'] }, iac: {} }, { mode: 'all' });
   expect(send).toHaveBeenCalledTimes(3);
   expect(result.providers[0]?.rules[0]?.findings).toHaveLength(3);
 });
@@ -51,7 +52,7 @@ it('keeps healthy regional findings and evaluation evidence when another region 
     return { Reservations: [{ Instances: [{ InstanceId: 'i-test', InstanceType: 'm5.24xlarge' }] }] };
   });
   const result = await runLiveScan(
-    { discovery: { enabledRules: ['CLDBRN-AWS-EC2-8'] } },
+    { discovery: { enabledRules: ['CLDBRN-AWS-EC2-8'] }, iac: {} },
     { mode: 'all' },
     { includeEvaluationResources: true },
   );

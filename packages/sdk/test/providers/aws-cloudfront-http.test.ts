@@ -148,7 +148,7 @@ it.each([
     const distributions = await hydrate();
     return hydrateAwsCloudFrontDistributionRequestActivity([], {
       loadDataset: async () => distributions,
-    } as Parameters<typeof hydrateAwsCloudFrontDistributionRequestActivity>[1]);
+    } as unknown as Parameters<typeof hydrateAwsCloudFrontDistributionRequestActivity>[1]);
   });
   expect(result).toEqual([
     {

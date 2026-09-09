@@ -51,14 +51,17 @@ describe('CloudBurnClient', () => {
   it('excludes incomplete regions from joined rules and their evaluation evidence', async () => {
     mockedDiscoverAwsResources.mockResolvedValue({
       catalog: discoveryCatalog,
+      diagnostics: [],
       unavailableRegions: new Map([['aws-ec2-target-groups', new Set(['us-east-1'])]]),
       resources: new LiveResourceBag({
         'aws-ec2-load-balancers': ['eu-west-1', 'us-east-1'].map((region) => ({
           accountId: '123456789012',
           region,
           loadBalancerArn: `arn:aws:elasticloadbalancing:${region}:123456789012:loadbalancer/app/test/123`,
+          loadBalancerName: 'test',
           loadBalancerType: 'application' as const,
           attachedTargetGroupArns: [],
+          instanceCount: 0,
         })),
         'aws-ec2-target-groups': [],
       }),
@@ -78,6 +81,7 @@ describe('CloudBurnClient', () => {
   it('passes the explicit discovery target to the aws provider scanner and returns gp2 findings', async () => {
     mockedDiscoverAwsResources.mockResolvedValue({
       catalog: discoveryCatalog,
+      diagnostics: [],
       resources: new LiveResourceBag({
         'aws-ebs-volumes': [
           {
@@ -144,6 +148,7 @@ describe('CloudBurnClient', () => {
   it('returns every resource evaluated by each rule when evaluation resources are requested', async () => {
     mockedDiscoverAwsResources.mockResolvedValue({
       catalog: discoveryCatalog,
+      diagnostics: [],
       resources: new LiveResourceBag({
         'aws-ebs-volumes': [
           {
@@ -220,6 +225,7 @@ describe('CloudBurnClient', () => {
   it('returns Transit Gateway attachment traffic and price inputs as evaluation evidence', async () => {
     mockedDiscoverAwsResources.mockResolvedValue({
       catalog: discoveryCatalog,
+      diagnostics: [],
       resources: new LiveResourceBag({
         'aws-ec2-transit-gateway-vpc-attachment-activity': [
           {
@@ -301,6 +307,7 @@ describe('CloudBurnClient', () => {
     };
     mockedDiscoverAwsResources.mockResolvedValue({
       catalog: discoveryCatalog,
+      diagnostics: [],
       resources: new LiveResourceBag({
         'aws-kms-key-churn-reviews': [kmsReview],
       }),
@@ -351,6 +358,7 @@ describe('CloudBurnClient', () => {
     };
     mockedDiscoverAwsResources.mockResolvedValue({
       catalog: discoveryCatalog,
+      diagnostics: [],
       resources: new LiveResourceBag({
         'aws-kms-key-usage': [keyUsage],
       }),
@@ -411,6 +419,7 @@ describe('CloudBurnClient', () => {
     };
     mockedDiscoverAwsResources.mockResolvedValue({
       catalog: discoveryCatalog,
+      diagnostics: [],
       resources: new LiveResourceBag({
         'aws-cost-optimization-hub-savings-plans-recommendations': [recommendation],
       }),
@@ -585,6 +594,7 @@ describe('CloudBurnClient', () => {
   it('preserves concrete resource types for mixed account-wide evaluation resources', async () => {
     mockedDiscoverAwsResources.mockResolvedValue({
       catalog: discoveryCatalog,
+      diagnostics: [],
       resources: new LiveResourceBag({
         'aws-resource-explorer-untagged-resources': [
           {
@@ -622,6 +632,7 @@ describe('CloudBurnClient', () => {
   it('reports a completed rule with no findings as passed', async () => {
     mockedDiscoverAwsResources.mockResolvedValue({
       catalog: discoveryCatalog,
+      diagnostics: [],
       resources: new LiveResourceBag({
         'aws-ebs-volumes': [
           {
@@ -653,6 +664,7 @@ describe('CloudBurnClient', () => {
     const accountId = '123456789012';
     mockedDiscoverAwsResources.mockResolvedValue({
       catalog: discoveryCatalog,
+      diagnostics: [],
       resources: new LiveResourceBag({
         'aws-lambda-functions': [
           {
@@ -660,6 +672,8 @@ describe('CloudBurnClient', () => {
             architectures: ['x86_64'],
             functionArn: `arn:aws:lambda:us-east-1:${accountId}:function:overprovisioned`,
             functionName: 'overprovisioned',
+            memorySizeMb: 1024,
+            timeoutSeconds: 30,
             region: 'us-east-1',
           },
           {
@@ -667,6 +681,8 @@ describe('CloudBurnClient', () => {
             architectures: ['arm64'],
             functionArn: `arn:aws:lambda:us-east-1:${accountId}:function:right-sized`,
             functionName: 'right-sized',
+            memorySizeMb: 256,
+            timeoutSeconds: 15,
             region: 'us-east-1',
           },
         ],
@@ -715,6 +731,7 @@ describe('CloudBurnClient', () => {
     const review = configRecordingReview;
     mockedDiscoverAwsResources.mockResolvedValue({
       catalog: discoveryCatalog,
+      diagnostics: [],
       resources: new LiveResourceBag({
         'aws-config-recording-frequency-reviews': [review],
       }),
@@ -798,6 +815,7 @@ describe('CloudBurnClient', () => {
     const logGroupArn = 'arn:aws:logs:us-east-1:123456789012:log-group:/aws/lambda/app';
     mockedDiscoverAwsResources.mockResolvedValue({
       catalog: discoveryCatalog,
+      diagnostics: [],
       resources: new LiveResourceBag({
         'aws-cloudwatch-log-groups': [
           {
@@ -840,6 +858,7 @@ describe('CloudBurnClient', () => {
   it('reports individual budgets as the resources evaluated by the exceeded-budget rule', async () => {
     mockedDiscoverAwsResources.mockResolvedValue({
       catalog: discoveryCatalog,
+      diagnostics: [],
       resources: new LiveResourceBag({
         'aws-cost-guardrail-budgets': [
           {
@@ -881,6 +900,7 @@ describe('CloudBurnClient', () => {
   it('reports individual budgets as the resources evaluated by the forecasted-breach rule', async () => {
     mockedDiscoverAwsResources.mockResolvedValue({
       catalog: discoveryCatalog,
+      diagnostics: [],
       resources: new LiveResourceBag({
         'aws-cost-guardrail-budgets': [
           {
@@ -940,6 +960,7 @@ describe('CloudBurnClient', () => {
   it('preserves global regions in evaluation resource identities', async () => {
     mockedDiscoverAwsResources.mockResolvedValue({
       catalog: discoveryCatalog,
+      diagnostics: [],
       resources: new LiveResourceBag({
         'aws-cloudfront-distributions': [
           {
@@ -972,6 +993,7 @@ describe('CloudBurnClient', () => {
   it('reports evaluation resources for every built-in discovery rule', async () => {
     mockedDiscoverAwsResources.mockResolvedValue({
       catalog: discoveryCatalog,
+      diagnostics: [],
       resources: new LiveResourceBag(),
     });
 
@@ -989,6 +1011,7 @@ describe('CloudBurnClient', () => {
   it('reports the effective configured policy in discovery results', async () => {
     mockedDiscoverAwsResources.mockResolvedValue({
       catalog: discoveryCatalog,
+      diagnostics: [],
       resources: new LiveResourceBag({
         'aws-ebs-volumes': [
           {
@@ -1129,11 +1152,12 @@ describe('CloudBurnClient', () => {
 
     mockedDiscoverAwsResources.mockImplementation(async () => {
       const client = createEc2Client({ region: 'us-east-1' });
-      const resolved = await (client.config.credentials as () => Promise<Record<string, unknown>>)();
+      const resolved = await (client.config.credentials as unknown as () => Promise<Record<string, unknown>>)();
       expect(resolved).toMatchObject(scanCredentials);
 
       return {
         catalog: discoveryCatalog,
+        diagnostics: [],
         resources: new LiveResourceBag(),
       };
     });
@@ -1151,6 +1175,7 @@ describe('CloudBurnClient', () => {
   it('defaults discover to the current region target when none is provided', async () => {
     mockedDiscoverAwsResources.mockResolvedValue({
       catalog: discoveryCatalog,
+      diagnostics: [],
       resources: new LiveResourceBag(),
     });
 
@@ -1164,6 +1189,7 @@ describe('CloudBurnClient', () => {
   it('forwards the configured debug logger into live discovery', async () => {
     mockedDiscoverAwsResources.mockResolvedValue({
       catalog: discoveryCatalog,
+      diagnostics: [],
       resources: new LiveResourceBag(),
     });
 
@@ -1187,6 +1213,7 @@ describe('CloudBurnClient', () => {
   it('passes an explicit config path through discovery config loading', async () => {
     mockedDiscoverAwsResources.mockResolvedValue({
       catalog: discoveryCatalog,
+      diagnostics: [],
       resources: new LiveResourceBag(),
     });
 

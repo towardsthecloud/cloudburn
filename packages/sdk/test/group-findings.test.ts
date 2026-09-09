@@ -15,6 +15,7 @@ describe('groupFindingsByProvider', () => {
             ruleId: 'CLDBRN-AWS-EBS-1',
             service: 'ebs',
             source: 'discovery',
+            severity: 'medium',
             message: 'EBS volumes should use current-generation storage.',
             findings: [],
           },
@@ -25,6 +26,7 @@ describe('groupFindingsByProvider', () => {
             ruleId: 'CLDBRN-AWS-EBS-1',
             service: 'ebs',
             source: 'discovery',
+            severity: 'medium',
             message: 'EBS volumes should use current-generation storage.',
             findings: [
               {
@@ -43,6 +45,7 @@ describe('groupFindingsByProvider', () => {
             ruleId: 'CLDBRN-AWS-EBS-1',
             service: 'ebs',
             source: 'discovery',
+            severity: 'medium',
             message: 'EBS volumes should use current-generation storage.',
             findings: [
               {

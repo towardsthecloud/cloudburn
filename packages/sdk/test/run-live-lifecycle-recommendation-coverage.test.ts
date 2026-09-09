@@ -48,6 +48,7 @@ describe('lifecycle and recommendation evaluation coverage', () => {
   ])('%s reports unknown instead of passed when lifecycle traits are unavailable', async (ruleId) => {
     vi.mocked(discoverAwsResources).mockResolvedValue({
       catalog,
+      diagnostics: [],
       resources: new LiveResourceBag({
         'aws-ecr-repositories': [
           repository('unparsed', { tagged: null, untagged: null }),
@@ -81,6 +82,7 @@ describe('lifecycle and recommendation evaluation coverage', () => {
   it('ECR lifecycle rules still pass when every repository has parsed traits or no policy', async () => {
     vi.mocked(discoverAwsResources).mockResolvedValue({
       catalog,
+      diagnostics: [],
       resources: new LiveResourceBag({
         'aws-ecr-repositories': [
           repository('compliant', { tagged: true, untagged: true }),
@@ -98,6 +100,7 @@ describe('lifecycle and recommendation evaluation coverage', () => {
   it('CLDBRN-AWS-LAMBDA-4 reports unknown when Compute Optimizer returns an empty successful response', async () => {
     vi.mocked(discoverAwsResources).mockResolvedValue({
       catalog,
+      diagnostics: [],
       resources: new LiveResourceBag({
         'aws-lambda-functions': [lambdaFunction('pending')],
         'aws-lambda-memory-recommendations': [],
@@ -121,6 +124,7 @@ describe('lifecycle and recommendation evaluation coverage', () => {
   it('CLDBRN-AWS-LAMBDA-4 separates overprovisioned, analyzed, unavailable, and absent assessments', async () => {
     vi.mocked(discoverAwsResources).mockResolvedValue({
       catalog,
+      diagnostics: [],
       resources: new LiveResourceBag({
         'aws-lambda-functions': ['overprovisioned', 'optimized', 'insufficient-data', 'pending'].map(lambdaFunction),
         'aws-lambda-memory-recommendations': [
@@ -161,6 +165,7 @@ describe('lifecycle and recommendation evaluation coverage', () => {
   it('CLDBRN-AWS-LAMBDA-4 passes only when every function has an analyzed result', async () => {
     vi.mocked(discoverAwsResources).mockResolvedValue({
       catalog,
+      diagnostics: [],
       resources: new LiveResourceBag({
         'aws-lambda-functions': [lambdaFunction('optimized')],
         'aws-lambda-memory-recommendations': [

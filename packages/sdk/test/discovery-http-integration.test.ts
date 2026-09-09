@@ -4,9 +4,17 @@ import { join } from 'node:path';
 import { EC2Client } from '@aws-sdk/client-ec2';
 import { ResourceExplorer2Client } from '@aws-sdk/client-resource-explorer-2';
 import { STSClient } from '@aws-sdk/client-sts';
-import type { HttpRequest } from '@aws-sdk/types';
+import type { HttpHandlerOptions, HttpRequest } from '@aws-sdk/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { type AwsDiscoveryProgressEvent, CloudBurnClient, withAwsClientCredentials } from '../src/index.js';
+
+/** Options accepted by {@link CloudBurnClient.discover}, reused so test fixtures stay in sync with the public contract. */
+type DiscoverOptions = NonNullable<Parameters<CloudBurnClient['discover']>[0]>;
+/** Reusable-evidence fixtures always set a regional target and a directory-backed cache. */
+type RegionsCacheDiscoverOptions = DiscoverOptions & {
+  target: Extract<NonNullable<DiscoverOptions['target']>, { mode: 'regions' }>;
+  cache: NonNullable<DiscoverOptions['cache']> & { directory: string };
+};
 
 const fixture = (name: string): string =>
   readFileSync(new URL(`./fixtures/aws-discovery/${name}`, import.meta.url), 'utf8');
@@ -104,7 +112,7 @@ beforeEach(() => {
   const probe = new EC2Client({ region: 'eu-west-1' });
   const transport: typeof probe.config.requestHandler = Object.getPrototypeOf(probe.config.requestHandler);
   probe.destroy();
-  vi.spyOn(transport, 'handle').mockImplementation(async (request: HttpRequest, options) => {
+  vi.spyOn(transport, 'handle').mockImplementation(async (request: HttpRequest, options?: HttpHandlerOptions) => {
     authorizations.push(request.headers.authorization ?? '');
     const body = request.body ? String(request.body) : '';
     const operation =
@@ -561,8 +569,8 @@ it('rejects cancellation after useful progress and stops active transport and la
 
 it('reuses complete evidence across scans while re-evaluating rule selection', async () => {
   const client = new CloudBurnClient();
-  const options = {
-    target: { mode: 'regions' as const, regions: ['eu-west-1'] },
+  const options: RegionsCacheDiscoverOptions = {
+    target: { mode: 'regions', regions: ['eu-west-1'] },
     cache: { directory: join(admissionDirectory, 'evidence'), authorizationContext: 'synthetic-policy-v1' },
     config: { discovery: { enabledRules: ['CLDBRN-AWS-EBS-1'] } },
     includeEvaluationResources: true,
@@ -584,8 +592,8 @@ it('reuses complete evidence across scans while re-evaluating rule selection', a
 });
 
 describe('reusable evidence isolation and freshness', () => {
-  const options = () => ({
-    target: { mode: 'regions' as const, regions: ['eu-west-1'] },
+  const options = (): RegionsCacheDiscoverOptions => ({
+    target: { mode: 'regions', regions: ['eu-west-1'] },
     cache: { directory: join(admissionDirectory, 'evidence'), authorizationContext: 'policy-v1' },
     config: { discovery: { enabledRules: ['CLDBRN-AWS-EBS-1'] } },
     includeEvaluationResources: true,

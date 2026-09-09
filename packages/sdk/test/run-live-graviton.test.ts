@@ -29,6 +29,7 @@ it.each([false, true])('retains full Hub evidence with native family heuristics 
   };
   vi.mocked(discoverAwsResources).mockResolvedValue({
     catalog: { indexType: 'LOCAL', searchRegion: 'eu-west-1', resources: [] },
+    diagnostics: [],
     resources: new LiveResourceBag({
       'aws-cost-optimization-hub-graviton-recommendations': [recommendation],
       'aws-ec2-instances': [

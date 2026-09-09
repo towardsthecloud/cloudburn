@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { EC2Client } from '@aws-sdk/client-ec2';
 import { ResourceExplorer2Client } from '@aws-sdk/client-resource-explorer-2';
 import { STSClient } from '@aws-sdk/client-sts';
-import type { HttpRequest } from '@aws-sdk/types';
+import type { HttpHandlerOptions, HttpRequest } from '@aws-sdk/types';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { CloudBurnClient } from '../src/index.js';
 
@@ -49,7 +49,7 @@ beforeEach(() => {
   const probe = new EC2Client({ region });
   const transport: typeof probe.config.requestHandler = Object.getPrototypeOf(probe.config.requestHandler);
   probe.destroy();
-  vi.spyOn(transport, 'handle').mockImplementation(async (request: HttpRequest, options) => {
+  vi.spyOn(transport, 'handle').mockImplementation(async (request: HttpRequest, options?: HttpHandlerOptions) => {
     const body = String(request.body || '');
     const operation = request.path === '/' ? new URLSearchParams(body).get('Action') || '' : request.path.slice(1);
     const input: Record<string, unknown> =
