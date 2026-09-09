@@ -1,5 +1,15 @@
 # @cloudburn/rules
 
+## 0.33.0
+
+### Minor Changes
+
+- [#261](https://github.com/towardsthecloud/cloudburn/pull/261) [`8c295fd`](https://github.com/towardsthecloud/cloudburn/commit/8c295fd0c73803f0e36048bdd00ab522c4ed9ecd) Thanks [@axonstone](https://github.com/axonstone)! - Add `getLiveEvaluationCoverage` to `CLDBRN-AWS-ECR-2`, `CLDBRN-AWS-ECR-3`, and `CLDBRN-AWS-LAMBDA-4` so repositories with unparsed lifecycle policies and Lambda functions without a Compute Optimizer result are reported as unknown. `AwsLambdaMemoryRecommendation` gains a required `assessment` (`AwsLambdaMemoryAssessment`) and the memory rule flags only `memory_overprovisioned` entries; custom loaders that populate this dataset must set the field.
+
+### Patch Changes
+
+- [#264](https://github.com/towardsthecloud/cloudburn/pull/264) [`abef4cd`](https://github.com/towardsthecloud/cloudburn/commit/abef4cd8798a5fc65e6d6799e608f45ce35d72d6) Thanks [@axonstone](https://github.com/axonstone)! - `CLDBRN-AWS-EBS-3` reports volumes attached to an instance that is missing from the inventory, or whose state was not reported, as unknown coverage instead of a silent pass.
+
 ## 0.32.3
 
 ### Patch Changes
