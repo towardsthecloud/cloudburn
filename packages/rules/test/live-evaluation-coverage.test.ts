@@ -339,6 +339,7 @@ describe('live metric evaluation coverage', () => {
             region: 'us-east-1',
             endpointName: 'endpoint-unknown',
             endpointArn: 'arn:aws:sagemaker:us-east-1:123456789012:endpoint/endpoint-unknown',
+            endpointConfigName: 'endpoint-unknown-config',
             endpointStatus: 'InService',
             creationTime: '2020-01-01T00:00:00.000Z',
             totalInvocationsLast14Days: null,

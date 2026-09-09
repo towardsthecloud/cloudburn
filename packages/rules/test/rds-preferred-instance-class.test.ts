@@ -29,6 +29,8 @@ const createLiveRdsInstance = (
 });
 
 const createStaticRdsInstance = (overrides: Partial<AwsStaticRdsInstance> = {}): AwsStaticRdsInstance => ({
+  engine: null,
+  engineVersion: null,
   instanceClass: 'db.m6i.large',
   location: {
     path: 'main.tf',

@@ -1,4 +1,6 @@
+import type { ResourceExplorer2Client } from '@aws-sdk/client-resource-explorer-2';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { AwsRegion } from '../../src/providers/aws/client.js';
 import * as clientModule from '../../src/providers/aws/client.js';
 import { withAwsDiscoveryExecution } from '../../src/providers/aws/execution.js';
 import {
@@ -57,7 +59,7 @@ describe('resource explorer discovery', () => {
   });
 
   it('checks other regions while a slow regional index lookup is still in flight', async () => {
-    const regions = ['eu-west-1', 'eu-central-1', 'us-east-1'];
+    const regions: AwsRegion[] = ['eu-west-1', 'eu-central-1', 'us-east-1'];
     vi.spyOn(clientModule, 'listEnabledAwsRegions').mockResolvedValue(regions);
     let releaseSlow = (): void => undefined;
     const slowLookup = new Promise<void>((resolve) => {
@@ -1073,7 +1075,7 @@ describe('resource explorer discovery', () => {
   it('limits multi-region discovery to accessible indexed regions while skipping denied regions', async () => {
     vi.spyOn(clientModule, 'listEnabledAwsRegions').mockResolvedValue(['ap-south-1', 'eu-central-1', 'eu-west-1']);
 
-    const apSouthClient = {
+    const apSouthClient: Pick<ResourceExplorer2Client, 'send'> = {
       send: vi.fn().mockRejectedValue(
         Object.assign(new Error('explicit deny'), {
           name: 'AccessDeniedException',
@@ -1082,8 +1084,8 @@ describe('resource explorer discovery', () => {
           },
         }),
       ),
-    } as never;
-    const euCentralClient = {
+    };
+    const euCentralClient: Pick<ResourceExplorer2Client, 'send'> = {
       send: vi
         .fn()
         .mockImplementationOnce(async (command) => {
@@ -1134,8 +1136,8 @@ describe('resource explorer discovery', () => {
             ],
           };
         }),
-    } as never;
-    const euWestClient = {
+    };
+    const euWestClient: Pick<ResourceExplorer2Client, 'send'> = {
       send: vi.fn().mockImplementationOnce(async (command) => {
         expect(command.input.Regions).toEqual(['eu-west-1']);
 
@@ -1148,19 +1150,19 @@ describe('resource explorer discovery', () => {
           ],
         };
       }),
-    } as never;
+    };
 
     vi.spyOn(clientModule, 'createResourceExplorerClient').mockImplementation(({ region }) => {
       if (region === 'ap-south-1') {
-        return apSouthClient;
+        return apSouthClient as ResourceExplorer2Client;
       }
 
       if (region === 'eu-central-1') {
-        return euCentralClient;
+        return euCentralClient as ResourceExplorer2Client;
       }
 
       if (region === 'eu-west-1') {
-        return euWestClient;
+        return euWestClient as ResourceExplorer2Client;
       }
 
       throw new Error(`Unexpected client region ${region}`);

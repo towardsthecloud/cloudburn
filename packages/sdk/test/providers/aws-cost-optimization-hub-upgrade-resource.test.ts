@@ -37,7 +37,11 @@ const summary = (overrides: Partial<Recommendation> = {}): Recommendation => ({
 const currentDetails: ResourceDetails = { ec2Instance: { configuration: { instance: { type: 'm6i.large' } } } };
 const recommendedDetails: ResourceDetails = { ec2Instance: { configuration: { instance: { type: 'm7i.large' } } } };
 const load = () => hydrateAwsCostOptimizationHubUpgradeRecommendations([], { resolveAccountId: async () => accountId });
-const mockHub = (recommendation = summary(), current = currentDetails, recommended = recommendedDetails) => {
+const mockHub = (
+  recommendation: Recommendation = summary(),
+  current: ResourceDetails = currentDetails,
+  recommended: ResourceDetails = recommendedDetails,
+) => {
   const send = vi.fn(async (command: unknown) => {
     if (command instanceof ListEnrollmentStatusesCommand) return { items: [{ accountId, status: 'Active' }] };
     if (command instanceof ListRecommendationsCommand) return { items: [recommendation] };

@@ -35,6 +35,7 @@ const catalogFor = (resourceType = 'ec2:volume', regions = [region]): AwsDiscove
     resourceType,
     service: 'ec2',
     arn: `arn:aws:ec2:${resourceRegion}:${accountId}:${resourceType === 'ec2:volume' ? 'volume/vol-test' : 'instance/i-test'}`,
+    properties: [],
   })),
 });
 const volumeResponse = { Volumes: [{ VolumeId: 'vol-test', VolumeType: 'gp3', Size: 20, Attachments: [] }] };
@@ -57,7 +58,11 @@ const idleRecommendation = {
   lastRefreshTimestamp: new Date('2026-09-04T00:00:00Z'),
 };
 const run = (enabledRules: string[], onProgress?: (event: AwsDiscoveryProgressEvent) => void) =>
-  runLiveScan({ discovery: { enabledRules } }, { mode: 'all' }, { includeEvaluationResources: true, onProgress });
+  runLiveScan(
+    { discovery: { enabledRules }, iac: {} },
+    { mode: 'all' },
+    { includeEvaluationResources: true, onProgress },
+  );
 const ruleEvents = (events: AwsDiscoveryProgressEvent[]) => events.filter((event) => event.kind === 'rule');
 
 beforeEach(() => {

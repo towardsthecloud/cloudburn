@@ -3,6 +3,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const importClientModule = async () => import('../../src/providers/aws/client.js');
 
+type HandlerWithConfigUpdate = { updateHttpClientConfig: (key: string, value: unknown) => void };
+
+const hasUpdateHttpClientConfig = (value: unknown): value is HandlerWithConfigUpdate =>
+  typeof value === 'object' &&
+  value !== null &&
+  typeof (value as { updateHttpClientConfig?: unknown }).updateHttpClientConfig === 'function';
+
 describe('aws client resilience defaults', () => {
   it('aborts an established request when its request deadline expires', async () => {
     const server = createServer((_request, response) => {
@@ -14,7 +21,8 @@ describe('aws client resilience defaults', () => {
     const { createEc2Client } = await importClientModule();
     const client = createEc2Client({ region: 'us-east-1' });
     const handler = client.config.requestHandler;
-    handler.updateHttpClientConfig?.('requestTimeout', 20);
+    if (!hasUpdateHttpClientConfig(handler)) throw new Error('Expected updateHttpClientConfig on request handler');
+    handler.updateHttpClientConfig('requestTimeout', 20);
 
     try {
       const request = {
@@ -38,13 +46,13 @@ describe('aws client resilience defaults', () => {
   it('configures adaptive retries, explicit max attempts, and request timeouts on every client factory', async () => {
     const clientModule = await importClientModule();
     const factories = Object.entries(clientModule).filter(
-      (entry): entry is [string, (config: { region?: string }) => unknown] =>
-        entry[0].startsWith('create') && typeof entry[1] === 'function',
+      (entry) => entry[0].startsWith('create') && typeof entry[1] === 'function',
     );
 
     expect(factories.length).toBeGreaterThan(0);
 
-    for (const [factoryName, factory] of factories) {
+    for (const [factoryName, exportedValue] of factories) {
+      const factory = exportedValue as unknown as (config: { region?: string }) => unknown;
       const client = factory({ region: 'us-east-1' }) as {
         config: {
           maxAttempts: () => Promise<number>;

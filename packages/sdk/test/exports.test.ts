@@ -92,6 +92,9 @@ describe('sdk exports', () => {
       evaluateStatic: () => null,
     });
     const [metadata] = listBuiltInRuleMetadata([rule]);
+    if (!metadata) {
+      throw new Error('expected rule metadata to be present');
+    }
 
     expect(metadata).toEqual({
       description: 'Find older instance types.',

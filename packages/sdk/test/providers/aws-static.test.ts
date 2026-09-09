@@ -1,4 +1,4 @@
-import type { IaCResource, Rule } from '@cloudburn/rules';
+import type { AwsStaticS3BucketAnalysis, IaCResource, Rule, StaticDatasetKey } from '@cloudburn/rules';
 import { StaticResourceBag } from '@cloudburn/rules';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { parseIaCWithDiagnostics } from '../../src/parsers/index.js';
@@ -28,6 +28,7 @@ const createRule = (overrides: Partial<Rule> = {}): Rule => ({
   name: 'test rule',
   provider: 'aws',
   service: 'ec2',
+  severity: 'low',
   supports: ['iac'],
   ...overrides,
 });
@@ -1223,7 +1224,7 @@ describe('loadAwsStaticResources', () => {
     await expect(
       loadAwsStaticResources('/tmp/iac', [
         createRule({
-          staticDependencies: ['aws-missing-dataset' as Rule['staticDependencies'][number]],
+          staticDependencies: ['aws-missing-dataset' as StaticDatasetKey],
         }),
       ]),
     ).rejects.toThrow("Static rule CLDBRN-AWS-TEST-1 declares unknown static dependency 'aws-missing-dataset'.");
@@ -1235,7 +1236,7 @@ describe('loadAwsStaticResources', () => {
     await expect(
       loadAwsStaticResources('/tmp/iac', [
         createRule({
-          staticDependencies: ['__proto__' as Rule['staticDependencies'][number]],
+          staticDependencies: ['__proto__' as StaticDatasetKey],
         }),
       ]),
     ).rejects.toThrow("Static rule CLDBRN-AWS-TEST-1 declares unknown static dependency '__proto__'.");
@@ -1464,7 +1465,9 @@ describe('aws static dataset registry', () => {
         },
       }),
     ]).flat();
-    const analyses = getAwsStaticDatasetDefinition('aws-s3-bucket-analyses')?.load(resources);
+    const analyses = getAwsStaticDatasetDefinition('aws-s3-bucket-analyses')?.load(resources) as
+      | AwsStaticS3BucketAnalysis[]
+      | undefined;
     expect(analyses).toHaveLength(size);
     expect(analyses?.every((analysis) => analysis.hasLifecycleSignal)).toBe(true);
     expect(referenceReads).toBeLessThanOrEqual(size * 3);

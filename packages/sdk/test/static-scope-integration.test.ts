@@ -33,7 +33,7 @@ it('joins Terraform files in one directory without borrowing another module’s 
     }
   }`,
   );
-  const result = await runStaticScan(directory, { iac: { enabledRules: ['CLDBRN-AWS-S3-1'] } });
+  const result = await runStaticScan(directory, { iac: { enabledRules: ['CLDBRN-AWS-S3-1'] }, discovery: {} });
   expect(result.providers[0]?.rules[0]?.findings).toEqual([
     expect.objectContaining({
       resourceId: 'aws_s3_bucket.logs',
@@ -83,7 +83,7 @@ it.each([
     );
     missingPath = await write('b.json', JSON.stringify({ Resources: { Shared: cloudFormationTable } }));
   }
-  const result = await runStaticScan(directory, { iac: { enabledRules: ['CLDBRN-AWS-DYNAMODB-2'] } });
+  const result = await runStaticScan(directory, { iac: { enabledRules: ['CLDBRN-AWS-DYNAMODB-2'] }, discovery: {} });
   expect(result.providers[0]?.rules[0]?.findings).toEqual([
     expect.objectContaining({ location: expect.objectContaining({ path: missingPath }) }),
   ]);

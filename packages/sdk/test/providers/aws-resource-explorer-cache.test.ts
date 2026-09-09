@@ -2,6 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { STSClient } from '@aws-sdk/client-sts';
+import type { AwsDiscoveryCatalog } from '@cloudburn/rules';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { createMemoryEvidenceCacheStore } from '../../src/evidence-cache.js';
 import * as clientModule from '../../src/providers/aws/client.js';
@@ -260,8 +261,8 @@ it.each([
     Arn: 'arn:aws:iam::123456789012:user/test',
     UserId: 'test',
   } as never);
-  let releaseBatch = () => undefined;
-  let markBatchStarted = () => undefined;
+  let releaseBatch: (value: void | PromiseLike<void>) => void = () => undefined;
+  let markBatchStarted: (value: void | PromiseLike<void>) => void = () => undefined;
   const heldBatch = new Promise<void>((resolve) => {
     releaseBatch = resolve;
   });
@@ -299,7 +300,11 @@ it.each([
   );
   const cache = { store: createMemoryEvidenceCacheStore(), authorizationContext: 'test-policy-v1' };
   const target = { mode: 'region' as const, region: 'eu-west-1' };
-  const scan = (types: string[], signal: AbortSignal, onResourceTypeReady: ReturnType<typeof vi.fn>) =>
+  const scan = (
+    types: string[],
+    signal: AbortSignal,
+    onResourceTypeReady: (resourceType: string, catalog: AwsDiscoveryCatalog) => void,
+  ) =>
     clientModule.withAwsClientCredentials({ accessKeyId: 'SYNTHETIC', secretAccessKey: 'SYNTHETIC' }, () =>
       withAwsDiscoveryExecution({ signal }, () =>
         withAwsEvidenceCache({ cache, target }, () => buildAwsDiscoveryCatalog(target, types, { onResourceTypeReady })),
@@ -307,8 +312,8 @@ it.each([
     );
   const firstController = new AbortController();
   const lastController = new AbortController();
-  const firstReady = vi.fn();
-  const lastReady = vi.fn();
+  const firstReady = vi.fn<(resourceType: string, catalog: AwsDiscoveryCatalog) => void>();
+  const lastReady = vi.fn<(resourceType: string, catalog: AwsDiscoveryCatalog) => void>();
   const first = scan(['ec2:volume', 'ec2:instance'], firstController.signal, firstReady).catch(
     (error: unknown) => error,
   );

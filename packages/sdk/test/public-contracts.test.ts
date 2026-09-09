@@ -1,5 +1,3 @@
-import { fileURLToPath } from 'node:url';
-import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 import type {
   AwsConfigRecordingFrequencyReview,
@@ -58,23 +56,8 @@ const consumeDiscoveryProgress = (event: AwsDiscoveryProgressEvent): number => {
 void consumeDiscoveryProgress;
 
 describe('public SDK contracts', () => {
-  // This case type-checks the whole SDK program in-process, which competes with turbo's parallel builds on CI.
-  it('exports compiler-checked upgrade configurations, evaluation coverage and Config evidence', {
-    timeout: 120_000,
-  }, () => {
-    const configPath = fileURLToPath(new URL('../../../tsconfig.base.json', import.meta.url));
-    const config = ts.readConfigFile(configPath, ts.sys.readFile);
-    const parsed = ts.parseJsonConfigFileContent(
-      config.config,
-      ts.sys,
-      fileURLToPath(new URL('../../../', import.meta.url)),
-    );
-    const program = ts.createProgram([fileURLToPath(import.meta.url)], { ...parsed.options, noEmit: true });
-    expect(
-      ts
-        .getPreEmitDiagnostics(program, program.getSourceFile(fileURLToPath(import.meta.url)))
-        .map((diagnostic) => ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n')),
-    ).toEqual([]);
+  // The package typecheck task covers this file, so the type-level assertions below fail `pnpm typecheck` directly.
+  it('exports upgrade configurations, evaluation coverage and Config evidence with the documented shapes', () => {
     const shapes: [
       AwsCostOptimizationHubEc2UpgradeConfiguration,
       AwsCostOptimizationHubAutoScalingUpgradeConfiguration,
@@ -108,6 +91,6 @@ describe('public SDK contracts', () => {
     const volume: number = evidence.configurationItemsRecorded;
     // @ts-expect-error Coverage identities require a resource ID.
     const invalidCoverage: LiveEvaluationCoverage = { assessed: [{}], unknown: [] };
-    void [evaluation, volume, invalidCoverage];
+    expect([evaluation, volume, invalidCoverage]).toHaveLength(3);
   });
 });

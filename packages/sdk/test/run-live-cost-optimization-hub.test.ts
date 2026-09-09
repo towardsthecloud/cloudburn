@@ -61,6 +61,7 @@ describe('Cost Optimization Hub reservation orchestration', () => {
       resources: new LiveResourceBag({
         'aws-cost-optimization-hub-reservation-recommendations': [arnIdentifiedRecommendation],
       }),
+      diagnostics: [],
     });
 
     const result = await runLiveScan(
@@ -125,6 +126,7 @@ describe('Cost Optimization Hub reservation orchestration', () => {
         ],
         'aws-rds-reserved-instances': [],
       }),
+      diagnostics: [],
     });
 
     const result = await runLiveScan(
@@ -172,6 +174,7 @@ describe('Cost Optimization Hub reservation orchestration', () => {
         ],
         'aws-rds-reserved-instances': [],
       }),
+      diagnostics: [],
     });
 
     const result = await runLiveScan(
@@ -228,6 +231,7 @@ describe('Cost Optimization Hub reservation orchestration', () => {
         ],
         'aws-rds-reserved-instances': [],
       }),
+      diagnostics: [],
     });
 
     const result = await runLiveScan(
@@ -279,6 +283,7 @@ describe('Cost Optimization Hub reservation orchestration', () => {
         ],
         'aws-rds-reserved-instances': [],
       }),
+      diagnostics: [],
     });
 
     const result = await runLiveScan(

@@ -8,6 +8,7 @@ const createLambdaFunction = (overrides: Partial<AwsLambdaFunction> = {}): AwsLa
   architectures: ['x86_64'],
   functionName: 'my-function',
   region: 'us-east-1',
+  memorySizeMb: 128,
   timeoutSeconds: 60,
   ...overrides,
 });

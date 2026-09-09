@@ -7,7 +7,7 @@ dependencies and caching. Package manifests own the scripts that Turbo invokes.
 | ---------------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------- |
 | `pnpm dev`                   | Run package watch tasks                                           | Persistent and uncached                                                |
 | `pnpm build`                 | Build all packages                                                | Produces package `dist/` directories                                   |
-| `pnpm typecheck`             | Type-check all packages                                           | Depends on upstream builds                                             |
+| `pnpm typecheck`             | Type-check package sources and tests                              | Depends on upstream builds                                             |
 | `pnpm test`                  | Run documentation, release, source, built CLI, and installed-package tests | Artifact suites build their dependencies                               |
 | `pnpm test:e2e`              | Run the built CLI against real template fixtures                  | Builds the CLI and its dependencies; does not contact AWS              |
 | `pnpm test:packages`         | Install local package archives and verify public entry points     | Builds packages; requires public npm access; uncached; never publishes |

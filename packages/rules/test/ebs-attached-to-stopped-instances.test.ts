@@ -126,4 +126,58 @@ describe('ebsAttachedToStoppedInstancesRule', () => {
 
     expect(finding).toBeNull();
   });
+
+  it('reports volumes with unresolved attachment state as unknown coverage', () => {
+    const coverage = ebsAttachedToStoppedInstancesRule.getLiveEvaluationCoverage?.({
+      catalog: {
+        resources: [createDiscoveredResource()],
+        searchRegion: 'eu-west-1',
+        indexType: 'LOCAL',
+      },
+      resources: new LiveResourceBag({
+        'aws-ebs-volumes': [
+          createVolume({ volumeId: 'vol-stopped' }),
+          createVolume({ attachments: [], volumeId: 'vol-unattached' }),
+          createVolume({ attachments: [{ instanceId: 'i-missing' }], volumeId: 'vol-missing-instance' }),
+          createVolume({ attachments: [{ instanceId: 'i-stateless' }], volumeId: 'vol-stateless-instance' }),
+          createVolume({ attachments: [{ instanceId: 'i-123' }, { instanceId: 'i-missing' }], volumeId: 'vol-mixed' }),
+          createVolume({ attachments: [{}], volumeId: 'vol-attachment-without-id' }),
+          createVolume({ attachments: [{ instanceId: 'i-123' }, {}], volumeId: 'vol-stopped-plus-unknown' }),
+          createVolume({
+            attachments: [{ instanceId: 'i-running' }, { instanceId: 'i-missing' }],
+            volumeId: 'vol-running-settles',
+          }),
+        ],
+        'aws-ec2-instances': [
+          createInstance(),
+          createInstance({ instanceId: 'i-stateless', state: undefined }),
+          createInstance({ instanceId: 'i-running', state: 'running' }),
+        ],
+      }),
+    });
+
+    const match = (resourceId: string) => ({ accountId: '123456789012', region: 'eu-west-1', resourceId });
+    expect(coverage).toEqual({
+      assessed: [match('vol-stopped'), match('vol-unattached'), match('vol-running-settles')],
+      unknown: [
+        match('vol-missing-instance'),
+        match('vol-stateless-instance'),
+        match('vol-mixed'),
+        match('vol-attachment-without-id'),
+        match('vol-stopped-plus-unknown'),
+      ],
+    });
+  });
+
+  it('does not treat an attachment without an instance ID as stopped', () => {
+    const finding = ebsAttachedToStoppedInstancesRule.evaluateLive?.({
+      catalog: { resources: [createDiscoveredResource()], searchRegion: 'eu-west-1', indexType: 'LOCAL' },
+      resources: new LiveResourceBag({
+        'aws-ebs-volumes': [createVolume({ attachments: [{ instanceId: 'i-123' }, {}] })],
+        'aws-ec2-instances': [createInstance()],
+      }),
+    });
+
+    expect(finding).toBeNull();
+  });
 });

@@ -135,13 +135,14 @@ checks enforce import independence without machine-specific timing gates.
 ## Runtime and type contracts
 
 Export tests should exercise values imported from the public package entry point. Constructing a typed object and
-asserting its literal fields does not verify an export or a type contract: Vitest transpiles source tests without
-checking types, and package `typecheck` scripts include `src` only.
+asserting its literal fields does not verify an export at runtime: Vitest transpiles tests without checking types.
+Type contracts are enforced by each package's `typecheck` script, which compiles `src` and `test` through
+`tsconfig.typecheck.json`, so a type-level assertion or `@ts-expect-error` line in a test file fails `pnpm typecheck`
+directly without spawning a second compiler during test runs.
 
-Keep compiler-backed consumer checks for type contracts. Existing examples are the
-[rules purchase contract](../packages/rules/test/hub-type-contract.test.ts) and
-[SDK public contracts](../packages/sdk/test/public-contracts.test.ts), which explicitly run TypeScript.
-Keep SDK consumer type assertions in that shared test so they use one compiler program during parallel verification.
+Keep consumer-shaped type assertions in the [rules purchase contract fixture](../packages/rules/test/fixtures/hub-purchase-contract.ts)
+and the [SDK public contracts test](../packages/sdk/test/public-contracts.test.ts) so downstream usage stays compiled
+with the package.
 
 ## Fixture privacy
 

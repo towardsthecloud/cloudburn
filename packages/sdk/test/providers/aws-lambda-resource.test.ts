@@ -573,7 +573,7 @@ describe('hydrateAwsLambdaFunctionMetrics', () => {
             timeoutSeconds: 60,
           },
         ],
-      }),
+      } as unknown as Parameters<typeof hydrateAwsLambdaFunctionMetrics>[1]),
     ).resolves.toEqual([
       {
         accountId: '123456789012',
