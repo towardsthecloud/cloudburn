@@ -76,7 +76,9 @@ All built-in CloudWatch metric rules report this coverage, as do the ECR lifecyc
 Optimizer Lambda memory rule. ECR repositories with a lifecycle policy whose traits could not be parsed stay unknown,
 while repositories without a policy remain assessed. Lambda functions are assessed only when the memory
 recommendation dataset carries a `memory_overprovisioned` or `not_overprovisioned` assessment for their ARN; absent or
-`unavailable` assessments stay unknown. Each rule checks its own required normalized metrics, so
+`unavailable` assessments stay unknown. EBS volumes attached to an instance that is missing from the inventory, or
+whose state was not reported, stay unknown for the stopped-instance attachment rule. Each rule checks its own
+required normalized metrics, so
 unknown Lambda errors do not prevent duration assessment. A resource that is outside a rule's policy remains
 assessed without metric evidence. EC2's low-utilization rule can establish a finding from four observed idle days;
 a non-finding requires all 14 observed days. The additive `observedDays` field records that count; legacy custom

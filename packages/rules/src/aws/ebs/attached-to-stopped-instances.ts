@@ -1,9 +1,40 @@
-import { createFinding, createFindingMatch, createRule } from '../../shared/helpers.js';
+import { createFinding, createFindingMatch, createLiveEvaluationCoverage, createRule } from '../../shared/helpers.js';
+import type { AwsEbsVolume, AwsEc2Instance } from '../../shared/metadata.js';
 
 const RULE_ID = 'CLDBRN-AWS-EBS-3';
 const RULE_SERVICE = 'ebs';
 const RULE_SEVERITY = 'high' as const;
 const RULE_MESSAGE = 'EBS volumes attached only to stopped EC2 instances should be reviewed.';
+
+const toInstanceStateById = (instances: readonly AwsEc2Instance[]): Map<string, string> =>
+  new Map(
+    instances.flatMap((instance) =>
+      instance.state === undefined ? [] : [[instance.instanceId, instance.state] as const],
+    ),
+  );
+
+/**
+ * Resolves the state of every instance a volume is attached to.
+ *
+ * @returns `null` when the volume has no instance attachments, `undefined` when any attached instance is missing from
+ * the inventory or has no reported state, otherwise one state per attachment.
+ */
+const resolveAttachedInstanceStates = (
+  volume: AwsEbsVolume,
+  instanceStateById: ReadonlyMap<string, string>,
+): string[] | null | undefined => {
+  const attachedInstanceIds = (volume.attachments ?? [])
+    .map((attachment) => attachment.instanceId)
+    .filter((instanceId): instanceId is string => typeof instanceId === 'string');
+
+  if (attachedInstanceIds.length === 0) {
+    return null;
+  }
+
+  const states = attachedInstanceIds.map((instanceId) => instanceStateById.get(instanceId));
+
+  return states.every((state): state is string => state !== undefined) ? states : undefined;
+};
 
 /** Flag EBS volumes whose attached EC2 instances are all in the stopped state. */
 export const ebsAttachedToStoppedInstancesRule = createRule({
@@ -16,32 +47,26 @@ export const ebsAttachedToStoppedInstancesRule = createRule({
   service: RULE_SERVICE,
   supports: ['discovery'],
   discoveryDependencies: ['aws-ebs-volumes', 'aws-ec2-instances'],
-  evaluateLive: ({ resources }) => {
-    const instanceStateById = new Map(
-      resources
-        .get('aws-ec2-instances')
-        .filter((instance) => instance.state !== undefined)
-        .map((instance) => [instance.instanceId, instance.state] as const),
+  // Unattached volumes are outside this policy and count as assessed. A volume attached to an instance that is missing
+  // from the inventory, or whose state was not reported, cannot be judged and stays unknown instead of passing.
+  getLiveEvaluationCoverage: ({ resources }) => {
+    const instanceStateById = toInstanceStateById(resources.get('aws-ec2-instances'));
+
+    return createLiveEvaluationCoverage(
+      resources.get('aws-ebs-volumes'),
+      (volume) => resolveAttachedInstanceStates(volume, instanceStateById) !== undefined,
+      (volume) => createFindingMatch(volume.volumeId, volume.region, volume.accountId),
     );
+  },
+  evaluateLive: ({ resources }) => {
+    const instanceStateById = toInstanceStateById(resources.get('aws-ec2-instances'));
 
     const findings = resources
       .get('aws-ebs-volumes')
       .filter((volume) => {
-        const attachedInstanceIds = (volume.attachments ?? [])
-          .map((attachment) => attachment.instanceId)
-          .filter((instanceId): instanceId is string => typeof instanceId === 'string');
+        const states = resolveAttachedInstanceStates(volume, instanceStateById);
 
-        if (attachedInstanceIds.length === 0) {
-          return false;
-        }
-
-        const attachedInstanceStates = attachedInstanceIds.map((instanceId) => instanceStateById.get(instanceId));
-
-        if (attachedInstanceStates.some((state) => state === undefined)) {
-          return false;
-        }
-
-        return attachedInstanceStates.every((state) => state === 'stopped');
+        return states?.every((state) => state === 'stopped') ?? false;
       })
       .map((volume) => createFindingMatch(volume.volumeId, volume.region, volume.accountId));
 

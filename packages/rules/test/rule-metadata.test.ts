@@ -75,7 +75,6 @@ describe('rule metadata', () => {
     const completeInventoryJoins: Record<string, string> = {
       'CLDBRN-AWS-CLOUDWATCH-2': 'A log group without recent stream activity has no observed event history by design.',
       'CLDBRN-AWS-DYNAMODB-2': 'Application Auto Scaling targets are a complete inventory; absence means no policy.',
-      'CLDBRN-AWS-EBS-3': 'EC2 instances are a complete inventory joined by attachment identity.',
       'CLDBRN-AWS-ECS-3': 'Application Auto Scaling targets are a complete inventory; absence means no policy.',
       'CLDBRN-AWS-ELASTICACHE-1': 'Reserved nodes are a complete inventory; absence means no reservation.',
       'CLDBRN-AWS-ELB-1': 'Target groups are a complete inventory joined by load balancer ARN.',

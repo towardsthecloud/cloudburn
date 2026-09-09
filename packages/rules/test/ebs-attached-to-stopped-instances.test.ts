@@ -126,4 +126,30 @@ describe('ebsAttachedToStoppedInstancesRule', () => {
 
     expect(finding).toBeNull();
   });
+
+  it('reports volumes with unresolved attachment state as unknown coverage', () => {
+    const coverage = ebsAttachedToStoppedInstancesRule.getLiveEvaluationCoverage?.({
+      catalog: {
+        resources: [createDiscoveredResource()],
+        searchRegion: 'eu-west-1',
+        indexType: 'LOCAL',
+      },
+      resources: new LiveResourceBag({
+        'aws-ebs-volumes': [
+          createVolume({ volumeId: 'vol-stopped' }),
+          createVolume({ attachments: [], volumeId: 'vol-unattached' }),
+          createVolume({ attachments: [{ instanceId: 'i-missing' }], volumeId: 'vol-missing-instance' }),
+          createVolume({ attachments: [{ instanceId: 'i-stateless' }], volumeId: 'vol-stateless-instance' }),
+          createVolume({ attachments: [{ instanceId: 'i-123' }, { instanceId: 'i-missing' }], volumeId: 'vol-mixed' }),
+        ],
+        'aws-ec2-instances': [createInstance(), createInstance({ instanceId: 'i-stateless', state: undefined })],
+      }),
+    });
+
+    const match = (resourceId: string) => ({ accountId: '123456789012', region: 'eu-west-1', resourceId });
+    expect(coverage).toEqual({
+      assessed: [match('vol-stopped'), match('vol-unattached')],
+      unknown: [match('vol-missing-instance'), match('vol-stateless-instance'), match('vol-mixed')],
+    });
+  });
 });
