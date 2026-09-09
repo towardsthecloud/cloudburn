@@ -180,6 +180,6 @@ heading fragments, reference-style definitions and uses, code-example exclusion,
 
 ## CI and task caching
 
-CI installs dependencies once in a shared validation job. Pull requests run `pnpm verify --affected`; pushes to `main` run the full `pnpm verify` gate. Documentation checks and package boundaries always run. Turbo selects affected package tasks and shares required builds within the job.
+CI installs dependencies once in a shared validation job. Pull requests run `pnpm verify --affected`; pushes to `main` run the full `pnpm verify` gate. Both pass `--concurrency=2` to Turbo because hosted runners have 4 vCPUs, and running every package's Vitest suite beside the CLI end-to-end tests, lint, and typecheck stretches timer-paced integration tests past their budgets. Documentation checks and package boundaries always run. Turbo selects affected package tasks and shares required builds within the job.
 
 Source tests resolve workspace source directly and can run without dependency builds. The `test:inputs` transit task propagates upstream source changes into downstream test cache keys without serializing their execution. Built CLI and installed-package suites depend on the CLI build, which depends on SDK/rules builds. Test fixture edits invalidate tests without rebuilding unchanged package output. See the [command reference](reference/commands.md) for task dependencies and cache policy.

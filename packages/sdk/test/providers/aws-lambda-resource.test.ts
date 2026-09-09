@@ -256,16 +256,26 @@ describe('hydrateAwsLambdaMemoryRecommendations', () => {
     vi.resetAllMocks();
   });
 
-  it('paginates Compute Optimizer memory-overprovisioning recommendations for selected functions', async () => {
-    const selectedFunctionArn = 'arn:aws:lambda:us-east-1:123456789012:function:selected';
+  const selectedResource = (functionName: string) => ({
+    accountId: '123456789012',
+    arn: `arn:aws:lambda:us-east-1:123456789012:function:${functionName}`,
+    properties: [],
+    region: 'us-east-1',
+    resourceType: 'lambda:function',
+    service: 'lambda',
+  });
+
+  const selectedArns = (...functionNames: string[]) => functionNames.map((name) => selectedResource(name).arn);
+
+  it('requests every finding class for the selected functions and normalizes memory assessments', async () => {
     const send = vi.fn(async (command: GetLambdaFunctionRecommendationsCommand) => {
       expect(command).toBeInstanceOf(GetLambdaFunctionRecommendationsCommand);
       expect(command.input.filters).toEqual([
-        {
-          name: 'FindingReasonCode',
-          values: ['MemoryOverprovisioned'],
-        },
+        { name: 'Finding', values: ['Optimized', 'NotOptimized', 'Unavailable'] },
       ]);
+      expect(command.input.functionArns).toEqual(
+        selectedArns('overprovisioned', 'optimized', 'underprovisioned', 'insufficient-data', 'pending'),
+      );
 
       if (!command.input.nextToken) {
         return {
@@ -273,19 +283,21 @@ describe('hydrateAwsLambdaMemoryRecommendations', () => {
             {
               accountId: '123456789012',
               currentMemorySize: 512,
+              finding: 'NotOptimized',
               findingReasonCodes: ['MemoryOverprovisioned'],
-              functionArn: `${selectedFunctionArn}:$LATEST`,
-              lastRefreshTimestamp: new Date('2026-03-23T00:00:00.000Z'),
-              memorySizeRecommendationOptions: [
-                {
-                  memorySize: 256,
-                  rank: 1,
-                  savingsOpportunity: {
-                    estimatedMonthlySavings: { currency: 'USD', value: 4.25 },
-                    savingsOpportunityPercentage: 32,
-                  },
-                },
-              ],
+              functionArn: 'arn:aws:lambda:us-east-1:123456789012:function:overprovisioned:$LATEST',
+              memorySizeRecommendationOptions: [{ memorySize: 256, rank: 1 }],
+            },
+            {
+              accountId: '123456789012',
+              finding: 'Optimized',
+              functionArn: 'arn:aws:lambda:us-east-1:123456789012:function:optimized',
+            },
+            {
+              accountId: '123456789012',
+              finding: 'NotOptimized',
+              findingReasonCodes: ['MemoryUnderprovisioned'],
+              functionArn: 'arn:aws:lambda:us-east-1:123456789012:function:underprovisioned',
             },
           ],
           nextToken: 'page-2',
@@ -296,7 +308,13 @@ describe('hydrateAwsLambdaMemoryRecommendations', () => {
         lambdaFunctionRecommendations: [
           {
             accountId: '123456789012',
-            currentMemorySize: 1024,
+            finding: 'Unavailable',
+            findingReasonCodes: ['InsufficientData'],
+            functionArn: 'arn:aws:lambda:us-east-1:123456789012:function:insufficient-data',
+          },
+          {
+            accountId: '123456789012',
+            finding: 'NotOptimized',
             findingReasonCodes: ['MemoryOverprovisioned'],
             functionArn: 'arn:aws:lambda:us-east-1:123456789012:function:not-selected',
           },
@@ -306,24 +324,97 @@ describe('hydrateAwsLambdaMemoryRecommendations', () => {
     mockedCreateComputeOptimizerClient.mockReturnValue({ send } as never);
 
     await expect(
-      hydrateAwsLambdaMemoryRecommendations([
-        {
-          accountId: '123456789012',
-          arn: selectedFunctionArn,
-          properties: [],
-          region: 'us-east-1',
-          resourceType: 'lambda:function',
-          service: 'lambda',
-        },
-      ]),
+      hydrateAwsLambdaMemoryRecommendations(
+        ['overprovisioned', 'optimized', 'underprovisioned', 'insufficient-data', 'pending'].map(selectedResource),
+      ),
     ).resolves.toEqual([
       {
         accountId: '123456789012',
-        functionArn: selectedFunctionArn,
+        assessment: 'unavailable',
+        functionArn: 'arn:aws:lambda:us-east-1:123456789012:function:insufficient-data',
+        region: 'us-east-1',
+      },
+      {
+        accountId: '123456789012',
+        assessment: 'not_overprovisioned',
+        functionArn: 'arn:aws:lambda:us-east-1:123456789012:function:optimized',
+        region: 'us-east-1',
+      },
+      {
+        accountId: '123456789012',
+        assessment: 'memory_overprovisioned',
+        functionArn: 'arn:aws:lambda:us-east-1:123456789012:function:overprovisioned',
+        region: 'us-east-1',
+      },
+      {
+        accountId: '123456789012',
+        assessment: 'not_overprovisioned',
+        functionArn: 'arn:aws:lambda:us-east-1:123456789012:function:underprovisioned',
         region: 'us-east-1',
       },
     ]);
     expect(send).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps the strongest assessment when several function versions share one unqualified ARN', async () => {
+    const functionArn = 'arn:aws:lambda:us-east-1:123456789012:function:versioned';
+    const send = vi.fn(async () => ({
+      lambdaFunctionRecommendations: [
+        { accountId: '123456789012', finding: 'Unavailable', functionArn: `${functionArn}:1` },
+        {
+          accountId: '123456789012',
+          finding: 'NotOptimized',
+          findingReasonCodes: ['MemoryOverprovisioned'],
+          functionArn: `${functionArn}:2`,
+        },
+        { accountId: '123456789012', finding: 'Optimized', functionArn: `${functionArn}:$LATEST` },
+      ],
+    }));
+    mockedCreateComputeOptimizerClient.mockReturnValue({ send } as never);
+
+    await expect(hydrateAwsLambdaMemoryRecommendations([selectedResource('versioned')])).resolves.toEqual([
+      { accountId: '123456789012', assessment: 'memory_overprovisioned', functionArn, region: 'us-east-1' },
+    ]);
+  });
+
+  it('batches selected function ARNs across requests', async () => {
+    const functionNames = Array.from({ length: 150 }, (_, index) => `fn-${String(index).padStart(3, '0')}`);
+    const send = vi.fn(async (command: GetLambdaFunctionRecommendationsCommand) => ({
+      lambdaFunctionRecommendations: command.input.functionArns?.map((functionArn) => ({
+        accountId: '123456789012',
+        finding: 'Optimized',
+        functionArn,
+      })),
+    }));
+    mockedCreateComputeOptimizerClient.mockReturnValue({ send } as never);
+
+    const recommendations = await hydrateAwsLambdaMemoryRecommendations(functionNames.map(selectedResource));
+
+    expect(send).toHaveBeenCalledTimes(2);
+    expect(send.mock.calls.map(([command]) => command.input.functionArns?.length)).toEqual([100, 50]);
+    expect(recommendations).toHaveLength(150);
+    expect(recommendations.every((recommendation) => recommendation.assessment === 'not_overprovisioned')).toBe(true);
+  });
+
+  it('returns no assessments when Compute Optimizer has not analyzed any selected function', async () => {
+    const send = vi.fn(async () => ({ lambdaFunctionRecommendations: [] }));
+    mockedCreateComputeOptimizerClient.mockReturnValue({ send } as never);
+
+    await expect(hydrateAwsLambdaMemoryRecommendations([selectedResource('pending')])).resolves.toEqual([]);
+  });
+
+  it('preserves Compute Optimizer context when the account is not enrolled', async () => {
+    const send = vi.fn(async () => {
+      throw Object.assign(new Error('The account is not opted in to AWS Compute Optimizer.'), {
+        name: 'OptInRequiredException',
+        $metadata: { requestId: 'request-1' },
+      });
+    });
+    mockedCreateComputeOptimizerClient.mockReturnValue({ send } as never);
+
+    await expect(hydrateAwsLambdaMemoryRecommendations([selectedResource('pending')])).rejects.toThrow(
+      /AWS Compute Optimizer GetLambdaFunctionRecommendations/,
+    );
   });
 });
 

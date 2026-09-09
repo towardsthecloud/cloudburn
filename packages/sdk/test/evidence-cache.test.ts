@@ -45,7 +45,8 @@ const child = (path: string, value: string, mode = 'normal', leaseMs = 300) => {
             messages.some((message) => message.kind === kind),
             stderr,
           ).toBe(true),
-        { timeout: 3000, interval: 10 },
+        // Forked children compile through vitest; loaded CI runners need well over the idle ~300ms startup.
+        { timeout: 15_000, interval: 10 },
       );
       const message = messages.find((message) => message.kind === kind);
       if (!message) throw new Error(`Child did not send ${kind}`);

@@ -1100,6 +1100,55 @@ describe('loadAwsStaticResources', () => {
     ]);
   });
 
+  it('recognizes age-based Terraform ECR lifecycle policies as tagged image retention caps', async () => {
+    mockParsedResources([
+      createIaCResource({
+        type: 'aws_ecr_repository',
+        name: 'app',
+        location: { path: 'main.tf', line: 1, column: 1 },
+        attributes: { name: 'app' },
+      }),
+      createIaCResource({
+        type: 'aws_ecr_lifecycle_policy',
+        location: { path: 'main.tf', line: 20, column: 1 },
+        name: 'app',
+        attributes: {
+          repository: 'aws_ecr_repository.app.name',
+          policy: JSON.stringify({
+            rules: [
+              {
+                rulePriority: 1,
+                selection: {
+                  tagStatus: 'tagged',
+                  tagPrefixList: ['release'],
+                  storageClass: 'standard',
+                  countType: 'sinceImagePulled',
+                  countUnit: 'days',
+                  countNumber: 90,
+                },
+                action: { type: 'expire' },
+              },
+            ],
+          }),
+        },
+      }),
+    ]);
+
+    const result = await loadAwsStaticResources('/tmp/iac', [
+      createRule({ staticDependencies: ['aws-ecr-repositories'] }),
+    ]);
+
+    expect(result.resources.get('aws-ecr-repositories')).toEqual([
+      {
+        hasLifecyclePolicy: true,
+        hasTaggedImageRetentionCap: true,
+        hasUntaggedImageExpiry: false,
+        location: { path: 'main.tf', line: 1, column: 1 },
+        resourceId: 'aws_ecr_repository.app',
+      },
+    ]);
+  });
+
   it('matches Terraform ECR lifecycle policies that share unresolved repository expressions', async () => {
     mockParsedResources([
       createIaCResource({

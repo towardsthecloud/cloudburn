@@ -58,7 +58,10 @@ const consumeDiscoveryProgress = (event: AwsDiscoveryProgressEvent): number => {
 void consumeDiscoveryProgress;
 
 describe('public SDK contracts', () => {
-  it('exports compiler-checked upgrade configurations, evaluation coverage and Config evidence', () => {
+  // This case type-checks the whole SDK program in-process, which competes with turbo's parallel builds on CI.
+  it('exports compiler-checked upgrade configurations, evaluation coverage and Config evidence', {
+    timeout: 120_000,
+  }, () => {
     const configPath = fileURLToPath(new URL('../../../tsconfig.base.json', import.meta.url));
     const config = ts.readConfigFile(configPath, ts.sys.readFile);
     const parsed = ts.parseJsonConfigFileContent(
@@ -106,5 +109,5 @@ describe('public SDK contracts', () => {
     // @ts-expect-error Coverage identities require a resource ID.
     const invalidCoverage: LiveEvaluationCoverage = { assessed: [{}], unknown: [] };
     void [evaluation, volume, invalidCoverage];
-  }, 30_000);
+  });
 });

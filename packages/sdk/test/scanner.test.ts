@@ -673,6 +673,7 @@ describe('CloudBurnClient', () => {
         'aws-lambda-memory-recommendations': [
           {
             accountId,
+            assessment: 'memory_overprovisioned',
             functionArn: `arn:aws:lambda:us-east-1:${accountId}:function:overprovisioned`,
             region: 'us-east-1',
           },

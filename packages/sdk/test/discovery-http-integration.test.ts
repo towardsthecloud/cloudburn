@@ -583,7 +583,7 @@ it('reuses complete evidence across scans while re-evaluating rule selection', a
   );
 });
 
-describe('reusable evidence isolation and freshness', { timeout: 20_000 }, () => {
+describe('reusable evidence isolation and freshness', () => {
   const options = () => ({
     target: { mode: 'regions' as const, regions: ['eu-west-1'] },
     cache: { directory: join(admissionDirectory, 'evidence'), authorizationContext: 'policy-v1' },
@@ -759,9 +759,7 @@ it('reports denied required AWS evidence as unavailable rather than a passed che
 });
 
 describe('ELB request activity', () => {
-  it('reuses historical metrics on rollover while late activity matches a full-window scan', {
-    timeout: 20_000,
-  }, async () => {
+  it('reuses historical metrics on rollover while late activity matches a full-window scan', async () => {
     const scenario = useElbScenario(['idle', 'late-activity']);
     scenario.includeTargets = true;
     const client = new CloudBurnClient({ debugLogger: (message) => debugMessages.push(message) });
