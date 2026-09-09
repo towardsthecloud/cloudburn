@@ -8,7 +8,10 @@ import { createEvidenceCache, createMemoryEvidenceCacheStore, type EvidenceCache
 
 const directories: string[] = [];
 const children = new Set<ChildProcess>();
-const child = (path: string, value: string, mode = 'normal', leaseMs = 300) => {
+// Children renew their lease every leaseMs / 3. Loaded CI runners can stall a forked child for hundreds of
+// milliseconds, so keep the lease long enough that a missed renewal tick does not hand ownership to a duplicate.
+const CHILD_LEASE_MS = 1_500;
+const child = (path: string, value: string, mode = 'normal', leaseMs = CHILD_LEASE_MS) => {
   const process = fork(
     fileURLToPath(new URL('./fixtures/evidence-cache/process.mjs', import.meta.url)),
     [path, value, mode, String(leaseMs)],
@@ -317,7 +320,8 @@ describe('evidence cache', () => {
     await first.until('loading');
     const second = child(path, 'duplicate');
     await second.until('ready');
-    await new Promise((resolve) => setTimeout(resolve, 700));
+    // Span several renewal ticks so a lapsed renewal would surface as the duplicate starting its own load.
+    await new Promise((resolve) => setTimeout(resolve, CHILD_LEASE_MS + 500));
     expect(second.messages.some((message) => message.kind === 'loading')).toBe(false);
     first.process.send('release');
     expect((await first.until('result')).result?.value).toBe('owner');
