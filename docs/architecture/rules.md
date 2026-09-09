@@ -87,6 +87,10 @@ estimates. Custom consumers of `AwsConfigRecordingFrequencyReview` must check th
 them in calculations. The SDK exposes the rule's coverage and reports `unknown` rather than a passed evaluation when
 required evidence is missing and no findings were established.
 
+The rules metadata test enforces that a live rule whose verdict joins more than one dataset, or reads optional
+datasets, declares `getLiveEvaluationCoverage`. Rules whose secondary datasets are complete inventories, where
+absence is itself the evidence, are listed with a justification in that test instead of adding a hook.
+
 Rules with stronger evidence can declare `supersedesRuleIds`. The live engine removes only findings with the same
 resource namespace, ID, account, and Region, and only when the superseding rule is active and emits that identity.
 Evaluation records retain each evaluator's original result, including findings later omitted from provider output by

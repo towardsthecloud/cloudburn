@@ -109,6 +109,10 @@ Use the [EBS evaluator tests](../../packages/rules/test/volume-type-current-gen.
 
 For dual-mode rules on an existing service, add both live and static evaluator coverage unless the rule is intentionally single-mode.
 
+If the live verdict joins a second dataset or reads optional datasets, implement `getLiveEvaluationCoverage` so
+resources without usable evidence report as unknown. The rules metadata test fails otherwise; when the joined dataset
+is a complete inventory whose absence is the evidence, add the rule to that test's exemption list with the reason.
+
 For IaC-capable rules, do not stop at one source kind:
 
 - Add evaluator coverage for Terraform-shaped static resources.

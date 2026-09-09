@@ -38,7 +38,7 @@ describe('rule metadata', () => {
       const scopeKey = `${provider}-${service}`;
       const ruleNumbers = numbersByScope.get(scopeKey) ?? [];
 
-      ruleNumbers.push(Number.parseInt(suffix, 10));
+      ruleNumbers.push(Number.parseInt(suffix ?? '', 10));
       numbersByScope.set(scopeKey, ruleNumbers);
     }
 
@@ -64,6 +64,47 @@ describe('rule metadata', () => {
       }
       if (!rule.supports.includes('iac')) {
         expect(rule.staticDependencies ?? [], rule.id).toEqual([]);
+      }
+    }
+  });
+
+  it('reports live evaluation coverage whenever a verdict depends on more than one dataset', () => {
+    // Presence in a single inventory dataset is the evidence. When a verdict joins a second dataset, absent or
+    // incomplete rows must be reported as unknown coverage instead of silently passing. Exempt rules justify why
+    // their secondary datasets are complete inventories whose absence is itself the evidence.
+    const completeInventoryJoins: Record<string, string> = {
+      'CLDBRN-AWS-CLOUDWATCH-2': 'A log group without recent stream activity has no observed event history by design.',
+      'CLDBRN-AWS-DYNAMODB-2': 'Application Auto Scaling targets are a complete inventory; absence means no policy.',
+      'CLDBRN-AWS-EBS-3': 'EC2 instances are a complete inventory joined by attachment identity.',
+      'CLDBRN-AWS-ECS-3': 'Application Auto Scaling targets are a complete inventory; absence means no policy.',
+      'CLDBRN-AWS-ELASTICACHE-1': 'Reserved nodes are a complete inventory; absence means no reservation.',
+      'CLDBRN-AWS-ELB-1': 'Target groups are a complete inventory joined by load balancer ARN.',
+      'CLDBRN-AWS-ELB-3': 'Target groups are a complete inventory joined by load balancer ARN.',
+      'CLDBRN-AWS-ELB-4': 'Target groups are a complete inventory joined by load balancer ARN.',
+      'CLDBRN-AWS-RDS-3': 'Reserved DB instances are a complete inventory; absence means no reservation.',
+      'CLDBRN-AWS-RDS-7': 'DB instances are a complete inventory joined by snapshot source identity.',
+      'CLDBRN-AWS-REDSHIFT-2': 'Reserved nodes are a complete inventory; absence means no reservation.',
+      'CLDBRN-AWS-ROUTE53-1': 'Record sets are a complete inventory per hosted zone.',
+      'CLDBRN-AWS-ROUTE53-2': 'Record sets are a complete inventory joined by health check ID.',
+      'CLDBRN-AWS-SAGEMAKER-3':
+        'Unavailable Cost Explorer coverage makes the rule not applicable; Hub recommendations only suppress findings.',
+    };
+
+    for (const rule of awsRules) {
+      if (!rule.evaluateLive) continue;
+      const joinsEvidence =
+        (rule.discoveryDependencies?.length ?? 0) > 1 || (rule.optionalDiscoveryDependencies?.length ?? 0) > 0;
+      const exemption = completeInventoryJoins[rule.id];
+      if (exemption) {
+        expect(joinsEvidence, `${rule.id} no longer joins datasets; remove its exemption`).toBe(true);
+        expect(rule.getLiveEvaluationCoverage, `${rule.id} reports coverage; remove its exemption`).toBeUndefined();
+        continue;
+      }
+      if (joinsEvidence) {
+        expect(
+          rule.getLiveEvaluationCoverage,
+          `${rule.id} joins datasets without getLiveEvaluationCoverage; add the hook or document an exemption`,
+        ).toBeTypeOf('function');
       }
     }
   });
