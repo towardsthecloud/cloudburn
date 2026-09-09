@@ -51,7 +51,7 @@ describe('AWS request admission across independent processes', () => {
     for (const scan of scans) {
       expect(scan.events.at(-1)).toEqual({ type: 'done', results: ['fulfilled', 'fulfilled', 'fulfilled'] });
     }
-  }, 15_000);
+  });
 
   it('paces retries and shares a retry allowance across same-account scans collecting different datasets', async () => {
     const scan = (dataset: string) =>
@@ -81,7 +81,7 @@ describe('AWS request admission across independent processes', () => {
     expect(first.events.at(-1)).toEqual({ type: 'done', results: ['rejected'] });
     expect(second.events.at(-1)).toEqual({ type: 'done', results: ['rejected'] });
     expect(attempts([...first.events, ...second.events]).filter((event) => event.dispatched)).toHaveLength(4);
-  }, 15_000);
+  });
 
   it('allows another account, region, and operation quota to progress while one quota is occupied', async () => {
     const config = {
