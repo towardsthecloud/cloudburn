@@ -832,9 +832,8 @@ const awsDiscoveryDatasetRegistry: {
   'aws-lambda-function-metrics': {
     datasetKey: 'aws-lambda-function-metrics',
     dependencies: ['aws-lambda-functions'],
-    // Version 2 adds the required `assessment` and retains analyzed and unavailable functions.
-    schemaVersion: '2',
-    loaderVersion: '2',
+    schemaVersion: '1',
+    loaderVersion: '1',
     freshness: { ttlMs: 300_000, observation: { kind: 'window', lookbackMs: 7 * 86_400_000, alignmentMs: 60_000 } },
     resourceTypes: ['lambda:function'],
     service: 'lambda',

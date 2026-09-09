@@ -21,7 +21,7 @@ import {
   getCompleteCloudWatchPoints,
 } from './cloudwatch.js';
 import { getUnqualifiedLambdaFunctionArn } from './lambda-identity.js';
-import { chunkItems, extractTerminalArnResourceIdentifier, withAwsServiceErrorContext } from './utils.js';
+import { extractTerminalArnResourceIdentifier, withAwsServiceErrorContext } from './utils.js';
 
 const DEFAULT_LAMBDA_ARCHITECTURES = ['x86_64'];
 const DEFAULT_LAMBDA_MEMORY_MB = 128;
@@ -138,17 +138,16 @@ const LAMBDA_RECOMMENDATION_FINDING_FILTER: LambdaFunctionRecommendationFilter =
   name: 'Finding',
   values: ['Optimized', 'NotOptimized', 'Unavailable'],
 };
-// Request only the selected functions instead of enumerating every recommendation in the Region.
-const LAMBDA_RECOMMENDATION_BATCH_SIZE = 100;
 
 /**
  * Loads AWS Compute Optimizer memory assessments for selected Lambda functions.
  *
- * Requests recommendations for the selected function ARNs in batches and asks for every finding class, so each
- * returned function keeps a normalized assessment that distinguishes overprovisioned, analyzed, and unavailable
- * results. Functions absent from the result were not returned by Compute Optimizer; the memory rule treats them as
- * unknown rather than assessed. Multiple function versions collapse to one unqualified ARN, keeping the strongest
- * assessment.
+ * Pages every recommendation in each selected Region with all finding classes requested, so each selected function
+ * keeps a normalized assessment that distinguishes overprovisioned, analyzed, and unavailable results. Region-wide
+ * paging is deliberate: requesting unqualified function ARNs would return only `$LATEST`, hiding published versions
+ * that carry the traffic. Functions absent from the result were not returned by Compute Optimizer; the memory rule
+ * treats them as unknown rather than assessed. Multiple function versions collapse to one unqualified ARN, keeping
+ * the strongest assessment.
  *
  * @param resources - Catalog resources filtered to Lambda functions.
  * @returns Memory assessments for selected functions that Compute Optimizer returned.
@@ -164,56 +163,52 @@ export const hydrateAwsLambdaMemoryRecommendations = async (
       const resourcesByArn = new Map(regionResources.map((resource) => [resource.arn, resource]));
       const recommendationsByArn = new Map<string, AwsLambdaMemoryRecommendation>();
 
-      for (const functionArns of chunkItems([...resourcesByArn.keys()], LAMBDA_RECOMMENDATION_BATCH_SIZE)) {
-        let nextToken: string | undefined;
+      let nextToken: string | undefined;
 
-        do {
-          const page = await withAwsServiceErrorContext(
-            'AWS Compute Optimizer',
-            'GetLambdaFunctionRecommendations',
-            region,
-            () =>
-              client.send(
-                new GetLambdaFunctionRecommendationsCommand({
-                  filters: [LAMBDA_RECOMMENDATION_FINDING_FILTER],
-                  functionArns,
-                  nextToken,
-                }),
-              ),
-          );
+      do {
+        const page = await withAwsServiceErrorContext(
+          'AWS Compute Optimizer',
+          'GetLambdaFunctionRecommendations',
+          region,
+          () =>
+            client.send(
+              new GetLambdaFunctionRecommendationsCommand({
+                filters: [LAMBDA_RECOMMENDATION_FINDING_FILTER],
+                nextToken,
+              }),
+            ),
+        );
 
-          for (const recommendation of page.lambdaFunctionRecommendations ?? []) {
-            const functionArn = recommendation.functionArn
-              ? getUnqualifiedLambdaFunctionArn(recommendation.functionArn)
-              : undefined;
-            const resource = functionArn ? resourcesByArn.get(functionArn) : undefined;
+        for (const recommendation of page.lambdaFunctionRecommendations ?? []) {
+          const functionArn = recommendation.functionArn
+            ? getUnqualifiedLambdaFunctionArn(recommendation.functionArn)
+            : undefined;
+          const resource = functionArn ? resourcesByArn.get(functionArn) : undefined;
 
-            if (!functionArn || !resource) {
-              continue;
-            }
-
-            const assessment = toLambdaMemoryAssessment(recommendation);
-            const existing = recommendationsByArn.get(functionArn);
-
-            if (
-              existing &&
-              LAMBDA_MEMORY_ASSESSMENT_PRECEDENCE[existing.assessment] >=
-                LAMBDA_MEMORY_ASSESSMENT_PRECEDENCE[assessment]
-            ) {
-              continue;
-            }
-
-            recommendationsByArn.set(functionArn, {
-              accountId: recommendation.accountId ?? resource.accountId,
-              assessment,
-              functionArn,
-              region,
-            });
+          if (!functionArn || !resource) {
+            continue;
           }
 
-          nextToken = page.nextToken;
-        } while (nextToken);
-      }
+          const assessment = toLambdaMemoryAssessment(recommendation);
+          const existing = recommendationsByArn.get(functionArn);
+
+          if (
+            existing &&
+            LAMBDA_MEMORY_ASSESSMENT_PRECEDENCE[existing.assessment] >= LAMBDA_MEMORY_ASSESSMENT_PRECEDENCE[assessment]
+          ) {
+            continue;
+          }
+
+          recommendationsByArn.set(functionArn, {
+            accountId: recommendation.accountId ?? resource.accountId,
+            assessment,
+            functionArn,
+            region,
+          });
+        }
+
+        nextToken = page.nextToken;
+      } while (nextToken);
 
       return [...recommendationsByArn.values()];
     }),
