@@ -265,17 +265,14 @@ describe('hydrateAwsLambdaMemoryRecommendations', () => {
     service: 'lambda',
   });
 
-  const selectedArns = (...functionNames: string[]) => functionNames.map((name) => selectedResource(name).arn);
-
-  it('requests every finding class for the selected functions and normalizes memory assessments', async () => {
+  it('pages every finding class in the Region and normalizes memory assessments for selected functions', async () => {
     const send = vi.fn(async (command: GetLambdaFunctionRecommendationsCommand) => {
       expect(command).toBeInstanceOf(GetLambdaFunctionRecommendationsCommand);
       expect(command.input.filters).toEqual([
         { name: 'Finding', values: ['Optimized', 'NotOptimized', 'Unavailable'] },
       ]);
-      expect(command.input.functionArns).toEqual(
-        selectedArns('overprovisioned', 'optimized', 'underprovisioned', 'insufficient-data', 'pending'),
-      );
+      // Unqualified functionArns would return only $LATEST and hide published versions.
+      expect(command.input.functionArns).toBeUndefined();
 
       if (!command.input.nextToken) {
         return {
@@ -375,25 +372,6 @@ describe('hydrateAwsLambdaMemoryRecommendations', () => {
     await expect(hydrateAwsLambdaMemoryRecommendations([selectedResource('versioned')])).resolves.toEqual([
       { accountId: '123456789012', assessment: 'memory_overprovisioned', functionArn, region: 'us-east-1' },
     ]);
-  });
-
-  it('batches selected function ARNs across requests', async () => {
-    const functionNames = Array.from({ length: 150 }, (_, index) => `fn-${String(index).padStart(3, '0')}`);
-    const send = vi.fn(async (command: GetLambdaFunctionRecommendationsCommand) => ({
-      lambdaFunctionRecommendations: command.input.functionArns?.map((functionArn) => ({
-        accountId: '123456789012',
-        finding: 'Optimized',
-        functionArn,
-      })),
-    }));
-    mockedCreateComputeOptimizerClient.mockReturnValue({ send } as never);
-
-    const recommendations = await hydrateAwsLambdaMemoryRecommendations(functionNames.map(selectedResource));
-
-    expect(send).toHaveBeenCalledTimes(2);
-    expect(send.mock.calls.map(([command]) => command.input.functionArns?.length)).toEqual([100, 50]);
-    expect(recommendations).toHaveLength(150);
-    expect(recommendations.every((recommendation) => recommendation.assessment === 'not_overprovisioned')).toBe(true);
   });
 
   it('returns no assessments when Compute Optimizer has not analyzed any selected function', async () => {

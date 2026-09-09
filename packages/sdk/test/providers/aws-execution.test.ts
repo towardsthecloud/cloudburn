@@ -72,7 +72,9 @@ it('aborts a real HTTP request at the discovery deadline', async () => {
   );
   try {
     await expect(
-      withAwsDiscoveryExecution({ timeoutMs: 50 }, async () => {
+      // The server never answers, so the deadline always fires; keep it long enough for the TCP connection to
+      // exist first on loaded runners, otherwise there is no server-side socket to observe closing.
+      withAwsDiscoveryExecution({ timeoutMs: 1_000 }, async () => {
         const client = createEc2Client({ region: 'eu-west-1' });
         await client.config.requestHandler.handle(
           {
@@ -88,7 +90,7 @@ it('aborts a real HTTP request at the discovery deadline', async () => {
         );
       }),
     ).rejects.toMatchObject({ name: 'TimeoutError' });
-    await vi.waitFor(() => expect(closed).toBe(true));
+    await vi.waitFor(() => expect(closed).toBe(true), { timeout: 10_000 });
   } finally {
     server.closeAllConnections();
     await new Promise<void>((resolve) => server.close(() => resolve()));
