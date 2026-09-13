@@ -6,6 +6,7 @@ import type { HttpRequest } from '@aws-sdk/types';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { CloudBurnClient } from '../src/index.js';
 import { getAwsDiscoveryDatasetDefinition } from '../src/providers/aws/discovery-registry.js';
+import { decodeRequestBody } from './helpers/http.js';
 
 const fixture = (name: string): string =>
   readFileSync(new URL(`./fixtures/aws-discovery/${name}`, import.meta.url), 'utf8');
@@ -51,7 +52,7 @@ beforeEach(() => {
   const transport: typeof probe.config.requestHandler = Object.getPrototypeOf(probe.config.requestHandler);
   probe.destroy();
   vi.spyOn(transport, 'handle').mockImplementation(async (request: HttpRequest) => {
-    const body = request.body ? String(request.body) : '';
+    const body = decodeRequestBody(request.body ?? '');
     const operation =
       request.headers['x-amz-target']?.split('.').at(-1) ??
       (request.path === '/' ? (new URLSearchParams(body).get('Action') ?? '') : request.path.slice(1));

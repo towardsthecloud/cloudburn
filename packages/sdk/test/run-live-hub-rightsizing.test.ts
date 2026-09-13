@@ -74,36 +74,35 @@ it.each([
     'CLDBRN-AWS-COSTOPTIMIZATIONHUB-4',
   );
 });
-it.each([
-  'CostOptimizationHubNotEnrolled',
-  'AccessDeniedException',
-  'CostOptimizationHubRecommendationIncomplete',
-])('projects %s as not applicable', async (code) => {
-  const diagnostic = {
-    code,
-    message: 'Hub evidence unavailable',
-    provider: 'aws' as const,
-    service: 'costoptimizationhub',
-    source: 'discovery' as const,
-    status: 'skipped' as const,
-  };
-  vi.mocked(discoverAwsResources).mockResolvedValue({
-    catalog: { resources: [], indexType: 'LOCAL', searchRegion: region },
-    resources: new LiveResourceBag(),
-    diagnostics: [diagnostic],
-    unavailableDatasets: new Map([['aws-cost-optimization-hub-rightsizing-recommendations', [diagnostic]]]),
-  });
-  const result = await runLiveScan(
-    { discovery: { enabledRules: ['CLDBRN-AWS-COSTOPTIMIZATIONHUB-4'] }, iac: {} },
-    { mode: 'current' },
-    { includeEvaluationResources: true },
-  );
-  expect(result.providers).toEqual([]);
-  expect(result.evaluations?.rules).toEqual([
-    expect.objectContaining({ ruleId: 'CLDBRN-AWS-COSTOPTIMIZATIONHUB-4', status: 'not_applicable' }),
-  ]);
-  expect(result.diagnostics).toContainEqual(diagnostic);
-});
+it.each(['CostOptimizationHubNotEnrolled', 'AccessDeniedException', 'CostOptimizationHubRecommendationIncomplete'])(
+  'projects %s as not applicable',
+  async (code) => {
+    const diagnostic = {
+      code,
+      message: 'Hub evidence unavailable',
+      provider: 'aws' as const,
+      service: 'costoptimizationhub',
+      source: 'discovery' as const,
+      status: 'skipped' as const,
+    };
+    vi.mocked(discoverAwsResources).mockResolvedValue({
+      catalog: { resources: [], indexType: 'LOCAL', searchRegion: region },
+      resources: new LiveResourceBag(),
+      diagnostics: [diagnostic],
+      unavailableDatasets: new Map([['aws-cost-optimization-hub-rightsizing-recommendations', [diagnostic]]]),
+    });
+    const result = await runLiveScan(
+      { discovery: { enabledRules: ['CLDBRN-AWS-COSTOPTIMIZATIONHUB-4'] }, iac: {} },
+      { mode: 'current' },
+      { includeEvaluationResources: true },
+    );
+    expect(result.providers).toEqual([]);
+    expect(result.evaluations?.rules).toEqual([
+      expect.objectContaining({ ruleId: 'CLDBRN-AWS-COSTOPTIMIZATIONHUB-4', status: 'not_applicable' }),
+    ]);
+    expect(result.diagnostics).toContainEqual(diagnostic);
+  },
+);
 it('reports enrolled accounts without recommendations as passed', async () => {
   vi.mocked(discoverAwsResources).mockResolvedValue({
     catalog: { resources: [], indexType: 'LOCAL', searchRegion: region },
@@ -117,38 +116,38 @@ it('reports enrolled accounts without recommendations as passed', async () => {
   );
   expect(result.evaluations?.rules).toEqual([expect.objectContaining({ status: 'passed' })]);
 });
-it.each([
-  false,
-  true,
-])('projects both configurations and suppresses only enabled stronger native evidence (enabled=%s)', async (enabled) => {
-  vi.mocked(discoverAwsResources).mockResolvedValue({
-    catalog: { resources: [], indexType: 'LOCAL', searchRegion: region },
-    resources: new LiveResourceBag({
-      'aws-cost-optimization-hub-rightsizing-recommendations': [recommendation],
-      'aws-lambda-functions': [],
-      'aws-lambda-memory-recommendations': [
-        { functionArn: resourceId, accountId, region, assessment: 'memory_overprovisioned' },
-      ],
-    }),
-    diagnostics: [],
-  });
-  const result = await runLiveScan(
-    {
-      discovery: { enabledRules: ['CLDBRN-AWS-COSTOPTIMIZATIONHUB-4', ...(enabled ? ['CLDBRN-AWS-LAMBDA-4'] : [])] },
-      iac: {},
-    },
-    { mode: 'current' },
-    { includeEvaluationResources: true },
-  );
-  expect(result.providers.flatMap((provider) => provider.rules.map((rule) => rule.ruleId))).toEqual([
-    enabled ? 'CLDBRN-AWS-LAMBDA-4' : 'CLDBRN-AWS-COSTOPTIMIZATIONHUB-4',
-  ]);
-  expect(result.evaluations?.resourceSets).toEqual(
-    expect.arrayContaining([
-      expect.objectContaining({
-        id: 'aws-cost-optimization-hub-rightsizing-recommendations',
-        resources: [expect.objectContaining({ resourceId, resourceType: 'lambda:function', data: recommendation })],
+it.each([false, true])(
+  'projects both configurations and suppresses only enabled stronger native evidence (enabled=%s)',
+  async (enabled) => {
+    vi.mocked(discoverAwsResources).mockResolvedValue({
+      catalog: { resources: [], indexType: 'LOCAL', searchRegion: region },
+      resources: new LiveResourceBag({
+        'aws-cost-optimization-hub-rightsizing-recommendations': [recommendation],
+        'aws-lambda-functions': [],
+        'aws-lambda-memory-recommendations': [
+          { functionArn: resourceId, accountId, region, assessment: 'memory_overprovisioned' },
+        ],
       }),
-    ]),
-  );
-});
+      diagnostics: [],
+    });
+    const result = await runLiveScan(
+      {
+        discovery: { enabledRules: ['CLDBRN-AWS-COSTOPTIMIZATIONHUB-4', ...(enabled ? ['CLDBRN-AWS-LAMBDA-4'] : [])] },
+        iac: {},
+      },
+      { mode: 'current' },
+      { includeEvaluationResources: true },
+    );
+    expect(result.providers.flatMap((provider) => provider.rules.map((rule) => rule.ruleId))).toEqual([
+      enabled ? 'CLDBRN-AWS-LAMBDA-4' : 'CLDBRN-AWS-COSTOPTIMIZATIONHUB-4',
+    ]);
+    expect(result.evaluations?.resourceSets).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'aws-cost-optimization-hub-rightsizing-recommendations',
+          resources: [expect.objectContaining({ resourceId, resourceType: 'lambda:function', data: recommendation })],
+        }),
+      ]),
+    );
+  },
+);

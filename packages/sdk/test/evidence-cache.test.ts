@@ -261,34 +261,38 @@ describe('evidence cache', () => {
     expect((await cache.load({ key: 'cancel', ttlMs: 1000, load: retry })).value).toBe('new');
   });
 
-  it.each([
-    'corrupt',
-    'obsolete',
-  ] as const)('recollects %s envelopes through the hosted atomic store contract', async (status) => {
-    const backing = createMemoryEvidenceCacheStore();
-    let corrupt = false;
-    const store: EvidenceCacheStore = {
-      ...backing,
-      update: (key, transition, signal) =>
-        backing.update(
-          key,
-          (state) => {
-            if (corrupt && state?.entry) {
-              state = { ...state, entry: status === 'corrupt' ? '{broken' : JSON.stringify({ version: 999 }) };
-              corrupt = false;
-            }
-            return transition(state);
-          },
-          signal,
-        ),
-    };
-    const cache = createEvidenceCache({ store });
-    await cache.load({ key: 'entry', ttlMs: 1000, load: async () => ({ value: 'old', complete: true }) });
-    corrupt = true;
-    const next = await cache.load({ key: 'entry', ttlMs: 1000, load: async () => ({ value: 'new', complete: true }) });
-    expect(next.value).toBe('new');
-    expect(next.provenance.cacheStatus).toBe(status);
-  });
+  it.each(['corrupt', 'obsolete'] as const)(
+    'recollects %s envelopes through the hosted atomic store contract',
+    async (status) => {
+      const backing = createMemoryEvidenceCacheStore();
+      let corrupt = false;
+      const store: EvidenceCacheStore = {
+        ...backing,
+        update: (key, transition, signal) =>
+          backing.update(
+            key,
+            (state) => {
+              if (corrupt && state?.entry) {
+                state = { ...state, entry: status === 'corrupt' ? '{broken' : JSON.stringify({ version: 999 }) };
+                corrupt = false;
+              }
+              return transition(state);
+            },
+            signal,
+          ),
+      };
+      const cache = createEvidenceCache({ store });
+      await cache.load({ key: 'entry', ttlMs: 1000, load: async () => ({ value: 'old', complete: true }) });
+      corrupt = true;
+      const next = await cache.load({
+        key: 'entry',
+        ttlMs: 1000,
+        load: async () => ({ value: 'new', complete: true }),
+      });
+      expect(next.value).toBe('new');
+      expect(next.provenance.cacheStatus).toBe(status);
+    },
+  );
 
   it('isolates scope keys and refuses a stored value rejected by its schema validator', async () => {
     const cache = createEvidenceCache();
@@ -389,47 +393,46 @@ describe('evidence cache', () => {
     expect(second.value.rows).toEqual([{ tags: ['original'] }]);
     expect(load).toHaveBeenCalledTimes(1);
   });
-  it.each([
-    'partial',
-    'denied',
-    'cancelled',
-  ] as const)('invalidates retained evidence after a %s refresh until a complete load succeeds', async (failure) => {
-    const path = await directory();
-    const cache = createEvidenceCache({ directory: path });
-    const request = { key: 'revalidation', ttlMs: 60_000 };
-    await cache.load({ ...request, load: async () => ({ value: 'previous', complete: true }) });
-    if (failure === 'partial') {
-      expect(
-        (await cache.load({ ...request, mode: 'refresh', load: async () => ({ value: 'partial', complete: false }) }))
-          .value,
-      ).toBe('partial');
-    } else if (failure === 'denied') {
-      await expect(
-        cache.load({
-          ...request,
-          mode: 'refresh',
-          load: async () => {
-            throw new Error('AccessDenied');
-          },
-        }),
-      ).rejects.toThrow('AccessDenied');
-    } else {
-      const controller = new AbortController();
-      const load = vi.fn(() => new Promise<never>(() => {}));
-      const refresh = cache.load({ ...request, mode: 'refresh', signal: controller.signal, load });
-      const rejected = expect(refresh).rejects.toThrow('cancelled');
-      await vi.waitFor(() => expect(load).toHaveBeenCalledTimes(1));
-      controller.abort(new Error('cancelled'));
-      await rejected;
-    }
-    const load = vi.fn(async () => ({ value: 'revalidated', complete: true }));
-    const next = await createEvidenceCache({ directory: path }).load({ ...request, load });
-    expect(load).toHaveBeenCalledTimes(1);
-    expect(next.value).toBe('revalidated');
-    expect(next.provenance).toMatchObject({ source: 'live', cacheStatus: 'stale' });
-    expect((await cache.load({ ...request, load })).provenance.source).toBe('cache');
-    expect(load).toHaveBeenCalledTimes(1);
-  });
+  it.each(['partial', 'denied', 'cancelled'] as const)(
+    'invalidates retained evidence after a %s refresh until a complete load succeeds',
+    async (failure) => {
+      const path = await directory();
+      const cache = createEvidenceCache({ directory: path });
+      const request = { key: 'revalidation', ttlMs: 60_000 };
+      await cache.load({ ...request, load: async () => ({ value: 'previous', complete: true }) });
+      if (failure === 'partial') {
+        expect(
+          (await cache.load({ ...request, mode: 'refresh', load: async () => ({ value: 'partial', complete: false }) }))
+            .value,
+        ).toBe('partial');
+      } else if (failure === 'denied') {
+        await expect(
+          cache.load({
+            ...request,
+            mode: 'refresh',
+            load: async () => {
+              throw new Error('AccessDenied');
+            },
+          }),
+        ).rejects.toThrow('AccessDenied');
+      } else {
+        const controller = new AbortController();
+        const load = vi.fn(() => new Promise<never>(() => {}));
+        const refresh = cache.load({ ...request, mode: 'refresh', signal: controller.signal, load });
+        const rejected = expect(refresh).rejects.toThrow('cancelled');
+        await vi.waitFor(() => expect(load).toHaveBeenCalledTimes(1));
+        controller.abort(new Error('cancelled'));
+        await rejected;
+      }
+      const load = vi.fn(async () => ({ value: 'revalidated', complete: true }));
+      const next = await createEvidenceCache({ directory: path }).load({ ...request, load });
+      expect(load).toHaveBeenCalledTimes(1);
+      expect(next.value).toBe('revalidated');
+      expect(next.provenance).toMatchObject({ source: 'live', cacheStatus: 'stale' });
+      expect((await cache.load({ ...request, load })).provenance.source).toBe('cache');
+      expect(load).toHaveBeenCalledTimes(1);
+    },
+  );
   it.each([
     ['Map', new Map([['key', 'value']])],
     ['Set', new Set(['value'])],
@@ -448,16 +451,14 @@ describe('evidence cache', () => {
     expect(next.provenance).toMatchObject({ source: 'live', cacheStatus: 'miss' });
   });
 
-  it.each([
-    'leaseMs',
-    'pollMs',
-    'maxEntries',
-    'maxBytes',
-  ] as const)('requires %s to be a positive safe integer', (option) => {
-    for (const value of [0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY, Number.MAX_SAFE_INTEGER + 1]) {
-      expect(() => createEvidenceCache({ [option]: value })).toThrow(option);
-    }
-  });
+  it.each(['leaseMs', 'pollMs', 'maxEntries', 'maxBytes'] as const)(
+    'requires %s to be a positive safe integer',
+    (option) => {
+      for (const value of [0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY, Number.MAX_SAFE_INTEGER + 1]) {
+        expect(() => createEvidenceCache({ [option]: value })).toThrow(option);
+      }
+    },
+  );
 
   it.each(['leaseMs', 'pollMs'] as const)('keeps %s inside the supported timer range', (option) => {
     expect(() => createEvidenceCache({ [option]: 2_147_483_648 })).toThrow(option);

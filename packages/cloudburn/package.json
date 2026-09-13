@@ -31,7 +31,7 @@
   },
   "dependencies": {
     "@cloudburn/sdk": "workspace:*",
-    "commander": "^13.1.0"
+    "commander": "^15.0.0"
   },
   "devDependencies": {
     "@biomejs/biome": "catalog:",

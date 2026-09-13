@@ -162,23 +162,22 @@ describe('discover command', () => {
     expect(discover).not.toHaveBeenCalled();
   });
 
-  it.each([
-    'normal',
-    'refresh',
-    'off',
-  ])('accepts cache mode %s with an explicit directory and authorization context', async (mode) => {
-    const discover = vi.spyOn(CloudBurnClient.prototype, 'discover').mockResolvedValue({ providers: [] });
+  it.each(['normal', 'refresh', 'off'])(
+    'accepts cache mode %s with an explicit directory and authorization context',
+    async (mode) => {
+      const discover = vi.spyOn(CloudBurnClient.prototype, 'discover').mockResolvedValue({ providers: [] });
 
-    await createProgram().parseAsync(
-      ['discover', '--cache', mode, '--cache-dir', '/tmp/team-evidence', '--cache-context', 'session-policy-v2'],
-      { from: 'user' },
-    );
+      await createProgram().parseAsync(
+        ['discover', '--cache', mode, '--cache-dir', '/tmp/team-evidence', '--cache-context', 'session-policy-v2'],
+        { from: 'user' },
+      );
 
-    expect(discover).toHaveBeenCalledWith({
-      target: { mode: 'current' },
-      cache: { mode, directory: '/tmp/team-evidence', authorizationContext: 'session-policy-v2' },
-    });
-  });
+      expect(discover).toHaveBeenCalledWith({
+        target: { mode: 'current' },
+        cache: { mode, directory: '/tmp/team-evidence', authorizationContext: 'session-policy-v2' },
+      });
+    },
+  );
 
   it('prints live findings as json and leaves a success exit code', async () => {
     const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);

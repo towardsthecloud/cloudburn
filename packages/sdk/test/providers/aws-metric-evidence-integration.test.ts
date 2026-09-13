@@ -74,34 +74,38 @@ describe('CloudWatch evidence through hydration and evaluation', () => {
     );
   });
 
-  it.each([
-    'Missing',
-    'Forbidden',
-    'InternalError',
-    'PartialData',
-    'Complete',
-  ])('requires complete Lambda error evidence before reporting zero (%s)', async (status) => {
-    vi.mocked(createCloudWatchClient).mockReturnValue({
-      send: vi.fn(async (command: GetMetricDataCommand) => ({
-        MetricDataResults: command.input.MetricDataQueries?.flatMap((query) =>
-          query.Id === 'invocations0'
-            ? [{ Id: query.Id, StatusCode: 'Complete', Timestamps: [new Date('2026-09-06T12:00:00Z')], Values: [100] }]
-            : query.Id === 'errors0' && status !== 'Missing'
-              ? [{ Id: query.Id, StatusCode: status }]
-              : [],
-        ),
-      })),
-    } as never);
-    const metrics = await hydrateAwsLambdaFunctionMetrics([], {
-      loadDataset: vi
-        .fn()
-        .mockResolvedValue([{ accountId: '111111111111', region: 'eu-west-1', functionName: 'orders' }]),
-      listResourcesByFilter: vi.fn(),
-    });
-    expect(metrics[0]?.totalInvocationsLast7Days).toBe(100);
-    expect(metrics[0]?.totalErrorsLast7Days).toBe(status === 'Complete' ? 0 : null);
-    expect(metrics[0]?.averageDurationMsLast7Days).toBeNull();
-  });
+  it.each(['Missing', 'Forbidden', 'InternalError', 'PartialData', 'Complete'])(
+    'requires complete Lambda error evidence before reporting zero (%s)',
+    async (status) => {
+      vi.mocked(createCloudWatchClient).mockReturnValue({
+        send: vi.fn(async (command: GetMetricDataCommand) => ({
+          MetricDataResults: command.input.MetricDataQueries?.flatMap((query) =>
+            query.Id === 'invocations0'
+              ? [
+                  {
+                    Id: query.Id,
+                    StatusCode: 'Complete',
+                    Timestamps: [new Date('2026-09-06T12:00:00Z')],
+                    Values: [100],
+                  },
+                ]
+              : query.Id === 'errors0' && status !== 'Missing'
+                ? [{ Id: query.Id, StatusCode: status }]
+                : [],
+          ),
+        })),
+      } as never);
+      const metrics = await hydrateAwsLambdaFunctionMetrics([], {
+        loadDataset: vi
+          .fn()
+          .mockResolvedValue([{ accountId: '111111111111', region: 'eu-west-1', functionName: 'orders' }]),
+        listResourcesByFilter: vi.fn(),
+      });
+      expect(metrics[0]?.totalInvocationsLast7Days).toBe(100);
+      expect(metrics[0]?.totalErrorsLast7Days).toBe(status === 'Complete' ? 0 : null);
+      expect(metrics[0]?.averageDurationMsLast7Days).toBeNull();
+    },
+  );
 
   it('weights Lambda duration by the actual sample counts instead of averaging bucket averages', async () => {
     const functionArn = 'arn:aws:lambda:eu-west-1:111111111111:function:orders';

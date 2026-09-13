@@ -7,6 +7,7 @@ import { STSClient } from '@aws-sdk/client-sts';
 import type { HttpHandlerOptions, HttpRequest } from '@aws-sdk/types';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { CloudBurnClient } from '../src/index.js';
+import { decodeRequestBody } from './helpers/http.js';
 
 const credentials = { accessKeyId: 'SYNTHETIC', secretAccessKey: 'synthetic-setup-test-key' };
 const region = 'eu-west-1';
@@ -50,7 +51,7 @@ beforeEach(() => {
   const transport: typeof probe.config.requestHandler = Object.getPrototypeOf(probe.config.requestHandler);
   probe.destroy();
   vi.spyOn(transport, 'handle').mockImplementation(async (request: HttpRequest, options?: HttpHandlerOptions) => {
-    const body = String(request.body || '');
+    const body = decodeRequestBody(request.body ?? '');
     const operation = request.path === '/' ? new URLSearchParams(body).get('Action') || '' : request.path.slice(1);
     const input: Record<string, unknown> =
       request.path === '/' ? Object.fromEntries(new URLSearchParams(body)) : JSON.parse(body || '{}');

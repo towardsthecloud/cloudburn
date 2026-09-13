@@ -76,24 +76,23 @@ describe('hydrateAwsEc2InstanceUtilization', () => {
     ]);
   });
 
-  it.each([
-    'both',
-    'in',
-    'out',
-  ] as const)('does not infer idle network usage when %s network evidence is absent', async (missing) => {
-    mockedHydrateAwsEc2Instances.mockResolvedValue([
-      { accountId: '123456789012', instanceId: 'i-123', instanceType: 'm6i.large', region: 'us-east-1' },
-    ]);
-    const points = [1, 2, 3, 4].map((day) => ({ timestamp: `2026-03-0${day}T00:00:00.000Z`, value: 0 }));
-    mockedFetchCloudWatchSignals.mockResolvedValue(
-      new Map([
-        ['cpu0', completeMetricEvidence(points)],
-        ['in0', completeMetricEvidence(missing === 'both' || missing === 'in' ? [] : points)],
-        ['out0', completeMetricEvidence(missing === 'both' || missing === 'out' ? [] : points)],
-      ]),
-    );
-    expect(await hydrateAwsEc2InstanceUtilization([])).toEqual([]);
-  });
+  it.each(['both', 'in', 'out'] as const)(
+    'does not infer idle network usage when %s network evidence is absent',
+    async (missing) => {
+      mockedHydrateAwsEc2Instances.mockResolvedValue([
+        { accountId: '123456789012', instanceId: 'i-123', instanceType: 'm6i.large', region: 'us-east-1' },
+      ]);
+      const points = [1, 2, 3, 4].map((day) => ({ timestamp: `2026-03-0${day}T00:00:00.000Z`, value: 0 }));
+      mockedFetchCloudWatchSignals.mockResolvedValue(
+        new Map([
+          ['cpu0', completeMetricEvidence(points)],
+          ['in0', completeMetricEvidence(missing === 'both' || missing === 'in' ? [] : points)],
+          ['out0', completeMetricEvidence(missing === 'both' || missing === 'out' ? [] : points)],
+        ]),
+      );
+      expect(await hydrateAwsEc2InstanceUtilization([])).toEqual([]);
+    },
+  );
 
   it('counts distinct complete days and excludes partial or non-finite evidence', async () => {
     mockedHydrateAwsEc2Instances.mockResolvedValue([

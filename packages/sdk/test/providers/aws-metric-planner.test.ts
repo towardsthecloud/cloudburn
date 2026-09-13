@@ -124,43 +124,40 @@ describe('CloudWatch metric planning', () => {
     expect(result.get('q8192')?.status).toBe('Complete');
   });
 
-  it.each([
-    'PartialData',
-    'Forbidden',
-    'InternalError',
-    'Missing',
-    'Unknown',
-  ] as const)('preserves %s evidence and diagnostics for each caller interval', async (status) => {
-    const fetch = async (request: Request) => {
-      const response = complete(request);
-      for (const evidence of response.values()) {
-        evidence.status = status;
-        evidence.attempts = 3;
-        evidence.messages = [{ scope: 'query', code: 'EvidenceDiagnostic', value: 'retained' }];
-      }
-      return response;
-    };
-    const results = await withCloudWatchMetricPlanning(() =>
-      Promise.all([
-        planCloudWatchSignals({ ...window(0, 2), queries: [query('early')] }, fetch),
-        planCloudWatchSignals({ ...window(2, 4), queries: [query('late')] }, fetch),
-      ]),
-    );
-    expect(results.map((result) => [...result.values()][0])).toEqual([
-      expect.objectContaining({
-        status,
-        attempts: 3,
-        coverage: { expectedPoints: 2, observedPoints: 2 },
-        messages: [{ scope: 'query', code: 'EvidenceDiagnostic', value: 'retained' }],
-      }),
-      expect.objectContaining({
-        status,
-        attempts: 3,
-        coverage: { expectedPoints: 2, observedPoints: 2 },
-        messages: [{ scope: 'query', code: 'EvidenceDiagnostic', value: 'retained' }],
-      }),
-    ]);
-  });
+  it.each(['PartialData', 'Forbidden', 'InternalError', 'Missing', 'Unknown'] as const)(
+    'preserves %s evidence and diagnostics for each caller interval',
+    async (status) => {
+      const fetch = async (request: Request) => {
+        const response = complete(request);
+        for (const evidence of response.values()) {
+          evidence.status = status;
+          evidence.attempts = 3;
+          evidence.messages = [{ scope: 'query', code: 'EvidenceDiagnostic', value: 'retained' }];
+        }
+        return response;
+      };
+      const results = await withCloudWatchMetricPlanning(() =>
+        Promise.all([
+          planCloudWatchSignals({ ...window(0, 2), queries: [query('early')] }, fetch),
+          planCloudWatchSignals({ ...window(2, 4), queries: [query('late')] }, fetch),
+        ]),
+      );
+      expect(results.map((result) => [...result.values()][0])).toEqual([
+        expect.objectContaining({
+          status,
+          attempts: 3,
+          coverage: { expectedPoints: 2, observedPoints: 2 },
+          messages: [{ scope: 'query', code: 'EvidenceDiagnostic', value: 'retained' }],
+        }),
+        expect.objectContaining({
+          status,
+          attempts: 3,
+          coverage: { expectedPoints: 2, observedPoints: 2 },
+          messages: [{ scope: 'query', code: 'EvidenceDiagnostic', value: 'retained' }],
+        }),
+      ]);
+    },
+  );
 
   it('cancels the physical execution once every inflight waiter cancels', async () => {
     const firstController = new AbortController();

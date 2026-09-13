@@ -48,32 +48,37 @@ it.each([undefined, 'not-an-arn'])('rejects missing regional identity with ARN %
     diagnostics: [{ code: 'CostOptimizationHubRecommendationIncomplete' }],
   });
 });
-it.each([
-  '',
-  ':3',
-  ':production',
-])('derives the Region and canonical Lambda identity from ARN qualifier %s', async (qualifier) => {
-  const functionArn = `arn:aws:lambda:eu-west-1:${accountId}:function:example`;
-  const resourceArn = functionArn + qualifier;
-  vi.mocked(createCostOptimizationHubClient).mockReturnValue({
-    send: vi.fn(async (command: unknown) => {
-      if (command instanceof ListEnrollmentStatusesCommand) return { items: [{ accountId, status: 'Active' }] };
-      if (command instanceof ListRecommendationsCommand)
+it.each(['', ':3', ':production'])(
+  'derives the Region and canonical Lambda identity from ARN qualifier %s',
+  async (qualifier) => {
+    const functionArn = `arn:aws:lambda:eu-west-1:${accountId}:function:example`;
+    const resourceArn = functionArn + qualifier;
+    vi.mocked(createCostOptimizationHubClient).mockReturnValue({
+      send: vi.fn(async (command: unknown) => {
+        if (command instanceof ListEnrollmentStatusesCommand) return { items: [{ accountId, status: 'Active' }] };
+        if (command instanceof ListRecommendationsCommand)
+          return {
+            items: [
+              {
+                ...common,
+                region: undefined,
+                resourceId: undefined,
+                resourceArn,
+                currentResourceType: 'LambdaFunction',
+              },
+            ],
+          };
         return {
-          items: [
-            { ...common, region: undefined, resourceId: undefined, resourceArn, currentResourceType: 'LambdaFunction' },
-          ],
+          currentResourceDetails: { lambdaFunction: { configuration: { compute: { memorySizeInMB: 1024 } } } },
+          recommendedResourceDetails: { lambdaFunction: { configuration: { compute: { memorySizeInMB: 512 } } } },
         };
-      return {
-        currentResourceDetails: { lambdaFunction: { configuration: { compute: { memorySizeInMB: 1024 } } } },
-        recommendedResourceDetails: { lambdaFunction: { configuration: { compute: { memorySizeInMB: 512 } } } },
-      };
-    }),
-  } as never);
-  expect(
-    await hydrateAwsCostOptimizationHubRightsizingRecommendations([], { resolveAccountId: async () => accountId }),
-  ).toEqual([expect.objectContaining({ region: 'eu-west-1', resourceId: functionArn, resourceArn })]);
-});
+      }),
+    } as never);
+    expect(
+      await hydrateAwsCostOptimizationHubRightsizingRecommendations([], { resolveAccountId: async () => accountId }),
+    ).toEqual([expect.objectContaining({ region: 'eu-west-1', resourceId: functionArn, resourceArn })]);
+  },
+);
 it('paginates, deduplicates IDs, and uses identical account, action, and resource filters on every page', async () => {
   const send = vi.fn(async (command: unknown) => {
     if (command instanceof ListEnrollmentStatusesCommand) return { items: [{ accountId, status: 'Active' }] };
@@ -116,61 +121,56 @@ it('paginates, deduplicates IDs, and uses identical account, action, and resourc
     })),
   );
 });
-it.each([
-  'enrollment',
-  'list',
-  'detail',
-  'unenrolled',
-  'clean',
-])('distinguishes %s evidence availability', async (state) => {
-  vi.mocked(createCostOptimizationHubClient).mockReturnValue({
-    send: vi.fn(async (command: unknown) => {
-      const operation =
-        command instanceof ListEnrollmentStatusesCommand
-          ? 'enrollment'
-          : command instanceof ListRecommendationsCommand
-            ? 'list'
-            : 'detail';
-      if (state === operation) throw Object.assign(new Error('Access denied'), { name: 'AccessDeniedException' });
-      if (operation === 'enrollment')
-        return { items: [{ accountId, status: state === 'unenrolled' ? 'Inactive' : 'Active' }] };
-      if (operation === 'list') return { items: state === 'clean' ? [] : [common] };
-      throw new Error('Unexpected detail request');
-    }),
-  } as never);
-  const result = await hydrateAwsCostOptimizationHubRightsizingRecommendations([], {
-    resolveAccountId: async () => accountId,
-  });
-  if (state === 'clean') expect(result).toEqual([]);
-  else
-    expect(result).toMatchObject({
-      unavailable: true,
-      resources: [],
-      diagnostics: [
-        {
-          code: state === 'unenrolled' ? 'CostOptimizationHubNotEnrolled' : 'AccessDeniedException',
-          status: state === 'unenrolled' ? 'skipped' : 'access_denied',
-        },
-      ],
+it.each(['enrollment', 'list', 'detail', 'unenrolled', 'clean'])(
+  'distinguishes %s evidence availability',
+  async (state) => {
+    vi.mocked(createCostOptimizationHubClient).mockReturnValue({
+      send: vi.fn(async (command: unknown) => {
+        const operation =
+          command instanceof ListEnrollmentStatusesCommand
+            ? 'enrollment'
+            : command instanceof ListRecommendationsCommand
+              ? 'list'
+              : 'detail';
+        if (state === operation) throw Object.assign(new Error('Access denied'), { name: 'AccessDeniedException' });
+        if (operation === 'enrollment')
+          return { items: [{ accountId, status: state === 'unenrolled' ? 'Inactive' : 'Active' }] };
+        if (operation === 'list') return { items: state === 'clean' ? [] : [common] };
+        throw new Error('Unexpected detail request');
+      }),
+    } as never);
+    const result = await hydrateAwsCostOptimizationHubRightsizingRecommendations([], {
+      resolveAccountId: async () => accountId,
     });
-});
-it.each([
-  'Upgrade',
-  'MigrateToGraviton',
-  'Stop',
-  'ScaleIn',
-])('never reports a %s action as rightsizing', async (actionType) => {
-  const send = vi.fn(async (command: unknown) =>
-    command instanceof ListEnrollmentStatusesCommand
-      ? { items: [{ accountId, status: 'Active' }] }
-      : { items: [{ ...common, actionType }] },
-  );
-  vi.mocked(createCostOptimizationHubClient).mockReturnValue({ send } as never);
-  expect(
-    await hydrateAwsCostOptimizationHubRightsizingRecommendations([], { resolveAccountId: async () => accountId }),
-  ).toMatchObject({ resources: [], unavailable: true });
-  expect(send.mock.calls.some(([command]) => command instanceof GetRecommendationCommand)).toBe(false);
-});
+    if (state === 'clean') expect(result).toEqual([]);
+    else
+      expect(result).toMatchObject({
+        unavailable: true,
+        resources: [],
+        diagnostics: [
+          {
+            code: state === 'unenrolled' ? 'CostOptimizationHubNotEnrolled' : 'AccessDeniedException',
+            status: state === 'unenrolled' ? 'skipped' : 'access_denied',
+          },
+        ],
+      });
+  },
+);
+it.each(['Upgrade', 'MigrateToGraviton', 'Stop', 'ScaleIn'])(
+  'never reports a %s action as rightsizing',
+  async (actionType) => {
+    const send = vi.fn(async (command: unknown) =>
+      command instanceof ListEnrollmentStatusesCommand
+        ? { items: [{ accountId, status: 'Active' }] }
+        : { items: [{ ...common, actionType }] },
+    );
+    vi.mocked(createCostOptimizationHubClient).mockReturnValue({ send } as never);
+    expect(
+      await hydrateAwsCostOptimizationHubRightsizingRecommendations([], { resolveAccountId: async () => accountId }),
+    ).toMatchObject({ resources: [], unavailable: true });
+    expect(send.mock.calls.some(([command]) => command instanceof GetRecommendationCommand)).toBe(false);
+  },
+);
 it('retains valid recommendations when another detail is unavailable', async () => {
   vi.mocked(createCostOptimizationHubClient).mockReturnValue({
     send: vi.fn(async (command: unknown) => {
@@ -192,26 +192,26 @@ it('retains valid recommendations when another detail is unavailable', async () 
     diagnostics: [{ code: 'CostOptimizationHubRecommendationIncomplete' }],
   });
 });
-it.each([
-  undefined,
-  'example',
-])('uses the Lambda ARN for native-rule identity when AWS resourceId is %s', async (resourceId) => {
-  const resourceArn = `arn:aws:lambda:eu-west-1:${accountId}:function:example`;
-  vi.mocked(createCostOptimizationHubClient).mockReturnValue({
-    send: vi.fn(async (command: unknown) => {
-      if (command instanceof ListEnrollmentStatusesCommand) return { items: [{ accountId, status: 'Active' }] };
-      if (command instanceof ListRecommendationsCommand)
-        return { items: [{ ...common, resourceId, resourceArn, currentResourceType: 'LambdaFunction' }] };
-      return {
-        currentResourceDetails: { lambdaFunction: { configuration: { compute: { memorySizeInMB: 1024 } } } },
-        recommendedResourceDetails: { lambdaFunction: { configuration: { compute: { memorySizeInMB: 512 } } } },
-      };
-    }),
-  } as never);
-  expect(
-    await hydrateAwsCostOptimizationHubRightsizingRecommendations([], { resolveAccountId: async () => accountId }),
-  ).toEqual([expect.objectContaining({ resourceId: resourceArn, resourceArn })]);
-});
+it.each([undefined, 'example'])(
+  'uses the Lambda ARN for native-rule identity when AWS resourceId is %s',
+  async (resourceId) => {
+    const resourceArn = `arn:aws:lambda:eu-west-1:${accountId}:function:example`;
+    vi.mocked(createCostOptimizationHubClient).mockReturnValue({
+      send: vi.fn(async (command: unknown) => {
+        if (command instanceof ListEnrollmentStatusesCommand) return { items: [{ accountId, status: 'Active' }] };
+        if (command instanceof ListRecommendationsCommand)
+          return { items: [{ ...common, resourceId, resourceArn, currentResourceType: 'LambdaFunction' }] };
+        return {
+          currentResourceDetails: { lambdaFunction: { configuration: { compute: { memorySizeInMB: 1024 } } } },
+          recommendedResourceDetails: { lambdaFunction: { configuration: { compute: { memorySizeInMB: 512 } } } },
+        };
+      }),
+    } as never);
+    expect(
+      await hydrateAwsCostOptimizationHubRightsizingRecommendations([], { resolveAccountId: async () => accountId }),
+    ).toEqual([expect.objectContaining({ resourceId: resourceArn, resourceArn })]);
+  },
+);
 it.each([
   ['Ec2Instance', 'ec2Instance', { instance: {} }],
   ['Ec2AutoScalingGroup', 'ec2AutoScalingGroup', { mixedInstances: [{ type: 'm7i.large' }, {}] }],
@@ -291,21 +291,24 @@ it.each([
     { storageType: 'gp3', allocatedStorageInGb: 200, iops: 3000, storageThroughput: 125 },
   ],
   ['AuroraDbClusterStorage', 'auroraDbClusterStorage', { storageType: 'aurora-iopt1' }, { storageType: 'aurora' }],
-])('preserves both complete %s configurations', async (resourceType, detailKey, currentConfiguration, recommendedConfiguration) => {
-  const send = vi.fn(async (command: unknown) => {
-    if (command instanceof ListEnrollmentStatusesCommand) return { items: [{ accountId, status: 'Active' }] };
-    if (command instanceof ListRecommendationsCommand)
-      return { items: [{ ...common, currentResourceType: resourceType }] };
-    return {
-      currentResourceDetails: { [detailKey as string]: { configuration: currentConfiguration } },
-      recommendedResourceDetails: { [detailKey as string]: { configuration: recommendedConfiguration } },
-    };
-  });
-  vi.mocked(createCostOptimizationHubClient).mockReturnValue({ send } as never);
-  expect(
-    await hydrateAwsCostOptimizationHubRightsizingRecommendations([], { resolveAccountId: async () => accountId }),
-  ).toEqual([expect.objectContaining({ resourceType, currentConfiguration, recommendedConfiguration })]);
-});
+])(
+  'preserves both complete %s configurations',
+  async (resourceType, detailKey, currentConfiguration, recommendedConfiguration) => {
+    const send = vi.fn(async (command: unknown) => {
+      if (command instanceof ListEnrollmentStatusesCommand) return { items: [{ accountId, status: 'Active' }] };
+      if (command instanceof ListRecommendationsCommand)
+        return { items: [{ ...common, currentResourceType: resourceType }] };
+      return {
+        currentResourceDetails: { [detailKey as string]: { configuration: currentConfiguration } },
+        recommendedResourceDetails: { [detailKey as string]: { configuration: recommendedConfiguration } },
+      };
+    });
+    vi.mocked(createCostOptimizationHubClient).mockReturnValue({ send } as never);
+    expect(
+      await hydrateAwsCostOptimizationHubRightsizingRecommendations([], { resolveAccountId: async () => accountId }),
+    ).toEqual([expect.objectContaining({ resourceType, currentConfiguration, recommendedConfiguration })]);
+  },
+);
 it('loads both typed EC2 configurations and retains common recommendation evidence', async () => {
   const send = vi.fn(async (command: unknown) => {
     if (command instanceof ListEnrollmentStatusesCommand) return { items: [{ accountId, status: 'Active' }] };

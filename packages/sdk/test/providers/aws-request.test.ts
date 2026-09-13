@@ -61,40 +61,42 @@ describe('shared AWS request admission', () => {
     }
   }, 30_000);
 
-  it.each([
-    'success',
-    'error',
-  ] as const)('preserves the AWS %s and telemetry when releasing admission fails', async (outcome) => {
-    const store = memoryStore();
-    const update = store.update;
-    vi.spyOn(store, 'update').mockImplementationOnce(update).mockRejectedValue(new Error('DO-NOT-LOG-STATE'));
-    const onAttempt = vi.fn();
-    const logger = vi.fn();
-    const response = { $metadata: { httpStatusCode: 200 }, data: 'DO-NOT-LOG-RESPONSE' };
-    const failure = new Error('Original AWS failure');
-    const request = withAwsDiscoveryExecution({ debugLogger: logger }, () =>
-      withAwsServiceCallBudget(
-        () =>
-          withAwsServiceErrorContext(
-            'Amazon CloudWatch Logs',
-            'DescribeLogStreams',
-            'eu-west-1',
-            async () => {
-              if (outcome === 'error') throw failure;
-              return response;
-            },
-            { passthrough: () => true },
-          ),
-        { accountId: 'cleanup-account', store, onAttempt },
-      ),
-    );
+  it.each(['success', 'error'] as const)(
+    'preserves the AWS %s and telemetry when releasing admission fails',
+    async (outcome) => {
+      const store = memoryStore();
+      const update = store.update;
+      vi.spyOn(store, 'update').mockImplementationOnce(update).mockRejectedValue(new Error('DO-NOT-LOG-STATE'));
+      const onAttempt = vi.fn();
+      const logger = vi.fn();
+      const response = { $metadata: { httpStatusCode: 200 }, data: 'DO-NOT-LOG-RESPONSE' };
+      const failure = new Error('Original AWS failure');
+      const request = withAwsDiscoveryExecution({ debugLogger: logger }, () =>
+        withAwsServiceCallBudget(
+          () =>
+            withAwsServiceErrorContext(
+              'Amazon CloudWatch Logs',
+              'DescribeLogStreams',
+              'eu-west-1',
+              async () => {
+                if (outcome === 'error') throw failure;
+                return response;
+              },
+              { passthrough: () => true },
+            ),
+          { accountId: 'cleanup-account', store, onAttempt },
+        ),
+      );
 
-    if (outcome === 'success') await expect(request).resolves.toBe(response);
-    else await expect(request).rejects.toBe(failure);
-    expect(onAttempt).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ outcome, cleanupOutcome: 'deferred' }));
-    expect(logger).toHaveBeenCalledWith(expect.stringContaining('"cleanupOutcome":"deferred"'));
-    expect(JSON.stringify([logger.mock.calls, onAttempt.mock.calls])).not.toContain('DO-NOT-LOG');
-  });
+      if (outcome === 'success') await expect(request).resolves.toBe(response);
+      else await expect(request).rejects.toBe(failure);
+      expect(onAttempt).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({ outcome, cleanupOutcome: 'deferred' }),
+      );
+      expect(logger).toHaveBeenCalledWith(expect.stringContaining('"cleanupOutcome":"deferred"'));
+      expect(JSON.stringify([logger.mock.calls, onAttempt.mock.calls])).not.toContain('DO-NOT-LOG');
+    },
+  );
 
   it('bounds contended cleanup and clears its timer without losing a successful response', async () => {
     vi.useFakeTimers();

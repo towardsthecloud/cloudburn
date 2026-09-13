@@ -65,20 +65,19 @@ describe('idle capacity orchestration and evidence', () => {
     expect(result.providers.flatMap((p) => p.rules).map((r) => r.ruleId)).toEqual(['CLDBRN-AWS-EBS-2']);
     expect(result.evaluations?.rules.find((r) => r.ruleId === ruleId)?.status).toBe('triggered');
   });
-  it.each([
-    'account',
-    'region',
-    'no-finding',
-  ])('retains Hub evidence when native %s does not match', async (mismatch) => {
-    setup(
-      mismatch === 'account' ? '999999999999' : accountId,
-      mismatch === 'region' ? 'us-east-1' : region,
-      mismatch === 'no-finding' ? [{ instanceId: 'i-test' }] : [],
-    );
-    expect((await run([ruleId, 'CLDBRN-AWS-EBS-2'])).providers.flatMap((p) => p.rules).map((r) => r.ruleId)).toContain(
-      ruleId,
-    );
-  });
+  it.each(['account', 'region', 'no-finding'])(
+    'retains Hub evidence when native %s does not match',
+    async (mismatch) => {
+      setup(
+        mismatch === 'account' ? '999999999999' : accountId,
+        mismatch === 'region' ? 'us-east-1' : region,
+        mismatch === 'no-finding' ? [{ instanceId: 'i-test' }] : [],
+      );
+      expect(
+        (await run([ruleId, 'CLDBRN-AWS-EBS-2'])).providers.flatMap((p) => p.rules).map((r) => r.ruleId),
+      ).toContain(ruleId);
+    },
+  );
   it('marks unavailable evidence not applicable and clean empty evidence passed', async () => {
     const base = {
       catalog: { resources: [], searchRegion: region, indexType: 'LOCAL' as const },
