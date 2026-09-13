@@ -10,7 +10,8 @@ accounts. Dependency direction is `cloudburn CLI -> @cloudburn/sdk -> @cloudburn
 - For setup and focused commands, use [local development](docs/guides/local-development.md). For task dependencies,
   caching, and command side effects, use the [command reference](docs/reference/commands.md).
 - For a new rule, start with [adding a rule](docs/guides/adding-a-rule.md); it routes dataset changes to the SDK guides.
-- For changes across packages, read the [architecture](docs/ARCHITECTURE.md) and [testing strategy](docs/TESTING.md).
+- For changes to package responsibilities or dependencies, use the [architecture](docs/ARCHITECTURE.md).
+  For changes to test boundaries or coverage, use the [testing strategy](docs/TESTING.md).
 - Before editing build output or reference tables, check [generated-file ownership](docs/reference/generated-files.md).
 - Use the [documentation catalog](docs/README.md) for authoritative sources, documentation maintenance, and deeper pages.
   Human onboarding starts in [CONTRIBUTING.md](CONTRIBUTING.md).
@@ -21,7 +22,8 @@ accounts. Dependency direction is `cloudburn CLI -> @cloudburn/sdk -> @cloudburn
 - Update the owning docs with changes to behavior, contracts, commands, or generated outputs; follow the
   [maintenance policy](docs/README.md#maintenance).
 - Add TSDoc purpose, parameters, and return values to exported code.
-- On non-`main` branches, use red-green TDD for behavior changes and work in vertical slices.
+- Use red-green TDD for substantial behavior changes and meaningful regression cases; work in vertical slices.
+  Verify smaller changes appropriately without adding tests that merely mirror the implementation.
 - For IaC rules, cover both Terraform and CloudFormation inputs.
 - Before assigning or changing rule IDs, read the [ID convention and compatibility status](docs/reference/rule-ids.md).
   Public ID stability remains unresolved; do not renumber IDs during unrelated maintenance.
@@ -29,8 +31,9 @@ accounts. Dependency direction is `cloudburn CLI -> @cloudburn/sdk -> @cloudburn
 ## Validation
 
 - Documentation only: `pnpm docs:check && pnpm docs:test`.
-- Package boundaries: `pnpm exec turbo boundaries`.
-- Behavior, tests, dependencies, or build configuration: `pnpm verify` plus the smallest relevant focused test.
+- Use the smallest relevant focused test while iterating; use `pnpm exec turbo boundaries` for focused boundary checks.
+- Behavior, tests, dependencies, or build configuration: finish with `pnpm verify`. It includes documentation and
+  boundary checks and all test suites; do not repeat included checks on unchanged inputs without a new concern.
 - Report fresh validation from the checkout containing the changes.
 
 ## Git and releases

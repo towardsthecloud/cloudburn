@@ -16,9 +16,9 @@ my-monorepo/
         └── package.json
 ```
 
-## Always Prefer Package Tasks Over Root Tasks
+## Package Tasks and Repository Tooling
 
-**Always use package tasks. Only use Root Tasks if you cannot succeed with package tasks.**
+Use package tasks for package build and test work. Repository-wide tooling and wrappers may run directly from the root.
 
 Package tasks enable parallelization, individual caching, and filtering. Define scripts in each package's `package.json`:
 
@@ -58,7 +58,7 @@ Package tasks enable parallelization, individual caching, and filtering. Define 
 
 When you run `turbo run lint`, Turborepo finds all packages with a `lint` script and runs them **in parallel**.
 
-**Root Tasks are a fallback**, not the default. Only use them for tasks that truly cannot run per-package (e.g., repo-level CI scripts, workspace-wide config generation).
+Register repository-wide operations as Root Tasks (`//#taskname`) when they need Turbo orchestration (e.g., workspace-wide config generation). Direct root commands do not require Root Task registration, and registered Root Tasks must not invoke Turbo recursively.
 
 ```json
 // AVOID: Task logic in root defeats parallelization
@@ -238,3 +238,7 @@ Use `turbo.jsonc` extension to add comments with IDE support:
   }
 }
 ```
+
+## Choosing Where to Put Package Overrides
+
+Prefer Package Configurations when several packages need different task settings. A `package#task` entry in root configuration can be useful for a single unique dependency or a temporary migration override.

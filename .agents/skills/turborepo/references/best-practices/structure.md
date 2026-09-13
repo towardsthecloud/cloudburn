@@ -45,12 +45,12 @@ Key points:
 
 - `private: true` - Prevents accidental publishing
 - `packageManager` - Enforces consistent package manager version
-- **Scripts only delegate to `turbo run`** - No actual build logic here!
+- Package build/test scripts delegate to `turbo run`; repository tooling and wrappers may run directly.
 - Minimal devDependencies (just turbo and repo tools)
 
-## Always Prefer Package Tasks
+## Package Tasks and Repository Tooling
 
-**Always use package tasks. Only use Root Tasks if you cannot succeed with package tasks.**
+Use package tasks for package build and test work. Repository-wide tooling and wrappers may run directly from the root.
 
 ```json
 // packages/web/package.json
@@ -80,7 +80,7 @@ Package tasks enable Turborepo to:
 2. **Cache individually** - Each package's task output is cached separately
 3. **Filter precisely** - Run `turbo run test --filter=web` for just one package
 
-**Root Tasks are a fallback** for tasks that truly cannot run per-package:
+Keep package work in package scripts instead of manually chaining it at the root:
 
 ```json
 // AVOID unless necessary - sequential, not parallelized, can't filter

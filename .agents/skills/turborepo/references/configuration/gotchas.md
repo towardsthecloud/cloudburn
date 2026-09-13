@@ -4,7 +4,7 @@ Common mistakes and how to fix them.
 
 ## #1 Root Scripts Not Using `turbo run`
 
-Root `package.json` scripts for turbo tasks MUST use `turbo run`, not direct commands.
+Root scripts that orchestrate package tasks should use `turbo run`. Repository-wide tooling and wrappers may run directly from the root.
 
 ```json
 // WRONG - bypasses turbo, no parallelization or caching
@@ -24,14 +24,14 @@ Root `package.json` scripts for turbo tasks MUST use `turbo run`, not direct com
 }
 ```
 
-**Why this matters:** Running `bun build` or `npm run build` at root bypasses Turborepo entirely - no parallelization, no caching, no dependency graph awareness.
+**Why this matters:** Directly invoking a package build tool at the root bypasses Turbo orchestration. A package-manager command such as `npm run build` still uses Turbo when its script delegates to `turbo run build`.
 
-## #2 Using `&&` to Chain Turbo Tasks
+## #2 Bypassing Turbo in Wrappers
 
-Don't use `&&` to chain tasks that turbo should orchestrate.
+Use Turbo for package task dependencies. A root wrapper may sequence a Turbo invocation with repository-wide tooling using `&&` when the latter depends on its success.
 
 ```json
-// WRONG - changeset:publish chains turbo task with non-turbo command
+// WRONG - package builds bypass Turbo
 {
   "scripts": {
     "changeset:publish": "bun build && changeset publish"
@@ -136,7 +136,7 @@ Don't use relative paths like `../` to reference files outside the package. Use 
 }
 ```
 
-## #6 MOST COMMON MISTAKE: Creating Root Tasks
+## #6 Putting Package Work in Root Scripts
 
 **Prefer package tasks over Root Tasks.**
 
@@ -144,7 +144,7 @@ When you need to create a task (build, lint, test, typecheck, etc.), default to 
 
 1. Add the script to **each relevant package's** `package.json`
 2. Register the task in root `turbo.json`
-3. Root `package.json` only contains `turbo run <task>`
+3. Root scripts for these package tasks delegate to `turbo run <task>`
 
 ```json
 // WRONG - DO NOT DO THIS
@@ -167,7 +167,7 @@ When you need to create a task (build, lint, test, typecheck, etc.), default to 
 // packages/ui/package.json
 { "scripts": { "build": "tsc", "lint": "eslint .", "test": "vitest" } }
 
-// Root package.json - ONLY delegates
+// Root package.json - package task entry points delegate
 { "scripts": { "build": "turbo run build", "lint": "turbo run lint", "test": "turbo run test" } }
 
 // turbo.json - register tasks
@@ -186,7 +186,7 @@ When you need to create a task (build, lint, test, typecheck, etc.), default to 
 - Each package's output is cached **individually**
 - You can **filter** to specific packages: `turbo run test --filter=web`
 
-Root Tasks (`//#taskname`) defeat all these benefits when a task can live in packages. Only use them for tasks that truly cannot exist in any package, such as Vitest Projects' `//#test`, repo-wide release scripts, or tooling that does not invoke `turbo` itself.
+Repository-wide tooling and wrappers may run directly from the root. Register a Root Task (`//#taskname`) when a repository-wide operation needs Turbo orchestration; registered Root Tasks must not invoke Turbo recursively.
 
 ## #7 Tasks That Need Parallel Execution + Cache Invalidation
 
@@ -366,3 +366,71 @@ Without `$TURBO_DEFAULT$`, the only inclusion glob comes from `global.inputs`, w
 ```
 
 Always disable cache for deploy, publish, or mutation tasks.
+
+## `prebuild` Scripts That Manually Build Dependencies
+
+Scripts like `prebuild` that manually build other packages bypass Turborepo's dependency graph.
+
+```json
+// WRONG - manually building dependencies
+{
+  "scripts": {
+    "prebuild": "cd ../../packages/types && bun run build && cd ../utils && bun run build",
+    "build": "next build"
+  }
+}
+```
+
+**However, the fix depends on whether workspace dependencies are declared:**
+
+1. **If dependencies ARE declared** (e.g., `"@repo/types": "workspace:*"` in package.json), remove the `prebuild` script. Turbo's `dependsOn: ["^build"]` handles this automatically.
+
+2. **If dependencies are NOT declared**, the `prebuild` exists because `^build` won't trigger without a dependency relationship. The fix is to:
+   - Add the dependency to package.json: `"@repo/types": "workspace:*"`
+   - Then remove the `prebuild` script
+
+```json
+// CORRECT - declare dependency, let turbo handle build order
+// package.json
+{
+  "dependencies": {
+    "@repo/types": "workspace:*",
+    "@repo/utils": "workspace:*"
+  },
+  "scripts": {
+    "build": "next build"
+  }
+}
+
+// turbo.json
+{
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"]
+    }
+  }
+}
+```
+
+**Key insight:** `^build` only runs build in packages listed as dependencies. No dependency declaration = no automatic build ordering.
+
+## TypeScript Incremental Outputs
+
+When `incremental: true` in tsconfig.json, `tsc --noEmit` writes `.tsbuildinfo` files even without emitting JS. Check the tsconfig before assuming no outputs:
+
+```json
+// If tsconfig has incremental: true, tsc --noEmit produces cache files
+{
+  "tasks": {
+    "typecheck": {
+      "outputs": ["node_modules/.cache/tsbuildinfo.json"] // or wherever tsBuildInfoFile points
+    }
+  }
+}
+```
+
+To determine correct outputs for TypeScript tasks:
+
+1. Check if `incremental` or `composite` is enabled in tsconfig
+2. Check `tsBuildInfoFile` for custom cache location (default: alongside `outDir` or in project root)
+3. If no incremental mode, `tsc --noEmit` produces no files

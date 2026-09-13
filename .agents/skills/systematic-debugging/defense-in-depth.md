@@ -4,14 +4,11 @@
 
 When you fix a bug caused by invalid data, adding validation at one place feels sufficient. But that single check can be bypassed by different code paths, refactoring, or mocks.
 
-**Core principle:** Validate at EVERY layer data passes through. Make the bug structurally impossible.
+**Core principle:** Validate at trust boundaries and independently reachable entry points. Add further checks where a demonstrated bypass or distinct invariant requires them. Preserve existing guards unless their removal is separately justified.
 
 ## Why Multiple Layers
 
-Single validation: "We fixed the bug"
-Multiple layers: "We made the bug impossible"
-
-Different layers catch different cases:
+Different boundaries can require distinct checks:
 - Entry validation catches most bugs
 - Business logic catches edge cases
 - Environment guards prevent context-specific dangers
@@ -69,8 +66,10 @@ async function gitInit(directory: string) {
 }
 ```
 
-### Layer 4: Debug Instrumentation
+### Layer 4: Optional Debug Instrumentation
 **Purpose:** Capture context for forensics
+
+Use temporary, redacted diagnostics only when existing evidence is insufficient. Remove them afterward; production instrumentation requires authorization.
 
 ```typescript
 async function gitInit(directory: string) {
@@ -89,9 +88,9 @@ async function gitInit(directory: string) {
 When you find a bug:
 
 1. **Trace the data flow** - Where does bad value originate? Where used?
-2. **Map all checkpoints** - List every point data passes through
-3. **Add validation at each layer** - Entry, business, environment, debug
-4. **Test each layer** - Try to bypass layer 1, verify layer 2 catches it
+2. **Map trust boundaries and entry points** - Identify where the failing invariant can be bypassed
+3. **Add justified validation** - Protect independently reachable paths and distinct invariants
+4. **Test those boundaries** - Demonstrate that the relevant bypasses are rejected
 
 ## Example from Session
 
@@ -119,4 +118,4 @@ All four layers were necessary. During testing, each layer caught bugs the other
 - Edge cases on different platforms needed environment guards
 - Debug logging identified structural misuse
 
-**Don't stop at one validation point.** Add checks at every layer.
+Use evidence of bypasses and distinct invariants to choose additional checks; the four-layer example is not a requirement for every fix.

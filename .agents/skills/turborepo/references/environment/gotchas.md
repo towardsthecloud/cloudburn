@@ -173,3 +173,7 @@ With this approach, a task that doesn't care about `.env.production` can exclude
 ```
 
 This wouldn't have been possible with `globalDependencies`, where `.env.production` would be baked into the global hash and affect every task unconditionally.
+
+## Large `env` Arrays
+
+A large `env` array (even 50+ variables) is **not** a problem. It usually means the user was thorough about declaring their build's environment dependencies. Do not flag this as an issue.
