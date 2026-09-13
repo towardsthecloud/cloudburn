@@ -22,8 +22,8 @@ validation wrappers, may run directly from the root. Register a Root Task
 (`//#taskname`) only when that repository-wide operation needs Turbo orchestration;
 a Root Task must not invoke Turbo recursively.
 
-Use `turbo run <task>` in package scripts and CI. The `turbo <task>` shorthand is
-for interactive use.
+Use `turbo run <task>` in root scripts and CI. Workspace package scripts invoke
+their build or test tools directly. The `turbo <task>` shorthand is for interactive use.
 
 ## Read only the relevant reference
 
