@@ -59,30 +59,29 @@ const mockHub = (
 
 describe('Cost Optimization Hub upgrades', () => {
   beforeEach(() => vi.resetAllMocks());
-  it.each([
-    'Ec2Instance',
-    'SingleInstanceType',
-    'MixedInstanceTypes',
-  ] as const)('accepts hyphenated instance sizes for %s', async (shape) => {
-    const details = (type: string): ResourceDetails =>
-      shape === 'Ec2Instance'
-        ? { ec2Instance: { configuration: { instance: { type } } } }
-        : {
-            ec2AutoScalingGroup: {
-              configuration:
-                shape === 'SingleInstanceType'
-                  ? { type: shape, instance: { type } }
-                  : { type: shape, mixedInstances: [{ type }] },
-            },
-          };
-    const resourceType = shape === 'Ec2Instance' ? 'Ec2Instance' : 'Ec2AutoScalingGroup';
-    mockHub(
-      summary({ currentResourceType: resourceType, recommendedResourceType: resourceType }),
-      details('c6i.metal'),
-      details('c7i.metal-24xl'),
-    );
-    expect(await load()).toHaveLength(1);
-  });
+  it.each(['Ec2Instance', 'SingleInstanceType', 'MixedInstanceTypes'] as const)(
+    'accepts hyphenated instance sizes for %s',
+    async (shape) => {
+      const details = (type: string): ResourceDetails =>
+        shape === 'Ec2Instance'
+          ? { ec2Instance: { configuration: { instance: { type } } } }
+          : {
+              ec2AutoScalingGroup: {
+                configuration:
+                  shape === 'SingleInstanceType'
+                    ? { type: shape, instance: { type } }
+                    : { type: shape, mixedInstances: [{ type }] },
+              },
+            };
+      const resourceType = shape === 'Ec2Instance' ? 'Ec2Instance' : 'Ec2AutoScalingGroup';
+      mockHub(
+        summary({ currentResourceType: resourceType, recommendedResourceType: resourceType }),
+        details('c6i.metal'),
+        details('c7i.metal-24xl'),
+      );
+      expect(await load()).toHaveLength(1);
+    },
+  );
   it('shares enrollment with reservation loading within a discovery run', async () => {
     let enrollmentReads = 0;
     vi.mocked(createCostOptimizationHubClient).mockReturnValue({
@@ -226,22 +225,20 @@ describe('Cost Optimization Hub upgrades', () => {
       })),
     );
   });
-  it.each([
-    { items: {} },
-    { items: null },
-    { items: [null] },
-    { items: [{}] },
-  ])('reports malformed recommendation pages as unavailable: %j', async (page) => {
-    vi.mocked(createCostOptimizationHubClient).mockReturnValue({
-      send: vi.fn(async (command: unknown) =>
-        command instanceof ListEnrollmentStatusesCommand ? { items: [{ accountId, status: 'Active' }] } : page,
-      ),
-    } as never);
-    expect(await load()).toMatchObject({
-      unavailable: true,
-      diagnostics: [{ code: 'CostOptimizationHubRecommendationIncomplete' }],
-    });
-  });
+  it.each([{ items: {} }, { items: null }, { items: [null] }, { items: [{}] }])(
+    'reports malformed recommendation pages as unavailable: %j',
+    async (page) => {
+      vi.mocked(createCostOptimizationHubClient).mockReturnValue({
+        send: vi.fn(async (command: unknown) =>
+          command instanceof ListEnrollmentStatusesCommand ? { items: [{ accountId, status: 'Active' }] } : page,
+        ),
+      } as never);
+      expect(await load()).toMatchObject({
+        unavailable: true,
+        diagnostics: [{ code: 'CostOptimizationHubRecommendationIncomplete' }],
+      });
+    },
+  );
   it.each([
     hydrateAwsCostOptimizationHubUpgradeRecommendations,
     hydrateAwsCostOptimizationHubReservationRecommendations,

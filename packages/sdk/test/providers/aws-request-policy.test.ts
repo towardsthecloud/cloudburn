@@ -79,12 +79,15 @@ it.each([
   ['AWS Resource Explorer', 'ListResources', 'resource-explorer-2', 'non-search', 3, 1],
   ['Amazon SageMaker', 'DescribeEndpoint', 'sagemaker', 'DescribeEndpoint', 5, 1],
   ['Amazon SageMaker', 'DescribeEndpointConfig', 'sagemaker', 'DescribeEndpointConfig', 5, 1],
-] as const)('uses the documented request quota group for %s %s across resources', (label, operation, service, group, ratePerSecond, burst) => {
-  expect(resolveAwsRequestQuota(label, operation, 'eu-west-1', ACCOUNT_ID, { resource: 'a-resource' })).toEqual({
-    scope: { accountId: ACCOUNT_ID, partition: 'aws', region: 'eu-west-1', service, group },
-    policy: { ratePerSecond, burst, concurrency: 10, retryCapacity: 20 },
-  });
-});
+] as const)(
+  'uses the documented request quota group for %s %s across resources',
+  (label, operation, service, group, ratePerSecond, burst) => {
+    expect(resolveAwsRequestQuota(label, operation, 'eu-west-1', ACCOUNT_ID, { resource: 'a-resource' })).toEqual({
+      scope: { accountId: ACCOUNT_ID, partition: 'aws', region: 'eu-west-1', service, group },
+      policy: { ratePerSecond, burst, concurrency: 10, retryCapacity: 20 },
+    });
+  },
+);
 
 it.each([
   'ListIndexes',
@@ -134,13 +137,16 @@ it.each([
   ['S3', 'ListBucketIntelligentTieringConfigurations', 's3:ListBucketIntelligentTieringConfigurations', 0.25, 1],
   ['Uncataloged Service', 'ReadResource', 'uncataloged-service:ReadResource', 0.5, 1],
   ['EC2', 'DescribeInstances', 'ec2:DescribeInstances', 20, 10],
-] as const)('keeps the inherited burst valid for a rate-only override of %s %s', (service, operation, key, ratePerSecond, burst) => {
-  expect(
-    resolveAwsRequestQuota(service, operation, 'eu-west-1', ACCOUNT_ID, {
-      overrides: { [key]: { ratePerSecond } },
-    }).policy,
-  ).toEqual({ ratePerSecond, burst, concurrency: 10, retryCapacity: 20 });
-});
+] as const)(
+  'keeps the inherited burst valid for a rate-only override of %s %s',
+  (service, operation, key, ratePerSecond, burst) => {
+    expect(
+      resolveAwsRequestQuota(service, operation, 'eu-west-1', ACCOUNT_ID, {
+        overrides: { [key]: { ratePerSecond } },
+      }).policy,
+    ).toEqual({ ratePerSecond, burst, concurrency: 10, retryCapacity: 20 });
+  },
+);
 
 it.each([
   { ratePerSecond: 5, burst: 6 },
@@ -397,24 +403,17 @@ it('caps dense metric queries at the API maximum', () => {
   );
 });
 
-it.each([
-  undefined,
-  null,
-  0,
-  -1,
-  0.5,
-  Number.NaN,
-  Number.POSITIVE_INFINITY,
-  Number.MAX_VALUE,
-  '100',
-])('reserves a full metric page when MaxDatapoints is missing or invalid: %s', (MaxDatapoints) => {
-  expect(
-    resolveAwsMetricDataQuota({ StartTime: new Date('invalid'), MaxDatapoints }, 'eu-west-1', ACCOUNT_ID, 0),
-  ).toMatchObject({
-    scope: { group: 'GetMetricData:recent-datapoints' },
-    cost: 100_800,
-  });
-});
+it.each([undefined, null, 0, -1, 0.5, Number.NaN, Number.POSITIVE_INFINITY, Number.MAX_VALUE, '100'])(
+  'reserves a full metric page when MaxDatapoints is missing or invalid: %s',
+  (MaxDatapoints) => {
+    expect(
+      resolveAwsMetricDataQuota({ StartTime: new Date('invalid'), MaxDatapoints }, 'eu-west-1', ACCOUNT_ID, 0),
+    ).toMatchObject({
+      scope: { group: 'GetMetricData:recent-datapoints' },
+      cost: 100_800,
+    });
+  },
+);
 
 it('caps the metric page reservation at the API maximum and applies independent datapoint overrides', () => {
   const request = { StartTime: new Date('2026-09-07T12:00:00Z'), MaxDatapoints: 200_000 };

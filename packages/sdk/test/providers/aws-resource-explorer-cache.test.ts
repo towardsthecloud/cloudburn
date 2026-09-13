@@ -252,94 +252,96 @@ it('reuses auxiliary filter results only while the required view properties rema
   expect(resourceLists).toBe(1);
 });
 
-it.each([
-  false,
-  true,
-])('keeps a packed refresh alive until every participating type is abandoned (cancel last: %s)', async (cancelLast) => {
-  vi.spyOn(STSClient.prototype, 'send').mockResolvedValue({
-    Account: '123456789012',
-    Arn: 'arn:aws:iam::123456789012:user/test',
-    UserId: 'test',
-  } as never);
-  let releaseBatch: (value: void | PromiseLike<void>) => void = () => undefined;
-  let markBatchStarted: (value: void | PromiseLike<void>) => void = () => undefined;
-  const heldBatch = new Promise<void>((resolve) => {
-    releaseBatch = resolve;
-  });
-  const batchStarted = new Promise<void>((resolve) => {
-    markBatchStarted = resolve;
-  });
-  let batchSignal: AbortSignal | undefined;
-  let viewRequests = 0;
-  let resourceLists = 0;
-  vi.spyOn(clientModule, 'createResourceExplorerClient').mockImplementation(
-    () =>
-      ({
-        send: vi.fn(async (command) => {
-          if (command.input.Regions) return { Indexes: [{ Region: 'eu-west-1', Type: 'AGGREGATOR' }] };
-          if (command.input.Filters) {
-            resourceLists += 1;
-            batchSignal = getAwsExecutionSignal();
-            markBatchStarted();
-            await heldBatch;
-            batchSignal?.throwIfAborted();
-            return {
-              Resources: ['ec2:volume', 'ec2:instance'].map((resourceType) => ({
-                Arn: `arn:aws:ec2:eu-west-1:123456789012:${resourceType}`,
-                OwningAccountId: '123456789012',
-                Region: 'eu-west-1',
-                Service: 'ec2',
-                ResourceType: resourceType,
-              })),
-            };
-          }
-          if (command.constructor.name === 'GetViewCommand') viewRequests += 1;
-          return { ViewArn: 'view', View: { Filters: { FilterString: '' } } };
-        }),
-      }) as never,
-  );
-  const cache = { store: createMemoryEvidenceCacheStore(), authorizationContext: 'test-policy-v1' };
-  const target = { mode: 'region' as const, region: 'eu-west-1' };
-  const scan = (
-    types: string[],
-    signal: AbortSignal,
-    onResourceTypeReady: (resourceType: string, catalog: AwsDiscoveryCatalog) => void,
-  ) =>
-    clientModule.withAwsClientCredentials({ accessKeyId: 'SYNTHETIC', secretAccessKey: 'SYNTHETIC' }, () =>
-      withAwsDiscoveryExecution({ signal }, () =>
-        withAwsEvidenceCache({ cache, target }, () => buildAwsDiscoveryCatalog(target, types, { onResourceTypeReady })),
-      ),
+it.each([false, true])(
+  'keeps a packed refresh alive until every participating type is abandoned (cancel last: %s)',
+  async (cancelLast) => {
+    vi.spyOn(STSClient.prototype, 'send').mockResolvedValue({
+      Account: '123456789012',
+      Arn: 'arn:aws:iam::123456789012:user/test',
+      UserId: 'test',
+    } as never);
+    let releaseBatch: (value: void | PromiseLike<void>) => void = () => undefined;
+    let markBatchStarted: (value: void | PromiseLike<void>) => void = () => undefined;
+    const heldBatch = new Promise<void>((resolve) => {
+      releaseBatch = resolve;
+    });
+    const batchStarted = new Promise<void>((resolve) => {
+      markBatchStarted = resolve;
+    });
+    let batchSignal: AbortSignal | undefined;
+    let viewRequests = 0;
+    let resourceLists = 0;
+    vi.spyOn(clientModule, 'createResourceExplorerClient').mockImplementation(
+      () =>
+        ({
+          send: vi.fn(async (command) => {
+            if (command.input.Regions) return { Indexes: [{ Region: 'eu-west-1', Type: 'AGGREGATOR' }] };
+            if (command.input.Filters) {
+              resourceLists += 1;
+              batchSignal = getAwsExecutionSignal();
+              markBatchStarted();
+              await heldBatch;
+              batchSignal?.throwIfAborted();
+              return {
+                Resources: ['ec2:volume', 'ec2:instance'].map((resourceType) => ({
+                  Arn: `arn:aws:ec2:eu-west-1:123456789012:${resourceType}`,
+                  OwningAccountId: '123456789012',
+                  Region: 'eu-west-1',
+                  Service: 'ec2',
+                  ResourceType: resourceType,
+                })),
+              };
+            }
+            if (command.constructor.name === 'GetViewCommand') viewRequests += 1;
+            return { ViewArn: 'view', View: { Filters: { FilterString: '' } } };
+          }),
+        }) as never,
     );
-  const firstController = new AbortController();
-  const lastController = new AbortController();
-  const firstReady = vi.fn<(resourceType: string, catalog: AwsDiscoveryCatalog) => void>();
-  const lastReady = vi.fn<(resourceType: string, catalog: AwsDiscoveryCatalog) => void>();
-  const first = scan(['ec2:volume', 'ec2:instance'], firstController.signal, firstReady).catch(
-    (error: unknown) => error,
-  );
-  await batchStarted;
-  const last = scan(['ec2:instance'], lastController.signal, lastReady).catch((error: unknown) => error);
-  try {
-    await vi.waitFor(() => expect(viewRequests).toBe(2));
-    // Let the second scan complete its cache probe and attach to the type flight.
-    await new Promise<void>((resolve) => setImmediate(resolve));
-    firstController.abort(new Error('first caller cancelled'));
-    expect(await first).toMatchObject({ message: 'first caller cancelled' });
-    expect(batchSignal?.aborted).toBe(false);
-    if (cancelLast) {
-      lastController.abort(new Error('last caller cancelled'));
-      expect(await last).toMatchObject({ message: 'last caller cancelled' });
-      await vi.waitFor(() => expect(batchSignal?.aborted).toBe(true));
-      expect(lastReady).not.toHaveBeenCalled();
-    } else {
+    const cache = { store: createMemoryEvidenceCacheStore(), authorizationContext: 'test-policy-v1' };
+    const target = { mode: 'region' as const, region: 'eu-west-1' };
+    const scan = (
+      types: string[],
+      signal: AbortSignal,
+      onResourceTypeReady: (resourceType: string, catalog: AwsDiscoveryCatalog) => void,
+    ) =>
+      clientModule.withAwsClientCredentials({ accessKeyId: 'SYNTHETIC', secretAccessKey: 'SYNTHETIC' }, () =>
+        withAwsDiscoveryExecution({ signal }, () =>
+          withAwsEvidenceCache({ cache, target }, () =>
+            buildAwsDiscoveryCatalog(target, types, { onResourceTypeReady }),
+          ),
+        ),
+      );
+    const firstController = new AbortController();
+    const lastController = new AbortController();
+    const firstReady = vi.fn<(resourceType: string, catalog: AwsDiscoveryCatalog) => void>();
+    const lastReady = vi.fn<(resourceType: string, catalog: AwsDiscoveryCatalog) => void>();
+    const first = scan(['ec2:volume', 'ec2:instance'], firstController.signal, firstReady).catch(
+      (error: unknown) => error,
+    );
+    await batchStarted;
+    const last = scan(['ec2:instance'], lastController.signal, lastReady).catch((error: unknown) => error);
+    try {
+      await vi.waitFor(() => expect(viewRequests).toBe(2));
+      // Let the second scan complete its cache probe and attach to the type flight.
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      firstController.abort(new Error('first caller cancelled'));
+      expect(await first).toMatchObject({ message: 'first caller cancelled' });
+      expect(batchSignal?.aborted).toBe(false);
+      if (cancelLast) {
+        lastController.abort(new Error('last caller cancelled'));
+        expect(await last).toMatchObject({ message: 'last caller cancelled' });
+        await vi.waitFor(() => expect(batchSignal?.aborted).toBe(true));
+        expect(lastReady).not.toHaveBeenCalled();
+      } else {
+        releaseBatch();
+        expect(await last).toMatchObject({ resources: [{ resourceType: 'ec2:instance' }] });
+        expect(lastReady).toHaveBeenCalledOnce();
+      }
+      expect(resourceLists).toBe(1);
+      expect(firstReady).not.toHaveBeenCalled();
+    } finally {
       releaseBatch();
-      expect(await last).toMatchObject({ resources: [{ resourceType: 'ec2:instance' }] });
-      expect(lastReady).toHaveBeenCalledOnce();
+      await Promise.all([first, last]);
     }
-    expect(resourceLists).toBe(1);
-    expect(firstReady).not.toHaveBeenCalled();
-  } finally {
-    releaseBatch();
-    await Promise.all([first, last]);
-  }
-});
+  },
+);

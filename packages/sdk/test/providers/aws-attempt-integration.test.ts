@@ -131,62 +131,61 @@ it('observes physical handler time and one HTTP request per wrapped attempt desp
   }
 });
 
-it.each([
-  'admission',
-  'credentials',
-  'transport admission',
-])('prevents transport when discovery is cancelled while %s is pending', async (pause) => {
-  const controller = new AbortController();
-  const reason = new DOMException('Synthetic cancellation', 'AbortError');
-  let release = (): void => undefined;
-  const gate = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  const paused = vi.fn();
-  const waitIfPaused = async (stage: string) => {
-    if (pause === stage) {
-      paused();
-      await gate;
-    }
-  };
-  const onDispatch = vi.fn();
-  const handle = vi.fn().mockImplementation(async () => response());
-  const client = getAwsClient(
-    'dynamodb:eu-west-1',
-    () =>
-      new DynamoDBClient({
-        region: 'eu-west-1',
-        credentials: async () => {
-          await waitIfPaused('credentials');
-          return credentials;
-        },
-        requestHandler: { handle },
-      }),
-  );
-  let attempt: Promise<unknown> | undefined;
-  const run = withAwsDiscoveryExecution({ signal: controller.signal }, () => {
-    attempt = runAwsServiceAttempt(() => client.send(new DescribeTableCommand({ TableName: 'test-table' })), {
-      beforeRequest: () => waitIfPaused('admission'),
-      beforeTransport: () => waitIfPaused('transport admission'),
-      onDispatch,
+it.each(['admission', 'credentials', 'transport admission'])(
+  'prevents transport when discovery is cancelled while %s is pending',
+  async (pause) => {
+    const controller = new AbortController();
+    const reason = new DOMException('Synthetic cancellation', 'AbortError');
+    let release = (): void => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
     });
-    return attempt;
-  });
-  const cancelled = expect(run).rejects.toBe(reason);
+    const paused = vi.fn();
+    const waitIfPaused = async (stage: string) => {
+      if (pause === stage) {
+        paused();
+        await gate;
+      }
+    };
+    const onDispatch = vi.fn();
+    const handle = vi.fn().mockImplementation(async () => response());
+    const client = getAwsClient(
+      'dynamodb:eu-west-1',
+      () =>
+        new DynamoDBClient({
+          region: 'eu-west-1',
+          credentials: async () => {
+            await waitIfPaused('credentials');
+            return credentials;
+          },
+          requestHandler: { handle },
+        }),
+    );
+    let attempt: Promise<unknown> | undefined;
+    const run = withAwsDiscoveryExecution({ signal: controller.signal }, () => {
+      attempt = runAwsServiceAttempt(() => client.send(new DescribeTableCommand({ TableName: 'test-table' })), {
+        beforeRequest: () => waitIfPaused('admission'),
+        beforeTransport: () => waitIfPaused('transport admission'),
+        onDispatch,
+      });
+      return attempt;
+    });
+    const cancelled = expect(run).rejects.toBe(reason);
 
-  try {
-    await vi.waitFor(() => expect(paused).toHaveBeenCalled());
-    controller.abort(reason);
-    await cancelled;
-    release();
-    await expect(attempt).rejects.toBe(reason);
-    expect(handle).not.toHaveBeenCalled();
-    expect(onDispatch).not.toHaveBeenCalled();
-  } finally {
-    release();
-    client.destroy();
-  }
-});
+    try {
+      await vi.waitFor(() => expect(paused).toHaveBeenCalled());
+      controller.abort(reason);
+      await cancelled;
+      release();
+      await expect(attempt).rejects.toBe(reason);
+      expect(handle).not.toHaveBeenCalled();
+      expect(onDispatch).not.toHaveBeenCalled();
+    } finally {
+      release();
+      client.destroy();
+    }
+  },
+);
 
 it('reports no physical dispatch or transport time when credentials are cancelled in the request wrapper', async () => {
   const controller = new AbortController();
@@ -262,45 +261,45 @@ it('emits structured attempt telemetry without allowing a throwing debug logger 
   expect(destroy).toHaveBeenCalledOnce();
 });
 
-it.each([
-  'success',
-  'failure',
-])('preserves discovery transport diagnostics for %s without logging request data', async (outcome) => {
-  let now = 1_000;
-  vi.spyOn(Date, 'now').mockImplementation(() => now);
-  const debugLogger = vi.fn();
-  const onTransport = vi.fn();
-  const failure = new Error('Sensitive synthetic transport detail');
+it.each(['success', 'failure'])(
+  'preserves discovery transport diagnostics for %s without logging request data',
+  async (outcome) => {
+    let now = 1_000;
+    vi.spyOn(Date, 'now').mockImplementation(() => now);
+    const debugLogger = vi.fn();
+    const onTransport = vi.fn();
+    const failure = new Error('Sensitive synthetic transport detail');
 
-  await withAwsDiscoveryExecution({ debugLogger }, async () => {
-    const client = getAwsClient(
-      'dynamodb:eu-west-1',
-      () =>
-        new DynamoDBClient({
-          region: 'eu-west-1',
-          credentials,
-          requestHandler: {
-            handle: async () => {
-              now += 23;
-              if (outcome === 'failure') throw failure;
-              return response();
+    await withAwsDiscoveryExecution({ debugLogger }, async () => {
+      const client = getAwsClient(
+        'dynamodb:eu-west-1',
+        () =>
+          new DynamoDBClient({
+            region: 'eu-west-1',
+            credentials,
+            requestHandler: {
+              handle: async () => {
+                now += 23;
+                if (outcome === 'failure') throw failure;
+                return response();
+              },
             },
-          },
-        }),
-    );
-    const attempt = runAwsServiceAttempt(() => client.send(new DescribeTableCommand({ TableName: 'test-table' })), {
-      onTransport,
+          }),
+      );
+      const attempt = runAwsServiceAttempt(() => client.send(new DescribeTableCommand({ TableName: 'test-table' })), {
+        onTransport,
+      });
+      if (outcome === 'failure') await expect(attempt).rejects.toBe(failure);
+      else await expect(attempt).resolves.toMatchObject({ Table: { TableName: 'test-table' } });
     });
-    if (outcome === 'failure') await expect(attempt).rejects.toBe(failure);
-    else await expect(attempt).resolves.toMatchObject({ Table: { TableName: 'test-table' } });
-  });
 
-  expect(onTransport).toHaveBeenCalledExactlyOnceWith(
-    outcome === 'failure' ? { durationMs: 23 } : { durationMs: 23, statusCode: 200 },
-  );
-  expect(debugLogger).toHaveBeenCalledExactlyOnceWith(
-    outcome === 'failure'
-      ? 'aws: transport dynamodb:eu-west-1 failed in 23ms'
-      : 'aws: transport dynamodb:eu-west-1 returned HTTP 200 in 23ms',
-  );
-});
+    expect(onTransport).toHaveBeenCalledExactlyOnceWith(
+      outcome === 'failure' ? { durationMs: 23 } : { durationMs: 23, statusCode: 200 },
+    );
+    expect(debugLogger).toHaveBeenCalledExactlyOnceWith(
+      outcome === 'failure'
+        ? 'aws: transport dynamodb:eu-west-1 failed in 23ms'
+        : 'aws: transport dynamodb:eu-west-1 returned HTTP 200 in 23ms',
+    );
+  },
+);

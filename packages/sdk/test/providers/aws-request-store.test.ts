@@ -264,93 +264,93 @@ describe('local AWS request state', () => {
     expect(readdirSync(temporary)).toEqual([]);
   });
 
-  it.each([
-    'default',
-    'temporary',
-  ])('does not abandon corrupted %s state when opening a new store', async (location) => {
-    const parent = createDirectory();
-    const home = join(parent, 'home');
-    const temporary = createDirectory();
-    if (location === 'temporary') writeFileSync(home, 'not a directory');
-    else mkdirSync(home);
-    vi.spyOn(operatingSystem, 'homedir').mockReturnValue(home);
-    vi.stubEnv('XDG_CACHE_HOME', undefined);
-    vi.stubEnv('CLOUDBURN_AWS_ADMISSION_DIR', undefined);
-    vi.stubEnv('TMPDIR', temporary);
-    const first = createLocalAwsRequestStore();
-    await first.update('shared-quota', () => ({ state: 'reserved', value: undefined }));
-    const directory =
-      location === 'default'
-        ? join(home, '.cache', 'cloudburn', 'aws-admission-v1')
-        : join(temporary, readdirSync(temporary)[0] as string, 'aws-admission-v1');
-    writeFileSync(join(directory, readdirSync(directory)[0] as string), 'corrupted database');
-    if (location === 'temporary') {
-      rmSync(home);
-      mkdirSync(home);
-    }
-    const transition = vi.fn(() => ({ state: 'unsafe', value: undefined }));
+  it.each(['default', 'temporary'])(
+    'does not abandon corrupted %s state when opening a new store',
+    async (location) => {
+      const parent = createDirectory();
+      const home = join(parent, 'home');
+      const temporary = createDirectory();
+      if (location === 'temporary') writeFileSync(home, 'not a directory');
+      else mkdirSync(home);
+      vi.spyOn(operatingSystem, 'homedir').mockReturnValue(home);
+      vi.stubEnv('XDG_CACHE_HOME', undefined);
+      vi.stubEnv('CLOUDBURN_AWS_ADMISSION_DIR', undefined);
+      vi.stubEnv('TMPDIR', temporary);
+      const first = createLocalAwsRequestStore();
+      await first.update('shared-quota', () => ({ state: 'reserved', value: undefined }));
+      const directory =
+        location === 'default'
+          ? join(home, '.cache', 'cloudburn', 'aws-admission-v1')
+          : join(temporary, readdirSync(temporary)[0] as string, 'aws-admission-v1');
+      writeFileSync(join(directory, readdirSync(directory)[0] as string), 'corrupted database');
+      if (location === 'temporary') {
+        rmSync(home);
+        mkdirSync(home);
+      }
+      const transition = vi.fn(() => ({ state: 'unsafe', value: undefined }));
 
-    for (const store of [first, createLocalAwsRequestStore()]) {
-      await expect(store.update('shared-quota', transition)).rejects.toThrow(/file is not a database/);
-    }
-    expect(transition).not.toHaveBeenCalled();
-    if (location === 'temporary') expect(readdirSync(home)).toEqual([]);
-    else expect(readdirSync(temporary)).toEqual([]);
-  });
+      for (const store of [first, createLocalAwsRequestStore()]) {
+        await expect(store.update('shared-quota', transition)).rejects.toThrow(/file is not a database/);
+      }
+      expect(transition).not.toHaveBeenCalled();
+      if (location === 'temporary') expect(readdirSync(home)).toEqual([]);
+      else expect(readdirSync(temporary)).toEqual([]);
+    },
+  );
 
-  it.each([
-    'root',
-    'state',
-  ])('rejects a symbolic link at the temporary %s without changing its target', async (location) => {
-    const parent = createDirectory();
-    const home = join(parent, 'unavailable-home');
-    const temporary = createDirectory();
-    const target = createDirectory();
-    writeFileSync(home, 'not a directory');
-    chmodSync(target, 0o755);
-    vi.spyOn(operatingSystem, 'homedir').mockReturnValue(home);
-    vi.stubEnv('XDG_CACHE_HOME', undefined);
-    vi.stubEnv('CLOUDBURN_AWS_ADMISSION_DIR', undefined);
-    vi.stubEnv('TMPDIR', temporary);
-    await createLocalAwsRequestStore().update('shared-quota', () => ({ state: 'reserved', value: undefined }));
-    const [userDirectory] = readdirSync(temporary);
-    const root = join(temporary, userDirectory as string);
-    const path = location === 'root' ? root : join(root, 'aws-admission-v1');
-    rmSync(path, { recursive: true });
-    symlinkSync(target, path, 'dir');
+  it.each(['root', 'state'])(
+    'rejects a symbolic link at the temporary %s without changing its target',
+    async (location) => {
+      const parent = createDirectory();
+      const home = join(parent, 'unavailable-home');
+      const temporary = createDirectory();
+      const target = createDirectory();
+      writeFileSync(home, 'not a directory');
+      chmodSync(target, 0o755);
+      vi.spyOn(operatingSystem, 'homedir').mockReturnValue(home);
+      vi.stubEnv('XDG_CACHE_HOME', undefined);
+      vi.stubEnv('CLOUDBURN_AWS_ADMISSION_DIR', undefined);
+      vi.stubEnv('TMPDIR', temporary);
+      await createLocalAwsRequestStore().update('shared-quota', () => ({ state: 'reserved', value: undefined }));
+      const [userDirectory] = readdirSync(temporary);
+      const root = join(temporary, userDirectory as string);
+      const path = location === 'root' ? root : join(root, 'aws-admission-v1');
+      rmSync(path, { recursive: true });
+      symlinkSync(target, path, 'dir');
 
-    await expect(
-      createLocalAwsRequestStore().update('shared-quota', () => ({ state: 'unsafe', value: undefined })),
-    ).rejects.toThrow(/symbolic link/);
-    expect(statSync(target).mode & 0o777).toBe(0o755);
-    expect(readdirSync(target)).toEqual([]);
-  });
+      await expect(
+        createLocalAwsRequestStore().update('shared-quota', () => ({ state: 'unsafe', value: undefined })),
+      ).rejects.toThrow(/symbolic link/);
+      expect(statSync(target).mode & 0o777).toBe(0o755);
+      expect(readdirSync(target)).toEqual([]);
+    },
+  );
 
-  it.each([
-    'EACCES',
-    'EROFS',
-  ])('uses shared temporary state when a new default cache cannot be initialized: %s', async (code) => {
-    const home = createDirectory();
-    const temporary = createDirectory();
-    const primary = join(home, '.cache', 'cloudburn', 'aws-admission-v1');
-    vi.spyOn(operatingSystem, 'homedir').mockReturnValue(home);
-    vi.stubEnv('XDG_CACHE_HOME', undefined);
-    vi.stubEnv('CLOUDBURN_AWS_ADMISSION_DIR', undefined);
-    vi.stubEnv('TMPDIR', temporary);
-    const original = filesystem.mkdirSync;
-    vi.spyOn(filesystem, 'mkdirSync').mockImplementation((...args) => {
-      if (args[0] === primary) throw Object.assign(new Error('Cache cannot be created'), { code });
-      return Reflect.apply(original, filesystem, args);
-    });
+  it.each(['EACCES', 'EROFS'])(
+    'uses shared temporary state when a new default cache cannot be initialized: %s',
+    async (code) => {
+      const home = createDirectory();
+      const temporary = createDirectory();
+      const primary = join(home, '.cache', 'cloudburn', 'aws-admission-v1');
+      vi.spyOn(operatingSystem, 'homedir').mockReturnValue(home);
+      vi.stubEnv('XDG_CACHE_HOME', undefined);
+      vi.stubEnv('CLOUDBURN_AWS_ADMISSION_DIR', undefined);
+      vi.stubEnv('TMPDIR', temporary);
+      const original = filesystem.mkdirSync;
+      vi.spyOn(filesystem, 'mkdirSync').mockImplementation((...args) => {
+        if (args[0] === primary) throw Object.assign(new Error('Cache cannot be created'), { code });
+        return Reflect.apply(original, filesystem, args);
+      });
 
-    await createLocalAwsRequestStore().update('shared-quota', () => ({ state: 'reserved', value: undefined }));
+      await createLocalAwsRequestStore().update('shared-quota', () => ({ state: 'reserved', value: undefined }));
 
-    await expect(
-      createLocalAwsRequestStore().update('shared-quota', (current) => ({ state: 'next', value: current })),
-    ).resolves.toBe('reserved');
-    expect(readdirSync(home)).toEqual([]);
-    expect(readdirSync(temporary)).toHaveLength(1);
-  });
+      await expect(
+        createLocalAwsRequestStore().update('shared-quota', (current) => ({ state: 'next', value: current })),
+      ).resolves.toBe('reserved');
+      expect(readdirSync(home)).toEqual([]);
+      expect(readdirSync(temporary)).toHaveLength(1);
+    },
+  );
 
   it('retains existing temporary quota state if the default home later becomes writable', async () => {
     const root = createDirectory();

@@ -8,6 +8,7 @@ import { withAwsServiceCallBudget } from '../../src/providers/aws/request.js';
 import { withAwsDatasetAttribution } from '../../src/providers/aws/request-attribution.js';
 import { createMemoryAwsRequestStore } from '../../src/providers/aws/request-store.js';
 import { fetchCloudWatchSignals } from '../../src/providers/aws/resources/cloudwatch.js';
+import { decodeRequestBody } from '../helpers/http.js';
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -42,7 +43,7 @@ it.each([
   vi.spyOn(transport, 'handle').mockImplementation(async (request: HttpRequest) => {
     expect(request.hostname).toBe('monitoring.eu-west-1.amazonaws.com');
     expect(request.headers['x-amz-target']).toContain('GetMetricData');
-    const input = JSON.parse(String(request.body));
+    const input = JSON.parse(decodeRequestBody(request.body));
     requests.push(input.MetricDataQueries.map((query: { Id: string }) => query.Id));
     return {
       response: {
