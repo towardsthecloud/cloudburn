@@ -23,10 +23,10 @@
   },
   "devDependencies": {
     "@biomejs/biome": "catalog:",
-    "@changesets/changelog-github": "^0.7.0",
-    "@changesets/cli": "^2.31.0",
+    "@changesets/changelog-github": "^1.0.1",
+    "@changesets/cli": "^3.0.2",
     "husky": "^9.1.7",
-    "turbo": "^2.10.5",
+    "turbo": "^2.10.12",
     "typescript": "catalog:"
   },
   "engines": {

@@ -8,6 +8,7 @@ import {
   withAwsServiceCallBudget,
 } from '../../src/providers/aws/request.js';
 import { createMemoryAwsRequestStore } from '../../src/providers/aws/request-store.js';
+import { decodeRequestBody } from '../helpers/http.js';
 
 const credentials = { accessKeyId: 'SYNTHETIC', secretAccessKey: 'synthetic-test-key' };
 const response = (statusCode = 200) => ({
@@ -33,7 +34,7 @@ it('retries credential failures without spending shared retry capacity or slowin
   const attempts: AwsRequestAttemptTelemetry[] = [];
   let preparations = 0;
   const handle = async (request: HttpRequest) => {
-    physical.push({ table: JSON.parse(String(request.body)).TableName, at: Date.now() });
+    physical.push({ table: JSON.parse(decodeRequestBody(request.body)).TableName, at: Date.now() });
     return response();
   };
   const unstable = getAwsClient(

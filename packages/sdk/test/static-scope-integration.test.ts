@@ -42,49 +42,49 @@ it('joins Terraform files in one directory without borrowing another module’s 
   ]);
 });
 
-it.each([
-  'terraform',
-  'cloudformation',
-] as const)('keeps %s autoscaling evidence inside its source scope during rule evaluation', async (kind) => {
-  const terraformTable = `resource "aws_dynamodb_table" "shared" {
+it.each(['terraform', 'cloudformation'] as const)(
+  'keeps %s autoscaling evidence inside its source scope during rule evaluation',
+  async (kind) => {
+    const terraformTable = `resource "aws_dynamodb_table" "shared" {
     name = "shared"
     billing_mode = "PROVISIONED"
   }`;
-  const terraformTarget = `resource "aws_appautoscaling_target" "shared" {
+    const terraformTarget = `resource "aws_appautoscaling_target" "shared" {
     resource_id = "table/shared"
     service_namespace = "dynamodb"
     scalable_dimension = "dynamodb:table:ReadCapacityUnits"
   }`;
-  const cloudFormationTable = {
-    Type: 'AWS::DynamoDB::Table',
-    Properties: { TableName: 'shared', BillingMode: 'PROVISIONED' },
-  };
-  let missingPath: string;
-  if (kind === 'terraform') {
-    await write('a/main.tf', terraformTable);
-    await write('a/scaling.tf', terraformTarget);
-    missingPath = await write('b/main.tf', terraformTable);
-  } else {
-    await write(
-      'a.json',
-      JSON.stringify({
-        Resources: {
-          Shared: cloudFormationTable,
-          Target: {
-            Type: 'AWS::ApplicationAutoScaling::ScalableTarget',
-            Properties: {
-              ResourceId: 'table/shared',
-              ServiceNamespace: 'dynamodb',
-              ScalableDimension: 'dynamodb:table:ReadCapacityUnits',
+    const cloudFormationTable = {
+      Type: 'AWS::DynamoDB::Table',
+      Properties: { TableName: 'shared', BillingMode: 'PROVISIONED' },
+    };
+    let missingPath: string;
+    if (kind === 'terraform') {
+      await write('a/main.tf', terraformTable);
+      await write('a/scaling.tf', terraformTarget);
+      missingPath = await write('b/main.tf', terraformTable);
+    } else {
+      await write(
+        'a.json',
+        JSON.stringify({
+          Resources: {
+            Shared: cloudFormationTable,
+            Target: {
+              Type: 'AWS::ApplicationAutoScaling::ScalableTarget',
+              Properties: {
+                ResourceId: 'table/shared',
+                ServiceNamespace: 'dynamodb',
+                ScalableDimension: 'dynamodb:table:ReadCapacityUnits',
+              },
             },
           },
-        },
-      }),
-    );
-    missingPath = await write('b.json', JSON.stringify({ Resources: { Shared: cloudFormationTable } }));
-  }
-  const result = await runStaticScan(directory, { iac: { enabledRules: ['CLDBRN-AWS-DYNAMODB-2'] }, discovery: {} });
-  expect(result.providers[0]?.rules[0]?.findings).toEqual([
-    expect.objectContaining({ location: expect.objectContaining({ path: missingPath }) }),
-  ]);
-});
+        }),
+      );
+      missingPath = await write('b.json', JSON.stringify({ Resources: { Shared: cloudFormationTable } }));
+    }
+    const result = await runStaticScan(directory, { iac: { enabledRules: ['CLDBRN-AWS-DYNAMODB-2'] }, discovery: {} });
+    expect(result.providers[0]?.rules[0]?.findings).toEqual([
+      expect.objectContaining({ location: expect.objectContaining({ path: missingPath }) }),
+    ]);
+  },
+);

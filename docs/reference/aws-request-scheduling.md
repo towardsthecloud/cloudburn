@@ -168,7 +168,7 @@ failure reduces the penalty by one step and clears its cooldown; an older in-fli
 feedback. Elapsed time alone does not refill an exhausted retry allowance during a continuing failure.
 
 Direct calls outside wrapper retry ownership retain the configured SDK behavior. The installed AWS clients use SDK
-version `3.1085.0` or `3.1120.0`, with Smithy core `3.29.3` or `3.33.3`. Their 2026 retry behavior requires an explicit
+version `3.1127.0`, with Smithy core `3.33.3`. Their 2026 retry behavior requires an explicit
 environment opt-in. CloudBurn's shared allowance and backoff are local policies, independent of the numerical defaults
 on the [AWS retry behavior page](https://docs.aws.amazon.com/sdkref/latest/guide/feature-retry-behavior.html).
 

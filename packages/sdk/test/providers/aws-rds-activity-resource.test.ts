@@ -101,29 +101,26 @@ describe('hydrateAwsRdsInstanceActivity', () => {
     ]);
   });
 
-  it.each([
-    'PartialData',
-    'Forbidden',
-    'InternalError',
-    'Missing',
-    'Unknown',
-  ] as const)('preserves unknown activity for %s even when seven zero observations are present', async (status) => {
-    mockedHydrateAwsRdsInstances.mockResolvedValue([
-      {
-        accountId: '123456789012',
-        dbInstanceIdentifier: 'legacy-db',
-        instanceClass: 'db.m6i.large',
-        region: 'us-east-1',
-      },
-    ]);
-    mockedFetchCloudWatchSignals.mockResolvedValue(
-      new Map([['rds0', completeMetricEvidence(createDailyPoints(7, 0), { status })]]),
-    );
+  it.each(['PartialData', 'Forbidden', 'InternalError', 'Missing', 'Unknown'] as const)(
+    'preserves unknown activity for %s even when seven zero observations are present',
+    async (status) => {
+      mockedHydrateAwsRdsInstances.mockResolvedValue([
+        {
+          accountId: '123456789012',
+          dbInstanceIdentifier: 'legacy-db',
+          instanceClass: 'db.m6i.large',
+          region: 'us-east-1',
+        },
+      ]);
+      mockedFetchCloudWatchSignals.mockResolvedValue(
+        new Map([['rds0', completeMetricEvidence(createDailyPoints(7, 0), { status })]]),
+      );
 
-    await expect(hydrateAwsRdsInstanceActivity([])).resolves.toEqual([
-      expect.objectContaining({ maxDatabaseConnectionsLast7Days: null }),
-    ]);
-  });
+      await expect(hydrateAwsRdsInstanceActivity([])).resolves.toEqual([
+        expect.objectContaining({ maxDatabaseConnectionsLast7Days: null }),
+      ]);
+    },
+  );
 
   it('preserves unknown activity for a complete response without observations', async () => {
     mockedHydrateAwsRdsInstances.mockResolvedValue([

@@ -7,6 +7,7 @@ import { STSClient } from '@aws-sdk/client-sts';
 import type { HttpHandlerOptions, HttpRequest } from '@aws-sdk/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { type AwsDiscoveryProgressEvent, CloudBurnClient, withAwsClientCredentials } from '../src/index.js';
+import { decodeRequestBody } from './helpers/http.js';
 
 /** Options accepted by {@link CloudBurnClient.discover}, reused so test fixtures stay in sync with the public contract. */
 type DiscoverOptions = NonNullable<Parameters<CloudBurnClient['discover']>[0]>;
@@ -114,7 +115,7 @@ beforeEach(() => {
   probe.destroy();
   vi.spyOn(transport, 'handle').mockImplementation(async (request: HttpRequest, options?: HttpHandlerOptions) => {
     authorizations.push(request.headers.authorization ?? '');
-    const body = request.body ? String(request.body) : '';
+    const body = decodeRequestBody(request.body ?? '');
     const operation =
       request.headers['x-amz-target']?.split('.').at(-1) ??
       (request.path === '/' ? (new URLSearchParams(body).get('Action') ?? '') : request.path.slice(1));
@@ -848,30 +849,27 @@ describe('ELB request activity', () => {
     expect(requests.filter(({ operation }) => operation === 'GetMetricData')).toHaveLength(1);
   });
 
-  it.each([
-    'PartialData',
-    'Forbidden',
-    'InternalError',
-    'Missing',
-    'Empty',
-  ])('retains unknown %s metric evidence beside a valid idle finding', async (status) => {
-    const scenario = useElbScenario(['idle', 'uncertain']);
-    scenario.includeTargets = true;
-    scenario.metricCases = { uncertain: status };
+  it.each(['PartialData', 'Forbidden', 'InternalError', 'Missing', 'Empty'])(
+    'retains unknown %s metric evidence beside a valid idle finding',
+    async (status) => {
+      const scenario = useElbScenario(['idle', 'uncertain']);
+      scenario.includeTargets = true;
+      scenario.metricCases = { uncertain: status };
 
-    const result = await discover('CLDBRN-AWS-ELB-5');
+      const result = await discover('CLDBRN-AWS-ELB-5');
 
-    expect(result.providers[0]?.rules[0]?.findings).toEqual([identity('idle')]);
-    expect(result.evaluations?.rules).toEqual([
-      expect.objectContaining({
-        ruleId: 'CLDBRN-AWS-ELB-5',
-        status: 'triggered',
-        findingCount: 1,
-        coverage: { assessed: [identity('idle')], unknown: [identity('uncertain')] },
-      }),
-    ]);
-    expect(requests.filter(({ operation }) => operation === 'DescribeTargetHealth')).toHaveLength(2);
-  });
+      expect(result.providers[0]?.rules[0]?.findings).toEqual([identity('idle')]);
+      expect(result.evaluations?.rules).toEqual([
+        expect.objectContaining({
+          ruleId: 'CLDBRN-AWS-ELB-5',
+          status: 'triggered',
+          findingCount: 1,
+          coverage: { assessed: [identity('idle')], unknown: [identity('uncertain')] },
+        }),
+      ]);
+      expect(requests.filter(({ operation }) => operation === 'DescribeTargetHealth')).toHaveLength(2);
+    },
+  );
 
   it('reports NLB and Gateway activity as unknown without sending HTTP metric queries', async () => {
     const scenario = useElbScenario(['net-example', 'gwy-example']);
@@ -1092,21 +1090,20 @@ it.each([
   expect(vi.getTimerCount()).toBe(0);
 });
 
-it.each([
-  'ListIndexes',
-  'GetDefaultView',
-  'GetView',
-])('recovers status probe %s on its second attempt', async (operation) => {
-  vi.useFakeTimers();
-  denyIdentity = true;
-  transientOperation = operation;
-  transientFailures = 1;
-  const result = new CloudBurnClient().getDiscoveryStatus();
-  await vi.waitFor(() => expect(requests.some((request) => request.operation === operation)).toBe(true));
-  await vi.advanceTimersByTimeAsync(10_000);
-  expect((await result).regions).toEqual([
-    expect.objectContaining({ region: 'eu-west-1', status: 'indexed', viewStatus: 'present' }),
-  ]);
-  expect(requests.filter((request) => request.operation === operation)).toHaveLength(2);
-  expect(vi.getTimerCount()).toBe(0);
-});
+it.each(['ListIndexes', 'GetDefaultView', 'GetView'])(
+  'recovers status probe %s on its second attempt',
+  async (operation) => {
+    vi.useFakeTimers();
+    denyIdentity = true;
+    transientOperation = operation;
+    transientFailures = 1;
+    const result = new CloudBurnClient().getDiscoveryStatus();
+    await vi.waitFor(() => expect(requests.some((request) => request.operation === operation)).toBe(true));
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect((await result).regions).toEqual([
+      expect.objectContaining({ region: 'eu-west-1', status: 'indexed', viewStatus: 'present' }),
+    ]);
+    expect(requests.filter((request) => request.operation === operation)).toHaveLength(2);
+    expect(vi.getTimerCount()).toBe(0);
+  },
+);

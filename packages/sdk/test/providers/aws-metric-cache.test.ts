@@ -180,23 +180,23 @@ describe('incremental CloudWatch evidence', () => {
     expect(requests[1]?.StartTime).toEqual(new Date('2026-09-05T00:00:00Z'));
   });
 
-  it.each([
-    'PartialData',
-    'Forbidden',
-  ])('never publishes %s intervals as complete or falls back after refresh', async (failure) => {
-    await scan();
-    status = failure;
-    const failed = await scan(endTime, query, { mode: 'refresh' });
-    expect(failed.get('cpu')?.status).toBe(failure);
-    status = 'Complete';
-    const before = requests.length;
-    const recovered = await scan();
-    expect(recovered.get('cpu')?.status).toBe('Complete');
-    expect(requests.length).toBeGreaterThan(before);
-    const after = requests.length;
-    await scan();
-    expect(requests).toHaveLength(after);
-  });
+  it.each(['PartialData', 'Forbidden'])(
+    'never publishes %s intervals as complete or falls back after refresh',
+    async (failure) => {
+      await scan();
+      status = failure;
+      const failed = await scan(endTime, query, { mode: 'refresh' });
+      expect(failed.get('cpu')?.status).toBe(failure);
+      status = 'Complete';
+      const before = requests.length;
+      const recovered = await scan();
+      expect(recovered.get('cpu')?.status).toBe('Complete');
+      expect(requests.length).toBeGreaterThan(before);
+      const after = requests.length;
+      await scan();
+      expect(requests).toHaveLength(after);
+    },
+  );
 
   it('keeps caller IDs out of identity but separates metric dimensions, statistic, period, namespace and authorization scope', async () => {
     await scan();

@@ -99,24 +99,22 @@ describe('elbIdleRule', () => {
     }
   });
 
-  it.each([
-    'application',
-    'network',
-    'gateway',
-    'classic',
-  ] as const)('assesses empty %s load balancers through cleanup evidence despite unsupported request activity', (loadBalancerType) => {
-    const context = createContext(
-      createLoadBalancer({ loadBalancerType }),
-      createActivity({ averageRequestsPerDayLast14Days: null, requestActivityStatus: 'unsupported' }),
-      createTargetGroup({ registeredTargetCount: 0 }),
-    );
+  it.each(['application', 'network', 'gateway', 'classic'] as const)(
+    'assesses empty %s load balancers through cleanup evidence despite unsupported request activity',
+    (loadBalancerType) => {
+      const context = createContext(
+        createLoadBalancer({ loadBalancerType }),
+        createActivity({ averageRequestsPerDayLast14Days: null, requestActivityStatus: 'unsupported' }),
+        createTargetGroup({ registeredTargetCount: 0 }),
+      );
 
-    expect(elbIdleRule.evaluateLive?.(context)).toBeNull();
-    expect(elbIdleRule.getLiveEvaluationCoverage?.(context)).toEqual({
-      assessed: [loadBalancerMatch],
-      unknown: [],
-    });
-  });
+      expect(elbIdleRule.evaluateLive?.(context)).toBeNull();
+      expect(elbIdleRule.getLiveEvaluationCoverage?.(context)).toEqual({
+        assessed: [loadBalancerMatch],
+        unknown: [],
+      });
+    },
+  );
 
   it('does not treat unknown attached target groups as cleanup evidence', () => {
     const context = createContext(
@@ -158,18 +156,18 @@ describe('elbIdleRule', () => {
     });
   });
 
-  it.each([
-    'unknown',
-    'unsupported',
-  ] as const)('leaves explicitly %s request activity unknown despite numeric request counts', (requestActivityStatus) => {
-    const context = createContext(createLoadBalancer(), createActivity({ requestActivityStatus }));
+  it.each(['unknown', 'unsupported'] as const)(
+    'leaves explicitly %s request activity unknown despite numeric request counts',
+    (requestActivityStatus) => {
+      const context = createContext(createLoadBalancer(), createActivity({ requestActivityStatus }));
 
-    expect(elbIdleRule.evaluateLive?.(context)).toBeNull();
-    expect(elbIdleRule.getLiveEvaluationCoverage?.(context)).toEqual({
-      assessed: [],
-      unknown: [loadBalancerMatch],
-    });
-  });
+      expect(elbIdleRule.evaluateLive?.(context)).toBeNull();
+      expect(elbIdleRule.getLiveEvaluationCoverage?.(context)).toEqual({
+        assessed: [],
+        unknown: [loadBalancerMatch],
+      });
+    },
+  );
 
   it.each([
     { listenerProtocols: ['TCP'] },
@@ -177,32 +175,33 @@ describe('elbIdleRule', () => {
     { listenerProtocols: ['HTTP', 'TCP'] },
     { listenerProtocols: [] },
     { listenerProtocols: undefined },
-  ])('leaves Classic load balancers without exclusively HTTP listeners unknown ($listenerProtocols)', ({
-    listenerProtocols,
-  }) => {
-    const context = createContext(
-      createLoadBalancer({ instanceCount: 1, listenerProtocols, loadBalancerType: 'classic' }),
-    );
+  ])(
+    'leaves Classic load balancers without exclusively HTTP listeners unknown ($listenerProtocols)',
+    ({ listenerProtocols }) => {
+      const context = createContext(
+        createLoadBalancer({ instanceCount: 1, listenerProtocols, loadBalancerType: 'classic' }),
+      );
 
-    expect(elbIdleRule.evaluateLive?.(context)).toBeNull();
-    expect(elbIdleRule.getLiveEvaluationCoverage?.(context)).toEqual({
-      assessed: [],
-      unknown: [loadBalancerMatch],
-    });
-  });
+      expect(elbIdleRule.evaluateLive?.(context)).toBeNull();
+      expect(elbIdleRule.getLiveEvaluationCoverage?.(context)).toEqual({
+        assessed: [],
+        unknown: [loadBalancerMatch],
+      });
+    },
+  );
 
-  it.each([
-    'network',
-    'gateway',
-  ] as const)('leaves %s load balancers unknown despite low numeric request activity', (loadBalancerType) => {
-    const context = createContext(createLoadBalancer({ loadBalancerType }));
+  it.each(['network', 'gateway'] as const)(
+    'leaves %s load balancers unknown despite low numeric request activity',
+    (loadBalancerType) => {
+      const context = createContext(createLoadBalancer({ loadBalancerType }));
 
-    expect(elbIdleRule.evaluateLive?.(context)).toBeNull();
-    expect(elbIdleRule.getLiveEvaluationCoverage?.(context)).toEqual({
-      assessed: [],
-      unknown: [loadBalancerMatch],
-    });
-  });
+      expect(elbIdleRule.evaluateLive?.(context)).toBeNull();
+      expect(elbIdleRule.getLiveEvaluationCoverage?.(context)).toEqual({
+        assessed: [],
+        unknown: [loadBalancerMatch],
+      });
+    },
+  );
 
   it('flags load balancers averaging fewer than 10 requests per day over 14 days', () => {
     const finding = elbIdleRule.evaluateLive?.({

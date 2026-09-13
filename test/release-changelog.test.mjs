@@ -42,9 +42,9 @@ async function github(t, respond) {
 function success(query) {
   return {
     data: {
-      a0: Object.fromEntries(
-        [...query.matchAll(/a([a-f0-9]+): object/g)].map(([, commit]) => [
-          `a${commit}`,
+      repo__0: Object.fromEntries(
+        [...query.matchAll(/commit__([a-f0-9]+): object/g)].map(([, commit]) => [
+          `commit__${commit}`,
           {
             commitUrl: `https://github.com/towardsthecloud/cloudburn/commit/${commit}`,
             associatedPullRequests: {

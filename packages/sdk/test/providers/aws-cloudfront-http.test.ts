@@ -8,6 +8,7 @@ import {
   hydrateAwsCloudFrontDistributionRequestActivity,
   hydrateAwsCloudFrontDistributions,
 } from '../../src/providers/aws/resources/cloudfront.js';
+import { decodeRequestBody } from '../helpers/http.js';
 
 const accountId = '123456789012';
 const arn = (id: string) => `arn:aws:cloudfront::${accountId}:distribution/${id}`;
@@ -103,64 +104,61 @@ it('retries a throttled list page without introducing detail requests', async ()
   expect(details()).toHaveLength(0);
 });
 
-it.each([
-  'Complete',
-  'Complete-empty',
-  'PartialData',
-  'Forbidden',
-  'Missing',
-])('preserves %s request evidence through the real CloudWatch helper', async (status) => {
-  vi.useFakeTimers({ toFake: ['Date'] });
-  vi.setSystemTime(new Date('2026-09-07T12:00:00Z'));
-  respond = (request) => {
-    if (request.hostname === 'cloudfront.amazonaws.com') return page(summary('EALL'));
-    const input = JSON.parse(String(request.body));
-    expect(input.MetricDataQueries[0].MetricStat.Metric.Dimensions).toEqual([
-      { Name: 'DistributionId', Value: 'EALL' },
-      { Name: 'Region', Value: 'Global' },
-    ]);
-    const empty = status === 'Complete-empty';
-    return {
-      response: {
-        statusCode: 200,
-        headers: { 'content-type': 'application/json' },
-        body: Buffer.from(
-          JSON.stringify({
-            MetricDataResults:
-              status === 'Missing'
-                ? []
-                : [
-                    {
-                      Id: 'distribution0',
-                      StatusCode: empty ? 'Complete' : status,
-                      Timestamps: empty
-                        ? []
-                        : Array.from({ length: 30 }, (_, index) => Date.UTC(2026, 7, 8 + index) / 1000),
-                      Values: empty ? [] : Array.from({ length: 30 }, () => 3),
-                    },
-                  ],
-          }),
-        ),
-      },
+it.each(['Complete', 'Complete-empty', 'PartialData', 'Forbidden', 'Missing'])(
+  'preserves %s request evidence through the real CloudWatch helper',
+  async (status) => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-09-07T12:00:00Z'));
+    respond = (request) => {
+      if (request.hostname === 'cloudfront.amazonaws.com') return page(summary('EALL'));
+      const input = JSON.parse(decodeRequestBody(request.body));
+      expect(input.MetricDataQueries[0].MetricStat.Metric.Dimensions).toEqual([
+        { Name: 'DistributionId', Value: 'EALL' },
+        { Name: 'Region', Value: 'Global' },
+      ]);
+      const empty = status === 'Complete-empty';
+      return {
+        response: {
+          statusCode: 200,
+          headers: { 'content-type': 'application/json' },
+          body: Buffer.from(
+            JSON.stringify({
+              MetricDataResults:
+                status === 'Missing'
+                  ? []
+                  : [
+                      {
+                        Id: 'distribution0',
+                        StatusCode: empty ? 'Complete' : status,
+                        Timestamps: empty
+                          ? []
+                          : Array.from({ length: 30 }, (_, index) => Date.UTC(2026, 7, 8 + index) / 1000),
+                        Values: empty ? [] : Array.from({ length: 30 }, () => 3),
+                      },
+                    ],
+            }),
+          ),
+        },
+      };
     };
-  };
-  const result = await run(async () => {
-    const distributions = await hydrate();
-    return hydrateAwsCloudFrontDistributionRequestActivity([], {
-      loadDataset: async () => distributions,
-    } as unknown as Parameters<typeof hydrateAwsCloudFrontDistributionRequestActivity>[1]);
-  });
-  expect(result).toEqual([
-    {
-      accountId,
-      distributionArn: arn('EALL'),
-      distributionId: 'EALL',
-      region: 'global',
-      totalRequestsLast30Days: status === 'Complete' ? 90 : null,
-    },
-  ]);
-  expect(requests.filter((request) => request.hostname === 'cloudfront.amazonaws.com')).toHaveLength(1);
-});
+    const result = await run(async () => {
+      const distributions = await hydrate();
+      return hydrateAwsCloudFrontDistributionRequestActivity([], {
+        loadDataset: async () => distributions,
+      } as unknown as Parameters<typeof hydrateAwsCloudFrontDistributionRequestActivity>[1]);
+    });
+    expect(result).toEqual([
+      {
+        accountId,
+        distributionArn: arn('EALL'),
+        distributionId: 'EALL',
+        region: 'global',
+        totalRequestsLast30Days: status === 'Complete' ? 90 : null,
+      },
+    ]);
+    expect(requests.filter((request) => request.hostname === 'cloudfront.amazonaws.com')).toHaveLength(1);
+  },
+);
 
 const run = <T>(load: () => Promise<T>, signal?: AbortSignal) =>
   withAwsClientCredentials({ accessKeyId: 'SYNTHETIC', secretAccessKey: 'synthetic-test-key' }, () =>

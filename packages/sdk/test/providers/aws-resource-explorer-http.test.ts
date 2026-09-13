@@ -15,6 +15,7 @@ import {
   waitForAwsResourceExplorerIndex,
   waitForAwsResourceExplorerSetup,
 } from '../../src/providers/aws/resource-explorer.js';
+import { decodeRequestBody } from '../helpers/http.js';
 
 const jsonResponse = (body: unknown, statusCode = 200) => ({
   response: { statusCode, headers: { 'content-type': 'application/json' }, body: Buffer.from(JSON.stringify(body)) },
@@ -33,7 +34,7 @@ beforeEach(() => {
       unexpected.push(request.hostname);
       throw new Error(`Unexpected AWS host: ${request.hostname}`);
     }
-    return respond(request.path.slice(1), JSON.parse(String(request.body || '{}')));
+    return respond(request.path.slice(1), JSON.parse(decodeRequestBody(request.body || '{}')));
   });
 });
 
