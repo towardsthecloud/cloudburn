@@ -2,7 +2,7 @@
 
 ## Good Tests
 
-**Integration-style**: Test through real interfaces. Follow repository instructions for package boundaries that may be mocked in unit tests.
+**Integration-style**: Test through real interfaces, not mocks of internal parts.
 
 ```typescript
 // GOOD: Tests observable behavior
@@ -37,7 +37,7 @@ test("checkout calls paymentService.process", async () => {
 
 Red flags:
 
-- Mocking collaborators inside the chosen test boundary
+- Mocking internal collaborators
 - Testing private methods
 - Asserting on call counts/order
 - Test breaks when refactoring without behavior change

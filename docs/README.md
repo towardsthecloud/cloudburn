@@ -64,9 +64,10 @@ Update that page in the same change as its source. Link to it from other entry p
 
 - Keep root and package `AGENTS.md` files focused on orientation, non-obvious constraints, and links to deeper guidance.
   Preserve the relative `CLAUDE.md` aliases.
-- Repository skills under `.agents/skills/` contain local workflow customizations. When updating the upstream skills
-  recorded in `skills-lock.json`, review and preserve task-specific triggers, reference routing, test boundaries, and
-  authorization rules. Keep detailed examples in supporting references rather than mandatory entry-point reading.
+- Skills recorded in `skills-lock.json` are upstream-managed. Run `pnpm dlx skills update --project --yes` to update them;
+  the CLI owns their files and lock entries. Keep repository-specific overrides in `AGENTS.md`, not installed skill files.
+  Locally authored skills outside the lockfile, such as `.agents/skills/roadmap/`, are maintained directly. Keep detailed
+  examples in supporting references rather than mandatory entry-point reading.
 - Add, move, or retire durable pages through this catalog. Keep explanations, procedures, and reference facts on their
   owning pages; package READMEs own public package usage and the root README owns product onboarding.
 - Distinguish verified behavior from intended contracts. When code and a documented contract disagree, record the gap

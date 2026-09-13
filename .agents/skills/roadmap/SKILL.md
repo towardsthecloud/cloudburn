@@ -1,8 +1,9 @@
 ---
 name: roadmap
 description: >
-  Create and manage CloudBurn roadmap items. Use this skill whenever the user wants to add
-  a feature request, improvement idea, or any item to the CloudBurn roadmap.
+  Create a GitHub issue and add it to the CloudBurn roadmap when the user requests a roadmap
+  item. Do not trigger for feature implementation, bug fixes, or brainstorming without a
+  request to record an item.
 ---
 
 # CloudBurn Roadmap Skill
@@ -21,19 +22,19 @@ Before creating anything, assess whether you have enough context to write a usef
 
 If the user gives you enough detail to answer all three confidently, skip straight to Phase 2. Don't interview for the sake of interviewing.
 
-Example: "Add a rule that detects idle RDS instances with zero connections over 14 days" — you know the what, why, and scope. Go create it.
+Example: "Add a roadmap item for a rule that detects idle RDS instances with zero connections over 14 days" — you know the what, why, and scope. Create the issue and add it to the roadmap.
 
 ### When the request is vague
 
-If the request is too vague, use the `AskUserQuestion` tool to gather what you need. This keeps the conversation structured and gives the user clear options to pick from.
+If missing product intent prevents a useful issue, ask a concise question using the available user-input tool or plain text. Infer routine details from context and prepare the issue while awaiting any blocking answer.
 
 Guidelines:
-- **One round of questions** — use `AskUserQuestion` with 1-3 focused questions to fill the gaps
+- **Ask only what blocks the issue** — group related missing details into a concise question
 - **Prefer multiple choice options** — offer 2-4 concrete choices per question so the user can pick rather than type
 - **Stay focused** — you're writing a GitHub issue, not architecting a solution
 - **Use good headers** — short labels like "Scope", "Priority", "Service" to keep it scannable
 
-Example: if the user says "we should support Azure", use `AskUserQuestion` with a question like:
+Example: if the user asks to add Azure support to the roadmap without a scope, ask a question like:
 
 - **Header**: "Scope"
 - **Question**: "Azure is a big surface area — where should we start?"
@@ -42,7 +43,7 @@ Example: if the user says "we should support Azure", use `AskUserQuestion` with 
   - "Live discovery" — Detect idle Azure compute resources in real accounts
   - "Both" — Start with IaC scanning and add live discovery next
 
-After the user responds, you should have enough to proceed. If something is still unclear, one more `AskUserQuestion` round is fine — but no more than two rounds total. Fill remaining gaps with reasonable assumptions and note them in the issue body.
+After the user responds, complete the requested roadmap item. Note reasonable assumptions in the issue body; do not infer unresolved product intent from silence or a fixed number of question rounds.
 
 ## Phase 2: Create the roadmap item
 
@@ -75,20 +76,17 @@ Keep it concise. Don't pad with filler or repeat the title in the body.
 
 ### Execute
 
-**Step 1** — Create the GitHub issue:
+**Step 1** — Write the exact issue body to a temporary UTF-8 file outside the repository, then create the GitHub issue:
 
 ```bash
 gh issue create \
   --repo towardsthecloud/cloudburn \
   --title "<title>" \
   --label "<label>" \
-  --body "$(cat <<'EOF'
-<body>
-EOF
-)"
+  --body-file <absolute-path-to-body-file>
 ```
 
-Capture the issue URL from the output.
+Capture the issue URL from the output and remove the temporary body file after successful creation.
 
 **Step 2** — Add the issue to the roadmap project:
 
@@ -108,7 +106,8 @@ gh project item-edit \
   --single-select-option-id f75ad846
 ```
 
-**Step 4** — Confirm to the user with the issue title, label, and link. Keep it brief.
+**Step 4** — Report the issue title, label, and link after all requested steps succeed. If project placement or status fails,
+retain the issue URL and retry only the failed step; do not create a duplicate issue. Report any remaining blocker.
 
 ## Reference: Project IDs
 

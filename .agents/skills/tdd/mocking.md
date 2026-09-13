@@ -1,13 +1,17 @@
 # When to Mock
 
-Mock at system boundaries or repository-defined package boundaries:
+Mock at **system boundaries** only:
 
 - External APIs (payment, email, etc.)
 - Databases (sometimes - prefer test DB)
 - Time/randomness
 - File system (sometimes)
 
-Avoid mocking collaborators inside the chosen test boundary. Follow package instructions for unit and integration tests: a package owned by this repository can still be a valid boundary for its caller's unit tests. Preserve requirements to use real SDK/parser behavior in CLI end-to-end tests and intercept only AWS HTTP transport in discovery integration tests.
+Don't mock:
+
+- Your own classes/modules
+- Internal collaborators
+- Anything you control
 
 ## Designing for Mockability
 

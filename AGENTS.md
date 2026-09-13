@@ -28,6 +28,28 @@ accounts. Dependency direction is `cloudburn CLI -> @cloudburn/sdk -> @cloudburn
 - Before assigning or changing rule IDs, read the [ID convention and compatibility status](docs/reference/rule-ids.md).
   Public ID stability remains unresolved; do not renumber IDs during unrelated maintenance.
 
+## Skill ownership and repository overrides
+
+- Skills listed in `skills-lock.json` are upstream-managed. Update them with
+  `pnpm dlx skills update --project --yes`; let the CLI write skill files and lock entries. Do not hand-edit them.
+  Apply manual skill improvements only to locally owned skills outside the lockfile, such as `roadmap`.
+- Keep repository-specific skill overrides here. Load only references relevant to the task and deduplicate overlapping
+  workflows; existing user authorization covers routine implementation, fixes, and verification.
+- Use `turborepo` when changing or investigating task graphs, caching, filtering, or build orchestration. A monorepo,
+  package directory, or ordinary dependency update alone does not trigger it. Root package build/test entry points use
+  Turbo; repository-wide documentation, release, and validation wrappers may run directly at the root. Package scripts
+  invoke their tools directly; package context can use `pnpm exec turbo run <task>` when needed. Register a Turbo Root Task
+  only when it needs orchestration, and never invoke Turbo recursively from that task.
+- Use `diagnosing-bugs` for hard bugs, regressions, flaky failures, or performance problems. Use `systematic-debugging`
+  only when explicitly requested as an alternative. Repeated failed fixes call for renewed diagnosis, not an automatic
+  approval stop. Keep diagnostics targeted and redacted; production instrumentation still requires authorization.
+- When using `tdd`, infer test boundaries from existing public interfaces and requested behavior. Ask only when an
+  unresolved interface or behavior decision blocks implementation. Follow package mocking rules and the testing strategy;
+  keep passing tests while making refactors needed for the task.
+- Replace upstream references to unavailable `superpowers:test-driven-development`,
+  `superpowers:verification-before-completion`, and `code-review` skills with the applicable TDD policy above,
+  repository validation below, and the existing pre-PR simplifier workflow, respectively.
+
 ## Validation
 
 - Documentation only: `pnpm docs:check && pnpm docs:test`.
