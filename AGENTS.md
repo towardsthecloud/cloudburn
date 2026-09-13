@@ -36,13 +36,12 @@ accounts. Dependency direction is `cloudburn CLI -> @cloudburn/sdk -> @cloudburn
 - Use `turborepo` only for task graphs, caching, filtering, or build orchestration. Root build/test scripts delegate to
   Turbo; docs/release/validation wrappers may run directly. Package scripts invoke tools; package-context Turbo is allowed.
   Add Root Tasks only when orchestration is needed; never recurse into Turbo.
-- Use `diagnosing-bugs` for hard bugs, regressions, flaky tests, or performance; `systematic-debugging` only on request.
-  Failed fixes alone do not require approval; revisit diagnosis. Keep diagnostics targeted and redacted;
+- Use `diagnosing-bugs` for hard bugs, regressions, flaky tests, or performance. Without a runnable reproduction, continue
+  read-only tracing with labeled hypotheses while requesting missing evidence. Keep diagnostics targeted and redacted;
   production instrumentation requires authorization.
 - For `tdd`, infer boundaries from public interfaces and requested behavior; ask only about blocking interface/behavior
   decisions. Follow package mocking rules and the testing strategy; allow needed refactors while keeping tests green.
-- Substitute the repository TDD policy, validation, and pre-PR simplifier for unavailable
-  `superpowers:test-driven-development`, `superpowers:verification-before-completion`, and `code-review`, respectively.
+- Use the pre-PR simplifier where `tdd` references the unavailable `code-review` skill.
 
 ## Validation
 

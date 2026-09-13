@@ -1,11 +1,11 @@
 {
   "version": 1,
   "skills": {
-    "systematic-debugging": {
-      "source": "obra/superpowers",
+    "diagnosing-bugs": {
+      "source": "mattpocock/skills",
       "sourceType": "github",
-      "skillPath": "skills/systematic-debugging/SKILL.md",
-      "computedHash": "a2750dfbaed1690da73b120254892c4f926b4576cb82eb16fc877783941fe39b"
+      "skillPath": "skills/engineering/diagnosing-bugs/SKILL.md",
+      "computedHash": "37b5e9c624513551da790b52864dc8c84bff996a6d03a380cc6facdcc0a88354"
     },
     "tdd": {
       "source": "mattpocock/skills",
