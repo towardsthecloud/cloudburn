@@ -1,5 +1,11 @@
 # @cloudburn/sdk
 
+## 0.36.1
+
+### Patch Changes
+
+- [#271](https://github.com/towardsthecloud/cloudburn/pull/271) [`518a164`](https://github.com/towardsthecloud/cloudburn/commit/518a164a7b17bd70cb871735ac017a8690644395) Thanks [@axonstone](https://github.com/axonstone)! - Refresh AWS SDK and YAML dependencies used by discovery and IaC scans.
+
 ## 0.36.0
 
 ### Minor Changes
