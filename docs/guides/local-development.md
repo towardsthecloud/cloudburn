@@ -35,11 +35,14 @@ Package names are `cloudburn`, `@cloudburn/sdk`, and `@cloudburn/rules`.
 
 Use the smallest relevant test while iterating, then run the gate appropriate to the change:
 
-```bash
-pnpm docs:check && pnpm docs:test
-pnpm exec turbo boundaries
-pnpm verify
-```
+| Change                                                | Final gate                          |
+| ----------------------------------------------------- | ----------------------------------- |
+| Documentation only                                    | `pnpm docs:check && pnpm docs:test` |
+| Behavior, tests, dependencies, or build configuration | `pnpm verify`                       |
+
+Use `pnpm exec turbo boundaries` for focused boundary checks while iterating. The final `pnpm verify` gate includes
+documentation and boundary checks and all test suites; do not repeat included checks on unchanged inputs without a new
+failure or concern. Focused tests run during development need not be run again separately after that gate.
 
 `pnpm verify` runs documentation checks, package boundaries, lint, typecheck, and all tests, including built CLI and installed-package checks. The installed-package suite needs public npm registry access; all AWS discovery responses are synthetic. See the [testing strategy](../TESTING.md) and [command
 reference](../reference/commands.md) for narrower commands and side effects.
