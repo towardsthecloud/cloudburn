@@ -132,10 +132,13 @@ for (const format of ['module', 'commonjs']) {
     const load = format === 'module' ? "await import('@cloudburn/sdk')" : "require('@cloudburn/sdk')";
     const source = `(async () => {
       const assert = ${format === 'module' ? "await import('node:assert/strict')" : "require('node:assert/strict')"};
-      const { CloudBurnClient, assertValidAwsRegion, assertSupportedAwsRegion, withAwsClientCredentials } = ${load};
+      const { CloudBurnClient, assertValidAwsRegion, assertSupportedAwsRegion, withAwsClientCredentials, AWS_CAPABILITIES, getRuleCapabilities } = ${load};
       assert.equal(assertValidAwsRegion('eu-west-1'), 'eu-west-1');
       assert.equal(assertSupportedAwsRegion('us-east-1'), 'us-east-1');
       assert.throws(() => assertSupportedAwsRegion('bad-region'), /Invalid AWS region/);
+      assert.ok(AWS_CAPABILITIES.includes('cost-optimization-hub-enrollment'));
+      assert.deepEqual(getRuleCapabilities('CLDBRN-AWS-COSTOPTIMIZATIONHUB-1'), ['cost-optimization-hub-enrollment']);
+      assert.deepEqual(getRuleCapabilities('CLDBRN-AWS-EBS-1'), []);
       const value = Promise.resolve('scoped');
       assert.equal(withAwsClientCredentials(() => { throw new Error('Credentials must stay unresolved'); }, () => value), value);
       const scanner = new CloudBurnClient();

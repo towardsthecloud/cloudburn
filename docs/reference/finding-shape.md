@@ -118,6 +118,7 @@ state because the promise rejects without a successful partial result. Callback 
 
 ```ts
 type ScanResult = {
+  capabilities?: AwsCapabilityOutcome[];
   diagnostics?: ScanDiagnostic[];
   evidence?: AwsEvidenceProvenance[];
   evaluations?: ScanEvaluations;
@@ -130,6 +131,10 @@ type ScanResult = {
 `evidence` is present when live discovery cache controls are configured, including cache-off mode. It describes
 catalog, dataset, and supporting pricing collection independently of findings: source, timestamps, actual observation
 interval, completeness, and dataset coverage/diagnostics. See the [evidence cache reference](evidence-cache.md#result-provenance).
+
+`capabilities` is populated on every final live `discover()` result — an empty array when no selected rule depends on
+a gated capability — and is omitted by static scans. An absent capability was not assessed, which is not the same as
+ready. See [`AwsCapabilityOutcome`](#awscapabilityoutcome) for the exact shape.
 
 `evaluations` is opt-in for live discovery through `includeEvaluationResources`. It records the primary input resource
 set supplied to completed rules, including rules that returned no findings. Shared sets are emitted once:
@@ -393,3 +398,87 @@ When inline suppressions match, the result can also contain:
   ]
 }
 ```
+
+## AwsCapabilityOutcome
+
+```ts
+type AwsCapabilityOutcome = {
+  capability: AwsCapability;
+  status: AwsCapabilityStatus;
+  reasons: AwsCapabilityReason[];
+  scope: AwsCapabilityScope;
+  datasetKeys: DiscoveryDatasetKey[];
+};
+```
+
+`AwsCapability` is the bounded catalog also exported as `AWS_CAPABILITIES`: `cost-optimization-hub-enrollment`,
+`compute-optimizer-enrollment`, `resource-explorer-aggregator`, `cost-explorer-access`, and `budgets-access`.
+`datasetKeys` lists the discovery datasets that contributed to the outcome, sorted and deduplicated.
+
+```ts
+type AwsCapabilityStatus = 'available' | 'partial' | 'unavailable' | 'error';
+
+type AwsCapabilityReason =
+  | 'not-enrolled'
+  | 'aggregator-required'
+  | 'region-not-enabled'
+  | 'default-view-required'
+  | 'filtered-view'
+  | 'tags-view-required'
+  | 'access-denied'
+  | 'throttled'
+  | 'service-error'
+  | 'incomplete-evidence'
+  | 'dataset-unavailable'
+  | 'not-assessed';
+```
+
+| Status        | Meaning                                                                                                                        |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `available`   | Every mapped dataset the scan needed completed; a successful empty response still counts.                                       |
+| `partial`     | At least one dataset loaded, but evidence has unknown coverage or another dataset or Region failed.                            |
+| `unavailable` | No usable evidence: the capability is not enrolled, access was denied, required setup is missing, or nothing applicable ran.   |
+| `error`       | No usable evidence and at least one observation ended in a throttled or unclassified service error.                            |
+
+| Reason                  | Meaning                                                                              |
+| ----------------------- | ------------------------------------------------------------------------------------ |
+| `not-enrolled`          | The service requires account enrollment or an opt-in that is not active.             |
+| `aggregator-required`   | Account-wide Resource Explorer queries need an accessible aggregator index.          |
+| `region-not-enabled`    | Resource Explorer is not enabled in a required Region.                               |
+| `default-view-required` | Resource Explorer needs a default view in the search Region.                         |
+| `filtered-view`         | The resolved Resource Explorer view applies filters and cannot serve the query.      |
+| `tags-view-required`    | The Resource Explorer view does not expose `tags` for tagging queries.               |
+| `access-denied`         | AWS denied the request.                                                              |
+| `throttled`             | AWS throttled the request.                                                           |
+| `service-error`         | The dataset load ended in an unclassified service error.                             |
+| `incomplete-evidence`   | Returned evidence was partial, carried unknown coverage, or missed selected Regions. |
+| `dataset-unavailable`   | The dataset was skipped for an unclassified reason.                                  |
+| `not-assessed`          | A selected rule required the capability but zero catalog resources matched, so no service call ran. |
+
+```ts
+type AwsCapabilityScope =
+  | { type: 'account' }
+  | { type: 'regional'; regions: string[] }
+  | { type: 'recommendation-source'; accountId: string; region?: string };
+```
+
+Regional scope applies to direct Compute Optimizer observations: `scope.regions` lists the Regions where the mapped
+dataset actually observed catalog resources or failed. When nothing was observed — for `not-assessed` or fully
+unavailable outcomes — it falls back to the requested scan scope. Account scope refers to the scanned account. Neither
+scope certifies full Region, index, or upstream-source coverage.
+
+A `recommendation-source` outcome records that returned Cost Optimization Hub rows carried a given upstream source —
+`ComputeOptimizer` or `CostExplorer` — for that account and optional Region. It is bounded to the returned records and
+does not certify current enrollment or full source coverage, so an empty Hub response produces no source outcome, and a
+source outcome may coexist with a separate direct outcome for the same capability.
+
+Regional Resource Explorer indexing and account-wide tagging are separate observations: a successful regional catalog
+never implies aggregator access, and an `available` `resource-explorer-aggregator` outcome means only that the queried
+aggregator view answered — not that every enabled Region or resource is indexed. `getDiscoveryStatus` remains the
+separate Resource Explorer setup probe and is unaffected by these outcomes.
+
+Reasons are classified from bounded diagnostic codes and statuses only — never from diagnostic text — and are
+independent of rule evaluation statuses: an `available` capability means the datasets loaded, not that the rules
+passed. A capability is absent from `capabilities` only when no selected rule requires it; absence means the scan never
+assessed it. `getRuleCapabilities` maps rule IDs to required capabilities without a scan — see the
+[SDK README](../../packages/sdk/README.md) for its unknown-rule behavior.

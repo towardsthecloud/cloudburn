@@ -1,7 +1,9 @@
 // Intent: expose stable SDK API surface for scanners and integrators.
 // TODO(cloudburn): stabilize API before first public release.
-export { awsCorePreset, SEVERITIES } from '@cloudburn/rules';
-export { builtInRuleMetadata } from './built-in-rules.js';
+
+export type { AwsCapability } from '@cloudburn/rules';
+export { AWS_CAPABILITIES, awsCorePreset, SEVERITIES } from '@cloudburn/rules';
+export { builtInRuleMetadata, getRuleCapabilities } from './built-in-rules.js';
 export type {
   EvidenceCache,
   EvidenceCacheLoad,
@@ -21,6 +23,10 @@ export { isAwsDiscoveryErrorCode } from './providers/aws/errors.js';
 export { assertSupportedAwsRegion, assertValidAwsRegion } from './providers/aws/regions.js';
 export { CloudBurnClient } from './scanner.js';
 export type {
+  AwsCapabilityOutcome,
+  AwsCapabilityReason,
+  AwsCapabilityScope,
+  AwsCapabilityStatus,
   AwsCloudFrontDistribution,
   AwsCloudTrailTrail,
   AwsCloudWatchLogGroup,

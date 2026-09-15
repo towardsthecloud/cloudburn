@@ -1,5 +1,5 @@
-import { awsRules, azureRules, gcpRules } from '@cloudburn/rules';
-import type { BuiltInRuleMetadata, Rule } from './types.js';
+import { awsRules, azureRules, gcpRules, getAwsRuleCapabilities } from '@cloudburn/rules';
+import type { AwsCapability, BuiltInRuleMetadata, Rule } from './types.js';
 
 /**
  * Projects a built-in rule into the serializable metadata exposed by SDK discovery results.
@@ -43,9 +43,26 @@ const compareBuiltInRules = (left: BuiltInRuleMetadata, right: BuiltInRuleMetada
 export const listBuiltInRuleMetadata = (rules: Rule[]): BuiltInRuleMetadata[] =>
   rules.map(toBuiltInRuleMetadata).sort(compareBuiltInRules);
 
+const builtInRules: Rule[] = [...awsRules, ...azureRules, ...gcpRules];
+
 /** Stable metadata for all built-in CloudBurn rules, ordered by provider, service, and rule ID. */
-export const builtInRuleMetadata: BuiltInRuleMetadata[] = listBuiltInRuleMetadata([
-  ...awsRules,
-  ...azureRules,
-  ...gcpRules,
-]);
+export const builtInRuleMetadata: BuiltInRuleMetadata[] = listBuiltInRuleMetadata(builtInRules);
+
+/**
+ * Lists the AWS capabilities a built-in rule directly requires for live discovery.
+ *
+ * Performs no I/O and reads no AWS configuration; it projects pure rule metadata.
+ * Only required `discoveryDependencies` contribute — optional supporting evidence
+ * never appears as a direct capability. Rules without gated datasets, including
+ * IaC-only rules, return an empty list. Each call returns a fresh, alphabetically
+ * sorted array that callers may mutate safely.
+ *
+ * @param ruleId - Built-in rule ID to inspect.
+ * @returns Sorted unique AWS capabilities required by the rule.
+ * @throws Error when `ruleId` does not identify a built-in rule.
+ */
+export const getRuleCapabilities = (ruleId: string): AwsCapability[] => {
+  const rule = builtInRules.find((candidate) => candidate.id === ruleId);
+  if (!rule) throw new Error(`Unknown built-in rule '${ruleId}'.`);
+  return getAwsRuleCapabilities(rule);
+};

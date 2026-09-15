@@ -5,9 +5,10 @@ import type {
   LiveEvaluationContext,
   Rule,
 } from '@cloudburn/rules';
-import { LiveResourceBag } from '@cloudburn/rules';
+import { getAwsDatasetCapability, LiveResourceBag } from '@cloudburn/rules';
 import { emitDebugLog } from '../../debug.js';
 import type {
+  AwsCapabilityOutcome,
   AwsDiscoveryCatalog,
   AwsDiscoveryInitialization,
   AwsDiscoveryProgressEvent,
@@ -16,6 +17,7 @@ import type {
   AwsSupportedResourceType,
   ScanDiagnostic,
 } from '../../types.js';
+import { buildAwsCapabilityOutcomes } from './capabilities.js';
 import { assertValidAwsRegion, listEnabledAwsRegions, resolveAwsAccountId, resolveCurrentAwsRegion } from './client.js';
 import {
   type AwsDiscoveryDatasetLoadContext,
@@ -209,6 +211,7 @@ const collectDiscoveryDependencies = (rules: Rule[]): DiscoveryDatasetKey[] => {
 };
 
 type LiveDiscoveryContext = LiveEvaluationContext & {
+  capabilities?: AwsCapabilityOutcome[];
   diagnostics: ScanDiagnostic[];
   unavailableDatasets?: Map<DiscoveryDatasetKey, ScanDiagnostic[]>;
   unavailableRegions?: Map<DiscoveryDatasetKey, Set<string>>;
@@ -356,6 +359,7 @@ export const discoverAwsResources = async (
 
   if (datasetKeys.length === 0) {
     return {
+      capabilities: [],
       catalog: await buildEmptyLocalCatalog(await resolveAccountScopedDatasetRegion(target)),
       diagnostics: [],
       resources: new LiveResourceBag(),
@@ -562,12 +566,15 @@ export const discoverAwsResources = async (
             options?.debugLogger,
             `aws: completed dataset ${datasetKey} with ${resources.length} resources in ${formatElapsedMs(startedAtMs)}`,
           );
-        return result(
+        const aggregate = result(
           resources,
           loads.flatMap((load) => load.diagnostics),
           loads.length > 0 && loads.every((load) => load.unavailable),
           loads.flatMap((load) => load.unavailableDiagnostics ?? (load.unavailable ? load.diagnostics : [])),
         );
+        const assessed = loads.flatMap((load) => load.coverage?.assessed ?? []);
+        const unknown = loads.flatMap((load) => load.coverage?.unknown ?? []);
+        return assessed.length + unknown.length > 0 ? { ...aggregate, coverage: { assessed, unknown } } : aggregate;
       }
       const regionResources = region ? matchingResources.filter((resource) => resource.region === region) : [];
       if (!accountScoped && regionResources.length === 0) return result([], [], false);
@@ -838,8 +845,58 @@ export const discoverAwsResources = async (
           ] as const,
       ),
   );
+  const capabilityRegions =
+    target.mode === 'regions'
+      ? target.regions.map(assertValidAwsRegion)
+      : target.mode === 'all'
+        ? sortUnique([
+            ...catalog.resources.map((resource) => resource.region),
+            ...[...unavailableRegions.values()].flatMap((regions) => [...regions]),
+          ])
+        : [datasetRegion];
+  const evidenceProvenance = getAwsEvidenceProvenance();
+  const capabilityObservations = await Promise.all(
+    allDatasetLoads
+      .filter((loadResult) => getAwsDatasetCapability(loadResult.dataset[0]) !== undefined)
+      .map(async (loadResult) => {
+        const datasetKey = loadResult.dataset[0];
+        const definition = getAwsDiscoveryDatasetDefinition(datasetKey);
+        const datasetUnavailableRegions = unavailableRegions.get(datasetKey);
+        const inputResources =
+          definition !== undefined && definition.resourceTypes.length > 0
+            ? (await resolveDatasetCatalog(definition.resourceTypes)).resources
+            : [];
+        const regions = sortUnique([
+          ...inputResources.map((resource) => resource.region),
+          ...(datasetUnavailableRegions ?? []),
+        ]);
+        return {
+          datasetKey,
+          diagnostics: loadResult.unavailableDiagnostics ?? loadResult.diagnostics,
+          unavailable: loadResult.unavailable,
+          ...(loadResult.coverage ? { coverage: loadResult.coverage } : {}),
+          ...(datasetUnavailableRegions?.size ? { unavailableRegions: [...datasetUnavailableRegions] } : {}),
+          ...(regions.length > 0 ? { regions } : {}),
+          ...(!loadResult.unavailable &&
+          definition !== undefined &&
+          definition.resourceTypes.length > 0 &&
+          inputResources.length === 0
+            ? { notAssessed: true }
+            : {}),
+          ...(evidenceProvenance?.some((entry) => entry.datasetKey === datasetKey && !entry.complete)
+            ? { incomplete: true }
+            : {}),
+        };
+      }),
+  );
+  const capabilities = buildAwsCapabilityOutcomes(
+    capabilityObservations,
+    capabilityRegions,
+    Object.fromEntries(allDatasetLoads.map((loadResult) => loadResult.dataset)) as Partial<DiscoveryDatasetMap>,
+  );
 
   return {
+    capabilities,
     catalog,
     diagnostics: [
       ...(catalogFailureDiagnostic ? [catalogFailureDiagnostic] : []),

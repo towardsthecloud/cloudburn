@@ -109,7 +109,14 @@ graph LR
   Preset --> Export
 ```
 
-`awsRules` is the complete public AWS rule pack. `awsCorePreset` is the runtime default and may exclude opt-in rules whose infrastructure requirements are not guaranteed by a standard setup.
+`awsRules` is the complete public AWS rule pack. `awsCorePreset` is the runtime default and may exclude opt-in rules
+whose infrastructure requirements are not guaranteed by a standard setup. The preset derives its exclusions from the
+rule-to-capability mapping in [`src/shared/capabilities.ts`](../../packages/rules/src/shared/capabilities.ts) rather
+than hardcoded rule IDs: a rule is opt-in when a required `discoveryDependencies` dataset maps to
+`cost-optimization-hub-enrollment`, `compute-optimizer-enrollment`, or `resource-explorer-aggregator`. Optional
+supporting evidence never contributes. Datasets mapped to access-only capabilities (`cost-explorer-access`,
+`budgets-access`) keep their rules enabled. `getAwsDatasetCapability` and `getAwsRuleCapabilities` expose the pure
+mapping for the SDK and callers.
 
 ## Authoring Rules
 
