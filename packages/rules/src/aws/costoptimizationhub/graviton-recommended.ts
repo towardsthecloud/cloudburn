@@ -1,11 +1,8 @@
-import { createFinding, createFindingMatch, createRule } from '../../shared/helpers.js';
+import { createFinding, createRule } from '../../shared/helpers.js';
+import { deduplicateRecommendationMatches } from '../../shared/recommendation.js';
+import { createAwsCostOptimizationHubFindingMatch } from './finding.js';
 
-/** Resource namespaces for the supported Hub architecture migrations. */
-export const gravitonResourceTypes = {
-  Ec2Instance: 'ec2:instance',
-  Ec2AutoScalingGroup: 'autoscaling:autoScalingGroup',
-  RdsDbInstance: 'rds:db',
-} as const;
+export { gravitonResourceTypes } from './graviton-identity.js';
 
 const metadata = {
   id: 'CLDBRN-AWS-COSTOPTIMIZATIONHUB-6',
@@ -22,24 +19,16 @@ export const costOptimizationHubGravitonRecommendedRule = createRule({
     'Flag EC2 instances, Auto Scaling groups, and RDS DB instances with AWS Graviton migration recommendations.',
   provider: 'aws',
   supports: ['discovery'],
+  supersedesRuleIds: ['CLDBRN-AWS-EC2-6', 'CLDBRN-AWS-RDS-4'],
   discoveryDependencies: ['aws-cost-optimization-hub-graviton-recommendations'],
   evaluateLive: ({ resources }) =>
     createFinding(
       metadata,
       'discovery',
-      [
-        ...new Map(
-          resources
-            .get('aws-cost-optimization-hub-graviton-recommendations')
-            .map((item) => [item.recommendationId, item]),
-        ).values(),
-      ].map((item) => ({
-        ...createFindingMatch(
-          item.resourceId ?? item.resourceArn ?? item.recommendationId,
-          item.region,
-          item.accountId,
-        ),
-        resourceType: gravitonResourceTypes[item.currentResourceType],
-      })),
+      deduplicateRecommendationMatches(
+        resources
+          .get('aws-cost-optimization-hub-graviton-recommendations')
+          .map(createAwsCostOptimizationHubFindingMatch),
+      ),
     ),
 });

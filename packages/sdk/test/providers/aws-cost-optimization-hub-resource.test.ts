@@ -324,6 +324,146 @@ describe('hydrateAwsCostOptimizationHubSavingsPlansRecommendations', () => {
     ).toEqual([undefined, 'page-2']);
   });
 
+  it.each([0, 1] as const)(
+    'keeps the freshest duplicate summary for the same recommendation scope regardless of order %s',
+    async (order) => {
+      const older = recommendation('recommendation-1', {
+        lastRefreshTimestamp: new Date('2026-09-03T00:00:00.000Z'),
+      });
+      const newer = recommendation('recommendation-1', {
+        lastRefreshTimestamp: new Date('2026-09-04T00:00:00.000Z'),
+      });
+      const items = order === 0 ? [older, newer] : [newer, older];
+      const send = vi.fn(async (command: unknown) => {
+        if (command instanceof ListEnrollmentStatusesCommand) {
+          return { items: [{ accountId, status: 'Active' }] };
+        }
+
+        if (command instanceof ListRecommendationsCommand) {
+          return { items };
+        }
+
+        if (command instanceof GetRecommendationCommand) {
+          return {
+            recommendedResourceDetails: {
+              sageMakerSavingsPlans: {
+                configuration: {
+                  accountScope: 'LINKED',
+                  hourlyCommitment: '0.25',
+                  paymentOption: 'NoUpfront',
+                  term: 'OneYear',
+                },
+              },
+            },
+          };
+        }
+
+        throw new Error(`Unexpected command: ${String(command)}`);
+      });
+      mockedCreateCostOptimizationHubClient.mockReturnValue({ send } as never);
+
+      const result = await hydrateAwsCostOptimizationHubSavingsPlansRecommendations([], {
+        resolveAccountId: vi.fn().mockResolvedValue(accountId),
+      });
+
+      expect(result).toEqual([
+        expect.objectContaining({
+          lastRefreshTimestamp: '2026-09-04T00:00:00.000Z',
+          recommendationId: 'recommendation-1',
+        }),
+      ]);
+      expect(send.mock.calls.filter(([command]) => command instanceof GetRecommendationCommand)).toHaveLength(1);
+    },
+  );
+
+  it('does not conflate the same recommendation ID across different regions', async () => {
+    const send = vi.fn(async (command: unknown) => {
+      if (command instanceof ListEnrollmentStatusesCommand) {
+        return { items: [{ accountId, status: 'Active' }] };
+      }
+
+      if (command instanceof ListRecommendationsCommand) {
+        return {
+          items: [
+            recommendation('recommendation-1', { region: 'eu-west-1' }),
+            recommendation('recommendation-1', { region: 'us-east-1' }),
+          ],
+        };
+      }
+
+      if (command instanceof GetRecommendationCommand) {
+        return {
+          recommendedResourceDetails: {
+            sageMakerSavingsPlans: {
+              configuration: {
+                accountScope: 'LINKED',
+                hourlyCommitment: '0.25',
+                paymentOption: 'NoUpfront',
+                term: 'OneYear',
+              },
+            },
+          },
+        };
+      }
+
+      throw new Error(`Unexpected command: ${String(command)}`);
+    });
+    mockedCreateCostOptimizationHubClient.mockReturnValue({ send } as never);
+
+    const result = await hydrateAwsCostOptimizationHubSavingsPlansRecommendations([], {
+      resolveAccountId: vi.fn().mockResolvedValue(accountId),
+    });
+
+    expect(result).toEqual([
+      expect.objectContaining({ recommendationId: 'recommendation-1', region: 'eu-west-1' }),
+      expect.objectContaining({ recommendationId: 'recommendation-1', region: 'us-east-1' }),
+    ]);
+    expect(send.mock.calls.filter(([command]) => command instanceof GetRecommendationCommand)).toHaveLength(2);
+  });
+
+  it('requests recommendation details in deterministic scope order', async () => {
+    const send = vi.fn(async (command: unknown) => {
+      if (command instanceof ListEnrollmentStatusesCommand) {
+        return { items: [{ accountId, status: 'Active' }] };
+      }
+
+      if (command instanceof ListRecommendationsCommand) {
+        return {
+          items: [recommendation('recommendation-z'), recommendation('recommendation-a')],
+        };
+      }
+
+      if (command instanceof GetRecommendationCommand) {
+        return {
+          recommendedResourceDetails: {
+            sageMakerSavingsPlans: {
+              configuration: {
+                accountScope: 'LINKED',
+                hourlyCommitment: '0.25',
+                paymentOption: 'NoUpfront',
+                term: 'OneYear',
+              },
+            },
+          },
+        };
+      }
+
+      throw new Error(`Unexpected command: ${String(command)}`);
+    });
+    mockedCreateCostOptimizationHubClient.mockReturnValue({ send } as never);
+
+    await hydrateAwsCostOptimizationHubSavingsPlansRecommendations([], {
+      resolveAccountId: vi.fn().mockResolvedValue(accountId),
+    });
+
+    expect(
+      send.mock.calls
+        .map(([command]) => command)
+        .filter((command): command is GetRecommendationCommand => command instanceof GetRecommendationCommand)
+        .map((command) => command.input.recommendationId),
+    ).toEqual(['recommendation-a', 'recommendation-z']);
+  });
+
   it('marks recommendation evidence unavailable when purchase terms are incomplete', async () => {
     mockedCreateCostOptimizationHubClient.mockReturnValue({
       send: vi.fn(async (command: unknown) => {

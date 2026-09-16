@@ -16,7 +16,10 @@ import type {
   AwsEvidenceProvenance,
   CloudBurnClient,
   EvidenceCacheStore,
+  EvidenceProvenance,
+  FindingRecommendation,
   LiveEvaluationCoverage,
+  RecommendationIdentity,
   RuleEvaluation,
 } from '../src/index.js';
 
@@ -78,6 +81,22 @@ describe('public SDK contracts', () => {
     const type: AwsCostOptimizationHubUpgradeRecommendation['actionType'] = 'Upgrade';
     expect(type).toBe('Upgrade');
     expect(shapes).toHaveLength(5);
+
+    const provenance: EvidenceProvenance = {
+      source: 'aws-cost-optimization-hub',
+      sourceDetail: 'ComputeOptimizer',
+      sourceId: 'rec-1',
+      refreshedAt: '2026-09-04T00:00:00.000Z',
+    };
+    const identity: RecommendationIdentity = {
+      resourceKey: '["resource",1,"aws","123456789012","eu-west-1","ec2:volume","vol-1"]',
+      opportunityId: '["opportunity",1,"aws","123456789012","eu-west-1","ec2:volume","vol-1","Delete"]',
+    };
+    const recommendation: FindingRecommendation = { ...provenance, ...identity };
+    // @ts-expect-error Recommendation provenance always requires a source.
+    const missingSource: EvidenceProvenance = { sourceId: 'rec-1' };
+    expect(recommendation.opportunityId).toContain('"Delete"');
+    expect(missingSource).toBeDefined();
 
     const coverage: LiveEvaluationCoverage = { assessed: [], unknown: [{ resourceId: 'function' }] };
     const evaluation: Pick<RuleEvaluation, 'status' | 'coverage'> = { coverage, status: 'unknown' };

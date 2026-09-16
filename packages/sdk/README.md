@@ -190,6 +190,16 @@ coverage and nullable metric fields.
 Rule entries also carry generic rule and service metadata so callers can select checks and build their own product
 views without re-querying AWS or maintaining a second copy of rule descriptions.
 
+Live findings that correspond to a recommendation also carry normalized `recommendation` metadata: the producing
+`source` (`cloudburn` or `aws-cost-optimization-hub`), an optional `sourceDetail` such as `ComputeOptimizer` or
+`CostExplorer`, the source-side `sourceId`, and source-reported `observedAt`/`refreshedAt` timestamps that are omitted
+rather than guessed when the source does not report them. Scoped findings also carry opaque versioned `resourceKey`
+and `opportunityId` identity keys: `resourceKey` identifies the provider/account/Region/canonical resource, and
+`opportunityId` adds the action. Cross-rule precedence only applies between matches sharing a complete
+`opportunityId`, so a different action or scope on the same resource is preserved. Evaluation resource sets record
+pre-precedence evidence and are not totals. The [finding reference](../../docs/reference/finding-shape.md#findingrecommendation)
+documents the exact fields and precedence table.
+
 Every live `discover()` result also reports `capabilities`: a read-only readiness projection for the AWS capabilities
 the selected rules require. Each outcome reports `available`, `partial`, `unavailable`, or `error` with
 machine-readable reasons such as `not-enrolled`, `aggregator-required`, or `data-unavailable`, scoped to the account,
@@ -284,9 +294,10 @@ application validation before migration; unclassified workloads have no confirme
 
 Missing configuration, unsupported effort, incomplete evidence, unenrolled accounts, and denied access produce a
 diagnostic and `not_applicable` evaluation. An enrolled account with no matching recommendations passes.
-The native EC2 and RDS Graviton rules currently use family heuristics, which do not provide stronger workload
-compatibility evidence, so their findings do not suppress this rule. Suppression requires an enabled native rule
-reporting the same resource with stronger compatibility evidence.
+An enabled Hub finding takes precedence over the native `CLDBRN-AWS-EC2-6` and `CLDBRN-AWS-RDS-4` Graviton reviews for
+the same account, Region, canonical resource, and `MigrateToGraviton` action. ECS and EKS Graviton findings use
+different resource namespaces and stay separate; they cannot be summed with EC2/RDS findings across the underlying
+fleets. Evaluation evidence retains every rule's original result before precedence.
 
 `CLDBRN-AWS-COSTOPTIMIZATIONHUB-2` uses the same read-only enrollment, paginated recommendation, and bounded detail
 loading seam for EC2, RDS, OpenSearch, Redshift, ElastiCache, MemoryDB, and DynamoDB reservation purchases. Its

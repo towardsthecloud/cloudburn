@@ -136,6 +136,13 @@ describe('CloudBurnClient', () => {
                   resourceId: 'vol-123',
                   region: 'us-east-1',
                   accountId: '123456789012',
+                  actionType: 'Upgrade',
+                  recommendation: {
+                    opportunityId:
+                      '["opportunity",1,"aws","123456789012","us-east-1","ec2:volume","vol-123","Upgrade"]',
+                    resourceKey: '["resource",1,"aws","123456789012","us-east-1","ec2:volume","vol-123"]',
+                    source: 'cloudburn',
+                  },
                   resourceType: 'ec2:volume',
                 },
               ],
@@ -438,10 +445,17 @@ describe('CloudBurnClient', () => {
           resources: [
             {
               accountId: '123456789012',
+              actionType: 'PurchaseSavingsPlans',
               data: recommendation,
+              recommendation: {
+                refreshedAt: '2026-09-03T00:00:00.000Z',
+                source: 'aws-cost-optimization-hub',
+                sourceDetail: 'CostExplorer',
+                sourceId: 'recommendation-1',
+              },
               region: 'global',
               resourceId: 'recommendation-1',
-              resourceType: 'costoptimizationhub:savings-plans-recommendation',
+              resourceType: 'costoptimizationhub:savings-plans-recommendation:SageMakerSavingsPlans',
             },
           ],
         },

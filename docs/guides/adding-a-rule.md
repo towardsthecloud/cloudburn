@@ -44,8 +44,13 @@ Key patterns:
   another active rule but can still reach a valid result when that dataset is absent or unavailable. Optional
   dependencies do not trigger dataset loading on their own.
 - Use `supersedesRuleIds` only when this rule's emitted identity is stronger evidence for the same resource and action.
-  The target finding remains unless both rules are active and this rule emits the identical resource namespace, ID,
-  account, and Region.
+  Precedence compares normalized `opportunityId` identity — provider, account, Region, resource namespace, canonical
+  resource ID, and `actionType` — so the target finding remains unless both rules are active and emit the identical
+  scoped identity and action. Different actions on the same resource are separate opportunities.
+- When a live finding carries an action, wrap it in `createRecommendationMatch(provider, match, provenance)` so it gets
+  normalized `recommendation` provenance and identity. Provenance timestamps must come from the evidence source; omit
+  them when unknown instead of using evaluation time. See
+  [finding-shape.md](../reference/finding-shape.md#findingrecommendation).
 - Reuse an existing dataset key when the service already exposes the normalized fields you need.
 - If the same policy should work in both scan modes, keep the static and discovery predicates aligned and extract shared helpers when that reduces duplication.
 - Read static data from `StaticEvaluationContext.resources` with `resources.get('<dataset-key>')`.

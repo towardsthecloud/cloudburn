@@ -1,4 +1,5 @@
 import { createFinding, createFindingMatch, createRule } from '../../shared/helpers.js';
+import { createRecommendationMatch } from '../../shared/recommendation.js';
 import {
   isAwsEc2GravitonFamily,
   shouldReviewAwsEc2InstanceTypeForGraviton,
@@ -52,7 +53,17 @@ export const eksGravitonReviewRule = createRule({
     const findings = resources
       .get('aws-eks-nodegroups')
       .filter((nodegroup) => shouldReviewNodegroupForGraviton(nodegroup.instanceTypes, nodegroup.amiType))
-      .map((nodegroup) => createFindingMatch(nodegroup.nodegroupArn, nodegroup.region, nodegroup.accountId));
+      .map((nodegroup) =>
+        createRecommendationMatch(
+          'aws',
+          {
+            ...createFindingMatch(nodegroup.nodegroupArn, nodegroup.region, nodegroup.accountId),
+            resourceType: 'eks:nodegroup',
+            actionType: 'MigrateToGraviton',
+          },
+          { source: 'cloudburn' },
+        ),
+      );
 
     return createFinding(
       { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },

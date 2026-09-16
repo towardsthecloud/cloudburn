@@ -38,6 +38,15 @@ describe('ecsGravitonReviewRule', () => {
           accountId: '123456789012',
           region: 'us-east-1',
           resourceId: 'arn:aws:ecs:us-east-1:123456789012:container-instance/production/abc123',
+          resourceType: 'ecs:container-instance',
+          actionType: 'MigrateToGraviton',
+          recommendation: {
+            source: 'cloudburn',
+            resourceKey:
+              '["resource",1,"aws","123456789012","us-east-1","ecs:container-instance","arn:aws:ecs:us-east-1:123456789012:container-instance/production/abc123"]',
+            opportunityId:
+              '["opportunity",1,"aws","123456789012","us-east-1","ecs:container-instance","arn:aws:ecs:us-east-1:123456789012:container-instance/production/abc123","MigrateToGraviton"]',
+          },
         },
       ],
     });

@@ -58,6 +58,12 @@ describe('rdsStorageTypeCurrentGenRule', () => {
           region: 'us-east-1',
           accountId: '123456789012',
           resourceType: 'rds:db-storage',
+          actionType: 'Upgrade',
+          recommendation: {
+            source: 'cloudburn',
+            resourceKey: '["resource",1,"aws","123456789012","us-east-1","rds:db-storage","orders"]',
+            opportunityId: '["opportunity",1,"aws","123456789012","us-east-1","rds:db-storage","orders","Upgrade"]',
+          },
         },
       ],
     });
@@ -87,6 +93,12 @@ describe('rdsStorageTypeCurrentGenRule', () => {
           region: 'us-east-1',
           accountId: '123456789012',
           resourceType: 'rds:db-storage',
+          actionType: 'Upgrade',
+          recommendation: {
+            source: 'cloudburn',
+            resourceKey: '["resource",1,"aws","123456789012","us-east-1","rds:db-storage","orders"]',
+            opportunityId: '["opportunity",1,"aws","123456789012","us-east-1","rds:db-storage","orders","Upgrade"]',
+          },
         },
       ],
     });

@@ -126,7 +126,23 @@ it('reports provisional Hub evidence before native evidence and preserves final 
           provisional: true,
           status: 'triggered',
           findingCount: 1,
-          findings: [{ accountId, region, resourceId: 'vol-test', resourceType: 'ec2:volume', actionType: 'Delete' }],
+          findings: [
+            {
+              accountId,
+              actionType: 'Delete',
+              recommendation: {
+                opportunityId: '["opportunity",1,"aws","123456789012","eu-west-1","ec2:volume","vol-test","Delete"]',
+                refreshedAt: '2026-09-04T00:00:00.000Z',
+                resourceKey: '["resource",1,"aws","123456789012","eu-west-1","ec2:volume","vol-test"]',
+                source: 'aws-cost-optimization-hub',
+                sourceDetail: 'ComputeOptimizer',
+                sourceId: 'idle-volume',
+              },
+              region,
+              resourceId: 'vol-test',
+              resourceType: 'ec2:volume',
+            },
+          ],
         }),
       ),
     );

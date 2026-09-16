@@ -50,6 +50,35 @@ describe('Cost Optimization Hub reservation orchestration', () => {
     vi.resetAllMocks();
   });
 
+  it('aligns provisional counts with deduplicated findings while retaining raw evaluation counts', async () => {
+    const volume = { accountId, region, volumeId: 'vol-duplicate', volumeType: 'gp3', sizeGiB: 20, attachments: [] };
+    const context = {
+      catalog: discoveryCatalog,
+      resources: new LiveResourceBag({ 'aws-ebs-volumes': [volume, volume] }),
+      diagnostics: [],
+    };
+    mockedDiscoverAwsResources.mockImplementation(async (rules, _target, options) => {
+      for (const rule of rules) options?.onRuleReady?.(rule, context);
+      return context;
+    });
+    const events: unknown[] = [];
+    const result = await runLiveScan(
+      { discovery: { enabledRules: ['CLDBRN-AWS-EBS-2'] }, iac: {} },
+      { mode: 'current' },
+      { includeEvaluationResources: true, onProgress: (event) => events.push(event) },
+    );
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        kind: 'rule',
+        ruleId: 'CLDBRN-AWS-EBS-2',
+        findingCount: 1,
+        findings: [expect.objectContaining({ resourceId: 'vol-duplicate' })],
+      }),
+    );
+    expect(result.evaluations?.rules[0]).toMatchObject({ findingCount: 2 });
+    expect(result.providers[0]?.rules[0]?.findings).toHaveLength(1);
+  });
+
   it('keeps a Hub finding when a matching native rule only exists in the catalog and projects full evidence', async () => {
     const arnIdentifiedRecommendation = {
       ...reservationRecommendation,
@@ -70,11 +99,28 @@ describe('Cost Optimization Hub reservation orchestration', () => {
       { includeEvaluationResources: true },
     );
 
+    const expectedRecommendation = {
+      opportunityId: '["opportunity",1,"aws","123456789012","eu-west-1","rds:db","orders","PurchaseReservedInstances"]',
+      refreshedAt: '2026-09-04T00:00:00.000Z',
+      resourceKey: '["resource",1,"aws","123456789012","eu-west-1","rds:db","orders"]',
+      source: 'aws-cost-optimization-hub',
+      sourceDetail: 'CostExplorer',
+      sourceId: 'recommendation-1',
+    };
     expect(result.providers).toEqual([
       expect.objectContaining({
         rules: [
           expect.objectContaining({
-            findings: [{ accountId, region, resourceId: 'orders', resourceType: 'rds:db' }],
+            findings: [
+              {
+                accountId,
+                actionType: 'PurchaseReservedInstances',
+                recommendation: expectedRecommendation,
+                region,
+                resourceId: 'orders',
+                resourceType: 'rds:db',
+              },
+            ],
             ruleId: 'CLDBRN-AWS-COSTOPTIMIZATIONHUB-2',
           }),
         ],
@@ -87,8 +133,10 @@ describe('Cost Optimization Hub reservation orchestration', () => {
           resources: [
             {
               accountId,
+              actionType: 'PurchaseReservedInstances',
               arn: reservationRecommendation.resourceArn,
               data: { ...arnIdentifiedRecommendation, region },
+              recommendation: expectedRecommendation,
               region,
               resourceId: 'orders',
               resourceType: 'rds:db',
@@ -264,6 +312,7 @@ describe('Cost Optimization Hub reservation orchestration', () => {
       },
       recommendationId: 'recommendation-2',
       reservationType: 'ElastiCacheReservedInstances' as const,
+      resourceArn: undefined,
     };
     mockedDiscoverAwsResources.mockResolvedValue({
       catalog: discoveryCatalog,
@@ -298,6 +347,23 @@ describe('Cost Optimization Hub reservation orchestration', () => {
       result.providers
         .flatMap((provider) => provider.rules)
         .find((rule) => rule.ruleId === 'CLDBRN-AWS-COSTOPTIMIZATIONHUB-2')?.findings,
-    ).toEqual([{ accountId, region, resourceId: 'orders', resourceType: 'elasticache:cluster' }]);
+    ).toEqual([
+      {
+        accountId,
+        actionType: 'PurchaseReservedInstances',
+        recommendation: {
+          opportunityId:
+            '["opportunity",1,"aws","123456789012","eu-west-1","elasticache:cluster","orders","PurchaseReservedInstances"]',
+          refreshedAt: '2026-09-04T00:00:00.000Z',
+          resourceKey: '["resource",1,"aws","123456789012","eu-west-1","elasticache:cluster","orders"]',
+          source: 'aws-cost-optimization-hub',
+          sourceDetail: 'CostExplorer',
+          sourceId: 'recommendation-2',
+        },
+        region,
+        resourceId: 'orders',
+        resourceType: 'elasticache:cluster',
+      },
+    ]);
   });
 });

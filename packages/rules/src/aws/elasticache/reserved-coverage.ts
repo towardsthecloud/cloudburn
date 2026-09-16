@@ -1,4 +1,5 @@
 import { createFinding, createFindingMatch, createRule } from '../../shared/helpers.js';
+import { createRecommendationMatch } from '../../shared/recommendation.js';
 import { parseElastiCacheNodeType } from './shared.js';
 
 const RULE_ID = 'CLDBRN-AWS-ELASTICACHE-1';
@@ -181,10 +182,17 @@ export const elastiCacheReservedCoverageRule = createRule({
           cluster.numCacheNodes * capacityShape.normalizedUnits,
         );
       })
-      .map((cluster) => ({
-        ...createFindingMatch(cluster.cacheClusterId, cluster.region, cluster.accountId),
-        resourceType: 'elasticache:cluster',
-      }));
+      .map((cluster) =>
+        createRecommendationMatch(
+          'aws',
+          {
+            ...createFindingMatch(cluster.cacheClusterId, cluster.region, cluster.accountId),
+            resourceType: 'elasticache:cluster',
+            actionType: 'PurchaseReservedInstances',
+          },
+          { source: 'cloudburn' },
+        ),
+      );
 
     return createFinding(
       { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },

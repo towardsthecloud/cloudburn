@@ -1,4 +1,5 @@
 import { createFinding, createFindingMatch, createRule } from '../../shared/helpers.js';
+import { createRecommendationMatch } from '../../shared/recommendation.js';
 
 const RULE_ID = 'CLDBRN-AWS-EBS-2';
 const RULE_SERVICE = 'ebs';
@@ -21,11 +22,17 @@ export const ebsUnattachedVolumeRule = createRule({
     const findings = resources
       .get('aws-ebs-volumes')
       .filter((volume) => volume.attachments?.length === 0)
-      .map((volume) => ({
-        ...createFindingMatch(volume.volumeId, volume.region, volume.accountId),
-        resourceType: 'ec2:volume',
-        actionType: 'Delete',
-      }));
+      .map((volume) =>
+        createRecommendationMatch(
+          'aws',
+          {
+            ...createFindingMatch(volume.volumeId, volume.region, volume.accountId),
+            resourceType: 'ec2:volume',
+            actionType: 'Delete',
+          },
+          { source: 'cloudburn' },
+        ),
+      );
 
     return createFinding(
       { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },

@@ -53,7 +53,21 @@ describe('idle capacity orchestration and evidence', () => {
     setup();
     const result = await run([ruleId]);
     expect(result.providers[0]?.rules[0]?.findings).toEqual([
-      { accountId, region, resourceId: 'vol-test', resourceType: 'ec2:volume', actionType: 'Delete' },
+      {
+        accountId,
+        actionType: 'Delete',
+        recommendation: {
+          opportunityId: '["opportunity",1,"aws","123456789012","eu-west-1","ec2:volume","vol-test","Delete"]',
+          refreshedAt: '2026-09-04T00:00:00Z',
+          resourceKey: '["resource",1,"aws","123456789012","eu-west-1","ec2:volume","vol-test"]',
+          source: 'aws-cost-optimization-hub',
+          sourceDetail: 'ComputeOptimizer',
+          sourceId: 'rec-1',
+        },
+        region,
+        resourceId: 'vol-test',
+        resourceType: 'ec2:volume',
+      },
     ]);
     expect(result.evaluations?.resourceSets[0]?.resources).toEqual([
       expect.objectContaining({ data: recommendation, resourceId: 'vol-test', resourceType: 'ec2:volume' }),

@@ -73,6 +73,7 @@ describe('CLDBRN-AWS-COSTOPTIMIZATIONHUB-2', () => {
       createRecommendation({
         recommendationId: `recommendation-${index + 1}`,
         reservationType,
+        resourceArn: undefined,
         resourceId: `resource-${index + 1}`,
       }),
     );
@@ -80,6 +81,15 @@ describe('CLDBRN-AWS-COSTOPTIMIZATIONHUB-2', () => {
     expect(evaluate([...recommendations, ...recommendations.slice(0, 1)])).toEqual({
       findings: resourceTypes.map((reservationType, index) => ({
         accountId: '123456789012',
+        actionType: 'PurchaseReservedInstances',
+        recommendation: {
+          opportunityId: `["opportunity",1,"aws","123456789012","eu-west-1","${resourceNamespaceByType[reservationType]}","resource-${index + 1}","PurchaseReservedInstances"]`,
+          refreshedAt: '2026-09-04T00:00:00.000Z',
+          resourceKey: `["resource",1,"aws","123456789012","eu-west-1","${resourceNamespaceByType[reservationType]}","resource-${index + 1}"]`,
+          source: 'aws-cost-optimization-hub',
+          sourceDetail: 'CostExplorer',
+          sourceId: `recommendation-${index + 1}`,
+        },
         region: 'eu-west-1',
         resourceId: `resource-${index + 1}`,
         resourceType: resourceNamespaceByType[reservationType],
@@ -98,6 +108,16 @@ describe('CLDBRN-AWS-COSTOPTIMIZATIONHUB-2', () => {
         findings: [
           {
             accountId: '123456789012',
+            actionType: 'PurchaseReservedInstances',
+            recommendation: {
+              opportunityId:
+                '["opportunity",1,"aws","123456789012","eu-west-1","ec2:instance","i-123","PurchaseReservedInstances"]',
+              refreshedAt: '2026-09-04T00:00:00.000Z',
+              resourceKey: '["resource",1,"aws","123456789012","eu-west-1","ec2:instance","i-123"]',
+              source: 'aws-cost-optimization-hub',
+              sourceDetail: 'CostExplorer',
+              sourceId: 'recommendation-1',
+            },
             region: 'eu-west-1',
             resourceId: 'i-123',
             resourceType: 'ec2:instance',
@@ -112,6 +132,13 @@ describe('CLDBRN-AWS-COSTOPTIMIZATIONHUB-2', () => {
         findings: [
           {
             accountId: '123456789012',
+            actionType: 'PurchaseReservedInstances',
+            recommendation: {
+              refreshedAt: '2026-09-04T00:00:00.000Z',
+              source: 'aws-cost-optimization-hub',
+              sourceDetail: 'CostExplorer',
+              sourceId: 'recommendation-1',
+            },
             region: 'eu-west-1',
             resourceId: 'recommendation-1',
             resourceType: 'ec2:instance',
@@ -120,5 +147,34 @@ describe('CLDBRN-AWS-COSTOPTIMIZATIONHUB-2', () => {
       }),
     );
     expect(evaluate([])).toBeNull();
+  });
+
+  it('keeps contradictory reservation Regions provenance-only', () => {
+    const base = createRecommendation();
+    const item = createRecommendation({
+      configuration: { ...base.configuration, reservedInstancesRegion: 'us-east-1' },
+    });
+    const match = evaluate([item])?.findings[0];
+    expect(match?.region).toBe('eu-west-1');
+    expect(match?.resourceId).toBe('i-123');
+    expect(match?.recommendation).toMatchObject({
+      source: 'aws-cost-optimization-hub',
+      sourceId: 'recommendation-1',
+    });
+    expect(match?.recommendation?.resourceKey).toBeUndefined();
+    expect(match?.recommendation?.opportunityId).toBeUndefined();
+  });
+
+  it('keeps identity when only one reservation Region source is supplied', () => {
+    const base = createRecommendation();
+    const withoutConfigurationRegion = createRecommendation({
+      configuration: { ...base.configuration, reservedInstancesRegion: undefined },
+    });
+    const withoutSummaryRegion = createRecommendation({ region: undefined });
+    for (const item of [withoutConfigurationRegion, withoutSummaryRegion]) {
+      const match = evaluate([item])?.findings[0];
+      expect(match?.recommendation?.resourceKey).toContain('"ec2:instance","i-123"');
+      expect(match?.recommendation?.opportunityId).toBeDefined();
+    }
   });
 });

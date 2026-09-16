@@ -38,12 +38,12 @@ import type {
   AwsCostOptimizationHubUpgradeRecommendation,
   AwsDiscoveredResource,
 } from '@cloudburn/rules';
+import { createAwsCostOptimizationHubFindingMatch } from '@cloudburn/rules';
 import type { ScanDiagnostic } from '../../../types.js';
 import { createCostOptimizationHubClient } from '../client.js';
 import type { AwsAccountIdResolver, AwsDiscoveryDatasetLoadResult } from '../discovery-registry.js';
 import { formatAwsAccessDeniedReason, getAwsErrorCode, isAwsAccessDeniedError } from '../errors.js';
 import { rightsizingConfigurationNormalizers } from './cost-optimization-hub-rightsizing.js';
-import { getUnqualifiedLambdaFunctionArn } from './lambda-identity.js';
 import {
   mapWithConcurrency,
   parseFiniteNumber,
@@ -897,6 +897,45 @@ const createCostOptimizationHubSession = async (accountId: string): Promise<Cost
   };
 };
 
+const compareStrings = (left: string, right: string): number => (left < right ? -1 : left > right ? 1 : 0);
+
+const canonicalJson = (value: unknown): string => {
+  if (Array.isArray(value)) {
+    return `[${value.map(canonicalJson).join(',')}]`;
+  }
+  if (value !== null && typeof value === 'object') {
+    if (Object.getPrototypeOf(value) !== Object.prototype) {
+      return JSON.stringify(value) ?? 'null';
+    }
+    return `{${Object.keys(value)
+      .filter((key) => (value as Record<string, unknown>)[key] !== undefined)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${canonicalJson((value as Record<string, unknown>)[key])}`)
+      .join(',')}}`;
+  }
+  return JSON.stringify(value) ?? 'null';
+};
+
+const summaryTimestampMs = (value: unknown): number => {
+  const parsed = value instanceof Date ? value.getTime() : Date.parse(String(value));
+  return Number.isNaN(parsed) ? Number.NEGATIVE_INFINITY : parsed;
+};
+
+const summaryScopeKey = (recommendation: Recommendation): string =>
+  JSON.stringify([
+    recommendation.accountId ?? null,
+    recommendation.region ?? null,
+    recommendation.currentResourceType ?? null,
+    recommendation.resourceId ?? null,
+    recommendation.resourceArn ?? null,
+    recommendation.actionType ?? null,
+    recommendation.recommendationId ?? null,
+  ]);
+
+const compareSummaryFreshness = (left: Recommendation, right: Recommendation): number =>
+  summaryTimestampMs(right.lastRefreshTimestamp) - summaryTimestampMs(left.lastRefreshTimestamp) ||
+  compareStrings(canonicalJson(left), canonicalJson(right));
+
 const getCostOptimizationHubSession = (
   accountId: string,
   context?: AwsAccountIdResolver,
@@ -940,7 +979,7 @@ const loadCostOptimizationHubRecommendations = async <T extends HubRecommendatio
       };
     }
 
-    const recommendationsById = new Map<string, Recommendation>();
+    const recommendationsByScope = new Map<string, Recommendation>();
     let incompleteRecommendationCount = 0;
     let nextToken: string | undefined;
 
@@ -969,17 +1008,23 @@ const loadCostOptimizationHubRecommendations = async <T extends HubRecommendatio
         incompleteRecommendationCount += 1;
       }
       for (const recommendation of Array.isArray(page.items) ? page.items : []) {
-        if (recommendation?.recommendationId) {
-          recommendationsById.set(recommendation.recommendationId, recommendation);
-        } else {
+        if (!recommendation?.recommendationId) {
           incompleteRecommendationCount += 1;
+          continue;
+        }
+        const scopeKey = summaryScopeKey(recommendation);
+        const existing = recommendationsByScope.get(scopeKey);
+        if (!existing || compareSummaryFreshness(recommendation, existing) < 0) {
+          recommendationsByScope.set(scopeKey, recommendation);
         }
       }
       nextToken = page.nextToken;
     } while (nextToken);
 
     const normalized = await mapWithConcurrency(
-      [...recommendationsById.values()],
+      [...recommendationsByScope.entries()]
+        .sort(([left], [right]) => compareStrings(left, right))
+        .map(([, recommendation]) => recommendation),
       RECOMMENDATION_DETAIL_CONCURRENCY,
       async (recommendation) => {
         const common = normalizeRecommendationCommon(recommendation, category);
@@ -1017,7 +1062,7 @@ const loadCostOptimizationHubRecommendations = async <T extends HubRecommendatio
       };
     }
 
-    return recommendations.sort((left, right) => left.recommendationId.localeCompare(right.recommendationId));
+    return recommendations.sort((left, right) => compareStrings(left.recommendationId, right.recommendationId));
   } catch (err) {
     if (!isAwsAccessDeniedError(err)) {
       throw err;
@@ -1094,12 +1139,9 @@ const rightsizingCategory: RecommendationCategory<AwsCostOptimizationHubRightsiz
     const recommendedConfiguration = normalize(response.recommendedResourceDetails);
     const arn = /^arn:[^:]+:([^:]+):([a-z0-9-]+):(\d{12}):(.+)$/.exec(common.resourceArn ?? '');
     const region = common.region ?? (arn?.[3] === common.accountId ? arn[2] : undefined);
-    const resourceId =
-      resourceType === 'LambdaFunction' && arn?.[1] === 'lambda' && arn[4]?.startsWith('function:')
-        ? getUnqualifiedLambdaFunctionArn(common.resourceArn ?? '')
-        : (common.resourceId ?? common.resourceArn);
+    const resourceId = common.resourceId ?? common.resourceArn;
     if (!region || !resourceId || !currentConfiguration || !recommendedConfiguration) return null;
-    return {
+    const normalized = {
       ...recommendation,
       resourceId,
       region,
@@ -1108,6 +1150,9 @@ const rightsizingCategory: RecommendationCategory<AwsCostOptimizationHubRightsiz
       currentConfiguration,
       recommendedConfiguration,
     } as AwsCostOptimizationHubRightsizingRecommendation;
+    return resourceType === 'LambdaFunction'
+      ? { ...normalized, resourceId: createAwsCostOptimizationHubFindingMatch(normalized).resourceId }
+      : normalized;
   },
 };
 

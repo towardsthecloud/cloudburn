@@ -9,6 +9,16 @@ import {
 } from '../../src/providers/aws/discovery-registry.js';
 
 describe('AWS discovery registry', () => {
+  it.each([
+    'aws-cost-optimization-hub-savings-plans-recommendations',
+    'aws-cost-optimization-hub-reservation-recommendations',
+    'aws-cost-optimization-hub-rightsizing-recommendations',
+    'aws-cost-optimization-hub-idle-recommendations',
+    'aws-cost-optimization-hub-upgrade-recommendations',
+    'aws-cost-optimization-hub-graviton-recommendations',
+  ])('invalidates pre-scoped recommendation caches for %s', (datasetKey) => {
+    expect(getAwsDiscoveryDatasetDefinition(datasetKey)?.loaderVersion).toBe('2');
+  });
   it.each<{
     label: string;
     activity?: Pick<AwsEc2LoadBalancerRequestActivity, 'requestActivityStatus' | 'averageRequestsPerDayLast14Days'>;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { awsCorePreset, awsRules, LiveResourceBag } from '../src/index.js';
+import { awsCorePreset, awsRules, createAwsCostOptimizationHubFindingMatch, LiveResourceBag } from '../src/index.js';
 
 describe('CLDBRN-AWS-COSTOPTIMIZATIONHUB-3', () => {
   it('is exported, opt-in, and reports an idle recommendation once', () => {
@@ -62,5 +62,96 @@ describe('CLDBRN-AWS-COSTOPTIMIZATIONHUB-3', () => {
     ).toMatchObject({
       findings: [{ resourceId: 'workers', resourceType: 'autoscaling:autoScalingGroup', actionType: 'ScaleIn' }],
     });
+  });
+
+  it('keeps same-name ECS services in different clusters as distinct opportunities', () => {
+    const rule = awsRules.find(({ id }) => id === 'CLDBRN-AWS-COSTOPTIMIZATIONHUB-3');
+    const recommendation = (cluster: string, recommendationId: string) => ({
+      accountId: '123456789012',
+      actionType: 'Delete' as const,
+      currentResourceType: 'EcsService' as const,
+      currentConfiguration: { compute: { vCpu: 1 } },
+      recommendedConfiguration: null,
+      currencyCode: 'USD',
+      estimatedMonthlyCost: 30,
+      estimatedMonthlySavings: 30,
+      estimatedSavingsPercentage: 100,
+      implementationEffort: 'Low',
+      lastRefreshTimestamp: '2026-09-04T00:00:00.000Z',
+      recommendationId,
+      recommendationSource: 'ComputeOptimizer' as const,
+      region: 'eu-west-1',
+      resourceArn: `arn:aws:ecs:eu-west-1:123456789012:service/${cluster}/api`,
+      resourceId: 'api',
+      restartNeeded: false,
+      rollbackPossible: true,
+    });
+    const evaluate = (items: ReturnType<typeof recommendation>[]) =>
+      rule?.evaluateLive?.({
+        catalog: { indexType: 'LOCAL', resources: [], searchRegion: 'eu-west-1' },
+        resources: new LiveResourceBag({ 'aws-cost-optimization-hub-idle-recommendations': items }),
+      });
+    const forward = evaluate([recommendation('blue', 'rec-blue'), recommendation('green', 'rec-green')]);
+    const reversed = evaluate([recommendation('green', 'rec-green'), recommendation('blue', 'rec-blue')]);
+    expect(forward?.findings.map((finding) => finding.resourceId)).toEqual(['blue/api', 'green/api']);
+    expect(reversed).toEqual(forward);
+    const [blue, green] = forward?.findings ?? [];
+    expect(blue?.recommendation?.opportunityId).toBeDefined();
+    expect(blue?.recommendation?.opportunityId).not.toBe(green?.recommendation?.opportunityId);
+  });
+
+  it('keeps provenance but omits identity when a raw ARN scope conflicts with the finding scope', () => {
+    const recommendation = {
+      accountId: '123456789012',
+      actionType: 'Delete' as const,
+      currentResourceType: 'EbsVolume' as const,
+      currentConfiguration: { storage: { type: 'gp2', sizeInGb: 8 } },
+      recommendedConfiguration: null,
+      currencyCode: 'USD',
+      estimatedMonthlyCost: 10,
+      estimatedMonthlySavings: 10,
+      estimatedSavingsPercentage: 100,
+      implementationEffort: 'Low',
+      lastRefreshTimestamp: '2026-09-04T00:00:00.000Z',
+      recommendationId: 'rec-1',
+      recommendationSource: 'CostExplorer' as const,
+      region: 'eu-west-1',
+      resourceId: 'arn:aws:ec2:eu-west-1:123456789012:volume/vol-1',
+      restartNeeded: false,
+      rollbackPossible: true,
+    };
+    const consistent = createAwsCostOptimizationHubFindingMatch(recommendation);
+    expect(consistent.recommendation?.resourceKey).toContain('"ec2:volume","vol-1"');
+    expect(consistent.recommendation?.opportunityId).toContain('"Delete"');
+    const consistentPair = createAwsCostOptimizationHubFindingMatch({
+      ...recommendation,
+      resourceId: 'vol-1',
+      resourceArn: 'arn:aws:ec2:eu-west-1:123456789012:volume/vol-1',
+    });
+    expect(consistentPair.recommendation?.resourceKey).toContain('"ec2:volume","vol-1"');
+
+    for (const conflicting of [
+      { ...recommendation, resourceId: 'arn:aws:ec2:us-east-1:123456789012:volume/vol-1' },
+      { ...recommendation, resourceId: 'arn:aws:ec2:eu-west-1:999999999999:volume/vol-1' },
+      {
+        ...recommendation,
+        resourceId: 'vol-1',
+        resourceArn: 'arn:aws:ec2:us-east-1:123456789012:volume/vol-1',
+      },
+      {
+        ...recommendation,
+        resourceId: 'vol-1',
+        resourceArn: 'arn:aws:ec2:eu-west-1:123456789012:volume/vol-2',
+      },
+    ]) {
+      const match = createAwsCostOptimizationHubFindingMatch(conflicting);
+      expect(match.recommendation).toMatchObject({
+        source: 'aws-cost-optimization-hub',
+        sourceDetail: 'CostExplorer',
+        sourceId: 'rec-1',
+      });
+      expect(match.recommendation?.resourceKey).toBeUndefined();
+      expect(match.recommendation?.opportunityId).toBeUndefined();
+    }
   });
 });

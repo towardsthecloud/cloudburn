@@ -1,4 +1,5 @@
 import { createFinding, createFindingMatch, createRule } from '../../shared/helpers.js';
+import { createRecommendationMatch } from '../../shared/recommendation.js';
 
 const RULE_ID = 'CLDBRN-AWS-REDSHIFT-2';
 const RULE_SERVICE = 'redshift';
@@ -60,10 +61,17 @@ export const redshiftReservedCoverageRule = createRule({
         remainingCoverage.set(coverageKey, remainingNodeCount - cluster.numberOfNodes);
         return false;
       })
-      .map((cluster) => ({
-        ...createFindingMatch(cluster.clusterIdentifier, cluster.region, cluster.accountId),
-        resourceType: 'redshift:cluster',
-      }));
+      .map((cluster) =>
+        createRecommendationMatch(
+          'aws',
+          {
+            ...createFindingMatch(cluster.clusterIdentifier, cluster.region, cluster.accountId),
+            resourceType: 'redshift:cluster',
+            actionType: 'PurchaseReservedInstances',
+          },
+          { source: 'cloudburn' },
+        ),
+      );
 
     return createFinding(
       { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },

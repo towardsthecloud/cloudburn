@@ -1,5 +1,6 @@
-import { createFinding, createFindingMatch, createRule } from '../../shared/helpers.js';
-import { getAwsCostOptimizationHubRightsizingResourceType } from './rightsizing-identity.js';
+import { createFinding, createRule } from '../../shared/helpers.js';
+import { deduplicateRecommendationMatches } from '../../shared/recommendation.js';
+import { createAwsCostOptimizationHubFindingMatch } from './finding.js';
 
 const id = 'CLDBRN-AWS-COSTOPTIMIZATIONHUB-4';
 const service = 'costoptimizationhub';
@@ -21,17 +22,11 @@ export const costOptimizationHubRightsizingRecommendedRule = createRule({
     createFinding(
       { id, service, severity, message },
       'discovery',
-      [
-        ...new Map(
-          resources
-            .get('aws-cost-optimization-hub-rightsizing-recommendations')
-            .filter((recommendation) => recommendation.actionType === 'Rightsize')
-            .map((recommendation) => [recommendation.recommendationId, recommendation]),
-        ).values(),
-      ].map((recommendation) => ({
-        ...createFindingMatch(recommendation.resourceId, recommendation.region, recommendation.accountId),
-        resourceType: getAwsCostOptimizationHubRightsizingResourceType(recommendation),
-        actionType: recommendation.actionType,
-      })),
+      deduplicateRecommendationMatches(
+        resources
+          .get('aws-cost-optimization-hub-rightsizing-recommendations')
+          .filter((recommendation) => recommendation.actionType === 'Rightsize')
+          .map(createAwsCostOptimizationHubFindingMatch),
+      ),
     ),
 });

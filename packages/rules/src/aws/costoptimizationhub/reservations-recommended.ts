@@ -1,8 +1,6 @@
-import { createFinding, createFindingMatch, createRule } from '../../shared/helpers.js';
-import {
-  getAwsCostOptimizationHubReservationResourceId,
-  getAwsCostOptimizationHubReservationResourceType,
-} from './reservation-identity.js';
+import { createFinding, createRule } from '../../shared/helpers.js';
+import { deduplicateRecommendationMatches } from '../../shared/recommendation.js';
+import { createAwsCostOptimizationHubFindingMatch } from './finding.js';
 
 const RULE_ID = 'CLDBRN-AWS-COSTOPTIMIZATIONHUB-2';
 const RULE_SERVICE = 'costoptimizationhub';
@@ -21,25 +19,14 @@ export const costOptimizationHubReservationsRecommendedRule = createRule({
   service: RULE_SERVICE,
   supports: ['discovery'],
   discoveryDependencies: ['aws-cost-optimization-hub-reservation-recommendations'],
-  evaluateLive: ({ resources }) => {
-    const recommendations = new Map(
-      resources
-        .get('aws-cost-optimization-hub-reservation-recommendations')
-        .map((recommendation) => [recommendation.recommendationId, recommendation]),
-    );
-    const findings = [...recommendations.values()].map((recommendation) => ({
-      ...createFindingMatch(
-        getAwsCostOptimizationHubReservationResourceId(recommendation),
-        recommendation.region ?? recommendation.configuration.reservedInstancesRegion,
-        recommendation.accountId,
-      ),
-      resourceType: getAwsCostOptimizationHubReservationResourceType(recommendation),
-    }));
-
-    return createFinding(
+  evaluateLive: ({ resources }) =>
+    createFinding(
       { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
       'discovery',
-      findings,
-    );
-  },
+      deduplicateRecommendationMatches(
+        resources
+          .get('aws-cost-optimization-hub-reservation-recommendations')
+          .map(createAwsCostOptimizationHubFindingMatch),
+      ),
+    ),
 });

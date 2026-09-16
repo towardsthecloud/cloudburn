@@ -1,4 +1,5 @@
 import type { AwsCostOptimizationHubUpgradeRecommendation } from '../../shared/metadata.js';
+import { canonicalizeAwsResourceId } from '../resource-identity.js';
 
 const resourceTypes = {
   Ec2Instance: 'ec2:instance',
@@ -15,25 +16,11 @@ const resourceTypes = {
  */
 export const getAwsCostOptimizationHubUpgradeResourceId = (
   recommendation: AwsCostOptimizationHubUpgradeRecommendation,
-): string => {
-  const identity = recommendation.resourceId ?? recommendation.resourceArn ?? recommendation.recommendationId;
-  if (!identity.startsWith('arn:')) return identity;
-  const [, , service, , , ...parts] = identity.split(':');
-  const resource = parts.join(':');
-  switch (recommendation.resourceType) {
-    case 'Ec2Instance':
-      return service === 'ec2' && resource.startsWith('instance/') ? resource.slice(9) : identity;
-    case 'EbsVolume':
-      return service === 'ec2' && resource.startsWith('volume/') ? resource.slice(7) : identity;
-    case 'RdsDbInstance':
-    case 'RdsDbInstanceStorage':
-      return service === 'rds' && resource.startsWith('db:') ? resource.slice(3) : identity;
-    case 'Ec2AutoScalingGroup':
-      return service === 'autoscaling' && resource.includes(':autoScalingGroupName/')
-        ? (resource.split(':autoScalingGroupName/')[1] ?? identity)
-        : identity;
-  }
-};
+): string =>
+  canonicalizeAwsResourceId(
+    resourceTypes[recommendation.resourceType],
+    recommendation.resourceId ?? recommendation.resourceArn ?? recommendation.recommendationId,
+  );
 
 /**
  * Returns the resource namespace, distinguishing RDS compute from storage upgrades.

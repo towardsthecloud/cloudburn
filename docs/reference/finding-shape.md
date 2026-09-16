@@ -44,16 +44,118 @@ type FindingMatch = {
   accountId?: string;
   region?: string;
   location?: SourceLocation;
+  recommendation?: FindingRecommendation;
 };
 ```
 
-| Field          | Type             | Description                                                                                                                                                 |
-| -------------- | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `resourceId`   | `string`         | Provider-specific resource identity. Terraform uses resource addresses today; future CloudFormation support can use logical IDs or paths in the same field. |
-| `resourceType` | `string?`        | Provider resource namespace when an ID is not globally unique across the findings being compared.                                                           |
-| `accountId`    | `string?`        | Account identifier when available. Omit it when unavailable.                                                                                                |
-| `region`       | `string?`        | Region when available. Omit it when unavailable.                                                                                                            |
-| `location`     | `SourceLocation` | Source coordinates for IaC matches when available.                                                                                                          |
+| Field            | Type                     | Description                                                                                                                                                 |
+| ---------------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `resourceId`     | `string`                 | Provider-specific resource identity. Terraform uses resource addresses today; future CloudFormation support can use logical IDs or paths in the same field. |
+| `resourceType`   | `string?`                | Provider resource namespace when an ID is not globally unique across the findings being compared.                                                           |
+| `accountId`      | `string?`                | Account identifier when available. Omit it when unavailable.                                                                                                |
+| `region`         | `string?`                | Region when available. Omit it when unavailable.                                                                                                            |
+| `actionType`     | `string?`                | Provider-normalized action such as `Delete`, `Upgrade`, `Rightsize`, `PurchaseReservedInstances`, `PurchaseSavingsPlans`, or `MigrateToGraviton`.           |
+| `location`       | `SourceLocation`         | Source coordinates for IaC matches when available.                                                                                                          |
+| `recommendation` | `FindingRecommendation?` | Provenance and identity metadata for matches that carry a native or external recommendation.                                                                |
+
+## FindingRecommendation
+
+```ts
+type EvidenceProvenance = {
+  source: string;
+  sourceDetail?: string;
+  sourceId?: string;
+  observedAt?: string;
+  refreshedAt?: string;
+};
+
+type RecommendationIdentity = {
+  resourceKey: string;
+  opportunityId: string;
+};
+
+type FindingRecommendation = EvidenceProvenance & Partial<RecommendationIdentity>;
+```
+
+| Field           | Type      | Description                                                                                                         |
+| --------------- | --------- | ------------------------------------------------------------------------------------------------------------------- |
+| `source`        | `string`  | System that produced the evidence: `cloudburn` for native rule evaluation or `aws-cost-optimization-hub`.           |
+| `sourceDetail`  | `string?` | Source subsystem when known, such as `ComputeOptimizer` or `CostExplorer` for Hub recommendations.                  |
+| `sourceId`      | `string?` | Opaque source-side identifier, for example a Hub `recommendationId`. Never used to invent resource identity.        |
+| `observedAt`    | `string?` | When the source observed or collected the evidence. Omitted unless the source reports a real timestamp.             |
+| `refreshedAt`   | `string?` | When the source refreshed its report, for example Hub `lastRefreshTimestamp`. Omitted unless the source reports it. |
+| `resourceKey`   | `string?` | Opaque versioned key identifying the scoped resource independently of action.                                       |
+| `opportunityId` | `string?` | Opaque versioned key identifying the resource plus action opportunity.                                              |
+
+`recommendation.source` describes who produced the evidence; `sourceDetail` narrows it to the underlying AWS signal.
+This is separate from the rule group's `source` field (`discovery` or `iac`), which records which scan mode produced
+the finding.
+
+Timestamps are source-reported only. `refreshedAt` is the Hub `lastRefreshTimestamp`; `observedAt` is the source's own
+observation or collection time. Neither field is ever populated from evaluation time, wall clock, or cache access, so
+absence means unknown rather than "as old as the scan".
+Freshness comparisons require an explicit `Z` or numeric timezone offset; timezone-less values are treated as unknown
+rather than interpreted in the host timezone.
+
+`resourceKey` and `opportunityId` are opaque JSON strings scoped by provider, account, Region, resource type, canonical
+resource ID, and (for `opportunityId`) action. Recognized AWS ARNs are canonicalized to the service-local identifier so
+an ARN and a plain ID produce the same key, except ECS container-instance and EKS nodegroup ARNs, which stay verbatim
+so their cluster and path scope is never collapsed into another cluster's resource. Unrecognized or
+mismatched-service ARNs are used verbatim, while an ARN whose embedded account or Region conflicts with the finding's
+explicit scope produces no identity at all. Keys are versioned and
+valid only for comparing matches within or across rules in one scan's inputs; they carry no promise of stability
+across scan history. When the scope is incomplete (missing account, Region, resource type, ID, or action), both keys
+are absent and the match cannot participate in identity-based deduplication or precedence; it is retained
+conservatively instead of being collapsed into unrelated matches. A `recommendation` may carry provenance without
+identity keys; that absence is deliberate, and the SDK never reconstructs identity from display fields or from a
+source recommendation ID used as the display `resourceId` — such matches skip precedence entirely.
+ECS service opportunities require a cluster-qualified identifier (`cluster/service`); when a service ARN is supplied
+it takes precedence over a bare display name, and a name without cluster scope carries provenance only.
+When both a resource ID and ARN are supplied, their canonical resource components must also agree; contradictory
+evidence retains provenance without identity. ECS service-name qualification and Lambda version unqualification are
+recognized equivalences. Lambda version and alias qualifiers are removed for both evidence comparison and
+function-level identity keys. A legacy unscoped ECS service ARN does not replace a supplied cluster-qualified ID;
+contradictory evidence never replaces the displayed resource ID. Malformed ARNs cannot establish identity.
+Recognized regional AWS resources require both Region and account components in the ARN; valid global ARN formats
+remain supported. Reservation summary and purchase-configuration Regions must agree when both are supplied.
+
+## Cross-rule precedence
+
+Rules declare `supersedesRuleIds`, and the SDK applies precedence only between matches that share a complete
+`opportunityId` — the same provider, account, Region, canonical resource type and ID, **and action**. Suppression is
+deterministic: the output does not depend on rule order or finding order, and tied candidates resolve by stable
+lexical ordering so cycles and transitive chains cannot discard every finding. String tie-breakers use
+locale-independent UTF-16 code-unit order; distinct source identifiers are never treated as equal by locale
+collation.
+
+| Hub rule                                        | Declared overlap                                                                                | Direction       |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------------------- | --------------- |
+| `CLDBRN-AWS-COSTOPTIMIZATIONHUB-2` Reservations | `CLDBRN-AWS-RDS-3`, `CLDBRN-AWS-REDSHIFT-2`, `CLDBRN-AWS-ELASTICACHE-1` reserved-coverage rules | Native over Hub |
+| `CLDBRN-AWS-COSTOPTIMIZATIONHUB-3` Idle         | `CLDBRN-AWS-EBS-2` unattached volumes (same `Delete` action only)                               | Native over Hub |
+| `CLDBRN-AWS-COSTOPTIMIZATIONHUB-4` Rightsizing  | `CLDBRN-AWS-LAMBDA-4` memory overprovisioning                                                   | Native over Hub |
+| `CLDBRN-AWS-COSTOPTIMIZATIONHUB-5` Upgrades     | `CLDBRN-AWS-EBS-1`, `CLDBRN-AWS-RDS-11` current-generation storage                              | Native over Hub |
+| `CLDBRN-AWS-COSTOPTIMIZATIONHUB-6` Graviton     | `CLDBRN-AWS-EC2-6`, `CLDBRN-AWS-RDS-4` Graviton reviews                                         | Hub over native |
+
+`CLDBRN-AWS-COSTOPTIMIZATIONHUB-1` Savings Plans is not in this table: a SageMaker purchase recommendation suppresses
+`CLDBRN-AWS-SAGEMAKER-3` inside that rule's evaluator through its optional Hub evidence. The suppression is
+account-coverage scope, not `opportunityId` identity precedence.
+
+Within one rule, duplicate matches for the same opportunity resolve by source-reported freshness — `refreshedAt`,
+then `observedAt`, then source identifiers, then canonical content — so one representative survives deterministically.
+That same-rule freshness ordering is separate from the cross-rule graph above, which applies only where
+`supersedesRuleIds` declares it. Matches from rules that share an `opportunityId` without a declared edge are all
+retained; consumers must treat them as non-additive rather than summing them.
+
+A different action on the same resource is preserved as a separate opportunity: the two matches share a `resourceKey`
+but have different `opportunityId` values, so they can compete for the same resource without suppressing each other.
+Findings whose identities differ in provider, account, Region, or resource namespace never suppress each other even
+when the underlying AWS resources overlap — ECS (`CLDBRN-AWS-ECS-*`) and EKS (`CLDBRN-AWS-EKS-*`) Graviton findings
+remain distinct from EC2/RDS Hub findings and are not additive across the underlying fleets. Account-wide commitments
+(Savings Plans, reserved capacity) can also overlap resource-scoped opportunities without sharing keys.
+
+Matches without complete identity are never suppressed and never suppress others. Evaluation resource sets and
+`findingCount` in `evaluations.rules` record pre-precedence evidence for audit; they are not totals of what remains in
+`providers`, and the SDK does not produce an aggregate of overlapping opportunities.
 
 ## `Finding`
 
@@ -96,11 +198,11 @@ This is the provider-level group returned by the SDK scan engines.
 `kind: 'rule'` alongside the existing `catalog` and `dataset` events. Consumers that switch exhaustively over `kind`
 should handle this additive variant.
 
-| Kind | Fields | Meaning |
-| ---- | ------ | ------- |
-| `catalog` | `resourceCount`, `searchRegion` | The entire requested catalog finished. |
-| `dataset` | `datasetKey`, `completedDatasets`, `totalDatasets` | One requested dataset settled, including unavailable evidence. This is not a pass result. |
-| `rule` | `ruleId`, `status`, `findingCount`, `findings`, `reason?`, `provisional: true`, `completedRules`, `totalRules`, `elapsedMs` | Required and selected optional evidence settled and the rule was evaluated. |
+| Kind      | Fields                                                                                                                      | Meaning                                                                                   |
+| --------- | --------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `catalog` | `resourceCount`, `searchRegion`                                                                                             | The entire requested catalog finished.                                                    |
+| `dataset` | `datasetKey`, `completedDatasets`, `totalDatasets`                                                                          | One requested dataset settled, including unavailable evidence. This is not a pass result. |
+| `rule`    | `ruleId`, `status`, `findingCount`, `findings`, `reason?`, `provisional: true`, `completedRules`, `totalRules`, `elapsedMs` | Required and selected optional evidence settled and the rule was evaluated.               |
 
 Rule `status` uses the same `triggered | passed | unknown | not_applicable` values as `RuleEvaluation`.
 `findings` contains normalized `FindingMatch[]` before cross-rule precedence, and `findingCount` is its length.
@@ -186,7 +288,7 @@ type RuleEvaluation = {
 ```
 
 `data` is present only when a discovery dataset has normalized evidence that does not fit the generic identity fields.
-For example, `CLDBRN-AWS-CONFIG-1` includes the current recording frequency, affected AWS resource type, 14-day
+For example, `CLDBRN-AWS-CONFIG-1` includes the affected AWS resource type, current recording frequency, 14-day
 configuration-item volume, recorded resource count, estimated monthly configuration-item reduction, public continuous
 and daily unit prices, estimated monthly recording-cost reduction, recorder scope and overrides, and whether Firewall
 Manager or a paid service-linked recorder requires continuous recording.
@@ -204,12 +306,16 @@ whether that estimate includes complete rotation history, the tracking start, an
 Only keys with at least 90 days of complete no-recorded-usage evidence can trigger the rule. Missing key or usage
 metadata makes the rule `not_applicable` rather than allowing incomplete evidence to look like a pass.
 
+Savings Plans finding resource types use `costoptimizationhub:savings-plans-recommendation:<savingsPlansType>`.
+The purchase family remains part of provenance-based deduplication even when source IDs and account/Region match.
+
 `CLDBRN-AWS-COSTOPTIMIZATIONHUB-1` projects one evaluated resource per Savings Plans purchase recommendation. Its
 normalized `data` contains the recommendation ID and source, Savings Plans type, account scope, account and Region when
 present, action type, current monthly cost, estimated monthly savings and percentage, currency, hourly commitment,
 implementation effort when present, last refresh time, term, payment option, restart requirement, and rollback
-availability. EC2 Instance recommendations also include instance family and commitment Region. Duplicate recommendation
-IDs are evaluated once. Missing purchase terms or required cost evidence makes the rule `not_applicable`.
+availability. EC2 Instance recommendations also include instance family and commitment Region. Summary coalescing
+uses the full source scope key, not recommendation ID alone; finding deduplication follows the scoped identity and
+provenance rules above. Missing purchase terms or required cost evidence makes the rule `not_applicable`.
 
 `CLDBRN-AWS-COSTOPTIMIZATIONHUB-2` projects one evaluated resource per reservation purchase recommendation. Resource
 identity prefers the AWS resource ID and retains its ARN when available, with the recommendation ID as the fallback.

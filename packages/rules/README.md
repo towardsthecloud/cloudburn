@@ -17,6 +17,8 @@ npm install @cloudburn/rules
 - Complete built-in rule packs like `awsRules`
 - Default subsets like `awsCorePreset`
 - Rule authoring helpers like `createRule`, `createFinding`, and `createFindingMatch`
+- Recommendation provenance and identity helpers like `createRecommendationMatch`, `getRecommendationIdentity`, and `deduplicateRecommendationMatches` for findings that carry native or external recommendation evidence
+  Use `createRecommendationComparator()` for repeated comparisons within one operation; create a new comparator after changing match evidence.
 - Shared rule types plus `LiveResourceBag` and `StaticResourceBag` for evaluation and tests
 
 ## Getting Started
@@ -115,6 +117,7 @@ is not a required capability, even when another active rule causes that dataset 
 
 - Full docs: [cloudburn.io/docs](https://cloudburn.io/docs)
 - Rule reference: [docs/reference/rule-ids.md](https://github.com/towardsthecloud/cloudburn/blob/main/docs/reference/rule-ids.md)
+- Finding and recommendation metadata: [docs/reference/finding-shape.md](https://github.com/towardsthecloud/cloudburn/blob/main/docs/reference/finding-shape.md)
 - Add a rule: [docs/guides/adding-a-rule.md](https://github.com/towardsthecloud/cloudburn/blob/main/docs/guides/adding-a-rule.md)
 
 ## License

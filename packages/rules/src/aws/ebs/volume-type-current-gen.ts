@@ -1,4 +1,5 @@
 import { createFinding, createFindingMatch, createRule } from '../../shared/helpers.js';
+import { createRecommendationMatch } from '../../shared/recommendation.js';
 
 const RULE_ID = 'CLDBRN-AWS-EBS-1';
 const RULE_SERVICE = 'ebs';
@@ -25,10 +26,17 @@ export const ebsVolumeTypeCurrentGenRule = createRule({
     const findings = resources
       .get('aws-ebs-volumes')
       .filter((volume) => isPreviousGenerationEbsVolumeType(volume.volumeType))
-      .map((volume) => ({
-        ...createFindingMatch(volume.volumeId, volume.region, volume.accountId),
-        resourceType: 'ec2:volume',
-      }));
+      .map((volume) =>
+        createRecommendationMatch(
+          'aws',
+          {
+            ...createFindingMatch(volume.volumeId, volume.region, volume.accountId),
+            resourceType: 'ec2:volume',
+            actionType: 'Upgrade',
+          },
+          { source: 'cloudburn' },
+        ),
+      );
 
     return createFinding(
       {

@@ -141,6 +141,14 @@ describe('lifecycle and recommendation evaluation coverage', () => {
       {
         accountId,
         actionType: 'Rightsize',
+        recommendation: {
+          opportunityId:
+            '["opportunity",1,"aws","123456789012","eu-west-1","lambda:function","arn:aws:lambda:eu-west-1:123456789012:function:overprovisioned","Rightsize"]',
+          resourceKey:
+            '["resource",1,"aws","123456789012","eu-west-1","lambda:function","arn:aws:lambda:eu-west-1:123456789012:function:overprovisioned"]',
+          source: 'cloudburn',
+          sourceDetail: 'ComputeOptimizer',
+        },
         region,
         resourceId: functionArn('overprovisioned'),
         resourceType: 'lambda:function',

@@ -1,4 +1,5 @@
 import { createFinding, createFindingMatch, createRule } from '../../shared/helpers.js';
+import { createRecommendationMatch } from '../../shared/recommendation.js';
 
 const RULE_ID = 'CLDBRN-AWS-RDS-3';
 const RULE_SERVICE = 'rds';
@@ -119,10 +120,17 @@ export const rdsReservedCoverageRule = createRule({
           normalizedEngine,
         );
       })
-      .map((instance) => ({
-        ...createFindingMatch(instance.dbInstanceIdentifier, instance.region, instance.accountId),
-        resourceType: 'rds:db',
-      }));
+      .map((instance) =>
+        createRecommendationMatch(
+          'aws',
+          {
+            ...createFindingMatch(instance.dbInstanceIdentifier, instance.region, instance.accountId),
+            resourceType: 'rds:db',
+            actionType: 'PurchaseReservedInstances',
+          },
+          { source: 'cloudburn' },
+        ),
+      );
 
     return createFinding(
       { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },

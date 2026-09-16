@@ -44,6 +44,13 @@ describe('rdsGravitonReviewRule', () => {
         accountId: '123456789012',
         region: 'us-east-1',
         resourceId: 'prod-db',
+        resourceType: 'rds:db',
+        actionType: 'MigrateToGraviton',
+        recommendation: {
+          source: 'cloudburn',
+          resourceKey: '["resource",1,"aws","123456789012","us-east-1","rds:db","prod-db"]',
+          opportunityId: '["opportunity",1,"aws","123456789012","us-east-1","rds:db","prod-db","MigrateToGraviton"]',
+        },
       },
     ]);
   });

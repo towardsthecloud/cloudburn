@@ -54,6 +54,13 @@ describe('rdsReservedCoverageRule', () => {
           region: 'us-east-1',
           resourceId: 'prod-db',
           resourceType: 'rds:db',
+          actionType: 'PurchaseReservedInstances',
+          recommendation: {
+            source: 'cloudburn',
+            resourceKey: '["resource",1,"aws","123456789012","us-east-1","rds:db","prod-db"]',
+            opportunityId:
+              '["opportunity",1,"aws","123456789012","us-east-1","rds:db","prod-db","PurchaseReservedInstances"]',
+          },
         },
       ],
     });
@@ -111,6 +118,13 @@ describe('rdsReservedCoverageRule', () => {
         region: 'us-east-1',
         resourceId: 'prod-db',
         resourceType: 'rds:db',
+        actionType: 'PurchaseReservedInstances',
+        recommendation: {
+          source: 'cloudburn',
+          resourceKey: '["resource",1,"aws","123456789012","us-east-1","rds:db","prod-db"]',
+          opportunityId:
+            '["opportunity",1,"aws","123456789012","us-east-1","rds:db","prod-db","PurchaseReservedInstances"]',
+        },
       },
     ]);
   });

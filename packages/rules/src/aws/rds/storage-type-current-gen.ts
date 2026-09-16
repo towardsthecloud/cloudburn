@@ -1,4 +1,5 @@
 import { createFinding, createFindingMatch, createRule } from '../../shared/helpers.js';
+import { createRecommendationMatch } from '../../shared/recommendation.js';
 
 const RULE_ID = 'CLDBRN-AWS-RDS-11';
 const RULE_SERVICE = 'rds';
@@ -32,10 +33,17 @@ export const rdsStorageTypeCurrentGenRule = createRule({
     const findings = resources
       .get('aws-rds-instances')
       .filter((instance) => isPreviousGenerationRdsStorageType(instance.storageType))
-      .map((instance) => ({
-        ...createFindingMatch(instance.dbInstanceIdentifier, instance.region, instance.accountId),
-        resourceType: 'rds:db-storage',
-      }));
+      .map((instance) =>
+        createRecommendationMatch(
+          'aws',
+          {
+            ...createFindingMatch(instance.dbInstanceIdentifier, instance.region, instance.accountId),
+            resourceType: 'rds:db-storage',
+            actionType: 'Upgrade',
+          },
+          { source: 'cloudburn' },
+        ),
+      );
 
     return createFinding(
       { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },
