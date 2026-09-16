@@ -55,7 +55,17 @@ export const createRecommendationMatch = (
   provider: CloudProvider,
   match: FindingMatch,
   provenance: EvidenceProvenance,
-): FindingMatch => ({ ...match, recommendation: { ...provenance, ...getRecommendationIdentity(provider, match) } });
+): FindingMatch => ({
+  ...match,
+  recommendation: {
+    source: provenance.source,
+    ...(provenance.sourceDetail !== undefined ? { sourceDetail: provenance.sourceDetail } : {}),
+    ...(provenance.sourceId !== undefined ? { sourceId: provenance.sourceId } : {}),
+    ...(provenance.observedAt !== undefined ? { observedAt: provenance.observedAt } : {}),
+    ...(provenance.refreshedAt !== undefined ? { refreshedAt: provenance.refreshedAt } : {}),
+    ...getRecommendationIdentity(provider, match),
+  },
+});
 
 const compareStrings = (left: string, right: string): number => (left < right ? -1 : left > right ? 1 : 0);
 

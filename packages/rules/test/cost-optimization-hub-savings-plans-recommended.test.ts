@@ -50,7 +50,7 @@ describe('CLDBRN-AWS-COSTOPTIMIZATIONHUB-1', () => {
       }),
     });
 
-    const purchase = (index: number) => ({
+    const purchase = (index: number, savingsPlansType: string) => ({
       accountId: '123456789012',
       actionType: 'PurchaseSavingsPlans',
       impact: {
@@ -68,16 +68,48 @@ describe('CLDBRN-AWS-COSTOPTIMIZATIONHUB-1', () => {
         sourceId: `recommendation-${index}`,
       },
       resourceId: `recommendation-${index}`,
-      resourceType: 'costoptimizationhub:savings-plans-recommendation',
+      resourceType: `costoptimizationhub:savings-plans-recommendation:${savingsPlansType}`,
     });
     expect(finding).toEqual({
-      findings: [purchase(1), purchase(2), purchase(3)],
+      findings: [
+        purchase(1, 'ComputeSavingsPlans'),
+        purchase(2, 'Ec2InstanceSavingsPlans'),
+        purchase(3, 'SageMakerSavingsPlans'),
+      ],
       message: 'Savings Plans eligible usage should use a Savings Plan when AWS recommends a purchase.',
       ruleId: 'CLDBRN-AWS-COSTOPTIMIZATIONHUB-1',
       service: 'costoptimizationhub',
       severity: 'medium',
       source: 'discovery',
     });
+  });
+
+  it('preserves different purchase types sharing the same source ID and scope', () => {
+    const recommendations = [
+      createRecommendation({ savingsPlansType: 'ComputeSavingsPlans', region: 'eu-west-1' }),
+      createRecommendation({ savingsPlansType: 'Ec2InstanceSavingsPlans', region: 'eu-west-1' }),
+      createRecommendation({ savingsPlansType: 'SageMakerSavingsPlans', region: 'eu-west-1' }),
+    ];
+    const evaluate = (items: AwsCostOptimizationHubSavingsPlansRecommendation[]) =>
+      costOptimizationHubSavingsPlansRecommendedRule.evaluateLive?.({
+        catalog: { indexType: 'LOCAL', resources: [], searchRegion: 'eu-west-1' },
+        resources: new LiveResourceBag({ 'aws-cost-optimization-hub-savings-plans-recommendations': items }),
+      });
+    const result = evaluate([
+      ...recommendations,
+      recommendations[0] as AwsCostOptimizationHubSavingsPlansRecommendation,
+    ]);
+    expect(result?.findings).toHaveLength(3);
+    expect(result?.findings.map((match) => match.resourceType)).toEqual([
+      'costoptimizationhub:savings-plans-recommendation:ComputeSavingsPlans',
+      'costoptimizationhub:savings-plans-recommendation:Ec2InstanceSavingsPlans',
+      'costoptimizationhub:savings-plans-recommendation:SageMakerSavingsPlans',
+    ]);
+    for (const match of result?.findings ?? []) {
+      expect(match.recommendation?.sourceId).toBe('recommendation-1');
+      expect(match.recommendation?.opportunityId).toBeUndefined();
+    }
+    expect(evaluate([...recommendations].reverse())).toEqual(result);
   });
 
   it('returns no finding when AWS has no Savings Plans purchase recommendation', () => {

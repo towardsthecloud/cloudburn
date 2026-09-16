@@ -463,7 +463,7 @@ describe('CloudBurnClient', () => {
               },
               region: 'global',
               resourceId: 'recommendation-1',
-              resourceType: 'costoptimizationhub:savings-plans-recommendation',
+              resourceType: 'costoptimizationhub:savings-plans-recommendation:SageMakerSavingsPlans',
             },
           ],
         },

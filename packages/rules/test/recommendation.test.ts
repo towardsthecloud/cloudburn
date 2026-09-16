@@ -165,6 +165,33 @@ describe('getRecommendationIdentity', () => {
 });
 
 describe('createRecommendationMatch', () => {
+  it('copies only provenance fields and recomputes identity for the new match', () => {
+    const provenance = {
+      source: 'custom',
+      sourceDetail: 'provider',
+      sourceId: 'shared',
+      observedAt: '2026-09-01T00:00:00Z',
+      refreshedAt: '2026-09-02T00:00:00Z',
+      resourceKey: 'stale-resource',
+      opportunityId: 'stale-opportunity',
+    };
+    const first = createRecommendationMatch('aws', { resourceId: 'new-a' }, provenance);
+    const second = createRecommendationMatch('aws', { resourceId: 'new-b' }, provenance);
+    expect(first.recommendation).toEqual({
+      source: 'custom',
+      sourceDetail: 'provider',
+      sourceId: 'shared',
+      observedAt: '2026-09-01T00:00:00Z',
+      refreshedAt: '2026-09-02T00:00:00Z',
+    });
+    expect(second.recommendation).not.toHaveProperty('resourceKey');
+    expect(second.recommendation).not.toHaveProperty('opportunityId');
+    expect(deduplicateRecommendationMatches([first, second])).toHaveLength(2);
+    const complete = createRecommendationMatch('aws', { ...scopeMatch, resourceId: 'vol-new' }, provenance);
+    expect(complete.recommendation?.opportunityId).toContain('vol-new');
+    expect(complete.recommendation?.opportunityId).not.toBe(provenance.opportunityId);
+    expect(provenance.opportunityId).toBe('stale-opportunity');
+  });
   it('merges provenance and identity without mutating the input', () => {
     const match = createFindingMatch('vol-1', 'eu-west-1', '111111111111');
     const withScope = { ...match, resourceType: 'ec2:volume', actionType: 'Delete' };
@@ -194,6 +221,29 @@ describe('createRecommendationMatch', () => {
 });
 
 describe('canonicalizeAwsResourceId', () => {
+  it.each([
+    ['dynamodb:table', 'dynamodb', 'table', '/'],
+    ['ec2:instance', 'ec2', 'instance', '/'],
+    ['ec2:volume', 'ec2', 'volume', '/'],
+    ['ecs:service', 'ecs', 'service', '/'],
+    ['elasticache:cluster', 'elasticache', 'cluster', ':'],
+    ['memorydb:cluster', 'memorydb', 'cluster', '/'],
+    ['opensearch:domain', 'es', 'domain', '/'],
+    ['rds:cluster-storage', 'rds', 'cluster', ':'],
+    ['rds:db', 'rds', 'db', ':'],
+    ['rds:db-storage', 'rds', 'db', ':'],
+    ['redshift:cluster', 'redshift', 'cluster', ':'],
+  ])('requires the documented resource separator for %s', (resourceType, service, kind, separator) => {
+    const resourceId = resourceType === 'ecs:service' ? 'cluster/example' : 'example';
+    const prefix = `arn:aws:${service}:eu-west-1:111111111111:${kind}`;
+    const valid = `${prefix}${separator}${resourceId}`;
+    const malformed = `${prefix}${separator === '/' ? ':' : '/'}${resourceId}`;
+    expect(canonicalizeAwsResourceId(resourceType, valid)).toBe(resourceId);
+    expect(canonicalizeAwsResourceId(resourceType, malformed)).toBe(malformed);
+    expect(getRecommendationIdentity('aws', { ...scopeMatch, resourceType, resourceId: malformed })).not.toEqual(
+      getRecommendationIdentity('aws', { ...scopeMatch, resourceType, resourceId }),
+    );
+  });
   it.each([
     ['ec2:instance', 'arn:aws:ec2:us-east-1:111111111111:instance/i-abc', 'i-abc'],
     ['ec2:volume', 'arn:aws:ec2:us-east-1:111111111111:volume/vol-abc', 'vol-abc'],

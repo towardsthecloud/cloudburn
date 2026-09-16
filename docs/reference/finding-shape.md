@@ -369,6 +369,9 @@ whether that estimate includes complete rotation history, the tracking start, an
 Only keys with at least 90 days of complete no-recorded-usage evidence can trigger the rule. Missing key or usage
 metadata makes the rule `not_applicable` rather than allowing incomplete evidence to look like a pass.
 
+Savings Plans finding resource types use `costoptimizationhub:savings-plans-recommendation:<savingsPlansType>`.
+The purchase family remains part of provenance-based deduplication even when source IDs and account/Region match.
+
 `CLDBRN-AWS-COSTOPTIMIZATIONHUB-1` projects one evaluated resource per Savings Plans purchase recommendation. Its
 normalized `data` contains the recommendation ID and source, Savings Plans type, account scope, account and Region when
 present, action type, current monthly cost, estimated monthly savings and percentage, currency, hourly commitment,

@@ -1,9 +1,5 @@
-const stripKind = (kind: string) => (resource: string) =>
-  resource.startsWith(`${kind}:`)
-    ? resource.slice(kind.length + 1)
-    : resource.startsWith(`${kind}/`)
-      ? resource.slice(kind.length + 1)
-      : undefined;
+const stripKind = (prefix: string) => (resource: string) =>
+  resource.startsWith(prefix) ? resource.slice(prefix.length) : undefined;
 
 const ARN_RESOURCE_BY_NAMESPACE: Record<
   string,
@@ -13,17 +9,17 @@ const ARN_RESOURCE_BY_NAMESPACE: Record<
     service: 'autoscaling',
     extract: (resource) => /^autoScalingGroup:[^:/]+:autoScalingGroupName\/([^:]+)$/.exec(resource)?.[1],
   },
-  'dynamodb:table': { service: 'dynamodb', extract: stripKind('table') },
-  'ec2:instance': { service: 'ec2', extract: stripKind('instance') },
-  'ec2:volume': { service: 'ec2', extract: stripKind('volume') },
-  'ecs:service': { service: 'ecs', extract: stripKind('service') },
-  'elasticache:cluster': { service: 'elasticache', extract: stripKind('cluster') },
-  'memorydb:cluster': { service: 'memorydb', extract: stripKind('cluster') },
-  'opensearch:domain': { service: 'es', extract: stripKind('domain') },
-  'rds:cluster-storage': { service: 'rds', extract: stripKind('cluster') },
-  'rds:db': { service: 'rds', extract: stripKind('db') },
-  'rds:db-storage': { service: 'rds', extract: stripKind('db') },
-  'redshift:cluster': { service: 'redshift', extract: stripKind('cluster') },
+  'dynamodb:table': { service: 'dynamodb', extract: stripKind('table/') },
+  'ec2:instance': { service: 'ec2', extract: stripKind('instance/') },
+  'ec2:volume': { service: 'ec2', extract: stripKind('volume/') },
+  'ecs:service': { service: 'ecs', extract: stripKind('service/') },
+  'elasticache:cluster': { service: 'elasticache', extract: stripKind('cluster:') },
+  'memorydb:cluster': { service: 'memorydb', extract: stripKind('cluster/') },
+  'opensearch:domain': { service: 'es', extract: stripKind('domain/') },
+  'rds:cluster-storage': { service: 'rds', extract: stripKind('cluster:') },
+  'rds:db': { service: 'rds', extract: stripKind('db:') },
+  'rds:db-storage': { service: 'rds', extract: stripKind('db:') },
+  'redshift:cluster': { service: 'redshift', extract: stripKind('cluster:') },
 };
 
 const regionalServices = new Set([
