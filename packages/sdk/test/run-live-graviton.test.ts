@@ -36,6 +36,15 @@ const expectedRecommendation = {
   sourceId: 'rec-1',
 };
 
+const expectedImpact = {
+  currentCost: { amount: 100, confidence: 'estimated', currency: 'USD', period: 'month' },
+  potentialSavings: { amount: 20, confidence: 'estimated', currency: 'USD', period: 'month' },
+  refreshedAt: '2026-09-04T00:00:00.000Z',
+  source: 'aws-cost-optimization-hub',
+  sourceDetail: 'ComputeOptimizer',
+  sourceId: 'rec-1',
+};
+
 it.each([false, true])(
   'prefers the normalized Hub match when native family heuristics enabled=%s',
   async (nativeEnabled) => {
@@ -77,6 +86,7 @@ it.each([false, true])(
               arn: recommendation.resourceArn,
               resourceId: recommendation.resourceId,
               resourceType: 'ec2:instance',
+              impact: expectedImpact,
               recommendation: expectedRecommendation,
               data: recommendation,
             },

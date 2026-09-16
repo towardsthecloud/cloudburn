@@ -195,10 +195,20 @@ Live findings that correspond to a recommendation also carry normalized `recomme
 `CostExplorer`, the source-side `sourceId`, and source-reported `observedAt`/`refreshedAt` timestamps that are omitted
 rather than guessed when the source does not report them. Scoped findings also carry opaque versioned `resourceKey`
 and `opportunityId` identity keys: `resourceKey` identifies the provider/account/Region/canonical resource, and
-`opportunityId` adds the action. Cross-rule precedence only applies between matches sharing a complete
-`opportunityId`, so a different action or scope on the same resource is preserved. Evaluation resource sets record
-pre-precedence evidence and are not totals. The [finding reference](../../docs/reference/finding-shape.md#findingrecommendation)
+`opportunityId` adds the action. Cross-rule precedence compares complete computed opportunity identities, so a
+different action or scope on the same resource is preserved. Legacy findings without a `recommendation` object can
+participate using complete scope fields; an explicit provenance-only recommendation without `opportunityId` skips
+precedence. Evaluation resource sets record pre-precedence evidence and are not totals. The [finding reference](../../docs/reference/finding-shape.md#findingrecommendation)
 documents the exact fields and precedence table.
+
+Findings and evaluation resources can also carry optional `impact` metadata: `currentCost` and `potentialSavings` are
+independently tagged `FinancialEvidence` values — `estimated` for modeled figures (Hub recommendations and the AWS
+Config recording-frequency projection are both modeled), `exact` for measured or billed evidence, or `unknown` with a
+`reason` when the source did not supply a usable amount. An unknown amount is absent rather than zero, and the
+optional `window` mirrors only source-reported observation boundaries or lookback durations. Hub financial fields are
+nullable, so absent money never invalidates an otherwise complete recommendation. The SDK never aggregates or
+converts these values; see [finding-shape.md](../../docs/reference/finding-shape.md#findingimpact) for the exact
+semantics.
 
 Every live `discover()` result also reports `capabilities`: a read-only readiness projection for the AWS capabilities
 the selected rules require. Each outcome reports `available`, `partial`, `unavailable`, or `error` with
@@ -303,8 +313,10 @@ fleets. Evaluation evidence retains every rule's original result before preceden
 loading seam for EC2, RDS, OpenSearch, Redshift, ElastiCache, MemoryDB, and DynamoDB reservation purchases. Its
 evaluation evidence preserves account and Region, resource ID and ARN when AWS provides them, current monthly cost,
 estimated savings and percentage, currency, implementation effort, restart and rollback flags, source, refresh time,
-term, payment option, and the resource-type-specific purchase configuration. Duplicate recommendation IDs are loaded
-once. A Hub finding is suppressed only when an enabled native CloudBurn rule actually reports the same resource
+term, payment option, and the resource-type-specific purchase configuration. Repeated summaries are loaded once only
+when account, Region, resource type, resource ID, ARN, action, and recommendation ID all match. Reused IDs in
+different scopes are loaded separately.
+A Hub finding is suppressed only when an enabled native CloudBurn rule actually reports the same resource
 namespace and identity for the same reservation purchase action with direct service evidence. The presence of a native
 rule in the catalog is not enough. This precedence is declared by rule metadata rather than AWS-specific engine policy, and evaluation evidence
 retains the Hub rule's original triggered result. Unenrolled, denied, and incomplete responses make the Hub rule
@@ -358,8 +370,9 @@ account identity also uses `sts:GetCallerIdentity`. CloudBurn never changes enro
 `AwsCostOptimizationHubUpgradeRecommendation` is a discriminated union keyed by `resourceType`, with typed
 `currentConfiguration` and `recommendedConfiguration`. It retains identity, account, Region, cost, savings,
 currency, implementation effort, restart, rollback, source, and refresh evidence. Missing required configuration,
-identity, cost, or operational data makes evaluation `not_applicable`; an enrolled account with a successful empty
-response passes. The [finding reference](../../docs/reference/finding-shape.md) lists each configuration contract.
+identity, or operational data makes evaluation `not_applicable`; an enrolled account with a successful empty
+response passes. Missing financial values remain valid as unknown impact. The
+[finding reference](../../docs/reference/finding-shape.md) lists each configuration contract.
 
 Enabled native EBS and RDS storage generation rules take precedence for the same account, Region, resource, and
 storage upgrade. RDS compute and storage findings use distinct namespaces. EC2 family preferences do not establish

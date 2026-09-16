@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { costOptimizationHubSavingsPlansRecommendedRule } from '../src/aws/costoptimizationhub/savings-plans-recommended.js';
 import type { AwsCostOptimizationHubSavingsPlansRecommendation } from '../src/index.js';
-import { LiveResourceBag } from '../src/index.js';
+import { createAwsCostOptimizationHubFindingMatch, LiveResourceBag } from '../src/index.js';
 
 const createRecommendation = (
   overrides: Partial<AwsCostOptimizationHubSavingsPlansRecommendation> = {},
@@ -53,6 +53,14 @@ describe('CLDBRN-AWS-COSTOPTIMIZATIONHUB-1', () => {
     const purchase = (index: number, savingsPlansType: string) => ({
       accountId: '123456789012',
       actionType: 'PurchaseSavingsPlans',
+      impact: {
+        currentCost: { amount: 410, confidence: 'estimated', currency: 'USD', period: 'month' },
+        potentialSavings: { amount: 107.85, confidence: 'estimated', currency: 'USD', period: 'month' },
+        refreshedAt: '2026-09-03T00:00:00.000Z',
+        source: 'aws-cost-optimization-hub',
+        sourceDetail: 'CostExplorer',
+        sourceId: `recommendation-${index}`,
+      },
       recommendation: {
         refreshedAt: '2026-09-03T00:00:00.000Z',
         source: 'aws-cost-optimization-hub',
@@ -117,5 +125,21 @@ describe('CLDBRN-AWS-COSTOPTIMIZATIONHUB-1', () => {
     });
 
     expect(finding).toBeNull();
+  });
+
+  it.each([
+    { costWindow: 30, expected: { lookbackDays: 30 } },
+    { costWindow: undefined, expected: undefined },
+    { costWindow: 0, expected: undefined },
+    { costWindow: Number.NaN, expected: undefined },
+  ])('uses only the cost-calculation window for impact: $costWindow', ({ costWindow, expected }) => {
+    const impact = createAwsCostOptimizationHubFindingMatch(
+      createRecommendation({
+        recommendationLookbackPeriodInDays: 14,
+        costCalculationLookbackPeriodInDays: costWindow,
+      }),
+    ).impact;
+    expect(impact?.window).toEqual(expected);
+    expect(impact?.potentialSavings).toMatchObject({ amount: 107.85, currency: 'USD', period: 'month' });
   });
 });

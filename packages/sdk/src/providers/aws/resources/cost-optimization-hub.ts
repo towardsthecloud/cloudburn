@@ -38,7 +38,7 @@ import type {
   AwsCostOptimizationHubUpgradeRecommendation,
   AwsDiscoveredResource,
 } from '@cloudburn/rules';
-import { createAwsCostOptimizationHubFindingMatch } from '@cloudburn/rules';
+import { canonicalizeAwsResourceId, createAwsCostOptimizationHubFindingMatch, getAwsArnScope } from '@cloudburn/rules';
 import type { ScanDiagnostic } from '../../../types.js';
 import { createCostOptimizationHubClient } from '../client.js';
 import type { AwsAccountIdResolver, AwsDiscoveryDatasetLoadResult } from '../discovery-registry.js';
@@ -72,7 +72,8 @@ const RESERVATION_RESOURCE_TYPES = [
 type HubRecommendation =
   | AwsCostOptimizationHubGravitonRecommendation
   | AwsCostOptimizationHubUpgradeRecommendation
-  | AwsCostOptimizationHubRecommendation
+  | AwsCostOptimizationHubSavingsPlansRecommendation
+  | AwsCostOptimizationHubReservationRecommendation
   | AwsCostOptimizationHubIdleRecommendation
   | AwsCostOptimizationHubRightsizingRecommendation;
 
@@ -106,6 +107,9 @@ type CostOptimizationHubLoadResult<T extends HubRecommendation> =
 const optionalFiniteNumber = (value: string | undefined): number | null | undefined =>
   value === undefined ? undefined : parseFiniteNumber(value);
 
+const finiteNumberOrNull = (value: number | undefined): number | null =>
+  typeof value === 'number' && Number.isFinite(value) ? value : null;
+
 const withOptionalString = (key: string, value: string | undefined): Record<string, string> =>
   value ? { [key]: value } : {};
 
@@ -126,13 +130,6 @@ const normalizeRecommendationCommon = (
     !recommendation.currentResourceType ||
     !category.resourceTypes.some((resourceType) => resourceType === recommendation.currentResourceType) ||
     !recommendation.accountId ||
-    !recommendation.currencyCode ||
-    recommendation.estimatedMonthlyCost === undefined ||
-    !Number.isFinite(recommendation.estimatedMonthlyCost) ||
-    recommendation.estimatedMonthlySavings === undefined ||
-    !Number.isFinite(recommendation.estimatedMonthlySavings) ||
-    recommendation.estimatedSavingsPercentage === undefined ||
-    !Number.isFinite(recommendation.estimatedSavingsPercentage) ||
     !(recommendation.lastRefreshTimestamp instanceof Date) ||
     Number.isNaN(recommendation.lastRefreshTimestamp.getTime()) ||
     (recommendation.source !== 'ComputeOptimizer' && recommendation.source !== 'CostExplorer')
@@ -143,11 +140,16 @@ const normalizeRecommendationCommon = (
   return {
     accountId: recommendation.accountId,
     actionType: recommendation.actionType as HubRecommendation['actionType'],
-    currencyCode: recommendation.currencyCode,
+    currencyCode: recommendation.currencyCode ?? null,
     currentResourceType: recommendation.currentResourceType,
-    estimatedMonthlyCost: recommendation.estimatedMonthlyCost,
-    estimatedMonthlySavings: recommendation.estimatedMonthlySavings,
-    estimatedSavingsPercentage: recommendation.estimatedSavingsPercentage,
+    estimatedMonthlyCost: finiteNumberOrNull(recommendation.estimatedMonthlyCost),
+    estimatedMonthlySavings: finiteNumberOrNull(recommendation.estimatedMonthlySavings),
+    estimatedSavingsPercentage: finiteNumberOrNull(recommendation.estimatedSavingsPercentage),
+    ...(typeof recommendation.recommendationLookbackPeriodInDays === 'number' &&
+    Number.isFinite(recommendation.recommendationLookbackPeriodInDays) &&
+    recommendation.recommendationLookbackPeriodInDays > 0
+      ? { recommendationLookbackPeriodInDays: recommendation.recommendationLookbackPeriodInDays }
+      : {}),
     ...(recommendation.implementationEffort ? { implementationEffort: recommendation.implementationEffort } : {}),
     lastRefreshTimestamp: recommendation.lastRefreshTimestamp.toISOString(),
     recommendationId: recommendation.recommendationId,
@@ -157,6 +159,112 @@ const normalizeRecommendationCommon = (
     ...(recommendation.resourceId ? { resourceId: recommendation.resourceId } : {}),
     ...(recommendation.restartNeeded !== undefined ? { restartNeeded: recommendation.restartNeeded } : {}),
     ...(recommendation.rollbackPossible !== undefined ? { rollbackPossible: recommendation.rollbackPossible } : {}),
+  };
+};
+
+const normalizeRecommendationDetails = <T extends HubRecommendation>(
+  summary: Recommendation,
+  common: NormalizedRecommendationCommon,
+  detail: GetRecommendationResponse,
+  category: RecommendationCategory<T>,
+): T | null => {
+  const conflictingContext =
+    (
+      [
+        'recommendationId',
+        'accountId',
+        'region',
+        'actionType',
+        'currentResourceType',
+        'recommendedResourceType',
+        'implementationEffort',
+        'restartNeeded',
+        'rollbackPossible',
+      ] as const
+    ).some((key) => summary[key] !== undefined && detail[key] !== undefined && detail[key] !== summary[key]) ||
+    (detail.source !== undefined && detail.source !== common.recommendationSource) ||
+    (detail.lastRefreshTimestamp !== undefined &&
+      (!(detail.lastRefreshTimestamp instanceof Date) ||
+        !Number.isFinite(detail.lastRefreshTimestamp.getTime()) ||
+        detail.lastRefreshTimestamp.toISOString() !== common.lastRefreshTimestamp));
+  if (conflictingContext) return null;
+  let normalized = category.normalizeConfiguration(common, detail);
+  if (
+    !normalized ||
+    (detail.region !== undefined && normalized.region !== undefined && detail.region !== normalized.region)
+  ) {
+    return null;
+  }
+  const summaryIds = [common.resourceId, common.resourceArn].filter((id): id is string => Boolean(id));
+  const detailIds = [detail.resourceId, detail.resourceArn].filter((id): id is string => Boolean(id));
+  if (summaryIds.length > 0 && detailIds.length > 0) {
+    const summaryMatch = createAwsCostOptimizationHubFindingMatch(normalized);
+    const detailMatch = createAwsCostOptimizationHubFindingMatch({
+      ...normalized,
+      ...(detail.resourceId ? { resourceId: detail.resourceId } : {}),
+      ...(detail.resourceArn ? { resourceArn: detail.resourceArn } : {}),
+    });
+    const summaryKey = summaryMatch.recommendation?.resourceKey;
+    const detailKey = detailMatch.recommendation?.resourceKey;
+    const preferDetail =
+      detailKey !== undefined &&
+      (summaryKey === undefined ||
+        (summaryMatch.resourceType === 'lambda:function' &&
+          !summaryMatch.resourceId.startsWith('arn:') &&
+          detailMatch.resourceId.startsWith('arn:')));
+    const scopedMatch = preferDetail ? detailMatch : summaryMatch;
+    const resourceKey = scopedMatch.recommendation?.resourceKey;
+    const identifiers = new Set([...summaryIds, ...detailIds]);
+    if (resourceKey !== undefined) {
+      for (const identifier of identifiers) {
+        const combined = createAwsCostOptimizationHubFindingMatch({
+          ...normalized,
+          resourceId: scopedMatch.resourceId,
+          resourceArn: identifier,
+        });
+        if (combined.recommendation?.resourceKey !== resourceKey) return null;
+      }
+    } else {
+      const region = normalized.region ?? detail.region;
+      for (const identifier of identifiers) {
+        if (!identifier.startsWith('arn:')) continue;
+        const scope = getAwsArnScope(identifier);
+        if (
+          !scope ||
+          (scope.accountId !== '' && scope.accountId !== normalized.accountId) ||
+          (scope.region !== '' && region !== undefined && scope.region !== region)
+        )
+          return null;
+      }
+      const repeatedIdentifiers =
+        (detail.resourceId === undefined || detail.resourceId === common.resourceId) &&
+        (detail.resourceArn === undefined || detail.resourceArn === common.resourceArn);
+      const canonicalIds = new Set(
+        [...identifiers].map((identifier) => canonicalizeAwsResourceId(summaryMatch.resourceType, identifier)),
+      );
+      if (!repeatedIdentifiers && canonicalIds.size !== 1) return null;
+    }
+    if (normalized.resourceId || normalized.resourceArn) {
+      normalized = {
+        ...normalized,
+        ...(resourceKey !== undefined && summaryKey !== resourceKey ? { resourceId: scopedMatch.resourceId } : {}),
+        ...(!normalized.resourceArn && detail.resourceArn ? { resourceArn: detail.resourceArn } : {}),
+      };
+    }
+  }
+  if (common.currencyCode && detail.currencyCode && common.currencyCode !== detail.currencyCode) return normalized;
+  return {
+    ...normalized,
+    currencyCode: common.currencyCode || detail.currencyCode || null,
+    estimatedMonthlyCost: common.estimatedMonthlyCost ?? finiteNumberOrNull(detail.estimatedMonthlyCost),
+    estimatedMonthlySavings: common.estimatedMonthlySavings ?? finiteNumberOrNull(detail.estimatedMonthlySavings),
+    estimatedSavingsPercentage:
+      common.estimatedSavingsPercentage ?? finiteNumberOrNull(detail.estimatedSavingsPercentage),
+    ...(typeof detail.costCalculationLookbackPeriodInDays === 'number' &&
+    Number.isFinite(detail.costCalculationLookbackPeriodInDays) &&
+    detail.costCalculationLookbackPeriodInDays > 0
+      ? { costCalculationLookbackPeriodInDays: detail.costCalculationLookbackPeriodInDays }
+      : {}),
   };
 };
 
@@ -474,7 +582,7 @@ const normalizeReservationConfiguration = (
 const savingsPlansCategory: RecommendationCategory<AwsCostOptimizationHubSavingsPlansRecommendation> = {
   actionTypes: ['PurchaseSavingsPlans'],
   incompleteDetails: (count) =>
-    `${count} Savings Plans recommendation${count === 1 ? '' : 's'} lacked required cost, refresh, source, scope, commitment, term, or payment data.`,
+    `${count} Savings Plans recommendation${count === 1 ? '' : 's'} lacked required refresh, source, scope, commitment, term, or payment data.`,
   messageSubject: 'Savings Plans recommendations',
   normalizeConfiguration: (common, response) =>
     normalizeSavingsPlansConfiguration(common, response.recommendedResourceDetails),
@@ -574,7 +682,7 @@ export const hydrateAwsCostOptimizationHubGravitonRecommendations = async (
 const reservationCategory: RecommendationCategory<AwsCostOptimizationHubReservationRecommendation> = {
   actionTypes: ['PurchaseReservedInstances'],
   incompleteDetails: (count) =>
-    `${count} reservation purchase recommendation${count === 1 ? '' : 's'} lacked required cost, refresh, source, or typed purchase configuration data.`,
+    `${count} reservation purchase recommendation${count === 1 ? '' : 's'} lacked required refresh, source, or typed purchase configuration data.`,
   messageSubject: 'reservation purchase recommendations',
   normalizeConfiguration: (common, response) =>
     normalizeReservationConfiguration(common, response.recommendedResourceDetails),
@@ -631,7 +739,7 @@ const upgradeCategory: RecommendationCategory<AwsCostOptimizationHubUpgradeRecom
   resourceTypes: ['Ec2Instance', 'Ec2AutoScalingGroup', 'EbsVolume', 'RdsDbInstance', 'RdsDbInstanceStorage'],
   messageSubject: 'product-generation upgrade recommendations',
   incompleteDetails: (count) =>
-    `${count} upgrade recommendations lacked required identity, cost, refresh, source, or current and recommended configuration data.`,
+    `${count} upgrade recommendations lacked required identity, refresh, source, or current and recommended configuration data.`,
   normalizeConfiguration: (common, response) => {
     const details = response.recommendedResourceDetails;
     const { currentResourceType, ...recommendation } = common;
@@ -1038,7 +1146,7 @@ const loadCostOptimizationHubRecommendations = async <T extends HubRecommendatio
           COST_OPTIMIZATION_HUB_REGION,
           () => client.send(new GetRecommendationCommand({ recommendationId: recommendation.recommendationId })),
         );
-        return category.normalizeConfiguration(common, detail);
+        return normalizeRecommendationDetails(recommendation, common, detail, category);
       },
     );
     const recommendations = normalized.filter((recommendation): recommendation is T => recommendation !== null);
@@ -1130,7 +1238,7 @@ const rightsizingCategory: RecommendationCategory<AwsCostOptimizationHubRightsiz
   ],
   messageSubject: 'rightsizing recommendations',
   incompleteDetails: (count) =>
-    `${count} rightsizing recommendations lacked required identity, cost, refresh, source, or typed current and recommended configuration data.`,
+    `${count} rightsizing recommendations lacked required identity, refresh, source, or typed current and recommended configuration data.`,
   normalizeConfiguration: (common, response) => {
     const { currentResourceType, ...recommendation } = common;
     const resourceType = currentResourceType as AwsCostOptimizationHubRightsizingRecommendation['resourceType'];

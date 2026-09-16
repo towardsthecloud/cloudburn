@@ -4,6 +4,8 @@ import {
   ListRecommendationsCommand,
   type Recommendation,
 } from '@aws-sdk/client-cost-optimization-hub';
+import type { AwsCostOptimizationHubSavingsPlansRecommendation } from '@cloudburn/rules';
+import { createAwsCostOptimizationHubFindingMatch } from '@cloudburn/rules';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createCostOptimizationHubClient } from '../../src/providers/aws/client.js';
 import { hydrateAwsCostOptimizationHubSavingsPlansRecommendations } from '../../src/providers/aws/resources/cost-optimization-hub.js';
@@ -47,6 +49,7 @@ describe('hydrateAwsCostOptimizationHubSavingsPlansRecommendations', () => {
               estimatedMonthlySavings: 107.85,
               estimatedSavingsPercentage: 26,
               implementationEffort: 'VeryLow',
+              recommendationLookbackPeriodInDays: 14,
               restartNeeded: false,
               rollbackPossible: false,
             }),
@@ -57,6 +60,7 @@ describe('hydrateAwsCostOptimizationHubSavingsPlansRecommendations', () => {
       if (command instanceof GetRecommendationCommand) {
         return {
           recommendationId: 'recommendation-1',
+          costCalculationLookbackPeriodInDays: 30,
           recommendedResourceDetails: {
             sageMakerSavingsPlans: {
               configuration: {
@@ -83,6 +87,7 @@ describe('hydrateAwsCostOptimizationHubSavingsPlansRecommendations', () => {
         accountId,
         accountScope: 'LINKED',
         actionType: 'PurchaseSavingsPlans',
+        costCalculationLookbackPeriodInDays: 30,
         currencyCode: 'USD',
         estimatedMonthlyCost: 410,
         estimatedMonthlySavings: 107.85,
@@ -92,6 +97,7 @@ describe('hydrateAwsCostOptimizationHubSavingsPlansRecommendations', () => {
         lastRefreshTimestamp: '2026-09-03T00:00:00.000Z',
         paymentOption: 'NoUpfront',
         recommendationId: 'recommendation-1',
+        recommendationLookbackPeriodInDays: 14,
         recommendationSource: 'CostExplorer',
         restartNeeded: false,
         rollbackPossible: false,
@@ -114,6 +120,364 @@ describe('hydrateAwsCostOptimizationHubSavingsPlansRecommendations', () => {
         },
       }),
     );
+  });
+
+  it('normalizes missing or unusable financial fields as null without dropping the recommendation', async () => {
+    const send = vi.fn(async (command: unknown) => {
+      if (command instanceof ListEnrollmentStatusesCommand) {
+        return { items: [{ accountId, status: 'Active' }] };
+      }
+
+      if (command instanceof ListRecommendationsCommand) {
+        return {
+          items: [
+            recommendation('recommendation-1', {
+              currencyCode: undefined,
+              estimatedMonthlyCost: undefined,
+              estimatedMonthlySavings: Number.NaN,
+              estimatedSavingsPercentage: undefined,
+              recommendationLookbackPeriodInDays: Number.NaN,
+            }),
+            recommendation('recommendation-2', {
+              recommendationLookbackPeriodInDays: 0,
+            }),
+          ],
+        };
+      }
+
+      if (command instanceof GetRecommendationCommand) {
+        return {
+          recommendedResourceDetails: {
+            sageMakerSavingsPlans: {
+              configuration: {
+                accountScope: 'LINKED',
+                hourlyCommitment: '0.42',
+                paymentOption: 'NoUpfront',
+                term: 'OneYear',
+              },
+            },
+          },
+        };
+      }
+
+      throw new Error(`Unexpected command: ${String(command)}`);
+    });
+    mockedCreateCostOptimizationHubClient.mockReturnValue({ send } as never);
+
+    const result = await hydrateAwsCostOptimizationHubSavingsPlansRecommendations([], {
+      resolveAccountId: vi.fn().mockResolvedValue(accountId),
+    });
+
+    expect(result).toEqual([
+      expect.objectContaining({
+        currencyCode: null,
+        estimatedMonthlyCost: null,
+        estimatedMonthlySavings: null,
+        estimatedSavingsPercentage: null,
+        recommendationId: 'recommendation-1',
+      }),
+      expect.objectContaining({
+        currencyCode: 'USD',
+        estimatedMonthlyCost: 200,
+        estimatedMonthlySavings: 50,
+        estimatedSavingsPercentage: 25,
+        recommendationId: 'recommendation-2',
+      }),
+    ]);
+    for (const normalized of Array.isArray(result) ? result : []) {
+      expect(Object.hasOwn(normalized, 'recommendationLookbackPeriodInDays')).toBe(false);
+    }
+  });
+
+  const sageMakerDetail = (overrides: Record<string, unknown> = {}): Record<string, unknown> => ({
+    recommendationId: 'recommendation-1',
+    accountId,
+    actionType: 'PurchaseSavingsPlans',
+    currentResourceType: 'SageMakerSavingsPlans',
+    source: 'CostExplorer',
+    lastRefreshTimestamp: new Date('2026-09-03T00:00:00.000Z'),
+    recommendedResourceDetails: {
+      sageMakerSavingsPlans: {
+        configuration: {
+          accountScope: 'LINKED',
+          hourlyCommitment: '0.42',
+          paymentOption: 'NoUpfront',
+          term: 'OneYear',
+        },
+      },
+    },
+    ...overrides,
+  });
+
+  const loadRecommendations = (summary: Partial<Recommendation>, detail: Record<string, unknown>) => {
+    const send = vi.fn(async (command: unknown) => {
+      if (command instanceof ListEnrollmentStatusesCommand) {
+        return { items: [{ accountId, status: 'Active' }] };
+      }
+      if (command instanceof ListRecommendationsCommand) {
+        return { items: [recommendation('recommendation-1', summary)] };
+      }
+      if (command instanceof GetRecommendationCommand) {
+        return detail;
+      }
+      throw new Error(`Unexpected command: ${String(command)}`);
+    });
+    mockedCreateCostOptimizationHubClient.mockReturnValue({ send } as never);
+    return hydrateAwsCostOptimizationHubSavingsPlansRecommendations([], {
+      resolveAccountId: vi.fn().mockResolvedValue(accountId),
+    });
+  };
+
+  const loadFirstRecommendation = async (
+    summary: Partial<Recommendation>,
+    detail: Record<string, unknown>,
+  ): Promise<AwsCostOptimizationHubSavingsPlansRecommendation> => {
+    const result = await loadRecommendations(summary, detail);
+    const [normalized] = Array.isArray(result) ? result : [];
+    if (!normalized) throw new Error('Expected one normalized recommendation');
+    return normalized;
+  };
+
+  it('retains repeated purchase IDs and ARNs as provenance-only evidence', async () => {
+    const identity = {
+      resourceId: 'purchase-a',
+      resourceArn: `arn:aws:savingsplans::${accountId}:savingsplan/purchase-a`,
+    };
+    const normalized = await loadFirstRecommendation(
+      { ...identity, estimatedMonthlyCost: undefined },
+      sageMakerDetail({ ...identity, estimatedMonthlyCost: 80 }),
+    );
+    expect(normalized).toMatchObject({ estimatedMonthlyCost: 80 });
+    expect(normalized).not.toHaveProperty('resourceId');
+    expect(normalized).not.toHaveProperty('resourceArn');
+    const finding = createAwsCostOptimizationHubFindingMatch(normalized);
+    expect(finding.resourceId).toBe('recommendation-1');
+    expect(finding.recommendation).toMatchObject({ source: 'aws-cost-optimization-hub', sourceId: 'recommendation-1' });
+    expect(finding.recommendation?.resourceKey).toBeUndefined();
+    expect(finding.impact?.currentCost).toMatchObject({
+      amount: 80,
+      confidence: 'estimated',
+      currency: 'USD',
+      period: 'month',
+    });
+  });
+
+  it.each([
+    'arn:aws:savingsplans::222222222222:savingsplan/purchase-a',
+    `arn:aws:savingsplans:us-east-1:${accountId}:savingsplan/purchase-a`,
+    'arn:malformed',
+  ])('rejects conflicting or malformed scope even when purchase identifiers repeat (%s)', async (resourceArn) => {
+    const identity = { resourceId: 'purchase-a', resourceArn };
+    const result = await loadRecommendations({ ...identity, region: 'eu-west-1' }, sageMakerDetail(identity));
+    expect(result).toMatchObject({
+      unavailable: true,
+      resources: [],
+      diagnostics: [{ code: 'CostOptimizationHubRecommendationIncomplete' }],
+    });
+  });
+
+  it('fills missing summary financials from matching GetRecommendation detail evidence', async () => {
+    const normalized = await loadFirstRecommendation(
+      {
+        currencyCode: undefined,
+        estimatedMonthlyCost: undefined,
+        estimatedMonthlySavings: undefined,
+        estimatedSavingsPercentage: undefined,
+        recommendationLookbackPeriodInDays: 14,
+      },
+      sageMakerDetail({
+        currencyCode: 'EUR',
+        estimatedMonthlyCost: 240,
+        estimatedMonthlySavings: 60,
+        estimatedSavingsPercentage: 25,
+        costCalculationLookbackPeriodInDays: 30,
+      }),
+    );
+    expect(normalized).toMatchObject({
+      currencyCode: 'EUR',
+      estimatedMonthlyCost: 240,
+      estimatedMonthlySavings: 60,
+      estimatedSavingsPercentage: 25,
+      costCalculationLookbackPeriodInDays: 30,
+      recommendationLookbackPeriodInDays: 14,
+    });
+    const impact = createAwsCostOptimizationHubFindingMatch(normalized).impact;
+    expect(impact).toMatchObject({
+      source: 'aws-cost-optimization-hub',
+      sourceDetail: 'CostExplorer',
+      sourceId: 'recommendation-1',
+      refreshedAt: '2026-09-03T00:00:00.000Z',
+      currentCost: { amount: 240, confidence: 'estimated', currency: 'EUR', period: 'month' },
+      potentialSavings: { amount: 60, confidence: 'estimated', currency: 'EUR', period: 'month' },
+      window: { lookbackDays: 30 },
+    });
+  });
+
+  it('retains compatible operational metadata including false flags', async () => {
+    const context = {
+      recommendedResourceType: 'SageMakerSavingsPlans',
+      implementationEffort: 'Low',
+      restartNeeded: false,
+      rollbackPossible: false,
+    };
+    const normalized = await loadFirstRecommendation(
+      { ...context, estimatedMonthlyCost: undefined },
+      sageMakerDetail({ ...context, estimatedMonthlyCost: 80 }),
+    );
+    expect(normalized).toMatchObject({
+      estimatedMonthlyCost: 80,
+      implementationEffort: 'Low',
+      restartNeeded: false,
+      rollbackPossible: false,
+    });
+    expect(normalized).not.toHaveProperty('recommendedResourceType');
+  });
+
+  it('keeps known summary zeros and fills only missing values from detail', async () => {
+    const normalized = await loadFirstRecommendation(
+      {
+        estimatedMonthlyCost: undefined,
+        estimatedMonthlySavings: 0,
+        estimatedSavingsPercentage: 0,
+      },
+      sageMakerDetail({
+        currencyCode: 'USD',
+        estimatedMonthlyCost: 80,
+        estimatedMonthlySavings: 99,
+        estimatedSavingsPercentage: 99,
+        costCalculationLookbackPeriodInDays: 7,
+      }),
+    );
+    expect(normalized).toMatchObject({
+      currencyCode: 'USD',
+      estimatedMonthlyCost: 80,
+      estimatedMonthlySavings: 0,
+      estimatedSavingsPercentage: 0,
+      costCalculationLookbackPeriodInDays: 7,
+    });
+  });
+
+  it('keeps non-finite detail financials null and omits the cost window', async () => {
+    const normalized = await loadFirstRecommendation(
+      {
+        estimatedMonthlyCost: undefined,
+        estimatedMonthlySavings: undefined,
+        estimatedSavingsPercentage: undefined,
+      },
+      sageMakerDetail({
+        estimatedMonthlyCost: Number.NaN,
+        estimatedMonthlySavings: Number.POSITIVE_INFINITY,
+        estimatedSavingsPercentage: Number.NaN,
+        costCalculationLookbackPeriodInDays: Number.NaN,
+      }),
+    );
+    expect(normalized).toMatchObject({
+      currencyCode: 'USD',
+      estimatedMonthlyCost: null,
+      estimatedMonthlySavings: null,
+      estimatedSavingsPercentage: null,
+    });
+    expect(Object.hasOwn(normalized, 'costCalculationLookbackPeriodInDays')).toBe(false);
+    const impact = createAwsCostOptimizationHubFindingMatch(normalized).impact;
+    expect(impact?.currentCost).toMatchObject({ confidence: 'unknown' });
+    expect(impact?.currentCost).not.toHaveProperty('amount');
+    expect(impact?.potentialSavings).toMatchObject({ confidence: 'unknown' });
+    expect(impact?.potentialSavings).not.toHaveProperty('amount');
+  });
+
+  it('blocks detail financial enrichment when only the detail currency conflicts', async () => {
+    const normalized = await loadFirstRecommendation(
+      { estimatedMonthlyCost: undefined },
+      sageMakerDetail({
+        currencyCode: 'EUR',
+        estimatedMonthlyCost: 80,
+        estimatedMonthlySavings: 99,
+        costCalculationLookbackPeriodInDays: 30,
+      }),
+    );
+    expect(normalized).toMatchObject({
+      currencyCode: 'USD',
+      estimatedMonthlyCost: null,
+      estimatedMonthlySavings: 50,
+      lastRefreshTimestamp: '2026-09-03T00:00:00.000Z',
+    });
+    expect(Object.hasOwn(normalized, 'costCalculationLookbackPeriodInDays')).toBe(false);
+  });
+
+  it.each([
+    ['recommendation ID', { recommendationId: 'other' }, {}],
+    ['account', { accountId: '222222222222' }, {}],
+    ['source', { source: 'ComputeOptimizer' }, {}],
+    ['refresh timestamp', { lastRefreshTimestamp: new Date('2026-09-04T00:00:00.000Z') }, {}],
+    ['invalid refresh timestamp', { lastRefreshTimestamp: new Date(Number.NaN) }, {}],
+    ['action', { actionType: 'PurchaseReservedInstances' }, {}],
+    ['resource type', { currentResourceType: 'Ec2InstanceSavingsPlans' }, {}],
+    ['region', { region: 'us-east-1' }, { region: 'eu-west-1' }],
+    [
+      'recommended resource type',
+      { recommendedResourceType: 'ComputeSavingsPlans' },
+      { recommendedResourceType: 'SageMakerSavingsPlans' },
+    ],
+    ['implementation effort', { implementationEffort: 'High' }, { implementationEffort: 'Low' }],
+    ['restart requirement', { restartNeeded: true }, { restartNeeded: false }],
+    ['rollback availability', { rollbackPossible: false }, { rollbackPossible: true }],
+  ])('rejects the recommendation when the detail %s conflicts', async (_label, detailOverride, summaryOverride) => {
+    const result = await loadRecommendations(
+      { estimatedMonthlyCost: undefined, ...summaryOverride },
+      sageMakerDetail({
+        currencyCode: 'USD',
+        estimatedMonthlyCost: 80,
+        estimatedMonthlySavings: 99,
+        costCalculationLookbackPeriodInDays: 30,
+        ...detailOverride,
+      }),
+    );
+    expect(result).toMatchObject({
+      unavailable: true,
+      resources: [],
+      diagnostics: [{ code: 'CostOptimizationHubRecommendationIncomplete' }],
+    });
+  });
+
+  it('rejects the recommendation when the opaque resource IDs disagree', async () => {
+    const result = await loadRecommendations(
+      { resourceId: 'purchase-a', estimatedMonthlyCost: undefined },
+      sageMakerDetail({
+        resourceId: 'purchase-b',
+        currencyCode: 'USD',
+        estimatedMonthlyCost: 80,
+        costCalculationLookbackPeriodInDays: 30,
+      }),
+    );
+    expect(result).toMatchObject({
+      unavailable: true,
+      resources: [],
+      diagnostics: [{ code: 'CostOptimizationHubRecommendationIncomplete' }],
+    });
+  });
+
+  it('fills detail financials when the opaque resource IDs match', async () => {
+    const normalized = await loadFirstRecommendation(
+      { resourceId: 'purchase-a', estimatedMonthlyCost: undefined },
+      sageMakerDetail({
+        resourceId: 'purchase-a',
+        currencyCode: 'USD',
+        estimatedMonthlyCost: 80,
+        costCalculationLookbackPeriodInDays: 30,
+      }),
+    );
+    expect(normalized).toMatchObject({
+      estimatedMonthlyCost: 80,
+      costCalculationLookbackPeriodInDays: 30,
+    });
+  });
+
+  it('uses the detail cost window when the summary generation lookback is absent', async () => {
+    const normalized = await loadFirstRecommendation({}, sageMakerDetail({ costCalculationLookbackPeriodInDays: 30 }));
+    expect(normalized).toMatchObject({ costCalculationLookbackPeriodInDays: 30 });
+    expect(Object.hasOwn(normalized, 'recommendationLookbackPeriodInDays')).toBe(false);
+    const impact = createAwsCostOptimizationHubFindingMatch(normalized).impact;
+    expect(impact?.window).toEqual({ lookbackDays: 30 });
   });
 
   it('marks recommendation evidence unavailable when the account is not enrolled', async () => {

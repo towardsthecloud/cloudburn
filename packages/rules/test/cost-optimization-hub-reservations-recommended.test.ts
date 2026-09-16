@@ -82,6 +82,14 @@ describe('CLDBRN-AWS-COSTOPTIMIZATIONHUB-2', () => {
       findings: resourceTypes.map((reservationType, index) => ({
         accountId: '123456789012',
         actionType: 'PurchaseReservedInstances',
+        impact: {
+          currentCost: { amount: 200, confidence: 'estimated', currency: 'USD', period: 'month' },
+          potentialSavings: { amount: 50, confidence: 'estimated', currency: 'USD', period: 'month' },
+          refreshedAt: '2026-09-04T00:00:00.000Z',
+          source: 'aws-cost-optimization-hub',
+          sourceDetail: 'CostExplorer',
+          sourceId: `recommendation-${index + 1}`,
+        },
         recommendation: {
           opportunityId: `["opportunity",1,"aws","123456789012","eu-west-1","${resourceNamespaceByType[reservationType]}","resource-${index + 1}","PurchaseReservedInstances"]`,
           refreshedAt: '2026-09-04T00:00:00.000Z',
@@ -109,6 +117,14 @@ describe('CLDBRN-AWS-COSTOPTIMIZATIONHUB-2', () => {
           {
             accountId: '123456789012',
             actionType: 'PurchaseReservedInstances',
+            impact: {
+              currentCost: { amount: 200, confidence: 'estimated', currency: 'USD', period: 'month' },
+              potentialSavings: { amount: 50, confidence: 'estimated', currency: 'USD', period: 'month' },
+              refreshedAt: '2026-09-04T00:00:00.000Z',
+              source: 'aws-cost-optimization-hub',
+              sourceDetail: 'CostExplorer',
+              sourceId: 'recommendation-1',
+            },
             recommendation: {
               opportunityId:
                 '["opportunity",1,"aws","123456789012","eu-west-1","ec2:instance","i-123","PurchaseReservedInstances"]',
@@ -133,6 +149,14 @@ describe('CLDBRN-AWS-COSTOPTIMIZATIONHUB-2', () => {
           {
             accountId: '123456789012',
             actionType: 'PurchaseReservedInstances',
+            impact: {
+              currentCost: { amount: 200, confidence: 'estimated', currency: 'USD', period: 'month' },
+              potentialSavings: { amount: 50, confidence: 'estimated', currency: 'USD', period: 'month' },
+              refreshedAt: '2026-09-04T00:00:00.000Z',
+              source: 'aws-cost-optimization-hub',
+              sourceDetail: 'CostExplorer',
+              sourceId: 'recommendation-1',
+            },
             recommendation: {
               refreshedAt: '2026-09-04T00:00:00.000Z',
               source: 'aws-cost-optimization-hub',

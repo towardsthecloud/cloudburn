@@ -1,4 +1,5 @@
 import { createFindingMatch } from '../../shared/helpers.js';
+import { createFinancialEvidence } from '../../shared/impact.js';
 import type {
   AwsCostOptimizationHubGravitonRecommendation,
   AwsCostOptimizationHubIdleRecommendation,
@@ -7,6 +8,7 @@ import type {
   AwsCostOptimizationHubSavingsPlansRecommendation,
   AwsCostOptimizationHubUpgradeRecommendation,
   EvidenceProvenance,
+  FindingImpact,
   FindingMatch,
 } from '../../shared/metadata.js';
 import { createRecommendationMatch } from '../../shared/recommendation.js';
@@ -61,6 +63,26 @@ export const createAwsCostOptimizationHubFindingMatch = (
     ...(item.recommendationId ? { sourceId: item.recommendationId } : {}),
     ...(item.lastRefreshTimestamp ? { refreshedAt: item.lastRefreshTimestamp } : {}),
   };
+  const impact: FindingImpact = {
+    ...provenance,
+    currentCost: createFinancialEvidence({
+      amount: item.estimatedMonthlyCost,
+      currency: item.currencyCode,
+      period: 'month',
+      confidence: 'estimated',
+    }),
+    potentialSavings: createFinancialEvidence({
+      amount: item.estimatedMonthlySavings,
+      currency: item.currencyCode,
+      period: 'month',
+      confidence: 'estimated',
+    }),
+    ...(typeof item.costCalculationLookbackPeriodInDays === 'number' &&
+    Number.isFinite(item.costCalculationLookbackPeriodInDays) &&
+    item.costCalculationLookbackPeriodInDays > 0
+      ? { window: { lookbackDays: item.costCalculationLookbackPeriodInDays } }
+      : {}),
+  };
   const attach = (input: FindingMatch & { resourceType: string }): FindingMatch & { resourceType: string } => {
     const hasConflictingArn = [item.resourceId, item.resourceArn].some((id) => {
       if (!id?.startsWith('arn:')) return false;
@@ -102,7 +124,7 @@ export const createAwsCostOptimizationHubFindingMatch = (
       hasConflictingResource ||
       hasConflictingReservationRegion
     ) {
-      return { ...input, recommendation: provenance };
+      return { ...input, impact, recommendation: provenance };
     }
     const resourceId =
       lambdaArn ??
@@ -113,7 +135,7 @@ export const createAwsCostOptimizationHubFindingMatch = (
         ? canonicalArn
         : input.resourceId);
     return {
-      ...createRecommendationMatch('aws', { ...input, resourceId }, provenance),
+      ...createRecommendationMatch('aws', { ...input, impact, resourceId }, provenance),
       resourceType: input.resourceType,
     };
   };

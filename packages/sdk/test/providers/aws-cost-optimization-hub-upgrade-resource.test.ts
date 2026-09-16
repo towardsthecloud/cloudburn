@@ -299,9 +299,6 @@ describe('Cost Optimization Hub upgrades', () => {
     { restartNeeded: undefined },
     { rollbackPossible: undefined },
     { actionType: 'Rightsize' as const },
-    { estimatedMonthlyCost: Number.NaN },
-    { estimatedMonthlySavings: undefined },
-    { estimatedSavingsPercentage: undefined },
     { source: undefined },
     { lastRefreshTimestamp: undefined },
   ])('makes incomplete or non-upgrade summary evidence unavailable: %j', async (invalid) => {
@@ -310,6 +307,24 @@ describe('Cost Optimization Hub upgrades', () => {
       unavailable: true,
       diagnostics: [{ code: 'CostOptimizationHubRecommendationIncomplete' }],
     });
+  });
+  it('normalizes missing or unusable financial fields as null', async () => {
+    mockHub(
+      summary({
+        currencyCode: undefined,
+        estimatedMonthlyCost: Number.NaN,
+        estimatedMonthlySavings: undefined,
+        estimatedSavingsPercentage: undefined,
+      }),
+    );
+    expect(await load()).toEqual([
+      expect.objectContaining({
+        currencyCode: null,
+        estimatedMonthlyCost: null,
+        estimatedMonthlySavings: null,
+        estimatedSavingsPercentage: null,
+      }),
+    ]);
   });
   it.each([
     ['Ec2Instance', { ec2Instance: { configuration: { instance: {} } } }],

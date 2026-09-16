@@ -1,7 +1,10 @@
 // Intent: expose rule packs, presets, and metadata contracts for SDK and users.
 // TODO(cloudburn): publish stable docs for custom rule pack authoring.
 
-export { AWS_CONFIG_RECORDING_FREQUENCY_MINIMUM_SAVINGS_USD } from './aws/config/recording-frequency.js';
+export {
+  AWS_CONFIG_RECORDING_FREQUENCY_MINIMUM_SAVINGS_USD,
+  createAwsConfigRecordingFrequencyImpact,
+} from './aws/config/recording-frequency.js';
 export { createAwsCostOptimizationHubFindingMatch } from './aws/costoptimizationhub/finding.js';
 export { gravitonResourceTypes } from './aws/costoptimizationhub/graviton-recommended.js';
 export {
@@ -23,7 +26,7 @@ export {
   AWS_KMS_MONTHLY_KEY_CREATION_THRESHOLD,
 } from './aws/kms/key-churn.js';
 export { AWS_KMS_UNUSED_KEY_MINIMUM_AGE_DAYS } from './aws/kms/key-unused.js';
-export { canonicalizeAwsResourceId } from './aws/resource-identity.js';
+export { canonicalizeAwsResourceId, getAwsArnScope } from './aws/resource-identity.js';
 export {
   AWS_SAGEMAKER_SAVINGS_PLANS_MINIMUM_COVERAGE_PERCENTAGE,
   AWS_SAGEMAKER_SAVINGS_PLANS_MINIMUM_UNCOVERED_COST,
@@ -46,6 +49,7 @@ export {
   isRecord,
   toRuleIds,
 } from './shared/helpers.js';
+export { createFinancialEvidence } from './shared/impact.js';
 export type {
   AwsCloudFrontDistribution,
   AwsCloudFrontDistributionRequestActivity,
@@ -167,11 +171,16 @@ export type {
   DiscoveryDatasetKey,
   DiscoveryDatasetMap,
   EvidenceProvenance,
+  FinancialEvidence,
   Finding,
+  FindingImpact,
   FindingMatch,
   FindingRecommendation,
   IaCResource,
   IaCSuppression,
+  ImpactPeriod,
+  ImpactUnknownReason,
+  ImpactWindow,
   LiveEvaluationContext,
   LiveEvaluationCoverage,
   RecommendationIdentity,

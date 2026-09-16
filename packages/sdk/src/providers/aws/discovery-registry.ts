@@ -3,6 +3,7 @@ import {
   type AwsDiscoveryCatalog,
   type AwsKmsKeyChurnReview,
   awsRules,
+  createAwsConfigRecordingFrequencyImpact,
   createAwsCostOptimizationHubFindingMatch,
   createFindingMatch,
   createLiveEvaluationCoverage,
@@ -378,16 +379,14 @@ const awsDiscoveryDatasetRegistry: {
     service: 'config',
     load: hydrateAwsConfigRecordingFrequencyReviews,
     toEvaluationResources: (reviews) =>
-      mapEvaluationResources(
-        reviews,
-        (review) => `${review.recorderArn}#${review.resourceType}`,
-        (review) => ({
-          arn: review.recorderArn,
-          data: review,
-          name: `${review.recorderName}: ${review.resourceType}`,
-          resourceType: 'config:configuration-recorder',
-        }),
-      ),
+      reviews.map((review) => ({
+        ...createFindingMatch(`${review.recorderArn}#${review.resourceType}`, review.region, review.accountId),
+        arn: review.recorderArn,
+        data: review,
+        impact: createAwsConfigRecordingFrequencyImpact(review),
+        name: `${review.recorderName}: ${review.resourceType}`,
+        resourceType: 'config:configuration-recorder',
+      })),
   },
   'aws-cost-usage': {
     datasetKey: 'aws-cost-usage',
@@ -1098,7 +1097,7 @@ const awsDiscoveryDatasetRegistry: {
   'aws-cost-optimization-hub-savings-plans-recommendations': {
     datasetKey: 'aws-cost-optimization-hub-savings-plans-recommendations',
     dependencies: [],
-    schemaVersion: '1',
+    schemaVersion: '2',
     loaderVersion: '2',
     freshness: { ttlMs: 21_600_000, observation: { kind: 'current' } },
     resourceTypes: [],
@@ -1109,7 +1108,7 @@ const awsDiscoveryDatasetRegistry: {
   'aws-cost-optimization-hub-reservation-recommendations': {
     datasetKey: 'aws-cost-optimization-hub-reservation-recommendations',
     dependencies: [],
-    schemaVersion: '1',
+    schemaVersion: '2',
     loaderVersion: '2',
     freshness: { ttlMs: 21_600_000, observation: { kind: 'current' } },
     resourceTypes: [],
@@ -1126,7 +1125,7 @@ const awsDiscoveryDatasetRegistry: {
   'aws-cost-optimization-hub-rightsizing-recommendations': {
     datasetKey: 'aws-cost-optimization-hub-rightsizing-recommendations',
     dependencies: [],
-    schemaVersion: '1',
+    schemaVersion: '2',
     loaderVersion: '2',
     freshness: { ttlMs: 21_600_000, observation: { kind: 'current' } },
     resourceTypes: [],
@@ -1137,7 +1136,7 @@ const awsDiscoveryDatasetRegistry: {
   'aws-cost-optimization-hub-idle-recommendations': {
     datasetKey: 'aws-cost-optimization-hub-idle-recommendations',
     dependencies: [],
-    schemaVersion: '1',
+    schemaVersion: '2',
     loaderVersion: '2',
     freshness: { ttlMs: 21_600_000, observation: { kind: 'current' } },
     resourceTypes: [],
@@ -1148,7 +1147,7 @@ const awsDiscoveryDatasetRegistry: {
   'aws-cost-optimization-hub-upgrade-recommendations': {
     datasetKey: 'aws-cost-optimization-hub-upgrade-recommendations',
     dependencies: [],
-    schemaVersion: '1',
+    schemaVersion: '2',
     loaderVersion: '2',
     freshness: { ttlMs: 21_600_000, observation: { kind: 'current' } },
     resourceTypes: [],
@@ -1159,7 +1158,7 @@ const awsDiscoveryDatasetRegistry: {
   'aws-cost-optimization-hub-graviton-recommendations': {
     datasetKey: 'aws-cost-optimization-hub-graviton-recommendations',
     dependencies: [],
-    schemaVersion: '1',
+    schemaVersion: '2',
     loaderVersion: '2',
     freshness: { ttlMs: 21_600_000, observation: { kind: 'current' } },
     resourceTypes: [],

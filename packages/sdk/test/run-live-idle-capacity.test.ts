@@ -56,6 +56,14 @@ describe('idle capacity orchestration and evidence', () => {
       {
         accountId,
         actionType: 'Delete',
+        impact: {
+          currentCost: { amount: 20, confidence: 'estimated', currency: 'USD', period: 'month' },
+          potentialSavings: { amount: 20, confidence: 'estimated', currency: 'USD', period: 'month' },
+          refreshedAt: '2026-09-04T00:00:00Z',
+          source: 'aws-cost-optimization-hub',
+          sourceDetail: 'ComputeOptimizer',
+          sourceId: 'rec-1',
+        },
         recommendation: {
           opportunityId: '["opportunity",1,"aws","123456789012","eu-west-1","ec2:volume","vol-test","Delete"]',
           refreshedAt: '2026-09-04T00:00:00Z',
