@@ -113,7 +113,9 @@ When both a resource ID and ARN are supplied, their canonical resource component
 evidence retains provenance without identity. ECS service-name qualification and Lambda version unqualification are
 recognized equivalences. Lambda version and alias qualifiers are removed for both evidence comparison and
 function-level identity keys. A legacy unscoped ECS service ARN does not replace a supplied cluster-qualified ID;
-contradictory evidence never replaces the displayed resource ID.
+contradictory evidence never replaces the displayed resource ID. Malformed ARNs cannot establish identity.
+Recognized regional AWS resources require both Region and account components in the ARN; valid global ARN formats
+remain supported. Reservation summary and purchase-configuration Regions must agree when both are supplied.
 
 ## Cross-rule precedence
 

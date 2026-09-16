@@ -26,6 +26,12 @@ const ARN_RESOURCE_BY_NAMESPACE: Record<
   'redshift:cluster': { service: 'redshift', extract: stripKind('cluster') },
 };
 
+const regionalServices = new Set([
+  'eks',
+  'lambda',
+  ...Object.values(ARN_RESOURCE_BY_NAMESPACE).map(({ service }) => service),
+]);
+
 /**
  * Reduces a recognized AWS ARN to its service-local identifier for one resource namespace.
  *
@@ -39,7 +45,7 @@ const ARN_RESOURCE_BY_NAMESPACE: Record<
  * @returns The canonical service-local identifier, or the original value unchanged.
  */
 export const canonicalizeAwsResourceId = (resourceType: string, resourceId: string): string => {
-  if (!resourceId.startsWith('arn:')) {
+  if (!resourceId.startsWith('arn:') || !getAwsArnScope(resourceId)) {
     return resourceId;
   }
 
@@ -66,14 +72,16 @@ export const canonicalizeAwsResourceId = (resourceType: string, resourceId: stri
  * @returns The ARN scope, or `undefined` when the value is not a well-formed ARN.
  */
 export const getAwsArnScope = (resourceId: string): { accountId: string; region: string } | undefined => {
-  if (!resourceId.startsWith('arn:')) {
+  const arn = /^arn:aws(?:-[a-z0-9]+)*:([a-z0-9-]+):([a-z0-9-]*):(\d{12})?:(.+)$/.exec(resourceId);
+  if (!arn) {
     return undefined;
   }
 
-  const parts = resourceId.split(':');
-  if (parts.length < 6) {
+  const region = arn[2] ?? '';
+  const accountId = arn[3] ?? '';
+  if (regionalServices.has(arn[1] ?? '') && (!region || !accountId)) {
     return undefined;
   }
 
-  return { region: parts[3] ?? '', accountId: parts[4] ?? '' };
+  return { region, accountId };
 };
