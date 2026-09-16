@@ -31,12 +31,14 @@ type HubRecommendation =
   | AwsCostOptimizationHubUpgradeRecommendation
   | AwsCostOptimizationHubGravitonRecommendation;
 
-const comparableResourceId = (resourceType: string, resourceId: string): string => {
-  const canonical = canonicalizeAwsResourceId(resourceType, resourceId);
-  return resourceType === 'lambda:function' &&
-    /^arn:[^:]+:lambda:[^:]+:[^:]+:function:[^:]+(?::[^:]+)?$/.test(canonical)
-    ? canonical.split(':').slice(0, 7).join(':')
-    : canonical;
+const hasMatchingEcsServiceName = (left: string, right: string): boolean => {
+  const localIdentity = /^[^/:]+(?:\/[^/:]+)?$/;
+  return (
+    localIdentity.test(left) &&
+    localIdentity.test(right) &&
+    (!left.includes('/') || !right.includes('/')) &&
+    left.split('/').at(-1) === right.split('/').at(-1)
+  );
 };
 
 /**
@@ -60,30 +62,36 @@ export const createAwsCostOptimizationHubFindingMatch = (
     ...(item.lastRefreshTimestamp ? { refreshedAt: item.lastRefreshTimestamp } : {}),
   };
   const attach = (input: FindingMatch & { resourceType: string }): FindingMatch & { resourceType: string } => {
-    const match =
-      input.resourceType === 'ecs:service' && item.resourceArn
-        ? { ...input, resourceId: canonicalizeAwsResourceId('ecs:service', item.resourceArn) }
-        : input;
     const hasConflictingArn = [item.resourceId, item.resourceArn].some((id) => {
       if (!id) return false;
       const scope = getAwsArnScope(id);
       return (
         scope !== undefined &&
-        ((scope.accountId !== '' && scope.accountId !== match.accountId) ||
-          (scope.region !== '' && scope.region !== match.region))
+        ((scope.accountId !== '' && scope.accountId !== input.accountId) ||
+          (scope.region !== '' && scope.region !== input.region))
       );
     });
-    const canonicalId = item.resourceId ? comparableResourceId(match.resourceType, item.resourceId) : undefined;
-    const canonicalArn = item.resourceArn ? comparableResourceId(match.resourceType, item.resourceArn) : undefined;
+    const canonicalId = item.resourceId ? canonicalizeAwsResourceId(input.resourceType, item.resourceId) : undefined;
+    const canonicalArn = item.resourceArn ? canonicalizeAwsResourceId(input.resourceType, item.resourceArn) : undefined;
     const hasConflictingResource =
       canonicalId !== undefined &&
       canonicalArn !== undefined &&
-      (match.resourceType === 'ecs:service' && !canonicalId.includes('/') && !canonicalId.startsWith('arn:')
-        ? canonicalArn.split('/').at(-1) !== canonicalId
-        : canonicalId !== canonicalArn);
-    return (item.resourceId || item.resourceArn) && !hasConflictingArn && !hasConflictingResource
-      ? { ...createRecommendationMatch('aws', match, provenance), resourceType: match.resourceType }
-      : { ...match, recommendation: provenance };
+      canonicalId !== canonicalArn &&
+      !(input.resourceType === 'ecs:service' && hasMatchingEcsServiceName(canonicalId, canonicalArn));
+    if (!(item.resourceId || item.resourceArn) || hasConflictingArn || hasConflictingResource) {
+      return { ...input, recommendation: provenance };
+    }
+    const resourceId =
+      input.resourceType === 'ecs:service' &&
+      canonicalArn &&
+      /^[^/:]+\/[^/:]+$/.test(canonicalArn) &&
+      !(canonicalId && /^[^/:]+\/[^/:]+$/.test(canonicalId))
+        ? canonicalArn
+        : input.resourceId;
+    return {
+      ...createRecommendationMatch('aws', { ...input, resourceId }, provenance),
+      resourceType: input.resourceType,
+    };
   };
 
   switch (item.actionType) {

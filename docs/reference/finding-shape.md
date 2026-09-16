@@ -111,7 +111,9 @@ ECS service opportunities require a cluster-qualified identifier (`cluster/servi
 it takes precedence over a bare display name, and a name without cluster scope carries provenance only.
 When both a resource ID and ARN are supplied, their canonical resource components must also agree; contradictory
 evidence retains provenance without identity. ECS service-name qualification and Lambda version unqualification are
-recognized equivalences.
+recognized equivalences. Lambda version and alias qualifiers are removed for both evidence comparison and
+function-level identity keys. A legacy unscoped ECS service ARN does not replace a supplied cluster-qualified ID;
+contradictory evidence never replaces the displayed resource ID.
 
 ## Cross-rule precedence
 

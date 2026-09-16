@@ -342,4 +342,45 @@ describe('deterministic recommendation precedence', () => {
       forward.find((entry) => entry.provider === 'azure' && entry.ruleId === 'native')?.finding?.findings,
     ).toHaveLength(1);
   });
+
+  it.each([false, true])('prefers native Lambda rightsizing over a qualified Hub ID (ARN supplied=%s)', (withArn) => {
+    const functionArn = 'arn:aws:lambda:eu-west-1:111111111111:function:worker';
+    const hubMatch = createAwsCostOptimizationHubFindingMatch({
+      accountId: '111111111111',
+      actionType: 'Rightsize',
+      region: 'eu-west-1',
+      resourceId: `${functionArn}:3`,
+      ...(withArn ? { resourceArn: `${functionArn}:3` } : {}),
+      resourceType: 'LambdaFunction',
+      currentConfiguration: { compute: { memorySizeInMB: 1024 } },
+      recommendedConfiguration: { compute: { memorySizeInMB: 512 } },
+      currencyCode: 'USD',
+      estimatedMonthlyCost: 20,
+      estimatedMonthlySavings: 10,
+      estimatedSavingsPercentage: 50,
+      recommendationId: 'rec-worker',
+      recommendationSource: 'ComputeOptimizer',
+      lastRefreshTimestamp: '2026-09-04T00:00:00.000Z',
+    });
+    const nativeMatch = match({
+      resourceId: functionArn,
+      resourceType: 'lambda:function',
+      actionType: 'Rightsize',
+      recommendation: { source: 'cloudburn' },
+    });
+    expect(hubMatch.recommendation?.opportunityId).toBe(nativeMatch.recommendation?.opportunityId);
+    const candidates = [
+      rule('CLDBRN-AWS-COSTOPTIMIZATIONHUB-4', [hubMatch]),
+      rule('CLDBRN-AWS-LAMBDA-4', [nativeMatch], ['CLDBRN-AWS-COSTOPTIMIZATIONHUB-4']),
+    ];
+    const result = applyFindingPrecedence(candidates);
+    expect(result).toEqual([
+      expect.objectContaining({ ruleId: 'CLDBRN-AWS-COSTOPTIMIZATIONHUB-4', finding: null }),
+      expect.objectContaining({
+        ruleId: 'CLDBRN-AWS-LAMBDA-4',
+        finding: expect.objectContaining({ findings: [nativeMatch] }),
+      }),
+    ]);
+    expect(applyFindingPrecedence([...candidates].reverse())).toEqual(result);
+  });
 });
