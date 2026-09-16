@@ -371,9 +371,10 @@ metadata makes the rule `not_applicable` rather than allowing incomplete evidenc
 normalized `data` contains the recommendation ID and source, Savings Plans type, account scope, account and Region when
 present, action type, current monthly cost, estimated monthly savings and percentage, currency, hourly commitment,
 implementation effort when present, last refresh time, term, payment option, restart requirement, and rollback
-availability. EC2 Instance recommendations also include instance family and commitment Region. Duplicate recommendation
-IDs are evaluated once. Missing required purchase terms makes the rule `not_applicable`; missing financial values remain valid as
-unknown impact.
+availability. EC2 Instance recommendations also include instance family and commitment Region. Summary coalescing
+uses the full source scope key, not recommendation ID alone; finding deduplication follows the scoped identity and
+provenance rules above. Missing required purchase terms makes the rule `not_applicable`; missing financial values
+remain valid as unknown impact.
 
 `CLDBRN-AWS-COSTOPTIMIZATIONHUB-2` projects one evaluated resource per reservation purchase recommendation. Resource
 identity prefers the AWS resource ID and retains its ARN when available, with the recommendation ID as the fallback.
@@ -382,7 +383,8 @@ fields plus a discriminated configuration for EC2 Reserved Instances, RDS Reserv
 Instances, Redshift reserved nodes, ElastiCache reserved nodes, MemoryDB reserved instances, or DynamoDB reserved
 capacity. The configuration retains the applicable term, payment option, commitment Region, purchase cost and quantity,
 instance shape, platform, tenancy, engine, deployment, license, offering, size-flexibility, or capacity-unit fields that
-AWS provides. Duplicate recommendation IDs are evaluated once. A Hub finding is omitted only when an enabled native
+AWS provides. Summary coalescing uses the full source scope key rather than recommendation ID alone. A Hub finding is
+omitted only when an enabled native
 rule emits a finding with the same account, Region, resource identity, and reservation purchase action. Unavailable or
 incomplete recommendation evidence makes the rule `not_applicable`.
 

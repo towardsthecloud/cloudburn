@@ -322,11 +322,12 @@ it.each([
   ],
   [{ resourceArn: 'arn:aws:ec2:us-east-1:123456789012:instance/i-example' }, null],
   [{ resourceArn: 'arn:aws:ec2:eu-west-1:222222222222:instance/i-example' }, null],
+  [{ resourceId: 'i-other', currencyCode: 'EUR' }, null],
   [{ resourceId: common.resourceArn }, 80],
   [{ resourceArn: common.resourceArn }, 80],
   [{}, 80],
 ])(
-  'fills missing summary financials from detail only when resource identity agrees (%j)',
+  'rejects conflicting detail resources before exposing configuration or impact (%j)',
   async (detailIdentity, expectedCost) => {
     const send = vi.fn(async (command: unknown) => {
       if (command instanceof ListEnrollmentStatusesCommand) {
@@ -359,6 +360,14 @@ it.each([
     const result = await hydrateAwsCostOptimizationHubRightsizingRecommendations([], {
       resolveAccountId: async () => accountId,
     });
+    if (expectedCost === null) {
+      expect(result).toMatchObject({
+        unavailable: true,
+        resources: [],
+        diagnostics: [{ code: 'CostOptimizationHubRecommendationIncomplete' }],
+      });
+      return;
+    }
     expect(result).toEqual([
       expect.objectContaining({
         resourceId: 'i-example',
@@ -370,19 +379,14 @@ it.each([
     ]);
     const normalized = (Array.isArray(result) ? result : [])[0];
     if (!normalized) throw new Error('expected one normalized recommendation');
-    expect(Object.hasOwn(normalized, 'costCalculationLookbackPeriodInDays')).toBe(expectedCost === 80);
+    expect(normalized).toMatchObject({ costCalculationLookbackPeriodInDays: 30 });
     const impact = createAwsCostOptimizationHubFindingMatch(normalized).impact;
-    if (expectedCost === null) {
-      expect(impact?.currentCost).toMatchObject({ confidence: 'unknown' });
-      expect(impact?.currentCost).not.toHaveProperty('amount');
-    } else {
-      expect(impact?.currentCost).toMatchObject({
-        amount: 80,
-        confidence: 'estimated',
-        currency: 'USD',
-        period: 'month',
-      });
-    }
+    expect(impact?.currentCost).toMatchObject({
+      amount: 80,
+      confidence: 'estimated',
+      currency: 'USD',
+      period: 'month',
+    });
     expect(impact?.potentialSavings).toMatchObject({
       amount: 50,
       confidence: 'estimated',
@@ -391,6 +395,43 @@ it.each([
     });
   },
 );
+it('rejects detail whose reported Region conflicts with the ARN-derived Region', async () => {
+  const send = vi.fn(async (command: unknown) => {
+    if (command instanceof ListEnrollmentStatusesCommand) {
+      return { items: [{ accountId, status: 'Active' }] };
+    }
+    if (command instanceof ListRecommendationsCommand) {
+      return { items: [{ ...common, region: undefined }] };
+    }
+    if (command instanceof GetRecommendationCommand) {
+      return {
+        recommendationId: common.recommendationId,
+        accountId,
+        region: 'us-east-1',
+        actionType: common.actionType,
+        currentResourceType: common.currentResourceType,
+        source: common.source,
+        lastRefreshTimestamp: common.lastRefreshTimestamp,
+        currencyCode: 'USD',
+        estimatedMonthlyCost: 80,
+        costCalculationLookbackPeriodInDays: 30,
+        resourceId: common.resourceId,
+        resourceArn: common.resourceArn,
+        currentResourceDetails: { ec2Instance: { configuration: { instance: { type: 'm7i.xlarge' } } } },
+        recommendedResourceDetails: { ec2Instance: { configuration: { instance: { type: 'm7i.large' } } } },
+      };
+    }
+    throw new Error('Unexpected command');
+  });
+  vi.mocked(createCostOptimizationHubClient).mockReturnValue({ send } as never);
+  expect(
+    await hydrateAwsCostOptimizationHubRightsizingRecommendations([], { resolveAccountId: async () => accountId }),
+  ).toMatchObject({
+    unavailable: true,
+    resources: [],
+    diagnostics: [{ code: 'CostOptimizationHubRecommendationIncomplete' }],
+  });
+});
 it('loads both typed EC2 configurations and retains common recommendation evidence', async () => {
   const send = vi.fn(async (command: unknown) => {
     if (command instanceof ListEnrollmentStatusesCommand) return { items: [{ accountId, status: 'Active' }] };

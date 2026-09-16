@@ -163,22 +163,28 @@ const normalizeRecommendationCommon = (
   };
 };
 
-const withRecommendationFinancialDetails = <T extends HubRecommendation>(
+const normalizeRecommendationDetails = <T extends HubRecommendation>(
   common: NormalizedRecommendationCommon,
   detail: GetRecommendationResponse,
-  normalized: T,
-): T => {
+  category: RecommendationCategory<T>,
+): T | null => {
   const conflictingContext =
     (['recommendationId', 'accountId', 'region', 'actionType', 'currentResourceType'] as const).some(
       (key) => common[key] !== undefined && detail[key] !== undefined && detail[key] !== common[key],
     ) ||
     (detail.source !== undefined && detail.source !== common.recommendationSource) ||
-    (common.currencyCode && detail.currencyCode && common.currencyCode !== detail.currencyCode) ||
     (detail.lastRefreshTimestamp !== undefined &&
       (!(detail.lastRefreshTimestamp instanceof Date) ||
         !Number.isFinite(detail.lastRefreshTimestamp.getTime()) ||
         detail.lastRefreshTimestamp.toISOString() !== common.lastRefreshTimestamp));
-  if (conflictingContext) return normalized;
+  if (conflictingContext) return null;
+  const normalized = category.normalizeConfiguration(common, detail);
+  if (
+    !normalized ||
+    (detail.region !== undefined && normalized.region !== undefined && detail.region !== normalized.region)
+  ) {
+    return null;
+  }
   const summaryIds = [common.resourceId, common.resourceArn].filter((id): id is string => Boolean(id));
   const detailIds = [detail.resourceId, detail.resourceArn].filter((id): id is string => Boolean(id));
   if (summaryIds.length > 0 && detailIds.length > 0) {
@@ -194,8 +200,9 @@ const withRecommendationFinancialDetails = <T extends HubRecommendation>(
       summaryKey !== undefined || detailKey !== undefined
         ? summaryKey !== detailKey
         : new Set([...summaryIds, ...detailIds]).size !== 1;
-    if (conflictingResource) return normalized;
+    if (conflictingResource) return null;
   }
+  if (common.currencyCode && detail.currencyCode && common.currencyCode !== detail.currencyCode) return normalized;
   return {
     ...normalized,
     currencyCode: common.currencyCode || detail.currencyCode || null,
@@ -1089,8 +1096,7 @@ const loadCostOptimizationHubRecommendations = async <T extends HubRecommendatio
           COST_OPTIMIZATION_HUB_REGION,
           () => client.send(new GetRecommendationCommand({ recommendationId: recommendation.recommendationId })),
         );
-        const normalized = category.normalizeConfiguration(common, detail);
-        return normalized ? withRecommendationFinancialDetails(common, detail, normalized) : null;
+        return normalizeRecommendationDetails(common, detail, category);
       },
     );
     const recommendations = normalized.filter((recommendation): recommendation is T => recommendation !== null);

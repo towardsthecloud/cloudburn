@@ -209,10 +209,7 @@ describe('hydrateAwsCostOptimizationHubSavingsPlansRecommendations', () => {
     ...overrides,
   });
 
-  const loadFirstRecommendation = async (
-    summary: Partial<Recommendation>,
-    detail: Record<string, unknown>,
-  ): Promise<AwsCostOptimizationHubSavingsPlansRecommendation> => {
+  const loadRecommendations = (summary: Partial<Recommendation>, detail: Record<string, unknown>) => {
     const send = vi.fn(async (command: unknown) => {
       if (command instanceof ListEnrollmentStatusesCommand) {
         return { items: [{ accountId, status: 'Active' }] };
@@ -226,9 +223,16 @@ describe('hydrateAwsCostOptimizationHubSavingsPlansRecommendations', () => {
       throw new Error(`Unexpected command: ${String(command)}`);
     });
     mockedCreateCostOptimizationHubClient.mockReturnValue({ send } as never);
-    const result = await hydrateAwsCostOptimizationHubSavingsPlansRecommendations([], {
+    return hydrateAwsCostOptimizationHubSavingsPlansRecommendations([], {
       resolveAccountId: vi.fn().mockResolvedValue(accountId),
     });
+  };
+
+  const loadFirstRecommendation = async (
+    summary: Partial<Recommendation>,
+    detail: Record<string, unknown>,
+  ): Promise<AwsCostOptimizationHubSavingsPlansRecommendation> => {
+    const result = await loadRecommendations(summary, detail);
     const [normalized] = Array.isArray(result) ? result : [];
     if (!normalized) throw new Error('Expected one normalized recommendation');
     return normalized;
@@ -323,22 +327,14 @@ describe('hydrateAwsCostOptimizationHubSavingsPlansRecommendations', () => {
     expect(impact?.potentialSavings).not.toHaveProperty('amount');
   });
 
-  it.each([
-    ['currency', { currencyCode: 'EUR' }],
-    ['recommendation ID', { recommendationId: 'other' }],
-    ['account', { accountId: '222222222222' }],
-    ['source', { source: 'ComputeOptimizer' }],
-    ['refresh timestamp', { lastRefreshTimestamp: new Date('2026-09-04T00:00:00.000Z') }],
-    ['invalid refresh timestamp', { lastRefreshTimestamp: new Date(Number.NaN) }],
-  ])('blocks detail financial enrichment when the detail %s conflicts', async (_label, detailOverride) => {
+  it('blocks detail financial enrichment when only the detail currency conflicts', async () => {
     const normalized = await loadFirstRecommendation(
       { estimatedMonthlyCost: undefined },
       sageMakerDetail({
-        currencyCode: 'USD',
+        currencyCode: 'EUR',
         estimatedMonthlyCost: 80,
         estimatedMonthlySavings: 99,
         costCalculationLookbackPeriodInDays: 30,
-        ...detailOverride,
       }),
     );
     expect(normalized).toMatchObject({
@@ -350,8 +346,35 @@ describe('hydrateAwsCostOptimizationHubSavingsPlansRecommendations', () => {
     expect(Object.hasOwn(normalized, 'costCalculationLookbackPeriodInDays')).toBe(false);
   });
 
-  it('blocks detail financials when the opaque resource IDs disagree', async () => {
-    const normalized = await loadFirstRecommendation(
+  it.each([
+    ['recommendation ID', { recommendationId: 'other' }, {}],
+    ['account', { accountId: '222222222222' }, {}],
+    ['source', { source: 'ComputeOptimizer' }, {}],
+    ['refresh timestamp', { lastRefreshTimestamp: new Date('2026-09-04T00:00:00.000Z') }, {}],
+    ['invalid refresh timestamp', { lastRefreshTimestamp: new Date(Number.NaN) }, {}],
+    ['action', { actionType: 'PurchaseReservedInstances' }, {}],
+    ['resource type', { currentResourceType: 'Ec2InstanceSavingsPlans' }, {}],
+    ['region', { region: 'us-east-1' }, { region: 'eu-west-1' }],
+  ])('rejects the recommendation when the detail %s conflicts', async (_label, detailOverride, summaryOverride) => {
+    const result = await loadRecommendations(
+      { estimatedMonthlyCost: undefined, ...summaryOverride },
+      sageMakerDetail({
+        currencyCode: 'USD',
+        estimatedMonthlyCost: 80,
+        estimatedMonthlySavings: 99,
+        costCalculationLookbackPeriodInDays: 30,
+        ...detailOverride,
+      }),
+    );
+    expect(result).toMatchObject({
+      unavailable: true,
+      resources: [],
+      diagnostics: [{ code: 'CostOptimizationHubRecommendationIncomplete' }],
+    });
+  });
+
+  it('rejects the recommendation when the opaque resource IDs disagree', async () => {
+    const result = await loadRecommendations(
       { resourceId: 'purchase-a', estimatedMonthlyCost: undefined },
       sageMakerDetail({
         resourceId: 'purchase-b',
@@ -360,8 +383,11 @@ describe('hydrateAwsCostOptimizationHubSavingsPlansRecommendations', () => {
         costCalculationLookbackPeriodInDays: 30,
       }),
     );
-    expect(normalized).toMatchObject({ estimatedMonthlyCost: null });
-    expect(Object.hasOwn(normalized, 'costCalculationLookbackPeriodInDays')).toBe(false);
+    expect(result).toMatchObject({
+      unavailable: true,
+      resources: [],
+      diagnostics: [{ code: 'CostOptimizationHubRecommendationIncomplete' }],
+    });
   });
 
   it('fills detail financials when the opaque resource IDs match', async () => {

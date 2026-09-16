@@ -312,8 +312,10 @@ fleets. Evaluation evidence retains every rule's original result before preceden
 loading seam for EC2, RDS, OpenSearch, Redshift, ElastiCache, MemoryDB, and DynamoDB reservation purchases. Its
 evaluation evidence preserves account and Region, resource ID and ARN when AWS provides them, current monthly cost,
 estimated savings and percentage, currency, implementation effort, restart and rollback flags, source, refresh time,
-term, payment option, and the resource-type-specific purchase configuration. Duplicate recommendation IDs are loaded
-once. A Hub finding is suppressed only when an enabled native CloudBurn rule actually reports the same resource
+term, payment option, and the resource-type-specific purchase configuration. Repeated summaries are loaded once only
+when account, Region, resource type, resource ID, ARN, action, and recommendation ID all match. Reused IDs in
+different scopes are loaded separately.
+A Hub finding is suppressed only when an enabled native CloudBurn rule actually reports the same resource
 namespace and identity for the same reservation purchase action with direct service evidence. The presence of a native
 rule in the catalog is not enough. This precedence is declared by rule metadata rather than AWS-specific engine policy, and evaluation evidence
 retains the Hub rule's original triggered result. Unenrolled, denied, and incomplete responses make the Hub rule
