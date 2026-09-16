@@ -73,6 +73,7 @@ describe('CLDBRN-AWS-COSTOPTIMIZATIONHUB-2', () => {
       createRecommendation({
         recommendationId: `recommendation-${index + 1}`,
         reservationType,
+        resourceArn: undefined,
         resourceId: `resource-${index + 1}`,
       }),
     );

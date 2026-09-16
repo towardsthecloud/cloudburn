@@ -111,6 +111,9 @@ identity keys; that absence is deliberate, and the SDK never reconstructs identi
 source recommendation ID used as the display `resourceId` — such matches skip precedence entirely.
 ECS service opportunities require a cluster-qualified identifier (`cluster/service`); when a service ARN is supplied
 it takes precedence over a bare display name, and a name without cluster scope carries provenance only.
+When both a resource ID and ARN are supplied, their canonical resource components must also agree; contradictory
+evidence retains provenance without identity. ECS service-name qualification and Lambda version unqualification are
+recognized equivalences.
 
 ## FindingImpact
 
