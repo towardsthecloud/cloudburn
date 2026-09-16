@@ -50,12 +50,20 @@ describe('CLDBRN-AWS-COSTOPTIMIZATIONHUB-1', () => {
       }),
     });
 
+    const purchase = (index: number) => ({
+      accountId: '123456789012',
+      actionType: 'PurchaseSavingsPlans',
+      recommendation: {
+        refreshedAt: '2026-09-03T00:00:00.000Z',
+        source: 'aws-cost-optimization-hub',
+        sourceDetail: 'CostExplorer',
+        sourceId: `recommendation-${index}`,
+      },
+      resourceId: `recommendation-${index}`,
+      resourceType: 'costoptimizationhub:savings-plans-recommendation',
+    });
     expect(finding).toEqual({
-      findings: [
-        { accountId: '123456789012', resourceId: 'recommendation-1' },
-        { accountId: '123456789012', resourceId: 'recommendation-2' },
-        { accountId: '123456789012', resourceId: 'recommendation-3' },
-      ],
+      findings: [purchase(1), purchase(2), purchase(3)],
       message: 'Savings Plans eligible usage should use a Savings Plan when AWS recommends a purchase.',
       ruleId: 'CLDBRN-AWS-COSTOPTIMIZATIONHUB-1',
       service: 'costoptimizationhub',

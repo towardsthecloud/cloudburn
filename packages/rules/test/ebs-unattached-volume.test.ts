@@ -50,6 +50,11 @@ describe('ebsUnattachedVolumeRule', () => {
           resourceType: 'ec2:volume',
           region: 'eu-west-1',
           accountId: '123456789012',
+          recommendation: {
+            source: 'cloudburn',
+            resourceKey: '["resource",1,"aws","123456789012","eu-west-1","ec2:volume","vol-123"]',
+            opportunityId: '["opportunity",1,"aws","123456789012","eu-west-1","ec2:volume","vol-123","Delete"]',
+          },
         },
       ],
     });

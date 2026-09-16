@@ -35,6 +35,12 @@ describe('CLDBRN-AWS-COSTOPTIMIZATIONHUB-4', () => {
         region: 'eu-west-1',
         resourceType: namespace,
         actionType: 'Rightsize',
+        recommendation: {
+          source: 'aws-cost-optimization-hub',
+          sourceId: 'rec-1',
+          resourceKey: `["resource",1,"aws","123456789012","eu-west-1","${namespace}","resource-example"]`,
+          opportunityId: `["opportunity",1,"aws","123456789012","eu-west-1","${namespace}","resource-example","Rightsize"]`,
+        },
       },
     ]);
   });

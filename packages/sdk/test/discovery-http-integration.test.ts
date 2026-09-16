@@ -368,7 +368,18 @@ const volumeAttempt = () =>
 it('discovers through real AWS serialization, catalog pagination, hydration and rule evaluation', async () => {
   const result = await discover();
   expect(result.providers[0]?.rules[0]?.findings).toEqual([
-    { accountId: '111111111111', region: 'eu-west-1', resourceId: 'vol-legacy', resourceType: 'ec2:volume' },
+    {
+      accountId: '111111111111',
+      actionType: 'Upgrade',
+      recommendation: {
+        opportunityId: '["opportunity",1,"aws","111111111111","eu-west-1","ec2:volume","vol-legacy","Upgrade"]',
+        resourceKey: '["resource",1,"aws","111111111111","eu-west-1","ec2:volume","vol-legacy"]',
+        source: 'cloudburn',
+      },
+      region: 'eu-west-1',
+      resourceId: 'vol-legacy',
+      resourceType: 'ec2:volume',
+    },
   ]);
   expect(result.evaluations?.resourceSets[0]?.resources.map((resource) => resource.resourceId).sort()).toEqual([
     'vol-current',
@@ -529,7 +540,18 @@ it('never evaluates absence from an empty catalog page with more pages pending',
     held[0]?.release();
     const result = await scan;
     expect(result.providers[0]?.rules[0]?.findings).toEqual([
-      { accountId, region, resourceId: 'vol-legacy', resourceType: 'ec2:volume' },
+      {
+        accountId,
+        actionType: 'Upgrade',
+        recommendation: {
+          opportunityId: '["opportunity",1,"aws","111111111111","eu-west-1","ec2:volume","vol-legacy","Upgrade"]',
+          resourceKey: '["resource",1,"aws","111111111111","eu-west-1","ec2:volume","vol-legacy"]',
+          source: 'cloudburn',
+        },
+        region,
+        resourceId: 'vol-legacy',
+        resourceType: 'ec2:volume',
+      },
     ]);
     expect(events).toContainEqual(expect.objectContaining({ kind: 'rule', status: 'triggered', findingCount: 1 }));
   } finally {
@@ -749,7 +771,18 @@ it('retains discovery results with per-run quotas when the caller identity looku
   const result = await discover();
 
   expect(result.providers[0]?.rules[0]?.findings).toEqual([
-    { accountId: '111111111111', region: 'eu-west-1', resourceId: 'vol-legacy', resourceType: 'ec2:volume' },
+    {
+      accountId: '111111111111',
+      actionType: 'Upgrade',
+      recommendation: {
+        opportunityId: '["opportunity",1,"aws","111111111111","eu-west-1","ec2:volume","vol-legacy","Upgrade"]',
+        resourceKey: '["resource",1,"aws","111111111111","eu-west-1","ec2:volume","vol-legacy"]',
+        source: 'cloudburn',
+      },
+      region: 'eu-west-1',
+      resourceId: 'vol-legacy',
+      resourceType: 'ec2:volume',
+    },
   ]);
   expect(requests.filter((request) => request.operation === 'GetCallerIdentity')).toHaveLength(1);
   expect(volumeAttempt()).toMatchObject({ quota: { accountId: expect.stringMatching(/^unresolved:/) } });

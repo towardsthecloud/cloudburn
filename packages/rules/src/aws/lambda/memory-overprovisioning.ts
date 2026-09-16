@@ -6,6 +6,7 @@ import {
   getAwsResourceScopeKey,
 } from '../../shared/helpers.js';
 import type { FindingMatch } from '../../shared/metadata.js';
+import { createRecommendationMatch } from '../../shared/recommendation.js';
 
 const RULE_ID = 'CLDBRN-AWS-LAMBDA-4';
 const RULE_SERVICE = 'lambda';
@@ -54,10 +55,16 @@ export const lambdaMemoryOverprovisioningRule = createRule({
     const findings = resources
       .get('aws-lambda-memory-recommendations')
       .filter((recommendation) => recommendation.assessment === 'memory_overprovisioned')
-      .map((recommendation) => ({
-        ...toFunctionMatch(recommendation.functionArn, recommendation.region, recommendation.accountId),
-        actionType: 'Rightsize',
-      }));
+      .map((recommendation) =>
+        createRecommendationMatch(
+          'aws',
+          {
+            ...toFunctionMatch(recommendation.functionArn, recommendation.region, recommendation.accountId),
+            actionType: 'Rightsize',
+          },
+          { source: 'cloudburn', sourceDetail: 'ComputeOptimizer' },
+        ),
+      );
 
     return createFinding(
       { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },

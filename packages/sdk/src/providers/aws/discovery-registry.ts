@@ -3,19 +3,12 @@ import {
   type AwsDiscoveryCatalog,
   type AwsKmsKeyChurnReview,
   awsRules,
+  createAwsCostOptimizationHubFindingMatch,
   createFindingMatch,
   createLiveEvaluationCoverage,
   type DiscoveryDatasetKey,
   type DiscoveryDatasetMap,
   type FindingMatch,
-  getAwsCostOptimizationHubIdleResourceId,
-  getAwsCostOptimizationHubIdleResourceType,
-  getAwsCostOptimizationHubReservationResourceId,
-  getAwsCostOptimizationHubReservationResourceType,
-  getAwsCostOptimizationHubRightsizingResourceType,
-  getAwsCostOptimizationHubUpgradeResourceId,
-  getAwsCostOptimizationHubUpgradeResourceType,
-  gravitonResourceTypes,
   type LiveEvaluationCoverage,
   LiveResourceBag,
   type Rule,
@@ -223,6 +216,15 @@ const mapEvaluationResources = <T extends { accountId: string; region?: string }
   });
 
 const toKmsKeyChurnEvaluationData = ({ keys: _keys, ...review }: AwsKmsKeyChurnReview) => review;
+
+const toHubEvaluationResources = (
+  recommendations: Parameters<typeof createAwsCostOptimizationHubFindingMatch>[0][],
+): EvaluationResourceProjection[] =>
+  recommendations.map((recommendation) => ({
+    ...createAwsCostOptimizationHubFindingMatch(recommendation),
+    ...(recommendation.resourceArn ? { arn: recommendation.resourceArn } : {}),
+    data: recommendation,
+  }));
 
 type AwsRuleEvaluationOverride = {
   datasetKey: DiscoveryDatasetKey;
@@ -1102,15 +1104,7 @@ const awsDiscoveryDatasetRegistry: {
     resourceTypes: [],
     service: 'costoptimizationhub',
     load: hydrateAwsCostOptimizationHubSavingsPlansRecommendations,
-    toEvaluationResources: (recommendations) =>
-      mapEvaluationResources(
-        recommendations,
-        (recommendation) => recommendation.recommendationId,
-        (recommendation) => ({
-          data: recommendation,
-          resourceType: 'costoptimizationhub:savings-plans-recommendation',
-        }),
-      ),
+    toEvaluationResources: toHubEvaluationResources,
   },
   'aws-cost-optimization-hub-reservation-recommendations': {
     datasetKey: 'aws-cost-optimization-hub-reservation-recommendations',
@@ -1122,17 +1116,11 @@ const awsDiscoveryDatasetRegistry: {
     service: 'costoptimizationhub',
     load: hydrateAwsCostOptimizationHubReservationRecommendations,
     toEvaluationResources: (recommendations) =>
-      mapEvaluationResources(
+      toHubEvaluationResources(
         recommendations.map((recommendation) => ({
           ...recommendation,
           region: recommendation.region ?? recommendation.configuration.reservedInstancesRegion,
         })),
-        getAwsCostOptimizationHubReservationResourceId,
-        (recommendation) => ({
-          ...(recommendation.resourceArn ? { arn: recommendation.resourceArn } : {}),
-          data: recommendation,
-          resourceType: getAwsCostOptimizationHubReservationResourceType(recommendation),
-        }),
       ),
   },
   'aws-cost-optimization-hub-rightsizing-recommendations': {
@@ -1144,17 +1132,7 @@ const awsDiscoveryDatasetRegistry: {
     resourceTypes: [],
     service: 'costoptimizationhub',
     load: hydrateAwsCostOptimizationHubRightsizingRecommendations,
-    toEvaluationResources: (recommendations) =>
-      mapEvaluationResources(
-        recommendations,
-        (recommendation) => recommendation.resourceId,
-        (recommendation) => ({
-          ...(recommendation.resourceArn ? { arn: recommendation.resourceArn } : {}),
-          data: recommendation,
-          resourceType: getAwsCostOptimizationHubRightsizingResourceType(recommendation),
-          actionType: recommendation.actionType,
-        }),
-      ),
+    toEvaluationResources: toHubEvaluationResources,
   },
   'aws-cost-optimization-hub-idle-recommendations': {
     datasetKey: 'aws-cost-optimization-hub-idle-recommendations',
@@ -1165,13 +1143,7 @@ const awsDiscoveryDatasetRegistry: {
     resourceTypes: [],
     service: 'costoptimizationhub',
     load: hydrateAwsCostOptimizationHubIdleRecommendations,
-    toEvaluationResources: (recommendations) =>
-      mapEvaluationResources(recommendations, getAwsCostOptimizationHubIdleResourceId, (recommendation) => ({
-        data: recommendation,
-        actionType: recommendation.actionType,
-        ...(recommendation.resourceArn ? { arn: recommendation.resourceArn } : {}),
-        resourceType: getAwsCostOptimizationHubIdleResourceType(recommendation),
-      })),
+    toEvaluationResources: toHubEvaluationResources,
   },
   'aws-cost-optimization-hub-upgrade-recommendations': {
     datasetKey: 'aws-cost-optimization-hub-upgrade-recommendations',
@@ -1182,12 +1154,7 @@ const awsDiscoveryDatasetRegistry: {
     resourceTypes: [],
     service: 'costoptimizationhub',
     load: hydrateAwsCostOptimizationHubUpgradeRecommendations,
-    toEvaluationResources: (recommendations) =>
-      mapEvaluationResources(recommendations, getAwsCostOptimizationHubUpgradeResourceId, (recommendation) => ({
-        ...(recommendation.resourceArn ? { arn: recommendation.resourceArn } : {}),
-        data: recommendation,
-        resourceType: getAwsCostOptimizationHubUpgradeResourceType(recommendation),
-      })),
+    toEvaluationResources: toHubEvaluationResources,
   },
   'aws-cost-optimization-hub-graviton-recommendations': {
     datasetKey: 'aws-cost-optimization-hub-graviton-recommendations',
@@ -1198,16 +1165,7 @@ const awsDiscoveryDatasetRegistry: {
     resourceTypes: [],
     service: 'costoptimizationhub',
     load: hydrateAwsCostOptimizationHubGravitonRecommendations,
-    toEvaluationResources: (recommendations) =>
-      mapEvaluationResources(
-        recommendations,
-        (item) => item.resourceId ?? item.resourceArn ?? item.recommendationId,
-        (item) => ({
-          arn: item.resourceArn,
-          data: item,
-          resourceType: gravitonResourceTypes[item.currentResourceType],
-        }),
-      ),
+    toEvaluationResources: toHubEvaluationResources,
   },
   'aws-sagemaker-savings-plans-coverage': {
     datasetKey: 'aws-sagemaker-savings-plans-coverage',

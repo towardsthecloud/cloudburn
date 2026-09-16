@@ -36,7 +36,9 @@ classDiagram
     +string resourceType?
     +string accountId?
     +string region?
+    +string actionType?
     +SourceLocation location?
+    +FindingRecommendation recommendation?
   }
 
   class LiveEvaluationContext {
@@ -93,10 +95,13 @@ The rules metadata test enforces that a live rule whose verdict joins more than 
 datasets, declares `getLiveEvaluationCoverage`. Rules whose secondary datasets are complete inventories, where
 absence is itself the evidence, are listed with a justification in that test instead of adding a hook.
 
-Rules with stronger evidence can declare `supersedesRuleIds`. The live engine removes only findings with the same
-resource namespace, ID, account, and Region, and only when the superseding rule is active and emits that identity.
-Evaluation records retain each evaluator's original result, including findings later omitted from provider output by
-precedence.
+Rules with stronger evidence can declare `supersedesRuleIds`. The live engine removes only findings that share a
+complete `recommendation.opportunityId` — the same provider, resource namespace, canonical ID, account, Region, and
+action — and only when the superseding rule is active and emits that identity. Action-bearing matches normalize their
+provenance and identity through `createRecommendationMatch`; recognized AWS ARNs canonicalize to the service-local ID
+so ARN- and ID-based findings collide correctly. Matches without complete identity are retained conservatively and
+never suppress or get suppressed. Evaluation records retain each evaluator's original result, including findings later
+omitted from provider output by precedence.
 
 ## Rule Assembly Chain
 

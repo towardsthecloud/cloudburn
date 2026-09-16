@@ -1,4 +1,5 @@
 import { createFinding, createFindingMatch, createRule } from '../../shared/helpers.js';
+import { createRecommendationMatch } from '../../shared/recommendation.js';
 import { isAwsRdsGravitonFamily, shouldReviewAwsRdsInstanceClassForGraviton } from './preferred-instance-families.js';
 
 const RULE_ID = 'CLDBRN-AWS-RDS-4';
@@ -27,7 +28,17 @@ export const rdsGravitonReviewRule = createRule({
           !isAwsRdsGravitonFamily(instance.instanceClass) &&
           shouldReviewAwsRdsInstanceClassForGraviton(instance.instanceClass),
       )
-      .map((instance) => createFindingMatch(instance.dbInstanceIdentifier, instance.region, instance.accountId));
+      .map((instance) =>
+        createRecommendationMatch(
+          'aws',
+          {
+            ...createFindingMatch(instance.dbInstanceIdentifier, instance.region, instance.accountId),
+            resourceType: 'rds:db',
+            actionType: 'MigrateToGraviton',
+          },
+          { source: 'cloudburn' },
+        ),
+      );
 
     return createFinding(
       { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },

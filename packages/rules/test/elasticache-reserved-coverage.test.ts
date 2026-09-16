@@ -62,6 +62,13 @@ describe('elastiCacheReservedCoverageRule', () => {
           region: 'us-east-1',
           resourceId: 'cache-prod',
           resourceType: 'elasticache:cluster',
+          actionType: 'PurchaseReservedInstances',
+          recommendation: {
+            source: 'cloudburn',
+            resourceKey: '["resource",1,"aws","123456789012","us-east-1","elasticache:cluster","cache-prod"]',
+            opportunityId:
+              '["opportunity",1,"aws","123456789012","us-east-1","elasticache:cluster","cache-prod","PurchaseReservedInstances"]',
+          },
         },
       ],
     });

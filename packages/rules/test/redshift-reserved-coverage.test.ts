@@ -66,6 +66,13 @@ describe('redshiftReservedCoverageRule', () => {
           region: 'us-east-1',
           resourceId: 'warehouse-prod',
           resourceType: 'redshift:cluster',
+          actionType: 'PurchaseReservedInstances',
+          recommendation: {
+            source: 'cloudburn',
+            resourceKey: '["resource",1,"aws","123456789012","us-east-1","redshift:cluster","warehouse-prod"]',
+            opportunityId:
+              '["opportunity",1,"aws","123456789012","us-east-1","redshift:cluster","warehouse-prod","PurchaseReservedInstances"]',
+          },
         },
       ],
     });

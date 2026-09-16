@@ -897,6 +897,43 @@ const createCostOptimizationHubSession = async (accountId: string): Promise<Cost
   };
 };
 
+const canonicalJson = (value: unknown): string => {
+  if (Array.isArray(value)) {
+    return `[${value.map(canonicalJson).join(',')}]`;
+  }
+  if (value !== null && typeof value === 'object') {
+    if (Object.getPrototypeOf(value) !== Object.prototype) {
+      return JSON.stringify(value) ?? 'null';
+    }
+    return `{${Object.keys(value)
+      .filter((key) => (value as Record<string, unknown>)[key] !== undefined)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${canonicalJson((value as Record<string, unknown>)[key])}`)
+      .join(',')}}`;
+  }
+  return JSON.stringify(value) ?? 'null';
+};
+
+const summaryTimestampMs = (value: unknown): number => {
+  const parsed = value instanceof Date ? value.getTime() : Date.parse(String(value));
+  return Number.isNaN(parsed) ? Number.NEGATIVE_INFINITY : parsed;
+};
+
+const summaryScopeKey = (recommendation: Recommendation): string =>
+  JSON.stringify([
+    recommendation.accountId ?? null,
+    recommendation.region ?? null,
+    recommendation.currentResourceType ?? null,
+    recommendation.resourceId ?? null,
+    recommendation.resourceArn ?? null,
+    recommendation.actionType ?? null,
+    recommendation.recommendationId ?? null,
+  ]);
+
+const compareSummaryFreshness = (left: Recommendation, right: Recommendation): number =>
+  summaryTimestampMs(right.lastRefreshTimestamp) - summaryTimestampMs(left.lastRefreshTimestamp) ||
+  canonicalJson(left).localeCompare(canonicalJson(right));
+
 const getCostOptimizationHubSession = (
   accountId: string,
   context?: AwsAccountIdResolver,
@@ -940,7 +977,7 @@ const loadCostOptimizationHubRecommendations = async <T extends HubRecommendatio
       };
     }
 
-    const recommendationsById = new Map<string, Recommendation>();
+    const recommendationsByScope = new Map<string, Recommendation>();
     let incompleteRecommendationCount = 0;
     let nextToken: string | undefined;
 
@@ -969,17 +1006,23 @@ const loadCostOptimizationHubRecommendations = async <T extends HubRecommendatio
         incompleteRecommendationCount += 1;
       }
       for (const recommendation of Array.isArray(page.items) ? page.items : []) {
-        if (recommendation?.recommendationId) {
-          recommendationsById.set(recommendation.recommendationId, recommendation);
-        } else {
+        if (!recommendation?.recommendationId) {
           incompleteRecommendationCount += 1;
+          continue;
+        }
+        const scopeKey = summaryScopeKey(recommendation);
+        const existing = recommendationsByScope.get(scopeKey);
+        if (!existing || compareSummaryFreshness(recommendation, existing) < 0) {
+          recommendationsByScope.set(scopeKey, recommendation);
         }
       }
       nextToken = page.nextToken;
     } while (nextToken);
 
     const normalized = await mapWithConcurrency(
-      [...recommendationsById.values()],
+      [...recommendationsByScope.entries()]
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([, recommendation]) => recommendation),
       RECOMMENDATION_DETAIL_CONCURRENCY,
       async (recommendation) => {
         const common = normalizeRecommendationCommon(recommendation, category);

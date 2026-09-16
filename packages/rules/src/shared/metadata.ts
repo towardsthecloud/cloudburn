@@ -1580,6 +1580,31 @@ export type StaticEvaluationContext = {
   resources: StaticResourceBag;
 };
 
+/** Provenance describing which evidence system produced a recommendation-backed match. */
+export type EvidenceProvenance = {
+  /** Evidence system that produced the recommendation, such as `cloudburn` or `aws-cost-optimization-hub`. */
+  source: string;
+  /** Sub-source detail reported by the evidence system, such as `ComputeOptimizer` or `CostExplorer`. */
+  sourceDetail?: string;
+  /** Source-native recommendation or observation identifier; it never forms the resource identity. */
+  sourceId?: string;
+  /** Source timestamp when the evidence was observed or collected; omitted when unknown. */
+  observedAt?: string;
+  /** Source report refresh timestamp; never inferred from evaluation or cache access. */
+  refreshedAt?: string;
+};
+
+/** Versioned identity keys computed from a fully scoped finding match. */
+export type RecommendationIdentity = {
+  /** Canonical provider, account, Region, namespace, and resource identity shared by equivalent recommendations. */
+  resourceKey: string;
+  /** Canonical resource-and-action identity used to compare competing recommendations. */
+  opportunityId: string;
+};
+
+/** Evidence provenance plus optional computed identity attached to a recommendation-backed match. */
+export type FindingRecommendation = EvidenceProvenance & Partial<RecommendationIdentity>;
+
 /** A resource-level policy match emitted inside a rule finding group. */
 export type FindingMatch = {
   /** Exact recommended operation when needed to distinguish findings for one resource. */
@@ -1589,6 +1614,8 @@ export type FindingMatch = {
   resourceType?: string;
   accountId?: string;
   region?: string;
+  /** Provenance and computed identity when this match describes a recommendation. */
+  recommendation?: FindingRecommendation;
   location?: SourceLocation;
 };
 

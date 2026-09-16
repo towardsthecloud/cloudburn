@@ -1,4 +1,5 @@
 import { createFinding, createFindingMatch, createRule } from '../../shared/helpers.js';
+import { createRecommendationMatch } from '../../shared/recommendation.js';
 import {
   shouldReviewAwsEc2InstanceForGraviton,
   shouldReviewAwsEc2InstanceTypeForGraviton,
@@ -25,7 +26,17 @@ export const ec2GravitonReviewRule = createRule({
     const findings = resources
       .get('aws-ec2-instances')
       .filter((instance) => shouldReviewAwsEc2InstanceForGraviton(instance.instanceType, instance.architecture))
-      .map((instance) => createFindingMatch(instance.instanceId, instance.region, instance.accountId));
+      .map((instance) =>
+        createRecommendationMatch(
+          'aws',
+          {
+            ...createFindingMatch(instance.instanceId, instance.region, instance.accountId),
+            resourceType: 'ec2:instance',
+            actionType: 'MigrateToGraviton',
+          },
+          { source: 'cloudburn' },
+        ),
+      );
 
     return createFinding(
       { id: RULE_ID, service: RULE_SERVICE, severity: RULE_SEVERITY, message: RULE_MESSAGE },

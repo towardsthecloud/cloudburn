@@ -46,6 +46,15 @@ describe('eksGravitonReviewRule', () => {
           accountId: '123456789012',
           region: 'us-east-1',
           resourceId: 'arn:aws:eks:us-east-1:123456789012:nodegroup/production/workers/abc123',
+          resourceType: 'eks:nodegroup',
+          actionType: 'MigrateToGraviton',
+          recommendation: {
+            source: 'cloudburn',
+            resourceKey:
+              '["resource",1,"aws","123456789012","us-east-1","eks:nodegroup","arn:aws:eks:us-east-1:123456789012:nodegroup/production/workers/abc123"]',
+            opportunityId:
+              '["opportunity",1,"aws","123456789012","us-east-1","eks:nodegroup","arn:aws:eks:us-east-1:123456789012:nodegroup/production/workers/abc123","MigrateToGraviton"]',
+          },
         },
       ],
     });

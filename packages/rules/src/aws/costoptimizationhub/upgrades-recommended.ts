@@ -1,8 +1,6 @@
-import { createFinding, createFindingMatch, createRule } from '../../shared/helpers.js';
-import {
-  getAwsCostOptimizationHubUpgradeResourceId,
-  getAwsCostOptimizationHubUpgradeResourceType,
-} from './upgrade-identity.js';
+import { createFinding, createRule } from '../../shared/helpers.js';
+import { deduplicateRecommendationMatches } from '../../shared/recommendation.js';
+import { createAwsCostOptimizationHubFindingMatch } from './finding.js';
 
 const id = 'CLDBRN-AWS-COSTOPTIMIZATIONHUB-5';
 const service = 'costoptimizationhub';
@@ -25,15 +23,10 @@ export const costOptimizationHubUpgradesRecommendedRule = createRule({
     createFinding(
       { id, service, severity, message },
       'discovery',
-      [
-        ...new Map(
-          resources
-            .get('aws-cost-optimization-hub-upgrade-recommendations')
-            .map((item) => [item.recommendationId, item]),
-        ).values(),
-      ].map((item) => ({
-        ...createFindingMatch(getAwsCostOptimizationHubUpgradeResourceId(item), item.region, item.accountId),
-        resourceType: getAwsCostOptimizationHubUpgradeResourceType(item),
-      })),
+      deduplicateRecommendationMatches(
+        resources
+          .get('aws-cost-optimization-hub-upgrade-recommendations')
+          .map(createAwsCostOptimizationHubFindingMatch),
+      ),
     ),
 });

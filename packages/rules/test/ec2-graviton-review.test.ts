@@ -43,6 +43,14 @@ describe('ec2GravitonReviewRule', () => {
           accountId: '123456789012',
           region: 'us-east-1',
           resourceId: 'i-123',
+          resourceType: 'ec2:instance',
+          actionType: 'MigrateToGraviton',
+          recommendation: {
+            source: 'cloudburn',
+            resourceKey: '["resource",1,"aws","123456789012","us-east-1","ec2:instance","i-123"]',
+            opportunityId:
+              '["opportunity",1,"aws","123456789012","us-east-1","ec2:instance","i-123","MigrateToGraviton"]',
+          },
         },
       ],
     });

@@ -80,6 +80,15 @@ describe('CLDBRN-AWS-COSTOPTIMIZATIONHUB-2', () => {
     expect(evaluate([...recommendations, ...recommendations.slice(0, 1)])).toEqual({
       findings: resourceTypes.map((reservationType, index) => ({
         accountId: '123456789012',
+        actionType: 'PurchaseReservedInstances',
+        recommendation: {
+          opportunityId: `["opportunity",1,"aws","123456789012","eu-west-1","${resourceNamespaceByType[reservationType]}","resource-${index + 1}","PurchaseReservedInstances"]`,
+          refreshedAt: '2026-09-04T00:00:00.000Z',
+          resourceKey: `["resource",1,"aws","123456789012","eu-west-1","${resourceNamespaceByType[reservationType]}","resource-${index + 1}"]`,
+          source: 'aws-cost-optimization-hub',
+          sourceDetail: 'CostExplorer',
+          sourceId: `recommendation-${index + 1}`,
+        },
         region: 'eu-west-1',
         resourceId: `resource-${index + 1}`,
         resourceType: resourceNamespaceByType[reservationType],
@@ -98,6 +107,16 @@ describe('CLDBRN-AWS-COSTOPTIMIZATIONHUB-2', () => {
         findings: [
           {
             accountId: '123456789012',
+            actionType: 'PurchaseReservedInstances',
+            recommendation: {
+              opportunityId:
+                '["opportunity",1,"aws","123456789012","eu-west-1","ec2:instance","i-123","PurchaseReservedInstances"]',
+              refreshedAt: '2026-09-04T00:00:00.000Z',
+              resourceKey: '["resource",1,"aws","123456789012","eu-west-1","ec2:instance","i-123"]',
+              source: 'aws-cost-optimization-hub',
+              sourceDetail: 'CostExplorer',
+              sourceId: 'recommendation-1',
+            },
             region: 'eu-west-1',
             resourceId: 'i-123',
             resourceType: 'ec2:instance',
@@ -112,6 +131,13 @@ describe('CLDBRN-AWS-COSTOPTIMIZATIONHUB-2', () => {
         findings: [
           {
             accountId: '123456789012',
+            actionType: 'PurchaseReservedInstances',
+            recommendation: {
+              refreshedAt: '2026-09-04T00:00:00.000Z',
+              source: 'aws-cost-optimization-hub',
+              sourceDetail: 'CostExplorer',
+              sourceId: 'recommendation-1',
+            },
             region: 'eu-west-1',
             resourceId: 'recommendation-1',
             resourceType: 'ec2:instance',

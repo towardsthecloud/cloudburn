@@ -66,6 +66,12 @@ describe('ebsVolumeTypeCurrentGenRule', () => {
             region: 'eu-west-1',
             accountId: '123456789012',
             resourceType: 'ec2:volume',
+            actionType: 'Upgrade',
+            recommendation: {
+              source: 'cloudburn',
+              resourceKey: '["resource",1,"aws","123456789012","eu-west-1","ec2:volume","vol-123"]',
+              opportunityId: '["opportunity",1,"aws","123456789012","eu-west-1","ec2:volume","vol-123","Upgrade"]',
+            },
           },
         ],
       });

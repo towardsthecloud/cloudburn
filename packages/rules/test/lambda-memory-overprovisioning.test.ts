@@ -55,7 +55,18 @@ describe('lambdaMemoryOverprovisioningRule', () => {
       severity: 'medium',
       source: 'discovery',
       message: 'Lambda functions should not keep memory far above their observed execution needs.',
-      findings: [{ ...match('my-function'), actionType: 'Rightsize' }],
+      findings: [
+        {
+          ...match('my-function'),
+          actionType: 'Rightsize',
+          recommendation: {
+            source: 'cloudburn',
+            sourceDetail: 'ComputeOptimizer',
+            resourceKey: `["resource",1,"aws","${accountId}","${region}","lambda:function","${functionArn('my-function')}"]`,
+            opportunityId: `["opportunity",1,"aws","${accountId}","${region}","lambda:function","${functionArn('my-function')}","Rightsize"]`,
+          },
+        },
+      ],
     });
   });
 

@@ -2,6 +2,7 @@
 // TODO(cloudburn): publish stable docs for custom rule pack authoring.
 
 export { AWS_CONFIG_RECORDING_FREQUENCY_MINIMUM_SAVINGS_USD } from './aws/config/recording-frequency.js';
+export { createAwsCostOptimizationHubFindingMatch } from './aws/costoptimizationhub/finding.js';
 export { gravitonResourceTypes } from './aws/costoptimizationhub/graviton-recommended.js';
 export {
   getAwsCostOptimizationHubIdleResourceId,
@@ -22,6 +23,7 @@ export {
   AWS_KMS_MONTHLY_KEY_CREATION_THRESHOLD,
 } from './aws/kms/key-churn.js';
 export { AWS_KMS_UNUSED_KEY_MINIMUM_AGE_DAYS } from './aws/kms/key-unused.js';
+export { canonicalizeAwsResourceId } from './aws/resource-identity.js';
 export {
   AWS_SAGEMAKER_SAVINGS_PLANS_MINIMUM_COVERAGE_PERCENTAGE,
   AWS_SAGEMAKER_SAVINGS_PLANS_MINIMUM_UNCOVERED_COST,
@@ -158,12 +160,15 @@ export type {
   CloudProvider,
   DiscoveryDatasetKey,
   DiscoveryDatasetMap,
+  EvidenceProvenance,
   Finding,
   FindingMatch,
+  FindingRecommendation,
   IaCResource,
   IaCSuppression,
   LiveEvaluationContext,
   LiveEvaluationCoverage,
+  RecommendationIdentity,
   Rule,
   ScanSource,
   Severity,
@@ -174,3 +179,9 @@ export type {
   StaticEvaluationContext,
 } from './shared/metadata.js';
 export { LiveResourceBag, SEVERITIES, StaticResourceBag } from './shared/metadata.js';
+export {
+  compareRecommendationMatches,
+  createRecommendationMatch,
+  deduplicateRecommendationMatches,
+  getRecommendationIdentity,
+} from './shared/recommendation.js';

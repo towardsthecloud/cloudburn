@@ -117,7 +117,23 @@ describe('upgrade discovery orchestration', () => {
     const hub = (await scan([ruleId, 'CLDBRN-AWS-RDS-11'])).providers
       .flatMap((provider) => provider.rules)
       .find((rule) => rule.ruleId === ruleId);
-    expect(hub?.findings).toEqual([{ accountId, region, resourceId: 'database-example', resourceType: 'rds:db' }]);
+    expect(hub?.findings).toEqual([
+      {
+        accountId,
+        actionType: 'Upgrade',
+        recommendation: {
+          opportunityId: '["opportunity",1,"aws","123456789012","eu-west-1","rds:db","database-example","Upgrade"]',
+          refreshedAt: '2026-09-04T00:00:00Z',
+          resourceKey: '["resource",1,"aws","123456789012","eu-west-1","rds:db","database-example"]',
+          source: 'aws-cost-optimization-hub',
+          sourceDetail: 'ComputeOptimizer',
+          sourceId: 'rec-2',
+        },
+        region,
+        resourceId: 'database-example',
+        resourceType: 'rds:db',
+      },
+    ]);
   });
   it('requires opt-in and projects the full typed recommendation through evaluation resources', async () => {
     expect(buildRuleRegistry({ discovery: {}, iac: {} }, 'discovery').activeRules.map((rule) => rule.id)).not.toContain(
@@ -129,10 +145,27 @@ describe('upgrade discovery orchestration', () => {
       diagnostics: [],
     });
     const result = await scan();
+    const expectedRecommendation = {
+      opportunityId: '["opportunity",1,"aws","123456789012","eu-west-1","ec2:volume","vol-example","Upgrade"]',
+      refreshedAt: '2026-09-04T00:00:00Z',
+      resourceKey: '["resource",1,"aws","123456789012","eu-west-1","ec2:volume","vol-example"]',
+      source: 'aws-cost-optimization-hub',
+      sourceDetail: 'ComputeOptimizer',
+      sourceId: 'rec-1',
+    };
     expect(result.providers.flatMap((provider) => provider.rules)).toEqual([
       expect.objectContaining({
         ruleId,
-        findings: [{ accountId, region, resourceId: 'vol-example', resourceType: 'ec2:volume' }],
+        findings: [
+          {
+            accountId,
+            actionType: 'Upgrade',
+            recommendation: expectedRecommendation,
+            region,
+            resourceId: 'vol-example',
+            resourceType: 'ec2:volume',
+          },
+        ],
       }),
     ]);
     expect(result.evaluations?.resourceSets).toEqual([
@@ -141,10 +174,12 @@ describe('upgrade discovery orchestration', () => {
         resources: [
           {
             accountId,
+            actionType: 'Upgrade',
             region,
             resourceId: 'vol-example',
             resourceType: 'ec2:volume',
             arn: recommendation.resourceArn,
+            recommendation: expectedRecommendation,
             data: recommendation,
           },
         ],

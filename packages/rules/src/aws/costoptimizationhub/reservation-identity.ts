@@ -1,45 +1,20 @@
 import type { AwsCostOptimizationHubReservationRecommendation } from '../../shared/metadata.js';
+import { canonicalizeAwsResourceId } from '../resource-identity.js';
 
 const ARN_NAMESPACE_BY_RESERVATION_TYPE = {
-  DynamoDbReservedCapacity: { resourceKind: 'table', resourceType: 'dynamodb:table', service: 'dynamodb' },
-  Ec2ReservedInstances: { resourceKind: 'instance', resourceType: 'ec2:instance', service: 'ec2' },
-  ElastiCacheReservedInstances: {
-    resourceKind: 'cluster',
-    resourceType: 'elasticache:cluster',
-    service: 'elasticache',
-  },
-  MemoryDbReservedInstances: { resourceKind: 'cluster', resourceType: 'memorydb:cluster', service: 'memorydb' },
-  OpenSearchReservedInstances: { resourceKind: 'domain', resourceType: 'opensearch:domain', service: 'es' },
-  RdsReservedInstances: { resourceKind: 'db', resourceType: 'rds:db', service: 'rds' },
-  RedshiftReservedInstances: { resourceKind: 'cluster', resourceType: 'redshift:cluster', service: 'redshift' },
+  DynamoDbReservedCapacity: { resourceType: 'dynamodb:table' },
+  Ec2ReservedInstances: { resourceType: 'ec2:instance' },
+  ElastiCacheReservedInstances: { resourceType: 'elasticache:cluster' },
+  MemoryDbReservedInstances: { resourceType: 'memorydb:cluster' },
+  OpenSearchReservedInstances: { resourceType: 'opensearch:domain' },
+  RdsReservedInstances: { resourceType: 'rds:db' },
+  RedshiftReservedInstances: { resourceType: 'redshift:cluster' },
 } as const;
 
 type ReservationIdentity = Pick<
   AwsCostOptimizationHubReservationRecommendation,
   'recommendationId' | 'reservationType' | 'resourceArn' | 'resourceId'
 >;
-
-const getResourceIdFromArn = (recommendation: ReservationIdentity): string | null => {
-  if (!recommendation.resourceArn) {
-    return null;
-  }
-
-  const [prefix, _partition, service, _region, _accountId, ...resourceParts] = recommendation.resourceArn.split(':');
-  const expectedNamespace = ARN_NAMESPACE_BY_RESERVATION_TYPE[recommendation.reservationType];
-  if (prefix !== 'arn' || service !== expectedNamespace.service) {
-    return null;
-  }
-
-  const resource = resourceParts.join(':');
-  const separatorIndex = [resource.indexOf(':'), resource.indexOf('/')]
-    .filter((index) => index >= 0)
-    .sort((left, right) => left - right)[0];
-  if (separatorIndex === undefined || resource.slice(0, separatorIndex) !== expectedNamespace.resourceKind) {
-    return null;
-  }
-
-  return resource.slice(separatorIndex + 1) || null;
-};
 
 /**
  * Returns the canonical service identifier for a reservation recommendation.
@@ -49,8 +24,12 @@ const getResourceIdFromArn = (recommendation: ReservationIdentity): string | nul
  */
 export const getAwsCostOptimizationHubReservationResourceId = (recommendation: ReservationIdentity): string =>
   recommendation.resourceId ??
-  getResourceIdFromArn(recommendation) ??
-  recommendation.resourceArn ??
+  (recommendation.resourceArn
+    ? canonicalizeAwsResourceId(
+        ARN_NAMESPACE_BY_RESERVATION_TYPE[recommendation.reservationType].resourceType,
+        recommendation.resourceArn,
+      )
+    : undefined) ??
   recommendation.recommendationId;
 
 /**

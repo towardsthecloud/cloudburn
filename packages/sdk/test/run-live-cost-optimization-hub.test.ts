@@ -70,11 +70,28 @@ describe('Cost Optimization Hub reservation orchestration', () => {
       { includeEvaluationResources: true },
     );
 
+    const expectedRecommendation = {
+      opportunityId: '["opportunity",1,"aws","123456789012","eu-west-1","rds:db","orders","PurchaseReservedInstances"]',
+      refreshedAt: '2026-09-04T00:00:00.000Z',
+      resourceKey: '["resource",1,"aws","123456789012","eu-west-1","rds:db","orders"]',
+      source: 'aws-cost-optimization-hub',
+      sourceDetail: 'CostExplorer',
+      sourceId: 'recommendation-1',
+    };
     expect(result.providers).toEqual([
       expect.objectContaining({
         rules: [
           expect.objectContaining({
-            findings: [{ accountId, region, resourceId: 'orders', resourceType: 'rds:db' }],
+            findings: [
+              {
+                accountId,
+                actionType: 'PurchaseReservedInstances',
+                recommendation: expectedRecommendation,
+                region,
+                resourceId: 'orders',
+                resourceType: 'rds:db',
+              },
+            ],
             ruleId: 'CLDBRN-AWS-COSTOPTIMIZATIONHUB-2',
           }),
         ],
@@ -87,8 +104,10 @@ describe('Cost Optimization Hub reservation orchestration', () => {
           resources: [
             {
               accountId,
+              actionType: 'PurchaseReservedInstances',
               arn: reservationRecommendation.resourceArn,
               data: { ...arnIdentifiedRecommendation, region },
+              recommendation: expectedRecommendation,
               region,
               resourceId: 'orders',
               resourceType: 'rds:db',
@@ -298,6 +317,23 @@ describe('Cost Optimization Hub reservation orchestration', () => {
       result.providers
         .flatMap((provider) => provider.rules)
         .find((rule) => rule.ruleId === 'CLDBRN-AWS-COSTOPTIMIZATIONHUB-2')?.findings,
-    ).toEqual([{ accountId, region, resourceId: 'orders', resourceType: 'elasticache:cluster' }]);
+    ).toEqual([
+      {
+        accountId,
+        actionType: 'PurchaseReservedInstances',
+        recommendation: {
+          opportunityId:
+            '["opportunity",1,"aws","123456789012","eu-west-1","elasticache:cluster","orders","PurchaseReservedInstances"]',
+          refreshedAt: '2026-09-04T00:00:00.000Z',
+          resourceKey: '["resource",1,"aws","123456789012","eu-west-1","elasticache:cluster","orders"]',
+          source: 'aws-cost-optimization-hub',
+          sourceDetail: 'CostExplorer',
+          sourceId: 'recommendation-2',
+        },
+        region,
+        resourceId: 'orders',
+        resourceType: 'elasticache:cluster',
+      },
+    ]);
   });
 });
