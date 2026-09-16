@@ -154,7 +154,6 @@ describe('idle recommendation loader', () => {
     { implementationEffort: undefined },
     { resourceId: undefined },
     { region: undefined },
-    { estimatedMonthlyCost: NaN },
     { actionType: 'Delete' },
   ])('rejects incomplete common evidence %j', async (override) => {
     vi.mocked(createCostOptimizationHubClient).mockReturnValue({
@@ -168,6 +167,35 @@ describe('idle recommendation loader', () => {
       unavailable: true,
       diagnostics: [{ code: 'CostOptimizationHubRecommendationIncomplete' }],
     });
+  });
+  it('normalizes missing or unusable financial fields as null', async () => {
+    vi.mocked(createCostOptimizationHubClient).mockReturnValue({
+      send: async (command: unknown) => {
+        if (command instanceof ListEnrollmentStatusesCommand) return { items: [{ accountId, status: 'Active' }] };
+        if (command instanceof ListRecommendationsCommand)
+          return {
+            items: [
+              {
+                ...summary(),
+                currencyCode: undefined,
+                estimatedMonthlyCost: Number.NaN,
+                estimatedMonthlySavings: undefined,
+                estimatedSavingsPercentage: undefined,
+              },
+            ],
+          };
+        return { currentResourceDetails: { ec2Instance: { configuration: { instance: { type: 'm7i.large' } } } } };
+      },
+    } as never);
+    expect(await load()).toEqual([
+      expect.objectContaining({
+        currencyCode: null,
+        estimatedMonthlyCost: null,
+        estimatedMonthlySavings: null,
+        estimatedSavingsPercentage: null,
+        recommendationId: 'rec-1',
+      }),
+    ]);
   });
   it.each(cases)('retains %s %s configuration and common evidence', async (action, type, key, configuration) => {
     const send = vi.fn(async (command: unknown) => {

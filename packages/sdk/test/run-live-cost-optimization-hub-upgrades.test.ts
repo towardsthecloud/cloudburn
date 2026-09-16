@@ -121,6 +121,14 @@ describe('upgrade discovery orchestration', () => {
       {
         accountId,
         actionType: 'Upgrade',
+        impact: {
+          currentCost: { amount: 100, confidence: 'estimated', currency: 'USD', period: 'month' },
+          potentialSavings: { amount: 10, confidence: 'estimated', currency: 'USD', period: 'month' },
+          refreshedAt: '2026-09-04T00:00:00Z',
+          source: 'aws-cost-optimization-hub',
+          sourceDetail: 'ComputeOptimizer',
+          sourceId: 'rec-2',
+        },
         recommendation: {
           opportunityId: '["opportunity",1,"aws","123456789012","eu-west-1","rds:db","database-example","Upgrade"]',
           refreshedAt: '2026-09-04T00:00:00Z',
@@ -153,6 +161,14 @@ describe('upgrade discovery orchestration', () => {
       sourceDetail: 'ComputeOptimizer',
       sourceId: 'rec-1',
     };
+    const expectedImpact = {
+      currentCost: { amount: 100, confidence: 'estimated', currency: 'USD', period: 'month' },
+      potentialSavings: { amount: 10, confidence: 'estimated', currency: 'USD', period: 'month' },
+      refreshedAt: '2026-09-04T00:00:00Z',
+      source: 'aws-cost-optimization-hub',
+      sourceDetail: 'ComputeOptimizer',
+      sourceId: 'rec-1',
+    };
     expect(result.providers.flatMap((provider) => provider.rules)).toEqual([
       expect.objectContaining({
         ruleId,
@@ -160,6 +176,7 @@ describe('upgrade discovery orchestration', () => {
           {
             accountId,
             actionType: 'Upgrade',
+            impact: expectedImpact,
             recommendation: expectedRecommendation,
             region,
             resourceId: 'vol-example',
@@ -179,6 +196,7 @@ describe('upgrade discovery orchestration', () => {
             resourceId: 'vol-example',
             resourceType: 'ec2:volume',
             arn: recommendation.resourceArn,
+            impact: expectedImpact,
             recommendation: expectedRecommendation,
             data: recommendation,
           },

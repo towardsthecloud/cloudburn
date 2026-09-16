@@ -47,6 +47,7 @@ describe('hydrateAwsCostOptimizationHubSavingsPlansRecommendations', () => {
               estimatedMonthlySavings: 107.85,
               estimatedSavingsPercentage: 26,
               implementationEffort: 'VeryLow',
+              recommendationLookbackPeriodInDays: 14,
               restartNeeded: false,
               rollbackPossible: false,
             }),
@@ -92,6 +93,7 @@ describe('hydrateAwsCostOptimizationHubSavingsPlansRecommendations', () => {
         lastRefreshTimestamp: '2026-09-03T00:00:00.000Z',
         paymentOption: 'NoUpfront',
         recommendationId: 'recommendation-1',
+        recommendationLookbackPeriodInDays: 14,
         recommendationSource: 'CostExplorer',
         restartNeeded: false,
         rollbackPossible: false,
@@ -114,6 +116,73 @@ describe('hydrateAwsCostOptimizationHubSavingsPlansRecommendations', () => {
         },
       }),
     );
+  });
+
+  it('normalizes missing or unusable financial fields as null without dropping the recommendation', async () => {
+    const send = vi.fn(async (command: unknown) => {
+      if (command instanceof ListEnrollmentStatusesCommand) {
+        return { items: [{ accountId, status: 'Active' }] };
+      }
+
+      if (command instanceof ListRecommendationsCommand) {
+        return {
+          items: [
+            recommendation('recommendation-1', {
+              currencyCode: undefined,
+              estimatedMonthlyCost: undefined,
+              estimatedMonthlySavings: Number.NaN,
+              estimatedSavingsPercentage: undefined,
+              recommendationLookbackPeriodInDays: Number.NaN,
+            }),
+            recommendation('recommendation-2', {
+              recommendationLookbackPeriodInDays: 0,
+            }),
+          ],
+        };
+      }
+
+      if (command instanceof GetRecommendationCommand) {
+        return {
+          recommendedResourceDetails: {
+            sageMakerSavingsPlans: {
+              configuration: {
+                accountScope: 'LINKED',
+                hourlyCommitment: '0.42',
+                paymentOption: 'NoUpfront',
+                term: 'OneYear',
+              },
+            },
+          },
+        };
+      }
+
+      throw new Error(`Unexpected command: ${String(command)}`);
+    });
+    mockedCreateCostOptimizationHubClient.mockReturnValue({ send } as never);
+
+    const result = await hydrateAwsCostOptimizationHubSavingsPlansRecommendations([], {
+      resolveAccountId: vi.fn().mockResolvedValue(accountId),
+    });
+
+    expect(result).toEqual([
+      expect.objectContaining({
+        currencyCode: null,
+        estimatedMonthlyCost: null,
+        estimatedMonthlySavings: null,
+        estimatedSavingsPercentage: null,
+        recommendationId: 'recommendation-1',
+      }),
+      expect.objectContaining({
+        currencyCode: 'USD',
+        estimatedMonthlyCost: 200,
+        estimatedMonthlySavings: 50,
+        estimatedSavingsPercentage: 25,
+        recommendationId: 'recommendation-2',
+      }),
+    ]);
+    for (const normalized of Array.isArray(result) ? result : []) {
+      expect(Object.hasOwn(normalized, 'recommendationLookbackPeriodInDays')).toBe(false);
+    }
   });
 
   it('marks recommendation evidence unavailable when the account is not enrolled', async () => {

@@ -446,6 +446,14 @@ describe('CloudBurnClient', () => {
               accountId: '123456789012',
               actionType: 'PurchaseSavingsPlans',
               data: recommendation,
+              impact: {
+                currentCost: { amount: 200, confidence: 'estimated', currency: 'USD', period: 'month' },
+                potentialSavings: { amount: 50, confidence: 'estimated', currency: 'USD', period: 'month' },
+                refreshedAt: '2026-09-03T00:00:00.000Z',
+                source: 'aws-cost-optimization-hub',
+                sourceDetail: 'CostExplorer',
+                sourceId: 'recommendation-1',
+              },
               recommendation: {
                 refreshedAt: '2026-09-03T00:00:00.000Z',
                 source: 'aws-cost-optimization-hub',
@@ -756,6 +764,21 @@ describe('CloudBurnClient', () => {
       includeEvaluationResources: true,
     });
 
+    const expectedImpact = {
+      source: 'cloudburn',
+      sourceDetail: 'aws-config-recording-frequency',
+      window: { lookbackDays: 14 },
+      currentCost: {
+        confidence: 'unknown',
+        currency: 'USD',
+        period: 'month',
+        reason: {
+          code: 'not_provided',
+          message: 'The dataset does not provide normalized current recording cost.',
+        },
+      },
+      potentialSavings: { amount: 11.06, confidence: 'estimated', currency: 'USD', period: 'month' },
+    };
     expect(result.evaluations?.resourceSets).toEqual([
       {
         id: 'aws-config-recording-frequency-reviews',
@@ -764,6 +787,7 @@ describe('CloudBurnClient', () => {
             accountId: '123456789012',
             arn: review.recorderArn,
             data: review,
+            impact: expectedImpact,
             name: 'default: AWS::Lambda::Function',
             region: 'eu-central-1',
             resourceId: `${review.recorderArn}#AWS::Lambda::Function`,
@@ -772,6 +796,59 @@ describe('CloudBurnClient', () => {
         ],
       },
     ]);
+    const findingImpact = result.providers[0]?.rules[0]?.findings[0]?.impact;
+    expect(findingImpact).toEqual(expectedImpact);
+    expect(JSON.parse(JSON.stringify(findingImpact))).toEqual(expectedImpact);
+    expect(Object.hasOwn(findingImpact ?? {}, 'observedAt')).toBe(false);
+    expect(Object.hasOwn(findingImpact ?? {}, 'refreshedAt')).toBe(false);
+    expect(Object.hasOwn(findingImpact?.currentCost ?? {}, 'amount')).toBe(false);
+  });
+
+  it('projects unknown AWS Config recording impact without fabricating a finding', async () => {
+    const review = {
+      ...configRecordingReview,
+      configurationItemsRecorded: null,
+      estimatedMonthlyConfigurationItemReduction: null,
+      estimatedMonthlyRecordingCostReductionUsd: null,
+      turnoverEstimateReliable: false,
+    };
+    mockedDiscoverAwsResources.mockResolvedValue({
+      catalog: discoveryCatalog,
+      diagnostics: [],
+      resources: new LiveResourceBag({
+        'aws-config-recording-frequency-reviews': [review],
+      }),
+    });
+
+    const result = await new CloudBurnClient().discover({
+      config: { discovery: { enabledRules: ['CLDBRN-AWS-CONFIG-1'] }, iac: {} },
+      includeEvaluationResources: true,
+    });
+
+    expect(result.providers).toEqual([]);
+    expect(result.evaluations?.resourceSets[0]?.resources[0]?.impact).toEqual({
+      source: 'cloudburn',
+      sourceDetail: 'aws-config-recording-frequency',
+      window: { lookbackDays: 14 },
+      currentCost: {
+        confidence: 'unknown',
+        currency: 'USD',
+        period: 'month',
+        reason: {
+          code: 'not_provided',
+          message: 'The dataset does not provide normalized current recording cost.',
+        },
+      },
+      potentialSavings: {
+        confidence: 'unknown',
+        currency: 'USD',
+        period: 'month',
+        reason: {
+          code: 'incomplete_evidence',
+          message: 'The recording or resource-turnover evidence is incomplete.',
+        },
+      },
+    });
   });
 
   it('reports incomplete AWS Config turnover evidence as not applicable', async () => {

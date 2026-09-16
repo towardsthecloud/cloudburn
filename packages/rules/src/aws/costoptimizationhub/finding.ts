@@ -1,4 +1,5 @@
 import { createFindingMatch } from '../../shared/helpers.js';
+import { createFinancialEvidence } from '../../shared/impact.js';
 import type {
   AwsCostOptimizationHubGravitonRecommendation,
   AwsCostOptimizationHubIdleRecommendation,
@@ -7,6 +8,7 @@ import type {
   AwsCostOptimizationHubSavingsPlansRecommendation,
   AwsCostOptimizationHubUpgradeRecommendation,
   EvidenceProvenance,
+  FindingImpact,
   FindingMatch,
 } from '../../shared/metadata.js';
 import { createRecommendationMatch } from '../../shared/recommendation.js';
@@ -51,11 +53,34 @@ export const createAwsCostOptimizationHubFindingMatch = (
     ...(item.recommendationId ? { sourceId: item.recommendationId } : {}),
     ...(item.lastRefreshTimestamp ? { refreshedAt: item.lastRefreshTimestamp } : {}),
   };
+  const impact: FindingImpact = {
+    ...provenance,
+    currentCost: createFinancialEvidence({
+      amount: item.estimatedMonthlyCost,
+      currency: item.currencyCode,
+      period: 'month',
+      confidence: 'estimated',
+    }),
+    potentialSavings: createFinancialEvidence({
+      amount: item.estimatedMonthlySavings,
+      currency: item.currencyCode,
+      period: 'month',
+      confidence: 'estimated',
+    }),
+    ...(typeof item.recommendationLookbackPeriodInDays === 'number' &&
+    Number.isFinite(item.recommendationLookbackPeriodInDays) &&
+    item.recommendationLookbackPeriodInDays > 0
+      ? { window: { lookbackDays: item.recommendationLookbackPeriodInDays } }
+      : {}),
+  };
   const attach = (input: FindingMatch & { resourceType: string }): FindingMatch & { resourceType: string } => {
-    const match =
-      input.resourceType === 'ecs:service' && item.resourceArn
-        ? { ...input, resourceId: canonicalizeAwsResourceId('ecs:service', item.resourceArn) }
-        : input;
+    const match = {
+      ...input,
+      impact,
+      ...(input.resourceType === 'ecs:service' && item.resourceArn
+        ? { resourceId: canonicalizeAwsResourceId('ecs:service', item.resourceArn) }
+        : {}),
+    };
     const hasConflictingArn = [item.resourceId, item.resourceArn].some((id) => {
       if (!id) return false;
       const scope = getAwsArnScope(id);

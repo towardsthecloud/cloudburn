@@ -1,7 +1,10 @@
 // Intent: expose rule packs, presets, and metadata contracts for SDK and users.
 // TODO(cloudburn): publish stable docs for custom rule pack authoring.
 
-export { AWS_CONFIG_RECORDING_FREQUENCY_MINIMUM_SAVINGS_USD } from './aws/config/recording-frequency.js';
+export {
+  AWS_CONFIG_RECORDING_FREQUENCY_MINIMUM_SAVINGS_USD,
+  createAwsConfigRecordingFrequencyImpact,
+} from './aws/config/recording-frequency.js';
 export { createAwsCostOptimizationHubFindingMatch } from './aws/costoptimizationhub/finding.js';
 export { gravitonResourceTypes } from './aws/costoptimizationhub/graviton-recommended.js';
 export {
@@ -40,6 +43,7 @@ export {
   isRecord,
   toRuleIds,
 } from './shared/helpers.js';
+export { createFinancialEvidence } from './shared/impact.js';
 export type {
   AwsCloudFrontDistribution,
   AwsCloudFrontDistributionRequestActivity,
@@ -161,11 +165,16 @@ export type {
   DiscoveryDatasetKey,
   DiscoveryDatasetMap,
   EvidenceProvenance,
+  FinancialEvidence,
   Finding,
+  FindingImpact,
   FindingMatch,
   FindingRecommendation,
   IaCResource,
   IaCSuppression,
+  ImpactPeriod,
+  ImpactUnknownReason,
+  ImpactWindow,
   LiveEvaluationContext,
   LiveEvaluationCoverage,
   RecommendationIdentity,

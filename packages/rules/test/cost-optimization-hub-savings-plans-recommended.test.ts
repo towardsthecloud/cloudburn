@@ -53,6 +53,14 @@ describe('CLDBRN-AWS-COSTOPTIMIZATIONHUB-1', () => {
     const purchase = (index: number) => ({
       accountId: '123456789012',
       actionType: 'PurchaseSavingsPlans',
+      impact: {
+        currentCost: { amount: 410, confidence: 'estimated', currency: 'USD', period: 'month' },
+        potentialSavings: { amount: 107.85, confidence: 'estimated', currency: 'USD', period: 'month' },
+        refreshedAt: '2026-09-03T00:00:00.000Z',
+        source: 'aws-cost-optimization-hub',
+        sourceDetail: 'CostExplorer',
+        sourceId: `recommendation-${index}`,
+      },
       recommendation: {
         refreshedAt: '2026-09-03T00:00:00.000Z',
         source: 'aws-cost-optimization-hub',

@@ -200,6 +200,15 @@ and `opportunityId` identity keys: `resourceKey` identifies the provider/account
 pre-precedence evidence and are not totals. The [finding reference](../../docs/reference/finding-shape.md#findingrecommendation)
 documents the exact fields and precedence table.
 
+Findings and evaluation resources can also carry optional `impact` metadata: `currentCost` and `potentialSavings` are
+independently tagged `FinancialEvidence` values — `estimated` for modeled figures (Hub recommendations and the AWS
+Config recording-frequency projection are both modeled), `exact` for measured or billed evidence, or `unknown` with a
+`reason` when the source did not supply a usable amount. An unknown amount is absent rather than zero, and the
+optional `window` mirrors only source-reported observation boundaries or lookback durations. Hub financial fields are
+nullable, so absent money never invalidates an otherwise complete recommendation. The SDK never aggregates or
+converts these values; see [finding-shape.md](../../docs/reference/finding-shape.md#findingimpact) for the exact
+semantics.
+
 Evaluation resources can include provider-normalized `data` when a check needs auditable evidence beyond identity and
 timestamps. For example, `CLDBRN-AWS-CONFIG-1` reports the affected resource type, current recording frequency,
 observation window, configuration-item volume, current and recently deleted resource counts, estimated monthly

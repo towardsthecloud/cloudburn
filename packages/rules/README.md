@@ -18,6 +18,7 @@ npm install @cloudburn/rules
 - Default subsets like `awsCorePreset`
 - Rule authoring helpers like `createRule`, `createFinding`, and `createFindingMatch`
 - Recommendation provenance and identity helpers like `createRecommendationMatch`, `getRecommendationIdentity`, and `deduplicateRecommendationMatches` for findings that carry native or external recommendation evidence
+- Financial impact helpers like `createFinancialEvidence` for attaching source-tagged `impact` (`currentCost` and `potentialSavings`) to findings without inventing amounts — a missing or unusable figure becomes `confidence: 'unknown'`, never zero
 - Shared rule types plus `LiveResourceBag` and `StaticResourceBag` for evaluation and tests
 
 ## Getting Started

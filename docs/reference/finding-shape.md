@@ -45,6 +45,7 @@ type FindingMatch = {
   region?: string;
   location?: SourceLocation;
   recommendation?: FindingRecommendation;
+  impact?: FindingImpact;
 };
 ```
 
@@ -57,6 +58,7 @@ type FindingMatch = {
 | `actionType`     | `string?`                | Provider-normalized action such as `Delete`, `Upgrade`, `Rightsize`, `PurchaseReservedInstances`, `PurchaseSavingsPlans`, or `MigrateToGraviton`.           |
 | `location`       | `SourceLocation`         | Source coordinates for IaC matches when available.                                                                                                          |
 | `recommendation` | `FindingRecommendation?` | Provenance and identity metadata for matches that carry a native or external recommendation.                                                                |
+| `impact`         | `FindingImpact?`         | Source-tagged financial impact for the match when the evidence system reports it. Absent when no financial evidence exists.                                 |
 
 ## FindingRecommendation
 
@@ -109,6 +111,65 @@ identity keys; that absence is deliberate, and the SDK never reconstructs identi
 source recommendation ID used as the display `resourceId` — such matches skip precedence entirely.
 ECS service opportunities require a cluster-qualified identifier (`cluster/service`); when a service ARN is supplied
 it takes precedence over a bare display name, and a name without cluster scope carries provenance only.
+
+## FindingImpact
+
+```ts
+type ImpactPeriod = 'hour' | 'day' | 'month' | 'year';
+type ImpactWindow = { start?: string; end?: string; lookbackDays?: number };
+type ImpactUnknownReason = { code: string; message: string };
+
+type FinancialEvidence =
+  | { confidence: 'exact' | 'estimated'; amount: number; currency: string; period: ImpactPeriod }
+  | { confidence: 'unknown'; amount?: never; currency?: string; period?: ImpactPeriod; reason: ImpactUnknownReason };
+
+type FindingImpact = EvidenceProvenance & {
+  currentCost: FinancialEvidence;
+  potentialSavings: FinancialEvidence;
+  window?: ImpactWindow;
+};
+```
+
+| Field              | Type                | Description                                                             |
+| ------------------ | ------------------- | ----------------------------------------------------------------------- |
+| `currentCost`      | `FinancialEvidence` | What the recommended scope currently costs, when the source reports it. |
+| `potentialSavings` | `FinancialEvidence` | What the recommended action could save, when the source reports it.     |
+| `window`           | `ImpactWindow?`     | Source-reported observation window for the figures.                     |
+
+`currentCost` and `potentialSavings` are independent per-metric measurements: each carries its own `confidence`, and
+one can be known while the other is unknown. `confidence: 'exact'` is reserved for measured or billed evidence;
+`'estimated'` marks a modeled projection. Both built-in integrations are modeled — Hub recommendations are AWS
+estimates and the AWS Config recording-frequency projection reuses the dataset's modeled savings — so neither emits
+`exact`.
+
+An `unknown` evidence value has **no `amount` property at all**: a missing or unusable source figure is absent, never
+substituted with zero. A known `amount: 0` is a real measurement and stays distinct from unknown. The `reason.code`
+explains why the amount is absent, and any valid supplied `currency`/`period` is preserved for context. On the Hub
+dataset the financial fields (`currencyCode`, `estimatedMonthlyCost`, `estimatedMonthlySavings`,
+`estimatedSavingsPercentage`) are nullable and `recommendationLookbackPeriodInDays` is optional: absent money does not
+invalidate a recommendation whose identity, refresh, source, and configuration evidence is complete — it surfaces as
+unknown impact instead of a structural failure.
+
+`impact` reuses `EvidenceProvenance` semantics: `source`, `sourceDetail`, `sourceId`, `observedAt`, and `refreshedAt`
+are source-reported only and are never populated from evaluation time or inferred. `window.start`/`window.end` exist
+only when the source reports real endpoints, and `window.lookbackDays` mirrors a source-reported positive lookback
+duration. A lookback duration or a refresh timestamp is **not** a known measurement endpoint, so endpoints are never
+inferred from them.
+
+Two caveats for consumers:
+
+- **No aggregation API.** Nothing sums, converts currencies or units, or normalizes amounts. Aggregation is only
+  valid for the same metric (`currentCost` or `potentialSavings`) with the same currency, same period, compatible
+  known windows and cost basis, and proven non-overlapping opportunities. Keep mixed `exact`/`estimated` confidence
+  separate and labeled. Matches that share a resource but differ in action, or that mix account commitments (Savings
+  Plans, reserved capacity) with resource-scoped actions, can compete for the same spend; a unique `opportunityId`
+  distinguishes opportunities but is not proof that savings are additive. Missing or incomplete windows do not
+  invalidate the source monthly estimates — they only block automatic comparable-window aggregation.
+- **Cost basis differs per source.** A Hub purchase recommendation's `currentCost` is the eligible usage the
+  commitment would cover, not the total account or resource bill. The native AWS Config recording-frequency rule
+  reports only its modeled `potentialSavings`; `currentCost` is always unknown, and no timestamps are invented for it.
+  A conditioned or dependency-blocked projection (for example a recorder whose continuous mode a dependent service
+  requires) reports unknown savings rather than certifying actionable savings.
 
 ## Cross-rule precedence
 

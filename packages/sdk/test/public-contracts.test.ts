@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 import type {
   AwsConfigRecordingFrequencyReview,
   AwsCostOptimizationHubAutoScalingUpgradeConfiguration,
@@ -13,7 +13,12 @@ import type {
   CloudBurnClient,
   EvidenceCacheStore,
   EvidenceProvenance,
+  FinancialEvidence,
+  FindingImpact,
   FindingRecommendation,
+  ImpactPeriod,
+  ImpactUnknownReason,
+  ImpactWindow,
   LiveEvaluationCoverage,
   RecommendationIdentity,
   RuleEvaluation,
@@ -111,5 +116,38 @@ describe('public SDK contracts', () => {
     // @ts-expect-error Coverage identities require a resource ID.
     const invalidCoverage: LiveEvaluationCoverage = { assessed: [{}], unknown: [] };
     expect([evaluation, volume, invalidCoverage]).toHaveLength(3);
+  });
+
+  it('narrows financial evidence by confidence and keeps metrics independent', () => {
+    const amount = (evidence: FinancialEvidence): number | undefined =>
+      evidence.confidence === 'unknown' ? undefined : evidence.amount;
+    const known: FinancialEvidence = { amount: 42.5, confidence: 'exact', currency: 'EUR', period: 'month' };
+    const unknown: FinancialEvidence = {
+      confidence: 'unknown',
+      currency: 'USD',
+      period: 'month',
+      reason: { code: 'missing_amount', message: 'The source did not provide a usable amount.' },
+    };
+    expect(amount(known)).toBe(42.5);
+    expect(amount(unknown)).toBeUndefined();
+    if (known.confidence === 'exact') {
+      expectTypeOf(known.amount).toEqualTypeOf<number>();
+    }
+    if (unknown.confidence === 'unknown') {
+      expectTypeOf(unknown.amount).toEqualTypeOf<undefined>();
+    }
+
+    const impact: FindingImpact = {
+      source: 'billing',
+      currentCost: unknown,
+      potentialSavings: known,
+      window: { lookbackDays: 14 },
+    };
+    expect(impact.currentCost.confidence).toBe('unknown');
+    expect(impact.potentialSavings.confidence).toBe('exact');
+    const period: ImpactPeriod = 'hour';
+    const reason: ImpactUnknownReason = { code: 'not_provided', message: 'none' };
+    const window: ImpactWindow = { start: '2026-08-01T00:00:00.000Z' };
+    expect([period, reason, window]).toHaveLength(3);
   });
 });

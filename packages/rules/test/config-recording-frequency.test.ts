@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { configRecordingFrequencyRule } from '../src/aws/config/recording-frequency.js';
+import {
+  configRecordingFrequencyRule,
+  createAwsConfigRecordingFrequencyImpact,
+} from '../src/aws/config/recording-frequency.js';
 import type { AwsConfigRecordingFrequencyReview } from '../src/index.js';
 import { LiveResourceBag } from '../src/index.js';
 
@@ -91,6 +94,21 @@ describe('configRecordingFrequencyRule', () => {
           region: 'eu-central-1',
           resourceId:
             'arn:aws:config:eu-central-1:123456789012:configuration-recorder/default/abc#AWS::Lambda::Function',
+          impact: {
+            source: 'cloudburn',
+            sourceDetail: 'aws-config-recording-frequency',
+            window: { lookbackDays: 14 },
+            currentCost: {
+              confidence: 'unknown',
+              currency: 'USD',
+              period: 'month',
+              reason: {
+                code: 'not_provided',
+                message: 'The dataset does not provide normalized current recording cost.',
+              },
+            },
+            potentialSavings: { amount: 11.06, confidence: 'estimated', currency: 'USD', period: 'month' },
+          },
         },
       ],
       message:
@@ -137,5 +155,81 @@ describe('configRecordingFrequencyRule', () => {
     });
 
     expect(finding).toBeNull();
+  });
+});
+
+describe('createAwsConfigRecordingFrequencyImpact', () => {
+  it('reports estimated monthly savings with an unavailable current cost', () => {
+    expect(createAwsConfigRecordingFrequencyImpact(createReview())).toEqual({
+      source: 'cloudburn',
+      sourceDetail: 'aws-config-recording-frequency',
+      window: { lookbackDays: 14 },
+      currentCost: {
+        confidence: 'unknown',
+        currency: 'USD',
+        period: 'month',
+        reason: {
+          code: 'not_provided',
+          message: 'The dataset does not provide normalized current recording cost.',
+        },
+      },
+      potentialSavings: { amount: 11.06, confidence: 'estimated', currency: 'USD', period: 'month' },
+    });
+  });
+
+  it('keeps savings unknown when a dependent service requires continuous recording', () => {
+    for (const overrides of [{ firewallManagerDependent: true }, { paidServiceLinkedRecorderDependent: true }]) {
+      const impact = createAwsConfigRecordingFrequencyImpact(createReview(overrides));
+      expect(impact.potentialSavings).toEqual({
+        confidence: 'unknown',
+        currency: 'USD',
+        period: 'month',
+        reason: {
+          code: 'action_not_applicable',
+          message: 'Continuous recording is required by a dependent service.',
+        },
+      });
+      expect(Object.hasOwn(impact.potentialSavings, 'amount')).toBe(false);
+    }
+  });
+
+  it('keeps savings unknown when recording or turnover evidence is incomplete', () => {
+    for (const overrides of [
+      { turnoverEstimateReliable: false },
+      { configurationItemsRecorded: null },
+      { estimatedMonthlyConfigurationItemReduction: null },
+    ]) {
+      const impact = createAwsConfigRecordingFrequencyImpact(createReview(overrides));
+      expect(impact.potentialSavings).toEqual({
+        confidence: 'unknown',
+        currency: 'USD',
+        period: 'month',
+        reason: {
+          code: 'incomplete_evidence',
+          message: 'The recording or resource-turnover evidence is incomplete.',
+        },
+      });
+      expect(Object.hasOwn(impact.potentialSavings, 'amount')).toBe(false);
+    }
+  });
+
+  it('reports a null modeled amount as missing evidence, not zero', () => {
+    const impact = createAwsConfigRecordingFrequencyImpact(
+      createReview({ estimatedMonthlyRecordingCostReductionUsd: null }),
+    );
+    expect(impact.potentialSavings).toEqual({
+      confidence: 'unknown',
+      currency: 'USD',
+      period: 'month',
+      reason: { code: 'missing_amount', message: 'The source did not provide a usable amount.' },
+    });
+    expect(impact.currentCost.confidence).toBe('unknown');
+  });
+
+  it('omits the window when the observation period is absent', () => {
+    const impact = createAwsConfigRecordingFrequencyImpact(createReview({ observationWindowDays: Number.NaN }));
+    expect(Object.hasOwn(impact, 'window')).toBe(false);
+    expect(Object.hasOwn(impact, 'observedAt')).toBe(false);
+    expect(Object.hasOwn(impact, 'refreshedAt')).toBe(false);
   });
 });

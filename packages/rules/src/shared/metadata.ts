@@ -530,13 +530,19 @@ export type AwsCostOptimizationHubRightsizingRecommendation = {
 /** Evidence shared by purchase, idle-capacity, and rightsizing recommendations. */
 type AwsCostOptimizationHubRecommendationEvidence = {
   accountId: string;
-  currencyCode: string;
-  estimatedMonthlyCost: number;
-  estimatedMonthlySavings: number;
-  estimatedSavingsPercentage: number;
+  /** `null` means AWS omitted the currency; financial impact then reports unknown amounts. */
+  currencyCode: string | null;
+  /** `null` means AWS omitted the estimated monthly cost or returned a non-finite value. */
+  estimatedMonthlyCost: number | null;
+  /** `null` means AWS omitted the estimated monthly savings or returned a non-finite value. */
+  estimatedMonthlySavings: number | null;
+  /** `null` means AWS omitted the estimated savings percentage or returned a non-finite value. */
+  estimatedSavingsPercentage: number | null;
   implementationEffort?: string;
   lastRefreshTimestamp: string;
   recommendationId: string;
+  /** Lookback period the recommendation's estimates were computed over, when AWS reports it. */
+  recommendationLookbackPeriodInDays?: number;
   recommendationSource: 'ComputeOptimizer' | 'CostExplorer';
   region?: string;
   resourceArn?: string;
@@ -1605,6 +1611,49 @@ export type RecommendationIdentity = {
 /** Evidence provenance plus optional computed identity attached to a recommendation-backed match. */
 export type FindingRecommendation = EvidenceProvenance & Partial<RecommendationIdentity>;
 
+/** Financial reporting period attached to an impact amount. */
+export type ImpactPeriod = 'hour' | 'day' | 'month' | 'year';
+
+/** Observation window supplied by the evidence source; endpoints are never inferred. */
+export type ImpactWindow = { start?: string; end?: string; lookbackDays?: number };
+
+/** Why a financial amount is unknown. */
+export type ImpactUnknownReason = { code: string; message: string };
+
+/**
+ * One unit-tagged financial measurement for a finding impact.
+ *
+ * Known values carry `amount`, `currency`, and `period` tagged by `confidence`:
+ * `exact` is reserved for measured or billed evidence while `estimated` marks a
+ * modeled projection. An `unknown` value carries no amount — a missing or
+ * unusable source figure is distinct from a known zero — and reports `reason`.
+ */
+export type FinancialEvidence =
+  | { confidence: 'exact' | 'estimated'; amount: number; currency: string; period: ImpactPeriod }
+  | {
+      confidence: 'unknown';
+      amount?: never;
+      currency?: string;
+      period?: ImpactPeriod;
+      reason: ImpactUnknownReason;
+    };
+
+/**
+ * Financial impact attached to a finding match.
+ *
+ * `currentCost` and `potentialSavings` are independently tagged per metric and
+ * are never summed or converted. `window` retains only the observation
+ * boundaries the source supplied.
+ */
+export type FindingImpact = EvidenceProvenance & {
+  /** What the recommended scope currently costs, when the source reports it. */
+  currentCost: FinancialEvidence;
+  /** What the recommended action could save, when the source reports it. */
+  potentialSavings: FinancialEvidence;
+  /** Source-reported observation window for the figures. */
+  window?: ImpactWindow;
+};
+
 /** A resource-level policy match emitted inside a rule finding group. */
 export type FindingMatch = {
   /** Exact recommended operation when needed to distinguish findings for one resource. */
@@ -1616,6 +1665,8 @@ export type FindingMatch = {
   region?: string;
   /** Provenance and computed identity when this match describes a recommendation. */
   recommendation?: FindingRecommendation;
+  /** Source-tagged financial impact when the evidence system reports it. */
+  impact?: FindingImpact;
   location?: SourceLocation;
 };
 

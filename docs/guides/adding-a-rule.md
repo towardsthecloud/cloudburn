@@ -51,6 +51,12 @@ Key patterns:
   normalized `recommendation` provenance and identity. Provenance timestamps must come from the evidence source; omit
   them when unknown instead of using evaluation time. See
   [finding-shape.md](../reference/finding-shape.md#findingrecommendation).
+- When a finding carries source-reported financial evidence, attach `impact` with `currentCost` and
+  `potentialSavings` built by `createFinancialEvidence({ amount, currency, period, confidence })`. Pass the source
+  values through unchanged — never estimate amounts the source did not provide, and never substitute zero for a
+  missing figure: the helper emits `confidence: 'unknown'` with a `reason` instead. Use `confidence: 'estimated'` for
+  modeled values and reserve `'exact'` for measured or billed evidence. See
+  [finding-shape.md](../reference/finding-shape.md#findingimpact).
 - Reuse an existing dataset key when the service already exposes the normalized fields you need.
 - If the same policy should work in both scan modes, keep the static and discovery predicates aligned and extract shared helpers when that reduces duplication.
 - Read static data from `StaticEvaluationContext.resources` with `resources.get('<dataset-key>')`.

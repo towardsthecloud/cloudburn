@@ -106,6 +106,9 @@ type CostOptimizationHubLoadResult<T extends HubRecommendation> =
 const optionalFiniteNumber = (value: string | undefined): number | null | undefined =>
   value === undefined ? undefined : parseFiniteNumber(value);
 
+const finiteNumberOrNull = (value: number | undefined): number | null =>
+  typeof value === 'number' && Number.isFinite(value) ? value : null;
+
 const withOptionalString = (key: string, value: string | undefined): Record<string, string> =>
   value ? { [key]: value } : {};
 
@@ -126,13 +129,6 @@ const normalizeRecommendationCommon = (
     !recommendation.currentResourceType ||
     !category.resourceTypes.some((resourceType) => resourceType === recommendation.currentResourceType) ||
     !recommendation.accountId ||
-    !recommendation.currencyCode ||
-    recommendation.estimatedMonthlyCost === undefined ||
-    !Number.isFinite(recommendation.estimatedMonthlyCost) ||
-    recommendation.estimatedMonthlySavings === undefined ||
-    !Number.isFinite(recommendation.estimatedMonthlySavings) ||
-    recommendation.estimatedSavingsPercentage === undefined ||
-    !Number.isFinite(recommendation.estimatedSavingsPercentage) ||
     !(recommendation.lastRefreshTimestamp instanceof Date) ||
     Number.isNaN(recommendation.lastRefreshTimestamp.getTime()) ||
     (recommendation.source !== 'ComputeOptimizer' && recommendation.source !== 'CostExplorer')
@@ -143,11 +139,16 @@ const normalizeRecommendationCommon = (
   return {
     accountId: recommendation.accountId,
     actionType: recommendation.actionType as HubRecommendation['actionType'],
-    currencyCode: recommendation.currencyCode,
+    currencyCode: recommendation.currencyCode ?? null,
     currentResourceType: recommendation.currentResourceType,
-    estimatedMonthlyCost: recommendation.estimatedMonthlyCost,
-    estimatedMonthlySavings: recommendation.estimatedMonthlySavings,
-    estimatedSavingsPercentage: recommendation.estimatedSavingsPercentage,
+    estimatedMonthlyCost: finiteNumberOrNull(recommendation.estimatedMonthlyCost),
+    estimatedMonthlySavings: finiteNumberOrNull(recommendation.estimatedMonthlySavings),
+    estimatedSavingsPercentage: finiteNumberOrNull(recommendation.estimatedSavingsPercentage),
+    ...(typeof recommendation.recommendationLookbackPeriodInDays === 'number' &&
+    Number.isFinite(recommendation.recommendationLookbackPeriodInDays) &&
+    recommendation.recommendationLookbackPeriodInDays > 0
+      ? { recommendationLookbackPeriodInDays: recommendation.recommendationLookbackPeriodInDays }
+      : {}),
     ...(recommendation.implementationEffort ? { implementationEffort: recommendation.implementationEffort } : {}),
     lastRefreshTimestamp: recommendation.lastRefreshTimestamp.toISOString(),
     recommendationId: recommendation.recommendationId,
@@ -474,7 +475,7 @@ const normalizeReservationConfiguration = (
 const savingsPlansCategory: RecommendationCategory<AwsCostOptimizationHubSavingsPlansRecommendation> = {
   actionTypes: ['PurchaseSavingsPlans'],
   incompleteDetails: (count) =>
-    `${count} Savings Plans recommendation${count === 1 ? '' : 's'} lacked required cost, refresh, source, scope, commitment, term, or payment data.`,
+    `${count} Savings Plans recommendation${count === 1 ? '' : 's'} lacked required refresh, source, scope, commitment, term, or payment data.`,
   messageSubject: 'Savings Plans recommendations',
   normalizeConfiguration: (common, response) =>
     normalizeSavingsPlansConfiguration(common, response.recommendedResourceDetails),
@@ -574,7 +575,7 @@ export const hydrateAwsCostOptimizationHubGravitonRecommendations = async (
 const reservationCategory: RecommendationCategory<AwsCostOptimizationHubReservationRecommendation> = {
   actionTypes: ['PurchaseReservedInstances'],
   incompleteDetails: (count) =>
-    `${count} reservation purchase recommendation${count === 1 ? '' : 's'} lacked required cost, refresh, source, or typed purchase configuration data.`,
+    `${count} reservation purchase recommendation${count === 1 ? '' : 's'} lacked required refresh, source, or typed purchase configuration data.`,
   messageSubject: 'reservation purchase recommendations',
   normalizeConfiguration: (common, response) =>
     normalizeReservationConfiguration(common, response.recommendedResourceDetails),
@@ -631,7 +632,7 @@ const upgradeCategory: RecommendationCategory<AwsCostOptimizationHubUpgradeRecom
   resourceTypes: ['Ec2Instance', 'Ec2AutoScalingGroup', 'EbsVolume', 'RdsDbInstance', 'RdsDbInstanceStorage'],
   messageSubject: 'product-generation upgrade recommendations',
   incompleteDetails: (count) =>
-    `${count} upgrade recommendations lacked required identity, cost, refresh, source, or current and recommended configuration data.`,
+    `${count} upgrade recommendations lacked required identity, refresh, source, or current and recommended configuration data.`,
   normalizeConfiguration: (common, response) => {
     const details = response.recommendedResourceDetails;
     const { currentResourceType, ...recommendation } = common;
@@ -1128,7 +1129,7 @@ const rightsizingCategory: RecommendationCategory<AwsCostOptimizationHubRightsiz
   ],
   messageSubject: 'rightsizing recommendations',
   incompleteDetails: (count) =>
-    `${count} rightsizing recommendations lacked required identity, cost, refresh, source, or typed current and recommended configuration data.`,
+    `${count} rightsizing recommendations lacked required identity, refresh, source, or typed current and recommended configuration data.`,
   normalizeConfiguration: (common, response) => {
     const { currentResourceType, ...recommendation } = common;
     const resourceType = currentResourceType as AwsCostOptimizationHubRightsizingRecommendation['resourceType'];

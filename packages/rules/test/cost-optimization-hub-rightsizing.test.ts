@@ -28,6 +28,11 @@ describe('CLDBRN-AWS-COSTOPTIMIZATIONHUB-4', () => {
         'aws-cost-optimization-hub-rightsizing-recommendations': [recommendation, recommendation] as never,
       }),
     });
+    const unknownAmount = {
+      confidence: 'unknown',
+      period: 'month',
+      reason: { code: 'missing_amount', message: 'The source did not provide a usable amount.' },
+    };
     expect(finding?.findings).toEqual([
       {
         resourceId,
@@ -35,6 +40,12 @@ describe('CLDBRN-AWS-COSTOPTIMIZATIONHUB-4', () => {
         region: 'eu-west-1',
         resourceType: namespace,
         actionType: 'Rightsize',
+        impact: {
+          source: 'aws-cost-optimization-hub',
+          sourceId: 'rec-1',
+          currentCost: unknownAmount,
+          potentialSavings: unknownAmount,
+        },
         recommendation: {
           source: 'aws-cost-optimization-hub',
           sourceId: 'rec-1',

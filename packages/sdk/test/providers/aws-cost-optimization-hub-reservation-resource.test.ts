@@ -325,10 +325,7 @@ describe('hydrateAwsCostOptimizationHubReservationRecommendations', () => {
       }
       if (command instanceof ListRecommendationsCommand) {
         return {
-          items: [
-            recommendation('recommendation-good'),
-            recommendation('recommendation-bad', { estimatedMonthlyCost: undefined }),
-          ],
+          items: [recommendation('recommendation-good'), recommendation('recommendation-bad', { source: undefined })],
         };
       }
       if (command instanceof GetRecommendationCommand) {
@@ -375,7 +372,7 @@ describe('hydrateAwsCostOptimizationHubReservationRecommendations', () => {
         expect.objectContaining({
           code: 'CostOptimizationHubRecommendationIncomplete',
           details:
-            '1 reservation purchase recommendation lacked required cost, refresh, source, or typed purchase configuration data.',
+            '1 reservation purchase recommendation lacked required refresh, source, or typed purchase configuration data.',
           status: 'skipped',
         }),
       ],
