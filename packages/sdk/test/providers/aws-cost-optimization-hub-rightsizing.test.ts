@@ -153,6 +153,58 @@ it.each([
     expect(finding.recommendation?.opportunityId).toBeUndefined();
   }
 });
+it.each([
+  ['example', 'example', `${lambdaArn}:production`, true],
+  [`${lambdaArn}:production`, 'example', undefined, true],
+  ['example:production', undefined, `${lambdaArn}:3`, true],
+  ['other', 'example', `${lambdaArn}:production`, false],
+  [lambdaArn, 'other', undefined, false],
+  ['example', 'example', 'arn:aws:lambda:eu-west-1:222222222222:function:example', false],
+] as const)(
+  'prefers compatible Lambda ARN evidence without a summary ARN (%s, %s, %s)',
+  async (resourceId, detailId, detailArn, compatible) => {
+    vi.mocked(createCostOptimizationHubClient).mockReturnValue({
+      send: vi.fn(async (command: unknown) => {
+        if (command instanceof ListEnrollmentStatusesCommand) return { items: [{ accountId, status: 'Active' }] };
+        if (command instanceof ListRecommendationsCommand) {
+          return { items: [{ ...common, currentResourceType: 'LambdaFunction', resourceId, resourceArn: undefined }] };
+        }
+        if (command instanceof GetRecommendationCommand) {
+          return {
+            resourceId: detailId,
+            resourceArn: detailArn,
+            currentResourceDetails: { lambdaFunction: { configuration: { compute: { memorySizeInMB: 1024 } } } },
+            recommendedResourceDetails: { lambdaFunction: { configuration: { compute: { memorySizeInMB: 512 } } } },
+          };
+        }
+        throw new Error('Unexpected command');
+      }),
+    } as never);
+    const result = await hydrateAwsCostOptimizationHubRightsizingRecommendations([], {
+      resolveAccountId: async () => accountId,
+    });
+    if (!compatible) {
+      expect(result).toMatchObject({
+        unavailable: true,
+        resources: [],
+        diagnostics: [{ code: 'CostOptimizationHubRecommendationIncomplete' }],
+      });
+      return;
+    }
+    const normalized = (Array.isArray(result) ? result : [])[0];
+    if (!normalized) throw new Error('Expected one normalized recommendation');
+    expect(normalized.resourceId).toBe(lambdaArn);
+    const finding = createAwsCostOptimizationHubFindingMatch(normalized);
+    expect(finding.recommendation?.resourceKey).toContain(lambdaArn);
+    expect(finding.impact?.currentCost).toMatchObject({
+      amount: 100,
+      confidence: 'estimated',
+      currency: 'USD',
+      period: 'month',
+    });
+  },
+);
+
 it.each([undefined, 'not-an-arn'])('rejects missing regional identity with ARN %s', async (resourceArn) => {
   vi.mocked(createCostOptimizationHubClient).mockReturnValue({
     send: vi.fn(async (command: unknown) => {

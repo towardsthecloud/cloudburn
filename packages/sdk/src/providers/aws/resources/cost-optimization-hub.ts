@@ -205,8 +205,15 @@ const normalizeRecommendationDetails = <T extends HubRecommendation>(
       ...(detail.resourceArn ? { resourceArn: detail.resourceArn } : {}),
     });
     const summaryKey = summaryMatch.recommendation?.resourceKey;
-    const resourceKey = summaryKey ?? detailMatch.recommendation?.resourceKey;
-    const scopedMatch = summaryKey !== undefined ? summaryMatch : detailMatch;
+    const detailKey = detailMatch.recommendation?.resourceKey;
+    const preferDetail =
+      detailKey !== undefined &&
+      (summaryKey === undefined ||
+        (summaryMatch.resourceType === 'lambda:function' &&
+          !summaryMatch.resourceId.startsWith('arn:') &&
+          detailMatch.resourceId.startsWith('arn:')));
+    const scopedMatch = preferDetail ? detailMatch : summaryMatch;
+    const resourceKey = scopedMatch.recommendation?.resourceKey;
     const identifiers = new Set([...summaryIds, ...detailIds]);
     if (resourceKey !== undefined) {
       for (const identifier of identifiers) {
@@ -240,7 +247,7 @@ const normalizeRecommendationDetails = <T extends HubRecommendation>(
     if (normalized.resourceId || normalized.resourceArn) {
       normalized = {
         ...normalized,
-        ...(resourceKey !== undefined && summaryKey === undefined ? { resourceId: scopedMatch.resourceId } : {}),
+        ...(resourceKey !== undefined && summaryKey !== resourceKey ? { resourceId: scopedMatch.resourceId } : {}),
         ...(!normalized.resourceArn && detail.resourceArn ? { resourceArn: detail.resourceArn } : {}),
       };
     }
