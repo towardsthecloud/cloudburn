@@ -74,6 +74,43 @@ it.each(['2026-03-08T01:30:00-05:00', '2026-03-08T07:30:00+01:00', '2026-03-08T0
 );
 
 describe('getRecommendationIdentity', () => {
+  it.each([
+    ['aws', 'eu-west-1'],
+    ['aws-cn', 'cn-north-1'],
+    ['aws-us-gov', 'us-gov-west-1'],
+    ['aws-iso', 'us-iso-east-1'],
+    ['aws-iso-b', 'us-isob-east-1'],
+    ['aws-iso-e', 'eu-isoe-west-1'],
+    ['aws-iso-f', 'us-isof-south-1'],
+    ['aws-eusc', 'eusc-de-east-1'],
+  ])('preserves regional and global ARNs in %s', (partition, region) => {
+    const scope = { ...scopeMatch, region };
+    const arn = `arn:${partition}:ec2:${region}:111111111111:volume/vol-1`;
+    expect(canonicalizeAwsResourceId('ec2:volume', arn)).toBe('vol-1');
+    expect(getRecommendationIdentity('aws', { ...scope, resourceId: arn })).toEqual(
+      getRecommendationIdentity('aws', scope),
+    );
+    const globalArn = `arn:${partition}:s3:::bucket`;
+    expect(
+      getRecommendationIdentity('aws', { ...scope, resourceType: 's3:bucket', resourceId: globalArn })?.resourceKey,
+    ).toContain(globalArn);
+  });
+
+  it.each([
+    ['aws-fake', 'eu-west-1'],
+    ['aws-iso-x', 'eu-west-1'],
+    ['aws-cn-extra', 'cn-north-1'],
+    ['aws-cn', 'eu-west-1'],
+    ['aws', 'cn-north-1'],
+    ['aws-us-gov', 'eu-west-1'],
+    ['aws', 'us-gov-west-1'],
+    ['aws-iso', 'us-isob-east-1'],
+    ['aws-eusc', 'eu-central-1'],
+  ])('rejects unknown or mismatched partition scope %s/%s', (partition, region) => {
+    const arn = `arn:${partition}:ec2:${region}:111111111111:volume/vol-1`;
+    expect(canonicalizeAwsResourceId('ec2:volume', arn)).toBe(arn);
+    expect(getRecommendationIdentity('aws', { ...scopeMatch, region, resourceId: arn })).toBeUndefined();
+  });
   it('returns literal versioned JSON identity for a complete scope', () => {
     expect(getRecommendationIdentity('aws', scopeMatch)).toEqual({
       resourceKey: '["resource",1,"aws","111111111111","eu-west-1","ec2:volume","vol-1"]',
