@@ -477,6 +477,10 @@ A `recommendation-source` outcome records that returned Cost Optimization Hub ro
 does not certify current enrollment or full source coverage, so an empty Hub response produces no source outcome, and a
 source outcome may coexist with a separate direct outcome for the same capability.
 
+When a Resource Explorer catalog failure prevents a capability's dataset from running, its outcome reports
+`unavailable` with `dataset-unavailable`. The original catalog failure remains in `ScanResult.diagnostics`; it does not
+establish an enrollment or permission failure for the unassessed capability.
+
 Regional Resource Explorer indexing and account-wide tagging are separate observations: a successful regional catalog
 never implies aggregator access, and an `available` `resource-explorer-aggregator` outcome means only that the queried
 aggregator view answered — not that every enabled Region or resource is indexed. `getDiscoveryStatus` remains the

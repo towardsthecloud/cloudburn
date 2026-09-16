@@ -869,7 +869,11 @@ export const discoverAwsResources = async (
         ]);
         return {
           datasetKey,
-          diagnostics: loadResult.unavailableDiagnostics ?? loadResult.diagnostics,
+          // A catalog prerequisite failure does not establish this capability's readiness.
+          // Keep its cause in scan diagnostics and report the skipped dataset as unavailable.
+          diagnostics: (loadResult.unavailableDiagnostics ?? loadResult.diagnostics).filter(
+            (diagnostic) => diagnostic !== catalogFailureDiagnostic,
+          ),
           unavailable: loadResult.unavailable,
           ...(loadResult.coverage ? { coverage: loadResult.coverage } : {}),
           ...(datasetUnavailableRegions?.size ? { unavailableRegions: [...datasetUnavailableRegions] } : {}),

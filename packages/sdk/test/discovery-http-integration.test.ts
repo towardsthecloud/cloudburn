@@ -1433,6 +1433,35 @@ describe('live capability outcomes', () => {
     expectReadOnlyRequests();
   });
 
+  it('keeps catalog access failures separate from unassessed Compute Optimizer enrollment', async () => {
+    failOperation = 'ListResources';
+    const result = await discoverRules(['CLDBRN-AWS-LAMBDA-4', 'CLDBRN-AWS-COSTEXPLORER-1']);
+
+    expect(capabilitiesOf(result)).toEqual([
+      {
+        capability: 'compute-optimizer-enrollment',
+        datasetKeys: ['aws-lambda-memory-recommendations'],
+        reasons: ['dataset-unavailable'],
+        scope: { type: 'regional', regions: ['eu-west-1'] },
+        status: 'unavailable',
+      },
+      {
+        capability: 'cost-explorer-access',
+        datasetKeys: ['aws-cost-usage'],
+        reasons: [],
+        scope: { type: 'account' },
+        status: 'available',
+      },
+    ]);
+    expect(result.diagnostics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ service: 'resource-explorer', code: 'AccessDeniedException' }),
+      ]),
+    );
+    expect(requests.some((request) => request.hostname.includes('compute-optimizer'))).toBe(false);
+    expectReadOnlyRequests();
+  });
+
   it('reports Compute Optimizer enrollment unavailable when the account has not opted in', async () => {
     useLambdaScenario(['eu-west-1']);
     optInOperation = 'GetLambdaFunctionRecommendations';
