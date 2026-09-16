@@ -22,6 +22,18 @@ const ARN_RESOURCE_BY_NAMESPACE: Record<
   'redshift:cluster': { service: 'redshift', extract: stripKind('cluster:') },
 };
 
+const PARTITION_REGION_PREFIXES = [
+  ['aws', ''],
+  ['aws-cn', 'cn-'],
+  ['aws-us-gov', 'us-gov-'],
+  ['aws-iso', 'us-iso-'],
+  ['aws-iso-b', 'us-isob-'],
+  ['aws-iso-e', 'eu-isoe-'],
+  ['aws-iso-f', 'us-isof-'],
+  ['aws-eusc', 'eusc-'],
+] as const;
+const awsPartitions = new Set<string>(PARTITION_REGION_PREFIXES.map(([partition]) => partition));
+
 const regionalServices = new Set([
   'eks',
   'lambda',
@@ -68,15 +80,20 @@ export const canonicalizeAwsResourceId = (resourceType: string, resourceId: stri
  * @returns The ARN scope, or `undefined` when the value is not a well-formed ARN.
  */
 export const getAwsArnScope = (resourceId: string): { accountId: string; region: string } | undefined => {
-  const arn = /^arn:aws(?:-[a-z0-9]+)*:([a-z0-9-]+):([a-z0-9-]*):(\d{12})?:(.+)$/.exec(resourceId);
-  if (!arn) {
+  const arn = /^arn:([^:]+):([a-z0-9-]+):([a-z0-9-]*):(\d{12})?:(.+)$/.exec(resourceId);
+  if (!arn || !awsPartitions.has(arn[1] ?? '')) {
     return undefined;
   }
 
-  const region = arn[2] ?? '';
-  const accountId = arn[3] ?? '';
-  if (regionalServices.has(arn[1] ?? '') && (!region || !accountId)) {
+  const region = arn[3] ?? '';
+  const accountId = arn[4] ?? '';
+  if (regionalServices.has(arn[2] ?? '') && (!region || !accountId)) {
     return undefined;
+  }
+  if (region) {
+    const partition =
+      PARTITION_REGION_PREFIXES.find(([, prefix]) => prefix !== '' && region.startsWith(prefix))?.[0] ?? 'aws';
+    if (partition !== arn[1]) return undefined;
   }
 
   return { region, accountId };
