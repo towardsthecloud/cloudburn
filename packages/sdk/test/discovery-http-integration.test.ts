@@ -6,7 +6,15 @@ import { ResourceExplorer2Client } from '@aws-sdk/client-resource-explorer-2';
 import { STSClient } from '@aws-sdk/client-sts';
 import type { HttpHandlerOptions, HttpRequest } from '@aws-sdk/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { type AwsDiscoveryProgressEvent, CloudBurnClient, withAwsClientCredentials } from '../src/index.js';
+import {
+  type AwsCapabilityReason,
+  type AwsCapabilityScope,
+  type AwsCapabilityStatus,
+  type AwsDiscoveryProgressEvent,
+  type AwsDiscoveryTarget,
+  CloudBurnClient,
+  withAwsClientCredentials,
+} from '../src/index.js';
 import { decodeRequestBody } from './helpers/http.js';
 
 /** Options accepted by {@link CloudBurnClient.discover}, reused so test fixtures stay in sync with the public contract. */
@@ -77,9 +85,20 @@ let holdOperation: string | undefined;
 let holdLastCatalogPage: boolean;
 let failOperation: string | undefined;
 let transientOperation: string | undefined;
+let transientHostname: string | undefined;
 let transientStatusCode: number;
 let transientFailures: number;
 let held: Array<{ region: string; signal: AbortSignal; release: () => void }>;
+let aggregatorIndex: boolean;
+let denyHubActionType: string | undefined;
+let hubEnrollmentStatus: 'Active' | 'Inactive';
+let optInOperation: string | undefined;
+let lambdaCatalogResources: unknown[];
+let lambdaFunctionsByRegion: Record<string, unknown[]>;
+let lambdaRecommendationsByRegion: Record<string, unknown[]>;
+let untaggedResources: unknown[];
+let savingsPlansCoverageResponse: unknown;
+let savingsPlansDataUnavailable: boolean;
 
 beforeEach(() => {
   elbScenario = undefined;
@@ -89,9 +108,20 @@ beforeEach(() => {
   holdLastCatalogPage = false;
   failOperation = undefined;
   transientOperation = undefined;
+  transientHostname = undefined;
   transientStatusCode = 500;
   transientFailures = Number.POSITIVE_INFINITY;
   held = [];
+  aggregatorIndex = false;
+  denyHubActionType = undefined;
+  hubEnrollmentStatus = 'Active';
+  optInOperation = undefined;
+  lambdaCatalogResources = [];
+  lambdaFunctionsByRegion = {};
+  lambdaRecommendationsByRegion = {};
+  untaggedResources = [];
+  savingsPlansCoverageResponse = { SavingsPlansCoverages: [] };
+  savingsPlansDataUnavailable = false;
   denyVolumes = false;
   denyIdentity = false;
   includeNewVolume = false;
@@ -120,13 +150,26 @@ beforeEach(() => {
       request.headers['x-amz-target']?.split('.').at(-1) ??
       (request.path === '/' ? (new URLSearchParams(body).get('Action') ?? '') : request.path.slice(1));
     requests.push({ hostname: request.hostname, operation });
-    if (operation === transientOperation && transientFailures-- > 0) {
+    if (
+      operation === transientOperation &&
+      (!transientHostname || request.hostname === transientHostname) &&
+      transientFailures-- > 0
+    ) {
       const errorType = transientStatusCode === 429 ? 'ThrottlingException' : 'InternalServerException';
       return {
         response: {
           statusCode: transientStatusCode,
           headers: { 'content-type': 'application/json', 'x-amzn-errortype': errorType },
           body: Buffer.from(JSON.stringify({ message: 'Synthetic retryable failure' })),
+        },
+      };
+    }
+    if (operation === optInOperation) {
+      return {
+        response: {
+          statusCode: 400,
+          headers: { 'content-type': 'application/json', 'x-amzn-errortype': 'OptInRequiredException' },
+          body: Buffer.from('{"message":"Synthetic opt-in required"}'),
         },
       };
     }
@@ -168,7 +211,56 @@ beforeEach(() => {
       });
     }
     if (operation === 'GetAnomalyMonitors') return jsonResponse({ AnomalyMonitors: [] });
-    if (request.hostname === 'resource-explorer-2.eu-west-1.amazonaws.com') {
+    if (request.hostname === 'cost-optimization-hub.us-east-1.amazonaws.com') {
+      if (operation === 'ListEnrollmentStatuses') {
+        return jsonResponse({ items: [{ accountId: '222222222222', status: hubEnrollmentStatus }] });
+      }
+      if (operation === 'ListRecommendations') {
+        const input = body ? JSON.parse(body) : {};
+        const actionTypes = (input.filter?.actionTypes ?? []) as string[];
+        if (denyHubActionType && actionTypes.includes(denyHubActionType)) {
+          return {
+            response: {
+              statusCode: 403,
+              headers: { 'content-type': 'application/json', 'x-amzn-errortype': 'AccessDeniedException' },
+              body: Buffer.from('{"message":"Synthetic hub denial"}'),
+            },
+          };
+        }
+        return jsonResponse({ items: [] });
+      }
+    }
+    if (request.hostname === 'budgets.us-east-1.amazonaws.com' && operation === 'DescribeBudgets') {
+      return jsonResponse({ Budgets: [] });
+    }
+    if (request.hostname === 'ce.us-east-1.amazonaws.com' && operation === 'GetCostAndUsage') {
+      return jsonResponse({ ResultsByTime: [] });
+    }
+    if (request.hostname === 'ce.us-east-1.amazonaws.com' && operation === 'GetSavingsPlansCoverage') {
+      if (savingsPlansDataUnavailable) {
+        return {
+          response: {
+            statusCode: 400,
+            headers: { 'content-type': 'application/json', 'x-amzn-errortype': 'DataUnavailableException' },
+            body: Buffer.from('{"message":"Synthetic data unavailable"}'),
+          },
+        };
+      }
+      return jsonResponse(savingsPlansCoverageResponse);
+    }
+    if (
+      request.hostname.startsWith('lambda.') &&
+      request.method === 'GET' &&
+      ['/2015-03-31/functions', '/2015-03-31/functions/'].includes(request.path)
+    ) {
+      const hostRegion = request.hostname.split('.')[1] ?? '';
+      return jsonResponse({ Functions: lambdaFunctionsByRegion[hostRegion] ?? [] });
+    }
+    if (request.hostname.startsWith('compute-optimizer.') && operation === 'GetLambdaFunctionRecommendations') {
+      const hostRegion = request.hostname.split('.')[1] ?? '';
+      return jsonResponse({ lambdaFunctionRecommendations: lambdaRecommendationsByRegion[hostRegion] ?? [] });
+    }
+    if (request.hostname.startsWith('resource-explorer-2.')) {
       if (operation === 'ListSupportedResourceTypes') {
         const input = body ? JSON.parse(body) : request.query;
         return {
@@ -185,7 +277,27 @@ beforeEach(() => {
           },
         };
       }
-      if (operation === 'ListIndexes') return jsonFixture('indexes.json');
+      if (operation === 'ListIndexes') {
+        const hostRegion = request.hostname.split('.')[1] ?? 'eu-west-1';
+        return jsonResponse({
+          Indexes: [
+            {
+              Arn: `arn:aws:resource-explorer-2:${hostRegion}:111111111111:index/00000000-0000-0000-0000-000000000000`,
+              Region: hostRegion,
+              Type: 'LOCAL',
+            },
+            ...(aggregatorIndex
+              ? [
+                  {
+                    Arn: `arn:aws:resource-explorer-2:eu-west-1:111111111111:index/aggregator-0000-0000-0000-000000000000`,
+                    Region: 'eu-west-1',
+                    Type: 'AGGREGATOR',
+                  },
+                ]
+              : []),
+          ],
+        });
+      }
       if (operation === 'GetDefaultView') return jsonFixture('default-view.json');
       if (operation === 'GetView') {
         const value = JSON.parse(fixture('view.json'));
@@ -193,6 +305,10 @@ beforeEach(() => {
         return jsonResponse(value);
       }
       if (operation === 'ListResources') {
+        const filterInput = body ? JSON.parse(body) : request.query;
+        const filterString = filterInput.Filters?.FilterString ?? '';
+        if (filterString.includes('tag:none')) return jsonResponse({ Resources: untaggedResources });
+        if (filterString.includes('lambda:function')) return jsonResponse({ Resources: lambdaCatalogResources });
         if (elbScenario) {
           return jsonResponse({
             Resources: [
@@ -1107,3 +1223,457 @@ it.each(['ListIndexes', 'GetDefaultView', 'GetView'])(
     expect(vi.getTimerCount()).toBe(0);
   },
 );
+
+describe('live capability outcomes', () => {
+  const WRITE_OPERATIONS = [
+    'AssociateDefaultView',
+    'CreateIndex',
+    'CreateResourceExplorerSetup',
+    'CreateView',
+    'DeleteIndex',
+    'DeleteView',
+    'DisassociateDefaultView',
+    'UpdateEnrollmentStatus',
+    'UpdateIndex',
+    'UpdateIndexType',
+    'UpdateView',
+  ];
+  const expectReadOnlyRequests = () =>
+    expect(requests.filter((request) => WRITE_OPERATIONS.includes(request.operation))).toEqual([]);
+
+  const discoverRules = (ruleIds: string[], target: AwsDiscoveryTarget = { mode: 'regions', regions: ['eu-west-1'] }) =>
+    new CloudBurnClient({ debugLogger: (message) => debugMessages.push(message) }).discover({
+      target,
+      config: { discovery: { enabledRules: ruleIds } },
+      aws: { credentials: { accessKeyId: 'SYNTHETIC', secretAccessKey: 'synthetic-test-key' } },
+      includeEvaluationResources: true,
+    });
+
+  const capabilitiesOf = (result: Awaited<ReturnType<typeof discoverRules>>) => result.capabilities ?? [];
+
+  const useLambdaScenario = (regions: string[]) => {
+    lambdaCatalogResources = regions.map((region) => ({
+      Arn: `arn:aws:lambda:${region}:111111111111:function:fn-${region}`,
+      OwningAccountId: '111111111111',
+      Region: region,
+      ResourceType: 'lambda:function',
+      Service: 'lambda',
+    }));
+    lambdaFunctionsByRegion = Object.fromEntries(
+      regions.map((region) => [
+        region,
+        [
+          {
+            Architectures: ['x86_64'],
+            FunctionArn: `arn:aws:lambda:${region}:111111111111:function:fn-${region}`,
+            FunctionName: `fn-${region}`,
+            MemorySize: 1024,
+            Timeout: 30,
+          },
+        ],
+      ]),
+    );
+  };
+
+  it('reports Cost Optimization Hub enrollment as available when enrolled with empty recommendations', async () => {
+    const result = await discoverRules(['CLDBRN-AWS-COSTOPTIMIZATIONHUB-1', 'CLDBRN-AWS-EBS-1']);
+
+    expect(capabilitiesOf(result)).toEqual([
+      {
+        capability: 'cost-optimization-hub-enrollment',
+        datasetKeys: ['aws-cost-optimization-hub-savings-plans-recommendations'],
+        reasons: [],
+        scope: { type: 'account' },
+        status: 'available',
+      },
+    ]);
+    expect(result.providers.flatMap((provider) => provider.rules).map((rule) => rule.ruleId)).toEqual([
+      'CLDBRN-AWS-EBS-1',
+    ]);
+    expect(result.evaluations?.rules).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ ruleId: 'CLDBRN-AWS-COSTOPTIMIZATIONHUB-1', status: 'passed' }),
+        expect.objectContaining({ ruleId: 'CLDBRN-AWS-EBS-1', status: 'triggered' }),
+      ]),
+    );
+    expectReadOnlyRequests();
+  });
+
+  it('reports Hub enrollment unavailable when the account is not enrolled and retains unrelated findings', async () => {
+    hubEnrollmentStatus = 'Inactive';
+    const result = await discoverRules(['CLDBRN-AWS-COSTOPTIMIZATIONHUB-1', 'CLDBRN-AWS-EBS-1']);
+
+    expect(capabilitiesOf(result)).toEqual([
+      {
+        capability: 'cost-optimization-hub-enrollment',
+        datasetKeys: ['aws-cost-optimization-hub-savings-plans-recommendations'],
+        reasons: ['not-enrolled'],
+        scope: { type: 'account' },
+        status: 'unavailable',
+      },
+    ]);
+    expect(result.providers.flatMap((provider) => provider.rules).map((rule) => rule.ruleId)).toEqual([
+      'CLDBRN-AWS-EBS-1',
+    ]);
+    expect(result.evaluations?.rules).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ ruleId: 'CLDBRN-AWS-COSTOPTIMIZATIONHUB-1', status: 'not_applicable' }),
+        expect.objectContaining({ ruleId: 'CLDBRN-AWS-EBS-1', status: 'triggered' }),
+      ]),
+    );
+    expectReadOnlyRequests();
+  });
+
+  it('reports Hub enrollment unavailable with access-denied when enrollment status is denied', async () => {
+    failOperation = 'ListEnrollmentStatuses';
+    const result = await discoverRules(['CLDBRN-AWS-COSTOPTIMIZATIONHUB-1']);
+
+    expect(capabilitiesOf(result)).toEqual([
+      {
+        capability: 'cost-optimization-hub-enrollment',
+        datasetKeys: ['aws-cost-optimization-hub-savings-plans-recommendations'],
+        reasons: ['access-denied'],
+        scope: { type: 'account' },
+        status: 'unavailable',
+      },
+    ]);
+    expectReadOnlyRequests();
+  });
+
+  it('reports Hub enrollment as error when the enrollment status keeps failing', async () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+    transientOperation = 'ListEnrollmentStatuses';
+    const result = await discoverRules(['CLDBRN-AWS-COSTOPTIMIZATIONHUB-1']);
+
+    expect(capabilitiesOf(result)).toEqual([
+      {
+        capability: 'cost-optimization-hub-enrollment',
+        datasetKeys: ['aws-cost-optimization-hub-savings-plans-recommendations'],
+        reasons: ['service-error'],
+        scope: { type: 'account' },
+        status: 'error',
+      },
+    ]);
+    expect(requests.filter((request) => request.operation === 'ListEnrollmentStatuses')).toHaveLength(6);
+    expectReadOnlyRequests();
+  });
+
+  it('degrades Hub enrollment to partial when one recommendation category is denied', async () => {
+    denyHubActionType = 'Upgrade';
+    const result = await discoverRules(['CLDBRN-AWS-COSTOPTIMIZATIONHUB-1', 'CLDBRN-AWS-COSTOPTIMIZATIONHUB-5']);
+
+    expect(capabilitiesOf(result)).toEqual([
+      {
+        capability: 'cost-optimization-hub-enrollment',
+        datasetKeys: [
+          'aws-cost-optimization-hub-savings-plans-recommendations',
+          'aws-cost-optimization-hub-upgrade-recommendations',
+        ],
+        reasons: ['access-denied'],
+        scope: { type: 'account' },
+        status: 'partial',
+      },
+    ]);
+    expectReadOnlyRequests();
+  });
+
+  it('degrades Cost Explorer access to partial when one dataset is denied', async () => {
+    failOperation = 'GetAnomalyMonitors';
+    const result = await discoverRules(['CLDBRN-AWS-COSTEXPLORER-1', 'CLDBRN-AWS-COSTGUARDRAILS-2']);
+
+    expect(capabilitiesOf(result)).toEqual([
+      {
+        capability: 'cost-explorer-access',
+        datasetKeys: ['aws-cost-anomaly-monitors', 'aws-cost-usage'],
+        reasons: ['access-denied'],
+        scope: { type: 'account' },
+        status: 'partial',
+      },
+    ]);
+    expectReadOnlyRequests();
+  });
+
+  it('keeps regional catalog findings working while account tagging lacks an aggregator', async () => {
+    const result = await discoverRules(['CLDBRN-AWS-EBS-1', 'CLDBRN-AWS-TAGGING-1']);
+
+    expect(capabilitiesOf(result)).toEqual([
+      {
+        capability: 'resource-explorer-aggregator',
+        datasetKeys: ['aws-resource-explorer-untagged-resources'],
+        reasons: ['aggregator-required'],
+        scope: { type: 'account' },
+        status: 'unavailable',
+      },
+    ]);
+    expect(result.providers.flatMap((provider) => provider.rules).map((rule) => rule.ruleId)).toEqual([
+      'CLDBRN-AWS-EBS-1',
+    ]);
+    expect(result.evaluations?.rules).toEqual(
+      expect.arrayContaining([expect.objectContaining({ ruleId: 'CLDBRN-AWS-TAGGING-1', status: 'not_applicable' })]),
+    );
+    expectReadOnlyRequests();
+  });
+
+  it('reports the tagging capability available when an accessible aggregator answers an empty query', async () => {
+    aggregatorIndex = true;
+    const result = await discoverRules(['CLDBRN-AWS-TAGGING-1']);
+
+    expect(capabilitiesOf(result)).toEqual([
+      {
+        capability: 'resource-explorer-aggregator',
+        datasetKeys: ['aws-resource-explorer-untagged-resources'],
+        reasons: [],
+        scope: { type: 'account' },
+        status: 'available',
+      },
+    ]);
+    expect(result.evaluations?.rules).toEqual([
+      expect.objectContaining({ ruleId: 'CLDBRN-AWS-TAGGING-1', status: 'passed' }),
+    ]);
+    expectReadOnlyRequests();
+  });
+
+  it('keeps catalog access failures separate from unassessed Compute Optimizer enrollment', async () => {
+    failOperation = 'ListResources';
+    const result = await discoverRules(['CLDBRN-AWS-LAMBDA-4', 'CLDBRN-AWS-COSTEXPLORER-1']);
+
+    expect(capabilitiesOf(result)).toEqual([
+      {
+        capability: 'compute-optimizer-enrollment',
+        datasetKeys: ['aws-lambda-memory-recommendations'],
+        reasons: ['dataset-unavailable'],
+        scope: { type: 'regional', regions: ['eu-west-1'] },
+        status: 'unavailable',
+      },
+      {
+        capability: 'cost-explorer-access',
+        datasetKeys: ['aws-cost-usage'],
+        reasons: [],
+        scope: { type: 'account' },
+        status: 'available',
+      },
+    ]);
+    expect(result.diagnostics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ service: 'resource-explorer', code: 'AccessDeniedException' }),
+      ]),
+    );
+    expect(requests.some((request) => request.hostname.includes('compute-optimizer'))).toBe(false);
+    expectReadOnlyRequests();
+  });
+
+  it('reports Compute Optimizer enrollment unavailable when the account has not opted in', async () => {
+    useLambdaScenario(['eu-west-1']);
+    optInOperation = 'GetLambdaFunctionRecommendations';
+    const result = await discoverRules(['CLDBRN-AWS-LAMBDA-4']);
+
+    expect(capabilitiesOf(result)).toEqual([
+      {
+        capability: 'compute-optimizer-enrollment',
+        datasetKeys: ['aws-lambda-memory-recommendations'],
+        reasons: ['not-enrolled'],
+        scope: { type: 'regional', regions: ['eu-west-1'] },
+        status: 'unavailable',
+      },
+    ]);
+    expect(result.evaluations?.rules).toEqual([
+      expect.objectContaining({ ruleId: 'CLDBRN-AWS-LAMBDA-4', status: 'not_applicable' }),
+    ]);
+    expectReadOnlyRequests();
+  });
+
+  it('keeps Compute Optimizer partial and coverage unknown when one region fails', async () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+    enabledRegions = ['eu-west-1', 'us-east-1'];
+    aggregatorIndex = true;
+    useLambdaScenario(['eu-west-1', 'us-east-1']);
+    lambdaRecommendationsByRegion = {
+      'eu-west-1': [
+        {
+          accountId: '111111111111',
+          finding: 'NotOptimized',
+          functionArn: 'arn:aws:lambda:eu-west-1:111111111111:function:fn-eu-west-1',
+        },
+      ],
+    };
+    transientOperation = 'GetLambdaFunctionRecommendations';
+    transientHostname = 'compute-optimizer.us-east-1.amazonaws.com';
+    const result = await discoverRules(['CLDBRN-AWS-LAMBDA-4'], {
+      mode: 'regions',
+      regions: ['eu-west-1', 'us-east-1'],
+    });
+
+    expect(capabilitiesOf(result)).toEqual([
+      {
+        capability: 'compute-optimizer-enrollment',
+        datasetKeys: ['aws-lambda-memory-recommendations'],
+        reasons: ['incomplete-evidence', 'service-error'],
+        scope: { type: 'regional', regions: ['eu-west-1', 'us-east-1'] },
+        status: 'partial',
+      },
+    ]);
+    expect(result.evaluations?.rules).toEqual([
+      expect.objectContaining({ ruleId: 'CLDBRN-AWS-LAMBDA-4', status: 'unknown' }),
+    ]);
+    expect(
+      requests.filter(
+        (request) =>
+          request.operation === 'GetLambdaFunctionRecommendations' &&
+          request.hostname === 'compute-optimizer.us-east-1.amazonaws.com',
+      ),
+    ).toHaveLength(6);
+    expectReadOnlyRequests();
+  });
+
+  it.each<{ scope: AwsCapabilityScope; target: AwsDiscoveryTarget }>([
+    {
+      scope: { regions: ['eu-west-1'], type: 'regional' },
+      target: { mode: 'regions', regions: ['eu-west-1'] },
+    },
+    {
+      scope: { type: 'all-regions' },
+      target: { mode: 'all' },
+    },
+  ])('reports Compute Optimizer not-assessed when no Lambda catalog resources match', async ({ scope, target }) => {
+    if (target.mode === 'all') {
+      aggregatorIndex = true;
+      enabledRegions = ['eu-west-1', 'us-east-1'];
+    }
+    const result = await discoverRules(['CLDBRN-AWS-LAMBDA-4'], target);
+
+    expect(capabilitiesOf(result)).toEqual([
+      {
+        capability: 'compute-optimizer-enrollment',
+        datasetKeys: ['aws-lambda-memory-recommendations'],
+        reasons: ['not-assessed'],
+        scope,
+        status: 'unavailable',
+      },
+    ]);
+    expect(requests.filter((request) => request.operation === 'GetLambdaFunctionRecommendations')).toEqual([]);
+    expect(result.evaluations?.rules).toEqual([
+      expect.objectContaining({ ruleId: 'CLDBRN-AWS-LAMBDA-4', status: 'passed' }),
+    ]);
+    expectReadOnlyRequests();
+  });
+
+  it('limits all-region Compute Optimizer readiness to observed regions', async () => {
+    enabledRegions = ['eu-west-1', 'us-east-1'];
+    aggregatorIndex = true;
+    useLambdaScenario(['eu-west-1']);
+    lambdaRecommendationsByRegion = {
+      'eu-west-1': [
+        {
+          accountId: '111111111111',
+          finding: 'NotOptimized',
+          functionArn: 'arn:aws:lambda:eu-west-1:111111111111:function:fn-eu-west-1',
+        },
+      ],
+    };
+    const result = await discoverRules(['CLDBRN-AWS-LAMBDA-4'], { mode: 'all' });
+
+    expect(capabilitiesOf(result)).toEqual([
+      {
+        capability: 'compute-optimizer-enrollment',
+        datasetKeys: ['aws-lambda-memory-recommendations'],
+        reasons: [],
+        scope: { regions: ['eu-west-1'], type: 'regional' },
+        status: 'available',
+      },
+    ]);
+    expectReadOnlyRequests();
+  });
+
+  it('keeps Compute Optimizer partial when an empty response leaves observed functions unknown', async () => {
+    useLambdaScenario(['eu-west-1']);
+    const result = await discoverRules(['CLDBRN-AWS-LAMBDA-4']);
+
+    expect(capabilitiesOf(result)).toEqual([
+      {
+        capability: 'compute-optimizer-enrollment',
+        datasetKeys: ['aws-lambda-memory-recommendations'],
+        reasons: ['incomplete-evidence'],
+        scope: { type: 'regional', regions: ['eu-west-1'] },
+        status: 'partial',
+      },
+    ]);
+    expect(result.evaluations?.rules).toEqual([
+      expect.objectContaining({ ruleId: 'CLDBRN-AWS-LAMBDA-4', status: 'unknown' }),
+    ]);
+    expectReadOnlyRequests();
+  });
+
+  it('scopes Compute Optimizer to observed regions only when other selected regions have no matches', async () => {
+    enabledRegions = ['eu-west-1', 'us-east-1'];
+    aggregatorIndex = true;
+    useLambdaScenario(['eu-west-1']);
+    lambdaRecommendationsByRegion = {
+      'eu-west-1': [
+        {
+          accountId: '111111111111',
+          finding: 'NotOptimized',
+          functionArn: 'arn:aws:lambda:eu-west-1:111111111111:function:fn-eu-west-1',
+        },
+      ],
+    };
+    const result = await discoverRules(['CLDBRN-AWS-LAMBDA-4'], {
+      mode: 'regions',
+      regions: ['eu-west-1', 'us-east-1'],
+    });
+
+    expect(capabilitiesOf(result)).toEqual([
+      {
+        capability: 'compute-optimizer-enrollment',
+        datasetKeys: ['aws-lambda-memory-recommendations'],
+        reasons: [],
+        scope: { type: 'regional', regions: ['eu-west-1'] },
+        status: 'available',
+      },
+    ]);
+    expect(requests.filter((request) => request.hostname === 'compute-optimizer.us-east-1.amazonaws.com')).toEqual([]);
+    expectReadOnlyRequests();
+  });
+
+  it.each<{
+    body?: unknown;
+    dataUnavailable?: boolean;
+    expected: { reasons: AwsCapabilityReason[]; status: AwsCapabilityStatus };
+    ruleStatus: 'passed' | 'not_applicable';
+  }>([
+    {
+      expected: { reasons: [], status: 'available' },
+      ruleStatus: 'passed',
+    },
+    {
+      body: { SavingsPlansCoverages: [{}] },
+      expected: { reasons: ['incomplete-evidence'], status: 'unavailable' },
+      ruleStatus: 'not_applicable',
+    },
+    {
+      dataUnavailable: true,
+      expected: { reasons: ['data-unavailable'], status: 'unavailable' },
+      ruleStatus: 'not_applicable',
+    },
+  ])(
+    'projects SageMaker coverage evidence onto Cost Explorer access',
+    async ({ body, dataUnavailable, expected, ruleStatus }) => {
+      if (body !== undefined) savingsPlansCoverageResponse = body;
+      if (dataUnavailable) savingsPlansDataUnavailable = true;
+      const result = await discoverRules(['CLDBRN-AWS-SAGEMAKER-3']);
+
+      expect(capabilitiesOf(result)).toEqual([
+        {
+          capability: 'cost-explorer-access',
+          datasetKeys: ['aws-sagemaker-savings-plans-coverage'],
+          reasons: expected.reasons,
+          scope: { type: 'account' },
+          status: expected.status,
+        },
+      ]);
+      expect(result.evaluations?.rules).toEqual([
+        expect.objectContaining({ ruleId: 'CLDBRN-AWS-SAGEMAKER-3', status: ruleStatus }),
+      ]);
+      expectReadOnlyRequests();
+    },
+  );
+});

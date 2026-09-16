@@ -25,6 +25,7 @@ resolve the enforcement gap rather than renumbering allocated IDs to satisfy the
 - `CLDBRN-AWS-COSTOPTIMIZATIONHUB-1` through `CLDBRN-AWS-COSTOPTIMIZATIONHUB-6` are opt-in because AWS Cost Optimization Hub requires account enrollment. CloudBurn checks enrollment but never changes it.
 - `CLDBRN-AWS-LAMBDA-4` is opt-in because AWS Compute Optimizer requires account enrollment. Enable it with `cloudburn discover --enabled-rules CLDBRN-AWS-LAMBDA-4` or `config.discovery.enabledRules` in the SDK.
 - `CLDBRN-AWS-TAGGING-1` is opt-in because account-wide tagging needs an accessible Resource Explorer aggregator.
+- The preset derives these exclusions from the rule-to-capability mapping in `@cloudburn/rules` (`src/shared/capabilities.ts`): a rule is opt-in when a required discovery dependency needs `cost-optimization-hub-enrollment`, `compute-optimizer-enrollment`, or `resource-explorer-aggregator`. Access-only capabilities such as `cost-explorer-access` or `budgets-access` never make a rule opt-in.
 - Applications can define product-specific rule selections with `config.discovery.enabledRules`. Such selections are
   application policy rather than SDK presets; the SDK continues to return the same generic findings and evaluation
   evidence for any selected discovery rules.
