@@ -123,6 +123,12 @@ describe('CLDBRN-AWS-COSTOPTIMIZATIONHUB-3', () => {
     const consistent = createAwsCostOptimizationHubFindingMatch(recommendation);
     expect(consistent.recommendation?.resourceKey).toContain('"ec2:volume","vol-1"');
     expect(consistent.recommendation?.opportunityId).toContain('"Delete"');
+    const consistentPair = createAwsCostOptimizationHubFindingMatch({
+      ...recommendation,
+      resourceId: 'vol-1',
+      resourceArn: 'arn:aws:ec2:eu-west-1:123456789012:volume/vol-1',
+    });
+    expect(consistentPair.recommendation?.resourceKey).toContain('"ec2:volume","vol-1"');
 
     for (const conflicting of [
       { ...recommendation, resourceId: 'arn:aws:ec2:us-east-1:123456789012:volume/vol-1' },
@@ -131,6 +137,11 @@ describe('CLDBRN-AWS-COSTOPTIMIZATIONHUB-3', () => {
         ...recommendation,
         resourceId: 'vol-1',
         resourceArn: 'arn:aws:ec2:us-east-1:123456789012:volume/vol-1',
+      },
+      {
+        ...recommendation,
+        resourceId: 'vol-1',
+        resourceArn: 'arn:aws:ec2:eu-west-1:123456789012:volume/vol-2',
       },
     ]) {
       const match = createAwsCostOptimizationHubFindingMatch(conflicting);

@@ -275,36 +275,39 @@ describe('deterministic recommendation precedence', () => {
     expect(result[1]?.finding?.findings).toEqual([nativeMatch]);
   });
 
-  it('never suppresses a native finding when the Hub ARN scope conflicts with the finding scope', () => {
-    const hubMatch = createAwsCostOptimizationHubFindingMatch({
-      accountId: '111111111111',
-      actionType: 'Delete',
-      currentResourceType: 'EbsVolume',
-      currentConfiguration: { storage: { type: 'gp2', sizeInGb: 8 } },
-      recommendedConfiguration: null,
-      currencyCode: 'USD',
-      estimatedMonthlyCost: 10,
-      estimatedMonthlySavings: 10,
-      estimatedSavingsPercentage: 100,
-      implementationEffort: 'Low',
-      lastRefreshTimestamp: '2026-09-04T00:00:00.000Z',
-      recommendationId: 'rec-1',
-      recommendationSource: 'CostExplorer',
-      region: 'eu-west-1',
-      resourceId: 'vol-1',
-      resourceArn: 'arn:aws:ec2:us-east-1:111111111111:volume/vol-1',
-      restartNeeded: false,
-      rollbackPossible: true,
-    });
-    expect(hubMatch.recommendation?.opportunityId).toBeUndefined();
-    const nativeMatch = match({ recommendation: { source: 'cloudburn' } });
-    const result = applyFindingPrecedence([
-      rule('CLDBRN-AWS-COSTOPTIMIZATIONHUB-3', [hubMatch]),
-      rule('CLDBRN-AWS-EBS-2', [nativeMatch], ['CLDBRN-AWS-COSTOPTIMIZATIONHUB-3']),
-    ]);
-    expect(result[0]?.finding?.findings).toEqual([hubMatch]);
-    expect(result[1]?.finding?.findings).toEqual([nativeMatch]);
-  });
+  it.each(['arn:aws:ec2:us-east-1:111111111111:volume/vol-1', 'arn:aws:ec2:eu-west-1:111111111111:volume/vol-2'])(
+    'never suppresses a native finding when the Hub evidence conflicts with the finding scope (%s)',
+    (resourceArn) => {
+      const hubMatch = createAwsCostOptimizationHubFindingMatch({
+        accountId: '111111111111',
+        actionType: 'Delete',
+        currentResourceType: 'EbsVolume',
+        currentConfiguration: { storage: { type: 'gp2', sizeInGb: 8 } },
+        recommendedConfiguration: null,
+        currencyCode: 'USD',
+        estimatedMonthlyCost: 10,
+        estimatedMonthlySavings: 10,
+        estimatedSavingsPercentage: 100,
+        implementationEffort: 'Low',
+        lastRefreshTimestamp: '2026-09-04T00:00:00.000Z',
+        recommendationId: 'rec-1',
+        recommendationSource: 'CostExplorer',
+        region: 'eu-west-1',
+        resourceId: 'vol-1',
+        resourceArn,
+        restartNeeded: false,
+        rollbackPossible: true,
+      });
+      expect(hubMatch.recommendation?.opportunityId).toBeUndefined();
+      const nativeMatch = match({ recommendation: { source: 'cloudburn' } });
+      const result = applyFindingPrecedence([
+        rule('CLDBRN-AWS-COSTOPTIMIZATIONHUB-3', [hubMatch]),
+        rule('CLDBRN-AWS-EBS-2', [nativeMatch], ['CLDBRN-AWS-COSTOPTIMIZATIONHUB-3']),
+      ]);
+      expect(result[0]?.finding?.findings).toEqual([hubMatch]);
+      expect(result[1]?.finding?.findings).toEqual([nativeMatch]);
+    },
+  );
 
   it('drops a repeated match object once within one rule output', () => {
     const shared = match({});

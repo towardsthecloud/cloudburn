@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { awsCorePreset, awsRules, LiveResourceBag } from '../src/index.js';
+import { awsCorePreset, awsRules, createAwsCostOptimizationHubFindingMatch, LiveResourceBag } from '../src/index.js';
 
 describe('CLDBRN-AWS-COSTOPTIMIZATIONHUB-4', () => {
   it.each([
@@ -70,6 +70,83 @@ describe('CLDBRN-AWS-COSTOPTIMIZATIONHUB-4', () => {
     const [blue, green] = forward?.findings ?? [];
     expect(blue?.recommendation?.opportunityId).toBeDefined();
     expect(blue?.recommendation?.opportunityId).not.toBe(green?.recommendation?.opportunityId);
+  });
+
+  it('reconciles an ECS service resource ID against the supplied service ARN', () => {
+    const recommendation = {
+      accountId: '123456789012',
+      actionType: 'Rightsize' as const,
+      currentConfiguration: { compute: { memorySizeInMB: 1024, vCpu: 1 } },
+      recommendedConfiguration: { compute: { memorySizeInMB: 2048, vCpu: 1 } },
+      currencyCode: 'USD',
+      estimatedMonthlyCost: 30,
+      estimatedMonthlySavings: 15,
+      estimatedSavingsPercentage: 50,
+      lastRefreshTimestamp: '2026-09-04T00:00:00.000Z',
+      recommendationId: 'rec-1',
+      recommendationSource: 'ComputeOptimizer' as const,
+      region: 'eu-west-1',
+      resourceType: 'EcsService' as const,
+    };
+    const consistent = createAwsCostOptimizationHubFindingMatch({
+      ...recommendation,
+      resourceId: 'api',
+      resourceArn: 'arn:aws:ecs:eu-west-1:123456789012:service/blue/api',
+    });
+    expect(consistent.recommendation?.resourceKey).toContain('"ecs:service","blue/api"');
+    expect(consistent.recommendation?.opportunityId).toBeDefined();
+    for (const conflicting of [
+      {
+        ...recommendation,
+        resourceId: 'blue/api',
+        resourceArn: 'arn:aws:ecs:eu-west-1:123456789012:service/green/api',
+      },
+      { ...recommendation, resourceId: 'other', resourceArn: 'arn:aws:ecs:eu-west-1:123456789012:service/blue/api' },
+    ]) {
+      const match = createAwsCostOptimizationHubFindingMatch(conflicting);
+      expect(match.recommendation).toMatchObject({
+        source: 'aws-cost-optimization-hub',
+        sourceDetail: 'ComputeOptimizer',
+        sourceId: 'rec-1',
+      });
+      expect(match.recommendation?.resourceKey).toBeUndefined();
+      expect(match.recommendation?.opportunityId).toBeUndefined();
+    }
+  });
+
+  it('reconciles an unqualified Lambda function ID with a versioned ARN', () => {
+    const recommendation = {
+      accountId: '123456789012',
+      actionType: 'Rightsize' as const,
+      currentConfiguration: { compute: { memorySizeInMB: 1024 } },
+      recommendedConfiguration: { compute: { memorySizeInMB: 2048 } },
+      currencyCode: 'USD',
+      estimatedMonthlyCost: 20,
+      estimatedMonthlySavings: 10,
+      estimatedSavingsPercentage: 50,
+      lastRefreshTimestamp: '2026-09-04T00:00:00.000Z',
+      recommendationId: 'rec-1',
+      recommendationSource: 'ComputeOptimizer' as const,
+      region: 'eu-west-1',
+      resourceId: 'arn:aws:lambda:eu-west-1:123456789012:function:worker',
+      resourceType: 'LambdaFunction' as const,
+    };
+    const consistent = createAwsCostOptimizationHubFindingMatch({
+      ...recommendation,
+      resourceArn: 'arn:aws:lambda:eu-west-1:123456789012:function:worker:3',
+    });
+    expect(consistent.recommendation?.opportunityId).toBeDefined();
+    const conflicting = createAwsCostOptimizationHubFindingMatch({
+      ...recommendation,
+      resourceArn: 'arn:aws:lambda:eu-west-1:123456789012:function:worker-other:3',
+    });
+    expect(conflicting.recommendation).toMatchObject({
+      source: 'aws-cost-optimization-hub',
+      sourceDetail: 'ComputeOptimizer',
+      sourceId: 'rec-1',
+    });
+    expect(conflicting.recommendation?.resourceKey).toBeUndefined();
+    expect(conflicting.recommendation?.opportunityId).toBeUndefined();
   });
   it.each([
     { recommendations: [] },

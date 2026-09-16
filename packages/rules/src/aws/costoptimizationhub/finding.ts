@@ -31,6 +31,14 @@ type HubRecommendation =
   | AwsCostOptimizationHubUpgradeRecommendation
   | AwsCostOptimizationHubGravitonRecommendation;
 
+const comparableResourceId = (resourceType: string, resourceId: string): string => {
+  const canonical = canonicalizeAwsResourceId(resourceType, resourceId);
+  return resourceType === 'lambda:function' &&
+    /^arn:[^:]+:lambda:[^:]+:[^:]+:function:[^:]+(?::[^:]+)?$/.test(canonical)
+    ? canonical.split(':').slice(0, 7).join(':')
+    : canonical;
+};
+
 /**
  * Maps a normalized AWS Cost Optimization Hub recommendation to a finding match.
  *
@@ -65,7 +73,15 @@ export const createAwsCostOptimizationHubFindingMatch = (
           (scope.region !== '' && scope.region !== match.region))
       );
     });
-    return (item.resourceId || item.resourceArn) && !hasConflictingArn
+    const canonicalId = item.resourceId ? comparableResourceId(match.resourceType, item.resourceId) : undefined;
+    const canonicalArn = item.resourceArn ? comparableResourceId(match.resourceType, item.resourceArn) : undefined;
+    const hasConflictingResource =
+      canonicalId !== undefined &&
+      canonicalArn !== undefined &&
+      (match.resourceType === 'ecs:service' && !canonicalId.includes('/') && !canonicalId.startsWith('arn:')
+        ? canonicalArn.split('/').at(-1) !== canonicalId
+        : canonicalId !== canonicalArn);
+    return (item.resourceId || item.resourceArn) && !hasConflictingArn && !hasConflictingResource
       ? { ...createRecommendationMatch('aws', match, provenance), resourceType: match.resourceType }
       : { ...match, recommendation: provenance };
   };

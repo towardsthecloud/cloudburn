@@ -283,6 +283,7 @@ describe('Cost Optimization Hub reservation orchestration', () => {
       },
       recommendationId: 'recommendation-2',
       reservationType: 'ElastiCacheReservedInstances' as const,
+      resourceArn: undefined,
     };
     mockedDiscoverAwsResources.mockResolvedValue({
       catalog: discoveryCatalog,
