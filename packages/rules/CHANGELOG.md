@@ -1,5 +1,15 @@
 # @cloudburn/rules
 
+## 0.34.0
+
+### Minor Changes
+
+- [#286](https://github.com/towardsthecloud/cloudburn/pull/286) [`e9ebe98`](https://github.com/towardsthecloud/cloudburn/commit/e9ebe985e9433192bb479c5a5648f8399af0ca11) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Add the AWS capability catalog and pure rule-to-capability mapping helpers. `AWS_CAPABILITIES`, `AwsCapability`, `getAwsDatasetCapability`, and `getAwsRuleCapabilities` name the setup-gated capabilities a live rule's required discovery datasets depend on, and the AWS Core preset now derives its opt-in exclusions from that mapping with unchanged membership.
+
+- [#288](https://github.com/towardsthecloud/cloudburn/pull/288) [`d42bb8a`](https://github.com/towardsthecloud/cloudburn/commit/d42bb8a835918db561c91a1e94d2549307482d1d) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Add optional `FindingImpact`/`FinancialEvidence` contracts and an `impact` field on `FindingMatch`, the `createFinancialEvidence` validation helper, `createAwsConfigRecordingFrequencyImpact` for the AWS Config recording-frequency rule, and Hub recommendation impact built from nullable source financial fields with an optional lookback window drawn only from `costCalculationLookbackPeriodInDays`, the cost-impact horizon reported by `GetRecommendation`, never the separate `recommendationLookbackPeriodInDays` generation horizon.
+
+- [#287](https://github.com/towardsthecloud/cloudburn/pull/287) [`49902e5`](https://github.com/towardsthecloud/cloudburn/commit/49902e594341bd6c42f107787b007950e04c31a4) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Add normalized recommendation provenance and identity contracts (`EvidenceProvenance`, `RecommendationIdentity`, `FindingRecommendation`), the `createRecommendationMatch`, `getRecommendationIdentity`, `deduplicateRecommendationMatches`, `canonicalizeAwsResourceId`, and `createAwsCostOptimizationHubFindingMatch` helpers, and attach normalized `actionType`/`recommendation` metadata to action-bearing native and Cost Optimization Hub findings.
+
 ## 0.33.0
 
 ### Minor Changes

@@ -1,5 +1,22 @@
 # @cloudburn/sdk
 
+## 0.37.0
+
+### Minor Changes
+
+- [#288](https://github.com/towardsthecloud/cloudburn/pull/288) [`d42bb8a`](https://github.com/towardsthecloud/cloudburn/commit/d42bb8a835918db561c91a1e94d2549307482d1d) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Propagate finding `impact` through AWS discovery normalization, evaluation resource projections, and `CloudBurnClient.discover()`; normalize missing or unusable Cost Optimization Hub financial fields to `null` without invalidating otherwise complete recommendations, fill missing summary financials from compatible `GetRecommendation` detail evidence — including the distinct `costCalculationLookbackPeriodInDays` impact window — while keeping known summary values such as zero authoritative, and re-export the new financial evidence types.
+
+- [#286](https://github.com/towardsthecloud/cloudburn/pull/286) [`e9ebe98`](https://github.com/towardsthecloud/cloudburn/commit/e9ebe985e9433192bb479c5a5648f8399af0ca11) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Expose AWS capability metadata and live capability outcomes. `getRuleCapabilities` lists the AWS capabilities a built-in rule requires without any AWS calls, and live `discover()` results now carry a read-only `capabilities` projection that reports `available`, `partial`, `unavailable`, or `error` readiness with machine-readable reasons and account, regional, or recommendation-source scopes. Regional scopes report only Regions with observed dataset evidence and fall back to `all-regions` for an all-Region target with none; `data-unavailable` distinguishes unavailable source data from access or enrollment failures. The projection reuses already collected discovery evidence and never probes, enrolls, or mutates AWS setup.
+  
+  Catalog prerequisite failures report `dataset-unavailable` for capabilities that could not be assessed, preserving the original Resource Explorer failure in scan diagnostics instead of attributing it to downstream enrollment or permissions.
+
+- [#287](https://github.com/towardsthecloud/cloudburn/pull/287) [`49902e5`](https://github.com/towardsthecloud/cloudburn/commit/49902e594341bd6c42f107787b007950e04c31a4) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Apply deterministic action-aware finding precedence across native and Cost Optimization Hub rules using normalized `resourceKey`/`opportunityId` identity, select the freshest Hub recommendation summary per scoped identity, and expose normalized recommendation metadata on findings and evaluated resources.
+
+### Patch Changes
+
+- Updated dependencies [[`e9ebe98`](https://github.com/towardsthecloud/cloudburn/commit/e9ebe985e9433192bb479c5a5648f8399af0ca11), [`d42bb8a`](https://github.com/towardsthecloud/cloudburn/commit/d42bb8a835918db561c91a1e94d2549307482d1d), [`49902e5`](https://github.com/towardsthecloud/cloudburn/commit/49902e594341bd6c42f107787b007950e04c31a4)]:
+  - @cloudburn/rules@0.34.0
+
 ## 0.36.1
 
 ### Patch Changes
