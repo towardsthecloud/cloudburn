@@ -51,7 +51,11 @@ export const createAwsCostOptimizationHubFindingMatch = (
     ...(item.recommendationId ? { sourceId: item.recommendationId } : {}),
     ...(item.lastRefreshTimestamp ? { refreshedAt: item.lastRefreshTimestamp } : {}),
   };
-  const attach = (match: FindingMatch & { resourceType: string }): FindingMatch & { resourceType: string } => {
+  const attach = (input: FindingMatch & { resourceType: string }): FindingMatch & { resourceType: string } => {
+    const match =
+      input.resourceType === 'ecs:service' && item.resourceArn
+        ? { ...input, resourceId: canonicalizeAwsResourceId('ecs:service', item.resourceArn) }
+        : input;
     const hasConflictingArn = [item.resourceId, item.resourceArn].some((id) => {
       if (!id) return false;
       const scope = getAwsArnScope(id);

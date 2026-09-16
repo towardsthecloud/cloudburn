@@ -178,6 +178,23 @@ describe('cluster-scoped identities', () => {
     expect(deduplicateRecommendationMatches([clusterA, clusterB])).toHaveLength(2);
   });
 
+  it('requires cluster scope for ECS service opportunities', () => {
+    const match = {
+      accountId: '111111111111',
+      region: 'us-east-1',
+      resourceType: 'ecs:service',
+      actionType: 'Stop',
+    };
+    expect(getRecommendationIdentity('aws', { ...match, resourceId: 'api' })).toBeUndefined();
+    expect(
+      getRecommendationIdentity('aws', {
+        ...match,
+        resourceId: 'arn:aws:ecs:us-east-1:111111111111:service/api',
+      }),
+    ).toBeUndefined();
+    expect(getRecommendationIdentity('aws', { ...match, resourceId: 'blue/api' })?.resourceKey).toContain('blue/api');
+  });
+
   it('retains the ECS container-instance cluster path in identity', () => {
     const identity = getRecommendationIdentity('aws', {
       accountId: '111111111111',

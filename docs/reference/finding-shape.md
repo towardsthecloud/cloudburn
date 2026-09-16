@@ -107,6 +107,8 @@ are absent and the match cannot participate in identity-based deduplication or p
 conservatively instead of being collapsed into unrelated matches. A `recommendation` may carry provenance without
 identity keys; that absence is deliberate, and the SDK never reconstructs identity from display fields or from a
 source recommendation ID used as the display `resourceId` — such matches skip precedence entirely.
+ECS service opportunities require a cluster-qualified identifier (`cluster/service`); when a service ARN is supplied
+it takes precedence over a bare display name, and a name without cluster scope carries provenance only.
 
 ## Cross-rule precedence
 

@@ -64,6 +64,42 @@ describe('CLDBRN-AWS-COSTOPTIMIZATIONHUB-3', () => {
     });
   });
 
+  it('keeps same-name ECS services in different clusters as distinct opportunities', () => {
+    const rule = awsRules.find(({ id }) => id === 'CLDBRN-AWS-COSTOPTIMIZATIONHUB-3');
+    const recommendation = (cluster: string, recommendationId: string) => ({
+      accountId: '123456789012',
+      actionType: 'Delete' as const,
+      currentResourceType: 'EcsService' as const,
+      currentConfiguration: { compute: { vCpu: 1 } },
+      recommendedConfiguration: null,
+      currencyCode: 'USD',
+      estimatedMonthlyCost: 30,
+      estimatedMonthlySavings: 30,
+      estimatedSavingsPercentage: 100,
+      implementationEffort: 'Low',
+      lastRefreshTimestamp: '2026-09-04T00:00:00.000Z',
+      recommendationId,
+      recommendationSource: 'ComputeOptimizer' as const,
+      region: 'eu-west-1',
+      resourceArn: `arn:aws:ecs:eu-west-1:123456789012:service/${cluster}/api`,
+      resourceId: 'api',
+      restartNeeded: false,
+      rollbackPossible: true,
+    });
+    const evaluate = (items: ReturnType<typeof recommendation>[]) =>
+      rule?.evaluateLive?.({
+        catalog: { indexType: 'LOCAL', resources: [], searchRegion: 'eu-west-1' },
+        resources: new LiveResourceBag({ 'aws-cost-optimization-hub-idle-recommendations': items }),
+      });
+    const forward = evaluate([recommendation('blue', 'rec-blue'), recommendation('green', 'rec-green')]);
+    const reversed = evaluate([recommendation('green', 'rec-green'), recommendation('blue', 'rec-blue')]);
+    expect(forward?.findings.map((finding) => finding.resourceId)).toEqual(['blue/api', 'green/api']);
+    expect(reversed).toEqual(forward);
+    const [blue, green] = forward?.findings ?? [];
+    expect(blue?.recommendation?.opportunityId).toBeDefined();
+    expect(blue?.recommendation?.opportunityId).not.toBe(green?.recommendation?.opportunityId);
+  });
+
   it('keeps provenance but omits identity when a raw ARN scope conflicts with the finding scope', () => {
     const recommendation = {
       accountId: '123456789012',

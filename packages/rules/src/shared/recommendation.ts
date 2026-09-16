@@ -29,13 +29,11 @@ export const getRecommendationIdentity = (
       return undefined;
     }
   }
-  const scope = [
-    provider,
-    accountId,
-    region,
-    resourceType,
-    provider === 'aws' ? canonicalizeAwsResourceId(resourceType, resourceId) : resourceId,
-  ];
+  const canonicalResourceId = provider === 'aws' ? canonicalizeAwsResourceId(resourceType, resourceId) : resourceId;
+  if (provider === 'aws' && resourceType === 'ecs:service' && !/^[^/:]+\/[^/]+$/.test(canonicalResourceId)) {
+    return undefined;
+  }
+  const scope = [provider, accountId, region, resourceType, canonicalResourceId];
   return {
     resourceKey: JSON.stringify(['resource', 1, ...scope]),
     opportunityId: JSON.stringify(['opportunity', 1, ...scope, actionType]),

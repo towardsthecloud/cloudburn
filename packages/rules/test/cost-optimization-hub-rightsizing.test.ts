@@ -3,21 +3,21 @@ import { awsCorePreset, awsRules, LiveResourceBag } from '../src/index.js';
 
 describe('CLDBRN-AWS-COSTOPTIMIZATIONHUB-4', () => {
   it.each([
-    ['Ec2Instance', 'ec2:instance'],
-    ['Ec2AutoScalingGroup', 'autoscaling:autoScalingGroup'],
-    ['EbsVolume', 'ec2:volume'],
-    ['LambdaFunction', 'lambda:function'],
-    ['EcsService', 'ecs:service'],
-    ['RdsDbInstance', 'rds:db'],
-    ['RdsDbInstanceStorage', 'rds:db-storage'],
-    ['AuroraDbClusterStorage', 'rds:cluster-storage'],
-  ])('maps %s identity to %s and deduplicates recommendation IDs', (resourceType, namespace) => {
+    ['Ec2Instance', 'ec2:instance', 'resource-example'],
+    ['Ec2AutoScalingGroup', 'autoscaling:autoScalingGroup', 'resource-example'],
+    ['EbsVolume', 'ec2:volume', 'resource-example'],
+    ['LambdaFunction', 'lambda:function', 'resource-example'],
+    ['EcsService', 'ecs:service', 'cluster/resource-example'],
+    ['RdsDbInstance', 'rds:db', 'resource-example'],
+    ['RdsDbInstanceStorage', 'rds:db-storage', 'resource-example'],
+    ['AuroraDbClusterStorage', 'rds:cluster-storage', 'resource-example'],
+  ])('maps %s identity to %s and deduplicates recommendation IDs', (resourceType, namespace, resourceId) => {
     const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-COSTOPTIMIZATIONHUB-4');
     // The evaluator consumes identity and action; detail validation belongs to the SDK loader.
     const recommendation = {
       resourceType,
       actionType: 'Rightsize',
-      resourceId: 'resource-example',
+      resourceId,
       recommendationId: 'rec-1',
       accountId: '123456789012',
       region: 'eu-west-1',
@@ -30,7 +30,7 @@ describe('CLDBRN-AWS-COSTOPTIMIZATIONHUB-4', () => {
     });
     expect(finding?.findings).toEqual([
       {
-        resourceId: 'resource-example',
+        resourceId,
         accountId: '123456789012',
         region: 'eu-west-1',
         resourceType: namespace,
@@ -38,11 +38,38 @@ describe('CLDBRN-AWS-COSTOPTIMIZATIONHUB-4', () => {
         recommendation: {
           source: 'aws-cost-optimization-hub',
           sourceId: 'rec-1',
-          resourceKey: `["resource",1,"aws","123456789012","eu-west-1","${namespace}","resource-example"]`,
-          opportunityId: `["opportunity",1,"aws","123456789012","eu-west-1","${namespace}","resource-example","Rightsize"]`,
+          resourceKey: `["resource",1,"aws","123456789012","eu-west-1","${namespace}","${resourceId}"]`,
+          opportunityId: `["opportunity",1,"aws","123456789012","eu-west-1","${namespace}","${resourceId}","Rightsize"]`,
         },
       },
     ]);
+  });
+
+  it('keeps same-name ECS services in different clusters as distinct opportunities', () => {
+    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-COSTOPTIMIZATIONHUB-4');
+    const recommendation = (cluster: string, recommendationId: string) => ({
+      accountId: '123456789012',
+      actionType: 'Rightsize',
+      recommendationId,
+      region: 'eu-west-1',
+      resourceArn: `arn:aws:ecs:eu-west-1:123456789012:service/${cluster}/api`,
+      resourceId: 'api',
+      resourceType: 'EcsService',
+    });
+    const evaluate = (items: unknown[]) =>
+      rule?.evaluateLive?.({
+        catalog: { resources: [], indexType: 'LOCAL', searchRegion: 'eu-west-1' },
+        resources: new LiveResourceBag({
+          'aws-cost-optimization-hub-rightsizing-recommendations': items as never,
+        }),
+      });
+    const forward = evaluate([recommendation('blue', 'rec-blue'), recommendation('green', 'rec-green')]);
+    const reversed = evaluate([recommendation('green', 'rec-green'), recommendation('blue', 'rec-blue')]);
+    expect(forward?.findings.map((finding) => finding.resourceId)).toEqual(['blue/api', 'green/api']);
+    expect(reversed).toEqual(forward);
+    const [blue, green] = forward?.findings ?? [];
+    expect(blue?.recommendation?.opportunityId).toBeDefined();
+    expect(blue?.recommendation?.opportunityId).not.toBe(green?.recommendation?.opportunityId);
   });
   it.each([
     { recommendations: [] },
