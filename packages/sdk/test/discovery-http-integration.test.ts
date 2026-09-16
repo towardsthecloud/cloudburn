@@ -7,6 +7,9 @@ import { STSClient } from '@aws-sdk/client-sts';
 import type { HttpHandlerOptions, HttpRequest } from '@aws-sdk/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  type AwsCapabilityReason,
+  type AwsCapabilityScope,
+  type AwsCapabilityStatus,
   type AwsDiscoveryProgressEvent,
   type AwsDiscoveryTarget,
   CloudBurnClient,
@@ -94,6 +97,8 @@ let lambdaCatalogResources: unknown[];
 let lambdaFunctionsByRegion: Record<string, unknown[]>;
 let lambdaRecommendationsByRegion: Record<string, unknown[]>;
 let untaggedResources: unknown[];
+let savingsPlansCoverageResponse: unknown;
+let savingsPlansDataUnavailable: boolean;
 
 beforeEach(() => {
   elbScenario = undefined;
@@ -115,6 +120,8 @@ beforeEach(() => {
   lambdaFunctionsByRegion = {};
   lambdaRecommendationsByRegion = {};
   untaggedResources = [];
+  savingsPlansCoverageResponse = { SavingsPlansCoverages: [] };
+  savingsPlansDataUnavailable = false;
   denyVolumes = false;
   denyIdentity = false;
   includeNewVolume = false;
@@ -228,6 +235,18 @@ beforeEach(() => {
     }
     if (request.hostname === 'ce.us-east-1.amazonaws.com' && operation === 'GetCostAndUsage') {
       return jsonResponse({ ResultsByTime: [] });
+    }
+    if (request.hostname === 'ce.us-east-1.amazonaws.com' && operation === 'GetSavingsPlansCoverage') {
+      if (savingsPlansDataUnavailable) {
+        return {
+          response: {
+            statusCode: 400,
+            headers: { 'content-type': 'application/json', 'x-amzn-errortype': 'DataUnavailableException' },
+            body: Buffer.from('{"message":"Synthetic data unavailable"}'),
+          },
+        };
+      }
+      return jsonResponse(savingsPlansCoverageResponse);
     }
     if (
       request.hostname.startsWith('lambda.') &&
@@ -1322,6 +1341,7 @@ describe('live capability outcomes', () => {
   });
 
   it('reports Hub enrollment as error when the enrollment status keeps failing', async () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0);
     transientOperation = 'ListEnrollmentStatuses';
     const result = await discoverRules(['CLDBRN-AWS-COSTOPTIMIZATIONHUB-1']);
 
@@ -1334,6 +1354,7 @@ describe('live capability outcomes', () => {
         status: 'error',
       },
     ]);
+    expect(requests.filter((request) => request.operation === 'ListEnrollmentStatuses')).toHaveLength(6);
     expectReadOnlyRequests();
   });
 
@@ -1433,6 +1454,7 @@ describe('live capability outcomes', () => {
   });
 
   it('keeps Compute Optimizer partial and coverage unknown when one region fails', async () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0);
     enabledRegions = ['eu-west-1', 'us-east-1'];
     aggregatorIndex = true;
     useLambdaScenario(['eu-west-1', 'us-east-1']);
@@ -1464,24 +1486,71 @@ describe('live capability outcomes', () => {
     expect(result.evaluations?.rules).toEqual([
       expect.objectContaining({ ruleId: 'CLDBRN-AWS-LAMBDA-4', status: 'unknown' }),
     ]);
+    expect(
+      requests.filter(
+        (request) =>
+          request.operation === 'GetLambdaFunctionRecommendations' &&
+          request.hostname === 'compute-optimizer.us-east-1.amazonaws.com',
+      ),
+    ).toHaveLength(6);
     expectReadOnlyRequests();
   });
 
-  it('reports Compute Optimizer not-assessed when no Lambda catalog resources match', async () => {
-    const result = await discoverRules(['CLDBRN-AWS-LAMBDA-4']);
+  it.each<{ scope: AwsCapabilityScope; target: AwsDiscoveryTarget }>([
+    {
+      scope: { regions: ['eu-west-1'], type: 'regional' },
+      target: { mode: 'regions', regions: ['eu-west-1'] },
+    },
+    {
+      scope: { type: 'all-regions' },
+      target: { mode: 'all' },
+    },
+  ])('reports Compute Optimizer not-assessed when no Lambda catalog resources match', async ({ scope, target }) => {
+    if (target.mode === 'all') {
+      aggregatorIndex = true;
+      enabledRegions = ['eu-west-1', 'us-east-1'];
+    }
+    const result = await discoverRules(['CLDBRN-AWS-LAMBDA-4'], target);
 
     expect(capabilitiesOf(result)).toEqual([
       {
         capability: 'compute-optimizer-enrollment',
         datasetKeys: ['aws-lambda-memory-recommendations'],
         reasons: ['not-assessed'],
-        scope: { type: 'regional', regions: ['eu-west-1'] },
+        scope,
         status: 'unavailable',
       },
     ]);
     expect(requests.filter((request) => request.operation === 'GetLambdaFunctionRecommendations')).toEqual([]);
     expect(result.evaluations?.rules).toEqual([
       expect.objectContaining({ ruleId: 'CLDBRN-AWS-LAMBDA-4', status: 'passed' }),
+    ]);
+    expectReadOnlyRequests();
+  });
+
+  it('limits all-region Compute Optimizer readiness to observed regions', async () => {
+    enabledRegions = ['eu-west-1', 'us-east-1'];
+    aggregatorIndex = true;
+    useLambdaScenario(['eu-west-1']);
+    lambdaRecommendationsByRegion = {
+      'eu-west-1': [
+        {
+          accountId: '111111111111',
+          finding: 'NotOptimized',
+          functionArn: 'arn:aws:lambda:eu-west-1:111111111111:function:fn-eu-west-1',
+        },
+      ],
+    };
+    const result = await discoverRules(['CLDBRN-AWS-LAMBDA-4'], { mode: 'all' });
+
+    expect(capabilitiesOf(result)).toEqual([
+      {
+        capability: 'compute-optimizer-enrollment',
+        datasetKeys: ['aws-lambda-memory-recommendations'],
+        reasons: [],
+        scope: { regions: ['eu-west-1'], type: 'regional' },
+        status: 'available',
+      },
     ]);
     expectReadOnlyRequests();
   });
@@ -1535,4 +1604,47 @@ describe('live capability outcomes', () => {
     expect(requests.filter((request) => request.hostname === 'compute-optimizer.us-east-1.amazonaws.com')).toEqual([]);
     expectReadOnlyRequests();
   });
+
+  it.each<{
+    body?: unknown;
+    dataUnavailable?: boolean;
+    expected: { reasons: AwsCapabilityReason[]; status: AwsCapabilityStatus };
+    ruleStatus: 'passed' | 'not_applicable';
+  }>([
+    {
+      expected: { reasons: [], status: 'available' },
+      ruleStatus: 'passed',
+    },
+    {
+      body: { SavingsPlansCoverages: [{}] },
+      expected: { reasons: ['incomplete-evidence'], status: 'unavailable' },
+      ruleStatus: 'not_applicable',
+    },
+    {
+      dataUnavailable: true,
+      expected: { reasons: ['data-unavailable'], status: 'unavailable' },
+      ruleStatus: 'not_applicable',
+    },
+  ])(
+    'projects SageMaker coverage evidence onto Cost Explorer access',
+    async ({ body, dataUnavailable, expected, ruleStatus }) => {
+      if (body !== undefined) savingsPlansCoverageResponse = body;
+      if (dataUnavailable) savingsPlansDataUnavailable = true;
+      const result = await discoverRules(['CLDBRN-AWS-SAGEMAKER-3']);
+
+      expect(capabilitiesOf(result)).toEqual([
+        {
+          capability: 'cost-explorer-access',
+          datasetKeys: ['aws-sagemaker-savings-plans-coverage'],
+          reasons: expected.reasons,
+          scope: { type: 'account' },
+          status: expected.status,
+        },
+      ]);
+      expect(result.evaluations?.rules).toEqual([
+        expect.objectContaining({ ruleId: 'CLDBRN-AWS-SAGEMAKER-3', status: ruleStatus }),
+      ]);
+      expectReadOnlyRequests();
+    },
+  );
 });

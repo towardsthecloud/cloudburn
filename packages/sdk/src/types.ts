@@ -304,6 +304,7 @@ export type AwsCapabilityReason =
   | 'throttled'
   | 'service-error'
   | 'incomplete-evidence'
+  | 'data-unavailable'
   | 'dataset-unavailable'
   | 'not-assessed';
 
@@ -316,6 +317,7 @@ export type AwsCapabilityReason =
  */
 export type AwsCapabilityScope =
   | { type: 'account' }
+  | { type: 'all-regions' }
   | { type: 'regional'; regions: string[] }
   | { type: 'recommendation-source'; accountId: string; region?: string };
 

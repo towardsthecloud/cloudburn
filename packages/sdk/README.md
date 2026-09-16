@@ -192,9 +192,10 @@ views without re-querying AWS or maintaining a second copy of rule descriptions.
 
 Every live `discover()` result also reports `capabilities`: a read-only readiness projection for the AWS capabilities
 the selected rules require. Each outcome reports `available`, `partial`, `unavailable`, or `error` with
-machine-readable reasons such as `not-enrolled` or `aggregator-required`, scoped to the account or the Regions that
-produced evidence. Degraded scans — for example, one denied Cost Explorer dataset beside a successful one — report
-`partial` instead of hiding the failure. The projection never enrolls an account, updates Resource Explorer views, or
+machine-readable reasons such as `not-enrolled`, `aggregator-required`, or `data-unavailable`, scoped to the account,
+the Regions that produced evidence, or `all-regions` when an all-Region target produced no observed regional evidence.
+Degraded scans — for example, one denied Cost Explorer dataset beside a successful one — report `partial` instead of
+hiding the failure. The projection never enrolls an account, updates Resource Explorer views, or
 adds readiness probes; callers own setup UI and enrollment workflows. The [result reference](../../docs/reference/finding-shape.md#awscapabilityoutcome)
 describes the exact shape, statuses, reasons, and scopes.
 

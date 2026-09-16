@@ -429,6 +429,7 @@ type AwsCapabilityReason =
   | 'throttled'
   | 'service-error'
   | 'incomplete-evidence'
+  | 'data-unavailable'
   | 'dataset-unavailable'
   | 'not-assessed';
 ```
@@ -437,7 +438,7 @@ type AwsCapabilityReason =
 | ------------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | `available`   | Every mapped dataset the scan needed completed; a successful empty response still counts.                                       |
 | `partial`     | At least one dataset loaded, but evidence has unknown coverage or another dataset or Region failed.                            |
-| `unavailable` | No usable evidence: the capability is not enrolled, access was denied, required setup is missing, or nothing applicable ran.   |
+| `unavailable` | No usable evidence: the capability is not enrolled, access was denied, required setup is missing, source data was incomplete or unavailable, or nothing applicable ran. |
 | `error`       | No usable evidence and at least one observation ended in a throttled or unclassified service error.                            |
 
 | Reason                  | Meaning                                                                              |
@@ -452,20 +453,24 @@ type AwsCapabilityReason =
 | `throttled`             | AWS throttled the request.                                                           |
 | `service-error`         | The dataset load ended in an unclassified service error.                             |
 | `incomplete-evidence`   | Returned evidence was partial, carried unknown coverage, or missed selected Regions. |
+| `data-unavailable`      | AWS accepted the request but the requested data is unavailable; not an access or enrollment failure. |
 | `dataset-unavailable`   | The dataset was skipped for an unclassified reason.                                  |
 | `not-assessed`          | A selected rule required the capability but zero catalog resources matched, so no service call ran. |
 
 ```ts
 type AwsCapabilityScope =
   | { type: 'account' }
+  | { type: 'all-regions' }
   | { type: 'regional'; regions: string[] }
   | { type: 'recommendation-source'; accountId: string; region?: string };
 ```
 
 Regional scope applies to direct Compute Optimizer observations: `scope.regions` lists the Regions where the mapped
 dataset actually observed catalog resources or failed. When nothing was observed — for `not-assessed` or fully
-unavailable outcomes — it falls back to the requested scan scope. Account scope refers to the scanned account. Neither
-scope certifies full Region, index, or upstream-source coverage.
+unavailable outcomes — the scope falls back to the requested scan scope: the requested Regions for a regional target,
+or `all-regions` for an all-Region target. `all-regions` only means the scan targeted every enabled Region; it never
+certifies that coverage exists. Account scope refers to the scanned account. No scope certifies full Region, index, or
+upstream-source coverage.
 
 A `recommendation-source` outcome records that returned Cost Optimization Hub rows carried a given upstream source —
 `ComputeOptimizer` or `CostExplorer` — for that account and optional Region. It is bounded to the returned records and

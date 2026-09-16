@@ -58,7 +58,10 @@ const classifyDiagnostic = (diagnostic: ScanDiagnostic): AwsCapabilityReason => 
     case 'RESOURCE_EXPLORER_TAGS_VIEW_REQUIRED':
       return 'tags-view-required';
     case 'CostOptimizationHubRecommendationIncomplete':
+    case 'SavingsPlansCoverageIncomplete':
       return 'incomplete-evidence';
+    case 'DataUnavailableException':
+      return 'data-unavailable';
     default:
       break;
   }
@@ -159,13 +162,13 @@ const collectRecommendationSourceOutcomes = (
  * enrollment.
  *
  * @param observations - Finalized dataset loads, including unavailable ones.
- * @param regions - Selected or observed regions for regional capability scopes.
+ * @param regions - Selected regions or the all-region scan target used as fallback scope.
  * @param values - Normalized dataset records keyed by dataset for source projection.
  * @returns Deterministically ordered capability outcomes without duplicates.
  */
 export const buildAwsCapabilityOutcomes = (
   observations: AwsCapabilityDatasetObservation[],
-  regions: string[],
+  regions: string[] | 'all',
   values: Partial<DiscoveryDatasetMap>,
 ): AwsCapabilityOutcome[] => {
   const byCapability = new Map<AwsCapability, AwsCapabilityDatasetObservation[]>();
@@ -187,14 +190,17 @@ export const buildAwsCapabilityOutcomes = (
         : projected.some((entry) => entry.status === 'error')
           ? 'error'
           : 'unavailable';
+    const regionalScope: AwsCapabilityOutcome['scope'] =
+      observedRegions.length > 0
+        ? { regions: sortUnique(observedRegions), type: 'regional' }
+        : regions === 'all'
+          ? { type: 'all-regions' }
+          : { regions: sortUnique(regions), type: 'regional' };
     return {
       capability,
       datasetKeys: sortUnique(group.map((observation) => observation.datasetKey)),
       reasons: sortUnique(projected.flatMap((entry) => entry.reasons)),
-      scope:
-        capability === 'compute-optimizer-enrollment'
-          ? { regions: sortUnique(observedRegions.length > 0 ? observedRegions : regions), type: 'regional' }
-          : { type: 'account' },
+      scope: capability === 'compute-optimizer-enrollment' ? regionalScope : { type: 'account' },
       status,
     };
   });

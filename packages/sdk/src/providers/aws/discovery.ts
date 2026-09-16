@@ -846,13 +846,10 @@ export const discoverAwsResources = async (
       ),
   );
   const capabilityRegions =
-    target.mode === 'regions'
-      ? target.regions.map(assertValidAwsRegion)
-      : target.mode === 'all'
-        ? sortUnique([
-            ...catalog.resources.map((resource) => resource.region),
-            ...[...unavailableRegions.values()].flatMap((regions) => [...regions]),
-          ])
+    target.mode === 'all'
+      ? 'all'
+      : target.mode === 'regions'
+        ? target.regions.map(assertValidAwsRegion)
         : [datasetRegion];
   const evidenceProvenance = getAwsEvidenceProvenance();
   const capabilityObservations = await Promise.all(

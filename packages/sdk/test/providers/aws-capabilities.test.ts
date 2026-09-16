@@ -307,6 +307,44 @@ describe('buildAwsCapabilityOutcomes', () => {
     });
   });
 
+  it('distinguishes unavailable source data from incomplete or missing evidence', () => {
+    const outcomes = buildAwsCapabilityOutcomes(
+      [
+        observation({
+          datasetKey: 'aws-sagemaker-savings-plans-coverage',
+          diagnostics: [diagnostic({ code: 'DataUnavailableException', status: 'skipped' })],
+          unavailable: true,
+        }),
+      ],
+      REGIONS,
+      {},
+    );
+
+    expect(outcomes).toEqual([
+      {
+        capability: 'cost-explorer-access',
+        datasetKeys: ['aws-sagemaker-savings-plans-coverage'],
+        reasons: ['data-unavailable'],
+        scope: { type: 'account' },
+        status: 'unavailable',
+      },
+    ]);
+
+    const [incomplete] = buildAwsCapabilityOutcomes(
+      [
+        observation({
+          datasetKey: 'aws-sagemaker-savings-plans-coverage',
+          diagnostics: [diagnostic({ code: 'SavingsPlansCoverageIncomplete', status: 'skipped' })],
+          unavailable: true,
+        }),
+      ],
+      REGIONS,
+      {},
+    );
+
+    expect(incomplete).toMatchObject({ reasons: ['incomplete-evidence'], status: 'unavailable' });
+  });
+
   it('deduplicates reasons and orders outcomes deterministically across datasets', () => {
     const outcomes = buildAwsCapabilityOutcomes(
       [

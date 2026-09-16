@@ -104,6 +104,7 @@ describe('public SDK contracts', () => {
       const scope: AwsCapabilityScope = outcome.scope;
       switch (scope.type) {
         case 'account':
+        case 'all-regions':
           break;
         case 'regional':
           scope.regions.map((region) => region.toLowerCase());
