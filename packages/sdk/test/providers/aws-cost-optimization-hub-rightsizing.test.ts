@@ -39,6 +39,8 @@ it.each([
   ['cluster-a/api', undefined, 'api', ecsArn('api'), 'cluster-a/api'],
   [undefined, ecsArn('api'), 'cluster-a/api', undefined, 'cluster-a/api'],
   ['api', undefined, 'api', undefined, 'api'],
+  ['api', undefined, 'api', ecsArn('api'), 'api'],
+  ['api', ecsArn('api'), 'api', ecsArn('api'), 'api'],
   ['api', undefined, 'api', ecsArn('cluster-a/other'), null],
   ['cluster-a/api', undefined, 'cluster-b/api', ecsArn('cluster-b/api'), null],
   ['api', undefined, 'cluster-a/api', ecsArn('cluster-b/api'), null],

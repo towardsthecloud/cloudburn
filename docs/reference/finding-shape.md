@@ -96,6 +96,8 @@ the finding.
 Timestamps are source-reported only. `refreshedAt` is the Hub `lastRefreshTimestamp`; `observedAt` is the source's own
 observation or collection time. Neither field is ever populated from evaluation time, wall clock, or cache access, so
 absence means unknown rather than "as old as the scan".
+Freshness comparisons require an explicit `Z` or numeric timezone offset; timezone-less values are treated as unknown
+rather than interpreted in the host timezone.
 
 `resourceKey` and `opportunityId` are opaque JSON strings scoped by provider, account, Region, resource type, canonical
 resource ID, and (for `opportunityId`) action. Recognized AWS ARNs are canonicalized to the service-local identifier so

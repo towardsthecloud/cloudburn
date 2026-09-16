@@ -77,7 +77,7 @@ const canonicalJson = (value: unknown): string => {
 };
 
 const recommendationTimestampMs = (value: string | undefined): number => {
-  const parsed = value === undefined ? Number.NaN : Date.parse(value);
+  const parsed = value !== undefined && /(?:Z|[+-]\d{2}:?\d{2})$/i.test(value) ? Date.parse(value) : Number.NaN;
   return Number.isNaN(parsed) ? Number.NEGATIVE_INFINITY : parsed;
 };
 

@@ -238,6 +238,44 @@ describe('hydrateAwsCostOptimizationHubSavingsPlansRecommendations', () => {
     return normalized;
   };
 
+  it('retains repeated purchase IDs and ARNs as provenance-only evidence', async () => {
+    const identity = {
+      resourceId: 'purchase-a',
+      resourceArn: `arn:aws:savingsplans::${accountId}:savingsplan/purchase-a`,
+    };
+    const normalized = await loadFirstRecommendation(
+      { ...identity, estimatedMonthlyCost: undefined },
+      sageMakerDetail({ ...identity, estimatedMonthlyCost: 80 }),
+    );
+    expect(normalized).toMatchObject({ estimatedMonthlyCost: 80 });
+    expect(normalized).not.toHaveProperty('resourceId');
+    expect(normalized).not.toHaveProperty('resourceArn');
+    const finding = createAwsCostOptimizationHubFindingMatch(normalized);
+    expect(finding.resourceId).toBe('recommendation-1');
+    expect(finding.recommendation).toMatchObject({ source: 'aws-cost-optimization-hub', sourceId: 'recommendation-1' });
+    expect(finding.recommendation?.resourceKey).toBeUndefined();
+    expect(finding.impact?.currentCost).toMatchObject({
+      amount: 80,
+      confidence: 'estimated',
+      currency: 'USD',
+      period: 'month',
+    });
+  });
+
+  it.each([
+    'arn:aws:savingsplans::222222222222:savingsplan/purchase-a',
+    `arn:aws:savingsplans:us-east-1:${accountId}:savingsplan/purchase-a`,
+    'arn:malformed',
+  ])('rejects conflicting or malformed scope even when purchase identifiers repeat (%s)', async (resourceArn) => {
+    const identity = { resourceId: 'purchase-a', resourceArn };
+    const result = await loadRecommendations({ ...identity, region: 'eu-west-1' }, sageMakerDetail(identity));
+    expect(result).toMatchObject({
+      unavailable: true,
+      resources: [],
+      diagnostics: [{ code: 'CostOptimizationHubRecommendationIncomplete' }],
+    });
+  });
+
   it('fills missing summary financials from matching GetRecommendation detail evidence', async () => {
     const normalized = await loadFirstRecommendation(
       {

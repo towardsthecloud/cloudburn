@@ -26,7 +26,7 @@ export {
   AWS_KMS_MONTHLY_KEY_CREATION_THRESHOLD,
 } from './aws/kms/key-churn.js';
 export { AWS_KMS_UNUSED_KEY_MINIMUM_AGE_DAYS } from './aws/kms/key-unused.js';
-export { canonicalizeAwsResourceId } from './aws/resource-identity.js';
+export { canonicalizeAwsResourceId, getAwsArnScope } from './aws/resource-identity.js';
 export {
   AWS_SAGEMAKER_SAVINGS_PLANS_MINIMUM_COVERAGE_PERCENTAGE,
   AWS_SAGEMAKER_SAVINGS_PLANS_MINIMUM_UNCOVERED_COST,

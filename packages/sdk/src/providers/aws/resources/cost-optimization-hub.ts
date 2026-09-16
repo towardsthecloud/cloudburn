@@ -38,7 +38,7 @@ import type {
   AwsCostOptimizationHubUpgradeRecommendation,
   AwsDiscoveredResource,
 } from '@cloudburn/rules';
-import { createAwsCostOptimizationHubFindingMatch } from '@cloudburn/rules';
+import { canonicalizeAwsResourceId, createAwsCostOptimizationHubFindingMatch, getAwsArnScope } from '@cloudburn/rules';
 import type { ScanDiagnostic } from '../../../types.js';
 import { createCostOptimizationHubClient } from '../client.js';
 import type { AwsAccountIdResolver, AwsDiscoveryDatasetLoadResult } from '../discovery-registry.js';
@@ -207,14 +207,33 @@ const normalizeRecommendationDetails = <T extends HubRecommendation>(
         });
         if (combined.recommendation?.resourceKey !== resourceKey) return null;
       }
-    } else if (identifiers.size !== 1) {
-      return null;
+    } else {
+      const region = normalized.region ?? detail.region;
+      for (const identifier of identifiers) {
+        if (!identifier.startsWith('arn:')) continue;
+        const scope = getAwsArnScope(identifier);
+        if (
+          !scope ||
+          (scope.accountId !== '' && scope.accountId !== normalized.accountId) ||
+          (scope.region !== '' && region !== undefined && scope.region !== region)
+        )
+          return null;
+      }
+      const repeatedIdentifiers =
+        (detail.resourceId === undefined || detail.resourceId === common.resourceId) &&
+        (detail.resourceArn === undefined || detail.resourceArn === common.resourceArn);
+      const canonicalIds = new Set(
+        [...identifiers].map((identifier) => canonicalizeAwsResourceId(summaryMatch.resourceType, identifier)),
+      );
+      if (!repeatedIdentifiers && canonicalIds.size !== 1) return null;
     }
-    normalized = {
-      ...normalized,
-      ...(resourceKey !== undefined && summaryKey === undefined ? { resourceId: scopedMatch.resourceId } : {}),
-      ...(!normalized.resourceArn && detail.resourceArn ? { resourceArn: detail.resourceArn } : {}),
-    };
+    if (normalized.resourceId || normalized.resourceArn) {
+      normalized = {
+        ...normalized,
+        ...(resourceKey !== undefined && summaryKey === undefined ? { resourceId: scopedMatch.resourceId } : {}),
+        ...(!normalized.resourceArn && detail.resourceArn ? { resourceArn: detail.resourceArn } : {}),
+      };
+    }
   }
   if (common.currencyCode && detail.currencyCode && common.currencyCode !== detail.currencyCode) return normalized;
   return {
