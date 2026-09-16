@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   canonicalizeAwsResourceId,
+  compareRecommendationMatches,
   createRecommendationMatch,
   deduplicateRecommendationMatches,
   getRecommendationIdentity,
@@ -290,5 +291,25 @@ describe('deduplicateRecommendationMatches', () => {
       resourceId: 'vol-2',
     };
     expect(deduplicateRecommendationMatches([a, b])).toHaveLength(2);
+  });
+
+  it.each(['sourceId', 'sourceDetail'] as const)(
+    'breaks Unicode collation ties in %s independently of input order',
+    (field) => {
+      const composed = createRecommendationMatch('aws', scopeMatch, { source: 'custom', [field]: '\u00e9' });
+      const decomposed = createRecommendationMatch('aws', scopeMatch, { source: 'custom', [field]: 'e\u0301' });
+      expect(compareRecommendationMatches(composed, decomposed)).toBeGreaterThan(0);
+      expect(deduplicateRecommendationMatches([composed, decomposed])).toEqual([decomposed]);
+      expect(deduplicateRecommendationMatches([decomposed, composed])).toEqual([decomposed]);
+    },
+  );
+
+  it('breaks canonical-content Unicode collation ties independently of input order', () => {
+    const scope = { ...scopeMatch, resourceType: 'test:resource' };
+    const composed = createRecommendationMatch('aws', { ...scope, resourceId: '\u00e9' }, { source: 'custom' });
+    const decomposed = createRecommendationMatch('aws', { ...scope, resourceId: 'e\u0301' }, { source: 'custom' });
+    expect(compareRecommendationMatches(composed, decomposed)).toBeGreaterThan(0);
+    expect(deduplicateRecommendationMatches([composed, decomposed])).toEqual([decomposed, composed]);
+    expect(deduplicateRecommendationMatches([decomposed, composed])).toEqual([decomposed, composed]);
   });
 });

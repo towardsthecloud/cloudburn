@@ -16,6 +16,8 @@ type Candidate = {
   supersedesRuleIds: string[];
 };
 
+const compareStrings = (left: string, right: string): number => (left < right ? -1 : left > right ? 1 : 0);
+
 /**
  * Removes findings replaced by stronger findings from active rules.
  *
@@ -87,7 +89,7 @@ export const applyFindingPrecedence = (evaluatedRules: EvaluatedRuleFinding[]): 
       }
     }
 
-    const ruleIds = [...candidatesByRule.keys()].sort((left, right) => left.localeCompare(right));
+    const ruleIds = [...candidatesByRule.keys()].sort();
     const reachableByRule = new Map<string, Set<string>>();
     for (const ruleId of ruleIds) {
       const reachable = new Set<string>();
@@ -109,7 +111,7 @@ export const applyFindingPrecedence = (evaluatedRules: EvaluatedRuleFinding[]): 
 
     const orderedRuleIds = [...ruleIds].sort(
       (left, right) =>
-        (reachableByRule.get(right)?.size ?? 0) - (reachableByRule.get(left)?.size ?? 0) || left.localeCompare(right),
+        (reachableByRule.get(right)?.size ?? 0) - (reachableByRule.get(left)?.size ?? 0) || compareStrings(left, right),
     );
     const suppressed = new Set<string>();
     for (const ruleId of orderedRuleIds) {
@@ -148,5 +150,5 @@ export const applyFindingPrecedence = (evaluatedRules: EvaluatedRuleFinding[]): 
             : null,
       };
     })
-    .sort((left, right) => left.provider.localeCompare(right.provider) || left.ruleId.localeCompare(right.ruleId));
+    .sort((left, right) => compareStrings(left.provider, right.provider) || compareStrings(left.ruleId, right.ruleId));
 };

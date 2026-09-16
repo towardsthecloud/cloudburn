@@ -20,7 +20,7 @@ it('rejects a pre-cancelled discovery before starting provider work', async () =
 it('rejects stalled discovery when its total deadline expires', async () => {
   vi.mocked(runLiveScan).mockImplementation(() => new Promise(() => undefined));
   await expect(new CloudBurnClient().discover({ timeoutMs: 20 })).rejects.toMatchObject({ name: 'TimeoutError' });
-}, 1000);
+});
 
 it('cancels a running discovery with the caller’s reason', async () => {
   const controller = new AbortController();

@@ -38,6 +38,7 @@ import type {
   AwsCostOptimizationHubUpgradeRecommendation,
   AwsDiscoveredResource,
 } from '@cloudburn/rules';
+import { createAwsCostOptimizationHubFindingMatch } from '@cloudburn/rules';
 import type { ScanDiagnostic } from '../../../types.js';
 import { createCostOptimizationHubClient } from '../client.js';
 import type { AwsAccountIdResolver, AwsDiscoveryDatasetLoadResult } from '../discovery-registry.js';
@@ -72,7 +73,8 @@ const RESERVATION_RESOURCE_TYPES = [
 type HubRecommendation =
   | AwsCostOptimizationHubGravitonRecommendation
   | AwsCostOptimizationHubUpgradeRecommendation
-  | AwsCostOptimizationHubRecommendation
+  | AwsCostOptimizationHubSavingsPlansRecommendation
+  | AwsCostOptimizationHubReservationRecommendation
   | AwsCostOptimizationHubIdleRecommendation
   | AwsCostOptimizationHubRightsizingRecommendation;
 
@@ -161,10 +163,11 @@ const normalizeRecommendationCommon = (
   };
 };
 
-const withRecommendationFinancialDetails = (
+const withRecommendationFinancialDetails = <T extends HubRecommendation>(
   common: NormalizedRecommendationCommon,
   detail: GetRecommendationResponse,
-): NormalizedRecommendationCommon => {
+  normalized: T,
+): T => {
   const conflictingContext =
     (['recommendationId', 'accountId', 'region', 'actionType', 'currentResourceType'] as const).some(
       (key) => common[key] !== undefined && detail[key] !== undefined && detail[key] !== common[key],
@@ -175,9 +178,26 @@ const withRecommendationFinancialDetails = (
       (!(detail.lastRefreshTimestamp instanceof Date) ||
         !Number.isFinite(detail.lastRefreshTimestamp.getTime()) ||
         detail.lastRefreshTimestamp.toISOString() !== common.lastRefreshTimestamp));
-  if (conflictingContext) return common;
+  if (conflictingContext) return normalized;
+  const summaryIds = [common.resourceId, common.resourceArn].filter((id): id is string => Boolean(id));
+  const detailIds = [detail.resourceId, detail.resourceArn].filter((id): id is string => Boolean(id));
+  if (summaryIds.length > 0 && detailIds.length > 0) {
+    const summaryMatch = createAwsCostOptimizationHubFindingMatch(normalized);
+    const detailMatch = createAwsCostOptimizationHubFindingMatch({
+      ...normalized,
+      ...(detail.resourceId ? { resourceId: detail.resourceId } : {}),
+      ...(detail.resourceArn ? { resourceArn: detail.resourceArn } : {}),
+    });
+    const summaryKey = summaryMatch.recommendation?.resourceKey;
+    const detailKey = detailMatch.recommendation?.resourceKey;
+    const conflictingResource =
+      summaryKey !== undefined || detailKey !== undefined
+        ? summaryKey !== detailKey
+        : new Set([...summaryIds, ...detailIds]).size !== 1;
+    if (conflictingResource) return normalized;
+  }
   return {
-    ...common,
+    ...normalized,
     currencyCode: common.currencyCode || detail.currencyCode || null,
     estimatedMonthlyCost: common.estimatedMonthlyCost ?? finiteNumberOrNull(detail.estimatedMonthlyCost),
     estimatedMonthlySavings: common.estimatedMonthlySavings ?? finiteNumberOrNull(detail.estimatedMonthlySavings),
@@ -928,6 +948,8 @@ const createCostOptimizationHubSession = async (accountId: string): Promise<Cost
   };
 };
 
+const compareStrings = (left: string, right: string): number => (left < right ? -1 : left > right ? 1 : 0);
+
 const canonicalJson = (value: unknown): string => {
   if (Array.isArray(value)) {
     return `[${value.map(canonicalJson).join(',')}]`;
@@ -963,7 +985,7 @@ const summaryScopeKey = (recommendation: Recommendation): string =>
 
 const compareSummaryFreshness = (left: Recommendation, right: Recommendation): number =>
   summaryTimestampMs(right.lastRefreshTimestamp) - summaryTimestampMs(left.lastRefreshTimestamp) ||
-  canonicalJson(left).localeCompare(canonicalJson(right));
+  compareStrings(canonicalJson(left), canonicalJson(right));
 
 const getCostOptimizationHubSession = (
   accountId: string,
@@ -1052,7 +1074,7 @@ const loadCostOptimizationHubRecommendations = async <T extends HubRecommendatio
 
     const normalized = await mapWithConcurrency(
       [...recommendationsByScope.entries()]
-        .sort(([left], [right]) => left.localeCompare(right))
+        .sort(([left], [right]) => compareStrings(left, right))
         .map(([, recommendation]) => recommendation),
       RECOMMENDATION_DETAIL_CONCURRENCY,
       async (recommendation) => {
@@ -1067,7 +1089,8 @@ const loadCostOptimizationHubRecommendations = async <T extends HubRecommendatio
           COST_OPTIMIZATION_HUB_REGION,
           () => client.send(new GetRecommendationCommand({ recommendationId: recommendation.recommendationId })),
         );
-        return category.normalizeConfiguration(withRecommendationFinancialDetails(common, detail), detail);
+        const normalized = category.normalizeConfiguration(common, detail);
+        return normalized ? withRecommendationFinancialDetails(common, detail, normalized) : null;
       },
     );
     const recommendations = normalized.filter((recommendation): recommendation is T => recommendation !== null);
@@ -1091,7 +1114,7 @@ const loadCostOptimizationHubRecommendations = async <T extends HubRecommendatio
       };
     }
 
-    return recommendations.sort((left, right) => left.recommendationId.localeCompare(right.recommendationId));
+    return recommendations.sort((left, right) => compareStrings(left.recommendationId, right.recommendationId));
   } catch (err) {
     if (!isAwsAccessDeniedError(err)) {
       throw err;

@@ -216,6 +216,19 @@ describe('deterministic recommendation precedence', () => {
     expect(retained[0]?.ruleId).toBe('rule-a');
   });
 
+  it('breaks Unicode collation ties between cycle rule IDs independently of input order', () => {
+    const shared = match({ recommendation: { source: 'cloudburn' } });
+    const results = (): EvaluatedRuleFinding[] => [
+      rule('custom-\u00e9', [shared], ['custom-e\u0301']),
+      rule('custom-e\u0301', [shared], ['custom-\u00e9']),
+    ];
+    const forward = applyFindingPrecedence(results());
+    const reversed = applyFindingPrecedence([...results()].reverse());
+    expect(forward).toEqual(reversed);
+    expect(forward.find((entry) => entry.finding !== null)?.ruleId).toBe('custom-e\u0301');
+    expect(forward.find((entry) => entry.ruleId === 'custom-\u00e9')?.finding).toBeNull();
+  });
+
   it('resolves transitive supersession chains', () => {
     const shared = match({});
     const result = applyFindingPrecedence([

@@ -350,6 +350,36 @@ describe('hydrateAwsCostOptimizationHubSavingsPlansRecommendations', () => {
     expect(Object.hasOwn(normalized, 'costCalculationLookbackPeriodInDays')).toBe(false);
   });
 
+  it('blocks detail financials when the opaque resource IDs disagree', async () => {
+    const normalized = await loadFirstRecommendation(
+      { resourceId: 'purchase-a', estimatedMonthlyCost: undefined },
+      sageMakerDetail({
+        resourceId: 'purchase-b',
+        currencyCode: 'USD',
+        estimatedMonthlyCost: 80,
+        costCalculationLookbackPeriodInDays: 30,
+      }),
+    );
+    expect(normalized).toMatchObject({ estimatedMonthlyCost: null });
+    expect(Object.hasOwn(normalized, 'costCalculationLookbackPeriodInDays')).toBe(false);
+  });
+
+  it('fills detail financials when the opaque resource IDs match', async () => {
+    const normalized = await loadFirstRecommendation(
+      { resourceId: 'purchase-a', estimatedMonthlyCost: undefined },
+      sageMakerDetail({
+        resourceId: 'purchase-a',
+        currencyCode: 'USD',
+        estimatedMonthlyCost: 80,
+        costCalculationLookbackPeriodInDays: 30,
+      }),
+    );
+    expect(normalized).toMatchObject({
+      estimatedMonthlyCost: 80,
+      costCalculationLookbackPeriodInDays: 30,
+    });
+  });
+
   it('uses the detail cost window when the summary generation lookback is absent', async () => {
     const normalized = await loadFirstRecommendation({}, sageMakerDetail({ costCalculationLookbackPeriodInDays: 30 }));
     expect(normalized).toMatchObject({ costCalculationLookbackPeriodInDays: 30 });

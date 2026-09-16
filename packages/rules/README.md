@@ -72,6 +72,47 @@ export const ebsVolumeTypeCurrentGenRule = createRule({
 });
 ```
 
+## Capability metadata
+
+`AWS_CAPABILITIES` is the closed catalog of AWS evidence capabilities that live discovery datasets require:
+
+- `cost-optimization-hub-enrollment` — Cost Optimization Hub enrollment for Hub recommendation datasets.
+- `compute-optimizer-enrollment` — Compute Optimizer opt-in for machine-learning recommendations such as Lambda memory sizing.
+- `resource-explorer-aggregator` — an accessible Resource Explorer aggregator view for account-wide queries.
+- `cost-explorer-access` — Cost Explorer API access for usage, anomaly, and coverage datasets.
+- `budgets-access` — Budgets API access for budget guardrail datasets.
+
+`AwsCapability` is the union of those values. `getAwsDatasetCapability(datasetKey)` maps a discovery dataset to its
+required capability, or returns `undefined` for datasets with no capability requirement. `getAwsRuleCapabilities(rule)`
+returns a fresh sorted, de-duplicated list of the capabilities a rule's required `discoveryDependencies` need;
+`optionalDiscoveryDependencies` and rules that do not support `discovery` contribute nothing. Access-only capabilities
+such as `cost-explorer-access` and `budgets-access` are listed like any other requirement but do not make a rule opt-in.
+
+This is pure, read-only metadata: it describes declared dataset requirements, not live enrollment state. Runtime
+readiness comes from `capabilities` on SDK discovery results.
+
+```ts
+import {
+  AWS_CAPABILITIES,
+  type Rule,
+  getAwsDatasetCapability,
+  getAwsRuleCapabilities,
+} from '@cloudburn/rules';
+
+const capability = getAwsDatasetCapability('aws-lambda-memory-recommendations');
+const rule = {
+  supports: ['discovery'],
+  discoveryDependencies: ['aws-cost-usage'],
+  optionalDiscoveryDependencies: ['aws-cost-optimization-hub-savings-plans-recommendations'],
+} satisfies Pick<Rule, 'supports' | 'discoveryDependencies' | 'optionalDiscoveryDependencies'>;
+const required = getAwsRuleCapabilities(rule);
+
+console.log(AWS_CAPABILITIES, capability, required);
+```
+
+Here `capability` is `'compute-optimizer-enrollment'` and `required` is `['cost-explorer-access']`. Optional Hub evidence
+is not a required capability, even when another active rule causes that dataset to be loaded.
+
 ## Docs
 
 - Full docs: [cloudburn.io/docs](https://cloudburn.io/docs)

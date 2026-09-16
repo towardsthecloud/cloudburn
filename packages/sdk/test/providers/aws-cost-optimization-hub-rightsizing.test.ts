@@ -3,6 +3,7 @@ import {
   ListEnrollmentStatusesCommand,
   ListRecommendationsCommand,
 } from '@aws-sdk/client-cost-optimization-hub';
+import { createAwsCostOptimizationHubFindingMatch } from '@cloudburn/rules';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { createCostOptimizationHubClient } from '../../src/providers/aws/client.js';
 import { hydrateAwsCostOptimizationHubRightsizingRecommendations } from '../../src/providers/aws/resources/cost-optimization-hub.js';
@@ -307,6 +308,87 @@ it.each([
     expect(
       await hydrateAwsCostOptimizationHubRightsizingRecommendations([], { resolveAccountId: async () => accountId }),
     ).toEqual([expect.objectContaining({ resourceType, currentConfiguration, recommendedConfiguration })]);
+  },
+);
+it.each([
+  [{ resourceId: 'i-other' }, null],
+  [{ resourceArn: `arn:aws:ec2:eu-west-1:${accountId}:instance/i-other` }, null],
+  [
+    {
+      resourceId: 'i-other',
+      resourceArn: `arn:aws:ec2:eu-west-1:${accountId}:instance/i-other`,
+    },
+    null,
+  ],
+  [{ resourceArn: 'arn:aws:ec2:us-east-1:123456789012:instance/i-example' }, null],
+  [{ resourceArn: 'arn:aws:ec2:eu-west-1:222222222222:instance/i-example' }, null],
+  [{ resourceId: common.resourceArn }, 80],
+  [{ resourceArn: common.resourceArn }, 80],
+  [{}, 80],
+])(
+  'fills missing summary financials from detail only when resource identity agrees (%j)',
+  async (detailIdentity, expectedCost) => {
+    const send = vi.fn(async (command: unknown) => {
+      if (command instanceof ListEnrollmentStatusesCommand) {
+        return { items: [{ accountId, status: 'Active' }] };
+      }
+      if (command instanceof ListRecommendationsCommand) {
+        return { items: [{ ...common, estimatedMonthlyCost: undefined }] };
+      }
+      if (command instanceof GetRecommendationCommand) {
+        return {
+          recommendationId: common.recommendationId,
+          accountId,
+          region: common.region,
+          actionType: common.actionType,
+          currentResourceType: common.currentResourceType,
+          source: common.source,
+          lastRefreshTimestamp: common.lastRefreshTimestamp,
+          currencyCode: 'USD',
+          estimatedMonthlyCost: 80,
+          estimatedMonthlySavings: 99,
+          costCalculationLookbackPeriodInDays: 30,
+          currentResourceDetails: { ec2Instance: { configuration: { instance: { type: 'm7i.xlarge' } } } },
+          recommendedResourceDetails: { ec2Instance: { configuration: { instance: { type: 'm7i.large' } } } },
+          ...detailIdentity,
+        };
+      }
+      throw new Error('Unexpected command');
+    });
+    vi.mocked(createCostOptimizationHubClient).mockReturnValue({ send } as never);
+    const result = await hydrateAwsCostOptimizationHubRightsizingRecommendations([], {
+      resolveAccountId: async () => accountId,
+    });
+    expect(result).toEqual([
+      expect.objectContaining({
+        resourceId: 'i-example',
+        resourceArn: common.resourceArn,
+        currencyCode: 'USD',
+        estimatedMonthlySavings: 50,
+        estimatedMonthlyCost: expectedCost,
+      }),
+    ]);
+    const normalized = (Array.isArray(result) ? result : [])[0];
+    if (!normalized) throw new Error('expected one normalized recommendation');
+    expect(Object.hasOwn(normalized, 'costCalculationLookbackPeriodInDays')).toBe(expectedCost === 80);
+    const impact = createAwsCostOptimizationHubFindingMatch(normalized).impact;
+    if (expectedCost === null) {
+      expect(impact?.currentCost).toMatchObject({ confidence: 'unknown' });
+      expect(impact?.currentCost).not.toHaveProperty('amount');
+    } else {
+      expect(impact?.currentCost).toMatchObject({
+        amount: 80,
+        confidence: 'estimated',
+        currency: 'USD',
+        period: 'month',
+      });
+    }
+    expect(impact?.potentialSavings).toMatchObject({
+      amount: 50,
+      confidence: 'estimated',
+      currency: 'USD',
+      period: 'month',
+    });
   },
 );
 it('loads both typed EC2 configurations and retains common recommendation evidence', async () => {

@@ -1,5 +1,9 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import type {
+  AwsCapabilityOutcome,
+  AwsCapabilityReason,
+  AwsCapabilityScope,
+  AwsCapabilityStatus,
   AwsConfigRecordingFrequencyReview,
   AwsCostOptimizationHubAutoScalingUpgradeConfiguration,
   AwsCostOptimizationHubEbsUpgradeConfiguration,
@@ -149,5 +153,50 @@ describe('public SDK contracts', () => {
     const reason: ImpactUnknownReason = { code: 'not_provided', message: 'none' };
     const window: ImpactWindow = { start: '2026-08-01T00:00:00.000Z' };
     expect([period, reason, window]).toHaveLength(3);
+  });
+
+  it('keeps capability outcome types exhaustively consumable', () => {
+    const consumeCapability = (outcome: AwsCapabilityOutcome): AwsCapabilityReason[] => {
+      const status: AwsCapabilityStatus = outcome.status;
+      const scope: AwsCapabilityScope = outcome.scope;
+      switch (scope.type) {
+        case 'account':
+        case 'all-regions':
+          break;
+        case 'regional':
+          scope.regions.map((region) => region.toLowerCase());
+          break;
+        case 'recommendation-source':
+          scope.accountId.toLowerCase();
+          scope.region?.toLowerCase();
+          break;
+        default: {
+          const exhaustive: never = scope;
+          return exhaustive;
+        }
+      }
+      switch (status) {
+        case 'available':
+        case 'partial':
+        case 'unavailable':
+        case 'error':
+          break;
+        default: {
+          const exhaustive: never = status;
+          return exhaustive;
+        }
+      }
+      // @ts-expect-error Capability names stay bounded to the AWS capability catalog.
+      const invalidCapability: AwsCapabilityOutcome['capability'] = 'billing-export-access';
+      // @ts-expect-error Reasons stay bounded so classifiers never emit free-form text.
+      const invalidReason: AwsCapabilityReason = 'unknown-error';
+      // @ts-expect-error Scopes stay bounded to account, regional, or recommendation-source evidence.
+      const invalidScope: AwsCapabilityScope = { type: 'organization' };
+      void invalidCapability;
+      void invalidReason;
+      void invalidScope;
+      return outcome.reasons;
+    };
+    void consumeCapability;
   });
 });
