@@ -38,7 +38,7 @@ it('loads each regional metric series once through real derived dataset orchestr
       Id: query.Id,
       StatusCode: 'Complete',
       Values: [0, 0, 0, 0],
-      Timestamps: [1, 2, 3, 4].map((day) => new Date(`2026-09-0${day}T00:00:00Z`)),
+      Timestamps: [1, 2, 3, 4].map((day) => new Date(Date.now() - day * 24 * 60 * 60 * 1000)),
     })),
   }));
   const result = await runLiveScan({ discovery: { enabledRules: ['CLDBRN-AWS-EC2-5'] }, iac: {} }, { mode: 'all' });
