@@ -43,6 +43,13 @@ export const canonicalizeAwsResourceId = (resourceType: string, resourceId: stri
     return resourceId;
   }
 
+  if (
+    resourceType === 'lambda:function' &&
+    /^arn:[^:]+:lambda:[^:]+:[^:]+:function:[^:]+(?::[^:]+)?$/.test(resourceId)
+  ) {
+    return resourceId.split(':').slice(0, 7).join(':');
+  }
+
   const parts = resourceId.split(':');
   const namespace = ARN_RESOURCE_BY_NAMESPACE[resourceType];
   if (parts.length < 6 || !namespace || parts[2] !== namespace.service) {

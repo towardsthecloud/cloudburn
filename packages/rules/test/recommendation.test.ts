@@ -70,6 +70,15 @@ describe('getRecommendationIdentity', () => {
     });
     expect(mismatched?.resourceKey).toContain('arn:aws:rds');
   });
+
+  it.each(['3', 'prod', '$LATEST'])('uses function-level identity for a Lambda qualifier %s', (qualifier) => {
+    const resourceId = 'arn:aws:lambda:eu-west-1:111111111111:function:worker';
+    const scope = { ...scopeMatch, resourceId, resourceType: 'lambda:function', actionType: 'Rightsize' };
+    expect(getRecommendationIdentity('aws', { ...scope, resourceId: `${resourceId}:${qualifier}` })).toEqual(
+      getRecommendationIdentity('aws', scope),
+    );
+    expect(canonicalizeAwsResourceId('lambda:function', `${resourceId}:${qualifier}`)).toBe(resourceId);
+  });
 });
 
 describe('createRecommendationMatch', () => {

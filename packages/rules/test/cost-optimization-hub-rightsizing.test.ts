@@ -106,6 +106,14 @@ describe('CLDBRN-AWS-COSTOPTIMIZATIONHUB-4', () => {
     });
     expect(consistent.recommendation?.resourceKey).toContain('"ecs:service","blue/api"');
     expect(consistent.recommendation?.opportunityId).toBeDefined();
+    const qualified = createAwsCostOptimizationHubFindingMatch({
+      ...recommendation,
+      resourceId: 'blue/api',
+      resourceArn: 'arn:aws:ecs:eu-west-1:123456789012:service/api',
+    });
+    expect(qualified.resourceId).toBe('blue/api');
+    expect(qualified.recommendation?.resourceKey).toContain('"ecs:service","blue/api"');
+    expect(qualified.recommendation?.opportunityId).toBeDefined();
     for (const conflicting of [
       {
         ...recommendation,
@@ -113,8 +121,30 @@ describe('CLDBRN-AWS-COSTOPTIMIZATIONHUB-4', () => {
         resourceArn: 'arn:aws:ecs:eu-west-1:123456789012:service/green/api',
       },
       { ...recommendation, resourceId: 'other', resourceArn: 'arn:aws:ecs:eu-west-1:123456789012:service/blue/api' },
+      {
+        ...recommendation,
+        resourceId: 'blue/api',
+        resourceArn: 'arn:aws:ecs:eu-west-1:123456789012:task-definition/api:1',
+      },
+      {
+        ...recommendation,
+        resourceId: 'blue/api',
+        resourceArn: 'arn:aws:ecs:us-east-1:123456789012:service/blue/api',
+      },
+      {
+        ...recommendation,
+        resourceId: 'blue/api',
+        resourceArn: 'arn:aws:ecs:eu-west-1:222222222222:service/blue/api',
+      },
     ]) {
       const match = createAwsCostOptimizationHubFindingMatch(conflicting);
+      expect(match.resourceId).toBe(conflicting.resourceId);
+      expect(match.impact).toMatchObject({
+        source: 'aws-cost-optimization-hub',
+        sourceId: 'rec-1',
+        currentCost: { amount: 30, confidence: 'estimated', currency: 'USD', period: 'month' },
+        potentialSavings: { amount: 15, confidence: 'estimated', currency: 'USD', period: 'month' },
+      });
       expect(match.recommendation).toMatchObject({
         source: 'aws-cost-optimization-hub',
         sourceDetail: 'ComputeOptimizer',
