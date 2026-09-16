@@ -44,6 +44,9 @@ export const runLiveScan = async (
             const result = evaluateLiveRules([rule], context, { includeEvaluationStatus: true });
             const evaluation = result.evaluations?.rules[0];
             if (!evaluation) return;
+            const findings = result.providers.flatMap((provider) =>
+              provider.rules.flatMap((finding) => finding.findings),
+            );
             completedRules += 1;
             const elapsedMs = Date.now() - startedAtMs;
             firstRuleMs ??= elapsedMs;
@@ -52,8 +55,8 @@ export const runLiveScan = async (
               ruleId: rule.id,
               provisional: true,
               status: evaluation.status,
-              findingCount: evaluation.findingCount,
-              findings: result.providers.flatMap((provider) => provider.rules.flatMap((finding) => finding.findings)),
+              findingCount: findings.length,
+              findings,
               ...(evaluation.reason ? { reason: evaluation.reason } : {}),
               completedRules,
               totalRules: registry.activeRules.length,

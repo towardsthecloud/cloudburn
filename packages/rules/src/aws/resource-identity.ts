@@ -11,7 +11,7 @@ const ARN_RESOURCE_BY_NAMESPACE: Record<
 > = {
   'autoscaling:autoScalingGroup': {
     service: 'autoscaling',
-    extract: (resource) => resource.split(':autoScalingGroupName/')[1],
+    extract: (resource) => /^autoScalingGroup:[^:/]+:autoScalingGroupName\/([^:]+)$/.exec(resource)?.[1],
   },
   'dynamodb:table': { service: 'dynamodb', extract: stripKind('table') },
   'ec2:instance': { service: 'ec2', extract: stripKind('instance') },

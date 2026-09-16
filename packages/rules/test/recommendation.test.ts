@@ -18,6 +18,61 @@ const scopeMatch = {
   actionType: 'Delete',
 };
 
+it.each([
+  'not-a-group:autoScalingGroupName/my-asg',
+  'autoScalingGroup::autoScalingGroupName/my-asg',
+  'autoScalingGroup:uuid:autoScalingGroupName/my-asg:extra',
+])('does not collapse malformed Auto Scaling resource shape %s', (resource) => {
+  const arn = `arn:aws:autoscaling:eu-west-1:111111111111:${resource}`;
+  const scope = { ...scopeMatch, resourceType: 'autoscaling:autoScalingGroup', actionType: 'ScaleIn' };
+  expect(canonicalizeAwsResourceId(scope.resourceType, arn)).toBe(arn);
+  expect(getRecommendationIdentity('aws', { ...scope, resourceId: arn })).not.toEqual(
+    getRecommendationIdentity('aws', { ...scope, resourceId: 'my-asg' }),
+  );
+});
+it('preserves valid Auto Scaling names containing slashes', () => {
+  expect(
+    canonicalizeAwsResourceId(
+      'autoscaling:autoScalingGroup',
+      'arn:aws:autoscaling:eu-west-1:111111111111:autoScalingGroup:uuid:autoScalingGroupName/team/my-asg',
+    ),
+  ).toBe('team/my-asg');
+});
+it.each(['refreshedAt', 'observedAt'] as const)('ignores timezone-less %s independently of host timezone', (field) => {
+  const local = createRecommendationMatch('aws', scopeMatch, {
+    source: 'custom',
+    sourceId: 'a-local',
+    [field]: '2026-03-08T01:30:00',
+  });
+  const utc = createRecommendationMatch('aws', scopeMatch, {
+    source: 'custom',
+    sourceId: 'z-utc',
+    [field]: '2026-03-08T06:00:00Z',
+  });
+  try {
+    for (const timezone of ['UTC', 'America/New_York']) {
+      vi.stubEnv('TZ', timezone);
+      expect(compareRecommendationMatches(local, utc)).toBeGreaterThan(0);
+      expect(deduplicateRecommendationMatches([local, utc])).toEqual([utc]);
+      expect(deduplicateRecommendationMatches([utc, local])).toEqual([utc]);
+    }
+  } finally {
+    vi.unstubAllEnvs();
+  }
+});
+it.each(['2026-03-08T01:30:00-05:00', '2026-03-08T07:30:00+01:00', '2026-03-08T01:30:00-0500'])(
+  'retains explicit timestamp offset %s',
+  (refreshedAt) => {
+    const later = createRecommendationMatch('aws', scopeMatch, { source: 'custom', sourceId: 'z-offset', refreshedAt });
+    const earlier = createRecommendationMatch('aws', scopeMatch, {
+      source: 'custom',
+      sourceId: 'a-utc',
+      refreshedAt: '2026-03-08T06:00:00Z',
+    });
+    expect(deduplicateRecommendationMatches([earlier, later])).toEqual([later]);
+  },
+);
+
 describe('getRecommendationIdentity', () => {
   it('returns literal versioned JSON identity for a complete scope', () => {
     expect(getRecommendationIdentity('aws', scopeMatch)).toEqual({
