@@ -184,12 +184,16 @@ Two caveats for consumers:
 
 ## Cross-rule precedence
 
-Rules declare `supersedesRuleIds`, and the SDK applies precedence only between matches that share a complete
-`opportunityId` — the same provider, account, Region, canonical resource type and ID, **and action**. Suppression is
-deterministic: the output does not depend on rule order or finding order, and tied candidates resolve by stable
+Rules declare `supersedesRuleIds`, and the SDK applies precedence only between matches that share a complete computed
+opportunity identity — the same provider, account, Region, canonical resource type and ID, **and action**. Suppression
+is deterministic: the output does not depend on rule order or finding order, and tied candidates resolve by stable
 lexical ordering so cycles and transitive chains cannot discard every finding. String tie-breakers use
 locale-independent UTF-16 code-unit order; distinct source identifiers are never treated as equal by locale
 collation.
+
+For legacy or custom findings without a `recommendation` object, the engine computes that identity from the rule
+provider and complete finding scope fields. A present `recommendation` object without `opportunityId` deliberately
+marks unidentified evidence and skips precedence; the engine does not reconstruct its missing identity.
 
 | Hub rule                                        | Declared overlap                                                                                | Direction       |
 | ----------------------------------------------- | ----------------------------------------------------------------------------------------------- | --------------- |

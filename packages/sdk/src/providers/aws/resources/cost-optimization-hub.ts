@@ -44,7 +44,6 @@ import { createCostOptimizationHubClient } from '../client.js';
 import type { AwsAccountIdResolver, AwsDiscoveryDatasetLoadResult } from '../discovery-registry.js';
 import { formatAwsAccessDeniedReason, getAwsErrorCode, isAwsAccessDeniedError } from '../errors.js';
 import { rightsizingConfigurationNormalizers } from './cost-optimization-hub-rightsizing.js';
-import { getUnqualifiedLambdaFunctionArn } from './lambda-identity.js';
 import {
   mapWithConcurrency,
   parseFiniteNumber,
@@ -164,14 +163,25 @@ const normalizeRecommendationCommon = (
 };
 
 const normalizeRecommendationDetails = <T extends HubRecommendation>(
+  summary: Recommendation,
   common: NormalizedRecommendationCommon,
   detail: GetRecommendationResponse,
   category: RecommendationCategory<T>,
 ): T | null => {
   const conflictingContext =
-    (['recommendationId', 'accountId', 'region', 'actionType', 'currentResourceType'] as const).some(
-      (key) => common[key] !== undefined && detail[key] !== undefined && detail[key] !== common[key],
-    ) ||
+    (
+      [
+        'recommendationId',
+        'accountId',
+        'region',
+        'actionType',
+        'currentResourceType',
+        'recommendedResourceType',
+        'implementationEffort',
+        'restartNeeded',
+        'rollbackPossible',
+      ] as const
+    ).some((key) => summary[key] !== undefined && detail[key] !== undefined && detail[key] !== summary[key]) ||
     (detail.source !== undefined && detail.source !== common.recommendationSource) ||
     (detail.lastRefreshTimestamp !== undefined &&
       (!(detail.lastRefreshTimestamp instanceof Date) ||
@@ -1129,7 +1139,7 @@ const loadCostOptimizationHubRecommendations = async <T extends HubRecommendatio
           COST_OPTIMIZATION_HUB_REGION,
           () => client.send(new GetRecommendationCommand({ recommendationId: recommendation.recommendationId })),
         );
-        return normalizeRecommendationDetails(common, detail, category);
+        return normalizeRecommendationDetails(recommendation, common, detail, category);
       },
     );
     const recommendations = normalized.filter((recommendation): recommendation is T => recommendation !== null);
@@ -1230,12 +1240,9 @@ const rightsizingCategory: RecommendationCategory<AwsCostOptimizationHubRightsiz
     const recommendedConfiguration = normalize(response.recommendedResourceDetails);
     const arn = /^arn:[^:]+:([^:]+):([a-z0-9-]+):(\d{12}):(.+)$/.exec(common.resourceArn ?? '');
     const region = common.region ?? (arn?.[3] === common.accountId ? arn[2] : undefined);
-    const resourceId =
-      resourceType === 'LambdaFunction' && arn?.[1] === 'lambda' && arn[4]?.startsWith('function:')
-        ? getUnqualifiedLambdaFunctionArn(common.resourceArn ?? '')
-        : (common.resourceId ?? common.resourceArn);
+    const resourceId = common.resourceId ?? common.resourceArn;
     if (!region || !resourceId || !currentConfiguration || !recommendedConfiguration) return null;
-    return {
+    const normalized = {
       ...recommendation,
       resourceId,
       region,
@@ -1244,6 +1251,9 @@ const rightsizingCategory: RecommendationCategory<AwsCostOptimizationHubRightsiz
       currentConfiguration,
       recommendedConfiguration,
     } as AwsCostOptimizationHubRightsizingRecommendation;
+    return resourceType === 'LambdaFunction'
+      ? { ...normalized, resourceId: createAwsCostOptimizationHubFindingMatch(normalized).resourceId }
+      : normalized;
   },
 };
 

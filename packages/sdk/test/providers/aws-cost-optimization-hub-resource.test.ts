@@ -313,6 +313,26 @@ describe('hydrateAwsCostOptimizationHubSavingsPlansRecommendations', () => {
     });
   });
 
+  it('retains compatible operational metadata including false flags', async () => {
+    const context = {
+      recommendedResourceType: 'SageMakerSavingsPlans',
+      implementationEffort: 'Low',
+      restartNeeded: false,
+      rollbackPossible: false,
+    };
+    const normalized = await loadFirstRecommendation(
+      { ...context, estimatedMonthlyCost: undefined },
+      sageMakerDetail({ ...context, estimatedMonthlyCost: 80 }),
+    );
+    expect(normalized).toMatchObject({
+      estimatedMonthlyCost: 80,
+      implementationEffort: 'Low',
+      restartNeeded: false,
+      rollbackPossible: false,
+    });
+    expect(normalized).not.toHaveProperty('recommendedResourceType');
+  });
+
   it('keeps known summary zeros and fills only missing values from detail', async () => {
     const normalized = await loadFirstRecommendation(
       {
@@ -393,6 +413,14 @@ describe('hydrateAwsCostOptimizationHubSavingsPlansRecommendations', () => {
     ['action', { actionType: 'PurchaseReservedInstances' }, {}],
     ['resource type', { currentResourceType: 'Ec2InstanceSavingsPlans' }, {}],
     ['region', { region: 'us-east-1' }, { region: 'eu-west-1' }],
+    [
+      'recommended resource type',
+      { recommendedResourceType: 'ComputeSavingsPlans' },
+      { recommendedResourceType: 'SageMakerSavingsPlans' },
+    ],
+    ['implementation effort', { implementationEffort: 'High' }, { implementationEffort: 'Low' }],
+    ['restart requirement', { restartNeeded: true }, { restartNeeded: false }],
+    ['rollback availability', { rollbackPossible: false }, { rollbackPossible: true }],
   ])('rejects the recommendation when the detail %s conflicts', async (_label, detailOverride, summaryOverride) => {
     const result = await loadRecommendations(
       { estimatedMonthlyCost: undefined, ...summaryOverride },

@@ -195,9 +195,10 @@ Live findings that correspond to a recommendation also carry normalized `recomme
 `CostExplorer`, the source-side `sourceId`, and source-reported `observedAt`/`refreshedAt` timestamps that are omitted
 rather than guessed when the source does not report them. Scoped findings also carry opaque versioned `resourceKey`
 and `opportunityId` identity keys: `resourceKey` identifies the provider/account/Region/canonical resource, and
-`opportunityId` adds the action. Cross-rule precedence only applies between matches sharing a complete
-`opportunityId`, so a different action or scope on the same resource is preserved. Evaluation resource sets record
-pre-precedence evidence and are not totals. The [finding reference](../../docs/reference/finding-shape.md#findingrecommendation)
+`opportunityId` adds the action. Cross-rule precedence compares complete computed opportunity identities, so a
+different action or scope on the same resource is preserved. Legacy findings without a `recommendation` object can
+participate using complete scope fields; an explicit provenance-only recommendation without `opportunityId` skips
+precedence. Evaluation resource sets record pre-precedence evidence and are not totals. The [finding reference](../../docs/reference/finding-shape.md#findingrecommendation)
 documents the exact fields and precedence table.
 
 Findings and evaluation resources can also carry optional `impact` metadata: `currentCost` and `potentialSavings` are

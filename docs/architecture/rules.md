@@ -96,12 +96,15 @@ datasets, declares `getLiveEvaluationCoverage`. Rules whose secondary datasets a
 absence is itself the evidence, are listed with a justification in that test instead of adding a hook.
 
 Rules with stronger evidence can declare `supersedesRuleIds`. The live engine removes only findings that share a
-complete `recommendation.opportunityId` — the same provider, resource namespace, canonical ID, account, Region, and
-action — and only when the superseding rule is active and emits that identity. Action-bearing matches normalize their
+complete computed opportunity identity — the same provider, resource namespace, canonical ID, account, Region, and
+action — and only when the superseding rule is active and emits that identity. Action-bearing matches can normalize
 provenance and identity through `createRecommendationMatch`; recognized AWS ARNs canonicalize to the service-local ID
-so ARN- and ID-based findings collide correctly. Matches without complete identity are retained conservatively and
-never suppress or get suppressed. Evaluation records retain each evaluator's original result, including findings later
-omitted from provider output by precedence.
+so ARN- and ID-based findings collide correctly. For legacy or custom matches without a `recommendation` object, the
+engine computes identity from those complete finding fields. A present `recommendation` object without `opportunityId`
+marks deliberately unidentified evidence and skips precedence; supplied keys are never trusted in place of scope
+validation. Matches without complete identity are retained conservatively and never suppress or get suppressed.
+Evaluation records retain each evaluator's original result, including findings later omitted from provider output by
+precedence.
 
 ## Rule Assembly Chain
 
