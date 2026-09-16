@@ -29,6 +29,84 @@ const common = {
   rollbackPossible: false,
 };
 beforeEach(() => vi.resetAllMocks());
+const ecsArn = (service: string) => `arn:aws:ecs:eu-west-1:${accountId}:service/${service}`;
+it.each([
+  ['api', undefined, 'api', ecsArn('cluster-a/api'), 'cluster-a/api'],
+  ['api', undefined, undefined, ecsArn('cluster-a/api'), 'cluster-a/api'],
+  ['api', undefined, 'cluster-a/api', undefined, 'cluster-a/api'],
+  ['api', ecsArn('api'), 'api', ecsArn('cluster-a/api'), 'cluster-a/api'],
+  ['cluster-a/api', ecsArn('api'), 'api', ecsArn('cluster-a/api'), 'cluster-a/api'],
+  ['cluster-a/api', undefined, 'api', ecsArn('api'), 'cluster-a/api'],
+  [undefined, ecsArn('api'), 'cluster-a/api', undefined, 'cluster-a/api'],
+  ['api', undefined, 'api', undefined, 'api'],
+  ['api', undefined, 'api', ecsArn('cluster-a/other'), null],
+  ['cluster-a/api', undefined, 'cluster-b/api', ecsArn('cluster-b/api'), null],
+  ['api', undefined, 'cluster-a/api', ecsArn('cluster-b/api'), null],
+  ['cluster-a/api', ecsArn('cluster-b/api'), 'api', undefined, null],
+  ['api', undefined, 'api', 'arn:aws:ecs:eu-west-1:222222222222:service/cluster-a/api', null],
+  ['api', undefined, 'api', `arn:aws:ecs:us-east-1:${accountId}:service/cluster-a/api`, null],
+])(
+  'enriches compatible ECS detail identity and rejects contradictory scope (%j, %j, %j, %j)',
+  async (resourceId, resourceArn, detailId, detailArn, expectedResourceId) => {
+    vi.mocked(createCostOptimizationHubClient).mockReturnValue({
+      send: vi.fn(async (command: unknown) => {
+        if (command instanceof ListEnrollmentStatusesCommand) return { items: [{ accountId, status: 'Active' }] };
+        if (command instanceof ListRecommendationsCommand) {
+          return {
+            items: [
+              {
+                ...common,
+                currentResourceType: 'EcsService',
+                resourceId,
+                resourceArn,
+                estimatedMonthlyCost: undefined,
+              },
+            ],
+          };
+        }
+        if (command instanceof GetRecommendationCommand) {
+          return {
+            ...common,
+            currentResourceType: 'EcsService',
+            resourceId: detailId,
+            resourceArn: detailArn,
+            currentResourceDetails: { ecsService: { configuration: { compute: { memorySizeInMB: 1024, vCpu: 1 } } } },
+            recommendedResourceDetails: {
+              ecsService: { configuration: { compute: { memorySizeInMB: 512, vCpu: 0.5 } } },
+            },
+          };
+        }
+        throw new Error('Unexpected command');
+      }),
+    } as never);
+    const result = await hydrateAwsCostOptimizationHubRightsizingRecommendations([], {
+      resolveAccountId: async () => accountId,
+    });
+    if (expectedResourceId === null) {
+      expect(result).toMatchObject({
+        unavailable: true,
+        resources: [],
+        diagnostics: [{ code: 'CostOptimizationHubRecommendationIncomplete' }],
+      });
+      return;
+    }
+    expect(result).toHaveLength(1);
+    const normalized = (Array.isArray(result) ? result : [])[0];
+    if (!normalized) throw new Error('Expected one normalized recommendation');
+    expect(normalized).toMatchObject({ resourceId: expectedResourceId, estimatedMonthlyCost: 100 });
+    expect(normalized.resourceArn).toBe(resourceArn ?? detailArn);
+    const finding = createAwsCostOptimizationHubFindingMatch(normalized);
+    expect(finding.resourceId).toBe(expectedResourceId);
+    if (expectedResourceId === 'api') expect(finding.recommendation?.resourceKey).toBeUndefined();
+    else expect(finding.recommendation?.resourceKey).toContain('cluster-a/api');
+    expect(finding.impact?.currentCost).toMatchObject({
+      amount: 100,
+      confidence: 'estimated',
+      currency: 'USD',
+      period: 'month',
+    });
+  },
+);
 it.each([undefined, 'not-an-arn'])('rejects missing regional identity with ARN %s', async (resourceArn) => {
   vi.mocked(createCostOptimizationHubClient).mockReturnValue({
     send: vi.fn(async (command: unknown) => {

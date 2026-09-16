@@ -178,7 +178,7 @@ const normalizeRecommendationDetails = <T extends HubRecommendation>(
         !Number.isFinite(detail.lastRefreshTimestamp.getTime()) ||
         detail.lastRefreshTimestamp.toISOString() !== common.lastRefreshTimestamp));
   if (conflictingContext) return null;
-  const normalized = category.normalizeConfiguration(common, detail);
+  let normalized = category.normalizeConfiguration(common, detail);
   if (
     !normalized ||
     (detail.region !== undefined && normalized.region !== undefined && detail.region !== normalized.region)
@@ -195,12 +195,26 @@ const normalizeRecommendationDetails = <T extends HubRecommendation>(
       ...(detail.resourceArn ? { resourceArn: detail.resourceArn } : {}),
     });
     const summaryKey = summaryMatch.recommendation?.resourceKey;
-    const detailKey = detailMatch.recommendation?.resourceKey;
-    const conflictingResource =
-      summaryKey !== undefined || detailKey !== undefined
-        ? summaryKey !== detailKey
-        : new Set([...summaryIds, ...detailIds]).size !== 1;
-    if (conflictingResource) return null;
+    const resourceKey = summaryKey ?? detailMatch.recommendation?.resourceKey;
+    const scopedMatch = summaryKey !== undefined ? summaryMatch : detailMatch;
+    const identifiers = new Set([...summaryIds, ...detailIds]);
+    if (resourceKey !== undefined) {
+      for (const identifier of identifiers) {
+        const combined = createAwsCostOptimizationHubFindingMatch({
+          ...normalized,
+          resourceId: scopedMatch.resourceId,
+          resourceArn: identifier,
+        });
+        if (combined.recommendation?.resourceKey !== resourceKey) return null;
+      }
+    } else if (identifiers.size !== 1) {
+      return null;
+    }
+    normalized = {
+      ...normalized,
+      ...(resourceKey !== undefined && summaryKey === undefined ? { resourceId: scopedMatch.resourceId } : {}),
+      ...(!normalized.resourceArn && detail.resourceArn ? { resourceArn: detail.resourceArn } : {}),
+    };
   }
   if (common.currencyCode && detail.currencyCode && common.currencyCode !== detail.currencyCode) return normalized;
   return {

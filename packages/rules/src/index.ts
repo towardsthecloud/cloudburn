@@ -196,6 +196,7 @@ export type {
 export { LiveResourceBag, SEVERITIES, StaticResourceBag } from './shared/metadata.js';
 export {
   compareRecommendationMatches,
+  createRecommendationComparator,
   createRecommendationMatch,
   deduplicateRecommendationMatches,
   getRecommendationIdentity,

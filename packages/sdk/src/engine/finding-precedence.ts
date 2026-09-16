@@ -1,5 +1,5 @@
 import type { CloudProvider, Finding, FindingMatch } from '@cloudburn/rules';
-import { compareRecommendationMatches, getRecommendationIdentity } from '@cloudburn/rules';
+import { createRecommendationComparator, getRecommendationIdentity } from '@cloudburn/rules';
 
 /** Finding output retained with the precedence declared by one active rule. */
 export type EvaluatedRuleFinding = {
@@ -35,6 +35,7 @@ const compareStrings = (left: string, right: string): number => (left < right ? 
  * @returns Evaluated rules in deterministic order with superseded findings removed.
  */
 export const applyFindingPrecedence = (evaluatedRules: EvaluatedRuleFinding[]): EvaluatedRuleFinding[] => {
+  const compareMatches = createRecommendationComparator();
   const candidatesByResult = evaluatedRules.map((result) =>
     (result.finding?.findings ?? []).map((match) => ({
       match,
@@ -78,9 +79,7 @@ export const applyFindingPrecedence = (evaluatedRules: EvaluatedRuleFinding[]): 
 
     const keptByRule = new Map<string, Candidate>();
     for (const [ruleId, candidates] of candidatesByRule) {
-      const [kept, ...extras] = [...candidates].sort((left, right) =>
-        compareRecommendationMatches(left.match, right.match),
-      );
+      const [kept, ...extras] = [...candidates].sort((left, right) => compareMatches(left.match, right.match));
       if (kept) {
         keptByRule.set(ruleId, kept);
       }
@@ -138,7 +137,7 @@ export const applyFindingPrecedence = (evaluatedRules: EvaluatedRuleFinding[]): 
       const retainedFindings = (candidatesByResult[resultIndex] ?? [])
         .filter((candidate) => !dropped.has(candidate))
         .map((candidate) => candidate.match)
-        .sort(compareRecommendationMatches);
+        .sort(compareMatches);
       return {
         ...result,
         finding:
