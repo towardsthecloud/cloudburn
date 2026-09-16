@@ -112,7 +112,7 @@ export const createAwsCostOptimizationHubFindingMatch = (
           item.region,
           item.accountId,
         ),
-        resourceType: 'costoptimizationhub:savings-plans-recommendation',
+        resourceType: `costoptimizationhub:savings-plans-recommendation:${item.savingsPlansType}`,
         actionType: item.actionType,
       });
     case 'PurchaseReservedInstances':
