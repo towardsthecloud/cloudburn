@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   canonicalizeAwsResourceId,
   compareRecommendationMatches,
+  createRecommendationComparator,
   createRecommendationMatch,
   deduplicateRecommendationMatches,
   getRecommendationIdentity,
@@ -311,5 +312,39 @@ describe('deduplicateRecommendationMatches', () => {
     expect(compareRecommendationMatches(composed, decomposed)).toBeGreaterThan(0);
     expect(deduplicateRecommendationMatches([composed, decomposed])).toEqual([decomposed, composed]);
     expect(deduplicateRecommendationMatches([decomposed, composed])).toEqual([decomposed, composed]);
+  });
+
+  it.each([false, true])('serializes each retained match once per deduplication with identity=%s', (withIdentity) => {
+    const matches = Array.from({ length: 16 }, (_, index): FindingMatch => {
+      const item = { ...scopeMatch, resourceId: `vol-${(index * 7) % 16}` };
+      return withIdentity ? createRecommendationMatch('aws', item, { source: 'cloudburn' }) : item;
+    });
+    const roots = new Set(matches);
+    const originalKeys = Object.keys;
+    let serializations = 0;
+    const spy = vi.spyOn(Object, 'keys').mockImplementation((value) => {
+      if (roots.has(value as FindingMatch)) serializations += 1;
+      return originalKeys(value);
+    });
+    let result: FindingMatch[];
+    try {
+      result = deduplicateRecommendationMatches(matches);
+    } finally {
+      spy.mockRestore();
+    }
+    expect(result).toHaveLength(16);
+    expect(serializations).toBe(16);
+    expect(deduplicateRecommendationMatches([...matches].reverse())).toEqual(result);
+  });
+
+  it('creates fresh ordering after match evidence changes', () => {
+    const left: FindingMatch = { ...scopeMatch, location: { path: 'main.tf', line: 1, column: 1 } };
+    const right: FindingMatch = { ...scopeMatch, location: { path: 'main.tf', line: 2, column: 1 } };
+    expect(createRecommendationComparator()(left, right)).toBeLessThan(0);
+    expect(deduplicateRecommendationMatches([right, left])[0]).toBe(left);
+    left.location = { path: 'main.tf', line: 3, column: 1 };
+    expect(compareRecommendationMatches(left, right)).toBeGreaterThan(0);
+    expect(createRecommendationComparator()(left, right)).toBeGreaterThan(0);
+    expect(deduplicateRecommendationMatches([left, right])[0]).toBe(right);
   });
 });

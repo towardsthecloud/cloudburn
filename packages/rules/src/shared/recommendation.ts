@@ -81,7 +81,19 @@ const recommendationTimestampMs = (value: string | undefined): number => {
   return Number.isNaN(parsed) ? Number.NEGATIVE_INFINITY : parsed;
 };
 
-const deduplicationKey = (match: FindingMatch): string => {
+const createCanonicalContentReader = (): ((match: FindingMatch) => string) => {
+  const contentByMatch = new Map<FindingMatch, string>();
+  return (match) => {
+    let content = contentByMatch.get(match);
+    if (content === undefined) {
+      content = canonicalJson(match);
+      contentByMatch.set(match, content);
+    }
+    return content;
+  };
+};
+
+const deduplicationKey = (match: FindingMatch, content: (match: FindingMatch) => string): string => {
   const recommendation = match.recommendation;
   if (recommendation?.opportunityId) {
     return `opportunity:${recommendation.opportunityId}`;
@@ -98,8 +110,21 @@ const deduplicationKey = (match: FindingMatch): string => {
       recommendation.sourceId,
     ])}`;
   }
-  return `content:${canonicalJson(match)}`;
+  return `content:${content(match)}`;
 };
+
+const compareWithContent = (
+  left: FindingMatch,
+  right: FindingMatch,
+  content: (match: FindingMatch) => string,
+): number =>
+  recommendationTimestampMs(right.recommendation?.refreshedAt) -
+    recommendationTimestampMs(left.recommendation?.refreshedAt) ||
+  recommendationTimestampMs(right.recommendation?.observedAt) -
+    recommendationTimestampMs(left.recommendation?.observedAt) ||
+  compareStrings(left.recommendation?.sourceId ?? '', right.recommendation?.sourceId ?? '') ||
+  compareStrings(left.recommendation?.sourceDetail ?? '', right.recommendation?.sourceDetail ?? '') ||
+  compareStrings(content(left), content(right));
 
 /**
  * Orders finding matches by recommendation freshness with deterministic tie-breaks.
@@ -113,13 +138,20 @@ const deduplicationKey = (match: FindingMatch): string => {
  * @returns Negative when `left` sorts before `right`, positive for the reverse.
  */
 export const compareRecommendationMatches = (left: FindingMatch, right: FindingMatch): number =>
-  recommendationTimestampMs(right.recommendation?.refreshedAt) -
-    recommendationTimestampMs(left.recommendation?.refreshedAt) ||
-  recommendationTimestampMs(right.recommendation?.observedAt) -
-    recommendationTimestampMs(left.recommendation?.observedAt) ||
-  compareStrings(left.recommendation?.sourceId ?? '', right.recommendation?.sourceId ?? '') ||
-  compareStrings(left.recommendation?.sourceDetail ?? '', right.recommendation?.sourceDetail ?? '') ||
-  compareStrings(canonicalJson(left), canonicalJson(right));
+  compareWithContent(left, right, canonicalJson);
+
+/**
+ * Creates a recommendation comparator that caches canonical content for one operation.
+ *
+ * Create a fresh comparator for each sort or precedence operation. Do not mutate
+ * matches while using it or reuse it after their evidence changes.
+ *
+ * @returns A comparator with the same ordering as `compareRecommendationMatches`.
+ */
+export const createRecommendationComparator = (): ((left: FindingMatch, right: FindingMatch) => number) => {
+  const content = createCanonicalContentReader();
+  return (left, right) => compareWithContent(left, right, content);
+};
 
 /**
  * Deduplicates matches emitted by one evaluator for the same recommendation opportunity.
@@ -134,13 +166,15 @@ export const compareRecommendationMatches = (left: FindingMatch, right: FindingM
  * @returns Deduplicated matches in deterministic order.
  */
 export const deduplicateRecommendationMatches = (matches: FindingMatch[]): FindingMatch[] => {
+  const content = createCanonicalContentReader();
+  const compare = (left: FindingMatch, right: FindingMatch) => compareWithContent(left, right, content);
   const matchesByKey = new Map<string, FindingMatch>();
   for (const match of matches) {
-    const key = deduplicationKey(match);
+    const key = deduplicationKey(match, content);
     const existing = matchesByKey.get(key);
-    if (!existing || compareRecommendationMatches(match, existing) < 0) {
+    if (!existing || compare(match, existing) < 0) {
       matchesByKey.set(key, match);
     }
   }
-  return [...matchesByKey.values()].sort(compareRecommendationMatches);
+  return [...matchesByKey.values()].sort(compare);
 };

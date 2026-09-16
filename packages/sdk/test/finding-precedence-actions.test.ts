@@ -1,6 +1,6 @@
 import type { CloudProvider, FindingMatch } from '@cloudburn/rules';
 import { createAwsCostOptimizationHubFindingMatch, createRecommendationMatch } from '@cloudburn/rules';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { applyFindingPrecedence, type EvaluatedRuleFinding } from '../src/engine/finding-precedence.js';
 
 const finding = (ruleId: string, findings: FindingMatch[]) => ({
@@ -476,5 +476,34 @@ describe('deterministic recommendation precedence', () => {
       }),
     ]);
     expect(applyFindingPrecedence([...candidates].reverse())).toEqual(result);
+  });
+
+  it('serializes each native match once across precedence selection and output ordering', () => {
+    const matches = Array.from({ length: 16 }, (_, index) => match({ resourceId: `vol-${(index * 7) % 16}` }));
+    const roots = new Set(matches);
+    const originalKeys = Object.keys;
+    let serializations = 0;
+    const spy = vi.spyOn(Object, 'keys').mockImplementation((value) => {
+      if (roots.has(value as FindingMatch)) serializations += 1;
+      return originalKeys(value);
+    });
+    let result: EvaluatedRuleFinding[];
+    try {
+      result = applyFindingPrecedence([rule('native', [...matches, matches[0] as FindingMatch])]);
+    } finally {
+      spy.mockRestore();
+    }
+    expect(result[0]?.finding?.findings).toHaveLength(16);
+    expect(serializations).toBe(16);
+    expect(applyFindingPrecedence([rule('native', [...matches].reverse())])).toEqual(result);
+  });
+
+  it('recomputes precedence ordering after evidence changes between runs', () => {
+    const left = match({ location: { path: 'main.tf', line: 1, column: 1 } });
+    const right = match({ location: { path: 'main.tf', line: 2, column: 1 } });
+    const input = [rule('native', [left, right])];
+    expect(applyFindingPrecedence(input)[0]?.finding?.findings[0]).toBe(left);
+    left.location = { path: 'main.tf', line: 3, column: 1 };
+    expect(applyFindingPrecedence(input)[0]?.finding?.findings[0]).toBe(right);
   });
 });
