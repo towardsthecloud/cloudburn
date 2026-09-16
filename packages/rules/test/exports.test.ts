@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  AWS_CAPABILITIES,
   AWS_CONFIG_RECORDING_FREQUENCY_MINIMUM_SAVINGS_USD,
   AWS_KMS_KEY_PROLIFERATION_THRESHOLD,
   AWS_KMS_MONTHLY_KEY_CREATION_THRESHOLD,
@@ -16,6 +17,8 @@ import {
   gcpRules,
   getAwsCostOptimizationHubReservationResourceId,
   getAwsCostOptimizationHubReservationResourceType,
+  getAwsDatasetCapability,
+  getAwsRuleCapabilities,
   isRecord,
   LiveResourceBag,
   StaticResourceBag,
@@ -191,6 +194,91 @@ describe('rule exports', () => {
     expect(isRecord).toBeTypeOf('function');
     expect(LiveResourceBag).toBeTypeOf('function');
     expect(StaticResourceBag).toBeTypeOf('function');
+  });
+
+  it('exports the bounded AWS capability catalog', () => {
+    expect(AWS_CAPABILITIES).toEqual([
+      'cost-optimization-hub-enrollment',
+      'compute-optimizer-enrollment',
+      'resource-explorer-aggregator',
+      'cost-explorer-access',
+      'budgets-access',
+    ]);
+  });
+
+  it('maps setup-gated datasets to their AWS capability', () => {
+    for (const datasetKey of [
+      'aws-cost-optimization-hub-savings-plans-recommendations',
+      'aws-cost-optimization-hub-reservation-recommendations',
+      'aws-cost-optimization-hub-rightsizing-recommendations',
+      'aws-cost-optimization-hub-idle-recommendations',
+      'aws-cost-optimization-hub-upgrade-recommendations',
+      'aws-cost-optimization-hub-graviton-recommendations',
+    ] as const) {
+      expect(getAwsDatasetCapability(datasetKey), datasetKey).toBe('cost-optimization-hub-enrollment');
+    }
+    expect(getAwsDatasetCapability('aws-lambda-memory-recommendations')).toBe('compute-optimizer-enrollment');
+    expect(getAwsDatasetCapability('aws-resource-explorer-untagged-resources')).toBe('resource-explorer-aggregator');
+    expect(getAwsDatasetCapability('aws-cost-usage')).toBe('cost-explorer-access');
+    expect(getAwsDatasetCapability('aws-cost-anomaly-monitors')).toBe('cost-explorer-access');
+    expect(getAwsDatasetCapability('aws-sagemaker-savings-plans-coverage')).toBe('cost-explorer-access');
+    expect(getAwsDatasetCapability('aws-cost-guardrail-budgets')).toBe('budgets-access');
+    expect(getAwsDatasetCapability('aws-ebs-volumes')).toBeUndefined();
+    expect(getAwsDatasetCapability('aws-lambda-functions')).toBeUndefined();
+  });
+
+  it('derives sorted required capabilities from rule discovery dependencies', () => {
+    const requireRule = (id: string) => {
+      const rule = awsRules.find((candidate) => candidate.id === id);
+      if (!rule) throw new Error(`Unknown rule ${id}`);
+      return rule;
+    };
+    expect(getAwsRuleCapabilities(requireRule('CLDBRN-AWS-COSTOPTIMIZATIONHUB-1'))).toEqual([
+      'cost-optimization-hub-enrollment',
+    ]);
+    expect(getAwsRuleCapabilities(requireRule('CLDBRN-AWS-LAMBDA-4'))).toEqual(['compute-optimizer-enrollment']);
+    expect(getAwsRuleCapabilities(requireRule('CLDBRN-AWS-TAGGING-1'))).toEqual(['resource-explorer-aggregator']);
+
+    const fixture = createRule({
+      id: 'CLDBRN-AWS-TEST-CAPABILITIES',
+      name: 'Capability fixture',
+      description: 'Combines gated and ordinary datasets.',
+      message: 'Review resources.',
+      provider: 'aws',
+      service: 'ec2',
+      severity: 'medium',
+      supports: ['discovery'],
+      discoveryDependencies: [
+        'aws-cost-optimization-hub-idle-recommendations',
+        'aws-ebs-volumes',
+        'aws-cost-optimization-hub-savings-plans-recommendations',
+        'aws-lambda-memory-recommendations',
+      ],
+      evaluateLive: () => null,
+    });
+    expect(getAwsRuleCapabilities(fixture)).toEqual([
+      'compute-optimizer-enrollment',
+      'cost-optimization-hub-enrollment',
+    ]);
+
+    const optionalOnly = createRule({
+      ...fixture,
+      id: 'CLDBRN-AWS-TEST-OPTIONAL',
+      discoveryDependencies: ['aws-sagemaker-savings-plans-coverage'],
+      optionalDiscoveryDependencies: ['aws-cost-optimization-hub-savings-plans-recommendations'],
+    });
+    expect(getAwsRuleCapabilities(optionalOnly)).toEqual(['cost-explorer-access']);
+    expect(getAwsRuleCapabilities(optionalOnly)).not.toContain('cost-optimization-hub-enrollment');
+
+    const iacOnly = createRule({
+      ...fixture,
+      id: 'CLDBRN-AWS-TEST-IAC',
+      supports: ['iac'],
+      staticDependencies: ['aws-ebs-volumes'],
+      evaluateLive: undefined,
+      evaluateStatic: () => null,
+    });
+    expect(getAwsRuleCapabilities(iacOnly)).toEqual([]);
   });
 
   it('exports placeholder multi-cloud arrays', () => {

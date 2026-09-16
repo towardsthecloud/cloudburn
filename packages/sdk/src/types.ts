@@ -1,4 +1,5 @@
 import type {
+  AwsCapability,
   AwsCloudFrontDistribution,
   AwsCloudTrailTrail,
   AwsCloudWatchLogGroup,
@@ -98,7 +99,7 @@ import type {
 } from '@cloudburn/rules';
 import type { AwsClientCredentials, AwsRegion } from './providers/aws/client.js';
 
-export type { AwsRegion, LiveEvaluationCoverage };
+export type { AwsCapability, AwsRegion, LiveEvaluationCoverage };
 
 // Intent: define SDK-facing contracts for scanner orchestration.
 // TODO(cloudburn): extend config and result metadata as new providers/resources land.
@@ -291,8 +292,51 @@ export type ScanEvaluations = {
   rules: RuleEvaluation[];
 };
 
+/** Readiness state projected for one AWS capability from collected discovery evidence. */
+export type AwsCapabilityStatus = 'available' | 'partial' | 'unavailable' | 'error';
+
+/** Bounded reason codes explaining an unavailable, partial, or errored AWS capability outcome. */
+export type AwsCapabilityReason =
+  | 'not-enrolled'
+  | 'aggregator-required'
+  | 'region-not-enabled'
+  | 'default-view-required'
+  | 'filtered-view'
+  | 'tags-view-required'
+  | 'access-denied'
+  | 'throttled'
+  | 'service-error'
+  | 'incomplete-evidence'
+  | 'data-unavailable'
+  | 'dataset-unavailable'
+  | 'not-assessed';
+
+/**
+ * Scope that an AWS capability outcome applies to.
+ *
+ * `recommendation-source` scope only proves usable recommendation evidence was
+ * returned for the listed records, account, and region; it does not certify
+ * current enrollment or complete source coverage.
+ */
+export type AwsCapabilityScope =
+  | { type: 'account' }
+  | { type: 'all-regions' }
+  | { type: 'regional'; regions: string[] }
+  | { type: 'recommendation-source'; accountId: string; region?: string };
+
+/** Projected readiness of one AWS capability after a live discovery scan. */
+export type AwsCapabilityOutcome = {
+  capability: AwsCapability;
+  status: AwsCapabilityStatus;
+  reasons: AwsCapabilityReason[];
+  scope: AwsCapabilityScope;
+  datasetKeys: DiscoveryDatasetKey[];
+};
+
 /** Result of a scan execution containing provider-grouped lean rule findings. */
 export type ScanResult = {
+  /** AWS capability readiness projected from collected evidence; populated for live scans only. */
+  capabilities?: AwsCapabilityOutcome[];
   diagnostics?: ScanDiagnostic[];
   /** Collection freshness and resource coverage when evidence cache controls are configured. */
   evidence?: AwsEvidenceProvenance[];

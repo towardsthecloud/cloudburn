@@ -31,6 +31,12 @@ export {
 export { azureRules } from './azure/index.js';
 export { gcpRules } from './gcp/index.js';
 export { awsCorePreset } from './presets/aws-core.js';
+export type { AwsCapability } from './shared/capabilities.js';
+export {
+  AWS_CAPABILITIES,
+  getAwsDatasetCapability,
+  getAwsRuleCapabilities,
+} from './shared/capabilities.js';
 export {
   createFinding,
   createFindingMatch,

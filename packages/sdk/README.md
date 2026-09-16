@@ -200,6 +200,38 @@ and `opportunityId` identity keys: `resourceKey` identifies the provider/account
 pre-precedence evidence and are not totals. The [finding reference](../../docs/reference/finding-shape.md#findingrecommendation)
 documents the exact fields and precedence table.
 
+Every live `discover()` result also reports `capabilities`: a read-only readiness projection for the AWS capabilities
+the selected rules require. Each outcome reports `available`, `partial`, `unavailable`, or `error` with
+machine-readable reasons such as `not-enrolled`, `aggregator-required`, or `data-unavailable`, scoped to the account,
+the Regions that produced evidence, or `all-regions` when an all-Region target produced no observed regional evidence.
+Degraded scans — for example, one denied Cost Explorer dataset beside a successful one — report `partial` instead of
+hiding the failure. The projection never enrolls an account, updates Resource Explorer views, or
+adds readiness probes; callers own setup UI and enrollment workflows. The [result reference](../../docs/reference/finding-shape.md#awscapabilityoutcome)
+describes the exact shape, statuses, reasons, and scopes.
+
+Match outcomes by capability *and* scope, not capability alone: a `recommendation-source` outcome can coexist with a
+direct outcome for the same capability, and it only proves that returned Cost Optimization Hub records carried that
+upstream source — it does not certify current enrollment or complete source coverage, so an empty Hub response cannot
+establish Compute Optimizer readiness. `CLDBRN-AWS-LAMBDA-4` needs Compute Optimizer enrollment directly, while
+`recommendation-source` outcomes can also surface Compute Optimizer evidence returned through Hub records.
+
+```ts
+const result = await client.discover();
+const lambdaReadiness = result.capabilities?.find(
+  (outcome) => outcome.capability === 'compute-optimizer-enrollment' && outcome.scope.type === 'regional',
+);
+```
+
+`getRuleCapabilities(ruleId)` lists the AWS capabilities a built-in rule directly requires, without any AWS calls or
+probes. Only required `discoveryDependencies` contribute — optional supporting evidence is excluded — and IaC-only or
+ordinary inventory rules return `[]`. Unknown rule IDs throw.
+
+```ts
+import { getRuleCapabilities } from '@cloudburn/sdk';
+
+getRuleCapabilities('CLDBRN-AWS-LAMBDA-4'); // ['compute-optimizer-enrollment']
+```
+
 Evaluation resources can include provider-normalized `data` when a check needs auditable evidence beyond identity and
 timestamps. For example, `CLDBRN-AWS-CONFIG-1` reports the affected resource type, current recording frequency,
 observation window, configuration-item volume, current and recently deleted resource counts, estimated monthly

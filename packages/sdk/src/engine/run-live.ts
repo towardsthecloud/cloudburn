@@ -69,6 +69,7 @@ export const runLiveScan = async (
     `sdk: live scan timing ${JSON.stringify({ firstRuleMs: firstRuleMs ?? null, totalMs: Date.now() - startedAtMs })}`,
   );
   return {
+    capabilities: context.capabilities ?? [],
     ...result,
     ...(getAwsEvidenceProvenance() ? { evidence: getAwsEvidenceProvenance() } : {}),
   };

@@ -897,6 +897,8 @@ const createCostOptimizationHubSession = async (accountId: string): Promise<Cost
   };
 };
 
+const compareStrings = (left: string, right: string): number => (left < right ? -1 : left > right ? 1 : 0);
+
 const canonicalJson = (value: unknown): string => {
   if (Array.isArray(value)) {
     return `[${value.map(canonicalJson).join(',')}]`;
@@ -932,7 +934,7 @@ const summaryScopeKey = (recommendation: Recommendation): string =>
 
 const compareSummaryFreshness = (left: Recommendation, right: Recommendation): number =>
   summaryTimestampMs(right.lastRefreshTimestamp) - summaryTimestampMs(left.lastRefreshTimestamp) ||
-  canonicalJson(left).localeCompare(canonicalJson(right));
+  compareStrings(canonicalJson(left), canonicalJson(right));
 
 const getCostOptimizationHubSession = (
   accountId: string,
@@ -1021,7 +1023,7 @@ const loadCostOptimizationHubRecommendations = async <T extends HubRecommendatio
 
     const normalized = await mapWithConcurrency(
       [...recommendationsByScope.entries()]
-        .sort(([left], [right]) => left.localeCompare(right))
+        .sort(([left], [right]) => compareStrings(left, right))
         .map(([, recommendation]) => recommendation),
       RECOMMENDATION_DETAIL_CONCURRENCY,
       async (recommendation) => {
@@ -1060,7 +1062,7 @@ const loadCostOptimizationHubRecommendations = async <T extends HubRecommendatio
       };
     }
 
-    return recommendations.sort((left, right) => left.recommendationId.localeCompare(right.recommendationId));
+    return recommendations.sort((left, right) => compareStrings(left.recommendationId, right.recommendationId));
   } catch (err) {
     if (!isAwsAccessDeniedError(err)) {
       throw err;

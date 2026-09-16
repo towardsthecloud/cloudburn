@@ -57,6 +57,8 @@ export const createRecommendationMatch = (
   provenance: EvidenceProvenance,
 ): FindingMatch => ({ ...match, recommendation: { ...provenance, ...getRecommendationIdentity(provider, match) } });
 
+const compareStrings = (left: string, right: string): number => (left < right ? -1 : left > right ? 1 : 0);
+
 const canonicalJson = (value: unknown): string => {
   if (Array.isArray(value)) {
     return `[${value.map(canonicalJson).join(',')}]`;
@@ -115,9 +117,9 @@ export const compareRecommendationMatches = (left: FindingMatch, right: FindingM
     recommendationTimestampMs(left.recommendation?.refreshedAt) ||
   recommendationTimestampMs(right.recommendation?.observedAt) -
     recommendationTimestampMs(left.recommendation?.observedAt) ||
-  (left.recommendation?.sourceId ?? '').localeCompare(right.recommendation?.sourceId ?? '') ||
-  (left.recommendation?.sourceDetail ?? '').localeCompare(right.recommendation?.sourceDetail ?? '') ||
-  canonicalJson(left).localeCompare(canonicalJson(right));
+  compareStrings(left.recommendation?.sourceId ?? '', right.recommendation?.sourceId ?? '') ||
+  compareStrings(left.recommendation?.sourceDetail ?? '', right.recommendation?.sourceDetail ?? '') ||
+  compareStrings(canonicalJson(left), canonicalJson(right));
 
 /**
  * Deduplicates matches emitted by one evaluator for the same recommendation opportunity.

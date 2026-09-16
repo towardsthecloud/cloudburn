@@ -120,6 +120,7 @@ describe('CloudBurnClient', () => {
     );
 
     expect(result).toEqual({
+      capabilities: [],
       providers: [
         {
           provider: 'aws',
@@ -1116,6 +1117,7 @@ describe('CloudBurnClient', () => {
     });
 
     expect(result).toEqual({
+      capabilities: [],
       diagnostics: [
         {
           code: 'ThrottlingException',

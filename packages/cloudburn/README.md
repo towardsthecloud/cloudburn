@@ -163,6 +163,32 @@ rules finish. Each rule line includes its ID, status, and finding count. Provisi
 far; the final report and exit code are authoritative. Progress is silent when `stderr` is not a terminal or `--debug`
 is enabled. `--format json` writes one final JSON result to `stdout`.
 
+#### Discovery JSON capabilities
+
+`cloudburn --format json discover` includes a top-level `capabilities` array in the final scan result. It is present
+for live discovery even when empty; static `cloudburn --format json scan` results omit it. An absent capability was
+not assessed and must not be treated as ready.
+
+Each entry contains `capability`, `status`, bounded `reasons`, `scope`, and contributing `datasetKeys`. Status describes
+evidence readiness, not whether a rule passed:
+
+- `available`: the requested datasets loaded, including successful empty responses.
+- `partial`: some usable evidence exists, but a dataset or Region failed or coverage is incomplete.
+- `unavailable`: required setup, enrollment, access, or usable source data is missing, or no applicable resources ran.
+- `error`: no usable evidence exists after a service error or throttling.
+
+Reasons such as `not-enrolled`, `access-denied`, `data-unavailable`, and `not-assessed` distinguish those cases without
+parsing diagnostic text. Account scope applies to account-level evidence; regional scope lists Regions where the
+mapped dataset observed resources or failed, falling back to the requested Region when nothing was observed.
+`recommendation-source` scope describes only the account and optional Region of returned Hub records, not current
+upstream enrollment or complete coverage. The shared SDK contract also supports `all-regions` as an unobserved
+all-Region target fallback; the CLI itself targets one Region per run.
+
+These outcomes reuse collected evidence and do not change AWS enrollment or setup. A successful regional catalog
+does not prove aggregator-backed account-wide tagging readiness. Capability failures do not erase unrelated findings.
+See the [capability result reference](../../docs/reference/finding-shape.md#awscapabilityoutcome) for the complete
+identifier, reason, and scope contracts.
+
 ## Shell Completion
 
 Inspect the available completion subcommands:
