@@ -73,10 +73,23 @@ export const createAwsCostOptimizationHubFindingMatch = (
     });
     const canonicalId = item.resourceId ? canonicalizeAwsResourceId(input.resourceType, item.resourceId) : undefined;
     const canonicalArn = item.resourceArn ? canonicalizeAwsResourceId(input.resourceType, item.resourceArn) : undefined;
+    const lambdaArn =
+      input.resourceType === 'lambda:function'
+        ? [canonicalId, canonicalArn].find(
+            (id) => id !== undefined && /^arn:[^:]+:lambda:[^:]+:[^:]+:function:[^:]+$/.test(id),
+          )
+        : undefined;
+    const lambdaName = canonicalId?.startsWith('arn:') ? canonicalArn : canonicalId;
+    const matchingLambdaName =
+      lambdaArn !== undefined &&
+      lambdaName !== undefined &&
+      /^[^:/]+(?::[^:/]+)?$/.test(lambdaName) &&
+      lambdaName.split(':')[0] === lambdaArn.split(':')[6];
     const hasConflictingResource =
       canonicalId !== undefined &&
       canonicalArn !== undefined &&
       canonicalId !== canonicalArn &&
+      !matchingLambdaName &&
       !(input.resourceType === 'ecs:service' && hasMatchingEcsServiceName(canonicalId, canonicalArn));
     const hasConflictingReservationRegion =
       item.actionType === 'PurchaseReservedInstances' &&
@@ -92,12 +105,13 @@ export const createAwsCostOptimizationHubFindingMatch = (
       return { ...input, recommendation: provenance };
     }
     const resourceId =
-      input.resourceType === 'ecs:service' &&
+      lambdaArn ??
+      (input.resourceType === 'ecs:service' &&
       canonicalArn &&
       /^[^/:]+\/[^/:]+$/.test(canonicalArn) &&
       !(canonicalId && /^[^/:]+\/[^/:]+$/.test(canonicalId))
         ? canonicalArn
-        : input.resourceId;
+        : input.resourceId);
     return {
       ...createRecommendationMatch('aws', { ...input, resourceId }, provenance),
       resourceType: input.resourceType,

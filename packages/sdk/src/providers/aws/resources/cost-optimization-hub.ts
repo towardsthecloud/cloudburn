@@ -38,12 +38,12 @@ import type {
   AwsCostOptimizationHubUpgradeRecommendation,
   AwsDiscoveredResource,
 } from '@cloudburn/rules';
+import { createAwsCostOptimizationHubFindingMatch } from '@cloudburn/rules';
 import type { ScanDiagnostic } from '../../../types.js';
 import { createCostOptimizationHubClient } from '../client.js';
 import type { AwsAccountIdResolver, AwsDiscoveryDatasetLoadResult } from '../discovery-registry.js';
 import { formatAwsAccessDeniedReason, getAwsErrorCode, isAwsAccessDeniedError } from '../errors.js';
 import { rightsizingConfigurationNormalizers } from './cost-optimization-hub-rightsizing.js';
-import { getUnqualifiedLambdaFunctionArn } from './lambda-identity.js';
 import {
   mapWithConcurrency,
   parseFiniteNumber,
@@ -1139,12 +1139,9 @@ const rightsizingCategory: RecommendationCategory<AwsCostOptimizationHubRightsiz
     const recommendedConfiguration = normalize(response.recommendedResourceDetails);
     const arn = /^arn:[^:]+:([^:]+):([a-z0-9-]+):(\d{12}):(.+)$/.exec(common.resourceArn ?? '');
     const region = common.region ?? (arn?.[3] === common.accountId ? arn[2] : undefined);
-    const resourceId =
-      resourceType === 'LambdaFunction' && arn?.[1] === 'lambda' && arn[4]?.startsWith('function:')
-        ? getUnqualifiedLambdaFunctionArn(common.resourceArn ?? '')
-        : (common.resourceId ?? common.resourceArn);
+    const resourceId = common.resourceId ?? common.resourceArn;
     if (!region || !resourceId || !currentConfiguration || !recommendedConfiguration) return null;
-    return {
+    const normalized = {
       ...recommendation,
       resourceId,
       region,
@@ -1153,6 +1150,9 @@ const rightsizingCategory: RecommendationCategory<AwsCostOptimizationHubRightsiz
       currentConfiguration,
       recommendedConfiguration,
     } as AwsCostOptimizationHubRightsizingRecommendation;
+    return resourceType === 'LambdaFunction'
+      ? { ...normalized, resourceId: createAwsCostOptimizationHubFindingMatch(normalized).resourceId }
+      : normalized;
   },
 };
 
