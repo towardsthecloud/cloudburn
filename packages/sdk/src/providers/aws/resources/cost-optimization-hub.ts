@@ -161,6 +161,36 @@ const normalizeRecommendationCommon = (
   };
 };
 
+const withRecommendationFinancialDetails = (
+  common: NormalizedRecommendationCommon,
+  detail: GetRecommendationResponse,
+): NormalizedRecommendationCommon => {
+  const conflictingContext =
+    (['recommendationId', 'accountId', 'region', 'actionType', 'currentResourceType'] as const).some(
+      (key) => common[key] !== undefined && detail[key] !== undefined && detail[key] !== common[key],
+    ) ||
+    (detail.source !== undefined && detail.source !== common.recommendationSource) ||
+    (common.currencyCode && detail.currencyCode && common.currencyCode !== detail.currencyCode) ||
+    (detail.lastRefreshTimestamp !== undefined &&
+      (!(detail.lastRefreshTimestamp instanceof Date) ||
+        !Number.isFinite(detail.lastRefreshTimestamp.getTime()) ||
+        detail.lastRefreshTimestamp.toISOString() !== common.lastRefreshTimestamp));
+  if (conflictingContext) return common;
+  return {
+    ...common,
+    currencyCode: common.currencyCode || detail.currencyCode || null,
+    estimatedMonthlyCost: common.estimatedMonthlyCost ?? finiteNumberOrNull(detail.estimatedMonthlyCost),
+    estimatedMonthlySavings: common.estimatedMonthlySavings ?? finiteNumberOrNull(detail.estimatedMonthlySavings),
+    estimatedSavingsPercentage:
+      common.estimatedSavingsPercentage ?? finiteNumberOrNull(detail.estimatedSavingsPercentage),
+    ...(typeof detail.costCalculationLookbackPeriodInDays === 'number' &&
+    Number.isFinite(detail.costCalculationLookbackPeriodInDays) &&
+    detail.costCalculationLookbackPeriodInDays > 0
+      ? { costCalculationLookbackPeriodInDays: detail.costCalculationLookbackPeriodInDays }
+      : {}),
+  };
+};
+
 type AwsReservationConfiguration =
   | DynamoDbReservedCapacityConfiguration
   | Ec2ReservedInstancesConfiguration
@@ -1037,7 +1067,7 @@ const loadCostOptimizationHubRecommendations = async <T extends HubRecommendatio
           COST_OPTIMIZATION_HUB_REGION,
           () => client.send(new GetRecommendationCommand({ recommendationId: recommendation.recommendationId })),
         );
-        return category.normalizeConfiguration(common, detail);
+        return category.normalizeConfiguration(withRecommendationFinancialDetails(common, detail), detail);
       },
     );
     const recommendations = normalized.filter((recommendation): recommendation is T => recommendation !== null);

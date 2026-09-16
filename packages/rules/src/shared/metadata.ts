@@ -541,8 +541,10 @@ type AwsCostOptimizationHubRecommendationEvidence = {
   implementationEffort?: string;
   lastRefreshTimestamp: string;
   recommendationId: string;
-  /** Lookback period the recommendation's estimates were computed over, when AWS reports it. */
+  /** Lookback period used to generate the recommendation, when AWS reports it. */
   recommendationLookbackPeriodInDays?: number;
+  /** Lookback period used to calculate the recommendation's cost estimates, when AWS reports it. */
+  costCalculationLookbackPeriodInDays?: number;
   recommendationSource: 'ComputeOptimizer' | 'CostExplorer';
   region?: string;
   resourceArn?: string;

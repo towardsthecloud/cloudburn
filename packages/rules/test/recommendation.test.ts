@@ -61,14 +61,40 @@ describe('getRecommendationIdentity', () => {
     expect(getRecommendationIdentity('aws', { ...scopeMatch, region: 'eu-west-1', resourceId: arn })).toBeUndefined();
   });
 
-  it('keeps the raw identifier when the ARN is malformed or mismatched', () => {
-    const malformed = getRecommendationIdentity('aws', { ...scopeMatch, resourceId: 'arn:garbage' });
-    expect(malformed?.resourceKey).toBe('["resource",1,"aws","111111111111","eu-west-1","ec2:volume","arn:garbage"]');
+  it('rejects malformed ARNs and keeps mismatched-service identifiers distinct', () => {
+    expect(getRecommendationIdentity('aws', { ...scopeMatch, resourceId: 'arn:garbage' })).toBeUndefined();
     const mismatched = getRecommendationIdentity('aws', {
       ...scopeMatch,
       resourceId: 'arn:aws:rds:eu-west-1:111111111111:db:vol-1',
     });
     expect(mismatched?.resourceKey).toContain('arn:aws:rds');
+  });
+
+  it.each([
+    'arn:aws:ec2:::volume/vol-1',
+    'arn::ec2:eu-west-1:111111111111:volume/vol-1',
+    'arn:aws:ec2::111111111111:volume/vol-1',
+    'arn:aws:ec2:eu-west-1::volume/vol-1',
+    'arn:aws:ec2:eu-west-1:123:volume/vol-1',
+    'arn:aws:ec2:eu-west-1:111111111111:',
+  ])('rejects malformed ARN %s without canonicalizing it', (arn) => {
+    expect(canonicalizeAwsResourceId('ec2:volume', arn)).toBe(arn);
+    expect(getRecommendationIdentity('aws', { ...scopeMatch, resourceId: arn })).toBeUndefined();
+  });
+
+  it('keeps identity for valid global ARNs with empty scope components', () => {
+    const bucket = getRecommendationIdentity('aws', {
+      ...scopeMatch,
+      resourceType: 's3:bucket',
+      resourceId: 'arn:aws:s3:::bucket',
+    });
+    expect(bucket?.resourceKey).toContain('arn:aws:s3:::bucket');
+    const role = getRecommendationIdentity('aws', {
+      ...scopeMatch,
+      resourceType: 'iam:role',
+      resourceId: 'arn:aws:iam::111111111111:role/test',
+    });
+    expect(role?.resourceKey).toContain('arn:aws:iam::111111111111:role/test');
   });
 
   it.each(['3', 'prod', '$LATEST'])('uses function-level identity for a Lambda qualifier %s', (qualifier) => {

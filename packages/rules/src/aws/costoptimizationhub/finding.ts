@@ -77,20 +77,20 @@ export const createAwsCostOptimizationHubFindingMatch = (
       period: 'month',
       confidence: 'estimated',
     }),
-    ...(typeof item.recommendationLookbackPeriodInDays === 'number' &&
-    Number.isFinite(item.recommendationLookbackPeriodInDays) &&
-    item.recommendationLookbackPeriodInDays > 0
-      ? { window: { lookbackDays: item.recommendationLookbackPeriodInDays } }
+    ...(typeof item.costCalculationLookbackPeriodInDays === 'number' &&
+    Number.isFinite(item.costCalculationLookbackPeriodInDays) &&
+    item.costCalculationLookbackPeriodInDays > 0
+      ? { window: { lookbackDays: item.costCalculationLookbackPeriodInDays } }
       : {}),
   };
   const attach = (input: FindingMatch & { resourceType: string }): FindingMatch & { resourceType: string } => {
     const hasConflictingArn = [item.resourceId, item.resourceArn].some((id) => {
-      if (!id) return false;
+      if (!id?.startsWith('arn:')) return false;
       const scope = getAwsArnScope(id);
       return (
-        scope !== undefined &&
-        ((scope.accountId !== '' && scope.accountId !== input.accountId) ||
-          (scope.region !== '' && scope.region !== input.region))
+        scope === undefined ||
+        (scope.accountId !== '' && scope.accountId !== input.accountId) ||
+        (scope.region !== '' && scope.region !== input.region)
       );
     });
     const canonicalId = item.resourceId ? canonicalizeAwsResourceId(input.resourceType, item.resourceId) : undefined;
@@ -100,7 +100,17 @@ export const createAwsCostOptimizationHubFindingMatch = (
       canonicalArn !== undefined &&
       canonicalId !== canonicalArn &&
       !(input.resourceType === 'ecs:service' && hasMatchingEcsServiceName(canonicalId, canonicalArn));
-    if (!(item.resourceId || item.resourceArn) || hasConflictingArn || hasConflictingResource) {
+    const hasConflictingReservationRegion =
+      item.actionType === 'PurchaseReservedInstances' &&
+      item.region !== undefined &&
+      item.configuration.reservedInstancesRegion !== undefined &&
+      item.region !== item.configuration.reservedInstancesRegion;
+    if (
+      !(item.resourceId || item.resourceArn) ||
+      hasConflictingArn ||
+      hasConflictingResource ||
+      hasConflictingReservationRegion
+    ) {
       return { ...input, impact, recommendation: provenance };
     }
     const resourceId =

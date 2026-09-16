@@ -115,7 +115,9 @@ When both a resource ID and ARN are supplied, their canonical resource component
 evidence retains provenance without identity. ECS service-name qualification and Lambda version unqualification are
 recognized equivalences. Lambda version and alias qualifiers are removed for both evidence comparison and
 function-level identity keys. A legacy unscoped ECS service ARN does not replace a supplied cluster-qualified ID;
-contradictory evidence never replaces the displayed resource ID.
+contradictory evidence never replaces the displayed resource ID. Malformed ARNs cannot establish identity.
+Recognized regional AWS resources require both Region and account components in the ARN; valid global ARN formats
+remain supported. Reservation summary and purchase-configuration Regions must agree when both are supplied.
 
 ## FindingImpact
 
@@ -151,9 +153,11 @@ An `unknown` evidence value has **no `amount` property at all**: a missing or un
 substituted with zero. A known `amount: 0` is a real measurement and stays distinct from unknown. The `reason.code`
 explains why the amount is absent, and any valid supplied `currency`/`period` is preserved for context. On the Hub
 dataset the financial fields (`currencyCode`, `estimatedMonthlyCost`, `estimatedMonthlySavings`,
-`estimatedSavingsPercentage`) are nullable and `recommendationLookbackPeriodInDays` is optional: absent money does not
-invalidate a recommendation whose identity, refresh, source, and configuration evidence is complete — it surfaces as
-unknown impact instead of a structural failure.
+`estimatedSavingsPercentage`) are nullable, and both `recommendationLookbackPeriodInDays` (recommendation generation)
+and `costCalculationLookbackPeriodInDays` (cost impact) are optional: absent money does not invalidate a
+recommendation whose identity, refresh, source, and configuration evidence is complete — it surfaces as unknown
+impact instead of a structural failure. Hub impact windows use only `costCalculationLookbackPeriodInDays` from
+GetRecommendation, never the recommendation-generation horizon.
 
 `impact` reuses `EvidenceProvenance` semantics: `source`, `sourceDetail`, `sourceId`, `observedAt`, and `refreshedAt`
 are source-reported only and are never populated from evaluation time or inferred. `window.start`/`window.end` exist

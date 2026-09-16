@@ -22,9 +22,9 @@ export const getRecommendationIdentity = (
   if (provider === 'aws' && resourceId.startsWith('arn:')) {
     const arnScope = getAwsArnScope(resourceId);
     if (
-      arnScope &&
-      ((arnScope.region !== '' && arnScope.region !== region) ||
-        (arnScope.accountId !== '' && arnScope.accountId !== accountId))
+      !arnScope ||
+      (arnScope.region !== '' && arnScope.region !== region) ||
+      (arnScope.accountId !== '' && arnScope.accountId !== accountId)
     ) {
       return undefined;
     }
