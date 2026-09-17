@@ -59,3 +59,23 @@ ESM/CommonJS discovery and declaration checks against the installed artifacts. V
 update when the CLI ships. A version commit, green build, or tarball packed locally is not publication evidence.
 Record the verified versions and the [SDK upgrade example](../../packages/sdk/README.md#optimization-contract-upgrade)
 in the release issue and downstream integration handoff.
+
+### Recover published release follow-up steps
+
+Changesets CLI v3 requires `changesets/action` v2. The v1 action parsed CLI v2 console messages and can report a
+successful job after npm publication while missing the v3 publish events, Git tags, GitHub releases, and Homebrew
+update. Keep the action's hyphenated v2 inputs/outputs aligned with the CLI major version.
+
+If npm publication succeeded but those follow-up steps were skipped, verify every exact npm version and tarball first.
+Dispatch the Release workflow on `main` with `published-release-ref` set to the original version commit's full SHA.
+The workflow checks out that commit, verifies it belongs to `main`, that all three versions exist on npm, and that each npm provenance statement names
+that exact repository and release SHA, then runs `changeset git-tag` instead of `pnpm release`. This emits the structured events the v2 action consumes without invoking
+npm publication. Git CLI tag pushing preserves the original release commit; the action creates GitHub release notes
+and the usual Homebrew step runs from the published CLI tarball.
+
+Use this only when all three packages were published from that commit. Missing or mismatched provenance fails recovery;
+existing tags must already point to the same commit. Ancestry and the absence of pending changesets are checked immediately after checkout, before any
+repository setup or installation runs; this prevents recovery from rewriting a version PR. Recovery can resume after a partial failure: missing GitHub releases are created
+from the versioned changelogs, existing releases are kept, and Homebrew runs even when no new tag events were emitted.
+It never overwrites existing tags or republishes npm packages.
+A normal dispatch with no recovery ref retains the standard version-PR/publish flow.
