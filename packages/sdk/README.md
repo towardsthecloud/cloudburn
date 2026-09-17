@@ -10,6 +10,80 @@ Use it when you want CloudBurn in internal tooling, custom automations, or your 
 npm install @cloudburn/sdk
 ```
 
+## Optimization contract upgrade
+
+The coordinated #269 release completes the contract introduced in SDK `0.37.0` / rules `0.34.0`, with immutable rule
+IDs, package-consumer validation, and these integration notes. SDK `0.37.1` pins rules `0.34.1`; applications that
+import rules directly must use that same rules version. Install SDK `0.37.1` exactly and regenerate the application
+lockfile. The accompanying CLI is `0.18.6`. Node.js 24 or newer is required.
+
+Intentional **pre-1.0 breaking changes** from SDK `0.36.x` / rules `0.33.x`:
+
+- Hub dataset `currencyCode`, `estimatedMonthlyCost`, `estimatedMonthlySavings`, and `estimatedSavingsPercentage` are
+  nullable. A complete recommendation can now survive missing financial values. Update runtime guards and use
+  `impact.currentCost` / `impact.potentialSavings`, narrowing each by `confidence`; unknown has no amount and must
+  never become zero. Known zero remains valid.
+- Canonical resource/action identity, freshness deduplication, and deterministic precedence can change finding
+  membership, counts, and order. Hub Graviton recommendations supersede equivalent native EC2/RDS recommendations;
+  different actions stay distinct. Savings Plans resource namespaces now distinguish purchase families.
+- Accept and preserve `capabilities`, optional `recommendation`, and optional `impact` in application result/artifact
+  schemas. Use final `providers` findings for retained opportunities. `evaluations` and their resource sets describe
+  evidence before precedence and cannot be counted as additional opportunities. Replace provisional progress with the
+  resolved result.
+
+CloudBurn Cloud's integration issue [#141](https://github.com/towardsthecloud/cloudburn-monorepo/issues/141) owns the
+SDK dependency/lockfile update, result guards, worker, and new artifact schema. Replace its pre-launch contract
+directly; no compatibility adapter, dual shape, or data migration is provided. Product profile membership stays
+application-owned. All current rule IDs remain unchanged and are [immutable going forward](../../docs/reference/rule-ids.md).
+
+### Minimal integration
+
+This read-only example runs one configured-region scan with a caller-owned selection. Replace the example IDs with
+the union of the application's versioned profile IDs. Use the application's existing scoped AWS credentials; the
+example never initializes or enrolls AWS services.
+
+```ts
+import { CloudBurnClient, getRuleCapabilities, type FinancialEvidence } from '@cloudburn/sdk';
+
+const enabledRules = ['CLDBRN-AWS-COSTOPTIMIZATIONHUB-4'];
+const requirements = enabledRules.map((ruleId) => ({ ruleId, capabilities: getRuleCapabilities(ruleId) }));
+const result = await new CloudBurnClient().discover({
+  target: { mode: 'region', region: 'eu-west-1' },
+  config: { discovery: { enabledRules } },
+  includeEvaluationResources: true,
+  timeoutMs: 13 * 60_000,
+});
+
+const displayAmount = (value: FinancialEvidence | undefined) =>
+  !value || value.confidence === 'unknown' ? null : `${value.amount} ${value.currency}/${value.period}`;
+
+for (const provider of result.providers) {
+  for (const rule of provider.rules) {
+    for (const finding of rule.findings) {
+      console.log({
+        ruleId: rule.ruleId,
+        resourceId: finding.resourceId,
+        recommendation: finding.recommendation,
+        currentCost: displayAmount(finding.impact?.currentCost),
+        potentialSavings: displayAmount(finding.impact?.potentialSavings),
+      });
+    }
+  }
+}
+console.log({ requirements, capabilities: result.capabilities, evaluations: result.evaluations });
+```
+
+Keep each capability outcome's scope and machine-readable reasons. `available` describes observed evidence readiness,
+not a passing rule or complete account coverage. A `recommendation-source` observation does not certify direct
+Compute Optimizer enrollment. A missing outcome is not proof of availability.
+
+Retain recommendation source, source ID, timestamps, and opaque identity keys without parsing those keys or promising
+cross-scan identity stability. Identity and precedence identify competing opportunities within a scan; different
+`opportunityId` values do not prove savings are additive. Only aggregate known, compatible currency/period/window
+figures after proving non-overlap, and report unpriced coverage separately. Preserve the full evidence envelope in
+stored results; formatted strings in this example are presentation only. See the
+[authoritative finding contract](../../docs/reference/finding-shape.md) for shapes and precedence rules.
+
 ## Getting Started
 
 ### Static scans

@@ -26,7 +26,7 @@ accounts. Dependency direction is `cloudburn CLI -> @cloudburn/sdk -> @cloudburn
   Verify smaller changes appropriately without adding tests that merely mirror the implementation.
 - For IaC rules, cover both Terraform and CloudFormation inputs.
 - Before assigning or changing rule IDs, read the [ID convention and compatibility status](docs/reference/rule-ids.md).
-  Public ID stability remains unresolved; do not renumber IDs during unrelated maintenance.
+  Rule IDs are immutable; never renumber or reuse assigned IDs, including after rule removal.
 
 ## Skills
 

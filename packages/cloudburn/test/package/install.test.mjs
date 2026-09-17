@@ -1,6 +1,15 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { delimiter, dirname, join } from 'node:path';
@@ -31,6 +40,7 @@ const run = (command, args, cwd, expectedStatus = 0) => {
       AWS_CONFIG_FILE: join(directory, 'absent-aws-config'),
       AWS_SHARED_CREDENTIALS_FILE: join(directory, 'absent-aws-credentials'),
       npm_config_userconfig: join(directory, 'empty-npmrc'),
+      XDG_CONFIG_HOME: join(directory, 'config'),
     },
   });
   assert.equal(result.error, undefined);
@@ -99,6 +109,36 @@ test('the installed executable reports the packed package version', () => {
   assert.equal(result.stdout.trim(), cliPackage.version);
 });
 
+test('packed manifests pin coordinated dependencies and ship every public entry point', () => {
+  const manifests = Object.fromEntries(
+    ['cloudburn', '@cloudburn/sdk', '@cloudburn/rules'].map((name) => {
+      const packageDirectory = join(directory, 'node_modules', name);
+      const manifest = JSON.parse(readFileSync(join(packageDirectory, 'package.json'), 'utf8'));
+      for (const version of Object.values(manifest.dependencies ?? {})) {
+        assert.doesNotMatch(version, /^(workspace:|catalog:|file:|link:)/, `${name} has an unpublished dependency`);
+      }
+      const targets =
+        name === 'cloudburn'
+          ? Object.values(manifest.bin)
+          : [
+              manifest.exports['.'].import.default,
+              manifest.exports['.'].import.types,
+              manifest.exports['.'].require.default,
+              manifest.exports['.'].require.types,
+            ];
+      for (const target of targets) {
+        assert.ok(existsSync(join(packageDirectory, target)), `${name} is missing the exported file ${target}`);
+      }
+      assert.ok(!existsSync(join(packageDirectory, 'src')), `${name} ships only built code`);
+      assert.ok(!existsSync(join(packageDirectory, 'test')), `${name} excludes test fixtures`);
+      return [name, manifest];
+    }),
+  );
+  assert.equal(manifests.cloudburn.dependencies['@cloudburn/sdk'], manifests['@cloudburn/sdk'].version);
+  assert.equal(manifests['@cloudburn/sdk'].dependencies['@cloudburn/rules'], manifests['@cloudburn/rules'].version);
+  assert.deepEqual(Object.keys(manifests['@cloudburn/rules'].dependencies ?? {}), []);
+});
+
 test('the installed CLI scans Terraform through its installed dependencies', () => {
   const result = run(
     join(directory, 'node_modules/.bin/cloudburn'),
@@ -122,7 +162,7 @@ for (const format of ['module', 'commonjs']) {
     assert.equal(result.stderr, '');
   });
 
-  test(`the installed SDK ${format} live chunks retain credentials, disposal, and cancellation`, () => {
+  test(`the installed SDK ${format} retains live lifecycle, capabilities, recommendations, and impact`, () => {
     const result = run(process.execPath, ['discovery-consumer.cjs', format], directory);
     assert.equal(result.stdout, 'ok\n');
     assert.equal(result.stderr, '');

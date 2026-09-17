@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { awsRules, LiveResourceBag, StaticResourceBag } from '../src/index.js';
 
-const RULE_ID_PATTERN = /^CLDBRN-([A-Z0-9]+)-([A-Z0-9]+)-(\d+)$/;
+const RULE_ID_PATTERN = /^CLDBRN-([A-Z0-9]+)-([A-Z0-9]+)-([1-9]\d*)$/;
 
 describe('rule metadata', () => {
   it('assigns a supported severity to every built-in rule', () => {
@@ -22,29 +22,13 @@ describe('rule metadata', () => {
     }
   });
 
-  it('uses unique contiguous rule numbers except issue-allocated Hub slots', () => {
+  it('uses unique rule IDs without requiring contiguous service sequences', () => {
     const seenRuleIds = new Set<string>();
-    const numbersByScope = new Map<string, number[]>();
 
     for (const rule of awsRules) {
-      expect(seenRuleIds.has(rule.id)).toBe(false);
+      expect(rule.id).toMatch(RULE_ID_PATTERN);
+      expect(seenRuleIds.has(rule.id), rule.id).toBe(false);
       seenRuleIds.add(rule.id);
-
-      const match = RULE_ID_PATTERN.exec(rule.id);
-
-      expect(match).not.toBeNull();
-
-      const [, provider, service, suffix] = match ?? [];
-      const scopeKey = `${provider}-${service}`;
-      const ruleNumbers = numbersByScope.get(scopeKey) ?? [];
-
-      ruleNumbers.push(Number.parseInt(suffix ?? '', 10));
-      numbersByScope.set(scopeKey, ruleNumbers);
-    }
-
-    for (const ruleNumbers of numbersByScope.values()) {
-      const sortedRuleNumbers = [...ruleNumbers].sort((left, right) => left - right);
-      expect(sortedRuleNumbers).toEqual(Array.from({ length: sortedRuleNumbers.length }, (_, index) => index + 1));
     }
   });
 

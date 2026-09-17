@@ -32,7 +32,7 @@ adding, moving, or retiring durable documentation.
 - [Configuration schema](reference/config-schema.md) — fields, defaults, loading, validation, and merge behavior.
 - [AWS request scheduling](reference/aws-request-scheduling.md): quota scopes, local coordination, retries, environment overrides, and attempt telemetry.
 - [Discovery evidence cache](reference/evidence-cache.md): reuse scopes, freshness policies, completeness, provenance, and persistence coordination.
-- [Rule IDs](reference/rule-ids.md) — current rules, sequence convention, preset, and compatibility status.
+- [Rule IDs](reference/rule-ids.md) — current rules, immutable IDs, allocation convention, and presets.
 - [Finding shape](reference/finding-shape.md) — public finding and scan result contracts.
 
 ## Package entry points
@@ -71,8 +71,8 @@ Update that page in the same change as its source. Link to it from other entry p
 - Add, move, or retire durable pages through this catalog. Keep explanations, procedures, and reference facts on their
   owning pages; package READMEs own public package usage and the root README owns product onboarding.
 - Distinguish verified behavior from intended contracts. When code and a documented contract disagree, record the gap
-  and preserve the contract until intent is resolved. The [rule ID compatibility status](reference/rule-ids.md#compatibility-status)
-  is an existing unresolved decision, not permission to redefine ID policy.
+  and preserve the contract until intent is resolved. The [rule ID compatibility policy](reference/rule-ids.md#compatibility-status)
+  requires immutable IDs even when a rule is removed or reordered.
 - Keep durable repository decisions and their rationale locally. Link to external documentation for facts owned by AWS
   or other tools. Label superseded guidance and point to its replacement when retaining useful history.
 - Do not commit planning artifacts, implementation plans, or point-in-time design specs such as `docs/superpowers/`.

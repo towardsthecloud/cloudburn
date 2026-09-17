@@ -10,7 +10,7 @@ Use this guide for both:
 ## 1. Choose an ID
 
 Use `CLDBRN-{PROVIDER}-{SERVICE}-{N}` and consult the [ID convention](../reference/rule-ids.md#id-convention) before
-assigning a number. The reference owns sequence rules, allocated slots, and the test enforcement gap. Review the
+assigning a number. The reference owns immutable IDs, allocation rules, and retired slots. Review the
 [compatibility status](../reference/rule-ids.md#compatibility-status) before removing or reordering a published rule.
 
 ## 2. Decide Whether You Need a Dataset Change
