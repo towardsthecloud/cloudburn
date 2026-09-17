@@ -59,3 +59,19 @@ ESM/CommonJS discovery and declaration checks against the installed artifacts. V
 update when the CLI ships. A version commit, green build, or tarball packed locally is not publication evidence.
 Record the verified versions and the [SDK upgrade example](../../packages/sdk/README.md#optimization-contract-upgrade)
 in the release issue and downstream integration handoff.
+
+### Recover published release follow-up steps
+
+Changesets CLI v3 requires `changesets/action` v2. The v1 action parsed CLI v2 console messages and can report a
+successful job after npm publication while missing the v3 publish events, Git tags, GitHub releases, and Homebrew
+update. Keep the action's hyphenated v2 inputs/outputs aligned with the CLI major version.
+
+If npm publication succeeded but those follow-up steps were skipped, verify every exact npm version and tarball first.
+Dispatch the Release workflow on `main` with `published-release-ref` set to the original version commit's full SHA.
+The workflow checks out that commit, verifies it belongs to `main` and that all three versions exist on npm, then runs
+`changeset git-tag` instead of `pnpm release`. This emits the structured events the v2 action consumes without invoking
+npm publication. Git CLI tag pushing preserves the original release commit; the action creates GitHub release notes
+and the usual Homebrew step runs from the published CLI tarball.
+
+Use this only when the release tags are missing; it does not overwrite existing tags or repair an unrelated release.
+A normal dispatch with no recovery ref retains the standard version-PR/publish flow.

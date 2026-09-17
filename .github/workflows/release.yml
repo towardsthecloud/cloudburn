@@ -5,6 +5,11 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      published-release-ref:
+        description: 'Recover tags, GitHub releases, and Homebrew for an already-published release commit (no npm publish)'
+        required: false
+        type: string
 
 concurrency:
   group: release-${{ github.ref }}
@@ -23,6 +28,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          ref: ${{ inputs.published-release-ref || github.ref }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
@@ -37,30 +43,43 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Verify existing npm versions before recovery
+        if: inputs.published-release-ref != ''
+        run: |
+          git merge-base --is-ancestor HEAD origin/main
+          for PACKAGE in rules sdk cloudburn; do
+            NAME=$(node -p "require('./packages/${PACKAGE}/package.json').name")
+            VERSION=$(node -p "require('./packages/${PACKAGE}/package.json').version")
+            PUBLISHED_VERSION=$(npm view "${NAME}@${VERSION}" version --registry=https://registry.npmjs.org)
+            test "$PUBLISHED_VERSION" = "$VERSION"
+          done
+
       - name: Create release pull request or publish
         id: changesets
-        uses: changesets/action@v1
+        uses: changesets/action@v2.1.2
         with:
-          publish: pnpm release
-          commit: "chore: version packages"
-          title: "chore: version packages"
+          publish-script: ${{ inputs.published-release-ref != '' && 'pnpm exec changeset git-tag' || 'pnpm release' }}
+          commit-message: "chore: version packages"
+          pr-title: "chore: version packages"
+          # Recovery tags must point at the checked-out release, not the workflow dispatch commit.
+          push-with-git-cli: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HUSKY: 0
 
       - name: Label release pull request
-        if: steps.changesets.outputs.pullRequestNumber != ''
+        if: steps.changesets.outputs.pr-number != ''
         continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ steps.changesets.outputs.pullRequestNumber }}
+          PR_NUMBER: ${{ steps.changesets.outputs.pr-number }}
         run: gh pr edit "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --add-label release
 
       - name: Update Homebrew tap
         if: >-
           github.ref == 'refs/heads/main' &&
           steps.changesets.outputs.published == 'true' &&
-          contains(steps.changesets.outputs.publishedPackages, '"cloudburn"')
+          contains(steps.changesets.outputs.published-packages, '"cloudburn"')
         env:
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
         run: |
