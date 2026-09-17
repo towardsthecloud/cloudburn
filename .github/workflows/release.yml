@@ -80,6 +80,8 @@ jobs:
           pr-title: "chore: version packages"
           # Recovery tags must point at the checked-out release, not the workflow dispatch commit.
           push-with-git-cli: true
+          # Recovery verifies remote tags before creating releases itself.
+          create-github-releases: ${{ inputs.published-release-ref == '' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HUSKY: 0
@@ -91,6 +93,16 @@ jobs:
         run: |
           NOTES=$(mktemp)
           trap 'rm -f "$NOTES"' EXIT
+          RELEASE_SHA=$(git rev-parse HEAD)
+          # The action warns rather than failing when a tag push is rejected.
+          # Check every remote tag before any release can implicitly create one.
+          for PACKAGE in rules sdk cloudburn; do
+            NAME=$(node -p "require('./packages/${PACKAGE}/package.json').name")
+            VERSION=$(node -p "require('./packages/${PACKAGE}/package.json').version")
+            TAG="${NAME}@${VERSION}"
+            REMOTE_SHA=$(git ls-remote origin "refs/tags/$TAG" | cut -f 1)
+            test "$REMOTE_SHA" = "$RELEASE_SHA"
+          done
           for PACKAGE in rules sdk cloudburn; do
             NAME=$(node -p "require('./packages/${PACKAGE}/package.json').name")
             VERSION=$(node -p "require('./packages/${PACKAGE}/package.json').version")
