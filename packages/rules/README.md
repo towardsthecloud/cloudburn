@@ -133,3 +133,10 @@ Apache-2.0
 `currentConfiguration` and `recommendedConfiguration` fields for each of the 8 supported AWS resource types.
 The evaluator accepts only `Rightsize` actions. See the [SDK discovery guidance](../sdk/README.md) for enrollment,
 IAM permissions, evidence projection, and native-rule precedence.
+
+## Rule ID stability
+
+From the coordinated optimization-contract release for #269 onward, assigned rule IDs are immutable: never renumber
+or reuse them, including after removal. Gaps are valid; this release preserves all existing IDs. Consumers should keep
+the package version with their selected rule IDs. See the [allocation policy](../../docs/reference/rule-ids.md) and the
+[SDK upgrade notes](../sdk/README.md#optimization-contract-upgrade) for the coordinated consumer contract.

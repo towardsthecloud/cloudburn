@@ -9,15 +9,18 @@ Format: `CLDBRN-{PROVIDER}-{SERVICE}-{N}`
 
 - All uppercase
 - No zero-padding on the sequence number
-- IDs stay contiguous within each provider/service sequence except the issue-allocated Cost Optimization Hub slots: `-3` belongs to #209, `-4` to #210, and `-5` to #211. Unimplemented slots do not export placeholder rules.
+- IDs are immutable: never renumber or reuse an assigned ID, including after removing or reordering a rule.
+- Gaps are valid. Allocate above the highest number ever assigned or reserved in that provider/service sequence;
+  consult this reference and Git history, not just the currently exported catalog. Do not fill retired slots.
 - Provider: `AWS`, `AZURE`, `GCP`
 - Service: short name matching the directory (e.g. `EBS`, `EC2`, `RDS`, `S3`, `LAMBDA`)
 
-The [metadata test](../../packages/rules/test/rule-metadata.test.ts) enforces uniqueness and a gap-free numeric
-sequence for every provider/service pair. Its title mentions the Hub exception, but its assertions do not implement
-that exception. The [Hub service index](../../packages/rules/src/aws/costoptimizationhub/index.ts) currently includes
-all 6 slots, so the mismatch is latent. Preserve the documented allocations; if an unimplemented slot is needed again,
-resolve the enforcement gap rather than renumbering allocated IDs to satisfy the test.
+The [metadata test](../../packages/rules/test/rule-metadata.test.ts) enforces uniqueness, provider/service consistency,
+and positive, unpadded numeric suffixes. It deliberately does not require contiguous numbering. It cannot detect
+historical reuse; reviewers must check prior allocations when assigning an ID. Record future retirements here with
+ID, original rule name, and retirement version; keep the slot reserved without exporting a placeholder rule.
+The Cost Optimization Hub slots `-3`, `-4`, and `-5` were allocated to #209, #210, and #211 respectively and remain
+assigned to those rules.
 
 ## Presets
 
@@ -32,12 +35,15 @@ resolve the enforcement gap rather than renumbering allocated IDs to satisfy the
 
 ## Compatibility Status
 
-Rule IDs are public configuration and result references. Except for the allocated Hub slots above, the repository enforces contiguous service sequences,
-including renumbering later entries when rules are removed or reordered. That policy conflicts with treating each ID as an
-immutable cross-release identifier. The long-term public-stability contract remains a maintainer decision.
+Rule IDs are immutable public configuration and result references from the coordinated optimization-contract release
+for [#269](https://github.com/towardsthecloud/cloudburn/issues/269) onward. Versioned consumer profiles and immutable
+scan manifests pin these identifiers, so removing or reordering a rule must leave all other IDs unchanged. Never
+reassign a removed rule's ID to a different policy. Rule names, descriptions, thresholds, and evidence can evolve;
+intentional behavior changes still require release notes.
 
-Until that decision is resolved, follow the enforced contiguous policy, treat any renumbering as a user-visible migration,
-and update all repository references together. Do not renumber IDs as part of unrelated maintenance.
+This replaces the previous contiguous-sequence policy. It is forward-looking: this release renumbers no rules and
+adds no retrospective compatibility baseline, aliases, or migration adapter. Consumers retain the package version
+alongside exact rule IDs to interpret historical results.
 
 ## Rule Table
 

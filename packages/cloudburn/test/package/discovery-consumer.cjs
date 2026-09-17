@@ -56,23 +56,51 @@ const main = async () => {
         },
       };
     }
-    assert.equal(operation, 'GetAnomalyMonitors', `Unexpected offline AWS request: ${operation}`);
+    const responses = {
+      GetAnomalyMonitors: { AnomalyMonitors: [] },
+      ListEnrollmentStatuses: { items: [{ accountId: '111111111111', status: 'Active' }] },
+      ListRecommendations: {
+        items: [
+          {
+            accountId: '111111111111',
+            region: 'eu-west-1',
+            resourceId: 'arn:aws:ec2:eu-west-1:111111111111:volume/vol-test',
+            recommendationId: 'idle-volume',
+            actionType: 'Delete',
+            currentResourceType: 'EbsVolume',
+            implementationEffort: 'Low',
+            restartNeeded: false,
+            rollbackPossible: false,
+            source: 'ComputeOptimizer',
+            currencyCode: 'USD',
+            estimatedMonthlyCost: 20,
+            estimatedMonthlySavings: 20,
+            lastRefreshTimestamp: Date.parse('2026-09-04T00:00:00Z') / 1000,
+          },
+        ],
+      },
+      GetRecommendation: {
+        currentResourceDetails: { ebsVolume: { configuration: { storage: { type: 'gp3', sizeInGb: 20 } } } },
+      },
+    };
+    assert.ok(Object.hasOwn(responses, operation), `Unexpected offline AWS request: ${operation}`);
     return {
       response: {
         statusCode: 200,
         headers: { 'content-type': 'application/json' },
-        body: Buffer.from('{"AnomalyMonitors":[]}'),
+        body: Buffer.from(JSON.stringify(responses[operation])),
       },
     };
   };
 
-  const discover = (signal) =>
+  const discover = (signal, ruleId = 'CLDBRN-AWS-COSTGUARDRAILS-2') =>
     sdk.withAwsClientCredentials({ accessKeyId: 'SCOPED', secretAccessKey: 'synthetic-key' }, () =>
       new sdk.CloudBurnClient().discover({
         signal,
         timeoutMs: 10_000,
         target: { mode: 'region', region: 'eu-west-1' },
-        config: { discovery: { enabledRules: ['CLDBRN-AWS-COSTGUARDRAILS-2'] } },
+        config: { discovery: { enabledRules: [ruleId] } },
+        includeEvaluationResources: true,
       }),
     );
 
@@ -102,6 +130,65 @@ const main = async () => {
     assert.equal(destroyed.length, 4);
     await delay(50);
     assert.equal(requests.length, requestCount, 'Cancelled discovery must not dispatch later requests.');
+
+    const hubRule = 'CLDBRN-AWS-COSTOPTIMIZATIONHUB-3';
+    assert.ok(sdk.AWS_CAPABILITIES.includes('cost-optimization-hub-enrollment'));
+    assert.deepEqual(sdk.getRuleCapabilities(hubRule), ['cost-optimization-hub-enrollment']);
+    const hub = await discover(undefined, hubRule);
+    assert.deepEqual(hub.capabilities, [
+      {
+        capability: 'compute-optimizer-enrollment',
+        datasetKeys: ['aws-cost-optimization-hub-idle-recommendations'],
+        reasons: [],
+        scope: { type: 'recommendation-source', accountId: '111111111111', region: 'eu-west-1' },
+        status: 'available',
+      },
+      {
+        capability: 'cost-optimization-hub-enrollment',
+        datasetKeys: ['aws-cost-optimization-hub-idle-recommendations'],
+        reasons: [],
+        scope: { type: 'account' },
+        status: 'available',
+      },
+    ]);
+    const provenance = {
+      source: 'aws-cost-optimization-hub',
+      sourceDetail: 'ComputeOptimizer',
+      sourceId: 'idle-volume',
+      refreshedAt: '2026-09-04T00:00:00.000Z',
+    };
+    const recommendation = {
+      ...provenance,
+      resourceKey: '["resource",1,"aws","111111111111","eu-west-1","ec2:volume","vol-test"]',
+      opportunityId: '["opportunity",1,"aws","111111111111","eu-west-1","ec2:volume","vol-test","Delete"]',
+    };
+    const impact = {
+      ...provenance,
+      currentCost: { amount: 20, confidence: 'estimated', currency: 'USD', period: 'month' },
+      potentialSavings: { amount: 20, confidence: 'estimated', currency: 'USD', period: 'month' },
+    };
+    assert.deepEqual(
+      hub.providers.flatMap((provider) => provider.rules.flatMap((rule) => rule.findings)),
+      [
+        {
+          accountId: '111111111111',
+          region: 'eu-west-1',
+          resourceId: 'vol-test',
+          resourceType: 'ec2:volume',
+          actionType: 'Delete',
+          recommendation,
+          impact,
+        },
+      ],
+    );
+    const evaluation = hub.evaluations.rules.find((rule) => rule.ruleId === hubRule);
+    assert.equal(evaluation.status, 'triggered');
+    assert.equal(evaluation.findingCount, 1);
+    const resources = hub.evaluations.resourceSets.find((set) => set.id === evaluation.resourceSetId).resources;
+    assert.equal(resources.length, 1);
+    assert.equal(resources[0].resourceId, 'vol-test');
+    assert.deepEqual(resources[0].recommendation, recommendation);
+    assert.deepEqual(resources[0].impact, impact);
     process.stdout.write('ok\n');
   } finally {
     transport.handle = originalHandle;
