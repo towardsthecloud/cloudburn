@@ -70,12 +70,17 @@ If npm publication succeeded but those follow-up steps were skipped, verify ever
 Dispatch the Release workflow on `main` with `published-release-ref` set to the original version commit's full SHA.
 The workflow checks out that commit, verifies it belongs to `main`, that all three versions exist on npm, and that each npm provenance statement names
 that exact repository and release SHA, then runs `changeset git-tag` instead of `pnpm release`. This emits the structured events the v2 action consumes without invoking
-npm publication. Git CLI tag pushing preserves the original release commit; the action creates GitHub release notes
-and the usual Homebrew step runs from the published CLI tarball.
+npm publication. Recovery disables the action's automatic GitHub releases, verifies all remote tags against the original
+release commit after Git CLI tag pushing, then creates release notes from the versioned changelogs. The usual Homebrew
+step runs from the published CLI tarball. A rejected tag push fails this remote verification instead of allowing GitHub
+release creation to silently attach a new tag to current `main`.
 
 Use this only when all three packages were published from that commit. Missing or mismatched provenance fails recovery;
 existing tags must already point to the same commit. Ancestry and the absence of pending changesets are checked immediately after checkout, before any
 repository setup or installation runs; this prevents recovery from rewriting a version PR. Recovery can resume after a partial failure: missing GitHub releases are created
 from the versioned changelogs, existing releases are kept, and Homebrew runs even when no new tag events were emitted.
 It never overwrites existing tags or republishes npm packages.
+GitHub may reject a historical tag push by the workflow token when the release commit has an older workflow definition.
+In that case, an authorized maintainer must create the missing tags at the provenance-verified commit using their existing
+repository access, then rerun recovery. Do not broaden token permissions or accept a different tag target to make recovery pass.
 A normal dispatch with no recovery ref retains the standard version-PR/publish flow.
