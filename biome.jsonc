@@ -59,6 +59,23 @@
           }
         }
       }
+    },
+    {
+      "includes": ["packages/action/src/**", "packages/action/test/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "paths": {
+                  "@cloudburn/rules": "The action must not import @cloudburn/rules directly. Use @cloudburn/sdk instead."
+                }
+              }
+            }
+          }
+        }
+      }
     }
   ]
 }

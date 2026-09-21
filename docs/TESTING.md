@@ -6,7 +6,7 @@
 - **Gate command:** `pnpm verify` (runs documentation checks, package boundaries, lint, typecheck, and every test suite)
 - **TDD flow:** red-green-refactor — write a failing test first, implement the minimal code to pass, then refactor
 
-## Three-Package Test Strategy
+## Package Test Strategy
 
 ### `@cloudburn/rules`
 
@@ -114,6 +114,14 @@ The separate `test/e2e/` suite runs the built executable against real Terraform 
 - `table` output stays human-readable and `json` output stays machine-readable
 - Runtime errors remain structured JSON on `stderr` regardless of stdout format
 
+### `@cloudburn/action`
+
+Unit tests mock the GitHub toolkit boundary (`@actions/core`, `@actions/github`) and cover input parsing, policy
+precedence, markdown rendering, annotations, and comment upserts. The `test:e2e` suite runs the built `dist/index.cjs`
+bundle in a child process with `INPUT_*`/`GITHUB_*` environment variables against the CLI's e2e fixtures — the same
+entry the `node24` runner executes. It verifies workflow commands on stdout, `GITHUB_OUTPUT`/`GITHUB_STEP_SUMMARY`
+files, the result JSON artifact, and exit status. No AWS credentials or real pull requests are used.
+
 ### Built CLI template tests
 
 `pnpm test:e2e` builds the CLI and its workspace dependencies, then starts the executable in isolated temporary directories. Fixtures and reviewed finding expectations live in `packages/cloudburn/test/e2e/`. These tests cover Terraform, CloudFormation YAML and JSON, positive and negative findings, source scope, source locations, configuration, suppression, parser diagnostics, and exit codes. They use no AWS credentials or account resources.
@@ -184,6 +192,6 @@ heading fragments, reference-style definitions and uses, code-example exclusion,
 
 ## CI and task caching
 
-CI installs dependencies once in a shared validation job. Pull requests run `pnpm verify --affected`; pushes to `main` run the full `pnpm verify` gate. Both pass `--concurrency=2` to Turbo because hosted runners have 4 vCPUs, and running every package's Vitest suite beside the CLI end-to-end tests, lint, and typecheck stretches timer-paced integration tests past their budgets. Documentation checks and package boundaries always run. Turbo selects affected package tasks and shares required builds within the job.
+The shared `validate` CI job installs dependencies once. Pull requests run `pnpm verify --affected`; pushes to `main` run the full `pnpm verify` gate. Both pass `--concurrency=2` to Turbo because hosted runners have 4 vCPUs, and running every package's Vitest suite beside the CLI end-to-end tests, lint, and typecheck stretches timer-paced integration tests past their budgets. Documentation checks and package boundaries always run. Turbo selects affected package tasks and shares required builds within the job. A separate smoke job rebuilds the action and runs it through `uses: ./packages/action` against real fixtures, exercising the same `dist/` entry the runner executes.
 
 Source tests resolve workspace source directly and can run without dependency builds. The `test:inputs` transit task propagates upstream source changes into downstream test cache keys without serializing their execution. Built CLI and installed-package suites depend on the CLI build, which depends on SDK/rules builds. Test fixture edits invalidate tests without rebuilding unchanged package output. See the [command reference](reference/commands.md) for task dependencies and cache policy.

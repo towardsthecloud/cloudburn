@@ -94,9 +94,15 @@ jobs:
           NOTES=$(mktemp)
           trap 'rm -f "$NOTES"' EXIT
           RELEASE_SHA=$(git rev-parse HEAD)
+          # The private action package is versioned and tagged but absent at refs
+          # that predate it.
+          PACKAGES="rules sdk cloudburn"
+          if [ -f packages/action/package.json ]; then
+            PACKAGES="$PACKAGES action"
+          fi
           # The action warns rather than failing when a tag push is rejected.
           # Check every remote tag before any release can implicitly create one.
-          for PACKAGE in rules sdk cloudburn; do
+          for PACKAGE in $PACKAGES; do
             NAME=$(node -p "require('./packages/${PACKAGE}/package.json').name")
             VERSION=$(node -p "require('./packages/${PACKAGE}/package.json').version")
             TAG="${NAME}@${VERSION}"
@@ -104,24 +110,14 @@ jobs:
               | awk '$2 ~ /\^\{\}$/ { peeled=$1; next } { direct=$1 } END { print peeled ? peeled : direct }')
             test "$REMOTE_SHA" = "$RELEASE_SHA"
           done
-          for PACKAGE in rules sdk cloudburn; do
+          for PACKAGE in $PACKAGES; do
             NAME=$(node -p "require('./packages/${PACKAGE}/package.json').name")
             VERSION=$(node -p "require('./packages/${PACKAGE}/package.json').version")
             TAG="${NAME}@${VERSION}"
             if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
               continue
             fi
-            node --input-type=module - "$PACKAGE" "$VERSION" > "$NOTES" <<'NODE'
-          import { readFileSync } from 'node:fs';
-          const [name, version] = process.argv.slice(2);
-          const changelog = readFileSync(`packages/${name}/CHANGELOG.md`, 'utf8');
-          const marker = `## ${version}\n`;
-          const start = changelog.indexOf(marker);
-          if (start < 0) throw new Error(`Missing changelog for ${name}@${version}`);
-          const notes = changelog.slice(start + marker.length).split('\n## ')[0].trim();
-          if (!notes) throw new Error(`Empty changelog for ${name}@${version}`);
-          process.stdout.write(`${notes}\n`);
-          NODE
+            node scripts/changelog-notes.mjs "packages/${PACKAGE}/CHANGELOG.md" "$VERSION" > "$NOTES"
             gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag --title "$TAG" --notes-file "$NOTES"
           done
 
@@ -198,3 +194,80 @@ jobs:
             -H "Accept: application/vnd.github.v3+json" \
             "https://api.github.com/repos/towardsthecloud/homebrew-tap/contents/Formula/cloudburn.rb" \
             -d "$JSON_PAYLOAD"
+
+      - name: Sync GitHub Action
+        if: >-
+          github.ref == 'refs/heads/main' &&
+          (inputs.published-release-ref != '' ||
+           (steps.changesets.outputs.published == 'true' &&
+            contains(steps.changesets.outputs.published-packages, '"@cloudburn/action"')))
+        env:
+          ACTION_REPO_TOKEN: ${{ secrets.ACTION_REPO_TOKEN }}
+          GH_TOKEN: ${{ secrets.ACTION_REPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          TARGET_REPO="towardsthecloud/cloudburn-action"
+
+          if [ ! -f packages/action/package.json ]; then
+            echo "No action package at this ref; skipping sync."
+            exit 0
+          fi
+
+          VERSION=$(node -p "require('./packages/action/package.json').version")
+          TAG="v${VERSION}"
+          MAJOR="v${VERSION%%.*}"
+          REMOTE="https://x-access-token:${ACTION_REPO_TOKEN}@github.com/${TARGET_REPO}.git"
+
+          # A higher remote version means this run recovers an older release:
+          # heal only its tag and release, never the default branch, the
+          # floating major tag, or the "latest" release marker.
+          REMOTE_MAX=$(git ls-remote --tags "$REMOTE" 'refs/tags/v*' | sed 's|.*/v||' | sort -V | tail -n1 || true)
+          STALE=""
+          if [ -n "$REMOTE_MAX" ] && [ "$REMOTE_MAX" != "$VERSION" ] \
+            && [ "$(printf '%s\n%s\n' "$VERSION" "$REMOTE_MAX" | sort -V | tail -n1)" = "$REMOTE_MAX" ]; then
+            STALE=1
+            echo "Remote already has ${MAJOR} version ${REMOTE_MAX}; syncing ${TAG} as an older release."
+          fi
+
+          pnpm exec turbo run build --filter @cloudburn/action
+          test -f packages/action/dist/index.cjs
+          test -f packages/action/dist/main.wasm.gz
+
+          NOTES=$(mktemp)
+          trap 'rm -f "$NOTES"' EXIT
+          node scripts/changelog-notes.mjs packages/action/CHANGELOG.md "$VERSION" --fallback > "$NOTES"
+
+          git clone --depth 1 "$REMOTE" action-target
+          cp packages/action/action.yml packages/action/README.md LICENSE action-target/
+          mkdir -p action-target/dist
+          cp packages/action/dist/index.cjs packages/action/dist/main.wasm.gz action-target/dist/
+
+          cd action-target
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Load-bearing when the target repo is empty or its default branch differs.
+          git checkout -B main
+          git add -A
+          if git diff --staged --quiet; then
+            echo "No content changes for ${TAG}."
+          else
+            git commit -m "chore: sync cloudburn-action ${TAG}"
+            if [ -z "$STALE" ]; then
+              git push origin HEAD:main
+            fi
+          fi
+
+          # Each artifact is reconciled independently so re-runs heal partial syncs.
+          if [ -z "$(git ls-remote --tags origin "refs/tags/${TAG}")" ]; then
+            # -f: a shallow clone can carry a stale local tag.
+            git tag -f -a "$TAG" -m "Release $TAG"
+            git push origin "$TAG"
+          fi
+          if [ -z "$STALE" ]; then
+            git tag -f -a "$MAJOR" -m "Update $MAJOR to $TAG"
+            git push origin --force "$MAJOR"
+          fi
+          if ! gh release view "$TAG" --repo "$TARGET_REPO" > /dev/null 2>&1; then
+            gh release create "$TAG" --repo "$TARGET_REPO" --verify-tag --title "$TAG" \
+              --notes-file "$NOTES" ${STALE:+--latest=false}
+          fi

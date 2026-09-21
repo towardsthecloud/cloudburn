@@ -2,7 +2,8 @@
 
 ## Contributor changesets
 
-Add a changeset for a user-facing change to a published package: `cloudburn`, `@cloudburn/sdk`, or `@cloudburn/rules`.
+Add a changeset for a user-facing change to a versioned package: `cloudburn`, `@cloudburn/sdk`, `@cloudburn/rules`, or
+`@cloudburn/action` (versioned and tagged, but not published to npm — see [GitHub Action sync](#github-action-sync)).
 Documentation-only changes do not need one.
 
 Write `.changeset/<random-kebab-case-slug>.md` directly with one package per file:
@@ -26,6 +27,28 @@ non-fatal so missing labels or temporary API errors do not fail a successful rel
 Merging that pull request runs `pnpm release`, which verifies the repository,
 force-builds packages, and publishes changed packages to npm. When the `cloudburn` CLI is published, the same workflow
 updates its formula in the Homebrew tap from the npm tarball.
+
+## GitHub Action sync
+
+`@cloudburn/action` is private: `changeset publish` never sends it to npm, but
+`privatePackages: { version: true, tag: true }` in `.changeset/config.json` still versions it and emits the
+`@cloudburn/action@x.y.z` tag and GitHub release. Its `@cloudburn/sdk` dependency is pinned with `workspace:*`
+(an exact version), so every SDK release leaves the action out of range and Changesets patch-bumps it — the action
+version therefore tracks the SDK automatically. Keep the `workspace:*` pin; a ranged dependency would break tracking
+for patch releases.
+
+After publishing, the `Sync GitHub Action` step reads `packages/action/package.json`, builds the bundle, clones
+`towardsthecloud/cloudburn-action` with `ACTION_REPO_TOKEN`, copies `action.yml`, `dist/index.cjs`,
+`dist/main.wasm.gz`, `README.md`, and `LICENSE`, and commits only on content changes. It then reconciles each
+artifact independently — `v<version>` tag, floating `v<major>` tag, and GitHub release from
+`packages/action/CHANGELOG.md` — so re-runs heal partial syncs. When the remote already holds a newer version (a
+`published-release-ref` recovery for an older release), the step heals only that version's tag and release: it never
+moves `main`, the major tag, or the "latest" release marker backwards. The step needs the `ACTION_REPO_TOKEN` secret
+with `contents: write` on the target repository — the same pattern as `HOMEBREW_TAP_TOKEN`.
+
+The Marketplace listing is a one-time manual step: draft the first release in the target repository through the UI with
+"Publish this Action to the GitHub Marketplace" checked (`action.yml` carries the `branding` metadata; the listing name
+is `CloudBurn`). Automated releases afterwards keep the listing updated.
 
 The workflow and `.changeset/config.json` are authoritative for release automation. Maintainers may dispatch the workflow
 manually; local versioning and publishing require an explicit maintenance task. Changesets uses its GitHub changelog

@@ -22,7 +22,7 @@ adding, moving, or retiring durable documentation.
 - [Adding a rule](guides/adding-a-rule.md) — identifiers, implementation, registration, documentation, and tests.
 - [Adding a static dataset](guides/adding-a-static-dataset.md) — normalized Terraform and CloudFormation data.
 - [Adding a provider resource](guides/adding-a-provider-resource.md) — live AWS discovery datasets and hydration.
-- [Releasing](guides/releasing.md) — changesets, automated release PRs, publishing, and Homebrew updates.
+- [Releasing](guides/releasing.md) — changesets, automated release PRs, publishing, Homebrew updates, and the action sync.
 
 ## Reference
 
@@ -37,11 +37,12 @@ adding, moving, or retiring durable documentation.
 
 ## Package entry points
 
-| Package            | Instructions                                                      | Human README                                                      |
-| ------------------ | ----------------------------------------------------------------- | ----------------------------------------------------------------- |
-| `cloudburn`        | [`packages/cloudburn/AGENTS.md`](../packages/cloudburn/AGENTS.md) | [`packages/cloudburn/README.md`](../packages/cloudburn/README.md) |
-| `@cloudburn/sdk`   | [`packages/sdk/AGENTS.md`](../packages/sdk/AGENTS.md)             | [`packages/sdk/README.md`](../packages/sdk/README.md)             |
-| `@cloudburn/rules` | [`packages/rules/AGENTS.md`](../packages/rules/AGENTS.md)         | [`packages/rules/README.md`](../packages/rules/README.md)         |
+| Package             | Instructions                                                      | Human README                                                      |
+| ------------------- | ----------------------------------------------------------------- | ----------------------------------------------------------------- |
+| `cloudburn`         | [`packages/cloudburn/AGENTS.md`](../packages/cloudburn/AGENTS.md) | [`packages/cloudburn/README.md`](../packages/cloudburn/README.md) |
+| `@cloudburn/action` | [`packages/action/AGENTS.md`](../packages/action/AGENTS.md)       | [`packages/action/README.md`](../packages/action/README.md)       |
+| `@cloudburn/sdk`    | [`packages/sdk/AGENTS.md`](../packages/sdk/AGENTS.md)             | [`packages/sdk/README.md`](../packages/sdk/README.md)             |
+| `@cloudburn/rules`  | [`packages/rules/AGENTS.md`](../packages/rules/AGENTS.md)         | [`packages/rules/README.md`](../packages/rules/README.md)         |
 
 ## Editing sources and ownership
 
@@ -57,6 +58,7 @@ Update that page in the same change as its source. Link to it from other entry p
 | Dataset loading or evaluation evidence       | [SDK architecture](architecture/sdk.md), [static dataset guide](guides/adding-a-static-dataset.md), [discovery dataset guide](guides/adding-a-provider-resource.md) | [Rule-facing contracts](../packages/rules/src/shared/metadata.ts) and [AWS provider registries and loaders](../packages/sdk/src/providers/aws/)                                                        |
 | Public findings or scan results              | [Finding reference](reference/finding-shape.md), [SDK README](../packages/sdk/README.md)                                                                            | [Rule contracts](../packages/rules/src/shared/metadata.ts), [SDK types](../packages/sdk/src/types.ts), and [engine](../packages/sdk/src/engine/)                                                       |
 | Generated output or releases                 | [Generated files](reference/generated-files.md), [release guide](guides/releasing.md)                                                                               | Package build configs, [Changesets config](../.changeset/config.json), and [release workflow](../.github/workflows/release.yml)                                                                        |
+| GitHub Action behavior                       | [Action package instructions](../packages/action/AGENTS.md), [release guide](guides/releasing.md#github-action-sync)                                                | [Action manifest](../packages/action/action.yml) and [source](../packages/action/src/)                                                                                                                 |
 | Validation or documentation checks           | [Testing](TESTING.md), [commands](reference/commands.md)                                                                                                            | [CI workflow](../.github/workflows/ci.yml), [checker](../scripts/check-docs.mjs), and [checker tests](../test/docs-check.test.mjs)                                                                     |
 | AWS request admission, retries, or telemetry | [AWS request scheduling](reference/aws-request-scheduling.md)                                                                                                       | [Request module](../packages/sdk/src/providers/aws/request.ts), [policies](../packages/sdk/src/providers/aws/request-policy.ts), and [local state](../packages/sdk/src/providers/aws/request-store.ts) |
 

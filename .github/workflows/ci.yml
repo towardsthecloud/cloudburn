@@ -47,3 +47,33 @@ jobs:
       - name: Verify the complete workspace
         if: github.event_name != 'pull_request'
         run: pnpm verify --concurrency=2
+
+  action:
+    name: GitHub Action smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build the action bundle
+        run: pnpm exec turbo run build --filter @cloudburn/action
+
+      - name: Run the action against IaC fixtures
+        uses: ./packages/action
+        with:
+          path: packages/cloudburn/test/e2e/fixtures/ebs
+          comment: 'false'

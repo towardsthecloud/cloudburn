@@ -1,12 +1,13 @@
 # AGENTS.md
 
-CloudBurn is a pnpm/Turborepo monorepo for a CLI, SDK, and pure rule package that detect AWS cost issues in IaC and live
-accounts. Dependency direction is `cloudburn CLI -> @cloudburn/sdk -> @cloudburn/rules`.
+CloudBurn is a pnpm/Turborepo monorepo for a CLI, SDK, pure rule package, and the bundled GitHub Action distribution
+package that detect AWS cost issues in IaC and live accounts. Dependency direction is `cloudburn CLI` and
+`@cloudburn/action` -> `@cloudburn/sdk` -> `@cloudburn/rules`.
 
 ## Start with the task
 
 - Read the nearest package instructions before editing: [CLI](packages/cloudburn/AGENTS.md),
-  [SDK](packages/sdk/AGENTS.md), or [rules](packages/rules/AGENTS.md).
+  [SDK](packages/sdk/AGENTS.md), [rules](packages/rules/AGENTS.md), or [action](packages/action/AGENTS.md).
 - For setup and focused commands, use [local development](docs/guides/local-development.md). For task dependencies,
   caching, and command side effects, use the [command reference](docs/reference/commands.md).
 - For a new rule, start with [adding a rule](docs/guides/adding-a-rule.md); it routes dataset changes to the SDK guides.

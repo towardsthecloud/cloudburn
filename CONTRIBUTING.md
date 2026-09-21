@@ -37,7 +37,7 @@ For documentation-only changes, run `pnpm docs:check && pnpm docs:test`; see the
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full package graph and responsibility matrix.
 
-The dependency direction is `cli -> sdk -> rules`. No reverse imports.
+The dependency direction is `cli -> sdk -> rules` and `action -> sdk`. No reverse imports.
 
 ## Code Style
 
@@ -51,7 +51,7 @@ See [`docs/guides/adding-a-rule.md`](docs/guides/adding-a-rule.md) for the full 
 
 See the [release guide](docs/guides/releasing.md) for the complete contributor and automated release flow.
 
-Write `.changeset/<slug>.md` files directly for user-facing package changes. Published packages: `cloudburn` (cli), `@cloudburn/sdk`, `@cloudburn/rules`.
+Write `.changeset/<slug>.md` files directly for user-facing package changes. Published packages: `cloudburn` (cli), `@cloudburn/sdk`, `@cloudburn/rules`. The private `@cloudburn/action` package is versioned and tagged but never published to npm — action-visible changes need a changeset too.
 
 One changeset file per package — never list multiple packages in one file.
 
