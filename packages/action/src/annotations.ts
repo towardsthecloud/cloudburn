@@ -1,4 +1,5 @@
-import { isAbsolute, relative, resolve, sep } from 'node:path';
+import { statSync } from 'node:fs';
+import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import * as core from '@actions/core';
 import type { FlattenedFinding } from './findings.js';
 
@@ -8,8 +9,9 @@ import type { FlattenedFinding } from './findings.js';
  *
  * Finding locations are relative to the scanned path, so they are resolved
  * against the scan root and reported relative to the workspace for GitHub's
- * file matching. Findings without a location, or outside the workspace, render
- * in the markdown table only.
+ * file matching. When the scan target is a file, the SDK reports locations by
+ * basename beneath the file's directory. Findings without a location, or
+ * outside the workspace, render in the markdown table only.
  *
  * @param findings - Flattened findings from the completed scan.
  * @param options - Workspace root and the resolved scan root.
@@ -20,6 +22,9 @@ export const emitAnnotations = (
   options: { workspace: string; scanRoot: string },
 ): number => {
   const { workspace, scanRoot } = options;
+  // A missing root post-scan defaults to directory semantics.
+  const locationBase =
+    statSync(scanRoot, { throwIfNoEntry: false })?.isDirectory() === false ? dirname(scanRoot) : scanRoot;
   let emitted = 0;
 
   for (const { ruleId, severity, message, finding } of findings) {
@@ -28,7 +33,7 @@ export const emitAnnotations = (
       continue;
     }
 
-    const file = relative(workspace, resolve(scanRoot, location.path));
+    const file = relative(workspace, resolve(locationBase, location.path));
     if (file === '..' || file.startsWith(`..${sep}`) || isAbsolute(file)) {
       continue;
     }

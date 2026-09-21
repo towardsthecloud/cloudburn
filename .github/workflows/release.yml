@@ -221,7 +221,9 @@ jobs:
           # A higher remote version means this run recovers an older release:
           # heal only its tag and release, never the default branch, the
           # floating major tag, or the "latest" release marker.
-          REMOTE_MAX=$(git ls-remote --tags "$REMOTE" 'refs/tags/v*' | sed 's|.*/v||' | sort -V | tail -n1 || true)
+          # --refs drops peeled ^{} entries and the v*.*.* pattern excludes
+          # floating major tags, which sort as newer than any same-major version.
+          REMOTE_MAX=$(git ls-remote --tags --refs "$REMOTE" 'refs/tags/v*.*.*' | sed 's|.*/v||' | sort -V | tail -n1 || true)
           STALE=""
           if [ -n "$REMOTE_MAX" ] && [ "$REMOTE_MAX" != "$VERSION" ] \
             && [ "$(printf '%s\n%s\n' "$VERSION" "$REMOTE_MAX" | sort -V | tail -n1)" = "$REMOTE_MAX" ]; then
@@ -258,7 +260,7 @@ jobs:
           fi
 
           # Each artifact is reconciled independently so re-runs heal partial syncs.
-          if [ -z "$(git ls-remote --tags origin "refs/tags/${TAG}")" ]; then
+          if [ -z "$(git ls-remote --tags --refs origin "refs/tags/${TAG}")" ]; then
             # -f: a shallow clone can carry a stale local tag.
             git tag -f -a "$TAG" -m "Release $TAG"
             git push origin "$TAG"

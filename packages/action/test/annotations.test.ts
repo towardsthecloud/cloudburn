@@ -1,4 +1,5 @@
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { ScanResult } from '@cloudburn/sdk';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { emitAnnotations } from '../src/annotations.js';
@@ -64,5 +65,39 @@ describe('emitAnnotations', () => {
     const output = write.mock.calls.map(([chunk]) => String(chunk)).join('');
     expect(output).toContain('file=iac/main.tf,');
     expect(output).toContain('file=iac/b/main.tf,');
+  });
+
+  it('resolves a file scan target against its directory, not beneath the file', () => {
+    const write = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    // The SDK reports a file scan's locations by basename beneath its directory.
+    const scanRoot = fileURLToPath(new URL('./annotations.test.ts', import.meta.url));
+    const fileResult: ScanResult = {
+      providers: [
+        {
+          provider: 'aws',
+          rules: [
+            {
+              ruleId: 'CLDBRN-AWS-S3-1',
+              service: 's3',
+              source: 'iac',
+              severity: 'low',
+              message: 'Enable lifecycle rules.',
+              findings: [
+                {
+                  resourceId: 'aws_s3_bucket.logs',
+                  location: { path: 'annotations.test.ts', line: 1, column: 1 },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    const emitted = emitAnnotations(flattenFindings(fileResult), { workspace: dirname(scanRoot), scanRoot });
+
+    expect(emitted).toBe(1);
+    const output = write.mock.calls.map(([chunk]) => String(chunk)).join('');
+    expect(output).toContain('file=annotations.test.ts,');
   });
 });

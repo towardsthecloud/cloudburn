@@ -70,6 +70,15 @@ test('a subdirectory scan annotates files relative to the workspace', (t) => {
   assert.match(result.stdout, /file=terraform\/main\.tf,/);
 });
 
+test('a file scan annotates the file itself', (t) => {
+  const { run } = setupAction(t, 'ebs/terraform');
+  const result = run({ 'ENABLED-RULES': 'CLDBRN-AWS-EBS-1', PATH: 'main.tf' });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /file=main\.tf,/);
+  assert.doesNotMatch(result.stdout, /file=main\.tf\/main\.tf/);
+});
+
 test('annotations can be disabled while outputs still report findings', (t) => {
   const { outputFile, run } = setupAction(t, 'ebs/terraform');
   const result = run({ 'ENABLED-RULES': 'CLDBRN-AWS-EBS-1', ANNOTATIONS: 'false' });
