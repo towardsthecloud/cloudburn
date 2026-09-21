@@ -21,7 +21,12 @@ export const resolvePolicy = (
     : (result.policy ?? { qualifyingFindingCount: 0, violated: false });
 };
 
-/** Human-readable job failure line describing the tripped policy. */
+/**
+ * Human-readable job failure line describing the tripped policy.
+ *
+ * @param policy - The resolved policy outcome.
+ * @returns The summary passed to `core.setFailed`.
+ */
 export const failureSummary = (policy: ScanPolicyResult): string =>
   policy.threshold === undefined
     ? `CloudBurn scan failed: ${policy.qualifyingFindingCount} finding(s) detected.`

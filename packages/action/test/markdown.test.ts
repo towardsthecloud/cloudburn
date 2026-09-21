@@ -88,4 +88,31 @@ describe('renderScanMarkdown', () => {
     const markdown = render({ providers: [], suppressed: result.suppressed }, '## Scan');
     expect(markdown).toContain('**No active findings.** 1 suppressed.');
   });
+
+  it('keeps a backtick in a filename inside a longer code span', () => {
+    const scan: ScanResult = {
+      providers: [
+        {
+          provider: 'aws',
+          rules: [
+            {
+              ruleId: 'CLDBRN-AWS-S3-1',
+              service: 's3',
+              source: 'iac',
+              severity: 'low',
+              message: 'm',
+              findings: [
+                {
+                  resourceId: 'aws_s3_bucket.logs',
+                  location: { path: 'weird`name.tf', line: 1, column: 1 },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const markdown = render(scan, '## Scan');
+    expect(markdown).toContain('`` weird`name.tf:1 ``');
+  });
 });

@@ -5,11 +5,16 @@ export type Octokit = ReturnType<typeof getOctokit>;
 /** Hidden marker appended to the sticky comment so it is matched regardless of the configured header. */
 export const COMMENT_MARKER = '<!-- cloudburn-action -->';
 
+/** GitHub rejects issue comments beyond 65,536 characters; leave headroom for the marker and notice. */
+const MAX_COMMENT_BODY = 65_000;
+
 /**
  * Creates or updates the sticky pull request comment for a scan. An existing
- * comment is matched by an invisible marker, so the action updates in place
- * instead of stacking comments on every push — even when the `header` input
- * changes.
+ * comment is matched by an invisible marker authored by the token's own
+ * identity, so the action updates in place instead of stacking comments on
+ * every push — even when the `header` input changes — without touching a
+ * marked comment someone else posted. Bodies beyond GitHub's size limit are
+ * truncated with a pointer to the step summary.
  *
  * @param options - Octokit client, repository coordinates, and the markdown body.
  * @returns Whether a new comment was created or an existing one updated.
@@ -22,7 +27,13 @@ export const upsertPullRequestComment = async (options: {
   body: string;
 }): Promise<'created' | 'updated'> => {
   const { octokit, owner, repo, issueNumber, body } = options;
-  const markedBody = `${body}\n\n${COMMENT_MARKER}`;
+
+  const { data: actor } = await octokit.rest.users.getAuthenticated();
+  const truncated =
+    body.length > MAX_COMMENT_BODY
+      ? `${body.slice(0, MAX_COMMENT_BODY)}\n\n_… Report truncated; the step summary has the complete findings table._`
+      : body;
+  const markedBody = `${truncated}\n\n${COMMENT_MARKER}`;
 
   let existing: { id: number } | undefined;
   for await (const page of octokit.paginate.iterator(octokit.rest.issues.listComments, {
@@ -30,7 +41,9 @@ export const upsertPullRequestComment = async (options: {
     repo,
     issue_number: issueNumber,
   })) {
-    existing = page.data.find((comment) => comment.body?.includes(COMMENT_MARKER));
+    existing = page.data.find(
+      (comment) => comment.user?.login === actor.login && comment.body?.includes(COMMENT_MARKER),
+    );
     if (existing !== undefined) {
       break;
     }

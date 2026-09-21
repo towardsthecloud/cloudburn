@@ -4,14 +4,23 @@ import { ACTION_VERSION, RULES_VERSION, SDK_VERSION } from './version.js';
 
 const escapeCell = (value: string): string => value.replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
 
+// A filename can legally contain backticks; a single-` code span would break
+// open and let the remainder render as markup. Use a fence longer than the
+// value's longest backtick run, padded so edge backticks stay literal.
+const codeSpan = (value: string): string => {
+  const longest = Math.max(0, ...(value.match(/`+/g) ?? []).map((run) => run.length));
+  const fence = '`'.repeat(longest + 1);
+  return longest === 0 ? `${fence}${value}${fence}` : `${fence} ${value} ${fence}`;
+};
+
 const locationLabel = (location?: { path: string; line: number }): string =>
-  location === undefined ? '' : `\`${escapeCell(location.path)}:${location.line}\``;
+  location === undefined ? '' : codeSpan(`${escapeCell(location.path)}:${location.line}`);
 
 const FINDING_HEADERS = '| Severity | Rule | Resource | Location | Message |';
 const FINDING_DIVIDER = '| --- | --- | --- | --- | --- |';
 
 const findingRow = (severity: string, ruleId: string, resourceId: string, location: string, message: string): string =>
-  `| ${severity} | \`${escapeCell(ruleId)}\` | \`${escapeCell(resourceId)}\` | ${location} | ${escapeCell(message)} |`;
+  `| ${severity} | ${codeSpan(escapeCell(ruleId))} | ${codeSpan(escapeCell(resourceId))} | ${location} | ${escapeCell(message)} |`;
 
 /** The report sections a completed scan contributes to the rendered markdown. */
 export type ScanMarkdownSections = {
