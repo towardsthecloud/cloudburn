@@ -15,8 +15,8 @@ const MAX_COMMENT_BODY = 65_000;
  * every push — even when the `header` input changes — without touching a
  * marked comment someone else posted. When the token cannot call the
  * authenticated-user endpoint (GitHub App installation tokens), matching
- * falls back to the marker alone. Bodies beyond GitHub's size limit are
- * truncated with a pointer to the step summary.
+ * falls back to the default `github-actions[bot]` identity. Bodies beyond
+ * GitHub's size limit are truncated with a pointer to the step summary.
  *
  * @param options - Octokit client, repository coordinates, and the markdown body.
  * @returns Whether a new comment was created or an existing one updated.
@@ -30,7 +30,7 @@ export const upsertPullRequestComment = async (options: {
 }): Promise<'created' | 'updated'> => {
   const { octokit, owner, repo, issueNumber, body } = options;
 
-  let actorLogin: string | undefined;
+  let actorLogin = 'github-actions[bot]';
   try {
     const { data } = await octokit.rest.users.getAuthenticated();
     actorLogin = data.login;
@@ -50,8 +50,7 @@ export const upsertPullRequestComment = async (options: {
     issue_number: issueNumber,
   })) {
     existing = page.data.find(
-      (comment) =>
-        comment.body?.includes(COMMENT_MARKER) && (actorLogin === undefined || comment.user?.login === actorLogin),
+      (comment) => comment.body?.includes(COMMENT_MARKER) && comment.user?.login === actorLogin,
     );
     if (existing !== undefined) {
       break;

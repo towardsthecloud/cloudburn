@@ -211,7 +211,8 @@ jobs:
       - name: Sync GitHub Action
         if: >-
           github.ref == 'refs/heads/main' &&
-          (inputs.published-release-ref != '' ||
+          ((inputs.published-release-ref != '' &&
+            contains(format(' {0} ', steps.recovery.outputs.packages), ' action ')) ||
            (steps.changesets.outputs.published == 'true' &&
             contains(steps.changesets.outputs.published-packages, '"@cloudburn/action"')))
         env:
@@ -267,22 +268,29 @@ jobs:
             echo "No content changes for ${TAG}."
           else
             git commit -m "chore: sync cloudburn-action ${TAG}"
-            if [ -z "$STALE" ]; then
-              git push origin HEAD:main
-            fi
           fi
 
           # Each artifact is reconciled independently so re-runs heal partial syncs.
+          # The immutable version tag is published before main and the floating
+          # major tag: a mid-step failure can never leave remote content ahead
+          # of its tag, which would make a later recovery look current.
           if [ -z "$(git ls-remote --tags --refs origin "refs/tags/${TAG}")" ]; then
             # -f: a shallow clone can carry a stale local tag.
             git tag -f -a "$TAG" -m "Release $TAG"
             git push origin "$TAG"
           fi
           if [ -z "$STALE" ]; then
+            git push origin HEAD:main
             git tag -f -a "$MAJOR" -m "Update $MAJOR to $TAG"
             git push origin --force "$MAJOR"
           fi
           if ! gh release view "$TAG" --repo "$TARGET_REPO" > /dev/null 2>&1; then
+            DRAFT=""
+            if [ -z "$(gh release list --repo "$TARGET_REPO" --limit 1)" ]; then
+              # The first release stays a draft so the maintainer can publish it
+              # through the Marketplace listing flow.
+              DRAFT="--draft"
+            fi
             gh release create "$TAG" --repo "$TARGET_REPO" --verify-tag --title "$TAG" \
-              --notes-file "$NOTES" ${STALE:+--latest=false}
+              --notes-file "$NOTES" ${STALE:+--latest=false} $DRAFT
           fi

@@ -81,6 +81,14 @@ describe('upsertPullRequestComment', () => {
     expect(octokit.rest.issues.updateComment).toHaveBeenCalledWith(expect.objectContaining({ comment_id: 7 }));
   });
 
+  it('does not update a marked comment from another actor when the lookup fails', async () => {
+    const octokit = octokitWith([[{ id: 3, body: COMMENT_MARKER, user: { login: 'other-bot[bot]' } }]]);
+    octokit.rest.users.getAuthenticated.mockRejectedValue(new Error('Resource not accessible'));
+    const status = await upsertPullRequestComment({ octokit, ...args });
+    expect(status).toBe('created');
+    expect(octokit.rest.issues.updateComment).not.toHaveBeenCalled();
+  });
+
   it('truncates an oversized body before GitHub rejects it', async () => {
     const octokit = octokitWith([]);
     const status = await upsertPullRequestComment({ octokit, ...args, body: 'x'.repeat(70_000) });

@@ -8,7 +8,12 @@ export type FlattenedFinding = {
   finding: FindingMatch;
 };
 
-/** Flattens grouped scan results for renderers that operate on individual matches. */
+/**
+ * Flattens grouped scan results for renderers that operate on individual matches.
+ *
+ * @param result - The SDK scan result, grouped by provider and rule.
+ * @returns One entry per finding match, carrying its rule id, severity, and message.
+ */
 export const flattenFindings = (result: ScanResult): FlattenedFinding[] =>
   result.providers.flatMap((providerGroup) =>
     providerGroup.rules.flatMap((ruleGroup) =>

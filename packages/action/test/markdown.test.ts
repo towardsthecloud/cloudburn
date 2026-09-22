@@ -115,4 +115,22 @@ describe('renderScanMarkdown', () => {
     const markdown = render(scan, '## Scan');
     expect(markdown).toContain('`` weird`name.tf:1 ``');
   });
+
+  it('escapes link syntax embedded in diagnostic messages', () => {
+    const scan: ScanResult = {
+      providers: [],
+      diagnostics: [
+        {
+          provider: 'aws',
+          service: 'terraform',
+          source: 'iac',
+          status: 'skipped',
+          code: 'TERRAFORM_PARSE_ERROR',
+          message: 'Skipped Terraform file [report](https://example.invalid).tf because it could not be parsed.',
+        },
+      ],
+    };
+    const markdown = render(scan, '## Scan');
+    expect(markdown).toContain('\\[report\\](https://example.invalid)');
+  });
 });

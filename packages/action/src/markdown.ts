@@ -2,7 +2,14 @@ import type { ScanDiagnostic, SuppressedFinding } from '@cloudburn/sdk';
 import type { FlattenedFinding } from './findings.js';
 import { ACTION_VERSION, RULES_VERSION, SDK_VERSION } from './version.js';
 
-const escapeCell = (value: string): string => value.replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
+// Table cells carry untrusted filenames and resource identifiers. Besides the
+// pipe and newline guards, `\`, `[`, `]`, `<`, and `>` are escaped so embedded
+// text cannot render as a bot-authored link or autolink.
+const escapeCell = (value: string): string =>
+  value
+    .replace(/\\/g, '\\\\')
+    .replace(/[[\]<>|]/g, '\\$&')
+    .replace(/\r?\n/g, ' ');
 
 // A filename can legally contain backticks; a single-` code span would break
 // open and let the remainder render as markup. Use a fence longer than the

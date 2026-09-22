@@ -20,6 +20,9 @@ const sanitizeRuntimeErrorMessage = (message: string): string =>
  * Categorizes a runtime error and returns a structured JSON string, matching
  * the CLI's stderr error envelope. Only codes reachable from a static scan
  * (file access, parsing, configuration) are categorized.
+ *
+ * @param err - The thrown value; non-Error inputs map to a generic envelope.
+ * @returns A pretty-printed `{"error": {...}}` JSON string for stderr.
  */
 export const formatError = (err: unknown): string => {
   const envelope: ErrorEnvelope = { error: categorize(err) };
