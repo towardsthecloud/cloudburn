@@ -1,7 +1,7 @@
 name: CloudBurn
 description: >-
-  Scan Terraform and CloudFormation for AWS cost issues. Annotates findings on
-  pull requests, posts a sticky comment, and fails the job by severity threshold.
+  Scan Terraform and CloudFormation for AWS cost issues; annotate findings,
+  comment, and gate by severity.
 author: towardsthecloud
 branding:
   icon: dollar-sign

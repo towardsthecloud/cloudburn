@@ -73,6 +73,14 @@ describe('upsertPullRequestComment', () => {
     });
   });
 
+  it('falls back to marker matching when the authenticated user is unavailable', async () => {
+    const octokit = octokitWith([[own(7, COMMENT_MARKER)]]);
+    octokit.rest.users.getAuthenticated.mockRejectedValue(new Error('Resource not accessible'));
+    const status = await upsertPullRequestComment({ octokit, ...args });
+    expect(status).toBe('updated');
+    expect(octokit.rest.issues.updateComment).toHaveBeenCalledWith(expect.objectContaining({ comment_id: 7 }));
+  });
+
   it('truncates an oversized body before GitHub rejects it', async () => {
     const octokit = octokitWith([]);
     const status = await upsertPullRequestComment({ octokit, ...args, body: 'x'.repeat(70_000) });
