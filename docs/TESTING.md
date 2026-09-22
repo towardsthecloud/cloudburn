@@ -198,3 +198,8 @@ heading fragments, reference-style definitions and uses, code-example exclusion,
 The shared `validate` CI job installs dependencies once. Pull requests run `pnpm verify --affected`; pushes to `main` run the full `pnpm verify` gate. Both pass `--concurrency=2` to Turbo because hosted runners have 4 vCPUs, and running every package's Vitest suite beside the CLI end-to-end tests, lint, and typecheck stretches timer-paced integration tests past their budgets. Documentation checks and package boundaries always run. Turbo selects affected package tasks and shares required builds within the job. A separate smoke job rebuilds the action and runs it through `uses: ./packages/action` against real fixtures, exercising the same `dist/` entry the runner executes.
 
 Source tests resolve workspace source directly and can run without dependency builds. The `test:inputs` transit task propagates upstream source changes into downstream test cache keys without serializing their execution. Built CLI and installed-package suites depend on the CLI build, which depends on SDK/rules builds. Test fixture edits invalidate tests without rebuilding unchanged package output. See the [command reference](reference/commands.md) for task dependencies and cache policy.
+
+The action's `test:e2e` task adds the shared CLI fixtures to its inputs while retaining `$TURBO_DEFAULT$` for its own
+package files. The root `affectedUsingTaskInputs` flag also selects that task for fixture-only pull requests;
+cross-package inputs alone invalidate the cache but do not select the action under `--affected`. Keep these inputs
+in the [action task configuration](../packages/action/turbo.json), without adding an action dependency on the CLI.

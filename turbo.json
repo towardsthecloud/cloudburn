@@ -1,5 +1,8 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "futureFlags": {
+    "affectedUsingTaskInputs": true
+  },
   "globalDependencies": ["tsconfig.base.json", "biome.jsonc", "pnpm-lock.yaml", "package.json"],
   "boundaries": {
     "tags": {

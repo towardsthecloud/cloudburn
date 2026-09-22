@@ -133,4 +133,31 @@ describe('renderScanMarkdown', () => {
     const markdown = render(scan, '## Scan');
     expect(markdown).toContain('\\[report\\](https://example.invalid)');
   });
+
+  it.each(['\r', '\n', '\r\n'])(
+    'keeps diagnostic filenames with %j line endings inside their table cell',
+    (lineEnding) => {
+      const markdown = render(
+        {
+          providers: [],
+          diagnostics: [
+            {
+              provider: 'aws',
+              service: 'terraform',
+              source: 'iac',
+              status: 'skipped',
+              code: 'TERRAFORM_PARSE_ERROR',
+              message: `Skipped Terraform file broken${lineEnding}## spoofed.tf because it could not be parsed.`,
+            },
+          ],
+        },
+        '## Scan',
+      );
+
+      expect(markdown).toContain(
+        '| skipped | terraform | Skipped Terraform file broken ## spoofed.tf because it could not be parsed. |',
+      );
+      expect(markdown).not.toContain('\r');
+    },
+  );
 });

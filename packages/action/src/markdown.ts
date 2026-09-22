@@ -9,7 +9,7 @@ const escapeCell = (value: string): string =>
   value
     .replace(/\\/g, '\\\\')
     .replace(/[[\]<>|]/g, '\\$&')
-    .replace(/\r?\n/g, ' ');
+    .replace(/\r\n?|\n/g, ' ');
 
 // A filename can legally contain backticks; a single-` code span would break
 // open and let the remainder render as markup. Use a fence longer than the
