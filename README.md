@@ -72,7 +72,7 @@ and can fail the job by severity. No Node.js setup or CLI install is needed.
     fail-on: high
 ```
 
-See the [GitHub Action documentation](https://cloudburn.io/docs/github-action) for all inputs, outputs, and examples.
+See the [GitHub Action documentation](https://cloudburn.io/docs/cli/github-action) for all inputs, outputs, and examples.
 
 ## Getting Started
 

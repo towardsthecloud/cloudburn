@@ -7,7 +7,7 @@ The action runs the same rule engine as the [CloudBurn CLI](https://github.com/t
 at release time, so no runtime installation is needed.
 
 Install it from the [GitHub Marketplace](https://github.com/marketplace/actions/cloudburn-scan). Full documentation lives
-at [cloudburn.io/docs/github-action](https://cloudburn.io/docs/github-action).
+at [cloudburn.io/docs/cli/github-action](https://cloudburn.io/docs/cli/github-action).
 
 ## Usage
 
@@ -115,7 +115,7 @@ resource "aws_ebs_volume" "legacy" {
 For complete documentation, including configuration, rule selection, suppressions, and how the action relates to the
 CloudBurn CLI, visit:
 
-[Full Documentation on CloudBurn.io](https://cloudburn.io/docs/github-action)
+[Full Documentation on CloudBurn.io](https://cloudburn.io/docs/cli/github-action)
 
 ## License
 
