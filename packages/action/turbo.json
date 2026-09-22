@@ -1,0 +1,9 @@
+{
+  "extends": ["//"],
+  "tags": ["layer:action"],
+  "tasks": {
+    "test:e2e": {
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/packages/cloudburn/test/e2e/fixtures/**"]
+    }
+  }
+}

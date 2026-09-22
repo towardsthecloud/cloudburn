@@ -1,0 +1,62 @@
+name: CloudBurn
+description: >-
+  Scan Terraform and CloudFormation for AWS cost issues; annotate findings,
+  comment, and gate by severity.
+author: towardsthecloud
+branding:
+  icon: dollar-sign
+  color: orange
+inputs:
+  path:
+    description: Terraform file, CloudFormation template, or directory to scan.
+    required: false
+    default: '.'
+  config:
+    description: Explicit CloudBurn config file to load. Implicit config discovery is off in CI.
+    required: false
+  enabled-rules:
+    description: Comma-separated rule IDs to enable. When set, CloudBurn checks only these rules.
+    required: false
+  disabled-rules:
+    description: Comma-separated rule IDs to disable from the AWS Core preset.
+    required: false
+  service:
+    description: Comma-separated services to include in the scan rule set.
+    required: false
+  fail-on:
+    description: 'Fail the job for findings at or above this severity: high, medium, or low.'
+    required: false
+  exit-code:
+    description: Fail the job when any finding exists.
+    required: false
+    default: 'false'
+  annotations:
+    description: Emit inline annotations for findings with a source location.
+    required: false
+    default: 'true'
+  comment:
+    description: Post or update a sticky findings comment on pull_request events.
+    required: false
+    default: 'true'
+  header:
+    description: Heading used for the step summary and the sticky pull request comment.
+    required: false
+    default: '## CloudBurn scan'
+  token:
+    description: GitHub token used to post the pull request comment.
+    required: false
+    default: ${{ github.token }}
+outputs:
+  findings-count:
+    description: Number of active findings.
+  suppressed-count:
+    description: Number of findings suppressed by cloudburn-ignore comments.
+  failed:
+    description: Whether the active fail policy tripped.
+  result-file:
+    description: Path to the full scan result JSON.
+  markdown:
+    description: Rendered markdown report of the scan.
+runs:
+  using: node24
+  main: dist/index.cjs

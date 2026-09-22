@@ -1,0 +1,47 @@
+{
+  "name": "@cloudburn/action",
+  "version": "1.0.0",
+  "private": true,
+  "description": "CloudBurn GitHub Action for IaC cost scans",
+  "homepage": "https://cloudburn.io/docs",
+  "bugs": {
+    "url": "https://github.com/towardsthecloud/cloudburn/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/towardsthecloud/cloudburn.git",
+    "directory": "packages/action"
+  },
+  "type": "module",
+  "files": [
+    "dist",
+    "action.yml"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc -p tsconfig.typecheck.json",
+    "test": "vitest run",
+    "test:e2e": "node --test test/e2e/*.test.mjs",
+    "lint": "biome check --error-on-warnings .",
+    "lint:fix": "biome check --write .",
+    "clean": "rm -rf dist",
+    "dev": "tsup --watch"
+  },
+  "dependencies": {
+    "@actions/core": "^3.0.1",
+    "@actions/github": "^9.1.1",
+    "@cloudburn/sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "catalog:",
+    "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "tsup": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=24.0.0"
+  }
+}

@@ -1,14 +1,27 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "futureFlags": {
+    "affectedUsingTaskInputs": true
+  },
   "globalDependencies": ["tsconfig.base.json", "biome.jsonc", "pnpm-lock.yaml", "package.json"],
   "boundaries": {
     "tags": {
       "layer:rules": {
         "dependencies": {
-          "deny": ["layer:sdk", "layer:cli"]
+          "deny": ["layer:sdk", "layer:cli", "layer:action"]
         }
       },
       "layer:sdk": {
+        "dependencies": {
+          "deny": ["layer:cli", "layer:action"]
+        }
+      },
+      "layer:cli": {
+        "dependencies": {
+          "deny": ["layer:action"]
+        }
+      },
+      "layer:action": {
         "dependencies": {
           "deny": ["layer:cli"]
         }

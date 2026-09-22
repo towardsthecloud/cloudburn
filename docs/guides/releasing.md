@@ -2,7 +2,8 @@
 
 ## Contributor changesets
 
-Add a changeset for a user-facing change to a published package: `cloudburn`, `@cloudburn/sdk`, or `@cloudburn/rules`.
+Add a changeset for a user-facing change to a versioned package: `cloudburn`, `@cloudburn/sdk`, `@cloudburn/rules`, or
+`@cloudburn/action` (versioned and tagged, but not published to npm — see [GitHub Action sync](#github-action-sync)).
 Documentation-only changes do not need one.
 
 Write `.changeset/<random-kebab-case-slug>.md` directly with one package per file:
@@ -27,6 +28,32 @@ Merging that pull request runs `pnpm release`, which verifies the repository,
 force-builds packages, and publishes changed packages to npm. When the `cloudburn` CLI is published, the same workflow
 updates its formula in the Homebrew tap from the npm tarball.
 
+## GitHub Action sync
+
+`@cloudburn/action` is private: `changeset publish` never sends it to npm, but
+`privatePackages: { version: true, tag: true }` in `.changeset/config.json` still versions it and emits the
+`@cloudburn/action@x.y.z` tag and GitHub release. Its `@cloudburn/sdk` dependency is pinned with `workspace:*`
+(an exact version), so every SDK release leaves the action out of range and Changesets patch-bumps it — the action
+version therefore tracks the SDK automatically. Keep the `workspace:*` pin; a ranged dependency would break tracking
+for patch releases.
+
+After publishing, the `Sync GitHub Action` step reads `packages/action/package.json`, builds the bundle, clones
+`towardsthecloud/cloudburn-action` with `ACTION_REPO_TOKEN`, copies `action.yml`, `dist/index.cjs`,
+`dist/main.wasm.gz`, `README.md`, and `LICENSE`, and commits only on content changes. It then reconciles each
+artifact independently — `v<version>` tag, floating `v<major>` tag, and GitHub release from
+`packages/action/CHANGELOG.md` — so re-runs heal partial syncs. When the remote already holds a newer version (a
+`published-release-ref` recovery for an older release), the step preserves `main` and the "latest" release marker.
+The floating major tag advances independently: recovering the newest `v1` release still repairs `v1` when `v2` exists,
+but recovering an older `v1` release never moves `v1` backwards. Version tags remain immutable.
+
+Before the first sync, create the public `towardsthecloud/cloudburn-action` repository with `main` as its default branch
+and configure the `ACTION_REPO_TOKEN` secret with `contents: write` on that repository — the same pattern as
+`HOMEBREW_TAP_TOKEN`. The first automated release remains a draft. Publish that draft through the GitHub UI with
+"Publish this Action to the GitHub Marketplace" checked (`action.yml` carries the `branding` metadata; the listing name
+is `CloudBurn`). This listing setup is manual. Verify a workflow using the first published action and record the result
+in the rollout issue. Then verify that the first subsequent automated release updates the Marketplace listing and
+record that result too; successful monorepo CI alone does not establish either rollout requirement.
+
 The workflow and `.changeset/config.json` are authoritative for release automation. Maintainers may dispatch the workflow
 manually; local versioning and publishing require an explicit maintenance task. Changesets uses its GitHub changelog
 adapter through [the local changelog wrapper](../../scripts/changelog.cjs), so generated changelog entries include pull
@@ -34,8 +61,8 @@ request and commit links. The wrapper retries GitHub's explicit internal-query f
 then 2 seconds. Concurrent release and dependency entries share each retry delay to preserve request batching.
 Authentication, permission, and other query failures still fail immediately; exhausted retries fail the release without
 substituting incomplete changelog entries. This retry policy applies only to changelog lookups. It does not rerun versioning
-or publishing. `pnpm release:test` covers recovery and failure behavior against a local synthetic GitHub endpoint and runs
-as part of `pnpm test` and `pnpm verify`.
+or publishing. `pnpm release:test` covers changelog failures against a local synthetic GitHub endpoint and release
+recovery against temporary Git remotes. It runs as part of `pnpm test` and `pnpm verify`.
 
 ## Coordinated contract releases
 
@@ -66,20 +93,22 @@ Changesets CLI v3 requires `changesets/action` v2. The v1 action parsed CLI v2 c
 successful job after npm publication while missing the v3 publish events, Git tags, GitHub releases, and Homebrew
 update. Keep the action's hyphenated v2 inputs/outputs aligned with the CLI major version.
 
-If npm publication succeeded but those follow-up steps were skipped, verify every exact npm version and tarball first.
+If follow-up steps were skipped, verify each published npm version and tarball first. Action-only releases skip this npm check.
 Dispatch the Release workflow on `main` with `published-release-ref` set to the original version commit's full SHA.
-The workflow checks out that commit, verifies it belongs to `main`, that all three versions exist on npm, and that each npm provenance statement names
-that exact repository and release SHA, then runs `changeset git-tag` instead of `pnpm release`. This emits the structured events the v2 action consumes without invoking
-npm publication. Recovery disables the action's automatic GitHub releases, verifies all remote tags against the original
-release commit after Git CLI tag pushing, then creates release notes from the versioned changelogs. The usual Homebrew
-step runs from the published CLI tarball. A rejected tag push fails this remote verification instead of allowing GitHub
-release creation to silently attach a new tag to current `main`.
+The workflow checks out that commit, verifies it belongs to `main`, and identifies only packages whose versions changed
+in that commit. For each changed npm package, it verifies the exact npm version and that its provenance names the
+repository and release SHA. The private `@cloudburn/action` package needs no npm version or provenance.
+Recovery bypasses Changesets publishing and creates or pushes only the selected packages' tags. It verifies every
+selected tag against the original release commit before creating GitHub releases from the versioned changelogs.
+Unchanged packages' older tags remain untouched, including missing tags. A rejected tag push fails recovery instead of
+allowing GitHub release creation to silently attach a new tag to current `main`.
 
-Use this only when all three packages were published from that commit. Missing or mismatched provenance fails recovery;
-existing tags must already point to the same commit. Ancestry and the absence of pending changesets are checked immediately after checkout, before any
-repository setup or installation runs; this prevents recovery from rewriting a version PR. Recovery can resume after a partial failure: missing GitHub releases are created
-from the versioned changelogs, existing releases are kept, and Homebrew runs even when no new tag events were emitted.
-It never overwrites existing tags or republishes npm packages.
+Recovery supports any released subset, including action-only releases. Missing or mismatched npm provenance fails
+recovery; existing selected tags must already point to the same commit. Ancestry and the absence of pending changesets
+are checked immediately after checkout, before repository setup or installation; this prevents recovery from rewriting
+a version PR. Recovery can resume after a partial failure: missing GitHub releases are created, existing releases are
+kept, Homebrew runs only when `cloudburn` changed, and action sync runs only when `@cloudburn/action` changed.
+It never overwrites existing version tags or republishes npm packages.
 GitHub may reject a historical tag push by the workflow token when the release commit has an older workflow definition.
 In that case, an authorized maintainer must create the missing tags at the provenance-verified commit using their existing
 repository access, then rerun recovery. Do not broaden token permissions or accept a different tag target to make recovery pass.

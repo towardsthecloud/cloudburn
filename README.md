@@ -57,6 +57,20 @@ Or run it without installing:
 npx cloudburn scan ./main.tf
 ```
 
+### GitHub Action
+
+CloudBurn is also on the GitHub Marketplace as `cloudburn-action`. It scans your Terraform and CloudFormation in a
+workflow, annotates findings on the pull request, posts a sticky comment, and can fail the job by severity.
+
+```yaml
+- uses: towardsthecloud/cloudburn-action@v1
+  with:
+    path: .
+    fail-on: high
+```
+
+See the [action README](packages/action/README.md) for all inputs and outputs.
+
 ## Getting Started
 
 ### Config
