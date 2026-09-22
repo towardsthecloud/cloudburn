@@ -8,6 +8,7 @@
 [![CI](https://github.com/towardsthecloud/cloudburn/actions/workflows/ci.yml/badge.svg)](https://github.com/towardsthecloud/cloudburn/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/towardsthecloud/cloudburn/blob/main/LICENSE)
 [![npm version](https://badge.fury.io/js/cloudburn.svg)](https://badge.fury.io/js/cloudburn)
+[![GitHub Marketplace](https://img.shields.io/badge/Marketplace-CloudBurn%20Scan-blue?logo=github)](https://github.com/marketplace/actions/cloudburn-scan)
 
 [Changelog](https://cloudburn.io/changelog) | [Documentation](https://cloudburn.io/docs) | [Discord](https://discord.gg/CKKK5FRW3n)
 
@@ -18,7 +19,8 @@ CloudBurn runs deterministic cost rules against your Terraform and CloudFormatio
 ## Features
 
 - **One rules engine, two modes.** 82 deterministic AWS cost rules for IaC and live accounts. See the [rule list](docs/reference/rule-ids.md).
-- **Scan in CI.** Checks Terraform and CloudFormation in pull requests, CI jobs, and release pipelines.
+- **Scan in CI.** Checks Terraform and CloudFormation in pull requests, CI jobs, and release pipelines, with a
+  [GitHub Action](https://github.com/marketplace/actions/cloudburn-scan) for pull request annotations and comments.
 - **Discover in production.** Inspects deployed resources and shows what needs fixing.
 - **Programmable.** The [SDK](packages/sdk/README.md) lets you run CloudBurn inside your own tooling.
 - **Machine and human friendly output.** `json` and `table` formats.
@@ -59,8 +61,9 @@ npx cloudburn scan ./main.tf
 
 ### GitHub Action
 
-CloudBurn is also on the GitHub Marketplace as `cloudburn-action`. It scans your Terraform and CloudFormation in a
-workflow, annotates findings on the pull request, posts a sticky comment, and can fail the job by severity.
+Get the [CloudBurn Scan action from the GitHub Marketplace](https://github.com/marketplace/actions/cloudburn-scan). It
+scans your Terraform and CloudFormation in a workflow, annotates findings on the pull request, posts a sticky comment,
+and can fail the job by severity. No Node.js setup or CLI install is needed.
 
 ```yaml
 - uses: towardsthecloud/cloudburn-action@v1
@@ -69,7 +72,7 @@ workflow, annotates findings on the pull request, posts a sticky comment, and ca
     fail-on: high
 ```
 
-See the [action README](packages/action/README.md) for all inputs and outputs.
+See the [GitHub Action documentation](https://cloudburn.io/docs/github-action) for all inputs, outputs, and examples.
 
 ## Getting Started
 

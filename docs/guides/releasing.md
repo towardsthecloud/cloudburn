@@ -49,8 +49,9 @@ but recovering an older `v1` release never moves `v1` backwards. Version tags re
 Before the first sync, create the public `towardsthecloud/cloudburn-action` repository with `main` as its default branch
 and configure the `ACTION_REPO_TOKEN` secret with `contents: write` on that repository — the same pattern as
 `HOMEBREW_TAP_TOKEN`. The first automated release remains a draft. Publish that draft through the GitHub UI with
-"Publish this Action to the GitHub Marketplace" checked (`action.yml` carries the `branding` metadata; the listing name
-is `CloudBurn`). This listing setup is manual. Verify a workflow using the first published action and record the result
+"Publish this Action to the GitHub Marketplace" checked (`action.yml` carries the `branding` metadata). The Marketplace
+listing is [CloudBurn Scan](https://github.com/marketplace/actions/cloudburn-scan); its name comes from `action.yml`
+`name`, so keep that value unchanged to preserve the listing. This listing setup is manual. Verify a workflow using the first published action and record the result
 in the rollout issue. Then verify that the first subsequent automated release updates the Marketplace listing and
 record that result too; successful monorepo CI alone does not establish either rollout requirement.
 

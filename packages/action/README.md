@@ -6,6 +6,9 @@ posts a sticky pull request comment, writes a step summary, and can fail the job
 The action runs the same rule engine as the [CloudBurn CLI](https://github.com/towardsthecloud/cloudburn) and bundles it
 at release time, so no runtime installation is needed.
 
+Install it from the [GitHub Marketplace](https://github.com/marketplace/actions/cloudburn-scan). Full documentation lives
+at [cloudburn.io/docs/github-action](https://cloudburn.io/docs/github-action).
+
 ## Usage
 
 ```yaml
@@ -104,7 +107,15 @@ resource "aws_ebs_volume" "legacy" {
 - The `token` input supports the default workflow token, personal access tokens, and GitHub App installation tokens.
   Comments are matched to the token's authenticated identity. If that identity cannot be resolved, the action warns and
   skips commenting instead of updating another author's report.
-- Rule IDs are stable; see the [rule list](https://github.com/towardsthecloud/cloudburn/blob/main/docs/reference/rule-ids.md).
+- Rule IDs are stable; see the [rules documentation](https://cloudburn.io/docs/rules) for what each rule checks and
+  the [rule list](https://github.com/towardsthecloud/cloudburn/blob/main/docs/reference/rule-ids.md) for ID compatibility.
+
+## Documentation
+
+For complete documentation, including configuration, rule selection, suppressions, and how the action relates to the
+CloudBurn CLI, visit:
+
+[Full Documentation on CloudBurn.io](https://cloudburn.io/docs/github-action)
 
 ## License
 
