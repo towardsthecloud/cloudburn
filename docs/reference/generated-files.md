@@ -22,6 +22,13 @@ The action build starts at `packages/action/src/index.ts` and produces `dist/ind
 The build also emits `dist/metafile-cjs.json` for tests to inspect bundle dependencies; the release workflow does not
 copy this validation metadata to the action repository.
 
+The action's [tsup configuration](../../packages/action/tsup.config.ts) owns the WASM relocation and dependency
+exclusions. Its `noExternal` pattern must exclude AWS SDK and Smithy packages because tsup checks it before `external`;
+use regular expressions for the package-prefix exclusions. Discovery imports remain deferred in the SDK so static
+scans do not need those external packages at runtime. The [bundle regression](../../packages/action/test/e2e/bundle.test.mjs)
+checks the emitted metadata, and [isolated scan tests](../../packages/action/test/e2e/action.test.mjs) verify the shipped
+artifacts. Build with `pnpm exec turbo run build --filter @cloudburn/action`, then run `pnpm --filter @cloudburn/action test:e2e`.
+
 The reference pages for [rule IDs](rule-ids.md), [configuration](config-schema.md), and [finding shapes](finding-shape.md)
 are manually maintained from the code sources named at the top of each page. No generator currently updates them; change
 the reference in the same pull request as its source contract.

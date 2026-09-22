@@ -8,8 +8,8 @@ dependencies and caching. Package manifests own the scripts that Turbo invokes.
 | `pnpm dev`                   | Run package watch tasks                                                    | Persistent and uncached                                                                 |
 | `pnpm build`                 | Build all packages                                                         | Produces package `dist/` directories                                                    |
 | `pnpm typecheck`             | Type-check package sources and tests                                       | Depends on upstream builds                                                              |
-| `pnpm test`                  | Run documentation, release, source, built CLI, and installed-package tests | Artifact suites build their dependencies                                                |
-| `pnpm test:e2e`              | Run the built CLI against real template fixtures                           | Builds the CLI and its dependencies; does not contact AWS                               |
+| `pnpm test`                  | Run documentation, release, source, CLI/action, and installed-package tests | Artifact suites build their dependencies                                                |
+| `pnpm test:e2e`              | Run the built CLI and action against real template fixtures                           | Builds tested packages and dependencies; does not contact AWS                               |
 | `pnpm test:packages`         | Install local package archives and verify public entry points              | Builds packages; requires public npm access; uncached; never publishes                  |
 | `pnpm lint`                  | Check package source and tests with Biome                                  | Read-only                                                                               |
 | `pnpm lint:fix`              | Apply Biome fixes                                                          | Mutates files and is uncached                                                           |
