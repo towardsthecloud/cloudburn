@@ -19,6 +19,8 @@ The SDK also emits internal chunks for deferred live imports in both formats; pu
 The action build starts at `packages/action/src/index.ts` and produces `dist/index.cjs` plus `dist/main.wasm.gz`, the
 `@cdktf/hcl2json` parser binary copied during bundling. Both are build output — the release workflow copies them into
 `towardsthecloud/cloudburn-action`, where they are committed artifacts of that repository.
+The build also emits `dist/metafile-cjs.json` for tests to inspect bundle dependencies; the release workflow does not
+copy this validation metadata to the action repository.
 
 The reference pages for [rule IDs](rule-ids.md), [configuration](config-schema.md), and [finding shapes](finding-shape.md)
 are manually maintained from the code sources named at the top of each page. No generator currently updates them; change

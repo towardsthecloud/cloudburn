@@ -101,6 +101,9 @@ resource "aws_ebs_volume" "legacy" {
 
 - The action scans IaC only. Live account evaluation stays in the CLI (`cloudburn discover`).
 - The sticky comment posts only on `pull_request` events and needs `pull-requests: write` permission.
+- The `token` input supports the default workflow token, personal access tokens, and GitHub App installation tokens.
+  Comments are matched to the token's authenticated identity. If that identity cannot be resolved, the action warns and
+  skips commenting instead of updating another author's report.
 - Rule IDs are stable; see the [rule list](https://github.com/towardsthecloud/cloudburn/blob/main/docs/reference/rule-ids.md).
 
 ## License

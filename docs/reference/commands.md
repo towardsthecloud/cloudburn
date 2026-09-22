@@ -3,23 +3,23 @@
 The [root manifest](../../package.json) owns command definitions; [Turbo configuration](../../turbo.json) owns task
 dependencies and caching. Package manifests own the scripts that Turbo invokes.
 
-| Command                      | Purpose                                                                    | Notes                                                                       |
-| ---------------------------- | -------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| `pnpm dev`                   | Run package watch tasks                                                    | Persistent and uncached                                                     |
-| `pnpm build`                 | Build all packages                                                         | Produces package `dist/` directories                                        |
-| `pnpm typecheck`             | Type-check package sources and tests                                       | Depends on upstream builds                                                  |
-| `pnpm test`                  | Run documentation, release, source, built CLI, and installed-package tests | Artifact suites build their dependencies                                    |
-| `pnpm test:e2e`              | Run the built CLI against real template fixtures                           | Builds the CLI and its dependencies; does not contact AWS                   |
-| `pnpm test:packages`         | Install local package archives and verify public entry points              | Builds packages; requires public npm access; uncached; never publishes      |
-| `pnpm lint`                  | Check package source and tests with Biome                                  | Read-only                                                                   |
-| `pnpm lint:fix`              | Apply Biome fixes                                                          | Mutates files and is uncached                                               |
-| `pnpm docs:check`            | Check the repository knowledge system                                      | Validates links, fragments, aliases, reachability, and entry points         |
-| `pnpm docs:test`             | Test the public documentation checker CLI                                  | Uses dependency-free `node:test` fixtures                                   |
-| `pnpm release:test`          | Test changelog lookup recovery and GitHub link formatting                  | Uses a local synthetic GraphQL server; never versions or publishes packages |
-| `pnpm exec turbo boundaries` | Enforce `cli`/`action -> sdk -> rules`                                     | This is the supported boundary command                                      |
-| `pnpm verify`                | Run documentation, boundaries, lint, typecheck, and all tests              | Full local gate; `--affected` limits package tasks                          |
-| `pnpm clean`                 | Remove package build output                                                | Destructive only to generated `dist/` output                                |
-| `pnpm depupdate`             | Update the pnpm pin and dependencies                                       | Mutates manifests and the lockfile                                          |
+| Command                      | Purpose                                                                    | Notes                                                                                   |
+| ---------------------------- | -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `pnpm dev`                   | Run package watch tasks                                                    | Persistent and uncached                                                                 |
+| `pnpm build`                 | Build all packages                                                         | Produces package `dist/` directories                                                    |
+| `pnpm typecheck`             | Type-check package sources and tests                                       | Depends on upstream builds                                                              |
+| `pnpm test`                  | Run documentation, release, source, built CLI, and installed-package tests | Artifact suites build their dependencies                                                |
+| `pnpm test:e2e`              | Run the built CLI against real template fixtures                           | Builds the CLI and its dependencies; does not contact AWS                               |
+| `pnpm test:packages`         | Install local package archives and verify public entry points              | Builds packages; requires public npm access; uncached; never publishes                  |
+| `pnpm lint`                  | Check package source and tests with Biome                                  | Read-only                                                                               |
+| `pnpm lint:fix`              | Apply Biome fixes                                                          | Mutates files and is uncached                                                           |
+| `pnpm docs:check`            | Check the repository knowledge system                                      | Validates links, fragments, aliases, reachability, and entry points                     |
+| `pnpm docs:test`             | Test the public documentation checker CLI                                  | Uses dependency-free `node:test` fixtures                                               |
+| `pnpm release:test`          | Test changelog lookups, GitHub links, and selective release recovery       | Uses synthetic HTTP responses and temporary local Git remotes; never publishes packages |
+| `pnpm exec turbo boundaries` | Enforce `cli`/`action -> sdk -> rules`                                     | This is the supported boundary command                                                  |
+| `pnpm verify`                | Run documentation, boundaries, lint, typecheck, and all tests              | Full local gate; `--affected` limits package tasks                                      |
+| `pnpm clean`                 | Remove package build output                                                | Destructive only to generated `dist/` output                                            |
+| `pnpm depupdate`             | Update the pnpm pin and dependencies                                       | Mutates manifests and the lockfile                                                      |
 
 ## Discovery timeout
 

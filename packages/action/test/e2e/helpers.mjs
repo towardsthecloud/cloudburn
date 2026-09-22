@@ -5,11 +5,11 @@ import { tmpdir } from 'node:os';
 import { delimiter, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const bundlePath = fileURLToPath(new URL('../../dist/index.cjs', import.meta.url));
+const bundleDirectory = fileURLToPath(new URL('../../dist/', import.meta.url));
 const cliFixtures = fileURLToPath(new URL('../../../cloudburn/test/e2e/fixtures/', import.meta.url));
 
 /**
- * Copies a CLI fixture to an isolated directory and runs the bundled action the
+ * Copies a CLI fixture and the shipped artifacts to isolated directories and runs the action the
  * way the node24 runner would: inputs through INPUT_* environment variables,
  * outputs collected through GITHUB_OUTPUT and GITHUB_STEP_SUMMARY files.
  * @param t - Test context responsible for cleanup.
@@ -24,6 +24,9 @@ export const setupAction = (t, fixture) => {
     rmSync(runnerTemp, { recursive: true, force: true });
   });
   cpSync(join(cliFixtures, fixture), directory, { recursive: true });
+  const bundlePath = join(runnerTemp, 'index.cjs');
+  cpSync(join(bundleDirectory, 'index.cjs'), bundlePath);
+  cpSync(join(bundleDirectory, 'main.wasm.gz'), join(runnerTemp, 'main.wasm.gz'));
 
   const outputFile = join(runnerTemp, 'github-output');
   const summaryFile = join(runnerTemp, 'github-summary');
@@ -39,7 +42,7 @@ export const setupAction = (t, fixture) => {
       const inputEnv = Object.fromEntries(
         Object.entries(inputs).map(([name, value]) => [`INPUT_${name.toUpperCase()}`, String(value)]),
       );
-      const result = spawnSync(process.execPath, [bundlePath], {
+      const result = spawnSync(process.execPath, ['--no-global-search-paths', bundlePath], {
         cwd: directory,
         encoding: 'utf8',
         timeout: 30_000,

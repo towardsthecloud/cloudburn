@@ -119,8 +119,11 @@ The separate `test/e2e/` suite runs the built executable against real Terraform 
 Unit tests mock the GitHub toolkit boundary (`@actions/core`, `@actions/github`) and cover input parsing, policy
 precedence, markdown rendering, annotations, and comment upserts. The `test:e2e` suite runs the built `dist/index.cjs`
 bundle in a child process with `INPUT_*`/`GITHUB_*` environment variables against the CLI's e2e fixtures — the same
-entry the `node24` runner executes. It verifies workflow commands on stdout, `GITHUB_OUTPUT`/`GITHUB_STEP_SUMMARY`
-files, the result JSON artifact, and exit status. No AWS credentials or real pull requests are used.
+entry the `node24` runner executes. Only the shipped JavaScript and WASM are copied to a temporary directory outside
+the workspace, with global module searches disabled, so Terraform and CloudFormation scans cannot rely on workspace
+dependencies. It verifies workflow commands on stdout, `GITHUB_OUTPUT`/`GITHUB_STEP_SUMMARY` files, the result JSON
+artifact, and exit status. A build-metafile check rejects bundled AWS SDK and Smithy packages to keep live-discovery
+dependencies out of the static action. No AWS credentials or real pull requests are used.
 
 ### Built CLI template tests
 

@@ -33,6 +33,18 @@ test('a clean fixture exits successfully with no annotations', (t) => {
   assert.equal(readOutputs(outputFile)['findings-count'], '0');
 });
 
+test('the shipped action scans CloudFormation without installed dependencies', (t) => {
+  const { outputFile, run } = setupAction(t, 'ebs/cloudformation');
+  const result = run({ 'ENABLED-RULES': 'CLDBRN-AWS-EBS-1', 'EXIT-CODE': 'true' });
+
+  assert.equal(result.status, 1, result.stderr);
+  const outputs = readOutputs(outputFile);
+  assert.equal(outputs['findings-count'], '1');
+  assert.equal(outputs.failed, 'true');
+  const scanResult = JSON.parse(readFileSync(outputs['result-file'], 'utf8'));
+  assert.equal(scanResult.providers[0].rules[0].findings[0].resourceId, 'Legacy');
+});
+
 test('fail-on honors the severity threshold', (t) => {
   const { run } = setupAction(t, 'ebs/terraform');
   const passing = run({ 'ENABLED-RULES': 'CLDBRN-AWS-EBS-1', 'FAIL-ON': 'high' });

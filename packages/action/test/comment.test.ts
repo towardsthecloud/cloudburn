@@ -18,6 +18,7 @@ const octokitWith = (pages: StubComment[][]) => {
     },
   };
   return {
+    graphql: vi.fn(async () => ({ viewer: { login: ACTOR } })),
     paginate: {
       iterator: vi.fn(async function* () {
         for (const data of pages) {
@@ -34,6 +35,26 @@ const args = { owner: 'towardsthecloud', repo: 'cloudburn', issueNumber: 42, bod
 const markedBody = `${args.body}\n\n${COMMENT_MARKER}`;
 
 describe('upsertPullRequestComment', () => {
+  it('updates the custom GitHub App comment on reruns without touching another actor', async () => {
+    const comments: StubComment[] = [own(1, COMMENT_MARKER)];
+    const octokit = octokitWith([comments]);
+    octokit.rest.users.getAuthenticated.mockRejectedValue(new Error('Resource not accessible by integration'));
+    octokit.graphql.mockResolvedValue({ viewer: { login: 'cloudburn-ci[bot]' } });
+    octokit.rest.issues.createComment.mockImplementation(async ({ body }: { body: string }) => {
+      comments.push({ id: 2, body, user: { login: 'cloudburn-ci[bot]' } });
+    });
+
+    expect(await upsertPullRequestComment({ octokit, ...args })).toBe('created');
+    expect(await upsertPullRequestComment({ octokit, ...args })).toBe('updated');
+    expect(octokit.rest.issues.createComment).toHaveBeenCalledTimes(1);
+    expect(octokit.rest.issues.updateComment).toHaveBeenCalledExactlyOnceWith({
+      owner: args.owner,
+      repo: args.repo,
+      comment_id: 2,
+      body: markedBody,
+    });
+  });
+
   it('updates the existing comment that carries the marker from the same actor', async () => {
     const octokit = octokitWith([
       [
@@ -73,19 +94,21 @@ describe('upsertPullRequestComment', () => {
     });
   });
 
-  it('falls back to marker matching when the authenticated user is unavailable', async () => {
-    const octokit = octokitWith([[own(7, COMMENT_MARKER)]]);
-    octokit.rest.users.getAuthenticated.mockRejectedValue(new Error('Resource not accessible'));
+  it('updates the comment owned by a personal access token user', async () => {
+    const octokit = octokitWith([
+      [own(1, COMMENT_MARKER), { id: 7, body: COMMENT_MARKER, user: { login: 'maintainer' } }],
+    ]);
+    octokit.graphql.mockResolvedValue({ viewer: { login: 'maintainer' } });
     const status = await upsertPullRequestComment({ octokit, ...args });
     expect(status).toBe('updated');
     expect(octokit.rest.issues.updateComment).toHaveBeenCalledWith(expect.objectContaining({ comment_id: 7 }));
   });
 
-  it('does not update a marked comment from another actor when the lookup fails', async () => {
-    const octokit = octokitWith([[{ id: 3, body: COMMENT_MARKER, user: { login: 'other-bot[bot]' } }]]);
-    octokit.rest.users.getAuthenticated.mockRejectedValue(new Error('Resource not accessible'));
-    const status = await upsertPullRequestComment({ octokit, ...args });
-    expect(status).toBe('created');
+  it('does not mutate comments when the token identity cannot be resolved', async () => {
+    const octokit = octokitWith([[own(7, COMMENT_MARKER)]]);
+    octokit.graphql.mockRejectedValue(new Error('Identity lookup failed'));
+    await expect(upsertPullRequestComment({ octokit, ...args })).rejects.toThrow('Identity lookup failed');
+    expect(octokit.rest.issues.createComment).not.toHaveBeenCalled();
     expect(octokit.rest.issues.updateComment).not.toHaveBeenCalled();
   });
 

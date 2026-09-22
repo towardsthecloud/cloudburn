@@ -10,7 +10,7 @@
     "test:e2e": "turbo run test:e2e",
     "test:packages": "turbo run test:package",
     "docs:test": "node --test test/docs-check.test.mjs",
-    "release:test": "node --test test/release-changelog.test.mjs",
+    "release:test": "node --test test/release-*.test.mjs",
     "docs:check": "node scripts/check-docs.mjs",
     "lint": "turbo run lint",
     "lint:fix": "turbo run lint:fix",

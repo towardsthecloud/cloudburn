@@ -49,12 +49,13 @@ export default defineConfig({
   target: 'node24',
   dts: false,
   clean: true,
-  noExternal: [/(.*)/],
+  metafile: true,
+  noExternal: [/^(?!@aws-sdk\/|@smithy\/)/],
   removeNodeProtocol: false,
   // Live-discovery AWS clients are only reachable through deferred imports the
   // action never calls, so they stay external instead of inflating the bundle.
   // "performance" is a dead require behind a globalThis.performance guard.
-  external: ['@aws-sdk/*', '@smithy/*'],
+  external: [/^@aws-sdk\//, /^@smithy\//],
   define: {
     __ACTION_VERSION__: JSON.stringify(actionVersion),
     __SDK_VERSION__: JSON.stringify(sdkVersion),
