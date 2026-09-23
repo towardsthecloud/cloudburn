@@ -1,4 +1,4 @@
-name: CloudBurn
+name: CloudBurn Scan
 description: >-
   Scan Terraform and CloudFormation for AWS cost issues; annotate findings,
   comment, and gate by severity.
