@@ -9,6 +9,7 @@ adding, moving, or retiring durable documentation.
 - [Contributing](../CONTRIBUTING.md) — contributor workflow and pull request expectations.
 - [Architecture](ARCHITECTURE.md) — package graph, responsibilities, and request flows.
 - [Testing](TESTING.md) — package test strategy, seams, and validation scope.
+- [Review guide](../REVIEW.md) — pull request review severity, invariants, intentional behavior, and skip rules.
 
 ## Architecture
 
