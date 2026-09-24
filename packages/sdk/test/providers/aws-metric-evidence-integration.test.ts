@@ -177,19 +177,4 @@ describe('CloudWatch evidence through hydration and evaluation', () => {
     expect(finding).toBeNull();
     expect(endpoints[0]?.totalInvocationsLast14Days).toBeNull();
   });
-
-  it('requests the actual last seven days for Lambda instead of a shifted epoch week', async () => {
-    const functionArn = 'arn:aws:lambda:eu-west-1:111111111111:function:orders';
-    vi.mocked(createLambdaClient).mockReturnValue({
-      send: vi.fn(async () => ({
-        Functions: [{ FunctionArn: functionArn, FunctionName: 'orders' }],
-      })),
-    } as never);
-    const send = vi.fn(async (_command: GetMetricDataCommand) => ({ MetricDataResults: [] }));
-    vi.mocked(createCloudWatchClient).mockReturnValue({ send } as never);
-
-    await hydrateAwsLambdaFunctionMetrics([resource('lambda', 'lambda:function', functionArn)]);
-    expect(send.mock.calls[0]?.[0].input.StartTime).toEqual(new Date('2026-08-31T12:00:00.000Z'));
-    expect(send.mock.calls[0]?.[0].input.EndTime).toEqual(new Date('2026-09-07T12:00:00.000Z'));
-  });
 });

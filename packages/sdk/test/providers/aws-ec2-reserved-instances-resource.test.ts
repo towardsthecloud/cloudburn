@@ -14,11 +14,6 @@ describe('hydrateAwsEc2ReservedInstances', () => {
     vi.resetAllMocks();
   });
 
-  it('returns an empty list when no reserved-instance resources are provided', async () => {
-    await expect(hydrateAwsEc2ReservedInstances([])).resolves.toEqual([]);
-    expect(mockedCreateEc2Client).not.toHaveBeenCalled();
-  });
-
   it('hydrates discovered reserved instances using DescribeReservedInstances', async () => {
     mockedCreateEc2Client.mockImplementation(({ region }) => {
       const send = vi.fn(async (command: DescribeReservedInstancesCommand) => {

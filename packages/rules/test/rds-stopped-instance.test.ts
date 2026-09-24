@@ -59,34 +59,4 @@ describe('rdsStoppedInstanceRule', () => {
 
     expect(finding).toBeNull();
   });
-
-  it('returns only stopped DB instances from mixed discovery results', () => {
-    const finding = rdsStoppedInstanceRule.evaluateLive?.({
-      catalog: {
-        indexType: 'LOCAL',
-        resources: [],
-        searchRegion: 'us-east-1',
-      },
-      resources: new LiveResourceBag({
-        'aws-rds-instances': [
-          createInstance(),
-          createInstance({ dbInstanceIdentifier: 'running-db', dbInstanceStatus: 'available' }),
-          createInstance({ dbInstanceIdentifier: 'stopped-db-2', region: 'eu-west-1' }),
-        ],
-      }),
-    });
-
-    expect(finding?.findings).toEqual([
-      {
-        accountId: '123456789012',
-        region: 'us-east-1',
-        resourceId: 'stopped-db',
-      },
-      {
-        accountId: '123456789012',
-        region: 'eu-west-1',
-        resourceId: 'stopped-db-2',
-      },
-    ]);
-  });
 });

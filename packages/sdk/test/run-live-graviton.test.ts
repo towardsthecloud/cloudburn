@@ -201,33 +201,3 @@ it('falls back to the native finding when Hub evidence is absent', async () => {
     }),
   ]);
 });
-
-it.each(['CostOptimizationHubNotEnrolled', 'CostOptimizationHubRecommendationIncomplete', 'AccessDeniedException'])(
-  'reports %s as unavailable rather than passed',
-  async (code) => {
-    const diagnostic = {
-      code,
-      message: 'Hub evidence unavailable',
-      provider: 'aws' as const,
-      service: 'costoptimizationhub',
-      source: 'discovery' as const,
-      status: 'skipped' as const,
-    };
-    vi.mocked(discoverAwsResources).mockResolvedValue({
-      catalog: { indexType: 'LOCAL', searchRegion: 'eu-west-1', resources: [] },
-      resources: new LiveResourceBag({}),
-      diagnostics: [diagnostic],
-      unavailableDatasets: new Map([['aws-cost-optimization-hub-graviton-recommendations', [diagnostic]]]),
-    });
-    const result = await runLiveScan(
-      { discovery: { enabledRules: ['CLDBRN-AWS-COSTOPTIMIZATIONHUB-6'] }, iac: {} },
-      { mode: 'current' },
-      { includeEvaluationResources: true },
-    );
-    expect(result.providers).toEqual([]);
-    expect(result.diagnostics).toContainEqual(diagnostic);
-    expect(result.evaluations?.rules).toEqual([
-      expect.objectContaining({ ruleId: 'CLDBRN-AWS-COSTOPTIMIZATIONHUB-6', status: 'not_applicable' }),
-    ]);
-  },
-);

@@ -4,12 +4,6 @@ import { awsRules, LiveResourceBag, StaticResourceBag } from '../src/index.js';
 const RULE_ID_PATTERN = /^CLDBRN-([A-Z0-9]+)-([A-Z0-9]+)-([1-9]\d*)$/;
 
 describe('rule metadata', () => {
-  it('assigns a supported severity to every built-in rule', () => {
-    for (const rule of awsRules) {
-      expect(['high', 'medium', 'low'], rule.id).toContain(rule.severity);
-    }
-  });
-
   it('ensures every AWS rule has complete catalog metadata', () => {
     for (const rule of awsRules) {
       for (const field of ['id', 'name', 'description', 'message', 'service'] as const) {

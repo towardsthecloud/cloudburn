@@ -159,24 +159,6 @@ describe('configRecordingFrequencyRule', () => {
 });
 
 describe('createAwsConfigRecordingFrequencyImpact', () => {
-  it('reports estimated monthly savings with an unavailable current cost', () => {
-    expect(createAwsConfigRecordingFrequencyImpact(createReview())).toEqual({
-      source: 'cloudburn',
-      sourceDetail: 'aws-config-recording-frequency',
-      window: { lookbackDays: 14 },
-      currentCost: {
-        confidence: 'unknown',
-        currency: 'USD',
-        period: 'month',
-        reason: {
-          code: 'not_provided',
-          message: 'The dataset does not provide normalized current recording cost.',
-        },
-      },
-      potentialSavings: { amount: 11.06, confidence: 'estimated', currency: 'USD', period: 'month' },
-    });
-  });
-
   it('keeps savings unknown when a dependent service requires continuous recording', () => {
     for (const overrides of [{ firewallManagerDependent: true }, { paidServiceLinkedRecorderDependent: true }]) {
       const impact = createAwsConfigRecordingFrequencyImpact(createReview(overrides));

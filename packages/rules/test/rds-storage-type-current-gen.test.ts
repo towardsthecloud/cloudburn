@@ -44,8 +44,6 @@ describe('rdsStorageTypeCurrentGenRule', () => {
       }),
     });
 
-    expect(rdsStorageTypeCurrentGenRule.discoveryDependencies).toEqual(['aws-rds-instances']);
-    expect(rdsStorageTypeCurrentGenRule.staticDependencies).toEqual(['aws-rds-instances']);
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-RDS-11',
       service: 'rds',

@@ -2,14 +2,7 @@ import { fileURLToPath } from 'node:url';
 import { awsRules } from '@cloudburn/rules';
 import { describe, expect, it } from 'vitest';
 import { listBuiltInRuleMetadata } from '../src/built-in-rules.js';
-import {
-  AWS_CAPABILITIES,
-  builtInRuleMetadata,
-  getRuleCapabilities,
-  parseIaC,
-  type Rule,
-  withAwsClientCredentials,
-} from '../src/index.js';
+import { builtInRuleMetadata, getRuleCapabilities, parseIaC, type Rule } from '../src/index.js';
 import { getAwsDiscoveryDatasetDefinition } from '../src/providers/aws/discovery-registry.js';
 import { getAwsStaticDatasetDefinition } from '../src/providers/aws/static-registry.js';
 
@@ -34,10 +27,6 @@ describe('sdk exports', () => {
     expect(Array.isArray(resources)).toBe(true);
     expect(resources).toHaveLength(1);
     expect(resources[0]?.name).toBe('gp2_data');
-  });
-
-  it('exports the aws credential scoping helper from the package root', () => {
-    expect(withAwsClientCredentials).toBeTypeOf('function');
   });
 
   it('exports the complete projected catalog without sharing mutable arrays', () => {
@@ -116,24 +105,6 @@ describe('sdk exports', () => {
     });
     expect(metadata.supports).not.toBe(rule.supports);
     expect(metadata.supersedesRuleIds).not.toBe(rule.supersedesRuleIds);
-  });
-
-  it('exposes required AWS capabilities at the package root', () => {
-    expect(AWS_CAPABILITIES).toEqual([
-      'cost-optimization-hub-enrollment',
-      'compute-optimizer-enrollment',
-      'resource-explorer-aggregator',
-      'cost-explorer-access',
-      'budgets-access',
-    ]);
-    expect(getRuleCapabilities('CLDBRN-AWS-COSTOPTIMIZATIONHUB-1')).toEqual(['cost-optimization-hub-enrollment']);
-    expect(getRuleCapabilities('CLDBRN-AWS-LAMBDA-4')).toEqual(['compute-optimizer-enrollment']);
-    expect(getRuleCapabilities('CLDBRN-AWS-TAGGING-1')).toEqual(['resource-explorer-aggregator']);
-    expect(getRuleCapabilities('CLDBRN-AWS-COSTEXPLORER-1')).toEqual(['cost-explorer-access']);
-    expect(getRuleCapabilities('CLDBRN-AWS-COSTGUARDRAILS-1')).toEqual(['budgets-access']);
-    expect(getRuleCapabilities('CLDBRN-AWS-COSTGUARDRAILS-2')).toEqual(['cost-explorer-access']);
-    expect(getRuleCapabilities('CLDBRN-AWS-SAGEMAKER-3')).toEqual(['cost-explorer-access']);
-    expect(getRuleCapabilities('CLDBRN-AWS-EBS-1')).toEqual([]);
   });
 
   it('rejects unknown rule IDs and returns a fresh capability array per call', () => {

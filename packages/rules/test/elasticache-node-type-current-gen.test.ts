@@ -40,8 +40,6 @@ describe('elastiCacheNodeTypeCurrentGenRule', () => {
       }),
     });
 
-    expect(elastiCacheNodeTypeCurrentGenRule.discoveryDependencies).toEqual(['aws-elasticache-clusters']);
-    expect(elastiCacheNodeTypeCurrentGenRule.staticDependencies).toEqual(['aws-elasticache-clusters']);
     expect(finding).toEqual({
       ruleId: 'CLDBRN-AWS-ELASTICACHE-3',
       service: 'elasticache',

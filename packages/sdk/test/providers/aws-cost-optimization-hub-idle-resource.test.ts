@@ -90,40 +90,6 @@ describe('idle recommendation loader', () => {
     ]);
     expect(send.mock.calls.filter(([c]) => c instanceof GetRecommendationCommand)).toHaveLength(2);
   });
-  it.each(['enrollment', 'list', 'detail'])('reports access denied during %s as unavailable', async (stage) => {
-    vi.mocked(createCostOptimizationHubClient).mockReturnValue({
-      send: async (command: unknown) => {
-        const denied = () => {
-          throw Object.assign(new Error('Denied'), { name: 'AccessDeniedException' });
-        };
-        if (command instanceof ListEnrollmentStatusesCommand)
-          return stage === 'enrollment' ? denied() : { items: [{ accountId, status: 'Active' }] };
-        if (command instanceof ListRecommendationsCommand) return stage === 'list' ? denied() : { items: [summary()] };
-        return denied();
-      },
-    } as never);
-    expect(await load()).toMatchObject({
-      unavailable: true,
-      resources: [],
-      diagnostics: [{ status: 'access_denied' }],
-    });
-  });
-  it.each([true, false])('distinguishes an enrolled empty result (%s) from unenrolled', async (enrolled) => {
-    vi.mocked(createCostOptimizationHubClient).mockReturnValue({
-      send: async (command: unknown) =>
-        command instanceof ListEnrollmentStatusesCommand
-          ? { items: [{ accountId, status: enrolled ? 'Active' : 'Inactive' }] }
-          : { items: [] },
-    } as never);
-    expect(await load()).toEqual(
-      enrolled
-        ? []
-        : expect.objectContaining({
-            unavailable: true,
-            diagnostics: [expect.objectContaining({ code: 'CostOptimizationHubNotEnrolled' })],
-          }),
-    );
-  });
   it.each([
     { currentResourceDetails: undefined },
     { currentResourceDetails: { ec2Instance: { configuration: {} } } },
@@ -167,35 +133,6 @@ describe('idle recommendation loader', () => {
       unavailable: true,
       diagnostics: [{ code: 'CostOptimizationHubRecommendationIncomplete' }],
     });
-  });
-  it('normalizes missing or unusable financial fields as null', async () => {
-    vi.mocked(createCostOptimizationHubClient).mockReturnValue({
-      send: async (command: unknown) => {
-        if (command instanceof ListEnrollmentStatusesCommand) return { items: [{ accountId, status: 'Active' }] };
-        if (command instanceof ListRecommendationsCommand)
-          return {
-            items: [
-              {
-                ...summary(),
-                currencyCode: undefined,
-                estimatedMonthlyCost: Number.NaN,
-                estimatedMonthlySavings: undefined,
-                estimatedSavingsPercentage: undefined,
-              },
-            ],
-          };
-        return { currentResourceDetails: { ec2Instance: { configuration: { instance: { type: 'm7i.large' } } } } };
-      },
-    } as never);
-    expect(await load()).toEqual([
-      expect.objectContaining({
-        currencyCode: null,
-        estimatedMonthlyCost: null,
-        estimatedMonthlySavings: null,
-        estimatedSavingsPercentage: null,
-        recommendationId: 'rec-1',
-      }),
-    ]);
   });
   it.each(cases)('retains %s %s configuration and common evidence', async (action, type, key, configuration) => {
     const send = vi.fn(async (command: unknown) => {

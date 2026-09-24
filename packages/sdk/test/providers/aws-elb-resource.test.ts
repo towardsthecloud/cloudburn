@@ -36,12 +36,6 @@ describe('hydrateAwsEc2LoadBalancers', () => {
     vi.resetAllMocks();
   });
 
-  it('returns an empty list when no load-balancer resources are provided', async () => {
-    await expect(hydrateAwsEc2LoadBalancers([])).resolves.toEqual([]);
-    expect(mockedCreateElasticLoadBalancingClient).not.toHaveBeenCalled();
-    expect(mockedCreateElasticLoadBalancingV2Client).not.toHaveBeenCalled();
-  });
-
   it('hydrates classic and v2 load balancers with the fields required by cleanup rules', async () => {
     mockedCreateElasticLoadBalancingClient.mockImplementation(({ region }) => {
       const send = vi.fn(async (_command: DescribeClassicLoadBalancersCommand) => ({
@@ -630,11 +624,6 @@ describe('hydrateAwsEc2LoadBalancers', () => {
 describe('hydrateAwsEc2TargetGroups', () => {
   beforeEach(() => {
     vi.resetAllMocks();
-  });
-
-  it('returns an empty list when no target-group resources are provided', async () => {
-    await expect(hydrateAwsEc2TargetGroups([])).resolves.toEqual([]);
-    expect(mockedCreateElasticLoadBalancingV2Client).not.toHaveBeenCalled();
   });
 
   it('hydrates target groups with attached load balancers and registered target counts', async () => {

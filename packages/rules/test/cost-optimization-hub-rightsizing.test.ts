@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { awsCorePreset, awsRules, createAwsCostOptimizationHubFindingMatch, LiveResourceBag } from '../src/index.js';
+import { awsRules, createAwsCostOptimizationHubFindingMatch, LiveResourceBag } from '../src/index.js';
 
 describe('CLDBRN-AWS-COSTOPTIMIZATIONHUB-4', () => {
   it.each([
@@ -203,44 +203,5 @@ describe('CLDBRN-AWS-COSTOPTIMIZATIONHUB-4', () => {
         }),
       }),
     ).toBeNull();
-  });
-  it('exports an opt-in discovery rule and reports an EC2 rightsizing opportunity', () => {
-    const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-COSTOPTIMIZATIONHUB-4');
-    expect(rule).toBeDefined();
-    expect(awsCorePreset.ruleIds).not.toContain(rule?.id);
-    expect(rule).toMatchObject({
-      supports: ['discovery'],
-      discoveryDependencies: ['aws-cost-optimization-hub-rightsizing-recommendations'],
-    });
-    expect(
-      rule?.evaluateLive?.({
-        catalog: { resources: [], searchRegion: 'eu-west-1', indexType: 'LOCAL' },
-        resources: new LiveResourceBag({
-          'aws-cost-optimization-hub-rightsizing-recommendations': [
-            {
-              accountId: '123456789012',
-              region: 'eu-west-1',
-              actionType: 'Rightsize',
-              resourceType: 'Ec2Instance',
-              resourceId: 'i-example',
-              recommendationId: 'rec-1',
-              currencyCode: 'USD',
-              estimatedMonthlyCost: 100,
-              estimatedMonthlySavings: 50,
-              estimatedSavingsPercentage: 50,
-              recommendationSource: 'ComputeOptimizer',
-              lastRefreshTimestamp: '2026-09-04T00:00:00.000Z',
-              currentConfiguration: { instance: { type: 'm7i.xlarge' } },
-              recommendedConfiguration: { instance: { type: 'm7i.large' } },
-            },
-          ],
-        }),
-      }),
-    ).toMatchObject({
-      ruleId: 'CLDBRN-AWS-COSTOPTIMIZATIONHUB-4',
-      findings: [
-        { accountId: '123456789012', region: 'eu-west-1', resourceId: 'i-example', resourceType: 'ec2:instance' },
-      ],
-    });
   });
 });

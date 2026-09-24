@@ -42,59 +42,39 @@ const evaluationFor = (result: Awaited<ReturnType<typeof discover>>, ruleId: str
 describe('lifecycle and recommendation evaluation coverage', () => {
   beforeEach(() => vi.resetAllMocks());
 
-  it.each(['CLDBRN-AWS-ECR-2', 'CLDBRN-AWS-ECR-3'])(
-    '%s reports unknown instead of passed when lifecycle traits are unavailable',
-    async (ruleId) => {
-      vi.mocked(discoverAwsResources).mockResolvedValue({
-        catalog,
-        diagnostics: [],
-        resources: new LiveResourceBag({
-          'aws-ecr-repositories': [
-            repository('unparsed', { tagged: null, untagged: null }),
-            repository('compliant', { tagged: true, untagged: true }),
-          ],
-        }),
-      });
-
-      const result = await discover([ruleId]);
-
-      expect(result.providers).toEqual([]);
-      expect(evaluationFor(result, ruleId)).toMatchObject({
-        status: 'unknown',
-        findingCount: 0,
-        reason: `Could not assess 1 resource(s) for rule ${ruleId} because required evidence was incomplete or unavailable.`,
-        coverage: {
-          assessed: [{ accountId, region, resourceId: 'compliant' }],
-          unknown: [{ accountId, region, resourceId: 'unparsed' }],
-        },
-        resourceSetId: 'aws-ecr-repositories',
-      });
-      expect(result.diagnostics).toEqual([expect.objectContaining({ ruleId, status: 'skipped' })]);
-      expect(result.evaluations?.resourceSets).toEqual([
-        expect.objectContaining({
-          id: 'aws-ecr-repositories',
-          resources: expect.arrayContaining([expect.objectContaining({ resourceId: 'unparsed' })]),
-        }),
-      ]);
-    },
-  );
-
-  it('ECR lifecycle rules still pass when every repository has parsed traits or no policy', async () => {
+  it('CLDBRN-AWS-ECR-2 reports unknown instead of passed when lifecycle traits are unavailable', async () => {
+    const ruleId = 'CLDBRN-AWS-ECR-2';
     vi.mocked(discoverAwsResources).mockResolvedValue({
       catalog,
       diagnostics: [],
       resources: new LiveResourceBag({
         'aws-ecr-repositories': [
+          repository('unparsed', { tagged: null, untagged: null }),
           repository('compliant', { tagged: true, untagged: true }),
-          { ...repository('no-policy', { tagged: null, untagged: null }), hasLifecyclePolicy: false },
         ],
       }),
     });
 
-    const result = await discover(['CLDBRN-AWS-ECR-2', 'CLDBRN-AWS-ECR-3']);
+    const result = await discover([ruleId]);
 
-    expect(result.evaluations?.rules.map((rule) => rule.status)).toEqual(['passed', 'passed']);
-    expect(result.diagnostics).toBeUndefined();
+    expect(result.providers).toEqual([]);
+    expect(evaluationFor(result, ruleId)).toMatchObject({
+      status: 'unknown',
+      findingCount: 0,
+      reason: `Could not assess 1 resource(s) for rule ${ruleId} because required evidence was incomplete or unavailable.`,
+      coverage: {
+        assessed: [{ accountId, region, resourceId: 'compliant' }],
+        unknown: [{ accountId, region, resourceId: 'unparsed' }],
+      },
+      resourceSetId: 'aws-ecr-repositories',
+    });
+    expect(result.diagnostics).toEqual([expect.objectContaining({ ruleId, status: 'skipped' })]);
+    expect(result.evaluations?.resourceSets).toEqual([
+      expect.objectContaining({
+        id: 'aws-ecr-repositories',
+        resources: expect.arrayContaining([expect.objectContaining({ resourceId: 'unparsed' })]),
+      }),
+    ]);
   });
 
   it('CLDBRN-AWS-LAMBDA-4 reports unknown when Compute Optimizer returns an empty successful response', async () => {

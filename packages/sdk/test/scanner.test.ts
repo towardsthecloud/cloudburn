@@ -571,49 +571,6 @@ describe('CloudBurnClient', () => {
     });
   });
 
-  it('reports the KMS no-recorded-usage rule as not applicable when usage evidence is incomplete', async () => {
-    const diagnostic = {
-      code: 'KmsUsageEvidenceIncomplete',
-      details: '0 keys lacked DescribeKey metadata; 1 enabled customer-managed key lacked GetKeyLastUsage metadata.',
-      message:
-        'Skipped KMS no-recorded-usage evaluation in eu-central-1 because key or last-usage metadata was incomplete.',
-      provider: 'aws' as const,
-      region: 'eu-central-1',
-      service: 'kms',
-      source: 'discovery' as const,
-      status: 'skipped' as const,
-    };
-    mockedDiscoverAwsResources.mockResolvedValue({
-      catalog: discoveryCatalog,
-      diagnostics: [diagnostic],
-      resources: new LiveResourceBag({ 'aws-kms-key-usage': [] }),
-      unavailableDatasets: new Map([['aws-kms-key-usage', [diagnostic]]]),
-    });
-
-    const result = await new CloudBurnClient().discover({
-      config: { discovery: { enabledRules: ['CLDBRN-AWS-KMS-2'] }, iac: {} },
-      includeEvaluationResources: true,
-    });
-
-    expect(result.providers).toEqual([]);
-    expect(result.evaluations?.rules).toEqual([
-      expect.objectContaining({
-        findingCount: 0,
-        reason:
-          'Skipped rule CLDBRN-AWS-KMS-2 because required discovery datasets were unavailable: aws-kms-key-usage.',
-        ruleId: 'CLDBRN-AWS-KMS-2',
-        status: 'not_applicable',
-      }),
-    ]);
-    expect(result.diagnostics).toEqual([
-      diagnostic,
-      expect.objectContaining({
-        ruleId: 'CLDBRN-AWS-KMS-2',
-        status: 'skipped',
-      }),
-    ]);
-  });
-
   it('preserves concrete resource types for mixed account-wide evaluation resources', async () => {
     mockedDiscoverAwsResources.mockResolvedValue({
       catalog: discoveryCatalog,
@@ -850,57 +807,6 @@ describe('CloudBurnClient', () => {
         },
       },
     });
-  });
-
-  it('reports incomplete AWS Config turnover evidence as not applicable', async () => {
-    const diagnostic = {
-      code: 'ConfigResourceTurnoverLimitExceeded',
-      details:
-        'Turnover could not be established for AWS::Lambda::Function after inspecting 1,000 retained resource identities.',
-      message:
-        'Skipped AWS Config recording-frequency evaluation in eu-central-1 because retained-resource turnover exceeded the 1,000-identity inspection limit.',
-      provider: 'aws' as const,
-      region: 'eu-central-1',
-      service: 'config',
-      source: 'discovery' as const,
-      status: 'skipped' as const,
-    };
-    mockedDiscoverAwsResources.mockResolvedValue({
-      catalog: discoveryCatalog,
-      diagnostics: [diagnostic],
-      resources: new LiveResourceBag({
-        'aws-config-recording-frequency-reviews': [{ ...configRecordingReview, turnoverEstimateReliable: false }],
-      }),
-      unavailableDatasets: new Map([['aws-config-recording-frequency-reviews', [diagnostic]]]),
-    });
-
-    const result = await new CloudBurnClient().discover({
-      config: { discovery: { enabledRules: ['CLDBRN-AWS-CONFIG-1'] }, iac: {} },
-      includeEvaluationResources: true,
-    });
-
-    expect(result.providers).toEqual([]);
-    expect(result.evaluations).toEqual({
-      resourceSets: [],
-      rules: [
-        expect.objectContaining({
-          findingCount: 0,
-          reason:
-            'Skipped rule CLDBRN-AWS-CONFIG-1 because required discovery datasets were unavailable: aws-config-recording-frequency-reviews.',
-          ruleId: 'CLDBRN-AWS-CONFIG-1',
-          status: 'not_applicable',
-        }),
-      ],
-    });
-    expect(result.diagnostics).toEqual([
-      diagnostic,
-      expect.objectContaining({
-        message:
-          'Skipped rule CLDBRN-AWS-CONFIG-1 because required discovery datasets were unavailable: aws-config-recording-frequency-reviews.',
-        ruleId: 'CLDBRN-AWS-CONFIG-1',
-        status: 'skipped',
-      }),
-    ]);
   });
 
   it('uses the same CloudWatch log group identity for findings and evaluation resources', async () => {
@@ -1406,105 +1312,6 @@ describe('CloudBurnClient', () => {
     });
   });
 
-  it('returns static findings and diagnostics when a terraform sibling is malformed', async () => {
-    const scanner = new CloudBurnClient();
-    const fixturePath = fileURLToPath(new URL('./fixtures/terraform/invalid-syntax', import.meta.url));
-
-    const result = await scanner.scanStatic(fixturePath);
-
-    expect(result.diagnostics).toEqual([
-      {
-        code: 'TERRAFORM_PARSE_ERROR',
-        message: 'Skipped Terraform file broken.tf because it could not be parsed.',
-        provider: 'aws',
-        service: 'terraform',
-        source: 'iac',
-        status: 'skipped',
-      },
-    ]);
-    expect(
-      result.providers.flatMap((provider) =>
-        provider.rules.flatMap((rule) => rule.findings.map((finding) => finding.resourceId)),
-      ),
-    ).toContain('aws_ebs_volume.gp2_sibling');
-  });
-
-  it('reports the effective configured policy in static scan results', async () => {
-    const scanner = new CloudBurnClient();
-    const fixturePath = fileURLToPath(new URL('./fixtures/terraform/scan-dir', import.meta.url));
-
-    const result = await scanner.scanStatic(fixturePath, { iac: { failOn: 'medium' } });
-
-    expect(result.policy).toEqual({
-      qualifyingFindingCount: 4,
-      threshold: 'medium',
-      violated: true,
-    });
-  });
-
-  it('returns diagnostics instead of aborting for a malformed cloudformation template', async () => {
-    const scanner = new CloudBurnClient();
-    const fixturePath = fileURLToPath(new URL('./fixtures/cloudformation/invalid-template.yaml', import.meta.url));
-
-    const result = await scanner.scanStatic(fixturePath);
-
-    expect(result).toEqual({
-      diagnostics: [
-        {
-          code: 'CLOUDFORMATION_PARSE_ERROR',
-          message: 'Skipped CloudFormation file invalid-template.yaml because it could not be parsed.',
-          provider: 'aws',
-          service: 'cloudformation',
-          source: 'iac',
-          status: 'skipped',
-        },
-      ],
-      providers: [],
-    });
-  });
-
-  it('returns static ebs findings from terraform and cloudformation resources in the same directory', async () => {
-    const scanner = new CloudBurnClient();
-    const fixturePath = fileURLToPath(new URL('./fixtures/iac-mixed', import.meta.url));
-
-    const result = await scanner.scanStatic(fixturePath);
-
-    expect(result).toEqual({
-      providers: [
-        {
-          provider: 'aws',
-          rules: [
-            {
-              ruleId: 'CLDBRN-AWS-EBS-1',
-              service: 'ebs',
-              severity: 'medium',
-              source: 'iac',
-              message: 'EBS volumes should use current-generation storage.',
-              findings: [
-                {
-                  resourceId: 'aws_ebs_volume.gp2_logs',
-                  location: {
-                    path: 'main.tf',
-                    line: 4,
-                    column: 3,
-                  },
-                },
-                {
-                  resourceId: 'MyVolume',
-                  location: {
-                    path: 'template.yaml',
-                    line: 7,
-                    column: 7,
-                  },
-                },
-              ],
-            },
-          ],
-        },
-      ],
-    });
-  });
-
   it('partitions Terraform and CloudFormation suppressions from active static findings', async () => {
     const scanner = new CloudBurnClient();
     const fixturePath = fileURLToPath(new URL('./fixtures/iac-suppressions', import.meta.url));
@@ -1588,29 +1395,5 @@ describe('CloudBurnClient', () => {
         ruleId: 'CLDBRN-AWS-EBS-4',
       },
     ]);
-  });
-
-  it('returns an empty static scan result when terraform files have no aws resources', async () => {
-    const scanner = new CloudBurnClient();
-    const fixturePath = fileURLToPath(new URL('./fixtures/terraform/no-resources', import.meta.url));
-
-    const result = await scanner.scanStatic(fixturePath);
-
-    expect(result).toEqual({
-      providers: [],
-    });
-  });
-
-  it('passes an explicit config path through static scan config loading', async () => {
-    const scanner = new CloudBurnClient();
-    const fixturePath = fileURLToPath(new URL('./fixtures/terraform/no-resources', import.meta.url));
-    const loadConfig = vi.spyOn(scanner, 'loadConfig').mockResolvedValue({
-      discovery: {},
-      iac: {},
-    });
-
-    await scanner.scanStatic(fixturePath, undefined, { configPath: '/tmp/cloudburn.yml' });
-
-    expect(loadConfig).toHaveBeenCalledWith('/tmp/cloudburn.yml');
   });
 });

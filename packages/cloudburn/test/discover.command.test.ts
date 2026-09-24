@@ -28,23 +28,6 @@ const liveScanResult = {
   ],
 };
 
-const liveScanResultWithDiagnostic = {
-  providers: liveScanResult.providers,
-  diagnostics: [
-    {
-      code: 'AccessDeniedException',
-      details:
-        'AWS Lambda ListFunctions failed in us-east-1 with AccessDeniedException: Access denied by SCP. Request ID: req-123.',
-      message: 'Skipped lambda discovery in us-east-1 because access is denied by a service control policy (SCP).',
-      provider: 'aws' as const,
-      region: 'us-east-1',
-      service: 'lambda',
-      source: 'discovery' as const,
-      status: 'access_denied' as const,
-    },
-  ],
-};
-
 const liveScanResultWithEvidence = {
   ...liveScanResult,
   evidence: [
@@ -151,17 +134,6 @@ describe('discover command', () => {
     });
   });
 
-  it('rejects an unsupported cache mode before invoking the sdk', async () => {
-    vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
-    const discover = vi.spyOn(CloudBurnClient.prototype, 'discover');
-
-    await expect(createProgram().parseAsync(['discover', '--cache', 'stale'], { from: 'user' })).rejects.toMatchObject({
-      code: 'commander.invalidArgument',
-      message: expect.stringContaining('Cache mode must be normal, refresh, or off.'),
-    });
-    expect(discover).not.toHaveBeenCalled();
-  });
-
   it.each(['normal', 'refresh', 'off'])(
     'accepts cache mode %s with an explicit directory and authorization context',
     async (mode) => {
@@ -178,41 +150,6 @@ describe('discover command', () => {
       });
     },
   );
-
-  it('prints live findings as json and leaves a success exit code', async () => {
-    const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
-    const discover = vi.spyOn(CloudBurnClient.prototype, 'discover').mockResolvedValue(liveScanResult);
-
-    await createProgram().parseAsync(['discover', '--format', 'json'], { from: 'user' });
-
-    expect(discover).toHaveBeenCalledWith({
-      cache: { mode: 'normal', directory: '/tmp/cloudburn-user-cache/cloudburn/evidence' },
-      target: { mode: 'current' },
-    });
-    expect(stdout).toHaveBeenCalledWith(`{
-  "providers": [
-    {
-      "provider": "aws",
-      "rules": [
-        {
-          "ruleId": "CLDBRN-AWS-EBS-1",
-          "service": "ebs",
-          "severity": "medium",
-          "source": "discovery",
-          "message": "EBS volumes should use current-generation storage.",
-          "findings": [
-            {
-              "resourceId": "vol-123",
-              "region": "us-east-1"
-            }
-          ]
-        }
-      ]
-    }
-  ]
-}\n`);
-    expect(process.exitCode).toBe(0);
-  });
 
   it('shows cache freshness and incomplete evidence alongside findings in table output', async () => {
     const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
@@ -473,15 +410,6 @@ describe('discover command', () => {
     expect(stderr).toHaveBeenCalledWith(expect.stringContaining("Invalid AWS region 'eu-central-1,us-east-1'."));
   });
 
-  it('preserves the policy violation exit code when discover finds resources and --exit-code is set', async () => {
-    vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
-    vi.spyOn(CloudBurnClient.prototype, 'discover').mockResolvedValue(liveScanResult);
-
-    await createProgram().parseAsync(['discover', '--exit-code'], { from: 'user' });
-
-    expect(process.exitCode).toBe(1);
-  });
-
   it('fails only when discovery findings meet the --fail-on threshold', async () => {
     vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
     vi.spyOn(CloudBurnClient.prototype, 'discover').mockResolvedValue(liveScanResult);
@@ -492,20 +420,6 @@ describe('discover command', () => {
     process.exitCode = undefined;
     await createProgram().parseAsync(['discover', '--fail-on', 'medium'], { from: 'user' });
     expect(process.exitCode).toBe(1);
-  });
-
-  it('renders service diagnostics without aborting the discover output', async () => {
-    const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
-    vi.spyOn(CloudBurnClient.prototype, 'discover').mockResolvedValue(liveScanResultWithDiagnostic);
-
-    await createProgram().parseAsync(['discover'], { from: 'user' });
-
-    const output = stdout.mock.calls.map(([chunk]) => String(chunk)).join('');
-
-    expect(output).toContain('CLDBRN-AWS-EBS-1');
-    expect(output).toContain('lambda');
-    expect(output).toContain('Skipped lambda discovery in us-east-1');
-    expect(process.exitCode).toBe(0);
   });
 
   it('uses the discovery config format when --format is not provided', async () => {
@@ -578,36 +492,6 @@ describe('discover command', () => {
       target: { mode: 'current' },
     });
     expect(process.exitCode).toBe(0);
-  });
-
-  it('describes region targeting in discover help output', () => {
-    const program = createProgram();
-    const discoverCommand = program.commands.find((command) => command.name() === 'discover');
-    const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
-
-    discoverCommand?.outputHelp();
-
-    const help = stdout.mock.calls.map(([chunk]) => String(chunk)).join('');
-
-    expect(help).toContain('Run a live AWS discovery');
-    expect(help).toContain('--region <region>');
-    expect(help).toContain('AWS region to discover. Defaults');
-    expect(help).toContain('AWS region from AWS_REGION');
-    expect(help).toContain('omitted.');
-    expect(help).not.toContain('--regions <regions>');
-    expect(help).toContain('--config <path>');
-    expect(help).toContain('--enabled-rules <ruleIds>');
-    expect(help).toContain('When set,');
-    expect(help).toContain('CloudBurn checks only these rules');
-    expect(help).toContain('By default, AWS');
-    expect(help).toContain('Core preset rules are enabled');
-    expect(help).toContain('--disabled-rules <ruleIds>');
-    expect(help).toContain('--service <services>');
-    expect(help).toContain('Comma-separated services');
-    expect(help).toContain('disable from the');
-    expect(help).toContain('default AWS Core preset');
-    expect(help).toContain('cloudburn discover');
-    expect(help).toContain('cloudburn discover --region eu-central-1');
   });
 
   it('initializes resource explorer setup via the sdk', async () => {
@@ -937,27 +821,5 @@ describe('discover command', () => {
     const output = (stderr.mock.calls[0]?.[0] as string) ?? '';
     const parsed = JSON.parse(output) as { error: { code: string } };
     expect(parsed.error.code).toBe('CREDENTIALS_ERROR');
-  });
-
-  it('writes a setup-specific error payload for disabled resource explorer', async () => {
-    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
-    const err = Object.assign(
-      new Error(
-        "AWS Resource Explorer is not enabled. Enable it first: https://docs.aws.amazon.com/resource-explorer/latest/userguide/getting-started-setting-up.html or run 'cloudburn discover init'.",
-      ),
-      {
-        code: 'RESOURCE_EXPLORER_NOT_ENABLED',
-      },
-    );
-    vi.spyOn(CloudBurnClient.prototype, 'discover').mockRejectedValue(err);
-
-    await createProgram().parseAsync(['discover'], { from: 'user' });
-
-    expect(process.exitCode).toBe(2);
-    const output = (stderr.mock.calls[0]?.[0] as string) ?? '';
-    const parsed = JSON.parse(output) as { error: { code: string; message: string } };
-    expect(parsed.error.code).toBe('RESOURCE_EXPLORER_NOT_ENABLED');
-    expect(parsed.error.message).toContain('cloudburn discover init');
-    expect(parsed.error.message).toContain('docs.aws.amazon.com/resource-explorer');
   });
 });

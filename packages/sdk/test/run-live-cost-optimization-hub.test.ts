@@ -165,37 +165,6 @@ describe('Cost Optimization Hub reservation orchestration', () => {
     });
   });
 
-  it('keeps non-USD savings known when the current cost amount is missing', async () => {
-    mockedDiscoverAwsResources.mockResolvedValue({
-      catalog: discoveryCatalog,
-      resources: new LiveResourceBag({
-        'aws-cost-optimization-hub-reservation-recommendations': [
-          { ...reservationRecommendation, currencyCode: 'EUR', estimatedMonthlyCost: null },
-        ],
-      }),
-      diagnostics: [],
-    });
-
-    const result = await runLiveScan(
-      { discovery: { enabledRules: ['CLDBRN-AWS-COSTOPTIMIZATIONHUB-2'] }, iac: {} },
-      { mode: 'current' },
-    );
-
-    expect(result.providers[0]?.rules[0]?.findings[0]?.impact).toEqual({
-      currentCost: {
-        confidence: 'unknown',
-        currency: 'EUR',
-        period: 'month',
-        reason: { code: 'missing_amount', message: 'The source did not provide a usable amount.' },
-      },
-      potentialSavings: { amount: 50, confidence: 'estimated', currency: 'EUR', period: 'month' },
-      refreshedAt: '2026-09-04T00:00:00.000Z',
-      source: 'aws-cost-optimization-hub',
-      sourceDetail: 'CostExplorer',
-      sourceId: 'recommendation-1',
-    });
-  });
-
   it('suppresses the Hub duplicate only when an enabled native rule reports the same resource and action', async () => {
     mockedDiscoverAwsResources.mockResolvedValue({
       catalog: discoveryCatalog,

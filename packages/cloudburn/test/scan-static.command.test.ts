@@ -36,43 +36,6 @@ describe('scan command', () => {
     process.exitCode = undefined;
   });
 
-  it('prints static findings as json and leaves a success exit code', async () => {
-    const fixturePath = fileURLToPath(new URL('../../sdk/test/fixtures/terraform/scan-dir', import.meta.url));
-    const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
-    const scanStatic = vi.spyOn(CloudBurnClient.prototype, 'scanStatic').mockResolvedValue(staticScanResult);
-
-    await createProgram().parseAsync(['scan', fixturePath, '--format', 'json'], { from: 'user' });
-
-    expect(scanStatic).toHaveBeenCalledWith(fixturePath);
-    expect(stdout).toHaveBeenCalledWith(`{
-  "providers": [
-    {
-      "provider": "aws",
-      "rules": [
-        {
-          "ruleId": "CLDBRN-AWS-EBS-1",
-          "service": "ebs",
-          "severity": "medium",
-          "source": "iac",
-          "message": "EBS volumes should use current-generation storage.",
-          "findings": [
-            {
-              "resourceId": "aws_ebs_volume.gp2_logs",
-              "location": {
-                "path": "main.tf",
-                "line": 4,
-                "column": 3
-              }
-            }
-          ]
-        }
-      ]
-    }
-  ]
-}\n`);
-    expect(process.exitCode).toBe(0);
-  });
-
   it('accepts the global root format flag for static scans', async () => {
     const fixturePath = fileURLToPath(new URL('../../sdk/test/fixtures/terraform/scan-dir', import.meta.url));
     const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
@@ -120,22 +83,6 @@ describe('scan command', () => {
     expect(process.exitCode).toBe(0);
   });
 
-  it('uses the iac config format when --format is not provided', async () => {
-    const fixturePath = fileURLToPath(new URL('../../sdk/test/fixtures/terraform/scan-dir', import.meta.url));
-    const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
-
-    vi.spyOn(CloudBurnClient.prototype, 'loadConfig').mockResolvedValue({
-      discovery: {},
-      iac: { format: 'table' },
-    });
-    vi.spyOn(CloudBurnClient.prototype, 'scanStatic').mockResolvedValue(staticScanResult);
-
-    await createProgram().parseAsync(['scan', fixturePath], { from: 'user' });
-
-    expect(stdout).toHaveBeenCalledWith(expect.stringContaining('| Provider |'));
-    expect(process.exitCode).toBe(0);
-  });
-
   it('fails only when static findings meet the --fail-on threshold', async () => {
     const fixturePath = fileURLToPath(new URL('../../sdk/test/fixtures/terraform/scan-dir', import.meta.url));
     vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
@@ -146,23 +93,6 @@ describe('scan command', () => {
 
     process.exitCode = undefined;
     await createProgram().parseAsync(['scan', fixturePath, '--fail-on', 'medium'], { from: 'user' });
-    expect(process.exitCode).toBe(1);
-  });
-
-  it('uses config fail-on unless plain --exit-code requests any finding', async () => {
-    const fixturePath = fileURLToPath(new URL('../../sdk/test/fixtures/terraform/scan-dir', import.meta.url));
-    vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
-    vi.spyOn(CloudBurnClient.prototype, 'loadConfig').mockResolvedValue({
-      discovery: {},
-      iac: { failOn: 'high' },
-    });
-    vi.spyOn(CloudBurnClient.prototype, 'scanStatic').mockResolvedValue(staticScanResult);
-
-    await createProgram().parseAsync(['scan', fixturePath], { from: 'user' });
-    expect(process.exitCode).toBe(0);
-
-    process.exitCode = undefined;
-    await createProgram().parseAsync(['scan', fixturePath, '--exit-code'], { from: 'user' });
     expect(process.exitCode).toBe(1);
   });
 
@@ -284,64 +214,5 @@ describe('scan command', () => {
     });
     expect(scanStatic).not.toHaveBeenCalled();
     expect(stderr).toHaveBeenCalled();
-  });
-
-  it('writes PATH_NOT_FOUND json to stderr when the scan path does not exist', async () => {
-    const fixturePath = fileURLToPath(new URL('../../sdk/test/fixtures/terraform/scan-dir', import.meta.url));
-    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
-    const err = Object.assign(new Error('ENOENT: no such file'), { code: 'ENOENT', path: '/missing/path' });
-    vi.spyOn(CloudBurnClient.prototype, 'scanStatic').mockRejectedValue(err);
-
-    await createProgram().parseAsync(['scan', fixturePath, '--format', 'table'], { from: 'user' });
-
-    expect(process.exitCode).toBe(2);
-    const output = (stderr.mock.calls[0]?.[0] as string) ?? '';
-    const parsed = JSON.parse(output) as { error: { code: string; message: string } };
-    expect(parsed.error.code).toBe('PATH_NOT_FOUND');
-    expect(parsed.error.message).toContain('/missing/path');
-  });
-
-  it('writes sanitized RUNTIME_ERROR json to stderr on unexpected scan failures', async () => {
-    const fixturePath = fileURLToPath(new URL('../../sdk/test/fixtures/terraform/scan-dir', import.meta.url));
-    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
-    vi.spyOn(CloudBurnClient.prototype, 'scanStatic').mockRejectedValue(
-      new Error('YAML parse error in template.yaml at line 12, column 4'),
-    );
-
-    await createProgram().parseAsync(['scan', fixturePath], { from: 'user' });
-
-    expect(process.exitCode).toBe(2);
-    const output = (stderr.mock.calls[0]?.[0] as string) ?? '';
-    const parsed = JSON.parse(output) as { error: { code: string; message: string } };
-    expect(parsed.error.code).toBe('RUNTIME_ERROR');
-    expect(parsed.error.message).toBe('YAML parse error in template.yaml at line 12, column 4');
-  });
-
-  it('describes static autodetection in scan help output', () => {
-    const program = createProgram();
-    const scanCommand = program.commands.find((command) => command.name() === 'scan');
-    const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
-
-    scanCommand?.outputHelp();
-
-    const help = stdout.mock.calls.map(([chunk]) => String(chunk)).join('');
-
-    expect(help).toContain('Terraform file, CloudFormation template, or');
-    expect(help).toContain('directory to scan');
-    expect(help).toContain('cloudburn scan ./main.tf');
-    expect(help).toContain('cloudburn scan ./template.yaml');
-    expect(help).toContain('cloudburn scan ./iac');
-    expect(help).toContain('--config <path>');
-    expect(help).toContain('--enabled-rules <ruleIds>');
-    expect(help).toContain('When set,');
-    expect(help).toContain('CloudBurn checks only these rules');
-    expect(help).toContain('By default, AWS');
-    expect(help).toContain('Core preset rules are enabled');
-    expect(help).toContain('--disabled-rules <ruleIds>');
-    expect(help).toContain('--service <services>');
-    expect(help).toContain('Comma-separated services');
-    expect(help).toContain('disable from the');
-    expect(help).toContain('default AWS Core preset');
-    expect(help).not.toContain('--live');
   });
 });

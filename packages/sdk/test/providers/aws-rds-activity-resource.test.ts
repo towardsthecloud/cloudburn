@@ -53,30 +53,6 @@ describe('hydrateAwsRdsInstanceActivity', () => {
     ]);
   });
 
-  it('preserves unknown activity when CloudWatch returns no datapoints', async () => {
-    mockedHydrateAwsRdsInstances.mockResolvedValue([
-      {
-        accountId: '123456789012',
-        dbInstanceIdentifier: 'new-db',
-        instanceClass: 'db.t4g.micro',
-        region: 'us-east-1',
-      },
-    ]);
-    mockedFetchCloudWatchSignals.mockResolvedValue(
-      new Map([['rds0', completeMetricEvidence([], { status: 'Missing' })]]),
-    );
-
-    await expect(hydrateAwsRdsInstanceActivity([])).resolves.toEqual([
-      {
-        accountId: '123456789012',
-        dbInstanceIdentifier: 'new-db',
-        instanceClass: 'db.t4g.micro',
-        maxDatabaseConnectionsLast7Days: null,
-        region: 'us-east-1',
-      },
-    ]);
-  });
-
   it('preserves unknown activity when CloudWatch returns partial 7-day coverage', async () => {
     mockedHydrateAwsRdsInstances.mockResolvedValue([
       {

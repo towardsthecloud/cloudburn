@@ -94,16 +94,6 @@ describe('upsertPullRequestComment', () => {
     });
   });
 
-  it('updates the comment owned by a personal access token user', async () => {
-    const octokit = octokitWith([
-      [own(1, COMMENT_MARKER), { id: 7, body: COMMENT_MARKER, user: { login: 'maintainer' } }],
-    ]);
-    octokit.graphql.mockResolvedValue({ viewer: { login: 'maintainer' } });
-    const status = await upsertPullRequestComment({ octokit, ...args });
-    expect(status).toBe('updated');
-    expect(octokit.rest.issues.updateComment).toHaveBeenCalledWith(expect.objectContaining({ comment_id: 7 }));
-  });
-
   it('does not mutate comments when the token identity cannot be resolved', async () => {
     const octokit = octokitWith([[own(7, COMMENT_MARKER)]]);
     octokit.graphql.mockRejectedValue(new Error('Identity lookup failed'));

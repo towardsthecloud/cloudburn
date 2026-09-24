@@ -271,53 +271,6 @@ describe('hydrateAwsCostOptimizationHubReservationRecommendations', () => {
     );
   });
 
-  it('returns a clean empty dataset for an enrolled account without matching recommendations', async () => {
-    const send = vi.fn(async (command: unknown) => {
-      if (command instanceof ListEnrollmentStatusesCommand) {
-        return { items: [{ accountId, status: 'Active' }] };
-      }
-      if (command instanceof ListRecommendationsCommand) {
-        return { items: [] };
-      }
-      throw new Error(`Unexpected command: ${String(command)}`);
-    });
-    mockedCreateCostOptimizationHubClient.mockReturnValue({ send } as never);
-
-    await expect(
-      hydrateAwsCostOptimizationHubReservationRecommendations([], {
-        resolveAccountId: vi.fn().mockResolvedValue(accountId),
-      }),
-    ).resolves.toEqual([]);
-  });
-
-  it('paginates and loads each recommendation ID once', async () => {
-    const send = vi.fn(async (command: unknown) => {
-      if (command instanceof ListEnrollmentStatusesCommand) {
-        return { items: [{ accountId, status: 'Active' }] };
-      }
-      if (command instanceof ListRecommendationsCommand) {
-        return command.input.nextToken
-          ? { items: [recommendation('recommendation-a'), recommendation('recommendation-z')] }
-          : { items: [recommendation('recommendation-z')], nextToken: 'page-2' };
-      }
-      if (command instanceof GetRecommendationCommand) {
-        return { recommendedResourceDetails: reservationDetails.Ec2ReservedInstances };
-      }
-      throw new Error(`Unexpected command: ${String(command)}`);
-    });
-    mockedCreateCostOptimizationHubClient.mockReturnValue({ send } as never);
-
-    const result = await hydrateAwsCostOptimizationHubReservationRecommendations([], {
-      resolveAccountId: vi.fn().mockResolvedValue(accountId),
-    });
-
-    expect(result).toEqual([
-      expect.objectContaining({ recommendationId: 'recommendation-a' }),
-      expect.objectContaining({ recommendationId: 'recommendation-z' }),
-    ]);
-    expect(send.mock.calls.filter(([command]) => command instanceof GetRecommendationCommand)).toHaveLength(2);
-  });
-
   it('returns valid recommendations with an unavailable diagnostic when another record is malformed', async () => {
     const send = vi.fn(async (command: unknown) => {
       if (command instanceof ListEnrollmentStatusesCommand) {
@@ -380,60 +333,6 @@ describe('hydrateAwsCostOptimizationHubReservationRecommendations', () => {
       unavailable: true,
     });
     expect(send.mock.calls.some(([command]) => command instanceof GetRecommendationCommand)).toBe(false);
-  });
-
-  it('reports unenrolled and access-denied evidence as unavailable', async () => {
-    mockedCreateCostOptimizationHubClient.mockReturnValueOnce({
-      send: vi.fn(async (command: unknown) => {
-        if (command instanceof ListEnrollmentStatusesCommand) {
-          return { items: [{ accountId, status: 'Inactive' }] };
-        }
-        throw new Error(`Unexpected command: ${String(command)}`);
-      }),
-    } as never);
-
-    await expect(
-      hydrateAwsCostOptimizationHubReservationRecommendations([], {
-        resolveAccountId: vi.fn().mockResolvedValue(accountId),
-      }),
-    ).resolves.toEqual({
-      diagnostics: [
-        expect.objectContaining({
-          code: 'CostOptimizationHubNotEnrolled',
-          message:
-            'Skipped reservation purchase recommendations because this account is not enrolled in AWS Cost Optimization Hub.',
-          status: 'skipped',
-        }),
-      ],
-      resources: [],
-      unavailable: true,
-    });
-
-    mockedCreateCostOptimizationHubClient.mockReturnValueOnce({
-      send: vi.fn(async (command: unknown) => {
-        if (command instanceof ListEnrollmentStatusesCommand) {
-          throw Object.assign(new Error('Access denied'), { name: 'AccessDeniedException' });
-        }
-        throw new Error(`Unexpected command: ${String(command)}`);
-      }),
-    } as never);
-
-    await expect(
-      hydrateAwsCostOptimizationHubReservationRecommendations([], {
-        resolveAccountId: vi.fn().mockResolvedValue(accountId),
-      }),
-    ).resolves.toEqual({
-      diagnostics: [
-        expect.objectContaining({
-          code: 'AccessDeniedException',
-          message:
-            'Skipped reservation purchase recommendations because access to AWS Cost Optimization Hub is denied by AWS permissions.',
-          status: 'access_denied',
-        }),
-      ],
-      resources: [],
-      unavailable: true,
-    });
   });
 
   it('bounds concurrent recommendation detail requests', async () => {

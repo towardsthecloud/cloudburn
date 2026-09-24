@@ -74,64 +74,6 @@ describe('hydrateAwsEc2ElasticIps', () => {
     ]);
   });
 
-  it('skips stale Elastic IPs that no longer exist during hydration', async () => {
-    mockedCreateEc2Client.mockReturnValue({
-      send: vi.fn(async (command: DescribeAddressesCommand) => {
-        const input = command.input as { AllocationIds?: string[] };
-        const allocationIds = input.AllocationIds ?? [];
-
-        if (allocationIds.length > 1) {
-          const error = new Error('The address allocation ID does not exist');
-          error.name = 'InvalidAllocationID.NotFound';
-          throw error;
-        }
-
-        if (allocationIds[0] === 'eipalloc-stale') {
-          const error = new Error('The address allocation ID does not exist');
-          error.name = 'InvalidAllocationID.NotFound';
-          throw error;
-        }
-
-        return {
-          Addresses: [
-            {
-              AllocationId: 'eipalloc-live',
-              PublicIp: '203.0.113.10',
-            },
-          ],
-        };
-      }),
-    } as never);
-
-    await expect(
-      hydrateAwsEc2ElasticIps([
-        {
-          accountId: '123456789012',
-          arn: 'arn:aws:ec2:us-east-1:123456789012:elastic-ip/eipalloc-live',
-          properties: [],
-          region: 'us-east-1',
-          resourceType: 'ec2:elastic-ip',
-          service: 'ec2',
-        },
-        {
-          accountId: '123456789012',
-          arn: 'arn:aws:ec2:us-east-1:123456789012:elastic-ip/eipalloc-stale',
-          properties: [],
-          region: 'us-east-1',
-          resourceType: 'ec2:elastic-ip',
-          service: 'ec2',
-        },
-      ]),
-    ).resolves.toEqual([
-      {
-        accountId: '123456789012',
-        allocationId: 'eipalloc-live',
-        publicIp: '203.0.113.10',
-        region: 'us-east-1',
-      },
-    ]);
-  });
-
   it('skips stale elastic IP allocation IDs that no longer exist during hydration', async () => {
     const send = vi.fn(async (command: DescribeAddressesCommand) => {
       const input = command.input as { AllocationIds?: string[] };

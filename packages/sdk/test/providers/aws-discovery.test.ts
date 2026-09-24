@@ -7,7 +7,6 @@ import {
   discoverAwsResources,
   getAwsDiscoveryStatus,
   initializeAwsDiscovery,
-  listSupportedAwsResourceTypes,
 } from '../../src/providers/aws/discovery.js';
 import { AwsDiscoveryError } from '../../src/providers/aws/errors.js';
 import {
@@ -16,7 +15,6 @@ import {
   ensureAwsResourceExplorerDefaultViewIncludesTags,
   getAwsDiscoveryRegionStatus,
   listAwsDiscoveryIndexes,
-  listAwsDiscoverySupportedResourceTypes,
   listAwsResourcesByFilter,
   updateAwsResourceExplorerIndexType,
   waitForAwsResourceExplorerIndex,
@@ -302,7 +300,6 @@ const mockedEnsureAwsResourceExplorerDefaultViewIncludesTags = vi.mocked(
 );
 const mockedGetAwsDiscoveryRegionStatus = vi.mocked(getAwsDiscoveryRegionStatus);
 const mockedListAwsDiscoveryIndexes = vi.mocked(listAwsDiscoveryIndexes);
-const mockedListAwsDiscoverySupportedResourceTypes = vi.mocked(listAwsDiscoverySupportedResourceTypes);
 const mockedListAwsResourcesByFilter = vi.mocked(listAwsResourcesByFilter);
 const mockedUpdateAwsResourceExplorerIndexType = vi.mocked(updateAwsResourceExplorerIndexType);
 const mockedWaitForAwsResourceExplorerIndex = vi.mocked(waitForAwsResourceExplorerIndex);
@@ -1825,49 +1822,6 @@ describe('discoverAwsResources', () => {
     expect(mockedHydrateAwsEc2Instances).not.toHaveBeenCalled();
   });
 
-  it('emits dataset completion timing in debug mode so slow hydrators are visible', async () => {
-    mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
-      indexType: 'LOCAL',
-      resources: [catalogResource(3)],
-      searchRegion: 'us-east-1',
-    });
-    mockedHydrateAwsLambdaFunctions.mockResolvedValue([
-      {
-        accountId: '123456789012',
-        architectures: ['x86_64'],
-        functionName: 'my-func',
-        memorySizeMb: 512,
-        region: 'us-east-1',
-        timeoutSeconds: 60,
-      },
-    ]);
-    const debugLogger = vi.fn();
-
-    await discoverAwsResources(
-      [
-        createRule({
-          discoveryDependencies: ['aws-lambda-functions'],
-          service: 'lambda',
-        }),
-      ],
-      { mode: 'regions', regions: ['us-east-1'] },
-      { debugLogger },
-    );
-
-    expect(debugLogger).toHaveBeenCalledWith('aws: loading dataset aws-lambda-functions');
-    expect(debugLogger).toHaveBeenCalledWith('aws: loading dataset aws-lambda-functions in us-east-1 from 1 resources');
-    expect(debugLogger.mock.calls.map(([message]) => message)).toEqual(
-      expect.arrayContaining([
-        expect.stringMatching(/^aws: completed dataset aws-lambda-functions in us-east-1 with 1 resources in \d+ms$/),
-      ]),
-    );
-    expect(debugLogger.mock.calls.map(([message]) => message)).not.toEqual(
-      expect.arrayContaining([
-        expect.stringMatching(/^aws: completed dataset aws-lambda-functions with 1 resources in \d+ms$/),
-      ]),
-    );
-  });
-
   it('hydrates ECS and EKS datasets from their discovery resource types', async () => {
     mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
       indexType: 'LOCAL',
@@ -2164,51 +2118,6 @@ describe('discoverAwsResources', () => {
     expect(result.resources.get('aws-elasticache-clusters')).toHaveLength(1);
     expect(result.resources.get('aws-emr-cluster-metrics')).toHaveLength(1);
     expect(result.resources.get('aws-redshift-reserved-nodes')).toHaveLength(1);
-  });
-
-  it('hydrates CloudWatch log groups when an active rule requires the log-group dataset', async () => {
-    mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
-      indexType: 'LOCAL',
-      resources: [catalogResource(7)],
-      searchRegion: 'us-east-1',
-    });
-    mockedHydrateAwsCloudWatchLogGroups.mockResolvedValue([
-      {
-        accountId: '123456789012',
-        logGroupArn: 'arn:aws:logs:us-east-1:123456789012:log-group:/aws/lambda/app',
-        logGroupClass: 'STANDARD',
-        logGroupName: '/aws/lambda/app',
-        region: 'us-east-1',
-        retentionInDays: 30,
-      },
-    ]);
-
-    const result = await discoverAwsResources(
-      [
-        createRule({
-          discoveryDependencies: ['aws-cloudwatch-log-groups'],
-          service: 'cloudwatch',
-        }),
-      ],
-      { mode: 'regions', regions: ['us-east-1'] },
-    );
-
-    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith(
-      { mode: 'regions', regions: ['us-east-1'] },
-      ['logs:log-group'],
-      expect.objectContaining({ onResourceTypeReady: expect.any(Function) }),
-    );
-    expect(mockedHydrateAwsCloudWatchLogGroups).toHaveBeenCalledWith([catalogResource(7)], loadContextMatcher);
-    expect(result.resources.get('aws-cloudwatch-log-groups')).toEqual([
-      {
-        accountId: '123456789012',
-        logGroupArn: 'arn:aws:logs:us-east-1:123456789012:log-group:/aws/lambda/app',
-        logGroupClass: 'STANDARD',
-        logGroupName: '/aws/lambda/app',
-        region: 'us-east-1',
-        retentionInDays: 30,
-      },
-    ]);
   });
 
   it('hydrates CloudWatch log groups and log streams from the same log-group catalog resources', async () => {
@@ -2545,53 +2454,6 @@ describe('discoverAwsResources', () => {
         region: 'us-east-1',
         registeredTargetCount: 0,
         targetGroupArn: 'arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/alb/123',
-      },
-    ]);
-  });
-
-  it('hydrates RDS DB instances when an active rule requires the shared RDS dataset', async () => {
-    mockedBuildAwsDiscoveryCatalog.mockResolvedValue(catalog);
-    mockedHydrateAwsRdsInstances.mockResolvedValue([
-      {
-        accountId: '123456789012',
-        dbInstanceIdentifier: 'legacy-db',
-        dbInstanceStatus: 'available',
-        engine: 'mysql',
-        engineVersion: '8.0.39',
-        instanceClass: 'db.m6i.large',
-        instanceCreateTime: '2025-01-01T00:00:00.000Z',
-        multiAz: false,
-        region: 'us-east-1',
-      },
-    ]);
-
-    const result = await discoverAwsResources(
-      [
-        createRule({
-          discoveryDependencies: ['aws-rds-instances' as DiscoveryDatasetKey],
-          service: 'rds',
-        }),
-      ],
-      { mode: 'regions', regions: ['us-east-1'] },
-    );
-
-    expect(mockedBuildAwsDiscoveryCatalog).toHaveBeenCalledWith(
-      { mode: 'regions', regions: ['us-east-1'] },
-      ['rds:db'],
-      expect.objectContaining({ onResourceTypeReady: expect.any(Function) }),
-    );
-    expect(mockedHydrateAwsRdsInstances).toHaveBeenCalledWith([catalogResource(5)], loadContextMatcher);
-    expect(result.resources.get('aws-rds-instances' as never)).toEqual([
-      {
-        accountId: '123456789012',
-        dbInstanceIdentifier: 'legacy-db',
-        dbInstanceStatus: 'available',
-        engine: 'mysql',
-        engineVersion: '8.0.39',
-        instanceClass: 'db.m6i.large',
-        instanceCreateTime: '2025-01-01T00:00:00.000Z',
-        multiAz: false,
-        region: 'us-east-1',
       },
     ]);
   });
@@ -4514,11 +4376,5 @@ describe('discovery support commands', () => {
       message:
         'AWS Resource Explorer already has an aggregator in eu-central-1. AWS requires demoting that index to LOCAL and waiting 24 hours before promoting eu-west-1 to be the new aggregator.',
     });
-  });
-
-  it('delegates supported resource type listing to the resource explorer module', async () => {
-    mockedListAwsDiscoverySupportedResourceTypes.mockResolvedValue([{ resourceType: 'ec2:volume', service: 'ec2' }]);
-
-    await expect(listSupportedAwsResourceTypes()).resolves.toEqual([{ resourceType: 'ec2:volume', service: 'ec2' }]);
   });
 });

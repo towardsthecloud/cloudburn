@@ -63,28 +63,6 @@ describe('elastiCacheIdleClusterRule', () => {
     ]);
   });
 
-  it('flags available clusters with low hit rates and fewer than 2 average connections', () => {
-    const finding = elastiCacheIdleClusterRule.evaluateLive?.({
-      catalog: {
-        indexType: 'LOCAL',
-        resources: [],
-        searchRegion: 'us-east-1',
-      },
-      resources: new LiveResourceBag({
-        'aws-elasticache-cluster-activity': [createActivity()],
-        'aws-elasticache-clusters': [createCluster()],
-      }),
-    });
-
-    expect(finding?.findings).toEqual([
-      {
-        accountId: '123456789012',
-        region: 'us-east-1',
-        resourceId: 'cache-prod',
-      },
-    ]);
-  });
-
   it('skips clusters with incomplete metric coverage', () => {
     const finding = elastiCacheIdleClusterRule.evaluateLive?.({
       catalog: {

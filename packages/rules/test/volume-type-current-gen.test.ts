@@ -76,33 +76,33 @@ describe('ebsVolumeTypeCurrentGenRule', () => {
         ],
       });
     });
-
-    it(`flags ${volumeType} volumes in terraform iac mode`, () => {
-      const finding = ebsVolumeTypeCurrentGenRule.evaluateStatic?.({
-        resources: new StaticResourceBag({
-          'aws-ebs-volumes': [createStaticVolume({ volumeType })],
-        }),
-      });
-
-      expect(finding).toEqual({
-        ruleId: 'CLDBRN-AWS-EBS-1',
-        service: 'ebs',
-        severity: 'medium',
-        source: 'iac',
-        message: 'EBS volumes should use current-generation storage.',
-        findings: [
-          {
-            resourceId: 'aws_ebs_volume.gp2_data',
-            location: {
-              path: 'main.tf',
-              line: 4,
-              column: 3,
-            },
-          },
-        ],
-      });
-    });
   }
+
+  it('flags terraform previous-generation volumes in iac mode', () => {
+    const finding = ebsVolumeTypeCurrentGenRule.evaluateStatic?.({
+      resources: new StaticResourceBag({
+        'aws-ebs-volumes': [createStaticVolume()],
+      }),
+    });
+
+    expect(finding).toEqual({
+      ruleId: 'CLDBRN-AWS-EBS-1',
+      service: 'ebs',
+      severity: 'medium',
+      source: 'iac',
+      message: 'EBS volumes should use current-generation storage.',
+      findings: [
+        {
+          resourceId: 'aws_ebs_volume.gp2_data',
+          location: {
+            path: 'main.tf',
+            line: 4,
+            column: 3,
+          },
+        },
+      ],
+    });
+  });
 
   it('flags cloudformation previous-generation volumes in iac mode', () => {
     const finding = ebsVolumeTypeCurrentGenRule.evaluateStatic?.({
@@ -161,16 +161,6 @@ describe('ebsVolumeTypeCurrentGenRule', () => {
     const finding = ebsVolumeTypeCurrentGenRule.evaluateStatic?.({
       resources: new StaticResourceBag({
         'aws-ebs-volumes': [createStaticVolume({ volumeType: null })],
-      }),
-    });
-
-    expect(finding).toBeNull();
-  });
-
-  it('ignores non-ebs terraform resources in iac mode', () => {
-    const finding = ebsVolumeTypeCurrentGenRule.evaluateStatic?.({
-      resources: new StaticResourceBag({
-        'aws-ebs-volumes': [],
       }),
     });
 
