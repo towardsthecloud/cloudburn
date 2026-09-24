@@ -41,8 +41,9 @@ owns its details.
   token's GraphQL viewer, and keep comment bodies under GitHub's 65,536-character limit. `action.yml` outputs are
   additive only, and its description stays under Marketplace's 125-character limit. See the
   [action instructions](packages/action/AGENTS.md).
-- **Release recovery is privileged.** In `.github/workflows/release.yml`, validate a dispatched ref (ancestry, no
-  pending changesets, npm provenance naming that exact SHA) before setup or `pnpm install`. Compare peeled commits
+- **Release recovery is privileged.** In `.github/workflows/release.yml`, check a dispatched ref's ancestry and the
+  absence of pending changesets before any setup step. Check npm provenance naming that exact SHA before
+  `pnpm install` or any other repository code runs. Toolchain setup actions may run first. Compare peeled commits
   for annotated tags, and create tags only for packages that commit released. Version tags are immutable, and the
   floating major tag never moves backwards. See
   [release recovery](docs/guides/releasing.md#recover-published-release-follow-up-steps).
