@@ -10,14 +10,15 @@
 ## Scope
 
 - [ ] `cloudburn` (cli)
+- [ ] `@cloudburn/action`
 - [ ] `@cloudburn/sdk`
 - [ ] `@cloudburn/rules`
 - [ ] docs/community files
 
 ## Release Notes
 
-- [ ] Added a `.changeset/*.md` file for published package changes
-- [ ] No published package changes in this PR
+- [ ] Added a `.changeset/*.md` file for user-facing package changes
+- [ ] No user-facing package changes in this PR
 
 ## Verification
 
