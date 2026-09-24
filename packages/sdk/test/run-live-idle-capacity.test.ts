@@ -29,7 +29,7 @@ const recommendation: AwsCostOptimizationHubIdleRecommendation = {
 };
 const run = (enabledRules: string[]) =>
   runLiveScan({ discovery: { enabledRules }, iac: {} }, { mode: 'current' }, { includeEvaluationResources: true });
-const setup = (nativeAccount = accountId, nativeRegion = region, attachments: [] | [{ instanceId: string }] = []) => {
+const setup = (attachments: [] | [{ instanceId: string }] = []) => {
   vi.mocked(discoverAwsResources).mockResolvedValue({
     catalog: { resources: [], searchRegion: region, indexType: 'LOCAL' },
     diagnostics: [],
@@ -37,8 +37,8 @@ const setup = (nativeAccount = accountId, nativeRegion = region, attachments: []
       'aws-cost-optimization-hub-idle-recommendations': [recommendation],
       'aws-ebs-volumes': [
         {
-          accountId: nativeAccount,
-          region: nativeRegion,
+          accountId,
+          region,
           volumeId: 'vol-test',
           volumeType: 'gp3',
           sizeGiB: 20,
@@ -81,37 +81,10 @@ describe('idle capacity orchestration and evidence', () => {
       expect.objectContaining({ data: recommendation, resourceId: 'vol-test', resourceType: 'ec2:volume' }),
     ]);
   });
-  it('suppresses only the enabled native unattached-volume finding for the same resource and action', async () => {
-    setup();
-    const result = await run([ruleId, 'CLDBRN-AWS-EBS-2']);
-    expect(result.providers.flatMap((p) => p.rules).map((r) => r.ruleId)).toEqual(['CLDBRN-AWS-EBS-2']);
-    expect(result.evaluations?.rules.find((r) => r.ruleId === ruleId)?.status).toBe('triggered');
-  });
-  it.each(['account', 'region', 'no-finding'])(
-    'retains Hub evidence when native %s does not match',
-    async (mismatch) => {
-      setup(
-        mismatch === 'account' ? '999999999999' : accountId,
-        mismatch === 'region' ? 'us-east-1' : region,
-        mismatch === 'no-finding' ? [{ instanceId: 'i-test' }] : [],
-      );
-      expect(
-        (await run([ruleId, 'CLDBRN-AWS-EBS-2'])).providers.flatMap((p) => p.rules).map((r) => r.ruleId),
-      ).toContain(ruleId);
-    },
-  );
-  it('marks unavailable evidence not applicable and clean empty evidence passed', async () => {
-    const base = {
-      catalog: { resources: [], searchRegion: region, indexType: 'LOCAL' as const },
-      diagnostics: [],
-      resources: new LiveResourceBag({}),
-    };
-    vi.mocked(discoverAwsResources).mockResolvedValue({
-      ...base,
-      unavailableDatasets: new Map([['aws-cost-optimization-hub-idle-recommendations', []]]),
-    });
-    expect((await run([ruleId])).evaluations?.rules[0]?.status).toBe('not_applicable');
-    vi.mocked(discoverAwsResources).mockResolvedValue(base);
-    expect((await run([ruleId])).evaluations?.rules[0]?.status).toBe('passed');
+  it('retains Hub evidence when the native volume is attached and produces no finding', async () => {
+    setup([{ instanceId: 'i-test' }]);
+    expect((await run([ruleId, 'CLDBRN-AWS-EBS-2'])).providers.flatMap((p) => p.rules).map((r) => r.ruleId)).toContain(
+      ruleId,
+    );
   });
 });

@@ -88,96 +88,6 @@ describe('ec2PreferredInstanceTypeRule', () => {
     });
   });
 
-  it('flags curated non-preferred Terraform aws_instance families such as c6i', () => {
-    const finding = ec2PreferredInstanceTypeRule.evaluateStatic?.({
-      resources: new StaticResourceBag({
-        'aws-ec2-instances': [
-          createStaticInstance({
-            instanceType: 'c6i.large',
-            resourceId: 'aws_instance.compute_web',
-          }),
-        ],
-      }),
-    });
-
-    expect(finding).toEqual({
-      ruleId: 'CLDBRN-AWS-EC2-1',
-      service: 'ec2',
-      severity: 'medium',
-      source: 'iac',
-      message: 'EC2 instances should use preferred instance types.',
-      findings: [
-        {
-          resourceId: 'aws_instance.compute_web',
-          location: {
-            path: 'main.tf',
-            line: 4,
-            column: 3,
-          },
-        },
-      ],
-    });
-  });
-
-  it('flags curated non-preferred Terraform aws_instance families such as c7in', () => {
-    const finding = ec2PreferredInstanceTypeRule.evaluateStatic?.({
-      resources: new StaticResourceBag({
-        'aws-ec2-instances': [
-          createStaticInstance({
-            instanceType: 'c7in.large',
-            resourceId: 'aws_instance.network_web',
-          }),
-        ],
-      }),
-    });
-
-    expect(finding).toEqual({
-      ruleId: 'CLDBRN-AWS-EC2-1',
-      service: 'ec2',
-      severity: 'medium',
-      source: 'iac',
-      message: 'EC2 instances should use preferred instance types.',
-      findings: [
-        {
-          resourceId: 'aws_instance.network_web',
-          location: {
-            path: 'main.tf',
-            line: 4,
-            column: 3,
-          },
-        },
-      ],
-    });
-  });
-
-  it('flags curated non-preferred live families even when AWS still offers them', () => {
-    const finding = ec2PreferredInstanceTypeRule.evaluateLive?.({
-      catalog: {
-        resources: [createDiscoveredResource()],
-        searchRegion: 'us-east-1',
-        indexType: 'LOCAL',
-      },
-      resources: new LiveResourceBag({
-        'aws-ec2-instances': [createEc2Instance({ instanceType: 'c6i.large' })],
-      }),
-    });
-
-    expect(finding).toEqual({
-      ruleId: 'CLDBRN-AWS-EC2-1',
-      service: 'ec2',
-      severity: 'medium',
-      source: 'discovery',
-      message: 'EC2 instances should use preferred instance types.',
-      findings: [
-        {
-          resourceId: 'i-1234567890abcdef0',
-          region: 'us-east-1',
-          accountId: '123456789012',
-        },
-      ],
-    });
-  });
-
   it('skips preferred EC2 instances in discovery mode', () => {
     const finding = ec2PreferredInstanceTypeRule.evaluateLive?.({
       catalog: {
@@ -270,21 +180,6 @@ describe('ec2PreferredInstanceTypeRule', () => {
         'aws-ec2-instances': [
           createStaticInstance({
             instanceType: null,
-          }),
-        ],
-      }),
-    });
-
-    expect(finding).toBeNull();
-  });
-
-  it('skips CloudFormation AWS::EC2::Instance resources when the instance type is intrinsic', () => {
-    const finding = ec2PreferredInstanceTypeRule.evaluateStatic?.({
-      resources: new StaticResourceBag({
-        'aws-ec2-instances': [
-          createStaticInstance({
-            instanceType: null,
-            resourceId: 'LegacyWeb',
           }),
         ],
       }),

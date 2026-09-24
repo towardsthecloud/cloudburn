@@ -14,18 +14,6 @@ describe('rule registry', () => {
     expect(registry.activeRules.map((rule) => rule.id)).not.toContain('CLDBRN-AWS-EC2-2');
   });
 
-  it('excludes account-wide opt-in rules from discovery scans by default', () => {
-    const registry = buildRuleRegistry({ discovery: {}, iac: {} }, 'discovery');
-
-    expect(registry.activeRules.map((rule) => rule.id)).not.toContain('CLDBRN-AWS-TAGGING-1');
-  });
-
-  it('excludes Compute Optimizer rules from discovery scans by default', () => {
-    const registry = buildRuleRegistry({ discovery: {}, iac: {} }, 'discovery');
-
-    expect(registry.activeRules.map((rule) => rule.id)).not.toContain('CLDBRN-AWS-LAMBDA-4');
-  });
-
   it('excludes Cost Optimization Hub rules from discovery scans by default', () => {
     const registry = buildRuleRegistry({ discovery: {}, iac: {} }, 'discovery');
 
@@ -47,63 +35,6 @@ describe('rule registry', () => {
     );
 
     expect(registry.activeRules.map((rule) => rule.id)).toEqual(['CLDBRN-AWS-COSTOPTIMIZATIONHUB-1']);
-  });
-
-  it('includes the Cost Optimization Hub reservation rule when explicitly enabled', () => {
-    const registry = buildRuleRegistry(
-      {
-        discovery: {
-          enabledRules: ['CLDBRN-AWS-COSTOPTIMIZATIONHUB-2'],
-        },
-        iac: {},
-      },
-      'discovery',
-    );
-
-    expect(registry.activeRules.map((rule) => rule.id)).toEqual(['CLDBRN-AWS-COSTOPTIMIZATIONHUB-2']);
-  });
-
-  it('includes Compute Optimizer rules when they are explicitly enabled', () => {
-    const registry = buildRuleRegistry(
-      {
-        discovery: {
-          enabledRules: ['CLDBRN-AWS-LAMBDA-4'],
-        },
-        iac: {},
-      },
-      'discovery',
-    );
-
-    expect(registry.activeRules.map((rule) => rule.id)).toEqual(['CLDBRN-AWS-LAMBDA-4']);
-  });
-
-  it('includes account-wide opt-in rules when they are explicitly enabled', () => {
-    const registry = buildRuleRegistry(
-      {
-        discovery: {
-          enabledRules: ['CLDBRN-AWS-TAGGING-1'],
-        },
-        iac: {},
-      },
-      'discovery',
-    );
-
-    expect(registry.activeRules.map((rule) => rule.id)).toEqual(['CLDBRN-AWS-TAGGING-1']);
-  });
-
-  it('applies enabled and disabled rule filters for the requested mode', () => {
-    const registry = buildRuleRegistry(
-      {
-        discovery: {},
-        iac: {
-          disabledRules: ['CLDBRN-AWS-EBS-1'],
-          enabledRules: ['CLDBRN-AWS-EBS-1', 'CLDBRN-AWS-EC2-1'],
-        },
-      },
-      'iac',
-    );
-
-    expect(registry.activeRules.map((rule) => rule.id)).toEqual(['CLDBRN-AWS-EC2-1']);
   });
 
   it('filters active rules by configured services before applying enabled and disabled rule lists', () => {

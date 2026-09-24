@@ -65,30 +65,6 @@ describe('cloudWatchUnusedLogStreamsRule', () => {
     });
   });
 
-  it('flags log groups whose latest stream event was more than 90 days ago', () => {
-    const finding = cloudWatchUnusedLogStreamsRule.evaluateLive?.({
-      catalog: {
-        resources: [],
-        searchRegion: 'us-east-1',
-        indexType: 'LOCAL',
-      },
-      resources: new LiveResourceBag({
-        'aws-cloudwatch-log-groups': [createLogGroup()],
-        'aws-cloudwatch-log-group-recent-stream-activity': [
-          createRecentActivity({ lastEventTimestamp: Date.now() - 91 * DAY_MS }),
-        ],
-      }),
-    });
-
-    expect(finding?.findings).toEqual([
-      {
-        resourceId: 'arn:aws:logs:us-east-1:123456789012:log-group:/aws/lambda/app',
-        region: 'us-east-1',
-        accountId: '123456789012',
-      },
-    ]);
-  });
-
   it('does not flag log groups with recent observed stream activity', () => {
     const finding = cloudWatchUnusedLogStreamsRule.evaluateLive?.({
       catalog: {

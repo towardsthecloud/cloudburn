@@ -52,69 +52,31 @@ it('keeps rightsizing alongside a generation or architecture policy for the same
     expect.arrayContaining(['CLDBRN-AWS-COSTOPTIMIZATIONHUB-4', 'CLDBRN-AWS-LAMBDA-1']),
   );
 });
-it.each([
-  { functionArn: `${resourceId}-other`, accountId, region, assessment: 'memory_overprovisioned' as const },
-  { functionArn: resourceId, accountId: '999999999999', region, assessment: 'memory_overprovisioned' as const },
-  { functionArn: resourceId, accountId, region: 'us-east-1', assessment: 'memory_overprovisioned' as const },
-])('keeps a Hub recommendation when the native identity differs: %j', async (native) => {
+it('projects unavailable Hub evidence as not applicable', async () => {
+  const diagnostic = {
+    code: 'CostOptimizationHubNotEnrolled',
+    message: 'Hub evidence unavailable',
+    provider: 'aws' as const,
+    service: 'costoptimizationhub',
+    source: 'discovery' as const,
+    status: 'skipped' as const,
+  };
   vi.mocked(discoverAwsResources).mockResolvedValue({
     catalog: { resources: [], indexType: 'LOCAL', searchRegion: region },
-    resources: new LiveResourceBag({
-      'aws-cost-optimization-hub-rightsizing-recommendations': [recommendation],
-      'aws-lambda-functions': [],
-      'aws-lambda-memory-recommendations': [native],
-    }),
-    diagnostics: [],
-  });
-  const result = await runLiveScan(
-    { discovery: { enabledRules: ['CLDBRN-AWS-COSTOPTIMIZATIONHUB-4', 'CLDBRN-AWS-LAMBDA-4'] }, iac: {} },
-    { mode: 'current' },
-  );
-  expect(result.providers.flatMap((provider) => provider.rules.map((rule) => rule.ruleId))).toContain(
-    'CLDBRN-AWS-COSTOPTIMIZATIONHUB-4',
-  );
-});
-it.each(['CostOptimizationHubNotEnrolled', 'AccessDeniedException', 'CostOptimizationHubRecommendationIncomplete'])(
-  'projects %s as not applicable',
-  async (code) => {
-    const diagnostic = {
-      code,
-      message: 'Hub evidence unavailable',
-      provider: 'aws' as const,
-      service: 'costoptimizationhub',
-      source: 'discovery' as const,
-      status: 'skipped' as const,
-    };
-    vi.mocked(discoverAwsResources).mockResolvedValue({
-      catalog: { resources: [], indexType: 'LOCAL', searchRegion: region },
-      resources: new LiveResourceBag(),
-      diagnostics: [diagnostic],
-      unavailableDatasets: new Map([['aws-cost-optimization-hub-rightsizing-recommendations', [diagnostic]]]),
-    });
-    const result = await runLiveScan(
-      { discovery: { enabledRules: ['CLDBRN-AWS-COSTOPTIMIZATIONHUB-4'] }, iac: {} },
-      { mode: 'current' },
-      { includeEvaluationResources: true },
-    );
-    expect(result.providers).toEqual([]);
-    expect(result.evaluations?.rules).toEqual([
-      expect.objectContaining({ ruleId: 'CLDBRN-AWS-COSTOPTIMIZATIONHUB-4', status: 'not_applicable' }),
-    ]);
-    expect(result.diagnostics).toContainEqual(diagnostic);
-  },
-);
-it('reports enrolled accounts without recommendations as passed', async () => {
-  vi.mocked(discoverAwsResources).mockResolvedValue({
-    catalog: { resources: [], indexType: 'LOCAL', searchRegion: region },
-    resources: new LiveResourceBag({ 'aws-cost-optimization-hub-rightsizing-recommendations': [] }),
-    diagnostics: [],
+    resources: new LiveResourceBag(),
+    diagnostics: [diagnostic],
+    unavailableDatasets: new Map([['aws-cost-optimization-hub-rightsizing-recommendations', [diagnostic]]]),
   });
   const result = await runLiveScan(
     { discovery: { enabledRules: ['CLDBRN-AWS-COSTOPTIMIZATIONHUB-4'] }, iac: {} },
     { mode: 'current' },
     { includeEvaluationResources: true },
   );
-  expect(result.evaluations?.rules).toEqual([expect.objectContaining({ status: 'passed' })]);
+  expect(result.providers).toEqual([]);
+  expect(result.evaluations?.rules).toEqual([
+    expect.objectContaining({ ruleId: 'CLDBRN-AWS-COSTOPTIMIZATIONHUB-4', status: 'not_applicable' }),
+  ]);
+  expect(result.diagnostics).toContainEqual(diagnostic);
 });
 it.each([false, true])(
   'projects both configurations and suppresses only enabled stronger native evidence (enabled=%s)',

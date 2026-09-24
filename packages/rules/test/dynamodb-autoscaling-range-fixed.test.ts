@@ -54,6 +54,29 @@ describe('dynamoDbAutoscalingRangeFixedRule', () => {
     });
   });
 
+  it('flags CloudFormation tables whose scalable target has a fixed write range', () => {
+    const finding = dynamoDbAutoscalingRangeFixedRule.evaluateStatic?.({
+      resources: new StaticResourceBag({
+        'aws-dynamodb-autoscaling': [
+          createAutoscaling({ readMaxCapacity: 50, writeMaxCapacity: 20, writeMinCapacity: 20 }),
+        ],
+        'aws-dynamodb-tables': [
+          createTable({
+            location: { path: 'template.yaml', line: 3, column: 3 },
+            resourceId: 'OrdersTable',
+          }),
+        ],
+      }),
+    });
+
+    expect(finding?.findings).toEqual([
+      {
+        location: { path: 'template.yaml', line: 3, column: 3 },
+        resourceId: 'OrdersTable',
+      },
+    ]);
+  });
+
   it('skips pay-per-request tables or tables with a real autoscaling range', () => {
     const finding = dynamoDbAutoscalingRangeFixedRule.evaluateStatic?.({
       resources: new StaticResourceBag({

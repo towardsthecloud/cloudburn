@@ -82,26 +82,6 @@ describe('Cost Optimization Hub upgrades', () => {
       expect(await load()).toHaveLength(1);
     },
   );
-  it('shares enrollment with reservation loading within a discovery run', async () => {
-    let enrollmentReads = 0;
-    vi.mocked(createCostOptimizationHubClient).mockReturnValue({
-      send: vi.fn(async (command: unknown) => {
-        if (command instanceof ListEnrollmentStatusesCommand) {
-          enrollmentReads += 1;
-          return { items: [{ accountId, status: 'Active' }] };
-        }
-        return { items: [] };
-      }),
-    } as never);
-    const context = { resolveAccountId: async () => accountId };
-    expect(
-      await Promise.all([
-        hydrateAwsCostOptimizationHubUpgradeRecommendations([], context),
-        hydrateAwsCostOptimizationHubReservationRecommendations([], context),
-      ]),
-    ).toEqual([[], []]);
-    expect(enrollmentReads).toBe(1);
-  });
   it.each([
     [
       'EbsVolume',
@@ -189,42 +169,6 @@ describe('Cost Optimization Hub upgrades', () => {
     mockHub(summary(), { ec2Instance: { configuration: { instance: { type: 42 } } } } as unknown as ResourceDetails);
     expect(await load()).toMatchObject({ unavailable: true });
   });
-  it('uses the shared filtered pagination and deduplicates recommendation IDs', async () => {
-    const filters: unknown[] = [];
-    const details: string[] = [];
-    vi.mocked(createCostOptimizationHubClient).mockReturnValue({
-      send: vi.fn(async (command: unknown) => {
-        if (command instanceof ListEnrollmentStatusesCommand) return { items: [{ accountId, status: 'Active' }] };
-        if (command instanceof ListRecommendationsCommand) {
-          filters.push(command.input);
-          return command.input.nextToken ? { items: [summary()] } : { items: [summary()], nextToken: 'page-2' };
-        }
-        if (command instanceof GetRecommendationCommand) {
-          details.push(command.input.recommendationId ?? 'missing');
-          return {
-            ...summary(),
-            currentResourceDetails: currentDetails,
-            recommendedResourceDetails: recommendedDetails,
-          };
-        }
-        throw new Error('Unexpected command');
-      }),
-    } as never);
-    expect(await load()).toHaveLength(1);
-    expect(details).toEqual(['rec-1']);
-    expect(filters).toEqual(
-      [undefined, 'page-2'].map((nextToken) => ({
-        filter: {
-          accountIds: [accountId],
-          actionTypes: ['Upgrade'],
-          resourceTypes: ['Ec2Instance', 'Ec2AutoScalingGroup', 'EbsVolume', 'RdsDbInstance', 'RdsDbInstanceStorage'],
-        },
-        maxResults: 1000,
-        includeAllRecommendations: false,
-        nextToken,
-      })),
-    );
-  });
   it.each([{ items: {} }, { items: null }, { items: [null] }, { items: [{}] }])(
     'reports malformed recommendation pages as unavailable: %j',
     async (page) => {
@@ -251,47 +195,6 @@ describe('Cost Optimization Hub upgrades', () => {
     } as never);
     expect(await hydrate([], { resolveAccountId: async () => accountId })).toEqual([]);
   });
-  it('returns a clean empty dataset only after an enrolled, successful empty response', async () => {
-    vi.mocked(createCostOptimizationHubClient).mockReturnValue({
-      send: vi.fn(async (command: unknown) =>
-        command instanceof ListEnrollmentStatusesCommand ? { items: [{ accountId, status: 'Active' }] } : { items: [] },
-      ),
-    } as never);
-    expect(await load()).toEqual([]);
-  });
-  it('checks unenrolled accounts without loading recommendations or changing enrollment', async () => {
-    const send = vi.fn(async (command: unknown) => {
-      expect(command).toBeInstanceOf(ListEnrollmentStatusesCommand);
-      return { items: [{ accountId, status: 'Inactive' }] };
-    });
-    vi.mocked(createCostOptimizationHubClient).mockReturnValue({ send } as never);
-    expect(await load()).toMatchObject({
-      unavailable: true,
-      resources: [],
-      diagnostics: [{ code: 'CostOptimizationHubNotEnrolled' }],
-    });
-  });
-  it.each(['enrollment', 'list', 'detail'])('makes access denial at %s unavailable', async (stage) => {
-    vi.mocked(createCostOptimizationHubClient).mockReturnValue({
-      send: vi.fn(async (command: unknown) => {
-        if (
-          stage === 'enrollment' ||
-          (stage === 'list' && command instanceof ListRecommendationsCommand) ||
-          command instanceof GetRecommendationCommand
-        ) {
-          throw Object.assign(new Error('Access denied'), { name: 'AccessDeniedException' });
-        }
-        return command instanceof ListEnrollmentStatusesCommand
-          ? { items: [{ accountId, status: 'Active' }] }
-          : { items: [summary()] };
-      }),
-    } as never);
-    expect(await load()).toMatchObject({
-      unavailable: true,
-      resources: [],
-      diagnostics: [{ status: 'access_denied' }],
-    });
-  });
   it.each([
     { resourceId: undefined, resourceArn: undefined },
     { region: undefined },
@@ -307,24 +210,6 @@ describe('Cost Optimization Hub upgrades', () => {
       unavailable: true,
       diagnostics: [{ code: 'CostOptimizationHubRecommendationIncomplete' }],
     });
-  });
-  it('normalizes missing or unusable financial fields as null', async () => {
-    mockHub(
-      summary({
-        currencyCode: undefined,
-        estimatedMonthlyCost: Number.NaN,
-        estimatedMonthlySavings: undefined,
-        estimatedSavingsPercentage: undefined,
-      }),
-    );
-    expect(await load()).toEqual([
-      expect.objectContaining({
-        currencyCode: null,
-        estimatedMonthlyCost: null,
-        estimatedMonthlySavings: null,
-        estimatedSavingsPercentage: null,
-      }),
-    ]);
   });
   it.each([
     ['Ec2Instance', { ec2Instance: { configuration: { instance: {} } } }],

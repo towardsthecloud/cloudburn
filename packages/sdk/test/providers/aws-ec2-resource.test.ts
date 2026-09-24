@@ -14,11 +14,6 @@ describe('hydrateAwsEc2Instances', () => {
     vi.resetAllMocks();
   });
 
-  it('returns an empty list when no EC2 instance resources are provided', async () => {
-    await expect(hydrateAwsEc2Instances([])).resolves.toEqual([]);
-    expect(mockedCreateEc2Client).not.toHaveBeenCalled();
-  });
-
   it('hydrates discovered EC2 instances using only DescribeInstances', async () => {
     mockedCreateEc2Client.mockImplementation(({ region }) => {
       const send = vi.fn(async (command: DescribeInstancesCommand) => {

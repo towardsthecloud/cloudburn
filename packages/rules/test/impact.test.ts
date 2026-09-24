@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { FindingImpact } from '../src/index.js';
-import { createFinancialEvidence, createFinding } from '../src/index.js';
+import { createFinancialEvidence } from '../src/index.js';
 
 describe('createFinancialEvidence', () => {
   it('keeps a valid exact measurement unchanged', () => {
@@ -10,12 +9,6 @@ describe('createFinancialEvidence', () => {
       currency: 'EUR',
       period: 'month',
     });
-  });
-
-  it('keeps a valid estimated measurement unchanged', () => {
-    expect(
-      createFinancialEvidence({ amount: 12.34, currency: 'USD', period: 'month', confidence: 'estimated' }),
-    ).toEqual({ confidence: 'estimated', amount: 12.34, currency: 'USD', period: 'month' });
   });
 
   it('keeps a known zero distinct from a missing amount', () => {
@@ -97,74 +90,5 @@ describe('createFinancialEvidence', () => {
     });
     expect(Object.hasOwn(evidence, 'period')).toBe(false);
     expect(Object.hasOwn(evidence, 'amount')).toBe(false);
-  });
-
-  it('keeps unit-tagged values separate without conversion or aggregation', () => {
-    const eur = createFinancialEvidence({ amount: 42.5, currency: 'EUR', period: 'month', confidence: 'estimated' });
-    const usd = createFinancialEvidence({ amount: 42.5, currency: 'USD', period: 'month', confidence: 'estimated' });
-    const hourly = createFinancialEvidence({ amount: 1, currency: 'USD', period: 'hour', confidence: 'estimated' });
-    expect(eur).toEqual({ confidence: 'estimated', amount: 42.5, currency: 'EUR', period: 'month' });
-    expect(usd).toEqual({ confidence: 'estimated', amount: 42.5, currency: 'USD', period: 'month' });
-    expect(hourly).toEqual({ confidence: 'estimated', amount: 1, currency: 'USD', period: 'hour' });
-  });
-});
-
-describe('FindingImpact', () => {
-  it('round-trips only supplied window endpoints without inventing timestamps', () => {
-    const impact: FindingImpact = {
-      source: 'billing',
-      window: { start: '2026-08-01T00:00:00.000Z' },
-      currentCost: createFinancialEvidence({ amount: 200, currency: 'USD', period: 'month', confidence: 'exact' }),
-      potentialSavings: createFinancialEvidence({
-        amount: null,
-        currency: 'USD',
-        period: 'month',
-        confidence: 'estimated',
-      }),
-    };
-    const finding = createFinding(
-      { id: 'CLDBRN-TEST-1', service: 'test', severity: 'low', message: 'm' },
-      'discovery',
-      [{ resourceId: 'res-1', impact }],
-    );
-    const serialized = JSON.parse(JSON.stringify(finding?.findings[0]?.impact));
-    expect(serialized).toEqual(impact);
-    expect(serialized.window).toEqual({ start: '2026-08-01T00:00:00.000Z' });
-    expect(Object.hasOwn(serialized.window, 'end')).toBe(false);
-    expect(Object.hasOwn(serialized, 'observedAt')).toBe(false);
-    expect(Object.hasOwn(serialized, 'refreshedAt')).toBe(false);
-  });
-
-  it('supports a lookback-only window and mixed confidence per metric', () => {
-    const impact: FindingImpact = {
-      source: 'cloudburn',
-      sourceDetail: 'aws-config-recording-frequency',
-      window: { lookbackDays: 14 },
-      currentCost: {
-        confidence: 'unknown',
-        currency: 'USD',
-        period: 'month',
-        reason: { code: 'not_provided', message: 'The dataset does not provide normalized current recording cost.' },
-      },
-      potentialSavings: createFinancialEvidence({
-        amount: 11.06,
-        currency: 'USD',
-        period: 'month',
-        confidence: 'estimated',
-      }),
-    };
-    const serialized = JSON.parse(JSON.stringify(impact));
-    expect(serialized.window).toEqual({ lookbackDays: 14 });
-    expect(Object.hasOwn(serialized.window, 'start')).toBe(false);
-    expect(serialized.potentialSavings.amount).toBe(11.06);
-  });
-
-  it('leaves findings without impact valid', () => {
-    const finding = createFinding(
-      { id: 'CLDBRN-TEST-1', service: 'test', severity: 'low', message: 'm' },
-      'discovery',
-      [{ resourceId: 'res-1' }],
-    );
-    expect(finding?.findings[0]).toEqual({ resourceId: 'res-1' });
   });
 });

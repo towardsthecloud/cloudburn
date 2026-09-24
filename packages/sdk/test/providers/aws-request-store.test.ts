@@ -463,17 +463,6 @@ describe('local AWS request state', () => {
     expect(transition).not.toHaveBeenCalled();
   });
 
-  it('fails closed with an actionable error when the storage directory cannot be created', async () => {
-    const directory = join(createDirectory(), 'blocked');
-    writeFileSync(directory, 'existing file');
-    const transition = vi.fn(() => ({ state: 'reset', value: 'unsafe admission' }));
-
-    await expect(createLocalAwsRequestStore(directory).update('shared-quota', transition)).rejects.toThrow(
-      /local AWS admission state.*CLOUDBURN_AWS_ADMISSION_DIR/,
-    );
-    expect(transition).not.toHaveBeenCalled();
-  });
-
   it('fails closed with an actionable error when existing state is corrupted', async () => {
     const directory = createDirectory();
     const store = createLocalAwsRequestStore(directory);

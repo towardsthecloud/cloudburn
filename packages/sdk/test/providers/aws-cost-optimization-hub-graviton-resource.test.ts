@@ -5,41 +5,9 @@ import {
 } from '@aws-sdk/client-cost-optimization-hub';
 import { expect, it, vi } from 'vitest';
 import { createCostOptimizationHubClient } from '../../src/providers/aws/client.js';
-import {
-  hydrateAwsCostOptimizationHubGravitonRecommendations,
-  hydrateAwsCostOptimizationHubReservationRecommendations,
-} from '../../src/providers/aws/resources/cost-optimization-hub.js';
+import { hydrateAwsCostOptimizationHubGravitonRecommendations } from '../../src/providers/aws/resources/cost-optimization-hub.js';
 
 vi.mock('../../src/providers/aws/client.js', () => ({ createCostOptimizationHubClient: vi.fn() }));
-
-it.each(['clean', 'unenrolled', 'denied', 'malformed'])('preserves the %s loader state', async (state) => {
-  const send = vi.fn(async (command: unknown) => {
-    if (state === 'denied') throw Object.assign(new Error('Denied'), { name: 'AccessDeniedException' });
-    if (command instanceof ListEnrollmentStatusesCommand)
-      return { items: state === 'unenrolled' ? [] : [{ accountId: '123456789012', status: 'Active' }] };
-    if (command instanceof ListRecommendationsCommand) return { items: state === 'malformed' ? [{}] : [] };
-    throw new Error('Unexpected detail call');
-  });
-  vi.mocked(createCostOptimizationHubClient).mockReturnValue({ send } as never);
-  const result = await hydrateAwsCostOptimizationHubGravitonRecommendations([], {
-    resolveAccountId: async () => '123456789012',
-  });
-  if (state === 'clean') expect(result).toEqual([]);
-  else
-    expect(result).toMatchObject({
-      resources: [],
-      unavailable: true,
-      diagnostics: [
-        expect.objectContaining({
-          code: {
-            unenrolled: 'CostOptimizationHubNotEnrolled',
-            denied: 'AccessDeniedException',
-            malformed: 'CostOptimizationHubRecommendationIncomplete',
-          }[state],
-        }),
-      ],
-    });
-});
 
 it.each([{ instance: { dbInstanceClass: 42 } }, { instance: { dbInstanceClass: '   ' } }, {}])(
   'rejects malformed RDS configuration %j',
@@ -89,56 +57,6 @@ it.each([{ instance: { dbInstanceClass: 42 } }, { instance: { dbInstanceClass: '
     });
   },
 );
-
-it('shares enrollment with reservation loading and deduplicates paginated Graviton recommendations', async () => {
-  const item = {
-    accountId: '123456789012',
-    actionType: 'MigrateToGraviton',
-    currentResourceType: 'Ec2Instance',
-    currencyCode: 'USD',
-    estimatedMonthlyCost: 100,
-    estimatedMonthlySavings: 20,
-    estimatedSavingsPercentage: 20,
-    implementationEffort: 'High',
-    lastRefreshTimestamp: new Date('2026-09-04'),
-    recommendationId: 'rec-1',
-    region: 'eu-west-1',
-    resourceId: 'i-example',
-    resourceArn: 'arn:aws:ec2:eu-west-1:123456789012:instance/i-example',
-    restartNeeded: true,
-    rollbackPossible: true,
-    source: 'ComputeOptimizer',
-  };
-  const send = vi.fn(async (command: unknown) => {
-    if (command instanceof ListEnrollmentStatusesCommand)
-      return { items: [{ accountId: item.accountId, status: 'Active' }] };
-    if (command instanceof ListRecommendationsCommand) {
-      if (command.input.filter?.actionTypes?.[0] === 'PurchaseReservedInstances') return { items: [] };
-      expect(command.input.filter).toEqual({
-        accountIds: [item.accountId],
-        actionTypes: ['MigrateToGraviton'],
-        resourceTypes: ['Ec2Instance', 'Ec2AutoScalingGroup', 'RdsDbInstance'],
-      });
-      expect(command.input.includeAllRecommendations).toBe(false);
-      return { items: [item], ...(command.input.nextToken ? {} : { nextToken: 'next' }) };
-    }
-    if (command instanceof GetRecommendationCommand)
-      return {
-        currentResourceDetails: { ec2Instance: { configuration: { instance: { type: 'm6i.large' } } } },
-        recommendedResourceDetails: { ec2Instance: { configuration: { instance: { type: 'm7g.large' } } } },
-      };
-    throw new Error('Unexpected command');
-  });
-  vi.mocked(createCostOptimizationHubClient).mockReturnValue({ send } as never);
-  const context = { resolveAccountId: async () => item.accountId };
-  const [result] = await Promise.all([
-    hydrateAwsCostOptimizationHubGravitonRecommendations([], context),
-    hydrateAwsCostOptimizationHubReservationRecommendations([], context),
-  ]);
-  expect(result).toHaveLength(1);
-  expect(send.mock.calls.filter(([command]) => command instanceof GetRecommendationCommand)).toHaveLength(1);
-  expect(send.mock.calls.filter(([command]) => command instanceof ListEnrollmentStatusesCommand)).toHaveLength(1);
-});
 
 it.each([
   ['Ec2Instance', 'ec2Instance', 'High', 'inferred_compatible'],

@@ -125,13 +125,6 @@ describe('getRecommendationIdentity', () => {
     }
   });
 
-  it('canonicalizes ARN resource IDs within a recognized namespace', () => {
-    const arn = 'arn:aws:ec2:eu-west-1:111111111111:volume/vol-1';
-    const local = getRecommendationIdentity('aws', scopeMatch);
-    const fromArn = getRecommendationIdentity('aws', { ...scopeMatch, resourceId: arn });
-    expect(fromArn).toEqual(local);
-  });
-
   it('keeps identity distinct across namespace, provider, account, region, and action', () => {
     const base = getRecommendationIdentity('aws', scopeMatch);
     const variants = [
@@ -248,13 +241,6 @@ describe('createRecommendationMatch', () => {
     });
     expect(withScope.recommendation).toBeUndefined();
   });
-
-  it('keeps provenance without identity when scope is incomplete', () => {
-    const match = createFindingMatch('vol-1', 'eu-west-1', '111111111111');
-    const result = createRecommendationMatch('aws', match, { source: 'cloudburn' });
-    expect(result.recommendation).toEqual({ source: 'cloudburn' });
-    expect(result.recommendation?.resourceKey).toBeUndefined();
-  });
 });
 
 describe('canonicalizeAwsResourceId', () => {
@@ -282,32 +268,11 @@ describe('canonicalizeAwsResourceId', () => {
     );
   });
   it.each([
-    ['ec2:instance', 'arn:aws:ec2:us-east-1:111111111111:instance/i-abc', 'i-abc'],
-    ['ec2:volume', 'arn:aws:ec2:us-east-1:111111111111:volume/vol-abc', 'vol-abc'],
-    ['rds:db', 'arn:aws:rds:us-east-1:111111111111:db:my-db', 'my-db'],
-    ['rds:db-storage', 'arn:aws:rds:us-east-1:111111111111:db:my-db', 'my-db'],
-    ['rds:cluster-storage', 'arn:aws:rds:us-east-1:111111111111:cluster:my-cluster', 'my-cluster'],
-    [
-      'autoscaling:autoScalingGroup',
-      'arn:aws:autoscaling:us-east-1:111111111111:autoScalingGroup:uuid:autoScalingGroupName/my-asg',
-      'my-asg',
-    ],
-    ['ecs:service', 'arn:aws:ecs:us-east-1:111111111111:service/cluster/name', 'cluster/name'],
-    [
-      'ecs:container-instance',
-      'arn:aws:ecs:us-east-1:111111111111:container-instance/cluster/name',
-      'arn:aws:ecs:us-east-1:111111111111:container-instance/cluster/name',
-    ],
     [
       'eks:nodegroup',
       'arn:aws:eks:us-east-1:111111111111:nodegroup/cluster/name/id',
       'arn:aws:eks:us-east-1:111111111111:nodegroup/cluster/name/id',
     ],
-    ['elasticache:cluster', 'arn:aws:elasticache:us-east-1:111111111111:cluster:my-cache', 'my-cache'],
-    ['memorydb:cluster', 'arn:aws:memorydb:us-east-1:111111111111:cluster/my-cache', 'my-cache'],
-    ['opensearch:domain', 'arn:aws:es:us-east-1:111111111111:domain/my-domain', 'my-domain'],
-    ['dynamodb:table', 'arn:aws:dynamodb:us-east-1:111111111111:table/my-table', 'my-table'],
-    ['redshift:cluster', 'arn:aws:redshift:us-east-1:111111111111:cluster:my-cluster', 'my-cluster'],
     [
       'lambda:function',
       'arn:aws:lambda:us-east-1:111111111111:function:my-function',

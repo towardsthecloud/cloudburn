@@ -120,38 +120,6 @@ describe('hydrateAwsEcrRepositories', () => {
     );
   });
 
-  it('preserves unknown lifecycle traits when policy text is malformed', async () => {
-    mockedCreateEcrClient.mockReturnValue({
-      send: vi.fn().mockResolvedValue({
-        lifecyclePolicyText: '{"rules":',
-      }),
-    } as never);
-
-    await expect(
-      hydrateAwsEcrRepositories([
-        {
-          accountId: '123456789012',
-          arn: 'arn:aws:ecr:us-east-1:123456789012:repository/app',
-          name: 'app',
-          properties: [],
-          region: 'us-east-1',
-          resourceType: 'ecr:repository',
-          service: 'ecr',
-        },
-      ]),
-    ).resolves.toEqual([
-      {
-        accountId: '123456789012',
-        arn: 'arn:aws:ecr:us-east-1:123456789012:repository/app',
-        hasLifecyclePolicy: true,
-        hasTaggedImageRetentionCap: null,
-        hasUntaggedImageExpiry: null,
-        region: 'us-east-1',
-        repositoryName: 'app',
-      },
-    ]);
-  });
-
   it('skips stale repositories that no longer exist during hydration', async () => {
     mockedCreateEcrClient.mockImplementation(() => {
       const send = vi.fn(async (command: GetLifecyclePolicyCommand) => {

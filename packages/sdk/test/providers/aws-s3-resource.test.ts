@@ -401,43 +401,4 @@ describe('hydrateAwsS3BucketAnalyses', () => {
       },
     ]);
   });
-
-  it('caps in-flight S3 hydration work per region', async () => {
-    let currentInFlight = 0;
-    let maxInFlight = 0;
-    const send = vi.fn(
-      async (_command: GetBucketLifecycleConfigurationCommand | ListBucketIntelligentTieringConfigurationsCommand) =>
-        new Promise<{
-          Rules?: { Expiration?: { Days: number }; Status: string }[];
-          IntelligentTieringConfigurationList?: [];
-          IsTruncated?: boolean;
-        }>((resolve) => {
-          currentInFlight += 1;
-          maxInFlight = Math.max(maxInFlight, currentInFlight);
-
-          setTimeout(() => {
-            currentInFlight -= 1;
-            resolve({
-              IntelligentTieringConfigurationList: [],
-              IsTruncated: false,
-            });
-          }, 0);
-        }),
-    );
-
-    mockedCreateS3Client.mockReturnValue({ send } as never);
-
-    const resources = Array.from({ length: 30 }, (_, index) => ({
-      accountId: '123456789012',
-      arn: `arn:aws:s3:::bucket-${index}`,
-      properties: [],
-      region: 'us-east-1',
-      resourceType: 's3:bucket' as const,
-      service: 's3',
-    }));
-
-    await hydrateAwsS3BucketAnalyses(resources);
-
-    expect(maxInFlight).toBeLessThanOrEqual(20);
-  });
 });

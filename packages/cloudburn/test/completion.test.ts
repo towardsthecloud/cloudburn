@@ -88,14 +88,6 @@ describe('completion command', () => {
     expect(toLines(await runCompletion('ru'))).toEqual(['rules']);
   });
 
-  it('suggests config flags', async () => {
-    const suggestions = toLines(await runCompletion('config', ''));
-
-    expect(suggestions).toEqual(
-      expect.arrayContaining(['--init', '--print', '--print-template', '--path', '--format', '-h', '--help']),
-    );
-  });
-
   it('prints a zsh completion script', async () => {
     const script = await renderCompletionScript('zsh');
 

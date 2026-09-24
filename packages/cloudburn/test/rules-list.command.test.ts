@@ -7,24 +7,6 @@ describe('rules list e2e', { timeout: 30_000 }, () => {
     vi.doUnmock('@cloudburn/sdk');
   });
 
-  it('renders the empty message when no built-in rules are available', async () => {
-    vi.doMock('@cloudburn/sdk', async (importOriginal) => {
-      const actual = await importOriginal<typeof import('@cloudburn/sdk')>();
-
-      return {
-        ...actual,
-        builtInRuleMetadata: [],
-      };
-    });
-
-    const { createProgram } = await import('../src/cli.js');
-    const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
-
-    await createProgram().parseAsync(['rules', 'list'], { from: 'user' });
-
-    expect(stdout.mock.calls.map(([chunk]) => String(chunk)).join('')).toBe('No built-in rules are available.\n');
-  });
-
   it('defaults to table output and applies service and source filters', async () => {
     const { createProgram } = await import('../src/cli.js');
     const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);

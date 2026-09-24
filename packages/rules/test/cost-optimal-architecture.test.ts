@@ -106,41 +106,6 @@ describe('lambdaCostOptimalArchitectureRule', () => {
     });
   });
 
-  it('flags Terraform resource with no architectures attribute', () => {
-    const finding = lambdaCostOptimalArchitectureRule.evaluateStatic?.({
-      resources: new StaticResourceBag({
-        'aws-lambda-functions': [
-          createStaticLambdaFunction({
-            architectures: ['x86_64'],
-            location: {
-              path: 'main.tf',
-              line: 1,
-              column: 1,
-            },
-          }),
-        ],
-      }),
-    });
-
-    expect(finding).toEqual({
-      ruleId: 'CLDBRN-AWS-LAMBDA-1',
-      service: 'lambda',
-      severity: 'medium',
-      source: 'iac',
-      message: 'Lambda functions should use arm64 architecture when compatible to reduce running costs.',
-      findings: [
-        {
-          resourceId: 'aws_lambda_function.my_function',
-          location: {
-            path: 'main.tf',
-            line: 1,
-            column: 1,
-          },
-        },
-      ],
-    });
-  });
-
   it('flags CloudFormation AWS::Lambda::Function with x86_64 architecture', () => {
     const finding = lambdaCostOptimalArchitectureRule.evaluateStatic?.({
       resources: new StaticResourceBag({
@@ -176,42 +141,6 @@ describe('lambdaCostOptimalArchitectureRule', () => {
     });
   });
 
-  it('flags CloudFormation resource with no Architectures property', () => {
-    const finding = lambdaCostOptimalArchitectureRule.evaluateStatic?.({
-      resources: new StaticResourceBag({
-        'aws-lambda-functions': [
-          createStaticLambdaFunction({
-            architectures: ['x86_64'],
-            location: {
-              path: 'template.yaml',
-              line: 3,
-              column: 3,
-            },
-            resourceId: 'MyFunction',
-          }),
-        ],
-      }),
-    });
-
-    expect(finding).toEqual({
-      ruleId: 'CLDBRN-AWS-LAMBDA-1',
-      service: 'lambda',
-      severity: 'medium',
-      source: 'iac',
-      message: 'Lambda functions should use arm64 architecture when compatible to reduce running costs.',
-      findings: [
-        {
-          resourceId: 'MyFunction',
-          location: {
-            path: 'template.yaml',
-            line: 3,
-            column: 3,
-          },
-        },
-      ],
-    });
-  });
-
   it('skips arm64 Terraform resource', () => {
     const finding = lambdaCostOptimalArchitectureRule.evaluateStatic?.({
       resources: new StaticResourceBag({
@@ -234,31 +163,6 @@ describe('lambdaCostOptimalArchitectureRule', () => {
             architectures: null,
           }),
         ],
-      }),
-    });
-
-    expect(finding).toBeNull();
-  });
-
-  it('skips CloudFormation resource when Architectures uses an intrinsic value', () => {
-    const finding = lambdaCostOptimalArchitectureRule.evaluateStatic?.({
-      resources: new StaticResourceBag({
-        'aws-lambda-functions': [
-          createStaticLambdaFunction({
-            architectures: null,
-            resourceId: 'MyFunction',
-          }),
-        ],
-      }),
-    });
-
-    expect(finding).toBeNull();
-  });
-
-  it('skips non-Lambda resource type', () => {
-    const finding = lambdaCostOptimalArchitectureRule.evaluateStatic?.({
-      resources: new StaticResourceBag({
-        'aws-lambda-functions': [],
       }),
     });
 

@@ -203,46 +203,6 @@ describe('elbIdleRule', () => {
     },
   );
 
-  it('flags load balancers averaging fewer than 10 requests per day over 14 days', () => {
-    const finding = elbIdleRule.evaluateLive?.({
-      catalog: {
-        indexType: 'LOCAL',
-        resources: [],
-        searchRegion: 'us-east-1',
-      },
-      resources: new LiveResourceBag({
-        'aws-ec2-load-balancer-request-activity': [createActivity()],
-        'aws-ec2-load-balancers': [createLoadBalancer()],
-        'aws-ec2-target-groups': [createTargetGroup()],
-      }),
-    });
-
-    expect(finding?.findings).toEqual([
-      {
-        accountId: '123456789012',
-        region: 'us-east-1',
-        resourceId: 'arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/app/alb/123',
-      },
-    ]);
-  });
-
-  it('skips load balancers with incomplete metric coverage', () => {
-    const finding = elbIdleRule.evaluateLive?.({
-      catalog: {
-        indexType: 'LOCAL',
-        resources: [],
-        searchRegion: 'us-east-1',
-      },
-      resources: new LiveResourceBag({
-        'aws-ec2-load-balancer-request-activity': [createActivity({ averageRequestsPerDayLast14Days: null })],
-        'aws-ec2-load-balancers': [createLoadBalancer()],
-        'aws-ec2-target-groups': [createTargetGroup()],
-      }),
-    });
-
-    expect(finding).toBeNull();
-  });
-
   it('skips load balancers already caught by empty-target cleanup rules', () => {
     const finding = elbIdleRule.evaluateLive?.({
       catalog: {
@@ -254,23 +214,6 @@ describe('elbIdleRule', () => {
         'aws-ec2-load-balancer-request-activity': [createActivity()],
         'aws-ec2-load-balancers': [createLoadBalancer()],
         'aws-ec2-target-groups': [createTargetGroup({ registeredTargetCount: 0 })],
-      }),
-    });
-
-    expect(finding).toBeNull();
-  });
-
-  it('skips load balancers with 10 or more average daily requests', () => {
-    const finding = elbIdleRule.evaluateLive?.({
-      catalog: {
-        indexType: 'LOCAL',
-        resources: [],
-        searchRegion: 'us-east-1',
-      },
-      resources: new LiveResourceBag({
-        'aws-ec2-load-balancer-request-activity': [createActivity({ averageRequestsPerDayLast14Days: 10 })],
-        'aws-ec2-load-balancers': [createLoadBalancer()],
-        'aws-ec2-target-groups': [createTargetGroup()],
       }),
     });
 

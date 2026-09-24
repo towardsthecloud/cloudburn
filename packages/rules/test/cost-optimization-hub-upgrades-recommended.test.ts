@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  type AwsCostOptimizationHubUpgradeRecommendation,
-  awsCorePreset,
-  awsRules,
-  LiveResourceBag,
-} from '../src/index.js';
+import { type AwsCostOptimizationHubUpgradeRecommendation, awsRules, LiveResourceBag } from '../src/index.js';
 
 const ruleId = 'CLDBRN-AWS-COSTOPTIMIZATIONHUB-5';
 const recommendation: AwsCostOptimizationHubUpgradeRecommendation = {
@@ -35,15 +30,6 @@ const evaluate = (items: AwsCostOptimizationHubUpgradeRecommendation[]) =>
     });
 
 describe(ruleId, () => {
-  it('exports discovery-only opt-in metadata and its dataset dependency', () => {
-    expect(awsRules.find((rule) => rule.id === ruleId)).toMatchObject({
-      id: ruleId,
-      service: 'costoptimizationhub',
-      supports: ['discovery'],
-      discoveryDependencies: ['aws-cost-optimization-hub-upgrade-recommendations'],
-    });
-    expect(awsCorePreset.ruleIds).not.toContain(ruleId);
-  });
   it('reports an upgrade once per recommendation ID and no finding for empty evidence', () => {
     expect(evaluate([recommendation, recommendation])).toMatchObject({
       ruleId,

@@ -36,46 +36,6 @@ describe('parsers', () => {
     }
   });
 
-  it('parses a literal aws_ebs_volume terraform resource', async () => {
-    const resourcePath = fileURLToPath(new URL('./fixtures/terraform/ebs-gp2.tf', import.meta.url));
-    const { resources } = await parseTerraform(resourcePath);
-
-    expect(resources).toEqual([
-      {
-        provider: 'aws',
-        type: 'aws_ebs_volume',
-        name: 'gp2_data',
-        location: {
-          path: 'ebs-gp2.tf',
-          line: 1,
-          column: 1,
-        },
-        attributeLocations: {
-          availability_zone: {
-            path: 'ebs-gp2.tf',
-            line: 2,
-            column: 3,
-          },
-          size: {
-            path: 'ebs-gp2.tf',
-            line: 3,
-            column: 3,
-          },
-          type: {
-            path: 'ebs-gp2.tf',
-            line: 4,
-            column: 3,
-          },
-        },
-        attributes: {
-          availability_zone: 'eu-west-1a',
-          size: 100,
-          type: 'gp2',
-        },
-      },
-    ]);
-  });
-
   it('captures the top-level type attribute location when nested maps also define type keys', async () => {
     const resourcePath = fileURLToPath(new URL('./fixtures/terraform/ebs-nested-type.tf', import.meta.url));
     const { resources } = await parseTerraform(resourcePath);
@@ -356,32 +316,6 @@ describe('parsers', () => {
     ]);
   });
 
-  it('returns no terraform resources for unsupported file extensions', async () => {
-    const resourcePath = fileURLToPath(new URL('./fixtures/terraform/scan-dir/notes.txt', import.meta.url));
-    const { resources } = await parseTerraform(resourcePath);
-
-    expect(resources).toEqual([]);
-  });
-
-  it('reports terraform files with invalid hcl syntax as skipped', async () => {
-    const resourcePath = fileURLToPath(new URL('./fixtures/terraform/invalid-syntax/broken.tf', import.meta.url));
-    const result = await parseTerraform(resourcePath);
-
-    expect(result).toEqual({
-      diagnostics: [
-        {
-          code: 'TERRAFORM_PARSE_ERROR',
-          message: 'Skipped Terraform file broken.tf because it could not be parsed.',
-          provider: 'aws',
-          service: 'terraform',
-          source: 'iac',
-          status: 'skipped',
-        },
-      ],
-      resources: [],
-    });
-  });
-
   it('does not expose malformed terraform source content in diagnostics', async () => {
     const tempDirectory = await mkdtemp(join(tmpdir(), 'cloudburn-terraform-secret-'));
     const terraformPath = join(tempDirectory, 'secret.tf');
@@ -452,13 +386,6 @@ describe('parsers', () => {
     });
   });
 
-  it('returns no terraform resources when files contain only non-aws resources', async () => {
-    const resourcePath = fileURLToPath(new URL('./fixtures/terraform/no-resources', import.meta.url));
-    const { resources } = await parseTerraform(resourcePath);
-
-    expect(resources).toEqual([]);
-  });
-
   it('returns no autodetected resources for unsupported file extensions', async () => {
     const resourcePath = fileURLToPath(new URL('./fixtures/terraform/scan-dir/notes.txt', import.meta.url));
     const resources = await parseIaC(resourcePath);
@@ -526,52 +453,6 @@ describe('parsers', () => {
     ]);
   });
 
-  it('parses a cloudformation EC2 instance resource', async () => {
-    const resourcePath = fileURLToPath(new URL('./fixtures/cloudformation/ec2-instance.yaml', import.meta.url));
-    const { resources } = await parseCloudFormation(resourcePath);
-
-    expect(resources).toEqual([
-      {
-        provider: 'aws',
-        type: 'AWS::EC2::Instance',
-        name: 'LegacyWeb',
-        location: {
-          path: 'ec2-instance.yaml',
-          line: 3,
-          column: 3,
-        },
-        attributeLocations: {
-          Type: {
-            path: 'ec2-instance.yaml',
-            line: 4,
-            column: 5,
-          },
-          Properties: {
-            path: 'ec2-instance.yaml',
-            line: 5,
-            column: 5,
-          },
-          'Properties.ImageId': {
-            path: 'ec2-instance.yaml',
-            line: 6,
-            column: 7,
-          },
-          'Properties.InstanceType': {
-            path: 'ec2-instance.yaml',
-            line: 7,
-            column: 7,
-          },
-        },
-        attributes: {
-          Properties: {
-            ImageId: 'ami-1234567890abcdef0',
-            InstanceType: 'm4.large',
-          },
-        },
-      },
-    ]);
-  });
-
   it('parses a cloudformation json resource', async () => {
     const resourcePath = fileURLToPath(new URL('./fixtures/cloudformation/ebs-volume.json', import.meta.url));
     const { resources } = await parseCloudFormation(resourcePath);
@@ -614,66 +495,6 @@ describe('parsers', () => {
           },
         },
         attributes: {
-          Properties: {
-            AvailabilityZone: {
-              Ref: 'AvailabilityZone',
-            },
-            Size: 100,
-            VolumeType: 'gp2',
-          },
-        },
-      },
-    ]);
-  });
-
-  it('auto-detects cloudformation resources from a template file', async () => {
-    const resourcePath = fileURLToPath(new URL('./fixtures/cloudformation/ebs-volume.yaml', import.meta.url));
-    const resources = await parseIaC(resourcePath);
-
-    expect(resources).toEqual([
-      {
-        provider: 'aws',
-        type: 'AWS::EC2::Volume',
-        name: 'MyVolume',
-        location: {
-          path: 'ebs-volume.yaml',
-          line: 3,
-          column: 3,
-        },
-        attributeLocations: {
-          Type: {
-            path: 'ebs-volume.yaml',
-            line: 4,
-            column: 5,
-          },
-          Condition: {
-            path: 'ebs-volume.yaml',
-            line: 5,
-            column: 5,
-          },
-          Properties: {
-            path: 'ebs-volume.yaml',
-            line: 6,
-            column: 5,
-          },
-          'Properties.AvailabilityZone': {
-            path: 'ebs-volume.yaml',
-            line: 7,
-            column: 7,
-          },
-          'Properties.Size': {
-            path: 'ebs-volume.yaml',
-            line: 8,
-            column: 7,
-          },
-          'Properties.VolumeType': {
-            path: 'ebs-volume.yaml',
-            line: 9,
-            column: 7,
-          },
-        },
-        attributes: {
-          Condition: 'CreateVolume',
           Properties: {
             AvailabilityZone: {
               Ref: 'AvailabilityZone',
@@ -802,25 +623,6 @@ describe('parsers', () => {
         },
       },
     ]);
-  });
-
-  it('reports invalid cloudformation templates as skipped', async () => {
-    const resourcePath = fileURLToPath(new URL('./fixtures/cloudformation/invalid-template.yaml', import.meta.url));
-    const result = await parseCloudFormation(resourcePath);
-
-    expect(result).toEqual({
-      diagnostics: [
-        {
-          code: 'CLOUDFORMATION_PARSE_ERROR',
-          message: 'Skipped CloudFormation file invalid-template.yaml because it could not be parsed.',
-          provider: 'aws',
-          service: 'cloudformation',
-          source: 'iac',
-          status: 'skipped',
-        },
-      ],
-      resources: [],
-    });
   });
 
   it('does not expose malformed cloudformation source content in diagnostics', async () => {

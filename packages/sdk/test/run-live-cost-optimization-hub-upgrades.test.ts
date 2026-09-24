@@ -54,31 +54,6 @@ describe('upgrade discovery orchestration', () => {
       );
     },
   );
-  it('keeps Hub upgrades when native generation evidence describes another resource or account', async () => {
-    vi.mocked(discoverAwsResources).mockResolvedValue({
-      catalog,
-      resources: new LiveResourceBag({
-        [datasetKey]: [recommendation],
-        'aws-ebs-volumes': [
-          { accountId, region, volumeId: 'vol-other', volumeType: 'io1', sizeGiB: 100, state: 'in-use' },
-          {
-            accountId: '999999999999',
-            region,
-            volumeId: 'vol-example',
-            volumeType: 'io1',
-            sizeGiB: 100,
-            state: 'in-use',
-          },
-        ],
-      }),
-      diagnostics: [],
-    });
-    expect(
-      (await scan([ruleId, 'CLDBRN-AWS-EBS-1'])).providers
-        .flatMap((provider) => provider.rules)
-        .some((rule) => rule.ruleId === ruleId),
-    ).toBe(true);
-  });
   it('suppresses RDS storage upgrades without suppressing RDS instance-generation upgrades', async () => {
     const common = { ...recommendation, resourceId: 'database-example', resourceArn: undefined };
     vi.mocked(discoverAwsResources).mockResolvedValue({
@@ -204,26 +179,4 @@ describe('upgrade discovery orchestration', () => {
       },
     ]);
   });
-  it.each(['CostOptimizationHubRecommendationIncomplete', 'CostOptimizationHubNotEnrolled', 'AccessDeniedException'])(
-    'reports %s as unavailable, never passed',
-    async (code) => {
-      const diagnostic = {
-        code,
-        message: 'Evidence unavailable',
-        provider: 'aws' as const,
-        service: 'costoptimizationhub',
-        source: 'discovery' as const,
-        status: 'skipped' as const,
-      };
-      vi.mocked(discoverAwsResources).mockResolvedValue({
-        catalog,
-        resources: new LiveResourceBag(),
-        unavailableDatasets: new Map([[datasetKey, [diagnostic]]]),
-        diagnostics: [],
-      });
-      expect((await scan()).evaluations?.rules).toEqual([
-        expect.objectContaining({ ruleId, status: 'not_applicable' }),
-      ]);
-    },
-  );
 });

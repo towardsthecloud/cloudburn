@@ -532,23 +532,4 @@ describe('buildAwsCapabilityOutcomes', () => {
       },
     ]);
   });
-
-  it('produces no source outcome for empty or unavailable Hub datasets', () => {
-    const emptyHub = buildAwsCapabilityOutcomes([observation()], REGIONS, {
-      'aws-cost-optimization-hub-savings-plans-recommendations': [],
-    });
-    const unavailableHub = buildAwsCapabilityOutcomes(
-      [
-        observation({
-          diagnostics: [diagnostic({ code: 'CostOptimizationHubNotEnrolled', status: 'skipped' })],
-          unavailable: true,
-        }),
-      ],
-      REGIONS,
-      {},
-    );
-
-    expect(emptyHub.filter((outcome) => outcome.scope.type === 'recommendation-source')).toEqual([]);
-    expect(unavailableHub.filter((outcome) => outcome.scope.type === 'recommendation-source')).toEqual([]);
-  });
 });

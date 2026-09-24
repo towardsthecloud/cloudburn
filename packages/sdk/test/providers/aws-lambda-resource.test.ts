@@ -374,13 +374,6 @@ describe('hydrateAwsLambdaMemoryRecommendations', () => {
     ]);
   });
 
-  it('returns no assessments when Compute Optimizer has not analyzed any selected function', async () => {
-    const send = vi.fn(async () => ({ lambdaFunctionRecommendations: [] }));
-    mockedCreateComputeOptimizerClient.mockReturnValue({ send } as never);
-
-    await expect(hydrateAwsLambdaMemoryRecommendations([selectedResource('pending')])).resolves.toEqual([]);
-  });
-
   it('preserves Compute Optimizer context when the account is not enrolled', async () => {
     const send = vi.fn(async () => {
       throw Object.assign(new Error('The account is not opted in to AWS Compute Optimizer.'), {

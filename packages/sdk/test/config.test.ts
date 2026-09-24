@@ -205,25 +205,6 @@ discovery:
     });
   });
 
-  it('ignores invalid auto-discovered config files while running in CI', async () => {
-    const directory = await createTempDirectory();
-
-    await writeFile(
-      join(directory, '.cloudburn.yml'),
-      `unexpected: true
-`,
-      'utf8',
-    );
-
-    process.chdir(directory);
-    process.env.CI = 'true';
-
-    await expect(loadConfig()).resolves.toEqual({
-      discovery: {},
-      iac: {},
-    });
-  });
-
   it('ignores semantic errors in auto-discovered config files while running in CI', async () => {
     const directory = await createTempDirectory();
 

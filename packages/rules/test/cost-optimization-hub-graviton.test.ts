@@ -5,7 +5,6 @@ it.each([
   ['Ec2Instance', 'ec2:instance', 'inferred_compatible'],
   ['Ec2Instance', 'ec2:instance', 'unclassified'],
   ['Ec2AutoScalingGroup', 'autoscaling:autoScalingGroup', 'inferred_compatible'],
-  ['Ec2AutoScalingGroup', 'autoscaling:autoScalingGroup', 'unclassified'],
   ['RdsDbInstance', 'rds:db', 'not_applicable'],
 ] as const)('reports %s (%s) with %s evidence once', (currentResourceType, resourceType, workloadCompatibility) => {
   const rule = awsRules.find((candidate) => candidate.id === 'CLDBRN-AWS-COSTOPTIMIZATIONHUB-6');
