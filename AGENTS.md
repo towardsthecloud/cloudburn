@@ -60,3 +60,8 @@ package that detect AWS cost issues in IaC and live accounts. Dependency directi
   `documentation` for `docs`.
 - For user-facing package changes, follow the [changeset and release guide](docs/guides/releasing.md).
   Documentation-only changes do not need changesets. Never run versioning or publishing commands in a feature task.
+
+## Code Review Rules
+
+Apply [`REVIEW.md`](REVIEW.md) to every review. It holds this repository's
+severity, invariants, intentional behavior, and skip rules.
