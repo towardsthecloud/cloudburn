@@ -96,6 +96,23 @@ describe('scan command', () => {
     expect(process.exitCode).toBe(1);
   });
 
+  it('uses config fail-on unless plain --exit-code requests any finding', async () => {
+    const fixturePath = fileURLToPath(new URL('../../sdk/test/fixtures/terraform/scan-dir', import.meta.url));
+    vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    // The SDK applies configured `fail-on: high` to the medium finding and reports no violation.
+    vi.spyOn(CloudBurnClient.prototype, 'scanStatic').mockResolvedValue({
+      ...staticScanResult,
+      policy: { qualifyingFindingCount: 0, threshold: 'high', violated: false },
+    });
+
+    await createProgram().parseAsync(['scan', fixturePath], { from: 'user' });
+    expect(process.exitCode).toBe(0);
+
+    process.exitCode = undefined;
+    await createProgram().parseAsync(['scan', fixturePath, '--exit-code'], { from: 'user' });
+    expect(process.exitCode).toBe(1);
+  });
+
   it('does not fail CI gates when every static finding is suppressed', async () => {
     const fixturePath = fileURLToPath(new URL('../../sdk/test/fixtures/terraform/scan-dir', import.meta.url));
     vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
