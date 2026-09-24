@@ -102,6 +102,28 @@ describe('dynamoDbTableWithoutAutoscalingRule', () => {
     ]);
   });
 
+  it('flags CloudFormation provisioned tables that only another table autoscales', () => {
+    const finding = dynamoDbTableWithoutAutoscalingRule.evaluateStatic?.({
+      resources: new StaticResourceBag({
+        'aws-dynamodb-autoscaling': [createStaticAutoscaling({ tableName: 'invoices' })],
+        'aws-dynamodb-tables': [
+          createStaticTable({
+            location: { path: 'template.yaml', line: 3, column: 3 },
+            resourceId: 'OrdersTable',
+          }),
+          createStaticTable({ resourceId: 'InvoicesTable', tableName: 'invoices' }),
+        ],
+      }),
+    });
+
+    expect(finding?.findings).toEqual([
+      {
+        location: { path: 'template.yaml', line: 3, column: 3 },
+        resourceId: 'OrdersTable',
+      },
+    ]);
+  });
+
   it('skips static tables when autoscaling exists or billing mode is unknown/on-demand', () => {
     const autoscaledFinding = dynamoDbTableWithoutAutoscalingRule.evaluateStatic?.({
       resources: new StaticResourceBag({

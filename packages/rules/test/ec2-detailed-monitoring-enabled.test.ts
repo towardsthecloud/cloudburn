@@ -42,10 +42,34 @@ describe('ec2DetailedMonitoringEnabledRule', () => {
     });
   });
 
-  it('skips instances that do not enable detailed monitoring', () => {
+  it('flags only CloudFormation instances with Monitoring enabled', () => {
     const finding = ec2DetailedMonitoringEnabledRule.evaluateStatic?.({
       resources: new StaticResourceBag({
-        'aws-ec2-instances': [createInstance({ detailedMonitoringEnabled: false })],
+        'aws-ec2-instances': [
+          createInstance({
+            location: { path: 'template.yaml', line: 4, column: 3 },
+            resourceId: 'AppInstance',
+          }),
+          createInstance({ detailedMonitoringEnabled: false, resourceId: 'WorkerInstance' }),
+        ],
+      }),
+    });
+
+    expect(finding?.findings).toEqual([
+      {
+        location: { path: 'template.yaml', line: 4, column: 3 },
+        resourceId: 'AppInstance',
+      },
+    ]);
+  });
+
+  it('skips instances that do not enable detailed monitoring or leave it unresolved', () => {
+    const finding = ec2DetailedMonitoringEnabledRule.evaluateStatic?.({
+      resources: new StaticResourceBag({
+        'aws-ec2-instances': [
+          createInstance({ detailedMonitoringEnabled: false }),
+          { instanceType: 'm7i.large', resourceId: 'AppInstance' },
+        ],
       }),
     });
 

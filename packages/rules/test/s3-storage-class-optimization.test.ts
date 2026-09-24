@@ -90,7 +90,9 @@ describe('s3StorageClassOptimizationRule', () => {
       resources: new LiveResourceBag({
         'aws-s3-bucket-analyses': [
           createLiveBucketAnalysis({
+            hasCostFocusedLifecycle: true,
             hasIntelligentTieringConfiguration: true,
+            hasLifecycleSignal: true,
           }),
         ],
       }),
@@ -204,7 +206,9 @@ describe('s3StorageClassOptimizationRule', () => {
       resources: new StaticResourceBag({
         'aws-s3-bucket-analyses': [
           createBucketAnalysis({
+            hasCostFocusedLifecycle: true,
             hasIntelligentTieringConfiguration: true,
+            hasLifecycleSignal: true,
             location: {
               path: 'template.yaml',
               line: 3,

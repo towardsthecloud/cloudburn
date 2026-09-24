@@ -77,6 +77,27 @@ describe('ec2GravitonReviewRule', () => {
     });
   });
 
+  it('flags CloudFormation instances with a clear Arm equivalent', () => {
+    const finding = ec2GravitonReviewRule.evaluateStatic?.({
+      resources: new StaticResourceBag({
+        'aws-ec2-instances': [
+          createStaticInstance({
+            instanceType: 'c6i.xlarge',
+            location: { path: 'template.yaml', line: 4, column: 3 },
+            resourceId: 'AppInstance',
+          }),
+        ],
+      }),
+    });
+
+    expect(finding?.findings).toEqual([
+      {
+        location: { path: 'template.yaml', line: 4, column: 3 },
+        resourceId: 'AppInstance',
+      },
+    ]);
+  });
+
   it('skips instances that already run on Graviton', () => {
     const finding = ec2GravitonReviewRule.evaluateLive?.({
       catalog: {
