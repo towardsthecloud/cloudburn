@@ -8,22 +8,27 @@
     "tags": {
       "layer:rules": {
         "dependencies": {
-          "deny": ["layer:sdk", "layer:cli", "layer:action"]
+          "deny": ["layer:sdk", "layer:cli", "layer:action", "layer:mcp"]
         }
       },
       "layer:sdk": {
         "dependencies": {
-          "deny": ["layer:cli", "layer:action"]
+          "deny": ["layer:cli", "layer:action", "layer:mcp"]
         }
       },
       "layer:cli": {
         "dependencies": {
-          "deny": ["layer:action"]
+          "deny": ["layer:action", "layer:mcp"]
         }
       },
       "layer:action": {
         "dependencies": {
-          "deny": ["layer:cli"]
+          "deny": ["layer:cli", "layer:mcp"]
+        }
+      },
+      "layer:mcp": {
+        "dependencies": {
+          "deny": ["layer:cli", "layer:action"]
         }
       }
     }

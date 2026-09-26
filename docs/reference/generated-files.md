@@ -29,6 +29,12 @@ scans do not need those external packages at runtime. The [bundle regression](..
 checks the emitted metadata, and [isolated scan tests](../../packages/action/test/e2e/action.test.mjs) verify the shipped
 artifacts. Build with `pnpm exec turbo run build --filter @cloudburn/action`, then run `pnpm --filter @cloudburn/action test:e2e`.
 
+The MCP build starts at `packages/mcp/src/cli.ts` and publishes `dist/cli.js`. The same `build` script runs
+[the plugin build](../../packages/mcp/scripts/build-plugin.mjs), which copies `packages/mcp/plugin/` and the root
+`LICENSE` to `dist/plugin/`, then stamps the package version into the plugin manifests and MCP launchers. The npm
+package excludes `dist/plugin/`; the release workflow copies it into `towardsthecloud/cloudburn-plugin`, where it is
+committed. Edit `packages/mcp/plugin/`, never `dist/plugin/` or the plugin repository.
+
 The reference pages for [rule IDs](rule-ids.md), [configuration](config-schema.md), and [finding shapes](finding-shape.md)
 are manually maintained from the code sources named at the top of each page. No generator currently updates them; change
 the reference in the same pull request as its source contract.

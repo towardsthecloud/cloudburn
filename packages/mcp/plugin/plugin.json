@@ -1,0 +1,23 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "cloudburn",
+  "description": "Find AWS cost waste in Terraform, CloudFormation, and live AWS accounts with CloudBurn's read-only scans.",
+  "author": {
+    "name": "Towards The Cloud",
+    "url": "https://towardsthecloud.com"
+  },
+  "homepage": "https://cloudburn.io/docs",
+  "repository": "https://github.com/towardsthecloud/cloudburn",
+  "license": "Apache-2.0",
+  "keywords": ["aws", "cost-optimization", "finops", "terraform", "cloudformation", "iac"],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "CloudBurn",
+        "shortDescription": "Find AWS cost waste in IaC and live accounts",
+        "developerName": "Towards The Cloud",
+        "websiteURL": "https://cloudburn.io/docs"
+      }
+    }
+  }
+}

@@ -51,7 +51,7 @@ See [`docs/guides/adding-a-rule.md`](docs/guides/adding-a-rule.md) for the full 
 
 See the [release guide](docs/guides/releasing.md) for the complete contributor and automated release flow.
 
-Write `.changeset/<slug>.md` files directly for user-facing package changes. Published packages: `cloudburn` (cli), `@cloudburn/sdk`, `@cloudburn/rules`. The private `@cloudburn/action` package is versioned and tagged but never published to npm — action-visible changes need a changeset too.
+Write `.changeset/<slug>.md` files directly for user-facing package changes. Published packages: `cloudburn` (cli), `@cloudburn/sdk`, `@cloudburn/rules`, `@cloudburn/mcp`. The private `@cloudburn/action` package is versioned and tagged but never published to npm — action-visible changes need a changeset too.
 
 One changeset file per package — never list multiple packages in one file.
 

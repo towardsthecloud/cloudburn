@@ -55,7 +55,7 @@ jobs:
           # this ref; unchanged versions' tags and attestations legitimately
           # point at earlier release commits.
           RELEASED=""
-          for PACKAGE in rules sdk cloudburn action; do
+          for PACKAGE in rules sdk cloudburn action mcp; do
             if [ -f "packages/${PACKAGE}/package.json" ] \
               && git diff "${RELEASE_SHA}~1" "${RELEASE_SHA}" -- "packages/${PACKAGE}/package.json" \
                 | grep -q '^+.*"version"'; then
@@ -330,4 +330,74 @@ jobs:
             fi
             gh release create "$TAG" --repo "$TARGET_REPO" --verify-tag --title "$TAG" \
               --notes-file "$NOTES" ${STALE:+--latest=false} $DRAFT
+          fi
+
+      - name: Sync agent plugin
+        if: >-
+          github.ref == 'refs/heads/main' &&
+          ((inputs.published-release-ref != '' &&
+            contains(format(' {0} ', steps.recovery.outputs.packages), ' mcp ')) ||
+           (steps.changesets.outputs.published == 'true' &&
+            contains(steps.changesets.outputs.published-packages, '"@cloudburn/mcp"')))
+        env:
+          PLUGIN_REPO_TOKEN: ${{ secrets.PLUGIN_REPO_TOKEN }}
+          GH_TOKEN: ${{ secrets.PLUGIN_REPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          TARGET_REPO="towardsthecloud/cloudburn-plugin"
+
+          if [ ! -f packages/mcp/package.json ]; then
+            echo "No MCP package at this ref; skipping sync."
+            exit 0
+          fi
+
+          VERSION=$(node -p "require('./packages/mcp/package.json').version")
+          TAG="v${VERSION}"
+          REMOTE="https://x-access-token:${PLUGIN_REPO_TOKEN}@github.com/${TARGET_REPO}.git"
+
+          # Only the newest version owns main and the latest release marker.
+          REMOTE_MAX=$(git ls-remote --tags --refs "$REMOTE" 'refs/tags/v*.*.*' | sed 's|.*/v||' | sort -V | tail -n1 || true)
+          STALE=""
+          if [ -n "$REMOTE_MAX" ] && [ "$REMOTE_MAX" != "$VERSION" ] \
+            && [ "$(printf '%s\n%s\n' "$VERSION" "$REMOTE_MAX" | sort -V | tail -n1)" = "$REMOTE_MAX" ]; then
+            STALE=1
+            echo "Remote already has version ${REMOTE_MAX}; syncing ${TAG} as an older release."
+          fi
+
+          pnpm exec turbo run build --filter @cloudburn/mcp
+          test -f packages/mcp/dist/plugin/.claude-plugin/plugin.json
+
+          NOTES=$(mktemp)
+          trap 'rm -f "$NOTES"' EXIT
+          node scripts/changelog-notes.mjs packages/mcp/CHANGELOG.md "$VERSION" --fallback > "$NOTES"
+
+          git clone --depth 1 "$REMOTE" plugin-target
+          # Mirror the build exactly so files removed from the plugin disappear from the repository too.
+          find plugin-target -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -R packages/mcp/dist/plugin/. plugin-target/
+
+          cd plugin-target
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Load-bearing when the target repo is empty or its default branch differs.
+          git checkout -B main
+          git add -A
+          if git diff --staged --quiet; then
+            echo "No content changes for ${TAG}."
+          else
+            git commit -m "chore: sync cloudburn plugin ${TAG}"
+          fi
+
+          # The immutable version tag is published before main, so remote content never gets ahead of its tag.
+          if [ -z "$(git ls-remote --tags --refs origin "refs/tags/${TAG}")" ]; then
+            # -f: a shallow clone can carry a stale local tag.
+            git tag -f -a "$TAG" -m "Release $TAG"
+            git push origin "$TAG"
+          fi
+          if [ -z "$STALE" ]; then
+            git push origin HEAD:main
+          fi
+          if ! gh release view "$TAG" --repo "$TARGET_REPO" > /dev/null 2>&1; then
+            gh release create "$TAG" --repo "$TARGET_REPO" --verify-tag --title "$TAG" \
+              --notes-file "$NOTES" ${STALE:+--latest=false}
           fi

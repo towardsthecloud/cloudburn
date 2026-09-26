@@ -23,6 +23,8 @@ CloudBurn runs deterministic cost rules against your Terraform and CloudFormatio
   [GitHub Action](https://github.com/marketplace/actions/cloudburn-scan) for pull request annotations and comments.
 - **Discover in production.** Inspects deployed resources and shows what needs fixing.
 - **Programmable.** The [SDK](packages/sdk/README.md) lets you run CloudBurn inside your own tooling.
+- **Built for AI agents.** A [plugin](packages/mcp/README.md) gives Claude Code, Codex, and other agents read-only
+  CloudBurn tools and a skill for reviewing IaC and live accounts.
 - **Machine and human friendly output.** `json` and `table` formats.
 
 ## See It Run
@@ -73,6 +75,26 @@ and can fail the job by severity. No Node.js setup or CLI install is needed.
 ```
 
 See the [GitHub Action documentation](https://cloudburn.io/docs/cli/github-action) for all inputs, outputs, and examples.
+
+### AI agents
+
+Install the CloudBurn plugin to let your agent scan IaC and live accounts through a local MCP server. It needs
+Node.js 24 or later.
+
+```bash
+# Claude Code
+claude plugin marketplace add towardsthecloud/cloudburn-plugin
+claude plugin install cloudburn@towardsthecloud
+
+# Codex
+codex plugin marketplace add towardsthecloud/cloudburn-plugin
+codex plugin add cloudburn@towardsthecloud
+
+# Skill only, for agents supported by skills.sh
+npx skills add towardsthecloud/cloudburn-plugin
+```
+
+See the [MCP server README](packages/mcp/README.md) for the tools and for adding the server to other MCP clients.
 
 ## Getting Started
 

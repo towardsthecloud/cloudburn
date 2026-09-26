@@ -1,0 +1,15 @@
+{
+  "name": "towardsthecloud",
+  "description": "CloudBurn plugins for AWS cost optimization by Towards The Cloud.",
+  "owner": {
+    "name": "Towards The Cloud",
+    "url": "https://towardsthecloud.com"
+  },
+  "plugins": [
+    {
+      "name": "cloudburn",
+      "source": "./",
+      "description": "Find AWS cost waste in Terraform, CloudFormation, and live AWS accounts."
+    }
+  ]
+}

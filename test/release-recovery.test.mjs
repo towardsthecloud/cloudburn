@@ -135,3 +135,92 @@ test('recovery refuses a conflicting private action tag without overwriting it',
   assert.notEqual(result.status, 0);
   assert.equal(run(remote, 'git', ['rev-parse', '@cloudburn/action@1.0.1^{commit}']), initial);
 });
+
+function pluginRelease(t, { targetVersion, staleFile }) {
+  const { directory, checkout } = repository(t);
+  const target = join(directory, 'plugin.git');
+  const seed = join(directory, 'plugin-seed');
+  run(directory, 'git', ['init', '--bare', '-b', 'main', target]);
+  mkdirSync(seed);
+  run(seed, 'git', ['init', '-b', 'main']);
+  run(seed, 'git', ['config', 'user.name', 'Release test']);
+  run(seed, 'git', ['config', 'user.email', 'release@example.test']);
+  writeFileSync(join(seed, staleFile), 'removed from the plugin');
+  run(seed, 'git', ['add', '.']);
+  run(seed, 'git', ['commit', '-m', `Plugin ${targetVersion}`]);
+  run(seed, 'git', ['tag', `v${targetVersion}`]);
+  run(seed, 'git', ['push', target, 'main', '--tags']);
+  const targetMain = run(target, 'git', ['rev-parse', 'main']);
+
+  mkdirSync(join(checkout, 'packages/mcp/dist/plugin/.claude-plugin'), { recursive: true });
+  writeFileSync(join(checkout, 'packages/mcp/package.json'), JSON.stringify({ name: '@cloudburn/mcp', version: '0.1.0' }));
+  writeFileSync(join(checkout, 'packages/mcp/CHANGELOG.md'), '# @cloudburn/mcp\n\n## 0.1.0\n\nAdd the MCP server.\n');
+  writeFileSync(join(checkout, 'packages/mcp/dist/plugin/.claude-plugin/plugin.json'), '{"version":"0.1.0"}');
+  writeFileSync(join(checkout, 'packages/mcp/dist/plugin/README.md'), 'plugin readme');
+  mkdirSync(join(checkout, 'scripts'));
+  copyFileSync(join(root, 'scripts/changelog-notes.mjs'), join(checkout, 'scripts/changelog-notes.mjs'));
+  const bin = join(directory, 'bin');
+  mkdirSync(bin);
+  writeFileSync(join(bin, 'pnpm'), '#!/bin/sh\nexit 0\n');
+  writeFileSync(join(bin, 'gh'), `#!/bin/sh
+printf '%s\\n' "$*" >> "$GH_LOG"
+case "$*" in
+  'release view '*) exit 1;;
+esac
+`);
+  for (const command of ['pnpm', 'gh']) chmodSync(join(bin, command), 0o755);
+  const ghLog = join(directory, 'github.log');
+  writeFileSync(ghLog, '');
+  // Redirect the provider URL to a local Git remote; Git itself stays real.
+  const script = shell('Sync agent plugin').replace(/^REMOTE=.*$/m, `REMOTE='${target}'`);
+  run(checkout, 'bash', ['-euo', 'pipefail', '-c', script], { PATH: `${bin}:${process.env.PATH}`, GH_LOG: ghLog });
+  return { target, targetMain, ghLog: readFileSync(ghLog, 'utf8') };
+}
+
+test('plugin sync mirrors the built plugin to the repository root and publishes its version', (t) => {
+  const { target, targetMain, ghLog } = pluginRelease(t, { targetVersion: '0.0.9', staleFile: 'obsolete.md' });
+  const main = run(target, 'git', ['rev-parse', 'main']);
+  assert.notEqual(main, targetMain);
+  assert.equal(run(target, 'git', ['rev-parse', 'v0.1.0^{commit}']), main);
+  assert.deepEqual(run(target, 'git', ['ls-tree', '-r', '--name-only', 'main']).split('\n'), [
+    '.claude-plugin/plugin.json',
+    'README.md',
+  ]);
+  assert.match(ghLog, /release create v0\.1\.0 --repo towardsthecloud\/cloudburn-plugin --verify-tag/);
+  assert.doesNotMatch(ghLog, /--latest=false/);
+});
+
+test('plugin recovery of an older version tags it without moving main or the latest release', (t) => {
+  const { target, targetMain, ghLog } = pluginRelease(t, { targetVersion: '0.2.0', staleFile: 'newer.md' });
+  assert.equal(run(target, 'git', ['rev-parse', 'main']), targetMain);
+  const tagged = run(target, 'git', ['rev-parse', 'v0.1.0^{commit}']);
+  assert.equal(run(target, 'git', ['show', `${tagged}:.claude-plugin/plugin.json`]), '{"version":"0.1.0"}');
+  assert.match(ghLog, /release create v0\.1\.0 .*--latest=false/);
+});
+
+test('plugin sync runs for published or recovered MCP releases only', () => {
+  const condition = step('Sync agent plugin').split('        if: >-\n')[1].split('        env:')[0]
+    .replaceAll('inputs.published-release-ref', "inputs['published-release-ref']")
+    .replaceAll('steps.changesets.outputs.published-packages', "steps.changesets.outputs['published-packages']");
+  const evaluate = new Function('github', 'inputs', 'steps', 'contains', 'format', `return (${condition});`);
+  const contains = (value, search) => value?.includes(search) ?? false;
+  const format = (value, arg) => value.replace('{0}', arg);
+  const recovered = (packages) => evaluate(
+    { ref: 'refs/heads/main' },
+    { 'published-release-ref': 'released-commit' },
+    { recovery: { outputs: { packages } }, changesets: { outputs: {} } },
+    contains,
+    format,
+  );
+  const published = (packages) => evaluate(
+    { ref: 'refs/heads/main' },
+    { 'published-release-ref': '' },
+    { recovery: { outputs: {} }, changesets: { outputs: { published: 'true', 'published-packages': packages } } },
+    contains,
+    format,
+  );
+  assert.equal(recovered(' sdk cloudburn'), false);
+  assert.equal(recovered(' sdk mcp'), true);
+  assert.equal(published('[{"name":"cloudburn","version":"1.0.0"}]'), false);
+  assert.equal(published('[{"name":"@cloudburn/mcp","version":"0.1.0"}]'), true);
+});

@@ -47,10 +47,14 @@ owns its details.
   for annotated tags, and create tags only for packages that commit released. Version tags are immutable, and the
   floating major tag never moves backwards. See
   [release recovery](docs/guides/releasing.md#recover-published-release-follow-up-steps).
-- **Changesets.** A user-visible change to `cloudburn`, `@cloudburn/sdk`, `@cloudburn/rules`, or `@cloudburn/action`
-  needs one `.changeset/*.md` file per package, `patch` or `minor` only. A missing changeset is Medium: the change is
-  never versioned or released, so users do not receive it. Documentation-only changes need none. Keep the action's
-  `workspace:*` SDK pin. See [contributor changesets](docs/guides/releasing.md#contributor-changesets).
+- **MCP tools stay read-only and host-independent.** In `packages/mcp/src/`, tools must not change AWS resources,
+  must reject relative paths, and must write nothing but JSON-RPC to stdout. Tool names, inputs, and results are
+  additive only. Plugin MCP launchers are pinned by the build, never by hand-edited versions. See the
+  [MCP instructions](packages/mcp/AGENTS.md).
+- **Changesets.** A user-visible change to `cloudburn`, `@cloudburn/sdk`, `@cloudburn/rules`, `@cloudburn/action`,
+  or `@cloudburn/mcp` needs one `.changeset/*.md` file per package, `patch` or `minor` only. A missing changeset is
+  Medium: the change is never versioned or released, so users do not receive it. Documentation-only changes need
+  none. Keep the action's and MCP package's `workspace:*` SDK pins. See [contributor changesets](docs/guides/releasing.md#contributor-changesets).
 
 ## Intentional behavior
 
