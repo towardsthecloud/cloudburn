@@ -8,6 +8,7 @@ High-level view of the monorepo. Detailed per-package diagrams live in `docs/arc
 graph LR
   CLI["cloudburn (cli)"] --> SDK["@cloudburn/sdk"]
   Action["@cloudburn/action"] --> SDK
+  MCP["@cloudburn/mcp"] --> SDK
   SDK --> Rules["@cloudburn/rules"]
 ```
 
@@ -76,6 +77,7 @@ sequenceDiagram
 | ------------------- | ----------------------------------------------------------------------------- | --------------------------------------- |
 | `cloudburn` (cli)   | Command parsing, output formatters, exit-code behavior                        | Scanning logic, rule definitions        |
 | `@cloudburn/action` | GitHub Action manifest, inputs, annotations, PR comment, bundled distribution | Scanning logic, live discovery, the CLI |
+| `@cloudburn/mcp`    | Stdio MCP server tools, agent plugin manifests, skill, plugin build           | Scanning logic, AWS setup, the CLI      |
 | `@cloudburn/sdk`    | Scanner facade, config system, engine orchestration, parsers, AWS providers   | Rule definitions, CLI concerns          |
 | `@cloudburn/rules`  | Rule definitions, presets, type contracts, helper utilities                   | I/O, AWS SDK calls, engine logic        |
 
@@ -84,6 +86,13 @@ ships the JavaScript bundle and WASM parser through a dedicated `towardsthecloud
 Build metadata stays in this workspace; see [generated-file ownership](reference/generated-files.md).
 Repository provisioning, Marketplace listing, and published-action verification are separate
 [release prerequisites](guides/releasing.md#github-action-sync), not established by a passing source build.
+
+The MCP server is published to npm as `@cloudburn/mcp` and runs locally over stdio, so agents scan workspace files
+and use the user's own AWS credentials; its tools are read-only wrappers over `scanStatic`, `discover`,
+`getDiscoveryStatus`, and rule metadata. The package also owns the agent plugin: one folder with Claude Code and
+Agent Plugins manifests, MCP launchers pinned to the exact server version, and a skill. Releases copy the built
+plugin to the public `towardsthecloud/cloudburn-plugin` repository, the source for Claude Code and Codex
+marketplaces, skills.sh, and Anthropic's plugin directory. See [agent plugin sync](guides/releasing.md#agent-plugin-sync).
 
 Static IaC scans and live AWS discovery now follow the same dataset-driven pattern. Static rules declare `staticDependencies`; live rules declare required `discoveryDependencies` and may declare `optionalDiscoveryDependencies` when supporting evidence must not block evaluation. The SDK resolves these into normalized datasets exposed through `StaticResourceBag` and `LiveResourceBag`. The CLI keeps `scan` static-only and uses `discover` for live AWS evaluation and setup flows.
 

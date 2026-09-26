@@ -56,7 +56,7 @@ pnpm turbo run lint --filter ...[main]
 
 Package layer tags live in each package's `turbo.json`, not its `package.json`. Root `turbo.json` maps those tags to denied
 dependency directions and defines task caching: `cloudburn` is `layer:cli`, `@cloudburn/action` is `layer:action`,
-`@cloudburn/sdk` is `layer:sdk`, and `@cloudburn/rules` is `layer:rules`.
+`@cloudburn/mcp` is `layer:mcp`, `@cloudburn/sdk` is `layer:sdk`, and `@cloudburn/rules` is `layer:rules`.
 
 `build` depends on upstream builds and caches `dist/**`; its inputs exclude `test/**` because fixtures do not affect published output. `typecheck` depends on upstream builds. Source `test` tasks use the `test:inputs` transit task to inherit upstream source hashes without waiting for builds or upstream tests. `test:e2e` and `test:package` depend on the current package build. `test:package` is uncached because it installs archives with public registry dependencies.
 `dev` is persistent and uncached, while `lint:fix` and `clean` are uncached because they mutate or remove files. Changes to

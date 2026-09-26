@@ -25,13 +25,16 @@ pnpm turbo run test --filter @cloudburn/rules
 pnpm turbo run build --filter @cloudburn/sdk
 pnpm turbo run lint --filter cloudburn
 pnpm turbo run test:e2e --filter @cloudburn/action
+pnpm turbo run test:e2e --filter @cloudburn/mcp
 pnpm --filter @cloudburn/sdk exec vitest run test/discovery-http-integration.test.ts
 pnpm test:e2e
 pnpm test:packages
 ```
 
-Package names are `cloudburn`, `@cloudburn/action`, `@cloudburn/sdk`, and `@cloudburn/rules`.
+Package names are `cloudburn`, `@cloudburn/action`, `@cloudburn/mcp`, `@cloudburn/sdk`, and `@cloudburn/rules`.
 For action input, comment, or bundle changes, start with the [action package instructions](../../packages/action/AGENTS.md).
+For MCP tools, the skill, or plugin manifests, start with the [MCP package instructions](../../packages/mcp/AGENTS.md).
+To try a local server build in an agent, register `node <repository>/packages/mcp/dist/cli.js` as an MCP server.
 For release recovery changes, use the [release guide](releasing.md#recover-published-release-follow-up-steps) and
 `pnpm release:test`; its Git remotes and GitHub responses are local test fixtures.
 

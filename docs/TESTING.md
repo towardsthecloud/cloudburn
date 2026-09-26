@@ -125,6 +125,19 @@ dependencies. It verifies workflow commands on stdout, `GITHUB_OUTPUT`/`GITHUB_S
 artifact, and exit status. A build-metafile check rejects bundled AWS SDK and Smithy packages to keep live-discovery
 dependencies out of the static action. No AWS credentials or real pull requests are used.
 
+### `@cloudburn/mcp`
+
+Unit tests connect an MCP client to the server over an in-memory transport and mock `CloudBurnClient`. They cover
+discovery arguments (region target, evidence cache directory, deadline, rule selection, cancellation signal), progress
+notifications, and error categorization and redaction, which need AWS in a real run.
+
+The `test:e2e` suite starts the built `dist/cli.js` over stdio in isolated temporary directories, the way agents
+launch it, with the CLI's AWS module guard active and no AWS configuration. It calls the tools against the CLI's
+Terraform and CloudFormation fixtures and reviewed expectations in `cases.json`, and checks relative-path rejection,
+config precedence, suppression, and tool errors. It also audits the built plugin folder: version-stamped manifests,
+exact launcher pins, marketplace entries, the file allowlist and size limits, the README, and skill front matter.
+Claude Code's `claude plugin validate --strict` is a manual check because CI does not install Claude Code.
+
 ### Built CLI template tests
 
 `pnpm test:e2e` builds the CLI and its workspace dependencies, then starts the executable in isolated temporary directories. Fixtures and reviewed finding expectations live in `packages/cloudburn/test/e2e/`. These tests cover Terraform, CloudFormation YAML and JSON, positive and negative findings, source scope, source locations, configuration, suppression, parser diagnostics, and exit codes. They use no AWS credentials or account resources.
@@ -203,3 +216,5 @@ The action's `test:e2e` task adds the shared CLI fixtures to its inputs while re
 package files. The root `affectedUsingTaskInputs` flag also selects that task for fixture-only pull requests;
 cross-package inputs alone invalidate the cache but do not select the action under `--affected`. Keep these inputs
 in the [action task configuration](../packages/action/turbo.json), without adding an action dependency on the CLI.
+The MCP package's `test:e2e` task declares the same fixture inputs in its
+[task configuration](../packages/mcp/turbo.json).

@@ -11,6 +11,7 @@
 
 - [ ] `cloudburn` (cli)
 - [ ] `@cloudburn/action`
+- [ ] `@cloudburn/mcp` (MCP server and agent plugin)
 - [ ] `@cloudburn/sdk`
 - [ ] `@cloudburn/rules`
 - [ ] docs/community files

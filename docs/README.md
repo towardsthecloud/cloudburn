@@ -23,7 +23,7 @@ adding, moving, or retiring durable documentation.
 - [Adding a rule](guides/adding-a-rule.md) — identifiers, implementation, registration, documentation, and tests.
 - [Adding a static dataset](guides/adding-a-static-dataset.md) — normalized Terraform and CloudFormation data.
 - [Adding a provider resource](guides/adding-a-provider-resource.md) — live AWS discovery datasets and hydration.
-- [Releasing](guides/releasing.md) — changesets, publishing, selective recovery, Homebrew updates, action sync, and Marketplace launch prerequisites.
+- [Releasing](guides/releasing.md) — changesets, publishing, selective recovery, Homebrew updates, action and plugin sync, and Marketplace and directory launch prerequisites.
 
 ## Reference
 
@@ -42,6 +42,7 @@ adding, moving, or retiring durable documentation.
 | ------------------- | ----------------------------------------------------------------- | ----------------------------------------------------------------- |
 | `cloudburn`         | [`packages/cloudburn/AGENTS.md`](../packages/cloudburn/AGENTS.md) | [`packages/cloudburn/README.md`](../packages/cloudburn/README.md) |
 | `@cloudburn/action` | [`packages/action/AGENTS.md`](../packages/action/AGENTS.md)       | [`packages/action/README.md`](../packages/action/README.md)       |
+| `@cloudburn/mcp`    | [`packages/mcp/AGENTS.md`](../packages/mcp/AGENTS.md)             | [`packages/mcp/README.md`](../packages/mcp/README.md)             |
 | `@cloudburn/sdk`    | [`packages/sdk/AGENTS.md`](../packages/sdk/AGENTS.md)             | [`packages/sdk/README.md`](../packages/sdk/README.md)             |
 | `@cloudburn/rules`  | [`packages/rules/AGENTS.md`](../packages/rules/AGENTS.md)         | [`packages/rules/README.md`](../packages/rules/README.md)         |
 
