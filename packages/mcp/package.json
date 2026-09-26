@@ -1,0 +1,61 @@
+{
+  "name": "@cloudburn/mcp",
+  "version": "0.0.0",
+  "description": "CloudBurn MCP server for AWS cost scans of IaC and live accounts",
+  "homepage": "https://cloudburn.io/docs",
+  "bugs": {
+    "url": "https://github.com/towardsthecloud/cloudburn/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/towardsthecloud/cloudburn.git",
+    "directory": "packages/mcp"
+  },
+  "type": "module",
+  "bin": {
+    "cloudburn-mcp": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "!dist/plugin"
+  ],
+  "scripts": {
+    "build": "tsup && node scripts/build-plugin.mjs",
+    "typecheck": "tsc -p tsconfig.typecheck.json",
+    "test": "vitest run",
+    "test:e2e": "node --test test/e2e/*.test.mjs",
+    "lint": "biome check --error-on-warnings .",
+    "lint:fix": "biome check --write .",
+    "clean": "rm -rf dist",
+    "dev": "tsup --watch"
+  },
+  "dependencies": {
+    "@cloudburn/sdk": "workspace:*",
+    "@modelcontextprotocol/server": "^2.0.0",
+    "zod": "^4.2.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "catalog:",
+    "@modelcontextprotocol/client": "^2.0.0",
+    "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "tsup": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "keywords": [
+    "aws",
+    "cloudburn",
+    "cost-optimization",
+    "finops",
+    "mcp",
+    "model-context-protocol",
+    "terraform",
+    "cloudformation",
+    "iac"
+  ],
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=24.0.0"
+  }
+}
