@@ -13,7 +13,7 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-    exclude: [...configDefaults.exclude, 'test/e2e/**'],
+    exclude: [...configDefaults.exclude, 'test/e2e/**', 'test/package/**'],
     coverage: {
       provider: 'v8',
     },

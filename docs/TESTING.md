@@ -138,6 +138,11 @@ config precedence, suppression, and tool errors. It also audits the built plugin
 exact launcher pins, marketplace entries, the file allowlist and size limits, the README, and skill front matter.
 Claude Code's `claude plugin validate --strict` is a manual check because CI does not install Claude Code.
 
+Its `test:package` suite packs the MCP server, SDK, and rules, installs the archives into an isolated consumer the way
+`npx` installs the server, and checks that the packed manifest has only published dependencies and ships only
+`dist/cli.js`. It then starts the installed `cloudburn-mcp` executable over stdio and runs a Terraform scan. Like the
+CLI's installed-package suite, it is uncached and needs public npm registry access.
+
 ### Built CLI template tests
 
 `pnpm test:e2e` builds the CLI and its workspace dependencies, then starts the executable in isolated temporary directories. Fixtures and reviewed finding expectations live in `packages/cloudburn/test/e2e/`. These tests cover Terraform, CloudFormation YAML and JSON, positive and negative findings, source scope, source locations, configuration, suppression, parser diagnostics, and exit codes. They use no AWS credentials or account resources.

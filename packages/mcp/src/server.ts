@@ -10,7 +10,7 @@ import {
 import { type CallToolResult, McpServer, type ServerContext } from '@modelcontextprotocol/server';
 import * as z from 'zod';
 import { toToolError, toToolResult } from './error.js';
-import { requireAbsolutePath, ruleSelectionShape, toConfigOverride } from './options.js';
+import { requireAbsolutePath, ruleSelectionShape, toConfigOverride, validateServices } from './options.js';
 import { SERVER_VERSION } from './version.js';
 
 /** Dependencies the server needs from its host; tests replace the SDK client factory. */
@@ -190,7 +190,7 @@ export const createCloudBurnServer = (options: CloudBurnServerOptions = {}): Mcp
     },
     async ({ services, sources, severity }) =>
       run(async () => {
-        const selectedServices = services?.map((service) => service.toLowerCase());
+        const selectedServices = services === undefined ? undefined : validateServices(services);
         return builtInRuleMetadata.filter(
           (rule) =>
             (selectedServices === undefined || selectedServices.includes(rule.service)) &&

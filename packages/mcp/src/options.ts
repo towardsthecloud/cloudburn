@@ -53,6 +53,33 @@ export type RuleSelection = {
 };
 
 /**
+ * Normalizes service names and rejects services without built-in rules, so a typo fails instead of silently
+ * selecting nothing.
+ *
+ * @param services - Service names supplied by the client.
+ * @param mode - Scan mode whose rules must support the services; omit to accept any built-in rule service.
+ * @returns Lower-cased service names in the supplied order.
+ * @throws InvalidArgumentError when a service has no matching built-in rules.
+ */
+export const validateServices = (services: string[], mode?: Source): string[] => {
+  const normalized = services.map((service) => service.toLowerCase());
+  const validServices = new Set(
+    builtInRuleMetadata
+      .filter((rule) => mode === undefined || rule.supports.includes(mode))
+      .map((rule) => rule.service),
+  );
+  const invalidService = normalized.find((service) => !validServices.has(service));
+
+  if (invalidService !== undefined) {
+    throw new InvalidArgumentError(
+      `Unknown service "${invalidService}"${mode === undefined ? '' : ` for ${mode}`}. Allowed services: ${Array.from(validServices).sort().join(', ')}.`,
+    );
+  }
+
+  return normalized;
+};
+
+/**
  * Builds the SDK runtime config override for one scan mode, validating services against built-in rule metadata.
  *
  * @param mode - Scan mode whose rule set the selection narrows.
@@ -62,25 +89,12 @@ export type RuleSelection = {
  */
 export const toConfigOverride = (mode: Source, selection: RuleSelection): Partial<CloudBurnConfig> | undefined => {
   const { disabledRules, enabledRules } = selection;
-  const services = selection.services?.map((service) => service.toLowerCase());
 
-  if (enabledRules === undefined && disabledRules === undefined && services === undefined) {
+  if (enabledRules === undefined && disabledRules === undefined && selection.services === undefined) {
     return undefined;
   }
 
-  if (services !== undefined) {
-    const validServices = new Set(
-      builtInRuleMetadata.filter((rule) => rule.supports.includes(mode)).map((rule) => rule.service),
-    );
-    const invalidService = services.find((service) => !validServices.has(service));
-
-    if (invalidService !== undefined) {
-      throw new InvalidArgumentError(
-        `Unknown service "${invalidService}" for ${mode}. Allowed services: ${Array.from(validServices).sort().join(', ')}.`,
-      );
-    }
-  }
-
+  const services = selection.services === undefined ? undefined : validateServices(selection.services, mode);
   const modeConfig = { disabledRules, enabledRules, services };
   return mode === 'iac' ? { iac: modeConfig } : { discovery: modeConfig };
 };

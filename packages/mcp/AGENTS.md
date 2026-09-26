@@ -36,6 +36,9 @@ public plugin repository's README.
   progress, and error redaction without AWS.
 - `test/e2e/` starts the built server over stdio in isolated directories against the CLI's Terraform and
   CloudFormation fixtures, with AWS SDK modules blocked, and audits the built plugin folder.
-- For focused validation, run `pnpm exec turbo run lint typecheck test test:e2e --filter @cloudburn/mcp`. When a
-  change touches the plugin, also run `claude plugin validate --strict packages/mcp/dist/plugin` if Claude Code is
-  installed. Finish with the root `pnpm verify` gate.
+- `test/package/` installs the packed server, SDK, and rules into an isolated consumer and scans through the installed
+  executable, because users only ever run the published package through `npx`.
+- For focused validation, run
+  `pnpm exec turbo run lint typecheck test test:e2e test:package --filter @cloudburn/mcp`. When a change touches the
+  plugin, also run `claude plugin validate --strict packages/mcp/dist/plugin` if Claude Code is installed. Finish
+  with the root `pnpm verify` gate.

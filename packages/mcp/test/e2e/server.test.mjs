@@ -96,3 +96,11 @@ test('list_rules filters built-in rules by service, source, and severity', async
   assert.ok(high.body.length > 0);
   assert.ok(high.body.every((rule) => rule.severity === 'high'));
 });
+
+test('list_rules rejects unknown services instead of returning an empty catalog', async (t) => {
+  const { call } = await connectServer(t, 'healthy');
+  const { isError, body } = await call('list_rules', { services: ['ebss'] });
+  assert.equal(isError, true);
+  assert.equal(body.error.code, 'INVALID_ARGUMENT');
+  assert.match(body.error.message, /Unknown service "ebss"\. Allowed services: .*\bebs\b/);
+});
