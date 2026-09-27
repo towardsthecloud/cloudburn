@@ -1,6 +1,6 @@
 {
   "name": "@cloudburn/mcp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "CloudBurn MCP server for AWS cost scans of IaC and live accounts",
   "homepage": "https://cloudburn.io/docs",
   "bugs": {

@@ -1,5 +1,11 @@
 # @cloudburn/mcp
 
+## 0.1.1
+
+### Patch Changes
+
+- [#305](https://github.com/towardsthecloud/cloudburn/pull/305) [`f6a4fc1`](https://github.com/towardsthecloud/cloudburn/commit/f6a4fc11b079d11ead2b5416fdf3fb4777fdaa3a) Thanks [@axonstone](https://github.com/axonstone)! - Show the CloudBurn icon for the agent plugin in the Claude plugin directory.
+
 ## 0.1.0
 
 ### Minor Changes
