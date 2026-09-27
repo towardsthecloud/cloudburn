@@ -55,6 +55,7 @@ test('the plugin folder contains only reviewable regular files the directories a
   const files = listFiles(pluginPath).sort();
   assert.deepEqual(files, [
     '.agents/plugins/marketplace.json',
+    '.claude-plugin/icon.svg',
     '.claude-plugin/marketplace.json',
     '.claude-plugin/plugin.json',
     '.mcp.json',
