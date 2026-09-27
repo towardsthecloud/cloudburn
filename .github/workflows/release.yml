@@ -367,6 +367,21 @@ jobs:
           pnpm exec turbo run build --filter @cloudburn/mcp
           test -f packages/mcp/dist/plugin/.claude-plugin/plugin.json
 
+          # changeset publish returns before npm serves a new version (6 minutes for 0.1.1), and the plugin pins
+          # the exact version, so publishing the plugin earlier would break installs. Recovery finds it at once.
+          ATTEMPTS=30
+          for ATTEMPT in $(seq 1 "$ATTEMPTS"); do
+            if npm view "@cloudburn/mcp@${VERSION}" version --prefer-online > /dev/null 2>&1; then
+              break
+            fi
+            if [ "$ATTEMPT" = "$ATTEMPTS" ]; then
+              echo "::error::@cloudburn/mcp@${VERSION} is not available on npm after 15 minutes; the plugin was not synced. Re-run the release with published-release-ref once npm serves it."
+              exit 1
+            fi
+            echo "Waiting for npm to serve @cloudburn/mcp@${VERSION} (attempt ${ATTEMPT}/${ATTEMPTS})..."
+            sleep 30
+          done
+
           NOTES=$(mktemp)
           trap 'rm -f "$NOTES"' EXIT
           node scripts/changelog-notes.mjs packages/mcp/CHANGELOG.md "$VERSION" --fallback > "$NOTES"

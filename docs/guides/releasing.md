@@ -75,8 +75,10 @@ package version into the plugin manifests and the `npx -y @cloudburn/mcp@<versio
 After a release publishes `@cloudburn/mcp`, the `Sync agent plugin` step builds the package, clones
 `towardsthecloud/cloudburn-plugin` with `PLUGIN_REPO_TOKEN`, replaces everything except `.git` with the built plugin,
 and commits only on content changes. It creates the immutable `v<version>` tag before pushing `main`, then creates the
-GitHub release from `packages/mcp/CHANGELOG.md`. The sync runs after npm publication, so the plugin never pins an
-unpublished server. When the remote already holds a newer version, a recovery sync tags the older release but keeps
+GitHub release from `packages/mcp/CHANGELOG.md`. The sync runs after npm publication and first waits up to 15
+minutes until npm serves the exact version, because `changeset publish` returns before the registry does (6 minutes
+for 0.1.1). The plugin therefore never pins a server version that cannot be installed; if npm is still not serving it,
+the step fails before pushing, and a `published-release-ref` recovery completes the sync. When the remote already holds a newer version, a recovery sync tags the older release but keeps
 `main` and the latest release marker.
 
 Release prerequisites, which a passing source build does not establish:
