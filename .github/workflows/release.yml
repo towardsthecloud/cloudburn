@@ -11,9 +11,11 @@ on:
         required: false
         type: string
 
+# Never cancel a running release: steps after npm publication (tags, Homebrew, action and plugin sync) have no
+# second trigger, so a newer push to main queues behind the running release instead.
 concurrency:
   group: release-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   release:
@@ -368,13 +370,18 @@ jobs:
           test -f packages/mcp/dist/plugin/.claude-plugin/plugin.json
 
           # changeset publish returns before npm serves a new version (6 minutes for 0.1.1), and the plugin pins
-          # the exact version, so publishing the plugin earlier would break installs. Recovery finds it at once.
+          # the exact version, so publishing the plugin earlier would break installs. Metadata can appear before the
+          # tarball, so wait until the tarball itself downloads. Recovery finds both at once.
+          # Each lookup is bounded because npm retries and waits up to 5 minutes per request by default.
           ATTEMPTS=30
+          DEADLINE=$((SECONDS + 900))
           for ATTEMPT in $(seq 1 "$ATTEMPTS"); do
-            if npm view "@cloudburn/mcp@${VERSION}" version --prefer-online > /dev/null 2>&1; then
+            TARBALL=$(npm view "@cloudburn/mcp@${VERSION}" dist.tarball --prefer-online \
+              --fetch-retries=0 --fetch-timeout=20000 2> /dev/null || true)
+            if [ -n "$TARBALL" ] && curl -fsSL --max-time 60 -o /dev/null "$TARBALL"; then
               break
             fi
-            if [ "$ATTEMPT" = "$ATTEMPTS" ]; then
+            if [ "$ATTEMPT" = "$ATTEMPTS" ] || [ "$SECONDS" -ge "$DEADLINE" ]; then
               echo "::error::@cloudburn/mcp@${VERSION} is not available on npm after 15 minutes; the plugin was not synced. Re-run the release with published-release-ref once npm serves it."
               exit 1
             fi

@@ -136,7 +136,7 @@ test('recovery refuses a conflicting private action tag without overwriting it',
   assert.equal(run(remote, 'git', ['rev-parse', '@cloudburn/action@1.0.1^{commit}']), initial);
 });
 
-function pluginRelease(t, { targetVersion, staleFile, npmReadyAfter = 0 }) {
+function pluginRelease(t, { targetVersion, staleFile, npmReadyAfter = 0, tarballReadyAfter = 0 }) {
   const { directory, checkout } = repository(t);
   const target = join(directory, 'plugin.git');
   const seed = join(directory, 'plugin-seed');
@@ -168,20 +168,29 @@ case "$*" in
   'release view '*) exit 1;;
 esac
 `);
-  // npm answers only after `npmReadyAfter` failed lookups, like a registry that has not served a new version yet.
+  // The registry serves version metadata after `npmReadyAfter` failed lookups and the tarball after
+  // `tarballReadyAfter` failed downloads, like npm while it still propagates a new version.
   writeFileSync(join(bin, 'npm'), `#!/bin/sh
 printf '%s\\n' "$*" >> "$NPM_LOG"
 count=$(cat "$NPM_COUNT" 2>/dev/null || echo 0)
 echo $((count + 1)) > "$NPM_COUNT"
 [ "$count" -ge "$NPM_READY_AFTER" ] || { echo 'npm error code E404' >&2; exit 1; }
-echo 0.1.0
+echo https://registry.npmjs.org/@cloudburn/mcp/-/mcp-0.1.0.tgz
+`);
+  writeFileSync(join(bin, 'curl'), `#!/bin/sh
+printf '%s\\n' "$*" >> "$CURL_LOG"
+count=$(cat "$CURL_COUNT" 2>/dev/null || echo 0)
+echo $((count + 1)) > "$CURL_COUNT"
+[ "$count" -ge "$TARBALL_READY_AFTER" ] || exit 22
 `);
   writeFileSync(join(bin, 'sleep'), '#!/bin/sh\nexit 0\n');
-  for (const command of ['pnpm', 'gh', 'npm', 'sleep']) chmodSync(join(bin, command), 0o755);
+  for (const command of ['pnpm', 'gh', 'npm', 'curl', 'sleep']) chmodSync(join(bin, command), 0o755);
   const ghLog = join(directory, 'github.log');
   const npmLog = join(directory, 'npm.log');
+  const curlLog = join(directory, 'curl.log');
   writeFileSync(ghLog, '');
   writeFileSync(npmLog, '');
+  writeFileSync(curlLog, '');
   // Redirect the provider URL to a local Git remote; Git itself stays real.
   const script = shell('Sync agent plugin').replace(/^REMOTE=.*$/m, `REMOTE='${target}'`);
   const result = spawnSync('bash', ['-euo', 'pipefail', '-c', script], {
@@ -194,6 +203,9 @@ echo 0.1.0
       NPM_LOG: npmLog,
       NPM_COUNT: join(directory, 'npm.count'),
       NPM_READY_AFTER: String(npmReadyAfter),
+      CURL_LOG: curlLog,
+      CURL_COUNT: join(directory, 'curl.count'),
+      TARBALL_READY_AFTER: String(tarballReadyAfter),
     },
   });
   return {
@@ -203,6 +215,7 @@ echo 0.1.0
     output: `${result.stdout}\n${result.stderr}`,
     ghLog: readFileSync(ghLog, 'utf8'),
     npmLog: readFileSync(npmLog, 'utf8'),
+    curlLog: readFileSync(curlLog, 'utf8'),
   };
 }
 
@@ -241,8 +254,25 @@ test('plugin sync waits until npm serves the pinned server version before publis
   assert.equal(status, 0, output);
   const lookups = npmLog.trim().split('\n');
   assert.equal(lookups.length, 3);
-  for (const lookup of lookups) assert.match(lookup, /^view @cloudburn\/mcp@0\.1\.0 version/);
+  for (const lookup of lookups) assert.match(lookup, /^view @cloudburn\/mcp@0\.1\.0 dist\.tarball/);
   assert.notEqual(run(target, 'git', ['rev-parse', 'main']), targetMain);
+});
+
+test('plugin sync keeps waiting while npm serves metadata before the tarball', (t) => {
+  const { target, targetMain, curlLog, status, output } = pluginRelease(t, {
+    targetVersion: '0.0.9',
+    staleFile: 'obsolete.md',
+    tarballReadyAfter: 2,
+  });
+  assert.equal(status, 0, output);
+  const downloads = curlLog.trim().split('\n');
+  assert.equal(downloads.length, 3);
+  for (const download of downloads) assert.match(download, /https:\/\/registry\.npmjs\.org\/@cloudburn\/mcp\/-\/mcp-0\.1\.0\.tgz$/);
+  assert.notEqual(run(target, 'git', ['rev-parse', 'main']), targetMain);
+});
+
+test('release runs finish instead of being cancelled by newer pushes to main', () => {
+  assert.match(workflow, /^concurrency:\n  group: release-\$\{\{ github\.ref \}\}\n  cancel-in-progress: false$/m);
 });
 
 test('plugin sync fails without publishing when npm never serves the pinned server version', (t) => {
