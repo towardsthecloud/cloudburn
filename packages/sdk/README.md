@@ -266,7 +266,8 @@ The tagging loader requires `ec2:DescribeDhcpOptions`, `ec2:DescribeNetworkAcls`
 `ec2:DescribeSecurityGroups`, `ec2:DescribeSubnets`, `ec2:DescribeVpcs`, `kms:DescribeKey`, and `ssm:DescribeAssociation`
 only when matching candidates are discovered. Requests are limited to catalog resource IDs and related security groups.
 SSM metadata excludes Inspector-managed associations while retaining customer associations. Missing or denied ownership
-metadata remains unknown. Route tables and internet gateways also remain unknown: AWS exposes no reliable creation
+metadata and deleted catalog resources remain unknown. If a stale ID rejects an EC2 batch, discovery splits it to assess
+the remaining resources. Route tables and internet gateways also remain unknown: AWS exposes no reliable creation
 origin, and an AWS-provided object can be reassigned. Standard DHCP configurations and rules on default security groups
 remain unknown for the same reason. These candidates produce no tagging finding; evaluation coverage and normalized
 resource `data.creationOrigin: 'unknown'` expose that limitation. An otherwise empty result with uncertain candidates

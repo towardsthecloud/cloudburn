@@ -97,7 +97,10 @@ let lambdaCatalogResources: unknown[];
 let lambdaFunctionsByRegion: Record<string, unknown[]>;
 let lambdaRecommendationsByRegion: Record<string, unknown[]>;
 let untaggedResources: unknown[];
-let taggingMetadataResponses: Record<string, string | object>;
+let taggingMetadataResponses: Record<
+  string,
+  string | object | ((input: Record<string, string>) => ReturnType<typeof jsonResponse>)
+>;
 let savingsPlansCoverageResponse: unknown;
 let savingsPlansDataUnavailable: boolean;
 
@@ -189,6 +192,7 @@ beforeEach(() => {
     const taggingMetadata =
       taggingMetadataResponses[`${operation}:${nextMetadataToken ?? ''}`] ?? taggingMetadataResponses[operation];
     if (taggingMetadata !== undefined) {
+      if (typeof taggingMetadata === 'function') return taggingMetadata(metadataInput);
       if (typeof taggingMetadata !== 'string') return jsonResponse(taggingMetadata);
       return {
         response: {
@@ -1679,6 +1683,51 @@ describe('live capability outcomes', () => {
     expectReadOnlyRequests();
   });
 
+  it('retains valid untagged VPC findings when a catalog ID no longer exists', async () => {
+    aggregatorIndex = true;
+    untaggedResources = ['vpc-default', 'vpc-deleted', 'vpc-user'].map((id) => ({
+      Arn: `arn:aws:ec2:${region}:${accountId}:vpc/${id}`,
+      OwningAccountId: accountId,
+      Region: region,
+      ResourceType: 'ec2:vpc',
+      Service: 'ec2',
+    }));
+    taggingMetadataResponses = {
+      DescribeVpcs: (input) => {
+        const ids = Object.entries(input)
+          .filter(([key]) => key.startsWith('VpcId.'))
+          .map(([, id]) => id);
+        const missing = ids.includes('vpc-deleted');
+        return {
+          response: {
+            statusCode: missing ? 400 : 200,
+            headers: { 'content-type': 'text/xml' },
+            body: Buffer.from(
+              missing
+                ? '<Response><Errors><Error><Code>InvalidVpcID.NotFound</Code><Message>The VPC does not exist.</Message></Error></Errors><RequestID>synthetic</RequestID></Response>'
+                : `<DescribeVpcsResponse xmlns="http://ec2.amazonaws.com/doc/2016-11-15/"><vpcSet>${ids.map((id) => `<item><vpcId>${id}</vpcId><isDefault>${id === 'vpc-default'}</isDefault></item>`).join('')}</vpcSet></DescribeVpcsResponse>`,
+            ),
+          },
+        };
+      },
+    };
+
+    const result = await discoverRules(['CLDBRN-AWS-TAGGING-1']);
+
+    expect(result.providers.flatMap((provider) => provider.rules).flatMap((rule) => rule.findings)).toEqual([
+      { accountId, region, resourceId: 'arn:aws:ec2:eu-west-1:111111111111:vpc/vpc-user' },
+    ]);
+    expect(result.evaluations?.rules[0]).toMatchObject({
+      ruleId: 'CLDBRN-AWS-TAGGING-1',
+      status: 'triggered',
+      coverage: {
+        assessed: [{ accountId, region, resourceId: 'arn:aws:ec2:eu-west-1:111111111111:vpc/vpc-user' }],
+        unknown: [{ accountId, region, resourceId: 'arn:aws:ec2:eu-west-1:111111111111:vpc/vpc-deleted' }],
+      },
+    });
+    expectReadOnlyRequests();
+  });
+
   it.each(['denied', 'missing'] as const)(
     'keeps %s ownership metadata unknown instead of flagging a resource or passing the tagging rule',
     async (metadata) => {
@@ -1710,6 +1759,64 @@ describe('live capability outcomes', () => {
       expectReadOnlyRequests();
     },
   );
+
+  it.each([
+    {
+      resourceType: 'kms:key',
+      operation: 'DescribeKey',
+      code: 'NotFoundException',
+      arn: 'arn:aws:kms:eu-west-1:111111111111:key/deleted',
+    },
+    {
+      resourceType: 'ssm:association',
+      operation: 'DescribeAssociation',
+      code: 'AssociationDoesNotExist',
+      arn: 'arn:aws:ssm:eu-west-1:111111111111:association/deleted',
+    },
+  ])('keeps deleted $resourceType candidates unknown without skipping valid tagging findings', async (candidate) => {
+    aggregatorIndex = true;
+    untaggedResources = [
+      {
+        Arn: candidate.arn,
+        OwningAccountId: accountId,
+        Region: region,
+        ResourceType: candidate.resourceType,
+        Service: candidate.resourceType.split(':')[0],
+      },
+      {
+        Arn: 'arn:aws:logs:eu-west-1:111111111111:log-group:/aws/lambda/customer-function',
+        OwningAccountId: accountId,
+        Region: region,
+        ResourceType: 'logs:log-group',
+        Service: 'logs',
+      },
+    ];
+    taggingMetadataResponses = {
+      [candidate.operation]: () => ({
+        response: {
+          statusCode: 400,
+          headers: { 'content-type': 'application/json', 'x-amzn-errortype': candidate.code },
+          body: Buffer.from('{"message":"The resource no longer exists."}'),
+        },
+      }),
+    };
+
+    const result = await discoverRules(['CLDBRN-AWS-TAGGING-1']);
+
+    expect(result.providers.flatMap((provider) => provider.rules).flatMap((rule) => rule.findings)).toEqual([
+      {
+        accountId,
+        region,
+        resourceId: 'arn:aws:logs:eu-west-1:111111111111:log-group:/aws/lambda/customer-function',
+      },
+    ]);
+    expect(result.evaluations?.rules[0]).toMatchObject({
+      ruleId: 'CLDBRN-AWS-TAGGING-1',
+      status: 'triggered',
+      coverage: { unknown: [{ accountId, region, resourceId: candidate.arn }] },
+    });
+    expectReadOnlyRequests();
+  });
 
   it('excludes Inspector-managed SSM associations while retaining customer associations', async () => {
     aggregatorIndex = true;

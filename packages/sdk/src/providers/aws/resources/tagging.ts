@@ -11,10 +11,18 @@ import { DescribeAssociationCommand } from '@aws-sdk/client-ssm';
 import type { AwsDiscoveredResource, AwsUntaggedResource } from '@cloudburn/rules';
 import { createEc2Client, createKmsClient, createSsmClient } from '../client.js';
 import type { AwsDiscoveryDatasetLoadContext } from '../discovery-registry.js';
-import { isAwsAccessDeniedError } from '../errors.js';
+import { getAwsErrorCode, isAwsAccessDeniedError } from '../errors.js';
 import { chunkItems, mapWithConcurrency, withAwsServiceErrorContext } from './utils.js';
 
 const UNTAGGED_RESOURCES_FILTER = 'resourcetype.supports:tags tag:none';
+const EC2_RESOURCE_NOT_FOUND_CODES = new Set([
+  'InvalidVpcID.NotFound',
+  'InvalidSubnetID.NotFound',
+  'InvalidGroup.NotFound',
+  'InvalidNetworkAclID.NotFound',
+  'InvalidSecurityGroupRuleId.NotFound',
+  'InvalidDhcpOptionID.NotFound',
+]);
 const INSPECTOR_ASSOCIATION_NAMES = new Set([
   'InspectorInventoryCollection-do-not-delete',
   'InspectorDistributor-do-not-delete',
@@ -58,19 +66,30 @@ const loadEc2ResourceOrigins = async (
     for (const candidate of candidates) origins.set(candidate.arn, 'unknown');
     for (const batch of chunkItems(candidates, 100)) {
       const arns = new Map(batch.map((resource) => [resource.arn.split('/').at(-1) as string, resource.arn]));
-      let nextToken: string | undefined;
-      try {
-        do {
-          const page = await fetchPage([...arns.keys()], nextToken);
-          for (const resource of page.resources) {
-            const arn = resource.id ? arns.get(resource.id) : undefined;
-            if (arn) origins.set(arn, resource.origin);
+      const loadBatch = async (ids: string[]): Promise<void> => {
+        let nextToken: string | undefined;
+        try {
+          do {
+            const page = await fetchPage(ids, nextToken);
+            for (const resource of page.resources) {
+              const arn = resource.id ? arns.get(resource.id) : undefined;
+              if (arn) origins.set(arn, resource.origin);
+            }
+            nextToken = page.nextToken;
+          } while (nextToken);
+        } catch (error) {
+          if (isAwsAccessDeniedError(error)) return;
+          if (!EC2_RESOURCE_NOT_FOUND_CODES.has(getAwsErrorCode(error) ?? '')) throw error;
+          // A stale ID rejects the whole EC2 request. Split only failed batches
+          // so valid resources can still be assessed and missing IDs stay unknown.
+          if (ids.length > 1) {
+            const middle = Math.ceil(ids.length / 2);
+            await loadBatch(ids.slice(0, middle));
+            await loadBatch(ids.slice(middle));
           }
-          nextToken = page.nextToken;
-        } while (nextToken);
-      } catch (error) {
-        if (!isAwsAccessDeniedError(error)) throw error;
-      }
+        }
+      };
+      await loadBatch([...arns.keys()]);
     }
   };
 
@@ -224,7 +243,8 @@ const loadResourceOrigins = async (resources: AwsDiscoveredResource[]): Promise<
             }
           }
         } catch (error) {
-          if (!isAwsAccessDeniedError(error)) throw error;
+          const missingCode = resource.resourceType === 'kms:key' ? 'NotFoundException' : 'AssociationDoesNotExist';
+          if (!isAwsAccessDeniedError(error) && getAwsErrorCode(error) !== missingCode) throw error;
         }
       },
     );
