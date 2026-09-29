@@ -26,6 +26,7 @@ import { Route53Client } from '@aws-sdk/client-route-53';
 import { S3Client } from '@aws-sdk/client-s3';
 import { SageMakerClient } from '@aws-sdk/client-sagemaker';
 import { SecretsManagerClient } from '@aws-sdk/client-secrets-manager';
+import { SSMClient } from '@aws-sdk/client-ssm';
 import { GetCallerIdentityCommand, STSClient } from '@aws-sdk/client-sts';
 import type { AwsCredentialIdentity } from '@aws-sdk/types';
 import { resolveAwsClientCredentials } from './credentials.js';
@@ -298,6 +299,18 @@ export const createKmsClient = (config: AwsClientConfig): KMSClient =>
         region: config.region,
         credentials: resolveAwsClientCredentials(),
       }),
+  );
+
+/**
+ * Creates a cached AWS Systems Manager client for regional discovery metadata.
+ * @param config - Region used for the Systems Manager endpoint.
+ * @returns Systems Manager client using the discovery run's credentials and transport settings.
+ */
+export const createSsmClient = (config: AwsClientConfig): SSMClient =>
+  getAwsClient(
+    JSON.stringify(['SSMClient', config.region]),
+    () =>
+      new SSMClient({ ...baseAwsClientConfig(), region: config.region, credentials: resolveAwsClientCredentials() }),
   );
 
 /** Creates an AWS EMR client for a specific region. */

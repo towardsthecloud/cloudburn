@@ -97,6 +97,7 @@ let lambdaCatalogResources: unknown[];
 let lambdaFunctionsByRegion: Record<string, unknown[]>;
 let lambdaRecommendationsByRegion: Record<string, unknown[]>;
 let untaggedResources: unknown[];
+let taggingMetadataResponses: Record<string, string | object>;
 let savingsPlansCoverageResponse: unknown;
 let savingsPlansDataUnavailable: boolean;
 
@@ -120,6 +121,7 @@ beforeEach(() => {
   lambdaFunctionsByRegion = {};
   lambdaRecommendationsByRegion = {};
   untaggedResources = [];
+  taggingMetadataResponses = {};
   savingsPlansCoverageResponse = { SavingsPlansCoverages: [] };
   savingsPlansDataUnavailable = false;
   denyVolumes = false;
@@ -179,6 +181,22 @@ beforeEach(() => {
           statusCode: 403,
           headers: { 'content-type': 'application/json', 'x-amzn-errortype': 'AccessDeniedException' },
           body: Buffer.from('{"message":"Synthetic denial"}'),
+        },
+      };
+    }
+    const metadataInput = body.startsWith('{') ? JSON.parse(body) : Object.fromEntries(new URLSearchParams(body));
+    const nextMetadataToken = metadataInput.NextToken ?? metadataInput.AssociationId;
+    const taggingMetadata =
+      taggingMetadataResponses[`${operation}:${nextMetadataToken ?? ''}`] ?? taggingMetadataResponses[operation];
+    if (taggingMetadata !== undefined) {
+      if (typeof taggingMetadata !== 'string') return jsonResponse(taggingMetadata);
+      return {
+        response: {
+          statusCode: 200,
+          headers: { 'content-type': 'text/xml' },
+          body: Buffer.from(
+            `<${operation}Response xmlns="http://ec2.amazonaws.com/doc/2016-11-15/">${taggingMetadata}</${operation}Response>`,
+          ),
         },
       };
     }
@@ -1444,6 +1462,284 @@ describe('live capability outcomes', () => {
     expect(result.evaluations?.rules).toEqual(
       expect.arrayContaining([expect.objectContaining({ ruleId: 'CLDBRN-AWS-TAGGING-1', status: 'not_applicable' })]),
     );
+    expectReadOnlyRequests();
+  });
+
+  it('reports untagged user resources without flagging AWS defaults and service-managed resources', async () => {
+    aggregatorIndex = true;
+    untaggedResources = [
+      {
+        Arn: 'arn:aws:apprunner:eu-west-1:111111111111:autoscalingconfiguration/DefaultConfiguration/1/00000000000000000000000000000001',
+        OwningAccountId: accountId,
+        Region: region,
+        ResourceType: 'apprunner:autoscalingconfiguration',
+        Service: 'apprunner',
+      },
+      {
+        Arn: 'arn:aws:ec2:eu-west-1:111111111111:instance/i-user-created',
+        OwningAccountId: accountId,
+        Region: region,
+        ResourceType: 'ec2:instance',
+        Service: 'ec2',
+        Properties: [{ Name: 'tags', Data: [{ Key: 'aws:cloudformation:stack-name', Value: 'user-stack' }] }],
+      },
+      ...[
+        ['access-analyzer:analyzer', 'analyzer/_AccessAnalyzerForSecurityHubV2-abc'],
+        ['athena:datacatalog', 'datacatalog/AwsDataCatalog'],
+        ['athena:workgroup', 'workgroup/primary'],
+        ['config:config-rule', 'config-rule/aws-service-rule/securityhub.amazonaws.com/config-rule-123'],
+        ['elasticache:user', 'user:default'],
+        ['events:event-bus', 'event-bus/default'],
+        ['events:rule', 'rule/DO-NOT-DELETE-AmazonInspectorEc2ManagedRule'],
+        ['iam:role', 'role/aws-service-role/securityhub.amazonaws.com/AWSServiceRoleForSecurityHub'],
+        ['iam:role', 'role/aws-reserved/sso.amazonaws.com/eu-west-1/AWSReservedSSO_Admin_123'],
+        ['iam:saml-provider', 'saml-provider/AWSSSO_123_DO_NOT_DELETE'],
+        ['memorydb:acl', 'acl/open-access'],
+        ['memorydb:parametergroup', 'parametergroup/default.memorydb-redis7'],
+        ['memorydb:user', 'user/default'],
+        ['s3:storage-lens', 'storage-lens/default-account-dashboard'],
+        ['ssm:parameter', 'parameter/inspector-aws/service/inspector-linux-application-paths'],
+        ['xray:sampling-rule', 'sampling-rule/Default'],
+      ].map(([resourceType, resourceId]) => ({
+        Arn: `arn:aws:${resourceType?.split(':')[0]}:${region}:${accountId}:${resourceId}`,
+        OwningAccountId: accountId,
+        Region: region,
+        ResourceType: resourceType,
+        Service: resourceType?.split(':')[0],
+      })),
+    ];
+
+    const result = await discoverRules(['CLDBRN-AWS-TAGGING-1']);
+
+    expect(result.providers.flatMap((provider) => provider.rules)).toEqual([
+      expect.objectContaining({
+        ruleId: 'CLDBRN-AWS-TAGGING-1',
+        findings: [
+          {
+            accountId,
+            region,
+            resourceId: 'arn:aws:ec2:eu-west-1:111111111111:instance/i-user-created',
+          },
+        ],
+      }),
+    ]);
+    expect(result.evaluations?.resourceSets[0]?.resources.map((resource) => resource.resourceId)).toEqual([
+      'arn:aws:ec2:eu-west-1:111111111111:instance/i-user-created',
+    ]);
+    expectReadOnlyRequests();
+  });
+
+  it('uses AWS metadata to exclude default network resources and managed keys while keeping uncertain ownership unknown', async () => {
+    aggregatorIndex = true;
+    untaggedResources = [
+      ['ec2:vpc', 'vpc/vpc-default'],
+      ['ec2:vpc', 'vpc/vpc-user'],
+      ['ec2:dhcp-options', 'dhcp-options/dopt-default'],
+      ['ec2:subnet', 'subnet/subnet-default'],
+      ['ec2:subnet', 'subnet/subnet-user'],
+      ['ec2:network-acl', 'network-acl/acl-default'],
+      ['ec2:network-acl', 'network-acl/acl-user'],
+      ['ec2:security-group', 'security-group/sg-default'],
+      ['ec2:security-group', 'security-group/sg-user'],
+      ['ec2:security-group-rule', 'security-group-rule/sgr-default'],
+      ['ec2:security-group-rule', 'security-group-rule/sgr-user'],
+      ['ec2:route-table', 'route-table/rtb-main'],
+      ['ec2:route-table', 'route-table/rtb-former-default'],
+      ['ec2:internet-gateway', 'internet-gateway/igw-default'],
+      ['ec2:internet-gateway', 'internet-gateway/igw-former-default'],
+      ['kms:key', 'key/managed'],
+    ].map(([resourceType, resourceId]) => ({
+      Arn: `arn:aws:${resourceType?.split(':')[0]}:${region}:${accountId}:${resourceId}`,
+      OwningAccountId: accountId,
+      Region: region,
+      ResourceType: resourceType,
+      Service: resourceType?.split(':')[0],
+    }));
+    taggingMetadataResponses = {
+      DescribeVpcs:
+        '<vpcSet><item><vpcId>vpc-default</vpcId><isDefault>true</isDefault></item><item><vpcId>vpc-user</vpcId><isDefault>false</isDefault></item></vpcSet>',
+      DescribeDhcpOptions:
+        '<dhcpOptionsSet><item><dhcpOptionsId>dopt-default</dhcpOptionsId><dhcpConfigurationSet><item><key>domain-name-servers</key><valueSet><item><value>AmazonProvidedDNS</value></item></valueSet></item><item><key>domain-name</key><valueSet><item><value>eu-west-1.compute.internal</value></item></valueSet></item></dhcpConfigurationSet></item></dhcpOptionsSet>',
+      DescribeSubnets:
+        '<subnetSet><item><subnetId>subnet-default</subnetId><defaultForAz>true</defaultForAz></item><item><subnetId>subnet-user</subnetId><defaultForAz>false</defaultForAz><vpcId>vpc-default</vpcId></item></subnetSet>',
+      DescribeNetworkAcls:
+        '<networkAclSet><item><networkAclId>acl-default</networkAclId><default>true</default></item><item><networkAclId>acl-user</networkAclId><default>false</default></item></networkAclSet>',
+      DescribeSecurityGroups:
+        '<securityGroupInfo><item><groupId>sg-default</groupId><groupName>default</groupName></item><item><groupId>sg-user</groupId><groupName>user</groupName></item></securityGroupInfo>',
+      DescribeSecurityGroupRules:
+        '<securityGroupRuleSet><item><securityGroupRuleId>sgr-default</securityGroupRuleId><groupId>sg-default</groupId></item><item><securityGroupRuleId>sgr-user</securityGroupRuleId><groupId>sg-user</groupId></item></securityGroupRuleSet>',
+      DescribeKey: { KeyMetadata: { KeyManager: 'AWS' } },
+    };
+
+    const result = await discoverRules(['CLDBRN-AWS-TAGGING-1']);
+
+    const userResources = [
+      'network-acl/acl-user',
+      'security-group-rule/sgr-user',
+      'security-group/sg-user',
+      'subnet/subnet-user',
+      'vpc/vpc-user',
+    ].map((resourceId) => ({ accountId, region, resourceId: `arn:aws:ec2:eu-west-1:111111111111:${resourceId}` }));
+    expect(result.providers.flatMap((provider) => provider.rules).flatMap((rule) => rule.findings)).toEqual(
+      userResources,
+    );
+    expect(result.evaluations?.rules).toEqual([
+      expect.objectContaining({
+        ruleId: 'CLDBRN-AWS-TAGGING-1',
+        coverage: {
+          assessed: expect.arrayContaining(userResources),
+          unknown: [
+            'dhcp-options/dopt-default',
+            'internet-gateway/igw-default',
+            'internet-gateway/igw-former-default',
+            'route-table/rtb-former-default',
+            'route-table/rtb-main',
+            'security-group-rule/sgr-default',
+          ].map((resourceId) => ({
+            accountId,
+            region,
+            resourceId: `arn:aws:ec2:eu-west-1:111111111111:${resourceId}`,
+          })),
+        },
+        status: 'triggered',
+      }),
+    ]);
+    expectReadOnlyRequests();
+  });
+
+  it('keeps user-created resources with default-like names in the tagging rule', async () => {
+    aggregatorIndex = true;
+    const expectedArns = [
+      'arn:aws:apprunner:eu-west-1:111111111111:autoscalingconfiguration/DefaultConfiguration/1/customer-id',
+      'arn:aws:apprunner:eu-west-1:111111111111:autoscalingconfiguration/DefaultConfiguration/2/00000000000000000000000000000001',
+      'arn:aws:athena:eu-west-1:111111111111:datacatalog/custom',
+      'arn:aws:athena:eu-west-1:111111111111:workgroup/primary-custom',
+      'arn:aws:config:eu-west-1:111111111111:config-rule/config-rule-customer',
+      'arn:aws:elasticache:eu-west-1:111111111111:user:default.iam-user',
+      'arn:aws:events:eu-west-1:111111111111:event-bus/default-custom',
+      'arn:aws:iam::111111111111:role/AWSCloudFormationStackSetExecutionRole',
+      'arn:aws:logs:eu-west-1:111111111111:log-group:/aws/lambda/customer-function',
+      'arn:aws:memorydb:eu-west-1:111111111111:acl/open-access-custom',
+      'arn:aws:memorydb:eu-west-1:111111111111:parametergroup/default-custom',
+      'arn:aws:s3:eu-west-1:111111111111:storage-lens/default-account-dashboard-custom',
+      'arn:aws:xray:eu-west-1:111111111111:sampling-rule/Default-custom',
+    ];
+    const resourceTypes = [
+      'apprunner:autoscalingconfiguration',
+      'apprunner:autoscalingconfiguration',
+      'athena:datacatalog',
+      'athena:workgroup',
+      'config:config-rule',
+      'elasticache:user',
+      'events:event-bus',
+      'iam:role',
+      'logs:log-group',
+      'memorydb:acl',
+      'memorydb:parametergroup',
+      's3:storage-lens',
+      'xray:sampling-rule',
+    ];
+    untaggedResources = expectedArns.map((Arn, index) => ({
+      Arn,
+      OwningAccountId: accountId,
+      Region: index === 7 ? 'global' : region,
+      ResourceType: resourceTypes[index],
+      Service: Arn.split(':')[2],
+    }));
+    const result = await discoverRules(['CLDBRN-AWS-TAGGING-1']);
+    expect(
+      result.providers
+        .flatMap((provider) => provider.rules)
+        .flatMap((rule) => rule.findings)
+        .map((finding) => finding.resourceId)
+        .sort(),
+    ).toEqual([...expectedArns].sort());
+    expectReadOnlyRequests();
+  });
+
+  it('paginates ownership metadata before deciding which untagged VPCs are user-created', async () => {
+    aggregatorIndex = true;
+    untaggedResources = ['vpc-default', 'vpc-user'].map((id) => ({
+      Arn: `arn:aws:ec2:${region}:${accountId}:vpc/${id}`,
+      OwningAccountId: accountId,
+      Region: region,
+      ResourceType: 'ec2:vpc',
+      Service: 'ec2',
+    }));
+    taggingMetadataResponses = {
+      'DescribeVpcs:':
+        '<vpcSet><item><vpcId>vpc-default</vpcId><isDefault>true</isDefault></item></vpcSet><nextToken>page-two</nextToken>',
+      'DescribeVpcs:page-two': '<vpcSet><item><vpcId>vpc-user</vpcId><isDefault>false</isDefault></item></vpcSet>',
+    };
+    const result = await discoverRules(['CLDBRN-AWS-TAGGING-1']);
+    expect(result.providers.flatMap((provider) => provider.rules).flatMap((rule) => rule.findings)).toEqual([
+      { accountId, region, resourceId: 'arn:aws:ec2:eu-west-1:111111111111:vpc/vpc-user' },
+    ]);
+    expect(result.evaluations?.rules[0]?.coverage?.unknown).toEqual([]);
+    expectReadOnlyRequests();
+  });
+
+  it.each(['denied', 'missing'] as const)(
+    'keeps %s ownership metadata unknown instead of flagging a resource or passing the tagging rule',
+    async (metadata) => {
+      aggregatorIndex = true;
+      untaggedResources = [
+        {
+          Arn: 'arn:aws:kms:eu-west-1:111111111111:key/uncertain',
+          OwningAccountId: accountId,
+          Region: region,
+          ResourceType: 'kms:key',
+          Service: 'kms',
+        },
+      ];
+      if (metadata === 'denied') failOperation = 'DescribeKey';
+      else taggingMetadataResponses = { DescribeKey: {} };
+      const result = await discoverRules(['CLDBRN-AWS-TAGGING-1']);
+      expect(result.providers).toEqual([]);
+      expect(result.evaluations?.rules).toEqual([
+        expect.objectContaining({
+          ruleId: 'CLDBRN-AWS-TAGGING-1',
+          status: 'unknown',
+          coverage: {
+            assessed: [],
+            unknown: [{ accountId, region, resourceId: 'arn:aws:kms:eu-west-1:111111111111:key/uncertain' }],
+          },
+        }),
+      ]);
+      expect(result.evaluations?.resourceSets[0]?.resources[0]?.data).toEqual({ creationOrigin: 'unknown' });
+      expectReadOnlyRequests();
+    },
+  );
+
+  it('excludes Inspector-managed SSM associations while retaining customer associations', async () => {
+    aggregatorIndex = true;
+    untaggedResources = ['inspector', 'customer'].map((id) => ({
+      Arn: `arn:aws:ssm:${region}:${accountId}:association/${id}`,
+      OwningAccountId: accountId,
+      Region: region,
+      ResourceType: 'ssm:association',
+      Service: 'ssm',
+    }));
+    taggingMetadataResponses = {
+      'DescribeAssociation:inspector': {
+        AssociationDescription: {
+          AssociationId: 'inspector',
+          AssociationName: 'InspectorDistributor-do-not-delete',
+          Name: 'AmazonInspector2-ConfigureInspectorSsmPlugin',
+        },
+      },
+      'DescribeAssociation:customer': {
+        AssociationDescription: {
+          AssociationId: 'customer',
+          AssociationName: 'customer-inventory',
+          Name: 'AWS-GatherSoftwareInventory',
+        },
+      },
+    };
+    const result = await discoverRules(['CLDBRN-AWS-TAGGING-1']);
+    expect(result.providers.flatMap((provider) => provider.rules).flatMap((rule) => rule.findings)).toEqual([
+      { accountId, region, resourceId: 'arn:aws:ssm:eu-west-1:111111111111:association/customer' },
+    ]);
     expectReadOnlyRequests();
   });
 

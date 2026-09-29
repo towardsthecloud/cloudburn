@@ -71,6 +71,7 @@
     "@aws-sdk/client-s3": "^3.1127.0",
     "@aws-sdk/client-sagemaker": "^3.1127.0",
     "@aws-sdk/client-secrets-manager": "^3.1127.0",
+    "@aws-sdk/client-ssm": "^3.1138.0",
     "@aws-sdk/client-sts": "^3.1127.0",
     "@aws-sdk/types": "^3.974.5",
     "@cdktf/hcl2json": "^0.21.0",

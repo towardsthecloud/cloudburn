@@ -1194,8 +1194,8 @@ const awsDiscoveryDatasetRegistry: {
     catalogQueries: [
       { filterString: 'resourcetype.supports:tags tag:none', requiredViewProperties: ['tags'], scope: 'account' },
     ],
-    schemaVersion: '1',
-    loaderVersion: '1',
+    schemaVersion: '2',
+    loaderVersion: '2',
     freshness: { ttlMs: 600_000, observation: { kind: 'current' } },
     resourceTypes: [],
     service: 'tagging',
@@ -1204,7 +1204,11 @@ const awsDiscoveryDatasetRegistry: {
       mapEvaluationResources(
         resources,
         (resource) => resource.arn,
-        (resource) => ({ arn: resource.arn, resourceType: resource.resourceType }),
+        (resource) => ({
+          arn: resource.arn,
+          resourceType: resource.resourceType,
+          ...(resource.creationOrigin ? { data: { creationOrigin: resource.creationOrigin } } : {}),
+        }),
       ),
   },
   'aws-secretsmanager-secrets': {

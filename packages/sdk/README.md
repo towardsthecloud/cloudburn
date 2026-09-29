@@ -253,6 +253,25 @@ the operation deadline. A pricing-only failure leaves activity evidence usable.
 
 `discover()` defaults to the current AWS region and the AWS Core preset. You can also target one or more explicit AWS regions with `{ target: { mode: 'regions', regions: [...] } }`. Multi-region discovery requires an AWS Resource Explorer aggregator index. Rules that need explicit AWS setup are opt-in through `config.discovery.enabledRules`. `CLDBRN-AWS-TAGGING-1` needs an accessible aggregator, `CLDBRN-AWS-LAMBDA-4` needs AWS Compute Optimizer enrollment, and `CLDBRN-AWS-COSTOPTIMIZATIONHUB-1` needs AWS Cost Optimization Hub enrollment.
 
+`CLDBRN-AWS-TAGGING-1` checks untagged user-created resources. Resource Explorer's
+`resourcetype.supports:tags tag:none` query supplies candidates; it does not identify their creator. Discovery excludes
+known AWS-provided resources such as App Runner's original default configuration, Athena's built-in catalog and
+primary workgroup, service-linked Config rules and IAM roles, Identity Center resources, Inspector-managed resources,
+MemoryDB defaults, the default EventBridge bus, the S3 Storage Lens default dashboard, and X-Ray's default sampling rule.
+EC2 metadata excludes default VPCs, default subnets, default network ACLs and default security groups; KMS metadata
+excludes AWS-managed keys. Workload resources such as Lambda log groups and CloudFormation-created resources remain
+in scope. AWS system tags do not satisfy the rule or exempt a user-created resource.
+
+The tagging loader requires `ec2:DescribeDhcpOptions`, `ec2:DescribeNetworkAcls`, `ec2:DescribeSecurityGroupRules`,
+`ec2:DescribeSecurityGroups`, `ec2:DescribeSubnets`, `ec2:DescribeVpcs`, `kms:DescribeKey`, and `ssm:DescribeAssociation`
+only when matching candidates are discovered. Requests are limited to catalog resource IDs and related security groups.
+SSM metadata excludes Inspector-managed associations while retaining customer associations. Missing or denied ownership
+metadata remains unknown. Route tables and internet gateways also remain unknown: AWS exposes no reliable creation
+origin, and an AWS-provided object can be reassigned. Standard DHCP configurations and rules on default security groups
+remain unknown for the same reason. These candidates produce no tagging finding; evaluation coverage and normalized
+resource `data.creationOrigin: 'unknown'` expose that limitation. An otherwise empty result with uncertain candidates
+reports `unknown`, not `passed`.
+
 Set `includeEvaluationResources` when a caller needs audit evidence for checks that did not produce findings. The
 optional `result.evaluations` value contains normalized identities from the primary resource dataset supplied to each
 completed live rule. Shared resource sets are emitted once and referenced by rule entries. Every selected rule is

@@ -355,6 +355,13 @@ type RuleEvaluation = {
 ```
 
 `data` is present only when a discovery dataset has normalized evidence that does not fit the generic identity fields.
+
+For `CLDBRN-AWS-TAGGING-1`, confirmed AWS defaults and managed resources are absent from the evaluated resource set.
+Candidates whose creation origin cannot be established have `data: { creationOrigin: 'unknown' }` and appear in
+`coverage.unknown`, producing no tagging finding. This includes denied or missing EC2/KMS/SSM metadata and ambiguous
+network components; see the [SDK README](../../packages/sdk/README.md) for the exact scope. Other candidates omit
+`creationOrigin`. If only uncertain candidates remain, the rule reports `unknown` instead of `passed`.
+
 For example, `CLDBRN-AWS-CONFIG-1` includes the affected AWS resource type, current recording frequency, 14-day
 configuration-item volume, recorded resource count, estimated monthly configuration-item reduction, public continuous
 and daily unit prices, estimated monthly recording-cost reduction, recorder scope and overrides, and whether Firewall

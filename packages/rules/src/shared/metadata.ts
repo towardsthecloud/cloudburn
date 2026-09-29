@@ -1125,11 +1125,14 @@ export type AwsDiscoveredResource = {
   properties: AwsResourceProperty[];
 };
 
-/** Taggable AWS resource that Resource Explorer reports without user-created tags. */
+/** Untagged AWS resource candidate after confirmed AWS defaults and managed resources have been excluded. */
 export type AwsUntaggedResource = Pick<
   AwsDiscoveredResource,
   'accountId' | 'arn' | 'region' | 'resourceType' | 'service'
->;
+> & {
+  /** Unknown when metadata cannot distinguish an AWS-created resource from a user-created resource. */
+  creationOrigin?: 'unknown';
+};
 
 /** Resource Explorer-backed discovery catalog used as the live scan seed. */
 export type AwsDiscoveryCatalog = {
