@@ -1,5 +1,15 @@
 # @cloudburn/sdk
 
+## 0.37.2
+
+### Patch Changes
+
+- [#308](https://github.com/towardsthecloud/cloudburn/pull/308) [`fc0f015`](https://github.com/towardsthecloud/cloudburn/commit/fc0f015a06fdbdf3c400fe5f116712f2458b1418) Thanks [@axonstone](https://github.com/axonstone)! - Exclude built-in AWS defaults and service-managed resources from untagged-resource discovery. Use scoped EC2, KMS and SSM metadata to distinguish default resources from customer resources, and expose uncertain creation origins as unknown coverage instead of tagging findings.
+  
+  Keep resources deleted after catalog indexing unknown without skipping valid tagging findings for other resources.
+- Updated dependencies [[`fc0f015`](https://github.com/towardsthecloud/cloudburn/commit/fc0f015a06fdbdf3c400fe5f116712f2458b1418)]:
+  - @cloudburn/rules@0.34.2
+
 ## 0.37.1
 
 ### Patch Changes

@@ -1,5 +1,11 @@
 # @cloudburn/rules
 
+## 0.34.2
+
+### Patch Changes
+
+- [#308](https://github.com/towardsthecloud/cloudburn/pull/308) [`fc0f015`](https://github.com/towardsthecloud/cloudburn/commit/fc0f015a06fdbdf3c400fe5f116712f2458b1418) Thanks [@axonstone](https://github.com/axonstone)! - Limit CLDBRN-AWS-TAGGING-1 to user-created resource candidates. Skip candidates whose creation origin is uncertain and report unknown coverage so missing ownership evidence cannot become a finding or a passing result.
+
 ## 0.34.1
 
 ### Patch Changes
