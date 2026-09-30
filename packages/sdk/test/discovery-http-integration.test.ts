@@ -103,6 +103,7 @@ let taggingMetadataResponses: Record<
 >;
 let savingsPlansCoverageResponse: unknown;
 let savingsPlansDataUnavailable: boolean;
+let savingsPlansSageMakerUnused: boolean;
 
 beforeEach(() => {
   elbScenario = undefined;
@@ -127,6 +128,7 @@ beforeEach(() => {
   taggingMetadataResponses = {};
   savingsPlansCoverageResponse = { SavingsPlansCoverages: [] };
   savingsPlansDataUnavailable = false;
+  savingsPlansSageMakerUnused = false;
   denyVolumes = false;
   denyIdentity = false;
   includeNewVolume = false;
@@ -259,7 +261,8 @@ beforeEach(() => {
       return jsonResponse({ ResultsByTime: [] });
     }
     if (request.hostname === 'ce.us-east-1.amazonaws.com' && operation === 'GetSavingsPlansCoverage') {
-      if (savingsPlansDataUnavailable) {
+      // Like AWS, a query filtered to a service without eligible usage has no data even though Cost Explorer works.
+      if (savingsPlansDataUnavailable || (savingsPlansSageMakerUnused && body && JSON.parse(body).Filter)) {
         return {
           response: {
             statusCode: 400,
@@ -268,7 +271,24 @@ beforeEach(() => {
           },
         };
       }
-      return jsonResponse(savingsPlansCoverageResponse);
+      return jsonResponse(
+        savingsPlansSageMakerUnused
+          ? {
+              SavingsPlansCoverages: [
+                {
+                  Attributes: { SERVICE: 'AWS Lambda' },
+                  Coverage: {
+                    CoveragePercentage: '0',
+                    OnDemandCost: '0.01',
+                    SpendCoveredBySavingsPlans: '0',
+                    TotalCost: '0.01',
+                  },
+                  TimePeriod: { End: '2026-09-29', Start: '2026-08-31' },
+                },
+              ],
+            }
+          : savingsPlansCoverageResponse,
+      );
     }
     if (
       request.hostname.startsWith('lambda.') &&
@@ -2073,6 +2093,7 @@ describe('live capability outcomes', () => {
   it.each<{
     body?: unknown;
     dataUnavailable?: boolean;
+    sageMakerUnused?: boolean;
     expected: { reasons: AwsCapabilityReason[]; status: AwsCapabilityStatus };
     ruleStatus: 'passed' | 'not_applicable';
   }>([
@@ -2081,7 +2102,12 @@ describe('live capability outcomes', () => {
       ruleStatus: 'passed',
     },
     {
-      body: { SavingsPlansCoverages: [{}] },
+      sageMakerUnused: true,
+      expected: { reasons: [], status: 'available' },
+      ruleStatus: 'passed',
+    },
+    {
+      body: { SavingsPlansCoverages: [{ Attributes: { SERVICE: 'Amazon SageMaker' } }] },
       expected: { reasons: ['incomplete-evidence'], status: 'unavailable' },
       ruleStatus: 'not_applicable',
     },
@@ -2092,9 +2118,10 @@ describe('live capability outcomes', () => {
     },
   ])(
     'projects SageMaker coverage evidence onto Cost Explorer access',
-    async ({ body, dataUnavailable, expected, ruleStatus }) => {
+    async ({ body, dataUnavailable, sageMakerUnused, expected, ruleStatus }) => {
       if (body !== undefined) savingsPlansCoverageResponse = body;
       if (dataUnavailable) savingsPlansDataUnavailable = true;
+      if (sageMakerUnused) savingsPlansSageMakerUnused = true;
       const result = await discoverRules(['CLDBRN-AWS-SAGEMAKER-3']);
 
       expect(capabilitiesOf(result)).toEqual([

@@ -21,12 +21,23 @@ describe('hydrateAwsSageMakerSavingsPlansCoverage', () => {
     vi.useRealTimers();
   });
 
-  it('loads normalized SageMaker coverage for the last 30 complete days', async () => {
+  it('loads normalized SageMaker coverage for the last 30 complete days from coverage grouped by service', async () => {
     const send = vi.fn(async (command: unknown) => {
       if (command instanceof GetSavingsPlansCoverageCommand) {
         return {
           SavingsPlansCoverages: [
             {
+              Attributes: { SERVICE: 'AWS Lambda' },
+              Coverage: {
+                CoveragePercentage: '0',
+                OnDemandCost: '500',
+                SpendCoveredBySavingsPlans: '0',
+                TotalCost: '500',
+              },
+              TimePeriod: { End: '2026-09-04', Start: '2026-08-05' },
+            },
+            {
+              Attributes: { SERVICE: 'Amazon SageMaker' },
               Coverage: {
                 CoveragePercentage: '60',
                 OnDemandCost: '100',
@@ -61,12 +72,7 @@ describe('hydrateAwsSageMakerSavingsPlansCoverage', () => {
     expect(send).toHaveBeenCalledWith(
       expect.objectContaining({
         input: {
-          Filter: {
-            Dimensions: {
-              Key: 'SERVICE',
-              Values: ['Amazon SageMaker'],
-            },
-          },
+          GroupBy: [{ Key: 'SERVICE', Type: 'DIMENSION' }],
           MaxResults: 100,
           Metrics: ['SpendCoveredBySavingsPlans'],
           NextToken: undefined,
@@ -103,6 +109,7 @@ describe('hydrateAwsSageMakerSavingsPlansCoverage', () => {
             NextToken: 'page-2',
             SavingsPlansCoverages: [
               {
+                Attributes: { SERVICE: 'Amazon SageMaker' },
                 Coverage: {
                   CoveragePercentage: '100',
                   OnDemandCost: '0',
@@ -136,6 +143,7 @@ describe('hydrateAwsSageMakerSavingsPlansCoverage', () => {
       send: vi.fn().mockResolvedValue({
         SavingsPlansCoverages: [
           {
+            Attributes: { SERVICE: 'Amazon SageMaker' },
             Coverage: {
               CoveragePercentage: 'not-a-number',
               OnDemandCost: '100',

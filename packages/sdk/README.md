@@ -476,8 +476,9 @@ the same recommended upgrade and do not suppress Hub findings. Evaluation eviden
 flags coverage below 80 percent only when uncovered On-Demand cost is at least 72 cost units. When Cost Optimization
 Hub returns a SageMaker purchase recommendation, that stronger finding suppresses the coverage warning for the account.
 Cost Optimization Hub is an optional dependency for this rule, so missing enrollment or access does not block coverage
-evaluation. Missing `ce:GetSavingsPlansCoverage` access, incomplete coverage values, or a Cost Explorer
-`DataUnavailableException` make the rule `not_applicable`.
+evaluation. The SDK reads coverage grouped by service, so an account without SageMaker Savings Plans eligible usage
+passes. Missing `ce:GetSavingsPlansCoverage` access, incomplete coverage values, or a Cost Explorer
+`DataUnavailableException` for the account make the rule `not_applicable`.
 
 The SDK does not define product profiles, remediation effort, commands, or persistence schemas. Applications select
 the discovery rules that fit their use case through `config.discovery.enabledRules` and transform the generic result
