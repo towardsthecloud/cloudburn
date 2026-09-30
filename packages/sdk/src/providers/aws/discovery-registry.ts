@@ -1170,7 +1170,7 @@ const awsDiscoveryDatasetRegistry: {
     datasetKey: 'aws-sagemaker-savings-plans-coverage',
     dependencies: [],
     schemaVersion: '1',
-    loaderVersion: '1',
+    loaderVersion: '2',
     freshness: {
       ttlMs: 21_600_000,
       observation: { kind: 'window', lookbackMs: 30 * 86_400_000, alignmentMs: 86_400_000 },

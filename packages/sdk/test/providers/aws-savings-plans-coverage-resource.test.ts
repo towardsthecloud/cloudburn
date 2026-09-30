@@ -172,6 +172,34 @@ describe('hydrateAwsSageMakerSavingsPlansCoverage', () => {
     });
   });
 
+  it('marks the dataset unavailable when a coverage group has no service', async () => {
+    mockedCreateCostExplorerClient.mockReturnValue({
+      send: vi.fn().mockResolvedValue({
+        SavingsPlansCoverages: [
+          {
+            Coverage: {
+              CoveragePercentage: '0',
+              OnDemandCost: '500',
+              SpendCoveredBySavingsPlans: '0',
+              TotalCost: '500',
+            },
+            TimePeriod: { End: '2026-09-04', Start: '2026-08-05' },
+          },
+        ],
+      }),
+    } as never);
+
+    await expect(
+      hydrateAwsSageMakerSavingsPlansCoverage([], {
+        resolveAccountId: vi.fn().mockResolvedValue(accountId),
+      }),
+    ).resolves.toEqual({
+      diagnostics: [expect.objectContaining({ code: 'SavingsPlansCoverageIncomplete', status: 'skipped' })],
+      resources: [],
+      unavailable: true,
+    });
+  });
+
   it('returns an unavailable diagnostic when Cost Explorer has no coverage data', async () => {
     mockedCreateCostExplorerClient.mockReturnValue({
       send: vi.fn().mockRejectedValue(

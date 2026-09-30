@@ -90,6 +90,7 @@ beforeEach(() => {
       return {
         SavingsPlansCoverages: [
           {
+            Attributes: { SERVICE: 'Amazon SageMaker' },
             Coverage: {
               CoveragePercentage: '60',
               OnDemandCost: '100',
