@@ -1,5 +1,11 @@
 # @cloudburn/sdk
 
+## 0.37.3
+
+### Patch Changes
+
+- [#310](https://github.com/towardsthecloud/cloudburn/pull/310) [`8b4996d`](https://github.com/towardsthecloud/cloudburn/commit/8b4996d241b29f7cf3a6cbeffc956d8a54e0f78c) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Stop reporting Cost Explorer as having no data when an account has no SageMaker usage. SageMaker Savings Plans coverage is now read grouped by service, so such an account passes `CLDBRN-AWS-SAGEMAKER-3` and keeps `cost-explorer-access` available.
+
 ## 0.37.2
 
 ### Patch Changes
