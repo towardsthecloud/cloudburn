@@ -30,12 +30,12 @@ export const runLiveScan = async (
     onProgress?: (event: AwsDiscoveryProgressEvent) => void;
   },
 ): Promise<ScanResult> => {
-  const registry = buildRuleRegistry(config, 'discovery');
-  emitDebugLog(options?.debugLogger, `sdk: resolved ${registry.activeRules.length} active discovery rules`);
+  const activeRules = buildRuleRegistry(config, 'discovery');
+  emitDebugLog(options?.debugLogger, `sdk: resolved ${activeRules.length} active discovery rules`);
   const startedAtMs = Date.now();
   let completedRules = 0;
   let firstRuleMs: number | undefined;
-  const context = await discoverAwsResources(registry.activeRules, target, {
+  const context = await discoverAwsResources(activeRules, target, {
     debugLogger: options?.debugLogger,
     onProgress: options?.onProgress,
     ...(options?.onProgress
@@ -59,14 +59,14 @@ export const runLiveScan = async (
               findings,
               ...(evaluation.reason ? { reason: evaluation.reason } : {}),
               completedRules,
-              totalRules: registry.activeRules.length,
+              totalRules: activeRules.length,
               elapsedMs,
             });
           },
         }
       : {}),
   });
-  const result = evaluateLiveRules(registry.activeRules, context, options);
+  const result = evaluateLiveRules(activeRules, context, options);
   emitDebugLog(
     options?.debugLogger,
     `sdk: live scan timing ${JSON.stringify({ firstRuleMs: firstRuleMs ?? null, totalMs: Date.now() - startedAtMs })}`,

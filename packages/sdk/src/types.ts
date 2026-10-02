@@ -121,12 +121,6 @@ export type CloudBurnModeConfig = {
   format?: ConfigOutputFormat;
 };
 
-/** Deprecated compatibility alias for historical SDK consumers. */
-export type RuleConfig = CloudBurnModeConfig;
-
-/** Deprecated compatibility alias for the scan source discriminator. */
-export type ScanSource = Source;
-
 /** Serializable metadata surfaced for built-in rules in SDK and CLI inspection commands. */
 export type BuiltInRuleMetadata = Pick<
   Rule,
@@ -414,10 +408,6 @@ export type SuppressedFinding = {
   severity: Severity;
   source: 'iac';
   suppression: IaCSuppression;
-};
-
-export type RegisteredRules = {
-  activeRules: Rule[];
 };
 
 export type {

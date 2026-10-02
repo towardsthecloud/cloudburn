@@ -3,28 +3,28 @@ import { buildRuleRegistry } from '../src/engine/registry.js';
 
 describe('rule registry', () => {
   it('returns only iac-capable rules for static scans by default', () => {
-    const registry = buildRuleRegistry({ discovery: {}, iac: {} }, 'iac');
+    const activeRules = buildRuleRegistry({ discovery: {}, iac: {} }, 'iac');
 
-    expect(registry.activeRules.map((rule) => rule.id)).toContain('CLDBRN-AWS-EC2-2');
+    expect(activeRules.map((rule) => rule.id)).toContain('CLDBRN-AWS-EC2-2');
   });
 
   it('excludes iac-only rules from discovery scans', () => {
-    const registry = buildRuleRegistry({ discovery: {}, iac: {} }, 'discovery');
+    const activeRules = buildRuleRegistry({ discovery: {}, iac: {} }, 'discovery');
 
-    expect(registry.activeRules.map((rule) => rule.id)).not.toContain('CLDBRN-AWS-EC2-2');
+    expect(activeRules.map((rule) => rule.id)).not.toContain('CLDBRN-AWS-EC2-2');
   });
 
   it('excludes Cost Optimization Hub rules from discovery scans by default', () => {
-    const registry = buildRuleRegistry({ discovery: {}, iac: {} }, 'discovery');
+    const activeRules = buildRuleRegistry({ discovery: {}, iac: {} }, 'discovery');
 
-    expect(registry.activeRules.map((rule) => rule.id)).not.toContain('CLDBRN-AWS-COSTOPTIMIZATIONHUB-1');
-    expect(registry.activeRules.map((rule) => rule.id)).not.toContain('CLDBRN-AWS-COSTOPTIMIZATIONHUB-2');
-    expect(registry.activeRules.map((rule) => rule.id)).not.toContain('CLDBRN-AWS-COSTOPTIMIZATIONHUB-3');
-    expect(registry.activeRules.map((rule) => rule.id)).not.toContain('CLDBRN-AWS-COSTOPTIMIZATIONHUB-6');
+    expect(activeRules.map((rule) => rule.id)).not.toContain('CLDBRN-AWS-COSTOPTIMIZATIONHUB-1');
+    expect(activeRules.map((rule) => rule.id)).not.toContain('CLDBRN-AWS-COSTOPTIMIZATIONHUB-2');
+    expect(activeRules.map((rule) => rule.id)).not.toContain('CLDBRN-AWS-COSTOPTIMIZATIONHUB-3');
+    expect(activeRules.map((rule) => rule.id)).not.toContain('CLDBRN-AWS-COSTOPTIMIZATIONHUB-6');
   });
 
   it('includes Cost Optimization Hub rules when they are explicitly enabled', () => {
-    const registry = buildRuleRegistry(
+    const activeRules = buildRuleRegistry(
       {
         discovery: {
           enabledRules: ['CLDBRN-AWS-COSTOPTIMIZATIONHUB-1'],
@@ -34,11 +34,11 @@ describe('rule registry', () => {
       'discovery',
     );
 
-    expect(registry.activeRules.map((rule) => rule.id)).toEqual(['CLDBRN-AWS-COSTOPTIMIZATIONHUB-1']);
+    expect(activeRules.map((rule) => rule.id)).toEqual(['CLDBRN-AWS-COSTOPTIMIZATIONHUB-1']);
   });
 
   it('filters active rules by configured services before applying enabled and disabled rule lists', () => {
-    const registry = buildRuleRegistry(
+    const activeRules = buildRuleRegistry(
       {
         discovery: {},
         iac: {
@@ -50,6 +50,6 @@ describe('rule registry', () => {
       'iac',
     );
 
-    expect(registry.activeRules.map((rule) => rule.id)).toEqual(['CLDBRN-AWS-EC2-1']);
+    expect(activeRules.map((rule) => rule.id)).toEqual(['CLDBRN-AWS-EC2-1']);
   });
 });

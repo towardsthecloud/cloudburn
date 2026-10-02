@@ -53,15 +53,15 @@ const findSuppressionEntry = (
  * @returns Static scan findings and any skipped-file diagnostics.
  */
 export const runStaticScan = async (path: string, config: CloudBurnConfig): Promise<ScanResult> => {
-  const registry = buildRuleRegistry(config, 'iac');
+  const activeRules = buildRuleRegistry(config, 'iac');
   const { diagnostics, suppressionTargets, evaluationScopes, ...staticContext } = await loadAwsStaticResources(
     path,
-    registry.activeRules,
+    activeRules,
   );
   const suppressionLookup = buildSuppressionLookup(suppressionTargets);
   const suppressed: SuppressedFinding[] = [];
   const findings = groupFindingsByProvider(
-    registry.activeRules.map((rule) => {
+    activeRules.map((rule) => {
       if (!rule.supports.includes('iac') || !rule.evaluateStatic) {
         return {
           provider: rule.provider,

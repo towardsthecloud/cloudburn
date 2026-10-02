@@ -119,9 +119,7 @@ describe('upgrade discovery orchestration', () => {
     ]);
   });
   it('requires opt-in and projects the full typed recommendation through evaluation resources', async () => {
-    expect(buildRuleRegistry({ discovery: {}, iac: {} }, 'discovery').activeRules.map((rule) => rule.id)).not.toContain(
-      ruleId,
-    );
+    expect(buildRuleRegistry({ discovery: {}, iac: {} }, 'discovery').map((rule) => rule.id)).not.toContain(ruleId);
     vi.mocked(discoverAwsResources).mockResolvedValue({
       catalog,
       resources: new LiveResourceBag({ [datasetKey]: [recommendation] }),
