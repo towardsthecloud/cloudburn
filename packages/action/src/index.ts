@@ -3,10 +3,15 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import * as core from '@actions/core';
 import * as github from '@actions/github';
-import { CloudBurnClient, flattenFindings, resolveScanPolicy, type ScanPolicyResult } from '@cloudburn/sdk';
+import {
+  CloudBurnClient,
+  categorizeError,
+  flattenFindings,
+  resolveScanPolicy,
+  type ScanPolicyResult,
+} from '@cloudburn/sdk';
 import { emitAnnotations } from './annotations.js';
 import { upsertPullRequestComment } from './comment.js';
-import { formatError } from './error.js';
 import { getInputs } from './inputs.js';
 import { renderScanMarkdown } from './markdown.js';
 
@@ -95,5 +100,6 @@ const run = async (): Promise<void> => {
 };
 
 run().catch((err) => {
-  core.setFailed(formatError(err));
+  // Match the CLI's stderr error envelope with a redacted message.
+  core.setFailed(JSON.stringify({ error: categorizeError(err) }, null, 2));
 });
