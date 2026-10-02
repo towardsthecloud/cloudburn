@@ -1,5 +1,13 @@
 # @cloudburn/action
 
+## 1.0.4
+
+### Patch Changes
+
+- [#313](https://github.com/towardsthecloud/cloudburn/pull/313) [`9906040`](https://github.com/towardsthecloud/cloudburn/commit/99060404d817bcc6f2c1575755fc0c5a75e523e2) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Report AWS credential, access-denied, and discovery errors with the same error codes as the CLI instead of a generic runtime error.
+- Updated dependencies [[`9906040`](https://github.com/towardsthecloud/cloudburn/commit/99060404d817bcc6f2c1575755fc0c5a75e523e2), [`9906040`](https://github.com/towardsthecloud/cloudburn/commit/99060404d817bcc6f2c1575755fc0c5a75e523e2)]:
+  - @cloudburn/sdk@0.38.0
+
 ## 1.0.3
 
 ### Patch Changes

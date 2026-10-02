@@ -1,5 +1,18 @@
 # @cloudburn/sdk
 
+## 0.38.0
+
+### Minor Changes
+
+- [#313](https://github.com/towardsthecloud/cloudburn/pull/313) [`9906040`](https://github.com/towardsthecloud/cloudburn/commit/99060404d817bcc6f2c1575755fc0c5a75e523e2) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Add `resolveScanPolicy`, `flattenFindings`, `filterBuiltInRules`, `validateServices`, and `categorizeError` so integrations share the CLI's policy precedence, finding flattening, rule filtering, service validation, and redacted error categories instead of copying them.
+
+- [#313](https://github.com/towardsthecloud/cloudburn/pull/313) [`9906040`](https://github.com/towardsthecloud/cloudburn/commit/99060404d817bcc6f2c1575755fc0c5a75e523e2) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Remove the deprecated `RuleConfig` and `ScanSource` type aliases and the `RegisteredRules` type, which no package in this repository used. Use `CloudBurnModeConfig` and `Source` instead.
+
+### Patch Changes
+
+- Updated dependencies [[`9906040`](https://github.com/towardsthecloud/cloudburn/commit/99060404d817bcc6f2c1575755fc0c5a75e523e2)]:
+  - @cloudburn/rules@0.35.0
+
 ## 0.37.3
 
 ### Patch Changes

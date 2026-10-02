@@ -1,5 +1,12 @@
 # @cloudburn/mcp
 
+## 0.1.4
+
+### Patch Changes
+
+- Updated dependencies [[`9906040`](https://github.com/towardsthecloud/cloudburn/commit/99060404d817bcc6f2c1575755fc0c5a75e523e2), [`9906040`](https://github.com/towardsthecloud/cloudburn/commit/99060404d817bcc6f2c1575755fc0c5a75e523e2)]:
+  - @cloudburn/sdk@0.38.0
+
 ## 0.1.3
 
 ### Patch Changes

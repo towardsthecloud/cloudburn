@@ -1,5 +1,11 @@
 # @cloudburn/rules
 
+## 0.35.0
+
+### Minor Changes
+
+- [#313](https://github.com/towardsthecloud/cloudburn/pull/313) [`9906040`](https://github.com/towardsthecloud/cloudburn/commit/99060404d817bcc6f2c1575755fc0c5a75e523e2) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Remove exports that no package in this repository used: `createStaticFindingMatch`, `toRuleIds`, the KMS and SageMaker Savings Plans threshold constants, `gravitonResourceTypes`, the Cost Optimization Hub resource ID and type getters, and the deprecated `ScanSource` alias (use `Source`). Rule behavior is unchanged.
+
 ## 0.34.2
 
 ### Patch Changes
