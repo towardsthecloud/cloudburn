@@ -17,6 +17,16 @@ const normalizeRuleList = (value?: string[]): string[] | undefined => value?.map
 const normalizeServiceList = (value?: string[]): string[] | undefined =>
   value?.map((service) => service.trim().toLowerCase());
 
+const assertKnownServices = (services: string[], validServices: Set<string>, context: string): void => {
+  const invalidService = services.find((service) => !validServices.has(service));
+
+  if (invalidService !== undefined) {
+    throw new Error(
+      `Unknown service "${invalidService}"${context}. Allowed services: ${Array.from(validServices).sort().join(', ')}.`,
+    );
+  }
+};
+
 const validateRuleList = (mode: Source, fieldName: keyof CloudBurnModeConfig, value?: string[]): void => {
   if (value === undefined) {
     return;
@@ -57,15 +67,9 @@ const validateServiceList = (mode: Source, value?: string[]): void => {
     if (typeof service !== 'string' || service.trim().length === 0) {
       throw new Error(`Config ${mode}.services must contain non-empty services.`);
     }
-
-    const normalizedService = service.trim().toLowerCase();
-
-    if (!servicesByMode[mode].has(normalizedService)) {
-      throw new Error(
-        `Unknown service "${normalizedService}" in ${mode}.services. Allowed services: ${Array.from(servicesByMode[mode]).sort().join(', ')}.`,
-      );
-    }
   }
+
+  assertKnownServices(normalizeServiceList(value) ?? [], servicesByMode[mode], ` in ${mode}.services`);
 };
 
 /**
@@ -79,15 +83,11 @@ const validateServiceList = (mode: Source, value?: string[]): void => {
  */
 export const validateServices = (services: string[], mode?: Source): string[] => {
   const normalized = services.map((service) => service.toLowerCase());
-  const validServices = mode === undefined ? allServices : servicesByMode[mode];
-  const invalidService = normalized.find((service) => !validServices.has(service));
-
-  if (invalidService !== undefined) {
-    throw new Error(
-      `Unknown service "${invalidService}"${mode === undefined ? '' : ` for ${mode}`}. Allowed services: ${Array.from(validServices).sort().join(', ')}.`,
-    );
-  }
-
+  assertKnownServices(
+    normalized,
+    mode === undefined ? allServices : servicesByMode[mode],
+    mode === undefined ? '' : ` for ${mode}`,
+  );
   return normalized;
 };
 

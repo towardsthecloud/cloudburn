@@ -1,4 +1,5 @@
 import { SEVERITIES } from '@cloudburn/rules';
+import { flattenFindings } from './findings.js';
 import type { ScanPolicyResult, ScanResult, Severity } from './types.js';
 
 /**
@@ -10,18 +11,10 @@ import type { ScanPolicyResult, ScanResult, Severity } from './types.js';
  */
 export const evaluateScanPolicy = (result: ScanResult, threshold?: Severity): ScanPolicyResult => {
   const maximumSeverityIndex = threshold === undefined ? SEVERITIES.length - 1 : SEVERITIES.indexOf(threshold);
-  const qualifyingFindingCount = result.providers.reduce(
-    (total, providerGroup) =>
-      total +
-      providerGroup.rules.reduce((providerTotal, ruleGroup) => {
-        const severityIndex = SEVERITIES.indexOf(ruleGroup.severity);
-        return (
-          providerTotal +
-          (severityIndex !== -1 && severityIndex <= maximumSeverityIndex ? ruleGroup.findings.length : 0)
-        );
-      }, 0),
-    0,
-  );
+  const qualifyingFindingCount = flattenFindings(result).filter(({ severity }) => {
+    const severityIndex = SEVERITIES.indexOf(severity);
+    return severityIndex !== -1 && severityIndex <= maximumSeverityIndex;
+  }).length;
 
   return {
     qualifyingFindingCount,
