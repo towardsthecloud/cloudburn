@@ -1,10 +1,12 @@
 import { DescribeNatGatewaysCommand } from '@aws-sdk/client-ec2';
 import type { AwsDiscoveredResource, AwsEc2NatGatewayActivity } from '@cloudburn/rules';
+import { mapWithConcurrency } from '../../../utils/concurrency.js';
 import { createEc2Client } from '../client.js';
 import { getAwsDiscoveryTimestamp } from '../execution.js';
+import { runAwsRequest } from '../request.js';
 import { cloudWatchWindow, getCompleteCloudWatchPoints } from './cloudwatch.js';
 import { collectResourceMetrics } from './resource-metrics.js';
-import { chunkItems, mapWithConcurrency, withAwsServiceErrorContext } from './utils.js';
+import { chunkItems } from './utils.js';
 
 const NAT_GATEWAY_ARN_PREFIX = 'natgateway/';
 const NAT_GATEWAY_DESCRIBE_BATCH_SIZE = 100;
@@ -71,7 +73,7 @@ export const hydrateAwsEc2NatGatewayActivity = async (
             chunkItems(regionResources, NAT_GATEWAY_DESCRIBE_BATCH_SIZE),
             NAT_GATEWAY_DESCRIBE_CONCURRENCY,
             async (batch) => {
-              const response = await withAwsServiceErrorContext('Amazon EC2', 'DescribeNatGateways', region, () =>
+              const response = await runAwsRequest('Amazon EC2', 'DescribeNatGateways', region, () =>
                 client.send(
                   new DescribeNatGatewaysCommand({
                     NatGatewayIds: batch.map(({ natGatewayId }) => natGatewayId),

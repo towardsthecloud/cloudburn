@@ -3,8 +3,9 @@ import type { AwsDiscoveredResource, AwsEmrCluster, AwsEmrClusterMetric } from '
 import { createEmrClient } from '../client.js';
 import type { AwsDiscoveryDatasetResolver } from '../discovery-registry.js';
 import { getAwsDiscoveryTimestamp } from '../execution.js';
+import { runAwsRequest } from '../request.js';
 import { cloudWatchWindow, fetchCloudWatchSignals, getCompleteCloudWatchPoints } from './cloudwatch.js';
-import { extractTerminalArnResourceIdentifier, withAwsServiceErrorContext } from './utils.js';
+import { extractTerminalArnResourceIdentifier } from './utils.js';
 
 const EMR_CLUSTER_HYDRATION_CONCURRENCY = 10;
 const EMR_IDLE_PERIOD_IN_SECONDS = 5 * 60;
@@ -46,7 +47,7 @@ export const hydrateAwsEmrClusters = async (resources: AwsDiscoveredResource[]):
         const hydratedBatch = await Promise.all(
           batch.map(async (resource) => {
             const [clusterResponse, instanceTypes] = await Promise.all([
-              withAwsServiceErrorContext('Amazon EMR', 'DescribeCluster', region, () =>
+              runAwsRequest('Amazon EMR', 'DescribeCluster', region, () =>
                 client.send(
                   new DescribeClusterCommand({
                     ClusterId: resource.clusterId,
@@ -97,7 +98,7 @@ const listEmrClusterInstanceTypes = async (
   let marker: string | undefined;
 
   do {
-    const response = await withAwsServiceErrorContext('Amazon EMR', 'ListInstances', region, () =>
+    const response = await runAwsRequest('Amazon EMR', 'ListInstances', region, () =>
       client.send(
         new ListInstancesCommand({
           ClusterId: clusterId,

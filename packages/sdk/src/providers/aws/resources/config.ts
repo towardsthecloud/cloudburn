@@ -17,11 +17,13 @@ import {
   type AwsConfigRecordingModeOverride,
   type AwsDiscoveredResource,
 } from '@cloudburn/rules';
+import { mapWithConcurrency } from '../../../utils/concurrency.js';
 import { createCloudWatchClient, createConfigServiceClient, resolveCurrentAwsRegion } from '../client.js';
 import type { AwsAccountIdResolver, AwsDiscoveryDatasetLoadResult } from '../discovery-registry.js';
 import { getAwsDiscoveryTimestamp } from '../execution.js';
+import { runAwsRequest } from '../request.js';
 import { cloudWatchWindow, fetchCloudWatchSignals, getCompleteCloudWatchPoints } from './cloudwatch.js';
-import { chunkItems, mapWithConcurrency, resolveAwsAccountIdForLoad, withAwsServiceErrorContext } from './utils.js';
+import { chunkItems, resolveAwsAccountIdForLoad } from './utils.js';
 
 const CONFIG_METRIC_NAMESPACE = 'AWS/Config';
 const CONFIGURATION_ITEMS_RECORDED_METRIC = 'ConfigurationItemsRecorded';
@@ -105,7 +107,7 @@ const listConfigMetricResourceTypes = async (region: string): Promise<string[]> 
   let nextToken: string | undefined;
 
   do {
-    const response = await withAwsServiceErrorContext('Amazon CloudWatch', 'ListMetrics', region, () =>
+    const response = await runAwsRequest('Amazon CloudWatch', 'ListMetrics', region, () =>
       client.send(
         new ListMetricsCommand({
           MetricName: CONFIGURATION_ITEMS_RECORDED_METRIC,
@@ -143,7 +145,7 @@ const getRecordedResourceCounts = async (
       let nextToken: string | undefined;
 
       do {
-        const response = await withAwsServiceErrorContext('AWS Config', 'GetDiscoveredResourceCounts', region, () =>
+        const response = await runAwsRequest('AWS Config', 'GetDiscoveredResourceCounts', region, () =>
           client.send(
             new GetDiscoveredResourceCountsCommand({
               limit: 100,
@@ -181,7 +183,7 @@ const getRecentlyDeletedResourceCounts = async (
     let pageCount = 0;
 
     do {
-      const response = await withAwsServiceErrorContext('AWS Config', 'ListDiscoveredResources', region, () =>
+      const response = await runAwsRequest('AWS Config', 'ListDiscoveredResources', region, () =>
         client.send(
           new ListDiscoveredResourcesCommand({
             includeDeletedResources: true,
@@ -217,7 +219,7 @@ const getFirewallManagerDependencies = async (
   let nextToken: string | undefined;
 
   do {
-    const response = await withAwsServiceErrorContext('AWS Config', 'DescribeConfigRules', region, () =>
+    const response = await runAwsRequest('AWS Config', 'DescribeConfigRules', region, () =>
       client.send(new DescribeConfigRulesCommand({ NextToken: nextToken })),
     );
 
@@ -265,7 +267,7 @@ const getPaidServiceLinkedRecorderDependencies = async (
   let nextToken: string | undefined;
 
   do {
-    const response = await withAwsServiceErrorContext('AWS Config', 'ListConfigurationRecorders', region, () =>
+    const response = await runAwsRequest('AWS Config', 'ListConfigurationRecorders', region, () =>
       client.send(
         new ListConfigurationRecordersCommand({
           Filters: [{ filterName: 'recordingScope', filterValue: ['PAID'] }],
@@ -285,7 +287,7 @@ const getPaidServiceLinkedRecorderDependencies = async (
 
   const recorders = await Promise.all(
     recorderArns.map(async (recorderArn) => {
-      const response = await withAwsServiceErrorContext('AWS Config', 'DescribeConfigurationRecorders', region, () =>
+      const response = await runAwsRequest('AWS Config', 'DescribeConfigurationRecorders', region, () =>
         client.send(new DescribeConfigurationRecordersCommand({ Arn: recorderArn })),
       );
       return response.ConfigurationRecorders?.[0];
@@ -317,11 +319,8 @@ export const hydrateAwsConfigRecordingFrequencyReviews = async (
 > => {
   const region = context?.region ?? (await resolveCurrentAwsRegion());
   const configClient = createConfigServiceClient({ region });
-  const recorderResponse = await withAwsServiceErrorContext(
-    'AWS Config',
-    'DescribeConfigurationRecorders',
-    region,
-    () => configClient.send(new DescribeConfigurationRecordersCommand({})),
+  const recorderResponse = await runAwsRequest('AWS Config', 'DescribeConfigurationRecorders', region, () =>
+    configClient.send(new DescribeConfigurationRecordersCommand({})),
   );
   const recorder = (recorderResponse.ConfigurationRecorders ?? []).find(
     (candidate) => !candidate.servicePrincipal && candidate.recordingScope !== 'INTERNAL',
@@ -333,12 +332,8 @@ export const hydrateAwsConfigRecordingFrequencyReviews = async (
 
   const recorderArn = recorder.arn;
   const recorderName = recorder.name;
-  const recorderStatusResponse = await withAwsServiceErrorContext(
-    'AWS Config',
-    'DescribeConfigurationRecorderStatus',
-    region,
-    () =>
-      configClient.send(new DescribeConfigurationRecorderStatusCommand({ ConfigurationRecorderNames: [recorderName] })),
+  const recorderStatusResponse = await runAwsRequest('AWS Config', 'DescribeConfigurationRecorderStatus', region, () =>
+    configClient.send(new DescribeConfigurationRecorderStatusCommand({ ConfigurationRecorderNames: [recorderName] })),
   );
   const recorderStatus = recorderStatusResponse.ConfigurationRecordersStatus?.find(
     (status) => status.name === recorderName,

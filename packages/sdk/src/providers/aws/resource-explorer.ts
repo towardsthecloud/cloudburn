@@ -23,6 +23,7 @@ import type {
   AwsDiscoveryTarget,
   AwsSupportedResourceType,
 } from '../../types.js';
+import { mapWithConcurrency } from '../../utils/concurrency.js';
 import {
   type AwsRegion,
   assertValidAwsRegion,
@@ -41,7 +42,7 @@ import {
   waitForAwsDelay,
   withAwsDiscoveryExecution,
 } from './execution.js';
-import { mapWithConcurrency, withAwsServiceErrorContext } from './resources/utils.js';
+import { runAwsRequest } from './request.js';
 
 const CATALOG_TTL_MS = 180_000;
 const DEFAULT_RESOURCE_EXPLORER_VIEW_NAME = 'cloudburn-default';
@@ -196,7 +197,7 @@ const listIndexesForRegion = async (region: string, regions?: string[]): Promise
     let nextToken: string | undefined;
 
     do {
-      const response = await withAwsServiceErrorContext('AWS Resource Explorer', 'ListIndexes', validRegion, () =>
+      const response = await runAwsRequest('AWS Resource Explorer', 'ListIndexes', validRegion, () =>
         client.send(
           new ListIndexesCommand({
             NextToken: nextToken,
@@ -226,7 +227,7 @@ const getAwsResourceExplorerIndex = async (region: string): Promise<AwsResourceE
   } | null = null;
 
   try {
-    response = await withAwsServiceErrorContext('AWS Resource Explorer', 'GetIndex', validRegion, () =>
+    response = await runAwsRequest('AWS Resource Explorer', 'GetIndex', validRegion, () =>
       client.send(new GetIndexCommand({})),
     );
   } catch (err: unknown) {
@@ -497,11 +498,8 @@ const getDefaultResourceExplorerView = async (
 }> =>
   memoizeAwsExecution(JSON.stringify(['resource-explorer-view', searchRegion]), async () => {
     const client = createResourceExplorerClient({ region: searchRegion });
-    const defaultViewResponse = await withAwsServiceErrorContext(
-      'AWS Resource Explorer',
-      'GetDefaultView',
-      searchRegion,
-      () => client.send(new GetDefaultViewCommand({})),
+    const defaultViewResponse = await runAwsRequest('AWS Resource Explorer', 'GetDefaultView', searchRegion, () =>
+      client.send(new GetDefaultViewCommand({})),
     );
     const viewArn = defaultViewResponse.ViewArn;
 
@@ -512,7 +510,7 @@ const getDefaultResourceExplorerView = async (
       );
     }
 
-    const viewResponse = await withAwsServiceErrorContext('AWS Resource Explorer', 'GetView', searchRegion, () =>
+    const viewResponse = await runAwsRequest('AWS Resource Explorer', 'GetView', searchRegion, () =>
       client.send(
         new GetViewCommand({
           ViewArn: viewArn,
@@ -705,7 +703,7 @@ export const getAwsDiscoveryRegionStatus = async (region: string): Promise<AwsDi
   const requestOptions = { maxAttempts: 2 };
 
   try {
-    const response = await withAwsServiceErrorContext(
+    const response = await runAwsRequest(
       'AWS Resource Explorer',
       'ListIndexes',
       validRegion,
@@ -727,7 +725,7 @@ export const getAwsDiscoveryRegionStatus = async (region: string): Promise<AwsDi
     }
 
     try {
-      const defaultViewResponse = await withAwsServiceErrorContext(
+      const defaultViewResponse = await runAwsRequest(
         'AWS Resource Explorer',
         'GetDefaultView',
         validRegion,
@@ -747,7 +745,7 @@ export const getAwsDiscoveryRegionStatus = async (region: string): Promise<AwsDi
         };
       }
 
-      const viewResponse = await withAwsServiceErrorContext(
+      const viewResponse = await runAwsRequest(
         'AWS Resource Explorer',
         'GetView',
         validRegion,
@@ -838,17 +836,13 @@ export const waitForAwsResourceExplorerSetup = async (
     let nextToken: string | undefined;
 
     do {
-      const response = await withAwsServiceErrorContext(
-        'AWS Resource Explorer',
-        'GetResourceExplorerSetup',
-        validRegion,
-        () =>
-          client.send(
-            new GetResourceExplorerSetupCommand({
-              NextToken: nextToken,
-              TaskId: taskId,
-            }),
-          ),
+      const response = await runAwsRequest('AWS Resource Explorer', 'GetResourceExplorerSetup', validRegion, () =>
+        client.send(
+          new GetResourceExplorerSetupCommand({
+            NextToken: nextToken,
+            TaskId: taskId,
+          }),
+        ),
       );
 
       for (const regionStatus of response.Regions ?? []) {
@@ -898,7 +892,7 @@ const listResourceExplorerResources = async (options: {
         options.debugLogger,
         `aws: Resource Explorer ${queryLabel}query ${queryIndex + 1}/${options.filters.length} page ${page} filter="${filterString}"`,
       );
-      const response = await withAwsServiceErrorContext(
+      const response = await runAwsRequest(
         'AWS Resource Explorer',
         'ListResources',
         options.searchRegion,
@@ -1225,7 +1219,7 @@ export const ensureAwsResourceExplorerDefaultViewIncludesTags = async (region: s
   }
 
   includedPropertyNames.add('tags');
-  await withAwsServiceErrorContext('AWS Resource Explorer', 'UpdateView', validRegion, () =>
+  await runAwsRequest('AWS Resource Explorer', 'UpdateView', validRegion, () =>
     client.send(
       new UpdateViewCommand({
         IncludedProperties: [...includedPropertyNames]
@@ -1267,11 +1261,8 @@ export const createAwsResourceExplorerSetup = async (
     RegionList: normalizedRegions,
     ViewName: DEFAULT_RESOURCE_EXPLORER_VIEW_NAME,
   });
-  const response = await withAwsServiceErrorContext(
-    'AWS Resource Explorer',
-    'CreateResourceExplorerSetup',
-    setupRegion,
-    () => client.send(command),
+  const response = await runAwsRequest('AWS Resource Explorer', 'CreateResourceExplorerSetup', setupRegion, () =>
+    client.send(command),
   );
 
   return {
@@ -1305,7 +1296,7 @@ export const updateAwsResourceExplorerIndexType = async (
   }
 
   const client = createResourceExplorerClient({ region: validRegion });
-  const response = await withAwsServiceErrorContext('AWS Resource Explorer', 'UpdateIndexType', validRegion, () =>
+  const response = await runAwsRequest('AWS Resource Explorer', 'UpdateIndexType', validRegion, () =>
     client.send(
       new UpdateIndexTypeCommand({
         Arn: index.arn,
@@ -1363,11 +1354,8 @@ export const listAwsDiscoverySupportedResourceTypes = async (): Promise<AwsSuppo
   let nextToken: string | undefined;
 
   do {
-    const response = await withAwsServiceErrorContext(
-      'AWS Resource Explorer',
-      'ListSupportedResourceTypes',
-      currentRegion,
-      () => client.send(new ListSupportedResourceTypesCommand({ NextToken: nextToken })),
+    const response = await runAwsRequest('AWS Resource Explorer', 'ListSupportedResourceTypes', currentRegion, () =>
+      client.send(new ListSupportedResourceTypesCommand({ NextToken: nextToken })),
     );
     const mapped = (response.ResourceTypes ?? []).flatMap((resourceType) => {
       const normalized = mapSupportedResourceType(resourceType);

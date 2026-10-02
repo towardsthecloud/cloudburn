@@ -4,7 +4,8 @@ import {
 } from '@aws-sdk/client-application-auto-scaling';
 import type { AwsDiscoveredResource, AwsEcsServiceAutoscaling } from '@cloudburn/rules';
 import { createApplicationAutoScalingClient } from '../client.js';
-import { chunkItems, withAwsServiceErrorContext } from './utils.js';
+import { runAwsRequest } from '../request.js';
+import { chunkItems } from './utils.js';
 
 const APPLICATION_AUTO_SCALING_BATCH_SIZE = 50;
 
@@ -78,18 +79,14 @@ export const hydrateAwsEcsAutoscaling = async (
       let scalingPoliciesNextToken: string | undefined;
 
       do {
-        const response = await withAwsServiceErrorContext(
-          'AWS Application Auto Scaling',
-          'DescribeScalingPolicies',
-          region,
-          () =>
-            client.send(
-              new DescribeScalingPoliciesCommand({
-                ScalableDimension: 'ecs:service:DesiredCount',
-                ServiceNamespace: 'ecs',
-                NextToken: scalingPoliciesNextToken,
-              }),
-            ),
+        const response = await runAwsRequest('AWS Application Auto Scaling', 'DescribeScalingPolicies', region, () =>
+          client.send(
+            new DescribeScalingPoliciesCommand({
+              ScalableDimension: 'ecs:service:DesiredCount',
+              ServiceNamespace: 'ecs',
+              NextToken: scalingPoliciesNextToken,
+            }),
+          ),
         );
 
         for (const scalingPolicy of response.ScalingPolicies ?? []) {
@@ -105,19 +102,15 @@ export const hydrateAwsEcsAutoscaling = async (
         let scalableTargetsNextToken: string | undefined;
 
         do {
-          const response = await withAwsServiceErrorContext(
-            'AWS Application Auto Scaling',
-            'DescribeScalableTargets',
-            region,
-            () =>
-              client.send(
-                new DescribeScalableTargetsCommand({
-                  ResourceIds: batch.map((service) => service.resourceId),
-                  ScalableDimension: 'ecs:service:DesiredCount',
-                  ServiceNamespace: 'ecs',
-                  NextToken: scalableTargetsNextToken,
-                }),
-              ),
+          const response = await runAwsRequest('AWS Application Auto Scaling', 'DescribeScalableTargets', region, () =>
+            client.send(
+              new DescribeScalableTargetsCommand({
+                ResourceIds: batch.map((service) => service.resourceId),
+                ScalableDimension: 'ecs:service:DesiredCount',
+                ServiceNamespace: 'ecs',
+                NextToken: scalableTargetsNextToken,
+              }),
+            ),
           );
 
           for (const scalableTarget of response.ScalableTargets ?? []) {

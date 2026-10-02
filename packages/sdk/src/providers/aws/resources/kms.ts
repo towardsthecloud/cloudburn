@@ -13,17 +13,13 @@ import type {
   AwsKmsKeyUsageEvidence,
 } from '@cloudburn/rules';
 import type { ScanDiagnostic } from '../../../types.js';
+import { mapWithConcurrency } from '../../../utils/concurrency.js';
 import { createKmsClient } from '../client.js';
 import type { AwsDiscoveryDatasetLoadResult, AwsDiscoveryDatasetResolver } from '../discovery-registry.js';
 import { formatAwsAccessDeniedReason, getAwsErrorCode, isAwsAccessDeniedError } from '../errors.js';
 import { getAwsDiscoveryTimestamp } from '../execution.js';
-import {
-  addUtcMonths,
-  extractTerminalArnResourceIdentifier,
-  mapWithConcurrency,
-  toUtcMonthBoundary,
-  withAwsServiceErrorContext,
-} from './utils.js';
+import { runAwsRequest } from '../request.js';
+import { addUtcMonths, extractTerminalArnResourceIdentifier, toUtcMonthBoundary } from './utils.js';
 
 const KMS_KEY_CONCURRENCY = 10;
 const KMS_KEY_MONTHLY_STORAGE_PRICE_USD = 1;
@@ -112,7 +108,7 @@ const listAliasPatternsByKey = async (
   let marker: string | undefined;
 
   do {
-    const response = await withAwsServiceErrorContext('AWS KMS', 'ListAliases', region, () =>
+    const response = await runAwsRequest('AWS KMS', 'ListAliases', region, () =>
       client.send(new ListAliasesCommand({ Marker: marker })),
     );
 
@@ -174,7 +170,7 @@ const listRotationCount = async (
   let rotationCount = 0;
 
   do {
-    const response = await withAwsServiceErrorContext('AWS KMS', 'ListKeyRotations', region, () =>
+    const response = await runAwsRequest('AWS KMS', 'ListKeyRotations', region, () =>
       client.send(new ListKeyRotationsCommand({ KeyId: keyId, Marker: marker })),
     );
     rotationCount += response.Rotations?.length ?? 0;
@@ -223,7 +219,7 @@ const loadUsageEvidence = async (
   trackingStartDate?: Date;
 }> => {
   try {
-    const response = await withAwsServiceErrorContext('AWS KMS', 'GetKeyLastUsage', region, () =>
+    const response = await runAwsRequest('AWS KMS', 'GetKeyLastUsage', region, () =>
       client.send(new GetKeyLastUsageCommand({ KeyId: keyId })),
     );
 
@@ -268,7 +264,7 @@ const hydrateKey = async (
   let metadata: KeyMetadata | undefined;
 
   try {
-    const response = await withAwsServiceErrorContext('AWS KMS', 'DescribeKey', resource.region, () =>
+    const response = await runAwsRequest('AWS KMS', 'DescribeKey', resource.region, () =>
       client.send(new DescribeKeyCommand({ KeyId: keyId })),
     );
     metadata = response.KeyMetadata;

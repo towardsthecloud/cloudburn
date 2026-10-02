@@ -14,14 +14,14 @@ import type {
 import { createComputeOptimizerClient, createLambdaClient } from '../client.js';
 import type { AwsDiscoveryDatasetResolver } from '../discovery-registry.js';
 import { getAwsDiscoveryTimestamp } from '../execution.js';
+import { runAwsRequest } from '../request.js';
 import {
   type CloudWatchMetricPoint,
   cloudWatchWindow,
   fetchCloudWatchSignals,
   getCompleteCloudWatchPoints,
 } from './cloudwatch.js';
-import { getUnqualifiedLambdaFunctionArn } from './lambda-identity.js';
-import { extractTerminalArnResourceIdentifier, withAwsServiceErrorContext } from './utils.js';
+import { extractTerminalArnResourceIdentifier } from './utils.js';
 
 const DEFAULT_LAMBDA_ARCHITECTURES = ['x86_64'];
 const DEFAULT_LAMBDA_MEMORY_MB = 128;
@@ -39,6 +39,15 @@ const getDurationAverage = (
   const countsByTimestamp = new Map(counts.map((point) => [point.timestamp, point.value]));
   if (sums.some((point) => point.value < 0 || (countsByTimestamp.get(point.timestamp) ?? 0) <= 0)) return null;
   return getSum(sums) / getSum(counts);
+};
+
+// Removes a Lambda version or alias qualifier for function-level finding identity.
+const getUnqualifiedLambdaFunctionArn = (functionArn: string): string => {
+  const functionMarker = ':function:';
+  const functionMarkerIndex = functionArn.indexOf(functionMarker);
+  if (functionMarkerIndex < 0) return functionArn;
+  const qualifierIndex = functionArn.indexOf(':', functionMarkerIndex + functionMarker.length);
+  return qualifierIndex < 0 ? functionArn : functionArn.slice(0, qualifierIndex);
 };
 
 const groupLambdaResourcesByRegion = (resources: AwsDiscoveredResource[]): Map<string, AwsDiscoveredResource[]> => {
@@ -75,7 +84,7 @@ export const hydrateAwsLambdaFunctions = async (resources: AwsDiscoveredResource
       let marker: string | undefined;
 
       do {
-        const page = await withAwsServiceErrorContext('AWS Lambda', 'ListFunctions', region, () =>
+        const page = await runAwsRequest('AWS Lambda', 'ListFunctions', region, () =>
           client.send(new ListFunctionsCommand({ Marker: marker })),
         );
 
@@ -166,17 +175,13 @@ export const hydrateAwsLambdaMemoryRecommendations = async (
       let nextToken: string | undefined;
 
       do {
-        const page = await withAwsServiceErrorContext(
-          'AWS Compute Optimizer',
-          'GetLambdaFunctionRecommendations',
-          region,
-          () =>
-            client.send(
-              new GetLambdaFunctionRecommendationsCommand({
-                filters: [LAMBDA_RECOMMENDATION_FINDING_FILTER],
-                nextToken,
-              }),
-            ),
+        const page = await runAwsRequest('AWS Compute Optimizer', 'GetLambdaFunctionRecommendations', region, () =>
+          client.send(
+            new GetLambdaFunctionRecommendationsCommand({
+              filters: [LAMBDA_RECOMMENDATION_FINDING_FILTER],
+              nextToken,
+            }),
+          ),
         );
 
         for (const recommendation of page.lambdaFunctionRecommendations ?? []) {

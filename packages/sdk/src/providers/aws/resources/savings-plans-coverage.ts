@@ -4,7 +4,8 @@ import { createCostExplorerClient } from '../client.js';
 import type { AwsAccountIdResolver, AwsDiscoveryDatasetLoadResult } from '../discovery-registry.js';
 import { formatAwsAccessDeniedReason, getAwsErrorCode, isAwsAccessDeniedError } from '../errors.js';
 import { getAwsDiscoveryTimestamp } from '../execution.js';
-import { formatUtcDate, parseFiniteNumber, resolveAwsAccountIdForLoad, withAwsServiceErrorContext } from './utils.js';
+import { runAwsRequest } from '../request.js';
+import { formatUtcDate, parseFiniteNumber, resolveAwsAccountIdForLoad } from './utils.js';
 
 const COST_EXPLORER_CONTROL_REGION = 'us-east-1';
 const LOOKBACK_DAYS = 30;
@@ -82,7 +83,7 @@ export const hydrateAwsSageMakerSavingsPlansCoverage = async (
     let nextToken: string | undefined;
 
     do {
-      const response = await withAwsServiceErrorContext(
+      const response = await runAwsRequest(
         'AWS Cost Explorer',
         'GetSavingsPlansCoverage',
         COST_EXPLORER_CONTROL_REGION,

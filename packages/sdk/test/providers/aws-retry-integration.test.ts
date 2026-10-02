@@ -1,7 +1,7 @@
 import { DescribeInstancesCommand } from '@aws-sdk/client-ec2';
 import { afterEach, expect, it, vi } from 'vitest';
 import { createEc2Client, withAwsClientCredentials } from '../../src/providers/aws/client.js';
-import { withAwsServiceErrorContext } from '../../src/providers/aws/resources/utils.js';
+import { runAwsRequest } from '../../src/providers/aws/request.js';
 
 afterEach(() => {
   vi.useRealTimers();
@@ -24,7 +24,7 @@ it('spends one physical AWS request per service-wrapper attempt', async () => {
     },
   });
   try {
-    const run = withAwsServiceErrorContext(
+    const run = runAwsRequest(
       'Amazon EC2',
       'DescribeInstances',
       'us-east-1',

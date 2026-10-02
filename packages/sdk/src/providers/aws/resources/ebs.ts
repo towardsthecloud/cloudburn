@@ -1,7 +1,8 @@
 import { DescribeSnapshotsCommand, DescribeVolumesCommand } from '@aws-sdk/client-ec2';
 import type { AwsDiscoveredResource, AwsEbsSnapshot, AwsEbsVolume } from '@cloudburn/rules';
 import { createEc2Client } from '../client.js';
-import { chunkItems, withAwsServiceErrorContext } from './utils.js';
+import { runAwsRequest } from '../request.js';
+import { chunkItems } from './utils.js';
 
 const EBS_VOLUME_ARN_PREFIX = 'volume/';
 const EBS_SNAPSHOT_ARN_PREFIX = 'snapshot/';
@@ -52,7 +53,7 @@ export const hydrateAwsEbsVolumes = async (resources: AwsDiscoveredResource[]): 
       const volumes: AwsEbsVolume[] = [];
 
       for (const batch of chunkItems(regionResources, EBS_DESCRIBE_BATCH_SIZE)) {
-        const response = await withAwsServiceErrorContext('Amazon EC2', 'DescribeVolumes', region, () =>
+        const response = await runAwsRequest('Amazon EC2', 'DescribeVolumes', region, () =>
           client.send(
             new DescribeVolumesCommand({
               VolumeIds: batch.map(({ volumeId }) => volumeId),
@@ -124,7 +125,7 @@ export const hydrateAwsEbsSnapshots = async (resources: AwsDiscoveredResource[])
       const snapshots: AwsEbsSnapshot[] = [];
 
       for (const batch of chunkItems(regionResources, EBS_DESCRIBE_BATCH_SIZE)) {
-        const response = await withAwsServiceErrorContext('Amazon EC2', 'DescribeSnapshots', region, () =>
+        const response = await runAwsRequest('Amazon EC2', 'DescribeSnapshots', region, () =>
           client.send(
             new DescribeSnapshotsCommand({
               SnapshotIds: batch.map(({ snapshotId }) => snapshotId),

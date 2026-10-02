@@ -9,10 +9,12 @@ import {
 import { DescribeKeyCommand } from '@aws-sdk/client-kms';
 import { DescribeAssociationCommand } from '@aws-sdk/client-ssm';
 import type { AwsDiscoveredResource, AwsUntaggedResource } from '@cloudburn/rules';
+import { mapWithConcurrency } from '../../../utils/concurrency.js';
 import { createEc2Client, createKmsClient, createSsmClient } from '../client.js';
 import type { AwsDiscoveryDatasetLoadContext } from '../discovery-registry.js';
 import { getAwsErrorCode, isAwsAccessDeniedError } from '../errors.js';
-import { chunkItems, mapWithConcurrency, withAwsServiceErrorContext } from './utils.js';
+import { runAwsRequest } from '../request.js';
+import { chunkItems } from './utils.js';
 
 const UNTAGGED_RESOURCES_FILTER = 'resourcetype.supports:tags tag:none';
 const EC2_RESOURCE_NOT_FOUND_CODES = new Set([
@@ -48,7 +50,7 @@ const loadEc2ResourceOrigins = async (
   const client = createEc2Client({ region });
   const groupNames = new Map<string, string>();
   const describeGroups = async (ids: string[], nextToken?: string) => {
-    const response = await withAwsServiceErrorContext('Amazon EC2', 'DescribeSecurityGroups', region, () =>
+    const response = await runAwsRequest('Amazon EC2', 'DescribeSecurityGroups', region, () =>
       client.send(new DescribeSecurityGroupsCommand({ GroupIds: ids, NextToken: nextToken })),
     );
     for (const group of response.SecurityGroups ?? []) {
@@ -101,7 +103,7 @@ const loadEc2ResourceOrigins = async (
   }
 
   await load('ec2:vpc', async (ids, NextToken) => {
-    const response = await withAwsServiceErrorContext('Amazon EC2', 'DescribeVpcs', region, () =>
+    const response = await runAwsRequest('Amazon EC2', 'DescribeVpcs', region, () =>
       client.send(new DescribeVpcsCommand({ VpcIds: ids, NextToken })),
     );
     return {
@@ -110,7 +112,7 @@ const loadEc2ResourceOrigins = async (
     };
   });
   await load('ec2:dhcp-options', async (ids, NextToken) => {
-    const response = await withAwsServiceErrorContext('Amazon EC2', 'DescribeDhcpOptions', region, () =>
+    const response = await runAwsRequest('Amazon EC2', 'DescribeDhcpOptions', region, () =>
       client.send(new DescribeDhcpOptionsCommand({ DhcpOptionsIds: ids, NextToken })),
     );
     return {
@@ -131,7 +133,7 @@ const loadEc2ResourceOrigins = async (
     };
   });
   await load('ec2:subnet', async (ids, NextToken) => {
-    const response = await withAwsServiceErrorContext('Amazon EC2', 'DescribeSubnets', region, () =>
+    const response = await runAwsRequest('Amazon EC2', 'DescribeSubnets', region, () =>
       client.send(new DescribeSubnetsCommand({ SubnetIds: ids, NextToken })),
     );
     return {
@@ -143,7 +145,7 @@ const loadEc2ResourceOrigins = async (
     };
   });
   await load('ec2:network-acl', async (ids, NextToken) => {
-    const response = await withAwsServiceErrorContext('Amazon EC2', 'DescribeNetworkAcls', region, () =>
+    const response = await runAwsRequest('Amazon EC2', 'DescribeNetworkAcls', region, () =>
       client.send(new DescribeNetworkAclsCommand({ NetworkAclIds: ids, NextToken })),
     );
     return {
@@ -165,7 +167,7 @@ const loadEc2ResourceOrigins = async (
     };
   });
   await load('ec2:security-group-rule', async (ids, NextToken) => {
-    const response = await withAwsServiceErrorContext('Amazon EC2', 'DescribeSecurityGroupRules', region, () =>
+    const response = await runAwsRequest('Amazon EC2', 'DescribeSecurityGroupRules', region, () =>
       client.send(new DescribeSecurityGroupRulesCommand({ SecurityGroupRuleIds: ids, NextToken })),
     );
     const missingGroups = [
@@ -216,7 +218,7 @@ const loadResourceOrigins = async (resources: AwsDiscoveredResource[]): Promise<
         origins.set(resource.arn, 'unknown');
         try {
           if (resource.resourceType === 'kms:key') {
-            const response = await withAwsServiceErrorContext('AWS KMS', 'DescribeKey', region, () =>
+            const response = await runAwsRequest('AWS KMS', 'DescribeKey', region, () =>
               createKmsClient({ region }).send(new DescribeKeyCommand({ KeyId: resource.arn })),
             );
             const manager = response.KeyMetadata?.KeyManager;
@@ -224,11 +226,8 @@ const loadResourceOrigins = async (resources: AwsDiscoveredResource[]): Promise<
               origins.set(resource.arn, manager === 'AWS' ? 'aws' : 'user');
           } else {
             const associationId = resource.arn.split('/').at(-1);
-            const response = await withAwsServiceErrorContext(
-              'AWS Systems Manager',
-              'DescribeAssociation',
-              region,
-              () => createSsmClient({ region }).send(new DescribeAssociationCommand({ AssociationId: associationId })),
+            const response = await runAwsRequest('AWS Systems Manager', 'DescribeAssociation', region, () =>
+              createSsmClient({ region }).send(new DescribeAssociationCommand({ AssociationId: associationId })),
             );
             const description = response.AssociationDescription;
             if (description?.AssociationId === associationId && description?.Name) {

@@ -10,11 +10,13 @@ import type {
   AwsEc2LoadBalancerRequestActivity,
   AwsEc2TargetGroup,
 } from '@cloudburn/rules';
+import { mapWithConcurrency } from '../../../utils/concurrency.js';
 import { createElasticLoadBalancingClient, createElasticLoadBalancingV2Client } from '../client.js';
 import type { AwsDiscoveryDatasetResolver } from '../discovery-registry.js';
 import { getAwsDiscoveryTimestamp } from '../execution.js';
+import { runAwsRequest } from '../request.js';
 import { cloudWatchWindow, fetchCloudWatchSignals, getCompleteCloudWatchPoints } from './cloudwatch.js';
-import { chunkItems, mapWithConcurrency, withAwsServiceErrorContext } from './utils.js';
+import { chunkItems } from './utils.js';
 
 const CLASSIC_LOAD_BALANCER_ARN_PREFIX = 'loadbalancer/';
 const TARGET_GROUP_ARN_PREFIX = 'targetgroup/';
@@ -100,7 +102,7 @@ const describeClassicLoadBalancersSafely = async (options: {
   region: string;
 }) => {
   try {
-    const response = await withAwsServiceErrorContext(
+    const response = await runAwsRequest(
       'Elastic Load Balancing',
       'DescribeLoadBalancers',
       options.region,
@@ -126,7 +128,7 @@ const describeClassicLoadBalancersSafely = async (options: {
     // Resource Explorer can lag deletions, so retry individual names and keep the survivors.
     for (const resource of options.classicResources) {
       try {
-        const response = await withAwsServiceErrorContext(
+        const response = await runAwsRequest(
           'Elastic Load Balancing',
           'DescribeLoadBalancers',
           options.region,
@@ -158,7 +160,7 @@ const describeV2LoadBalancersSafely = async (options: {
   loadBalancerArns: string[];
 }) => {
   try {
-    const response = await withAwsServiceErrorContext(
+    const response = await runAwsRequest(
       'Elastic Load Balancing v2',
       'DescribeLoadBalancers',
       options.region,
@@ -183,7 +185,7 @@ const describeV2LoadBalancersSafely = async (options: {
 
     for (const loadBalancerArn of options.loadBalancerArns) {
       try {
-        const response = await withAwsServiceErrorContext(
+        const response = await runAwsRequest(
           'Elastic Load Balancing v2',
           'DescribeLoadBalancers',
           options.region,
@@ -226,7 +228,7 @@ const loadTargetGroupArnsByLoadBalancer = async (
         const targetGroupArns = new Set<string>();
         let marker: string | undefined;
         do {
-          const response = await withAwsServiceErrorContext(
+          const response = await runAwsRequest(
             'Elastic Load Balancing v2',
             'DescribeTargetGroups',
             region,
@@ -268,7 +270,7 @@ const describeTargetGroupsSafely = async (options: {
     const targetGroups = [];
     let marker: string | undefined;
     do {
-      const response = await withAwsServiceErrorContext(
+      const response = await runAwsRequest(
         'Elastic Load Balancing v2',
         'DescribeTargetGroups',
         options.region,
@@ -549,7 +551,7 @@ export const hydrateAwsEc2TargetGroups = async (resources: AwsDiscoveredResource
                   return null;
                 }
 
-                const targetHealth = await withAwsServiceErrorContext(
+                const targetHealth = await runAwsRequest(
                   'Elastic Load Balancing v2',
                   'DescribeTargetHealth',
                   region,

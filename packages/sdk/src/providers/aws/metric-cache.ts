@@ -1,9 +1,9 @@
+import { mapWithConcurrency } from '../../utils/concurrency.js';
 import { getAwsEvidenceTtl, isAwsEvidenceCacheEnabled, loadAwsCachedEvidence } from './evidence.js';
 import { emitAwsRequestTelemetry, getAwsDiscoveryTimestamp } from './execution.js';
 import { planCloudWatchSignals, registerCloudWatchMetricDatasets } from './metric-planner.js';
 import { withAwsRequestDatasetSource } from './request-attribution.js';
 import type { CloudWatchMetricEvidence, CloudWatchMetricQuery } from './resources/cloudwatch.js';
-import { mapWithConcurrency } from './resources/utils.js';
 
 const DAY_MS = 86_400_000;
 const RECENT_OVERLAP_MS = 3 * DAY_MS;

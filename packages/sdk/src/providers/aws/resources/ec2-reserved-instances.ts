@@ -1,7 +1,8 @@
 import { DescribeReservedInstancesCommand } from '@aws-sdk/client-ec2';
 import type { AwsDiscoveredResource, AwsEc2ReservedInstance } from '@cloudburn/rules';
 import { createEc2Client } from '../client.js';
-import { chunkItems, withAwsServiceErrorContext } from './utils.js';
+import { runAwsRequest } from '../request.js';
+import { chunkItems } from './utils.js';
 
 const EC2_RESERVED_INSTANCE_ARN_PREFIX = 'reserved-instances/';
 const EC2_RESERVED_INSTANCE_BATCH_SIZE = 100;
@@ -65,7 +66,7 @@ export const hydrateAwsEc2ReservedInstances = async (
         }> = [];
 
         try {
-          const response = await withAwsServiceErrorContext(
+          const response = await runAwsRequest(
             'Amazon EC2',
             'DescribeReservedInstances',
             region,
@@ -87,7 +88,7 @@ export const hydrateAwsEc2ReservedInstances = async (
 
           for (const resource of batch) {
             try {
-              const response = await withAwsServiceErrorContext(
+              const response = await runAwsRequest(
                 'Amazon EC2',
                 'DescribeReservedInstances',
                 region,

@@ -1,7 +1,8 @@
 import { DescribeAddressesCommand } from '@aws-sdk/client-ec2';
 import type { AwsDiscoveredResource, AwsEc2ElasticIp } from '@cloudburn/rules';
 import { createEc2Client } from '../client.js';
-import { chunkItems, withAwsServiceErrorContext } from './utils.js';
+import { runAwsRequest } from '../request.js';
+import { chunkItems } from './utils.js';
 
 const ELASTIC_IP_ARN_PREFIX = 'elastic-ip/';
 const EIP_DESCRIBE_BATCH_SIZE = 100;
@@ -39,7 +40,7 @@ const describeElasticIpBatch = async (
   const client = createEc2Client({ region });
 
   try {
-    const response = await withAwsServiceErrorContext(
+    const response = await runAwsRequest(
       'Amazon EC2',
       'DescribeAddresses',
       region,

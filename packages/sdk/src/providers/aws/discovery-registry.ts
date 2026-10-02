@@ -129,7 +129,7 @@ export type AwsDiscoveryDatasetLoadContext = AwsDiscoveryDatasetResolver &
   };
 
 /** Observation interval used by a dataset's loader, independently of cache freshness. */
-export type AwsDiscoveryObservationPolicy =
+type AwsDiscoveryObservationPolicy =
   | { kind: 'current' }
   | { kind: 'window'; lookbackMs: number; alignmentMs: number }
   | { kind: 'calendar-months'; months: number };

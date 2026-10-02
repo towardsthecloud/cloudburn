@@ -1,10 +1,12 @@
 import { DescribeVpcEndpointsCommand } from '@aws-sdk/client-ec2';
 import type { AwsDiscoveredResource, AwsEc2VpcEndpointActivity } from '@cloudburn/rules';
+import { mapWithConcurrency } from '../../../utils/concurrency.js';
 import { createEc2Client } from '../client.js';
 import { getAwsDiscoveryTimestamp } from '../execution.js';
+import { runAwsRequest } from '../request.js';
 import { cloudWatchWindow, getCompleteCloudWatchPoints } from './cloudwatch.js';
 import { collectResourceMetrics } from './resource-metrics.js';
-import { chunkItems, mapWithConcurrency, withAwsServiceErrorContext } from './utils.js';
+import { chunkItems } from './utils.js';
 
 const VPC_ENDPOINT_ARN_PREFIX = 'vpc-endpoint/';
 const VPC_ENDPOINT_DESCRIBE_BATCH_SIZE = 100;
@@ -47,7 +49,7 @@ const describeVpcEndpointBatch = async (
   const client = createEc2Client({ region });
 
   try {
-    const response = await withAwsServiceErrorContext(
+    const response = await runAwsRequest(
       'Amazon EC2',
       'DescribeVpcEndpoints',
       region,

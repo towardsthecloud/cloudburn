@@ -37,7 +37,7 @@ import { runAwsRequest, withAwsServiceCallBudget } from './request.js';
 export { type AwsClientCredentials, withAwsClientCredentials } from './credentials.js';
 export { AWS_REGIONS, type AwsRegion, assertSupportedAwsRegion, assertValidAwsRegion } from './regions.js';
 
-export type AwsClientConfig = {
+type AwsClientConfig = {
   region?: string;
 };
 

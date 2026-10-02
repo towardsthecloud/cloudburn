@@ -17,6 +17,7 @@ import type {
   AwsSupportedResourceType,
   ScanDiagnostic,
 } from '../../types.js';
+import { mapWithConcurrency } from '../../utils/concurrency.js';
 import { buildAwsCapabilityOutcomes } from './capabilities.js';
 import { assertValidAwsRegion, listEnabledAwsRegions, resolveAwsAccountId, resolveCurrentAwsRegion } from './client.js';
 import {
@@ -56,7 +57,6 @@ import {
   waitForAwsResourceExplorerIndex,
   waitForAwsResourceExplorerSetup,
 } from './resource-explorer.js';
-import { mapWithConcurrency } from './resources/utils.js';
 
 const sortUnique = (values: string[]): string[] =>
   [...new Set(values)].sort((left, right) => left.localeCompare(right));

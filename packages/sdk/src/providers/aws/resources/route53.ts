@@ -5,9 +5,11 @@ import {
   type RRType,
 } from '@aws-sdk/client-route-53';
 import type { AwsDiscoveredResource, AwsRoute53HealthCheck, AwsRoute53Record, AwsRoute53Zone } from '@cloudburn/rules';
+import { mapWithConcurrency } from '../../../utils/concurrency.js';
 import { createRoute53Client } from '../client.js';
 import type { AwsAccountIdResolver } from '../discovery-registry.js';
-import { mapWithConcurrency, resolveAwsAccountIdForLoad, withAwsServiceErrorContext } from './utils.js';
+import { runAwsRequest } from '../request.js';
+import { resolveAwsAccountIdForLoad } from './utils.js';
 
 const ROUTE53_CONTROL_REGION = 'us-east-1';
 const ROUTE53_ZONE_CONCURRENCY = 5;
@@ -77,7 +79,7 @@ const listHostedZoneResources = async (context?: AwsAccountIdResolver): Promise<
   let marker: string | undefined;
 
   do {
-    const response = await withAwsServiceErrorContext(
+    const response = await runAwsRequest(
       'Amazon Route 53',
       'ListHostedZones',
       ROUTE53_CONTROL_REGION,
@@ -172,7 +174,7 @@ export const hydrateAwsRoute53Records = async (
     let nextRecordType: RRType | undefined;
 
     do {
-      const response = await withAwsServiceErrorContext(
+      const response = await runAwsRequest(
         'Amazon Route 53',
         'ListResourceRecordSets',
         ROUTE53_CONTROL_REGION,
@@ -244,7 +246,7 @@ export const hydrateAwsRoute53HealthChecks = async (
   let marker: string | undefined;
 
   do {
-    const response = await withAwsServiceErrorContext(
+    const response = await runAwsRequest(
       'Amazon Route 53',
       'ListHealthChecks',
       ROUTE53_CONTROL_REGION,

@@ -60,7 +60,7 @@ export const hydrateAwsEc2Instances = async (
 ```
 
 Use the [shared AWS client factories](../../packages/sdk/src/providers/aws/client.ts) and
-`withAwsServiceErrorContext` from [resource utilities](../../packages/sdk/src/providers/aws/resources/utils.ts) when
+`runAwsRequest` from the [request module](../../packages/sdk/src/providers/aws/request.ts) when
 adding service calls. The [EC2 loader](../../packages/sdk/src/providers/aws/resources/ec2.ts) shows how these preserve
 per-run credentials, timeouts, retry handling, and shared service budgets.
 

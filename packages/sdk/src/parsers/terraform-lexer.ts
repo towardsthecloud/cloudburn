@@ -4,13 +4,13 @@ type TerraformHeredoc = {
 };
 
 /** Mutable lexical state shared across consecutive Terraform source lines. */
-export type TerraformLexerState = {
+type TerraformLexerState = {
   heredoc?: TerraformHeredoc;
   inBlockComment: boolean;
 };
 
 /** One Terraform comment segment with its one-based source column. */
-export type TerraformCommentSegment = {
+type TerraformCommentSegment = {
   column: number;
   text: string;
 };

@@ -1,8 +1,9 @@
 import { GetLifecyclePolicyCommand } from '@aws-sdk/client-ecr';
 import type { AwsDiscoveredResource, AwsEcrRepository } from '@cloudburn/rules';
 import { createEcrClient } from '../client.js';
+import { runAwsRequest } from '../request.js';
 import { getEcrLifecyclePolicyTraits } from './ecr-lifecycle-policy.js';
-import { chunkItems, withAwsServiceErrorContext } from './utils.js';
+import { chunkItems } from './utils.js';
 
 const ECR_LIFECYCLE_POLICY_BATCH_SIZE = 25;
 const ECR_REPOSITORY_ARN_PREFIX = 'repository/';
@@ -63,7 +64,7 @@ export const hydrateAwsEcrRepositories = async (resources: AwsDiscoveredResource
                 let lifecyclePolicyTraits = getEcrLifecyclePolicyTraits(undefined);
 
                 try {
-                  const response = await withAwsServiceErrorContext('Amazon ECR', 'GetLifecyclePolicy', region, () =>
+                  const response = await runAwsRequest('Amazon ECR', 'GetLifecyclePolicy', region, () =>
                     client.send(
                       new GetLifecyclePolicyCommand({
                         repositoryName,

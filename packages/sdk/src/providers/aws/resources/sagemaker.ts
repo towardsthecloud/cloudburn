@@ -9,16 +9,13 @@ import type {
   AwsSageMakerEndpointActivity,
   AwsSageMakerNotebookInstance,
 } from '@cloudburn/rules';
+import { mapWithConcurrency } from '../../../utils/concurrency.js';
 import { createSageMakerClient } from '../client.js';
 import { getAwsDiscoveryTimestamp } from '../execution.js';
+import { runAwsRequest } from '../request.js';
 import { cloudWatchWindow, getCompleteCloudWatchPoints } from './cloudwatch.js';
 import { collectResourceMetrics } from './resource-metrics.js';
-import {
-  chunkItems,
-  extractTerminalResourceIdentifier,
-  mapWithConcurrency,
-  withAwsServiceErrorContext,
-} from './utils.js';
+import { chunkItems, extractTerminalResourceIdentifier } from './utils.js';
 
 const NOTEBOOK_INSTANCE_BATCH_SIZE = 10;
 const ENDPOINT_HYDRATION_CONCURRENCY = 10;
@@ -106,7 +103,7 @@ export const hydrateAwsSageMakerNotebookInstances = async (
         const hydratedBatch = await Promise.all(
           batch.map(async (resource) => {
             try {
-              const response = await withAwsServiceErrorContext(
+              const response = await runAwsRequest(
                 'Amazon SageMaker',
                 'DescribeNotebookInstance',
                 region,
@@ -194,7 +191,7 @@ export const hydrateAwsSageMakerEndpointActivity = async (
         let configPromise = endpointConfigPromises.get(endpointConfigName);
 
         if (!configPromise) {
-          configPromise = withAwsServiceErrorContext(
+          configPromise = runAwsRequest(
             'Amazon SageMaker',
             'DescribeEndpointConfig',
             region,
@@ -216,7 +213,7 @@ export const hydrateAwsSageMakerEndpointActivity = async (
 
       const hydrateEndpoint = async (resource: (typeof regionResources)[number]) => {
         try {
-          const endpointResponse = await withAwsServiceErrorContext(
+          const endpointResponse = await runAwsRequest(
             'Amazon SageMaker',
             'DescribeEndpoint',
             region,

@@ -11,8 +11,9 @@ import {
   getAwsExecutionSignal,
   throwIfAwsExecutionAborted,
 } from '../execution.js';
+import { runAwsRequest } from '../request.js';
 import { fetchCloudWatchSignals, getCompleteCloudWatchPoints } from './cloudwatch.js';
-import { chunkItems, extractTerminalArnResourceIdentifier, withAwsServiceErrorContext } from './utils.js';
+import { chunkItems, extractTerminalArnResourceIdentifier } from './utils.js';
 
 const TRANSIT_GATEWAY_ATTACHMENT_DESCRIBE_BATCH_SIZE = 100;
 const LOOKBACK_DAYS = 30 as const;
@@ -201,17 +202,13 @@ export const hydrateAwsEc2TransitGatewayVpcAttachmentActivity = async (
       let hourlyAttachmentCostPromise: Promise<number | null> | undefined;
 
       for (const batch of chunkItems(regionResources, TRANSIT_GATEWAY_ATTACHMENT_DESCRIBE_BATCH_SIZE)) {
-        const attachmentResponse = await withAwsServiceErrorContext(
-          'Amazon EC2',
-          'DescribeTransitGatewayAttachments',
-          region,
-          () =>
-            client.send(
-              new DescribeTransitGatewayAttachmentsCommand({
-                Filters: [{ Name: 'resource-type', Values: ['vpc'] }],
-                TransitGatewayAttachmentIds: batch.map(({ transitGatewayAttachmentId }) => transitGatewayAttachmentId),
-              }),
-            ),
+        const attachmentResponse = await runAwsRequest('Amazon EC2', 'DescribeTransitGatewayAttachments', region, () =>
+          client.send(
+            new DescribeTransitGatewayAttachmentsCommand({
+              Filters: [{ Name: 'resource-type', Values: ['vpc'] }],
+              TransitGatewayAttachmentIds: batch.map(({ transitGatewayAttachmentId }) => transitGatewayAttachmentId),
+            }),
+          ),
         );
         const vpcAttachmentIds = new Set(
           (attachmentResponse.TransitGatewayAttachments ?? []).flatMap((attachment) =>
@@ -227,18 +224,12 @@ export const hydrateAwsEc2TransitGatewayVpcAttachmentActivity = async (
           continue;
         }
 
-        const response = await withAwsServiceErrorContext(
-          'Amazon EC2',
-          'DescribeTransitGatewayVpcAttachments',
-          region,
-          () =>
-            client.send(
-              new DescribeTransitGatewayVpcAttachmentsCommand({
-                TransitGatewayAttachmentIds: vpcBatch.map(
-                  ({ transitGatewayAttachmentId }) => transitGatewayAttachmentId,
-                ),
-              }),
-            ),
+        const response = await runAwsRequest('Amazon EC2', 'DescribeTransitGatewayVpcAttachments', region, () =>
+          client.send(
+            new DescribeTransitGatewayVpcAttachmentsCommand({
+              TransitGatewayAttachmentIds: vpcBatch.map(({ transitGatewayAttachmentId }) => transitGatewayAttachmentId),
+            }),
+          ),
         );
 
         const availableAttachments = (response.TransitGatewayVpcAttachments ?? []).flatMap((attachment) => {

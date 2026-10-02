@@ -1,7 +1,8 @@
 import { DescribeTrailsCommand } from '@aws-sdk/client-cloudtrail';
 import type { AwsCloudTrailTrail, AwsDiscoveredResource } from '@cloudburn/rules';
 import { createCloudTrailClient } from '../client.js';
-import { chunkItems, withAwsServiceErrorContext } from './utils.js';
+import { runAwsRequest } from '../request.js';
+import { chunkItems } from './utils.js';
 
 const CLOUDTRAIL_DESCRIBE_BATCH_SIZE = 20;
 const CLOUDTRAIL_TRAIL_ARN_PATTERN = /^arn:[^:]+:cloudtrail:[^:]+:[^:]+:trail\/(.+)$/u;
@@ -38,7 +39,7 @@ export const hydrateAwsCloudTrailTrails = async (resources: AwsDiscoveredResourc
       );
 
       for (const batch of chunkItems(regionResources, CLOUDTRAIL_DESCRIBE_BATCH_SIZE)) {
-        const response = await withAwsServiceErrorContext('AWS CloudTrail', 'DescribeTrails', region, () =>
+        const response = await runAwsRequest('AWS CloudTrail', 'DescribeTrails', region, () =>
           client.send(
             new DescribeTrailsCommand({
               includeShadowTrails: false,

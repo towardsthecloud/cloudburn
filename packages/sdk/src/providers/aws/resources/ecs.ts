@@ -2,7 +2,8 @@ import { DescribeInstancesCommand } from '@aws-sdk/client-ec2';
 import { DescribeContainerInstancesCommand, DescribeServicesCommand } from '@aws-sdk/client-ecs';
 import type { AwsDiscoveredResource, AwsEcsCluster, AwsEcsContainerInstance, AwsEcsService } from '@cloudburn/rules';
 import { createEc2Client, createEcsClient } from '../client.js';
-import { chunkItems, withAwsServiceErrorContext } from './utils.js';
+import { runAwsRequest } from '../request.js';
+import { chunkItems } from './utils.js';
 
 const ECS_CONTAINER_INSTANCE_BATCH_SIZE = 100;
 const ECS_SERVICE_BATCH_SIZE = 10;
@@ -154,7 +155,7 @@ export const hydrateAwsEcsServices = async (resources: AwsDiscoveredResource[]):
 
       for (const batch of chunkItems(clusterServices, ECS_SERVICE_BATCH_SIZE)) {
         const batchAccountIds = new Map(batch.map((service) => [service.serviceArn, service.accountId] as const));
-        const response = await withAwsServiceErrorContext('Amazon ECS', 'DescribeServices', region, () =>
+        const response = await runAwsRequest('Amazon ECS', 'DescribeServices', region, () =>
           client.send(
             new DescribeServicesCommand({
               cluster: clusterName,
@@ -235,7 +236,7 @@ export const hydrateAwsEcsContainerInstances = async (
       const containerInstances: AwsEcsContainerInstance[] = [];
 
       for (const batch of chunkItems(clusterResources, ECS_CONTAINER_INSTANCE_BATCH_SIZE)) {
-        const response = await withAwsServiceErrorContext('Amazon ECS', 'DescribeContainerInstances', region, () =>
+        const response = await runAwsRequest('Amazon ECS', 'DescribeContainerInstances', region, () =>
           ecsClient.send(
             new DescribeContainerInstancesCommand({
               cluster: clusterName,
@@ -249,7 +250,7 @@ export const hydrateAwsEcsContainerInstances = async (
         const ec2Metadata = new Map<string, { architecture?: string; instanceType?: string }>();
 
         if (ec2InstanceIds.length > 0) {
-          const ec2Response = await withAwsServiceErrorContext('Amazon EC2', 'DescribeInstances', region, () =>
+          const ec2Response = await runAwsRequest('Amazon EC2', 'DescribeInstances', region, () =>
             ec2Client.send(
               new DescribeInstancesCommand({
                 InstanceIds: ec2InstanceIds,

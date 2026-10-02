@@ -1,7 +1,7 @@
 # Config Schema Reference
 
 Implementation sources: [SDK types](../../packages/sdk/src/types.ts), [defaults](../../packages/sdk/src/config/defaults.ts),
-[schema](../../packages/sdk/src/config/schema.ts), [validation](../../packages/sdk/src/config/validate.ts),
+[validation](../../packages/sdk/src/config/validate.ts),
 [loading](../../packages/sdk/src/config/loader.ts), and [merging](../../packages/sdk/src/config/merge.ts).
 This reference is manually maintained alongside those sources.
 

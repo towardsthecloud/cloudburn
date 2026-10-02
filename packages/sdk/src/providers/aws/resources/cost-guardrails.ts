@@ -8,7 +8,8 @@ import type {
 } from '@cloudburn/rules';
 import { createBudgetsClient, createCostExplorerClient } from '../client.js';
 import type { AwsAccountIdResolver } from '../discovery-registry.js';
-import { parseFiniteNumber, resolveAwsAccountIdForLoad, withAwsServiceErrorContext } from './utils.js';
+import { runAwsRequest } from '../request.js';
+import { parseFiniteNumber, resolveAwsAccountIdForLoad } from './utils.js';
 
 const COST_CONTROL_REGION = 'us-east-1';
 const PAGE_SIZE = 100;
@@ -31,7 +32,7 @@ export const hydrateAwsCostGuardrailBudgets = async (
   let nextToken: string | undefined;
 
   do {
-    const response = await withAwsServiceErrorContext('AWS Budgets', 'DescribeBudgets', COST_CONTROL_REGION, () =>
+    const response = await runAwsRequest('AWS Budgets', 'DescribeBudgets', COST_CONTROL_REGION, () =>
       client.send(
         new DescribeBudgetsCommand({
           AccountId: accountId,
@@ -95,17 +96,13 @@ export const hydrateAwsCostAnomalyMonitors = async (
   let nextPageToken: string | undefined;
 
   do {
-    const response = await withAwsServiceErrorContext(
-      'AWS Cost Explorer',
-      'GetAnomalyMonitors',
-      COST_CONTROL_REGION,
-      () =>
-        client.send(
-          new GetAnomalyMonitorsCommand({
-            MaxResults: PAGE_SIZE,
-            NextPageToken: nextPageToken,
-          }),
-        ),
+    const response = await runAwsRequest('AWS Cost Explorer', 'GetAnomalyMonitors', COST_CONTROL_REGION, () =>
+      client.send(
+        new GetAnomalyMonitorsCommand({
+          MaxResults: PAGE_SIZE,
+          NextPageToken: nextPageToken,
+        }),
+      ),
     );
 
     monitorCount += (response.AnomalyMonitors ?? []).filter((monitor) => monitor.MonitorArn).length;

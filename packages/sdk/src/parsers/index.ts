@@ -1,6 +1,6 @@
-import { cloudFormationFileParser, parseCloudFormation } from './cloudformation.js';
+import { cloudFormationFileParser } from './cloudformation.js';
 import { parseIaCFiles } from './files.js';
-import { parseTerraform, terraformFileParser } from './terraform.js';
+import { terraformFileParser } from './terraform.js';
 import type { IaCParseResult, IaCResource } from './types.js';
 
 const PARSER_LOADERS = {
@@ -47,5 +47,3 @@ export const parseIaC = async (path: string, options?: ParseIaCOptions): Promise
   (await parseIaCWithDiagnostics(path, options)).resources;
 
 export type { IaCParseResult, IaCResource } from './types.js';
-// Intent: expose parser entrypoints behind a stable SDK surface.
-export { parseCloudFormation, parseTerraform };

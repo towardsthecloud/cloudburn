@@ -13,7 +13,7 @@ import type { ScanDiagnostic } from '../../types.js';
 import { getAwsStaticDatasetDefinition, toStaticResourceId } from './static-registry.js';
 
 /** Static evaluation context with non-fatal diagnostics produced during dataset loading. */
-export type AwsStaticResourceLoadResult = StaticEvaluationContext & {
+type AwsStaticResourceLoadResult = StaticEvaluationContext & {
   diagnostics: ScanDiagnostic[];
   suppressionTargets: AwsStaticSuppressionTarget[];
   evaluationScopes?: StaticEvaluationContext[];

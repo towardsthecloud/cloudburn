@@ -1,7 +1,7 @@
 import { ListSecretsCommand } from '@aws-sdk/client-secrets-manager';
 import type { AwsDiscoveredResource, AwsSecretsManagerSecret } from '@cloudburn/rules';
 import { createSecretsManagerClient } from '../client.js';
-import { withAwsServiceErrorContext } from './utils.js';
+import { runAwsRequest } from '../request.js';
 
 /**
  * Hydrates discovered Secrets Manager secrets with last-access metadata.
@@ -28,7 +28,7 @@ export const hydrateAwsSecretsManagerSecrets = async (
       let nextToken: string | undefined;
 
       do {
-        const response = await withAwsServiceErrorContext('AWS Secrets Manager', 'ListSecrets', region, () =>
+        const response = await runAwsRequest('AWS Secrets Manager', 'ListSecrets', region, () =>
           client.send(new ListSecretsCommand({ NextToken: nextToken })),
         );
 

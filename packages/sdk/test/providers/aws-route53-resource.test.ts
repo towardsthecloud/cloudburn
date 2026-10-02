@@ -5,12 +5,12 @@ import type {
 } from '@aws-sdk/client-route-53';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createRoute53Client, resolveAwsAccountId } from '../../src/providers/aws/client.js';
+import { withAwsServiceCallBudget } from '../../src/providers/aws/request.js';
 import {
   hydrateAwsRoute53HealthChecks,
   hydrateAwsRoute53Records,
   hydrateAwsRoute53Zones,
 } from '../../src/providers/aws/resources/route53.js';
-import { withAwsServiceCallBudget } from '../../src/providers/aws/resources/utils.js';
 
 vi.mock('../../src/providers/aws/client.js', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/providers/aws/client.js')>()),

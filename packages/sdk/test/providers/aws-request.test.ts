@@ -2,8 +2,8 @@ import { CloudWatchClient, GetMetricDataCommand } from '@aws-sdk/client-cloudwat
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { withAwsClientCredentials } from '../../src/providers/aws/client.js';
 import { getAwsClient, waitForAwsDelay, withAwsDiscoveryExecution } from '../../src/providers/aws/execution.js';
+import { runAwsRequest, withAwsServiceCallBudget } from '../../src/providers/aws/request.js';
 import { createMemoryAwsRequestStore as memoryStore } from '../../src/providers/aws/request-store.js';
-import { withAwsServiceCallBudget, withAwsServiceErrorContext } from '../../src/providers/aws/resources/utils.js';
 
 afterEach(() => {
   vi.useRealTimers();
@@ -26,7 +26,7 @@ describe('shared AWS request admission', () => {
               Array.from({ length: 10 }, () =>
                 Promise.all(
                   ['GetBucketLifecycleConfiguration', 'ListBucketIntelligentTieringConfigurations'].map((operation) =>
-                    withAwsServiceErrorContext('Amazon S3', operation, 'eu-west-1', async () => {
+                    runAwsRequest('Amazon S3', operation, 'eu-west-1', async () => {
                       starts.push({ operation, at: Date.now() });
                       await waitForAwsDelay(100);
                     }),
@@ -74,7 +74,7 @@ describe('shared AWS request admission', () => {
       const request = withAwsDiscoveryExecution({ debugLogger: logger }, () =>
         withAwsServiceCallBudget(
           () =>
-            withAwsServiceErrorContext(
+            runAwsRequest(
               'Amazon CloudWatch Logs',
               'DescribeLogStreams',
               'eu-west-1',
@@ -112,8 +112,7 @@ describe('shared AWS request admission', () => {
       );
     const onAttempt = vi.fn();
     const request = withAwsServiceCallBudget(
-      () =>
-        withAwsServiceErrorContext('Amazon CloudWatch Logs', 'DescribeLogStreams', 'eu-west-1', async () => 'response'),
+      () => runAwsRequest('Amazon CloudWatch Logs', 'DescribeLogStreams', 'eu-west-1', async () => 'response'),
       { accountId: 'contended-cleanup', store, onAttempt },
     );
 
@@ -142,7 +141,7 @@ describe('shared AWS request admission', () => {
     const scan = withAwsDiscoveryExecution({ signal: controller.signal }, () => {
       request = withAwsServiceCallBudget(
         () =>
-          withAwsServiceErrorContext('Amazon CloudWatch Logs', 'DescribeLogStreams', 'eu-west-1', async () => {
+          runAwsRequest('Amazon CloudWatch Logs', 'DescribeLogStreams', 'eu-west-1', async () => {
             started.resolve();
             await waitForAwsDelay(1_000);
           }),
@@ -162,7 +161,7 @@ describe('shared AWS request admission', () => {
 
     const execute = vi.fn(async () => 'fresh response');
     const next = withAwsServiceCallBudget(
-      () => withAwsServiceErrorContext('Amazon CloudWatch Logs', 'DescribeLogStreams', 'eu-west-1', execute),
+      () => runAwsRequest('Amazon CloudWatch Logs', 'DescribeLogStreams', 'eu-west-1', execute),
       options,
     );
     await vi.advanceTimersByTimeAsync(0);
@@ -197,7 +196,7 @@ describe('shared AWS request admission', () => {
         () =>
           Promise.all(
             Array.from({ length: 3 }, () =>
-              withAwsServiceErrorContext('Amazon CloudWatch Logs', 'DescribeLogStreams', 'eu-west-1', async () => {
+              runAwsRequest('Amazon CloudWatch Logs', 'DescribeLogStreams', 'eu-west-1', async () => {
                 starts.push(Date.now());
               }),
             ),
@@ -237,7 +236,7 @@ describe('shared AWS request admission', () => {
       },
     };
     const failing = () =>
-      withAwsServiceErrorContext(
+      runAwsRequest(
         'Amazon CloudWatch Logs',
         'DescribeLogStreams',
         'eu-west-1',
@@ -256,14 +255,13 @@ describe('shared AWS request admission', () => {
     expect(starts[2]).toBeGreaterThanOrEqual(500);
 
     await withAwsServiceCallBudget(
-      () =>
-        withAwsServiceErrorContext('Amazon CloudWatch Logs', 'DescribeLogStreams', 'eu-west-1', async () => 'healthy'),
+      () => runAwsRequest('Amazon CloudWatch Logs', 'DescribeLogStreams', 'eu-west-1', async () => 'healthy'),
       options,
     );
     let attempts = 0;
     const recovered = withAwsServiceCallBudget(
       () =>
-        withAwsServiceErrorContext(
+        runAwsRequest(
           'Amazon CloudWatch Logs',
           'DescribeLogStreams',
           'eu-west-1',
@@ -291,7 +289,7 @@ describe('shared AWS request admission', () => {
     const work = withAwsDiscoveryExecution({ debugLogger: logger }, () =>
       withAwsServiceCallBudget(
         () =>
-          withAwsServiceErrorContext(
+          runAwsRequest(
             'Amazon CloudWatch Logs',
             'DescribeLogStreams',
             'eu-west-1',
@@ -381,7 +379,7 @@ describe('shared AWS request admission', () => {
           withAwsServiceCallBudget(
             async () => {
               for (let page = 0; page < 10; page += 1) {
-                await withAwsServiceErrorContext('Amazon CloudWatch', 'GetMetricData', 'eu-west-1', () =>
+                await runAwsRequest('Amazon CloudWatch', 'GetMetricData', 'eu-west-1', () =>
                   client.send(
                     new GetMetricDataCommand({ ...request, ...(page > 0 ? { NextToken: `page-${page}` } : {}) }),
                   ),
@@ -435,7 +433,7 @@ describe('shared AWS request admission', () => {
           ['first', 'second', 'third'].map((dataset) =>
             withAwsServiceCallBudget(
               () =>
-                withAwsServiceErrorContext('Amazon CloudWatch', 'GetMetricData', 'eu-west-1', () =>
+                runAwsRequest('Amazon CloudWatch', 'GetMetricData', 'eu-west-1', () =>
                   client.send(
                     new GetMetricDataCommand({
                       StartTime: new Date(Date.now() - 60_000),

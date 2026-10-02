@@ -4,9 +4,10 @@ import {
   type S3Client,
 } from '@aws-sdk/client-s3';
 import type { AwsDiscoveredResource, AwsS3BucketAnalysis } from '@cloudburn/rules';
+import { mapWithConcurrency } from '../../../utils/concurrency.js';
 import { createS3Client } from '../client.js';
+import { runAwsRequest } from '../request.js';
 import { buildS3BucketAnalysisFlags } from './s3-analysis.js';
-import { mapWithConcurrency, withAwsServiceErrorContext } from './utils.js';
 
 const S3_HYDRATION_CONCURRENCY = 10;
 
@@ -25,7 +26,7 @@ const loadBucketLifecycleRules = async (
   region: string,
 ): Promise<Record<string, unknown>[]> => {
   try {
-    const response = await withAwsServiceErrorContext(
+    const response = await runAwsRequest(
       'Amazon S3',
       'GetBucketLifecycleConfiguration',
       region,
@@ -60,17 +61,13 @@ const loadBucketIntelligentTieringConfigurations = async (
   let continuationToken: string | undefined;
 
   do {
-    const response = await withAwsServiceErrorContext(
-      'Amazon S3',
-      'ListBucketIntelligentTieringConfigurations',
-      region,
-      () =>
-        client.send(
-          new ListBucketIntelligentTieringConfigurationsCommand({
-            Bucket: bucketName,
-            ContinuationToken: continuationToken,
-          }),
-        ),
+    const response = await runAwsRequest('Amazon S3', 'ListBucketIntelligentTieringConfigurations', region, () =>
+      client.send(
+        new ListBucketIntelligentTieringConfigurationsCommand({
+          Bucket: bucketName,
+          ContinuationToken: continuationToken,
+        }),
+      ),
     );
 
     configurations.push(

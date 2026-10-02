@@ -3,13 +3,13 @@ import type { AwsCostUsage, AwsDiscoveredResource } from '@cloudburn/rules';
 import { createCostExplorerClient } from '../client.js';
 import type { AwsAccountIdResolver } from '../discovery-registry.js';
 import { getAwsDiscoveryTimestamp } from '../execution.js';
+import { runAwsRequest } from '../request.js';
 import {
   addUtcMonths,
   formatUtcDate,
   parseFiniteNumber,
   resolveAwsAccountIdForLoad,
   toUtcMonthBoundary,
-  withAwsServiceErrorContext,
 } from './utils.js';
 
 const COST_EXPLORER_CONTROL_REGION = 'us-east-1';
@@ -37,23 +37,19 @@ export const hydrateAwsCostUsage = async (
   const monthStart = toUtcMonthBoundary(new Date(getAwsDiscoveryTimestamp()));
   const latestFullMonthStart = addUtcMonths(monthStart, -1);
   const previousFullMonthStart = addUtcMonths(monthStart, -2);
-  const response = await withAwsServiceErrorContext(
-    'AWS Cost Explorer',
-    'GetCostAndUsage',
-    COST_EXPLORER_CONTROL_REGION,
-    () =>
-      client.send(
-        new GetCostAndUsageCommand({
-          TimePeriod: {
-            End: formatUtcDate(monthStart),
-            Start: formatUtcDate(previousFullMonthStart),
-          },
-          Granularity: 'MONTHLY',
-          GroupBy: [{ Key: 'SERVICE', Type: 'DIMENSION' }],
-          // NetUnblendedCost tracks what the account actually paid after discounts and credits.
-          Metrics: ['NetUnblendedCost'],
-        }),
-      ),
+  const response = await runAwsRequest('AWS Cost Explorer', 'GetCostAndUsage', COST_EXPLORER_CONTROL_REGION, () =>
+    client.send(
+      new GetCostAndUsageCommand({
+        TimePeriod: {
+          End: formatUtcDate(monthStart),
+          Start: formatUtcDate(previousFullMonthStart),
+        },
+        Granularity: 'MONTHLY',
+        GroupBy: [{ Key: 'SERVICE', Type: 'DIMENSION' }],
+        // NetUnblendedCost tracks what the account actually paid after discounts and credits.
+        Metrics: ['NetUnblendedCost'],
+      }),
+    ),
   );
 
   const previousMonthCosts = new Map<string, { amount: number; unit: string }>();

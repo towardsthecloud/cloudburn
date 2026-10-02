@@ -11,7 +11,7 @@ import type {
 import { emitDebugLog } from '../../debug.js';
 
 /** Hooks that admit one AWS attempt and observe its physical transport. */
-export type AwsServiceAttemptOptions = {
+type AwsServiceAttemptOptions = {
   /** Inspects command input before AWS serialization. */
   beforeRequest?: (input: unknown) => Promise<void>;
   /** Confirms admission after request preparation, immediately before physical dispatch. */

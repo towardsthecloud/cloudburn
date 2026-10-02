@@ -8,8 +8,9 @@ import type {
 import { createElastiCacheClient } from '../client.js';
 import type { AwsDiscoveryDatasetResolver } from '../discovery-registry.js';
 import { getAwsDiscoveryTimestamp } from '../execution.js';
+import { runAwsRequest } from '../request.js';
 import { cloudWatchWindow, fetchCloudWatchSignals, getCompleteCloudWatchPoints } from './cloudwatch.js';
-import { extractTerminalResourceIdentifier, withAwsServiceErrorContext } from './utils.js';
+import { extractTerminalResourceIdentifier } from './utils.js';
 
 const ELASTICACHE_PAGE_SIZE = 100;
 const FOURTEEN_DAYS_IN_SECONDS = 14 * 24 * 60 * 60;
@@ -53,7 +54,7 @@ export const hydrateAwsElastiCacheClusters = async (
       let marker: string | undefined;
 
       do {
-        const response = await withAwsServiceErrorContext('Amazon ElastiCache', 'DescribeCacheClusters', region, () =>
+        const response = await runAwsRequest('Amazon ElastiCache', 'DescribeCacheClusters', region, () =>
           client.send(
             new DescribeCacheClustersCommand({
               Marker: marker,
@@ -125,17 +126,13 @@ export const hydrateAwsElastiCacheReservedNodes = async (
       let marker: string | undefined;
 
       do {
-        const response = await withAwsServiceErrorContext(
-          'Amazon ElastiCache',
-          'DescribeReservedCacheNodes',
-          region,
-          () =>
-            client.send(
-              new DescribeReservedCacheNodesCommand({
-                Marker: marker,
-                MaxRecords: ELASTICACHE_PAGE_SIZE,
-              }),
-            ),
+        const response = await runAwsRequest('Amazon ElastiCache', 'DescribeReservedCacheNodes', region, () =>
+          client.send(
+            new DescribeReservedCacheNodesCommand({
+              Marker: marker,
+              MaxRecords: ELASTICACHE_PAGE_SIZE,
+            }),
+          ),
         );
 
         for (const reservedNode of response.ReservedCacheNodes ?? []) {

@@ -1,5 +1,5 @@
 import { withAwsDiscoveryExecution } from '../../../src/providers/aws/execution.js';
-import { withAwsServiceCallBudget, withAwsServiceErrorContext } from '../../../src/providers/aws/resources/utils.js';
+import { runAwsRequest, withAwsServiceCallBudget } from '../../../src/providers/aws/request.js';
 import type { RequestProcessConfig, RequestProcessEvent } from './request-runner.js';
 
 const config = JSON.parse(process.argv[2] as string) as RequestProcessConfig;
@@ -39,7 +39,7 @@ try {
           pending = Promise.allSettled(
             Array.from({ length: config.requests ?? 1 }, (_, request) => {
               let attempts = 0;
-              return withAwsServiceErrorContext(
+              return runAwsRequest(
                 config.service ?? 'Amazon CloudWatch Logs',
                 config.operation ?? 'DescribeLogStreams',
                 config.region ?? 'eu-west-1',

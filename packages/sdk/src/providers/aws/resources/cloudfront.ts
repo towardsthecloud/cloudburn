@@ -4,16 +4,13 @@ import type {
   AwsCloudFrontDistributionRequestActivity,
   AwsDiscoveredResource,
 } from '@cloudburn/rules';
+import { mapWithConcurrency } from '../../../utils/concurrency.js';
 import { createCloudFrontClient } from '../client.js';
 import type { AwsAccountIdResolver, AwsDiscoveryDatasetResolver } from '../discovery-registry.js';
 import { getAwsDiscoveryTimestamp } from '../execution.js';
+import { runAwsRequest } from '../request.js';
 import { cloudWatchWindow, fetchCloudWatchSignals, getCompleteCloudWatchPoints } from './cloudwatch.js';
-import {
-  extractTerminalArnResourceIdentifier,
-  mapWithConcurrency,
-  resolveAwsAccountIdForLoad,
-  withAwsServiceErrorContext,
-} from './utils.js';
+import { extractTerminalArnResourceIdentifier, resolveAwsAccountIdForLoad } from './utils.js';
 
 const CLOUDFRONT_DISTRIBUTION_CONCURRENCY = 10;
 const CLOUDFRONT_CONTROL_REGION = 'us-east-1';
@@ -35,16 +32,12 @@ const listDistributionSeeds = async (): Promise<DistributionSeed[]> => {
   let marker: string | undefined;
 
   do {
-    const response = await withAwsServiceErrorContext(
-      'Amazon CloudFront',
-      'ListDistributions',
-      CLOUDFRONT_CONTROL_REGION,
-      () =>
-        client.send(
-          new ListDistributionsCommand({
-            Marker: marker,
-          }),
-        ),
+    const response = await runAwsRequest('Amazon CloudFront', 'ListDistributions', CLOUDFRONT_CONTROL_REGION, () =>
+      client.send(
+        new ListDistributionsCommand({
+          Marker: marker,
+        }),
+      ),
     );
 
     for (const distribution of response.DistributionList?.Items ?? []) {
@@ -111,11 +104,8 @@ export const hydrateAwsCloudFrontDistributions = async (
       // Multi-tenant distributions do not support a configurable price class.
       if (distribution.priceClass || connectionMode === 'tenant-only') return distribution;
 
-      const response = await withAwsServiceErrorContext(
-        'Amazon CloudFront',
-        'GetDistribution',
-        CLOUDFRONT_CONTROL_REGION,
-        () => client.send(new GetDistributionCommand({ Id: distribution.distributionId })),
+      const response = await runAwsRequest('Amazon CloudFront', 'GetDistribution', CLOUDFRONT_CONTROL_REGION, () =>
+        client.send(new GetDistributionCommand({ Id: distribution.distributionId })),
       );
 
       return {

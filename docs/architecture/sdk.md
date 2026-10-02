@@ -249,7 +249,7 @@ aggregation interval make the series incomplete, and out-of-window or malformed 
 Recoverable `PartialData` and `InternalError` results receive up to 3 query attempts. Each attempt follows pagination,
 retries only the unresolved query IDs, and replaces the previous attempt's points while retaining diagnostics.
 `Forbidden`, missing series, and missing status do not trigger query retries. Physical request retries and concurrency
-budgets remain owned by `withAwsServiceErrorContext`; query backoff honors discovery cancellation.
+budgets remain owned by `runAwsRequest`; query backoff honors discovery cancellation.
 
 Loaders explicitly choose an observation window independently of `Period`. Daily checks use previous complete UTC
 days. Lambda uses a rolling 7-day window ending at the latest whole minute, with hourly sums and duration sample

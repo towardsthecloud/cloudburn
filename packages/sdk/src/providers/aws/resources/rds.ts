@@ -5,7 +5,8 @@ import {
 } from '@aws-sdk/client-rds';
 import type { AwsDiscoveredResource, AwsRdsInstance, AwsRdsReservedInstance, AwsRdsSnapshot } from '@cloudburn/rules';
 import { createRdsClient } from '../client.js';
-import { chunkItems, withAwsServiceErrorContext } from './utils.js';
+import { runAwsRequest } from '../request.js';
+import { chunkItems } from './utils.js';
 
 const RDS_DB_ARN_PREFIX = 'db:';
 const RDS_SNAPSHOT_ARN_PREFIX = 'snapshot:';
@@ -87,7 +88,7 @@ export const hydrateAwsRdsInstances = async (resources: AwsDiscoveredResource[])
           let marker: string | undefined;
 
           do {
-            const response = await withAwsServiceErrorContext('Amazon RDS', 'DescribeDBInstances', region, () =>
+            const response = await runAwsRequest('Amazon RDS', 'DescribeDBInstances', region, () =>
               client.send(
                 new DescribeDBInstancesCommand({
                   Filters: [
@@ -158,7 +159,7 @@ export const hydrateAwsRdsReservedInstances = async (
       let marker: string | undefined;
 
       do {
-        const response = await withAwsServiceErrorContext('Amazon RDS', 'DescribeReservedDBInstances', region, () =>
+        const response = await runAwsRequest('Amazon RDS', 'DescribeReservedDBInstances', region, () =>
           client.send(
             new DescribeReservedDBInstancesCommand({
               Marker: marker,
@@ -242,7 +243,7 @@ export const hydrateAwsRdsSnapshots = async (resources: AwsDiscoveredResource[])
           let marker: string | undefined;
 
           do {
-            const response = await withAwsServiceErrorContext('Amazon RDS', 'DescribeDBSnapshots', region, () =>
+            const response = await runAwsRequest('Amazon RDS', 'DescribeDBSnapshots', region, () =>
               client.send(
                 new DescribeDBSnapshotsCommand({
                   Filters: [

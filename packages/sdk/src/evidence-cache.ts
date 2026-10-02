@@ -193,7 +193,7 @@ export const createMemoryEvidenceCacheStore = (): EvidenceCacheStore => {
  * @param directory - Explicit directory shared by cooperating processes; never silently falls back.
  * @returns Durable storage. Files and database handles are opened only during transactions.
  */
-export const createLocalEvidenceCacheStore = (directory: string): EvidenceCacheStore => {
+const createLocalEvidenceCacheStore = (directory: string): EvidenceCacheStore => {
   const filename = join(resolve(directory), 'evidence.sqlite');
   const transaction = async <T>(apply: (database: DatabaseSync) => T, signal?: AbortSignal): Promise<T> => {
     const { DatabaseSync } = await import('node:sqlite');

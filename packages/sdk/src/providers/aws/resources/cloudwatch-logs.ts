@@ -5,8 +5,9 @@ import type {
   AwsCloudWatchLogStream,
   AwsDiscoveredResource,
 } from '@cloudburn/rules';
+import { mapWithConcurrency } from '../../../utils/concurrency.js';
 import { createCloudWatchLogsClient } from '../client.js';
-import { mapWithConcurrency, withAwsServiceErrorContext } from './utils.js';
+import { runAwsRequest } from '../request.js';
 
 const CLOUDWATCH_LOG_GROUP_ARN_PATTERN = /^arn:[^:]+:logs:[^:]+:[^:]+:log-group:(.+)$/u;
 const CLOUDWATCH_LOG_GROUP_HYDRATION_CONCURRENCY = 10;
@@ -62,7 +63,7 @@ export const hydrateAwsCloudWatchLogGroups = async (
       let nextToken: string | undefined;
 
       do {
-        const response = await withAwsServiceErrorContext('Amazon CloudWatch Logs', 'DescribeLogGroups', region, () =>
+        const response = await runAwsRequest('Amazon CloudWatch Logs', 'DescribeLogGroups', region, () =>
           client.send(new DescribeLogGroupsCommand({ nextToken })),
         );
 
@@ -143,17 +144,13 @@ export const hydrateAwsCloudWatchLogStreams = async (
         let nextToken: string | undefined;
 
         do {
-          const response = await withAwsServiceErrorContext(
-            'Amazon CloudWatch Logs',
-            'DescribeLogStreams',
-            region,
-            () =>
-              client.send(
-                new DescribeLogStreamsCommand({
-                  logGroupName,
-                  nextToken,
-                }),
-              ),
+          const response = await runAwsRequest('Amazon CloudWatch Logs', 'DescribeLogStreams', region, () =>
+            client.send(
+              new DescribeLogStreamsCommand({
+                logGroupName,
+                nextToken,
+              }),
+            ),
           );
 
           for (const logStream of response.logStreams ?? []) {
@@ -230,19 +227,15 @@ export const hydrateAwsCloudWatchLogGroupRecentStreamActivity = async (
         [...desiredLogGroups.entries()],
         CLOUDWATCH_LOG_GROUP_HYDRATION_CONCURRENCY,
         async ([logGroupName, discoveredResource]) => {
-          const response = await withAwsServiceErrorContext(
-            'Amazon CloudWatch Logs',
-            'DescribeLogStreams',
-            region,
-            () =>
-              client.send(
-                new DescribeLogStreamsCommand({
-                  descending: true,
-                  limit: 1,
-                  logGroupName,
-                  orderBy: 'LastEventTime',
-                }),
-              ),
+          const response = await runAwsRequest('Amazon CloudWatch Logs', 'DescribeLogStreams', region, () =>
+            client.send(
+              new DescribeLogStreamsCommand({
+                descending: true,
+                limit: 1,
+                logGroupName,
+                orderBy: 'LastEventTime',
+              }),
+            ),
           );
           const latestStream = response.logStreams?.[0];
           const latestEventTimestamp = latestStream?.lastEventTimestamp;

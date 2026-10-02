@@ -3,7 +3,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { parseCloudFormation, parseIaC, parseIaCWithDiagnostics, parseTerraform } from '../src/parsers/index.js';
+import { parseCloudFormation } from '../src/parsers/cloudformation.js';
+import { parseIaC, parseIaCWithDiagnostics } from '../src/parsers/index.js';
+import { parseTerraform } from '../src/parsers/terraform.js';
 
 describe('parsers', () => {
   it.each([parseTerraform, parseIaCWithDiagnostics])(

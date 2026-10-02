@@ -40,16 +40,13 @@ import type {
 } from '@cloudburn/rules';
 import { canonicalizeAwsResourceId, createAwsCostOptimizationHubFindingMatch, getAwsArnScope } from '@cloudburn/rules';
 import type { ScanDiagnostic } from '../../../types.js';
+import { mapWithConcurrency } from '../../../utils/concurrency.js';
 import { createCostOptimizationHubClient } from '../client.js';
 import type { AwsAccountIdResolver, AwsDiscoveryDatasetLoadResult } from '../discovery-registry.js';
 import { formatAwsAccessDeniedReason, getAwsErrorCode, isAwsAccessDeniedError } from '../errors.js';
+import { runAwsRequest } from '../request.js';
 import { rightsizingConfigurationNormalizers } from './cost-optimization-hub-rightsizing.js';
-import {
-  mapWithConcurrency,
-  parseFiniteNumber,
-  resolveAwsAccountIdForLoad,
-  withAwsServiceErrorContext,
-} from './utils.js';
+import { parseFiniteNumber, resolveAwsAccountIdForLoad } from './utils.js';
 
 const COST_OPTIMIZATION_HUB_REGION = 'us-east-1';
 const PAGE_SIZE = 1000;
@@ -993,7 +990,7 @@ const sessionsByLoadContext = new WeakMap<AwsAccountIdResolver, Promise<CostOpti
 
 const createCostOptimizationHubSession = async (accountId: string): Promise<CostOptimizationHubSession> => {
   const client = createCostOptimizationHubClient();
-  const enrollment = await withAwsServiceErrorContext(
+  const enrollment = await runAwsRequest(
     'AWS Cost Optimization Hub',
     'ListEnrollmentStatuses',
     COST_OPTIMIZATION_HUB_REGION,
@@ -1092,7 +1089,7 @@ const loadCostOptimizationHubRecommendations = async <T extends HubRecommendatio
     let nextToken: string | undefined;
 
     do {
-      const page = await withAwsServiceErrorContext(
+      const page = await runAwsRequest(
         'AWS Cost Optimization Hub',
         'ListRecommendations',
         COST_OPTIMIZATION_HUB_REGION,
@@ -1140,7 +1137,7 @@ const loadCostOptimizationHubRecommendations = async <T extends HubRecommendatio
           return null;
         }
 
-        const detail = await withAwsServiceErrorContext(
+        const detail = await runAwsRequest(
           'AWS Cost Optimization Hub',
           'GetRecommendation',
           COST_OPTIMIZATION_HUB_REGION,

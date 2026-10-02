@@ -75,7 +75,7 @@ export type AwsRequestAttemptTelemetry = {
 };
 
 /** Options shared by wrapped collectors within one scan. */
-export type AwsRequestBudgetOptions = {
+type AwsRequestBudgetOptions = {
   /** Account identity when no authoritative caller resolver is available. */
   accountId?: string;
   /** Resolves the signing caller; takes precedence over catalog-derived account hints. */
@@ -538,7 +538,7 @@ const acquire = async (
 };
 
 /** Optional compatibility settings for one collector request. */
-export type AwsServiceErrorContextOptions = {
+type AwsServiceErrorContextOptions = {
   callPolicy?: 'default' | 'route53';
   initialDelayMs?: number;
   maxAttempts?: number;

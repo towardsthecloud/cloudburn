@@ -1637,12 +1637,12 @@ describe('discoverAwsResources', () => {
 
   it('caps combined in-flight calls per service and region across concurrent datasets', async () => {
     mockedResolveCurrentAwsRegion.mockResolvedValue('us-east-1');
-    const { withAwsServiceErrorContext } = await import('../../src/providers/aws/resources/utils.js');
+    const { runAwsRequest } = await import('../../src/providers/aws/request.js');
 
     let currentInFlight = 0;
     let maxInFlight = 0;
     const trackedCall = (): Promise<string> =>
-      withAwsServiceErrorContext(
+      runAwsRequest(
         'Amazon EC2',
         'DescribeVolumes',
         'us-east-1',

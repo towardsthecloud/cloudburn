@@ -2,7 +2,7 @@ export const RESOURCE_EXPLORER_SETUP_DOCS_URL =
   'https://docs.aws.amazon.com/resource-explorer/latest/userguide/getting-started-setting-up.html';
 
 /** Stable AWS discovery error codes surfaced by the SDK and CLI. */
-export const AWS_DISCOVERY_ERROR_CODES = [
+const AWS_DISCOVERY_ERROR_CODES = [
   'INVALID_AWS_REGION',
   'INVALID_RESOURCE_EXPLORER_RESOURCE_TYPE',
   'RESOURCE_EXPLORER_AGGREGATOR_REQUIRED',
@@ -213,12 +213,7 @@ const extractNestedAwsMessage = (cause: unknown): string | undefined => {
  * @param region - Region where the operation ran.
  * @returns Human-readable message with stable context.
  */
-export const formatAwsServiceErrorMessage = (
-  err: unknown,
-  service: string,
-  operation: string,
-  region: string,
-): string => {
+const formatAwsServiceErrorMessage = (err: unknown, service: string, operation: string, region: string): string => {
   if (!(err instanceof Error)) {
     return `${service} ${operation} failed in ${region}.`;
   }

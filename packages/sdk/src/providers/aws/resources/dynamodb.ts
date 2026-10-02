@@ -7,17 +7,14 @@ import type {
   AwsDynamoDbTableUtilization,
 } from '@cloudburn/rules';
 import type { ScanDiagnostic } from '../../../types.js';
+import { mapWithConcurrency } from '../../../utils/concurrency.js';
 import { createApplicationAutoScalingClient, createDynamoDbClient } from '../client.js';
 import type { AwsDiscoveryDatasetLoadResult, AwsDiscoveryDatasetResolver } from '../discovery-registry.js';
 import { formatAwsAccessDeniedReason, getAwsErrorCode, isAwsAccessDeniedError } from '../errors.js';
 import { getAwsDiscoveryTimestamp } from '../execution.js';
+import { runAwsRequest } from '../request.js';
 import { cloudWatchWindow, fetchCloudWatchSignals, getCompleteCloudWatchPoints } from './cloudwatch.js';
-import {
-  chunkItems,
-  extractTerminalArnResourceIdentifier,
-  mapWithConcurrency,
-  withAwsServiceErrorContext,
-} from './utils.js';
+import { chunkItems, extractTerminalArnResourceIdentifier } from './utils.js';
 
 const DYNAMODB_TABLE_CONCURRENCY = 10;
 const APPLICATION_AUTO_SCALING_BATCH_SIZE = 50;
@@ -78,7 +75,7 @@ export const hydrateAwsDynamoDbTables = async (
 
       const hydratedTables = await mapWithConcurrency(regionTables, DYNAMODB_TABLE_CONCURRENCY, async (table) => {
         try {
-          const response = await withAwsServiceErrorContext('Amazon DynamoDB', 'DescribeTable', region, () =>
+          const response = await runAwsRequest('Amazon DynamoDB', 'DescribeTable', region, () =>
             client.send(
               new DescribeTableCommand({
                 TableName: table.tableName,
@@ -186,18 +183,14 @@ export const hydrateAwsDynamoDbAutoscaling = async (
         let nextToken: string | undefined;
 
         do {
-          const response = await withAwsServiceErrorContext(
-            'AWS Application Auto Scaling',
-            'DescribeScalableTargets',
-            region,
-            () =>
-              client.send(
-                new DescribeScalableTargetsCommand({
-                  NextToken: nextToken,
-                  ResourceIds: batch.map((table) => `table/${table.tableName}`),
-                  ServiceNamespace: 'dynamodb',
-                }),
-              ),
+          const response = await runAwsRequest('AWS Application Auto Scaling', 'DescribeScalableTargets', region, () =>
+            client.send(
+              new DescribeScalableTargetsCommand({
+                NextToken: nextToken,
+                ResourceIds: batch.map((table) => `table/${table.tableName}`),
+                ServiceNamespace: 'dynamodb',
+              }),
+            ),
           );
 
           for (const scalableTarget of response.ScalableTargets ?? []) {

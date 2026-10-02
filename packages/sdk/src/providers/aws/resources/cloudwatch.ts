@@ -1,9 +1,11 @@
 import { GetMetricDataCommand, type MessageData } from '@aws-sdk/client-cloudwatch';
+import { mapWithConcurrency } from '../../../utils/concurrency.js';
 import { createCloudWatchClient } from '../client.js';
 import { waitForAwsDelay } from '../execution.js';
 import { fetchCachedCloudWatchSignals } from '../metric-cache.js';
+import { runAwsRequest } from '../request.js';
 import { withAwsMetricQueryAttribution } from '../request-attribution.js';
-import { chunkItems, mapWithConcurrency, withAwsServiceErrorContext } from './utils.js';
+import { chunkItems } from './utils.js';
 
 const CLOUDWATCH_METRIC_QUERY_BATCH_SIZE = 500;
 const CLOUDWATCH_MAX_DATAPOINTS = 100_800;
@@ -146,7 +148,7 @@ const fetchCloudWatchSignalsLive = async (options: {
       const response = await withAwsMetricQueryAttribution(
         queries.map((query) => query.id),
         () =>
-          withAwsServiceErrorContext('Amazon CloudWatch', 'GetMetricData', options.region, () =>
+          runAwsRequest('Amazon CloudWatch', 'GetMetricData', options.region, () =>
             client.send(
               new GetMetricDataCommand({
                 EndTime: options.endTime,

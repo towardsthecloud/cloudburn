@@ -14,8 +14,9 @@ import { createRedshiftClient } from '../client.js';
 import type { AwsDiscoveryDatasetResolver } from '../discovery-registry.js';
 import { formatAwsAccessDeniedReason, getAwsErrorCode, isAwsAccessDeniedError } from '../errors.js';
 import { getAwsDiscoveryTimestamp } from '../execution.js';
+import { runAwsRequest } from '../request.js';
 import { cloudWatchWindow, fetchCloudWatchSignals, getCompleteCloudWatchPoints } from './cloudwatch.js';
-import { chunkItems, extractTerminalResourceIdentifier, withAwsServiceErrorContext } from './utils.js';
+import { chunkItems, extractTerminalResourceIdentifier } from './utils.js';
 
 const REDSHIFT_PAGE_SIZE = 100;
 const REDSHIFT_CPU_LOOKBACK_DAYS = 14;
@@ -55,7 +56,7 @@ export const hydrateAwsRedshiftClusters = async (
       let marker: string | undefined;
 
       do {
-        const response = await withAwsServiceErrorContext('Amazon Redshift', 'DescribeClusters', region, () =>
+        const response = await runAwsRequest('Amazon Redshift', 'DescribeClusters', region, () =>
           client.send(
             new DescribeClustersCommand({
               Marker: marker,
@@ -210,7 +211,7 @@ export const hydrateAwsRedshiftReservedNodes = async (
       let marker: string | undefined;
 
       do {
-        const response = await withAwsServiceErrorContext('Amazon Redshift', 'DescribeReservedNodes', region, () =>
+        const response = await runAwsRequest('Amazon Redshift', 'DescribeReservedNodes', region, () =>
           client.send(
             new DescribeReservedNodesCommand({
               Marker: marker,
@@ -307,7 +308,7 @@ const loadRedshiftScheduledClusterState = async (
     let marker: string | undefined;
 
     do {
-      const response = await withAwsServiceErrorContext('Amazon Redshift', 'DescribeScheduledActions', region, () =>
+      const response = await runAwsRequest('Amazon Redshift', 'DescribeScheduledActions', region, () =>
         client.send(
           new DescribeScheduledActionsCommand({
             Active: true,

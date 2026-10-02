@@ -1,10 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { runAwsRequest, withAwsServiceCallBudget as withBudget } from '../../src/providers/aws/request.js';
 import { createMemoryAwsRequestStore } from '../../src/providers/aws/request-store.js';
-import {
-  mapWithConcurrency,
-  withAwsServiceErrorContext,
-  withAwsServiceCallBudget as withBudget,
-} from '../../src/providers/aws/resources/utils.js';
+import { mapWithConcurrency } from '../../src/utils/concurrency.js';
 
 let store = createMemoryAwsRequestStore();
 beforeEach(() => {
@@ -60,7 +57,7 @@ describe('mapWithConcurrency', () => {
   });
 });
 
-describe('withAwsServiceErrorContext', () => {
+describe('runAwsRequest', () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.restoreAllMocks();
@@ -77,17 +74,11 @@ describe('withAwsServiceErrorContext', () => {
       .mockResolvedValue('ok');
     const onRetry = vi.fn();
 
-    const resultPromise = withAwsServiceErrorContext(
-      'Amazon CloudWatch Logs',
-      'DescribeMetricFilters',
-      'eu-central-1',
-      execute,
-      {
-        initialDelayMs: 200,
-        maxAttempts: 5,
-        onRetry,
-      },
-    );
+    const resultPromise = runAwsRequest('Amazon CloudWatch Logs', 'DescribeMetricFilters', 'eu-central-1', execute, {
+      initialDelayMs: 200,
+      maxAttempts: 5,
+      onRetry,
+    });
 
     await vi.advanceTimersByTimeAsync(300);
     await Promise.resolve();
@@ -139,7 +130,7 @@ describe('withAwsServiceCallBudget', () => {
     await withAwsServiceCallBudget(async () => {
       await Promise.all(
         Array.from({ length: 30 }, () =>
-          withAwsServiceErrorContext('Amazon EC2', 'DescribeVolumes', 'eu-central-1', trackedCall(tracker)),
+          runAwsRequest('Amazon EC2', 'DescribeVolumes', 'eu-central-1', trackedCall(tracker)),
         ),
       );
     });
@@ -168,20 +159,10 @@ describe('withAwsServiceCallBudget', () => {
       async () => {
         await Promise.all([
           ...Array.from({ length: 15 }, () =>
-            withAwsServiceErrorContext(
-              'Amazon EC2',
-              'DescribeVolumes',
-              'eu-central-1',
-              trackedCombinedCall(ec2Tracker),
-            ),
+            runAwsRequest('Amazon EC2', 'DescribeVolumes', 'eu-central-1', trackedCombinedCall(ec2Tracker)),
           ),
           ...Array.from({ length: 15 }, () =>
-            withAwsServiceErrorContext(
-              'Amazon RDS',
-              'DescribeDBInstances',
-              'eu-central-1',
-              trackedCombinedCall(rdsTracker),
-            ),
+            runAwsRequest('Amazon RDS', 'DescribeDBInstances', 'eu-central-1', trackedCombinedCall(rdsTracker)),
           ),
         ]);
       },
@@ -203,7 +184,7 @@ describe('withAwsServiceCallBudget', () => {
 
     await Promise.all(
       Array.from({ length: 30 }, () =>
-        withAwsServiceErrorContext('Amazon EC2', 'DescribeVolumes', 'eu-central-1', trackedCall(tracker)),
+        runAwsRequest('Amazon EC2', 'DescribeVolumes', 'eu-central-1', trackedCall(tracker)),
       ),
     );
 
@@ -217,10 +198,10 @@ describe('withAwsServiceCallBudget', () => {
     await withAwsServiceCallBudget(
       async () => {
         expect(resolveAccountId).not.toHaveBeenCalled();
-        await withAwsServiceErrorContext('Display label', 'RegionalOperation', 'eu-central-1', async () => 'ok');
+        await runAwsRequest('Display label', 'RegionalOperation', 'eu-central-1', async () => 'ok');
         expect(resolveAccountId).toHaveBeenCalledOnce();
 
-        await withAwsServiceErrorContext('Another display label', 'GlobalOperation', 'us-east-1', async () => 'ok', {
+        await runAwsRequest('Another display label', 'GlobalOperation', 'us-east-1', async () => 'ok', {
           callPolicy: 'route53',
         });
       },
@@ -241,7 +222,7 @@ describe('withAwsServiceCallBudget', () => {
 
     const budgetRun = withAwsServiceCallBudget(
       async () => {
-        const throttledCall = withAwsServiceErrorContext(
+        const throttledCall = runAwsRequest(
           'Amazon EC2',
           'DescribeVolumes',
           'eu-central-1',
@@ -258,7 +239,7 @@ describe('withAwsServiceCallBudget', () => {
           { initialDelayMs: 5_000, onRetry: () => retryScheduled.resolve() },
         );
         await retryScheduled.promise;
-        const followUpCall = withAwsServiceErrorContext('Amazon EC2', 'DescribeVolumes', 'eu-central-1', async () => {
+        const followUpCall = runAwsRequest('Amazon EC2', 'DescribeVolumes', 'eu-central-1', async () => {
           started.push('follow-up');
 
           return 'ok';
@@ -294,7 +275,7 @@ describe('withAwsServiceCallBudget', () => {
     };
     let shouldThrottle = true;
     const run = withAwsServiceCallBudget(async () => {
-      const retryingCall = withAwsServiceErrorContext(
+      const retryingCall = runAwsRequest(
         'Amazon Route 53',
         'ListHealthChecks',
         'us-east-1',
@@ -313,7 +294,7 @@ describe('withAwsServiceCallBudget', () => {
       );
       const concurrentCalls = Promise.all(
         Array.from({ length: 4 }, (_value, index) =>
-          withAwsServiceErrorContext(
+          runAwsRequest(
             'Amazon Route 53',
             `ConcurrentOperation${index}`,
             'us-east-1',
@@ -352,7 +333,7 @@ describe('withAwsServiceCallBudget', () => {
         async () => {
           await Promise.all(
             Array.from({ length: 3 }, (_value, index) =>
-              withAwsServiceErrorContext(
+              runAwsRequest(
                 'Amazon Route 53',
                 `${runName}-${index}`,
                 'us-east-1',
@@ -395,7 +376,7 @@ describe('withAwsServiceCallBudget', () => {
     let shouldFail = true;
     const run = withAwsServiceCallBudget(
       async () => {
-        const retryingCall = withAwsServiceErrorContext(
+        const retryingCall = runAwsRequest(
           'Amazon Route 53',
           'ListHostedZones',
           'us-east-1',
@@ -414,7 +395,7 @@ describe('withAwsServiceCallBudget', () => {
         );
         const concurrentCalls = Promise.all(
           Array.from({ length: 4 }, (_value, index) =>
-            withAwsServiceErrorContext(
+            runAwsRequest(
               'Amazon Route 53',
               `ConcurrentOperation${index}`,
               'us-east-1',
@@ -455,7 +436,7 @@ describe('withAwsServiceCallBudget', () => {
         async () => {
           await Promise.all(
             Array.from({ length: count }, (_value, index) =>
-              withAwsServiceErrorContext(
+              runAwsRequest(
                 'Amazon Route 53',
                 `Operation${index}`,
                 'us-east-1',

@@ -1,7 +1,8 @@
 import { DescribeNodegroupCommand, ListNodegroupsCommand } from '@aws-sdk/client-eks';
 import type { AwsDiscoveredResource, AwsEksNodegroup } from '@cloudburn/rules';
 import { createEksClient } from '../client.js';
-import { chunkItems, withAwsServiceErrorContext } from './utils.js';
+import { runAwsRequest } from '../request.js';
+import { chunkItems } from './utils.js';
 
 const EKS_NODEGROUP_CONCURRENCY = 5;
 
@@ -62,7 +63,7 @@ export const hydrateAwsEksNodegroups = async (resources: AwsDiscoveredResource[]
         const nodegroupNames: string[] = [];
 
         do {
-          const response = await withAwsServiceErrorContext('Amazon EKS', 'ListNodegroups', region, () =>
+          const response = await runAwsRequest('Amazon EKS', 'ListNodegroups', region, () =>
             client.send(
               new ListNodegroupsCommand({
                 clusterName: cluster.clusterName,
@@ -78,7 +79,7 @@ export const hydrateAwsEksNodegroups = async (resources: AwsDiscoveredResource[]
         for (const batch of chunkItems(nodegroupNames, EKS_NODEGROUP_CONCURRENCY)) {
           const describedBatch = await Promise.all(
             batch.map(async (nodegroupName) => {
-              const response = await withAwsServiceErrorContext('Amazon EKS', 'DescribeNodegroup', region, () =>
+              const response = await runAwsRequest('Amazon EKS', 'DescribeNodegroup', region, () =>
                 client.send(
                   new DescribeNodegroupCommand({
                     clusterName: cluster.clusterName,

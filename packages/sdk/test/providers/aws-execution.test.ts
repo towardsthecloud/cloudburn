@@ -2,7 +2,7 @@ import { createServer } from 'node:http';
 import { afterEach, expect, it, vi } from 'vitest';
 import { createEc2Client, withAwsClientCredentials } from '../../src/providers/aws/client.js';
 import { getAwsDiscoveryTimestamp, withAwsDiscoveryExecution } from '../../src/providers/aws/execution.js';
-import { withAwsServiceCallBudget, withAwsServiceErrorContext } from '../../src/providers/aws/resources/utils.js';
+import { runAwsRequest, withAwsServiceCallBudget } from '../../src/providers/aws/request.js';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -21,7 +21,7 @@ it('cancels queued service calls without dispatching them when active work finis
     withAwsServiceCallBudget(async () => {
       background = Promise.allSettled(
         Array.from({ length: 20 }, (_, index) =>
-          withAwsServiceErrorContext('EC2', 'DescribeInstances', 'eu-west-1', async () => {
+          runAwsRequest('EC2', 'DescribeInstances', 'eu-west-1', async () => {
             started.push(index);
             await gate;
           }),
@@ -45,7 +45,7 @@ it('cancels a retry backoff without issuing another attempt', async () => {
   const execute = vi.fn().mockRejectedValue(Object.assign(new Error('throttled'), { name: 'ThrottlingException' }));
   let background: Promise<unknown> | undefined;
   const run = withAwsDiscoveryExecution({ signal: controller.signal }, async () => {
-    background = withAwsServiceErrorContext('EC2', 'DescribeInstances', 'eu-west-1', execute);
+    background = runAwsRequest('EC2', 'DescribeInstances', 'eu-west-1', execute);
     await background;
   });
   const assertion = expect(run).rejects.toMatchObject({ name: 'AbortError' });

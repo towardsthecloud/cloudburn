@@ -1,6 +1,3 @@
-export { mapWithConcurrency } from '../../../utils/concurrency.js';
-export { runAwsRequest as withAwsServiceErrorContext, withAwsServiceCallBudget } from '../request.js';
-
 import { resolveAwsAccountId } from '../client.js';
 import type { AwsAccountIdResolver } from '../discovery-registry.js';
 

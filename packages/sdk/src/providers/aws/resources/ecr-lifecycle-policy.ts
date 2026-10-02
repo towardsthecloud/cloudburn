@@ -2,7 +2,7 @@ import { isRecord } from '@cloudburn/rules';
 import { getLiteralNumberish, getLiteralString } from '../literal-values.js';
 
 /** Normalized ECR lifecycle-policy traits used by static and live repository datasets. */
-export type EcrLifecyclePolicyTraits = {
+type EcrLifecyclePolicyTraits = {
   hasTaggedImageRetentionCap: boolean | null;
   hasUntaggedImageExpiry: boolean | null;
 };
