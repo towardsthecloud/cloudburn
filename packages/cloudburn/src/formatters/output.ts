@@ -97,11 +97,9 @@ const ruleListColumns: ColumnSpec[] = [
   { key: 'description', header: 'Description' },
 ];
 
-const formatOptionDescription =
-  'Options: table: human-readable terminal output.\njson: machine-readable output for automation and downstream systems.';
-
 /** Shared `--format` help text used across root and compatibility aliases. */
-export const OUTPUT_FORMAT_OPTION_DESCRIPTION = formatOptionDescription;
+export const OUTPUT_FORMAT_OPTION_DESCRIPTION =
+  'Options: table: human-readable terminal output.\njson: machine-readable output for automation and downstream systems.';
 
 /** Parses a user-provided CLI output format. */
 export const parseOutputFormat = (value: string): OutputFormat => {

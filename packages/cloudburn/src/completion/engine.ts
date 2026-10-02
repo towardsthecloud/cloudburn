@@ -11,11 +11,17 @@ type CompletionNode = {
   options: CompletionOption[];
 };
 
-const buildCompletionTree = (command: Command): CompletionNode => {
+/**
+ * Builds a completion tree from the visible Commander command surface.
+ *
+ * @param command - Root command to inspect.
+ * @returns A normalized tree used by the completion resolver.
+ */
+export const createCompletionTree = (command: Command): CompletionNode => {
   const help = command.createHelp();
 
   return {
-    commands: help.visibleCommands(command).map((childCommand) => buildCompletionTree(childCommand)),
+    commands: help.visibleCommands(command).map((childCommand) => createCompletionTree(childCommand)),
     name: command.name(),
     options: collectVisibleOptions([...help.visibleOptions(command), ...help.visibleGlobalOptions(command)]),
   };
@@ -60,14 +66,6 @@ const parseOptionToken = (token: string): { hasInlineValue: boolean; name: strin
     name: token.slice(0, separatorIndex),
   };
 };
-
-/**
- * Builds a completion tree from the visible Commander command surface.
- *
- * @param command - Root command to inspect.
- * @returns A normalized tree used by the completion resolver.
- */
-export const createCompletionTree = (command: Command): CompletionNode => buildCompletionTree(command);
 
 /**
  * Resolves command and option suggestions for the current argv-like token list.
