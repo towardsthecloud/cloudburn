@@ -1,12 +1,11 @@
-import { CloudBurnClient, type Severity } from '@cloudburn/sdk';
+import { CloudBurnClient, resolveScanPolicy, type Severity } from '@cloudburn/sdk';
 import type { Command } from 'commander';
 import { resolveCliDebugLogger } from '../debug.js';
 import { EXIT_CODE_OK, EXIT_CODE_POLICY_VIOLATION, EXIT_CODE_RUNTIME_ERROR } from '../exit-codes.js';
 import { formatError } from '../formatters/error.js';
 import { renderResponse, resolveOutputFormat } from '../formatters/output.js';
 import { setCommandExamples } from '../help.js';
-import { hasPolicyViolation } from '../policy.js';
-import { parseRuleIdList, parseServiceList, parseSeverity, validateServiceList } from './config-options.js';
+import { parseRuleIdList, parseServiceList, parseSeverity, toModeConfigOverride } from './config-options.js';
 
 type ScanOptions = {
   config?: string;
@@ -15,22 +14,6 @@ type ScanOptions = {
   exitCode?: boolean;
   failOn?: Severity;
   service?: string[];
-};
-
-const parseIaCServiceList = (value: string): string[] => validateServiceList('iac', parseServiceList(value)) ?? [];
-
-const toScanConfigOverride = (options: ScanOptions) => {
-  if (options.enabledRules === undefined && options.disabledRules === undefined && options.service === undefined) {
-    return undefined;
-  }
-
-  return {
-    iac: {
-      disabledRules: options.disabledRules,
-      enabledRules: options.enabledRules,
-      services: options.service,
-    },
-  };
 };
 
 // Intent: attach the primary scanning command surface to the CLI.
@@ -52,34 +35,28 @@ export const registerScanCommand = (program: Command): void => {
         'Comma-separated rule IDs to disable from the default AWS Core preset.',
         parseRuleIdList,
       )
-      .option('--service <services>', 'Comma-separated services to include in the scan rule set.', parseIaCServiceList)
+      .option(
+        '--service <services>',
+        'Comma-separated services to include in the scan rule set.',
+        parseServiceList('iac'),
+      )
       .option('--exit-code', 'Exit with code 1 when findings exist')
       .option('--fail-on <severity>', 'Exit with code 1 for findings at or above this severity.', parseSeverity)
       .action(async (path: string | undefined, options: ScanOptions, command: Command) => {
         try {
           const debugLogger = resolveCliDebugLogger(command);
           const scanner = new CloudBurnClient({ debugLogger });
-          const configOverride = toScanConfigOverride(options);
           const loadedConfig = await scanner.loadConfig(options.config);
-          const scanPath = path ?? process.cwd();
-          const result =
-            configOverride === undefined && options.config === undefined
-              ? await scanner.scanStatic(scanPath)
-              : options.config === undefined
-                ? await scanner.scanStatic(scanPath, configOverride)
-                : await scanner.scanStatic(scanPath, configOverride, { configPath: options.config });
+          const result = await scanner.scanStatic(path ?? process.cwd(), toModeConfigOverride('iac', options), {
+            configPath: options.config,
+          });
 
           const format = resolveOutputFormat(command, undefined, loadedConfig.iac.format ?? 'table');
           const output = renderResponse({ kind: 'scan-result', result }, format);
 
           process.stdout.write(`${output}\n`);
 
-          if (
-            hasPolicyViolation(result, {
-              exitCode: options.exitCode,
-              failOn: options.failOn,
-            })
-          ) {
+          if (resolveScanPolicy(result, options).violated) {
             process.exitCode = EXIT_CODE_POLICY_VIOLATION;
             return;
           }

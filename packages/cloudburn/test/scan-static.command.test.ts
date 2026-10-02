@@ -43,7 +43,7 @@ describe('scan command', () => {
 
     await createProgram().parseAsync(['--format', 'json', 'scan', fixturePath], { from: 'user' });
 
-    expect(scanStatic).toHaveBeenCalledWith(fixturePath);
+    expect(scanStatic).toHaveBeenCalledWith(fixturePath, undefined, { configPath: undefined });
     expect(stdout).toHaveBeenCalledWith(expect.stringContaining('"ruleId": "CLDBRN-AWS-EBS-1"'));
     expect(process.exitCode).toBe(0);
   });
@@ -65,7 +65,7 @@ describe('scan command', () => {
 
     await createProgram().parseAsync(['scan', fixturePath, '--format', format], { from: 'user' });
 
-    expect(scanStatic).toHaveBeenCalledWith(fixturePath);
+    expect(scanStatic).toHaveBeenCalledWith(fixturePath, undefined, { configPath: undefined });
     expect(stdout).toHaveBeenCalledWith(expectedOutput);
     expect(process.exitCode).toBe(0);
   });
@@ -188,11 +188,15 @@ describe('scan command', () => {
 
     await createProgram().parseAsync(['scan', fixturePath, '--service', 'ec2,s3'], { from: 'user' });
 
-    expect(scanStatic).toHaveBeenCalledWith(fixturePath, {
-      iac: {
-        services: ['ec2', 's3'],
+    expect(scanStatic).toHaveBeenCalledWith(
+      fixturePath,
+      {
+        iac: {
+          services: ['ec2', 's3'],
+        },
       },
-    });
+      { configPath: undefined },
+    );
     expect(process.exitCode).toBe(0);
   });
 

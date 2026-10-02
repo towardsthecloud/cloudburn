@@ -7,6 +7,8 @@ import {
   type AwsRegion,
   assertSupportedAwsRegion,
   CloudBurnClient,
+  type CloudBurnConfig,
+  resolveScanPolicy,
   type Severity,
 } from '@cloudburn/sdk';
 import { type Command, InvalidArgumentError } from 'commander';
@@ -15,9 +17,8 @@ import { EXIT_CODE_OK, EXIT_CODE_POLICY_VIOLATION, EXIT_CODE_RUNTIME_ERROR } fro
 import { formatError } from '../formatters/error.js';
 import { type CliResponse, type OutputFormat, renderResponse, resolveOutputFormat } from '../formatters/output.js';
 import { setCommandExamples } from '../help.js';
-import { hasPolicyViolation } from '../policy.js';
 import { resolveCliDiscoveryProgressLogger } from '../progress.js';
-import { parseRuleIdList, parseServiceList, parseSeverity, validateServiceList } from './config-options.js';
+import { parseRuleIdList, parseServiceList, parseSeverity, toModeConfigOverride } from './config-options.js';
 
 type DiscoverOptions = {
   cache?: 'normal' | 'refresh' | 'off';
@@ -47,9 +48,6 @@ const parseCacheMode = (value: string): 'normal' | 'refresh' | 'off' => {
   }
   throw new InvalidArgumentError('Cache mode must be normal, refresh, or off.');
 };
-
-const parseDiscoveryServiceList = (value: string): string[] =>
-  validateServiceList('discovery', parseServiceList(value)) ?? [];
 
 type DiscoverListOptions = Record<string, never>;
 
@@ -188,20 +186,6 @@ const resolveNestedRegionOption = (command: Command, subcommandName: string): st
   return rawArgs[optionIndex + 1];
 };
 
-const toDiscoveryConfigOverride = (options: DiscoverOptions) => {
-  if (options.enabledRules === undefined && options.disabledRules === undefined && options.service === undefined) {
-    return undefined;
-  }
-
-  return {
-    discovery: {
-      disabledRules: options.disabledRules,
-      enabledRules: options.enabledRules,
-      services: options.service,
-    },
-  };
-};
-
 const runCommand = async (action: () => Promise<number | undefined>): Promise<void> => {
   try {
     process.exitCode = (await action()) ?? EXIT_CODE_OK;
@@ -248,7 +232,7 @@ export const registerDiscoverCommand = (program: Command): void => {
       .option(
         '--service <services>',
         'Comma-separated services to include in the discovery rule set.',
-        parseDiscoveryServiceList,
+        parseServiceList('discovery'),
       )
       .option('--exit-code', 'Exit with code 1 when findings exist')
       .option('--fail-on <severity>', 'Exit with code 1 for findings at or above this severity.', parseSeverity)
@@ -257,12 +241,12 @@ export const registerDiscoverCommand = (program: Command): void => {
           const debugLogger = resolveCliDebugLogger(command);
           const onProgress = resolveCliDiscoveryProgressLogger(command);
           const scanner = new CloudBurnClient({ debugLogger });
-          const configOverride = toDiscoveryConfigOverride(options);
+          const configOverride = toModeConfigOverride('discovery', options);
           const loadedConfig = await scanner.loadConfig(options.config);
           const discoveryOptions: {
             cache: AwsEvidenceCacheOptions;
             target: AwsDiscoveryTarget;
-            config?: ReturnType<typeof toDiscoveryConfigOverride>;
+            config?: Partial<CloudBurnConfig>;
             configPath?: string;
             onProgress?: (event: AwsDiscoveryProgressEvent) => void;
             timeoutMs?: number;
@@ -299,12 +283,7 @@ export const registerDiscoverCommand = (program: Command): void => {
 
           process.stdout.write(`${output}\n`);
 
-          if (
-            hasPolicyViolation(result, {
-              exitCode: options.exitCode,
-              failOn: options.failOn,
-            })
-          ) {
+          if (resolveScanPolicy(result, options).violated) {
             return EXIT_CODE_POLICY_VIOLATION;
           }
 

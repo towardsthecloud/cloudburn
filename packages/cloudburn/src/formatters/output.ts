@@ -1,6 +1,5 @@
-import type { BuiltInRuleMetadata, ScanResult } from '@cloudburn/sdk';
+import { type BuiltInRuleMetadata, flattenFindings, type ScanResult } from '@cloudburn/sdk';
 import { type Command, InvalidArgumentError } from 'commander';
-import { flattenScanResult, getScanDiagnostics } from './shared.js';
 
 /** Supported stdout formats for CloudBurn CLI responses. */
 export type OutputFormat = 'json' | 'table';
@@ -243,7 +242,7 @@ const renderTable = (response: CliResponse): string => {
 };
 
 const projectFindingRows = (result: ScanResult): RecordRow[] =>
-  flattenScanResult(result).map(({ finding, message, provider, ruleId, service, severity, source }) => ({
+  flattenFindings(result).map(({ finding, message, provider, ruleId, service, severity, source }) => ({
     accountId: finding.accountId ?? '',
     actionType: finding.actionType ?? '',
     message,
@@ -261,7 +260,7 @@ const projectFindingRows = (result: ScanResult): RecordRow[] =>
   }));
 
 const projectDiagnosticRows = (result: ScanResult): RecordRow[] =>
-  getScanDiagnostics(result).map((diagnostic) => ({
+  (result.diagnostics ?? []).map((diagnostic) => ({
     message: diagnostic.message,
     provider: diagnostic.provider,
     region: diagnostic.region ?? '',

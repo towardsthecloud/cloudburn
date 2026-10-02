@@ -1,4 +1,4 @@
-import { builtInRuleMetadata, SEVERITIES, type Severity, type Source } from '@cloudburn/sdk';
+import { type CloudBurnConfig, SEVERITIES, type Severity, type Source, validateServices } from '@cloudburn/sdk';
 import { InvalidArgumentError } from 'commander';
 
 const parseCommaSeparatedList = (value: string, itemLabel: string): string[] => {
@@ -41,13 +41,22 @@ export const parseRuleIdList = (value: string): string[] => {
 };
 
 /**
- * Parses a comma-separated list of service names from a CLI flag.
+ * Creates a CLI flag parser for a comma-separated service list.
  *
- * @param value - Raw CLI flag value.
- * @returns Lower-cased service names in declaration order.
+ * @param mode - Scan mode whose built-in rules must cover each service; omit to accept any rule service.
+ * @returns A parser that returns lower-cased, validated service names in declaration order.
  */
-export const parseServiceList = (value: string): string[] =>
-  parseCommaSeparatedList(value, 'service').map((service) => service.toLowerCase());
+export const parseServiceList =
+  (mode?: Source) =>
+  (value: string): string[] => {
+    const services = parseCommaSeparatedList(value, 'service');
+
+    try {
+      return validateServices(services, mode);
+    } catch (err) {
+      throw new InvalidArgumentError((err as Error).message);
+    }
+  };
 
 /**
  * Parses a comma-separated list of source names from a CLI flag.
@@ -59,27 +68,25 @@ export const parseSourceList = (value: string): Source[] =>
   parseCommaSeparatedList(value, 'source').map((source) => source.toLowerCase() as Source);
 
 /**
- * Validates a mode-local service selection against built-in rule metadata.
+ * Builds the runtime config override for the rule selection flags of one scan mode.
  *
- * @param mode - Scan mode being configured.
- * @param services - Parsed service names, if any.
- * @returns The validated service names, unchanged.
+ * @param mode - Scan mode whose rule set the flags narrow.
+ * @param options - Parsed `--enabled-rules`, `--disabled-rules`, and `--service` values.
+ * @returns The mode-scoped override, or `undefined` when no selection flag is set.
  */
-export const validateServiceList = (mode: 'discovery' | 'iac', services?: string[]): string[] | undefined => {
-  if (services === undefined) {
+export const toModeConfigOverride = (
+  mode: Source,
+  options: { disabledRules?: string[]; enabledRules?: string[]; service?: string[] },
+): Partial<CloudBurnConfig> | undefined => {
+  if (options.enabledRules === undefined && options.disabledRules === undefined && options.service === undefined) {
     return undefined;
   }
 
-  const validServices = new Set(
-    builtInRuleMetadata.filter((rule) => rule.supports.includes(mode)).map((rule) => rule.service),
-  );
-  const invalidService = services.find((service) => !validServices.has(service));
+  const modeConfig = {
+    disabledRules: options.disabledRules,
+    enabledRules: options.enabledRules,
+    services: options.service,
+  };
 
-  if (invalidService) {
-    throw new InvalidArgumentError(
-      `Unknown service "${invalidService}" for ${mode}. Allowed services: ${Array.from(validServices).sort().join(', ')}.`,
-    );
-  }
-
-  return services;
+  return mode === 'iac' ? { iac: modeConfig } : { discovery: modeConfig };
 };

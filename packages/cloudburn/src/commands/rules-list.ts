@@ -1,4 +1,4 @@
-import { builtInRuleMetadata, type Severity, type Source } from '@cloudburn/sdk';
+import { filterBuiltInRules, type Severity, type Source } from '@cloudburn/sdk';
 import { type Command, InvalidArgumentError } from 'commander';
 import { renderResponse, resolveOutputFormat } from '../formatters/output.js';
 import { registerParentCommand } from '../help.js';
@@ -10,46 +10,17 @@ type RulesListOptions = {
   source?: Source[];
 };
 
-const VALID_SOURCES = ['discovery', 'iac'] as const;
+const VALID_SOURCES: Source[] = ['discovery', 'iac'];
 
-const validateSelectedValues = <TValue extends string>(
-  values: TValue[],
-  validValues: Set<string>,
-  label: string,
-): TValue[] => {
-  const invalidValue = values.find((value) => !validValues.has(value));
+const parseRulesListSourceList = (value: string): Source[] => {
+  const sources = parseSourceList(value);
+  const invalidSource = sources.find((source) => !VALID_SOURCES.includes(source));
 
-  if (invalidValue !== undefined) {
-    throw new InvalidArgumentError(
-      `Unknown ${label} "${invalidValue}". Allowed ${label}s: ${Array.from(validValues).sort().join(', ')}.`,
-    );
+  if (invalidSource !== undefined) {
+    throw new InvalidArgumentError(`Unknown source "${invalidSource}". Allowed sources: ${VALID_SOURCES.join(', ')}.`);
   }
 
-  return values;
-};
-
-const parseRulesListServiceList = (value: string): string[] =>
-  validateSelectedValues(parseServiceList(value), new Set(builtInRuleMetadata.map((rule) => rule.service)), 'service');
-
-const parseRulesListSourceList = (value: string): Source[] =>
-  validateSelectedValues(parseSourceList(value), new Set(VALID_SOURCES), 'source');
-
-const filterRules = (options: RulesListOptions) => {
-  return builtInRuleMetadata.filter((rule) => {
-    if (options.service !== undefined && !options.service.includes(rule.service)) {
-      return false;
-    }
-
-    if (options.source !== undefined && !options.source.some((source) => rule.supports.includes(source))) {
-      return false;
-    }
-
-    if (options.severity !== undefined && rule.severity !== options.severity) {
-      return false;
-    }
-
-    return true;
-  });
+  return sources;
 };
 
 // Intent: expose built-in rules so users can inspect shipped policy metadata.
@@ -60,7 +31,7 @@ export const registerRulesListCommand = (program: Command): void => {
   rulesCommand
     .command('list')
     .description('List built-in CloudBurn rules')
-    .option('--service <services>', 'Comma-separated services to include.', parseRulesListServiceList)
+    .option('--service <services>', 'Comma-separated services to include.', parseServiceList())
     .option('--severity <severity>', 'Severity to include (`high`, `medium`, `low`).', parseSeverity)
     .option('--source <sources>', 'Comma-separated sources to include (`iac`, `discovery`).', parseRulesListSourceList)
     .action(function (this: Command, options: RulesListOptions) {
@@ -68,7 +39,7 @@ export const registerRulesListCommand = (program: Command): void => {
         {
           kind: 'rule-list',
           emptyMessage: 'No built-in rules are available.',
-          rules: filterRules(options),
+          rules: filterBuiltInRules({ services: options.service, severity: options.severity, sources: options.source }),
         },
         resolveOutputFormat(this, undefined, 'table'),
       );

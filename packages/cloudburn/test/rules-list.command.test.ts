@@ -39,20 +39,7 @@ describe('rules list e2e', { timeout: 30_000 }, () => {
     vi.doMock('@cloudburn/sdk', async (importOriginal) => {
       const actual = await importOriginal<typeof import('@cloudburn/sdk')>();
 
-      return {
-        ...actual,
-        builtInRuleMetadata: [
-          {
-            description: 'Only EC2 IaC rule in this test.',
-            id: 'CLDBRN-AWS-EC2-1',
-            name: 'EC2 Test Rule',
-            provider: 'aws',
-            service: 'ec2',
-            severity: 'medium',
-            supports: ['iac'],
-          },
-        ],
-      };
+      return { ...actual, filterBuiltInRules: () => [] };
     });
 
     const { createProgram } = await import('../src/cli.js');

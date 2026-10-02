@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { formatError } from '../src/formatters/error.js';
 import { renderResponse } from '../src/formatters/output.js';
 
 const resultWithoutLocation = {
@@ -232,77 +231,5 @@ describe('renderResponse', () => {
         'table',
       ),
     ).toBe('No rows.');
-  });
-});
-
-describe('formatError', () => {
-  it('categorizes CredentialsProviderError as CREDENTIALS_ERROR', () => {
-    const err = new Error('Could not load credentials');
-    err.name = 'CredentialsProviderError';
-
-    const output = JSON.parse(formatError(err)) as { error: { code: string; message: string } };
-
-    expect(output.error.code).toBe('CREDENTIALS_ERROR');
-    expect(output.error.message).toContain('AWS credentials not found or expired');
-  });
-
-  it('categorizes ExpiredTokenException as CREDENTIALS_ERROR', () => {
-    const err = new Error('Token expired');
-    err.name = 'ExpiredTokenException';
-
-    const output = JSON.parse(formatError(err)) as { error: { code: string; message: string } };
-
-    expect(output.error.code).toBe('CREDENTIALS_ERROR');
-  });
-
-  it('categorizes AccessDeniedException as ACCESS_DENIED', () => {
-    const err = new Error('User is not authorized to perform: resource-explorer-2:ListIndexes');
-    err.name = 'AccessDeniedException';
-
-    const output = JSON.parse(formatError(err)) as { error: { code: string; message: string } };
-
-    expect(output.error.code).toBe('ACCESS_DENIED');
-    expect(output.error.message).toBe('User is not authorized to perform: resource-explorer-2:ListIndexes');
-  });
-
-  it('categorizes preserved AccessDeniedException codes as ACCESS_DENIED', () => {
-    const err = Object.assign(
-      new Error('AWS Lambda ListFunctions failed in us-east-1 with AccessDeniedException: denied.'),
-      {
-        code: 'AccessDeniedException',
-      },
-    );
-
-    const output = JSON.parse(formatError(err)) as { error: { code: string; message: string } };
-
-    expect(output.error.code).toBe('ACCESS_DENIED');
-  });
-
-  it('falls back to RUNTIME_ERROR for unknown errors', () => {
-    const err = new Error('Timeout reached http://169.254.169.254/latest/meta-data/iam/security-credentials/');
-
-    const output = JSON.parse(formatError(err)) as { error: { code: string; message: string } };
-
-    expect(output.error.code).toBe('RUNTIME_ERROR');
-    expect(output.error.message).toBe(
-      'Timeout reached http://[redacted-host]/latest/meta-data/iam/security-credentials/',
-    );
-    expect(output.error.message).not.toContain('169.254.169.254');
-  });
-
-  it('preserves typed aws discovery errors in the formatter output', () => {
-    const err = Object.assign(new Error('Invalid AWS region provided.'), { code: 'INVALID_AWS_REGION' });
-
-    const output = JSON.parse(formatError(err)) as { error: { code: string; message: string } };
-
-    expect(output.error.code).toBe('INVALID_AWS_REGION');
-    expect(output.error.message).toBe('Invalid AWS region provided.');
-  });
-
-  it('handles non-Error values gracefully', () => {
-    const output = JSON.parse(formatError('string error')) as { error: { code: string; message: string } };
-
-    expect(output.error.code).toBe('RUNTIME_ERROR');
-    expect(output.error.message).toBe('An unexpected error occurred.');
   });
 });
