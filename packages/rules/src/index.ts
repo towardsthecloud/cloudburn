@@ -6,31 +6,8 @@ export {
   createAwsConfigRecordingFrequencyImpact,
 } from './aws/config/recording-frequency.js';
 export { createAwsCostOptimizationHubFindingMatch } from './aws/costoptimizationhub/finding.js';
-export { gravitonResourceTypes } from './aws/costoptimizationhub/graviton-recommended.js';
-export {
-  getAwsCostOptimizationHubIdleResourceId,
-  getAwsCostOptimizationHubIdleResourceType,
-} from './aws/costoptimizationhub/idle-capacity.js';
-export {
-  getAwsCostOptimizationHubReservationResourceId,
-  getAwsCostOptimizationHubReservationResourceType,
-} from './aws/costoptimizationhub/reservation-identity.js';
-export { getAwsCostOptimizationHubRightsizingResourceType } from './aws/costoptimizationhub/rightsizing-identity.js';
-export {
-  getAwsCostOptimizationHubUpgradeResourceId,
-  getAwsCostOptimizationHubUpgradeResourceType,
-} from './aws/costoptimizationhub/upgrade-identity.js';
 export { awsRules } from './aws/index.js';
-export {
-  AWS_KMS_KEY_PROLIFERATION_THRESHOLD,
-  AWS_KMS_MONTHLY_KEY_CREATION_THRESHOLD,
-} from './aws/kms/key-churn.js';
-export { AWS_KMS_UNUSED_KEY_MINIMUM_AGE_DAYS } from './aws/kms/key-unused.js';
 export { canonicalizeAwsResourceId, getAwsArnScope } from './aws/resource-identity.js';
-export {
-  AWS_SAGEMAKER_SAVINGS_PLANS_MINIMUM_COVERAGE_PERCENTAGE,
-  AWS_SAGEMAKER_SAVINGS_PLANS_MINIMUM_UNCOVERED_COST,
-} from './aws/sagemaker/savings-plans-coverage.js';
 export { azureRules } from './azure/index.js';
 export { gcpRules } from './gcp/index.js';
 export { awsCorePreset } from './presets/aws-core.js';
@@ -45,9 +22,7 @@ export {
   createFindingMatch,
   createLiveEvaluationCoverage,
   createRule,
-  createStaticFindingMatch,
   isRecord,
-  toRuleIds,
 } from './shared/helpers.js';
 export { createFinancialEvidence } from './shared/impact.js';
 export type {

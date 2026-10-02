@@ -2,8 +2,6 @@ import { createFinding, createRule } from '../../shared/helpers.js';
 import { deduplicateRecommendationMatches } from '../../shared/recommendation.js';
 import { createAwsCostOptimizationHubFindingMatch } from './finding.js';
 
-export { gravitonResourceTypes } from './graviton-identity.js';
-
 const metadata = {
   id: 'CLDBRN-AWS-COSTOPTIMIZATIONHUB-6',
   service: 'costoptimizationhub',

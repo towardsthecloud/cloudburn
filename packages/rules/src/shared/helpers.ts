@@ -57,34 +57,6 @@ export const createLiveEvaluationCoverage = <Resource>(
 export const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
 
-type StaticFindingResource = {
-  attributeLocations?: Record<string, SourceLocation>;
-  location?: SourceLocation;
-};
-
-/**
- * Creates a static finding match and prefers attribute-level source locations
- * over the resource-level fallback.
- *
- * @param resource - IaC resource carrying location metadata.
- * @param resourceId - Stable resource identifier for the finding.
- * @param attributePaths - Attribute location keys to try in priority order.
- * @returns A normalized finding match for static scans.
- */
-export const createStaticFindingMatch = (
-  resource: StaticFindingResource,
-  resourceId: string,
-  attributePaths: string[],
-): FindingMatch =>
-  createFindingMatch(
-    resourceId,
-    undefined,
-    undefined,
-    attributePaths
-      .map((attributePath) => resource.attributeLocations?.[attributePath])
-      .find((location): location is SourceLocation => Boolean(location)) ?? resource.location,
-  );
-
 /**
  * Creates a lean grouped finding for a rule when nested matches exist.
  * @param rule Rule metadata that owns the stable grouped fields.
@@ -107,9 +79,6 @@ export const createFinding = (
         findings,
       }
     : null;
-
-/** Returns the stable rule identifiers from a rule collection. */
-export const toRuleIds = (rules: Rule[]): string[] => rules.map((rule) => rule.id);
 
 /**
  * Keys AWS evidence by account, region, and the service's resource identifier.

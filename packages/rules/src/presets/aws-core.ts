@@ -1,6 +1,5 @@
 import { awsRules } from '../aws/index.js';
 import { type AwsCapability, getAwsRuleCapabilities } from '../shared/capabilities.js';
-import { toRuleIds } from '../shared/helpers.js';
 
 const awsCoreOptInCapabilities = new Set<AwsCapability>([
   'cost-optimization-hub-enrollment',
@@ -14,9 +13,7 @@ export const awsCorePreset = {
   id: 'aws-core',
   name: 'AWS Core',
   description: 'Default AWS rule preset for CloudBurn, excluding rules that require explicit AWS setup.',
-  ruleIds: toRuleIds(
-    awsRules.filter(
-      (rule) => !getAwsRuleCapabilities(rule).some((capability) => awsCoreOptInCapabilities.has(capability)),
-    ),
-  ),
+  ruleIds: awsRules
+    .filter((rule) => !getAwsRuleCapabilities(rule).some((capability) => awsCoreOptInCapabilities.has(capability)))
+    .map((rule) => rule.id),
 };

@@ -2,11 +2,6 @@ import { createFinding, createRule } from '../../shared/helpers.js';
 import { deduplicateRecommendationMatches } from '../../shared/recommendation.js';
 import { createAwsCostOptimizationHubFindingMatch } from './finding.js';
 
-export {
-  getAwsCostOptimizationHubIdleResourceId,
-  getAwsCostOptimizationHubIdleResourceType,
-} from './idle-identity.js';
-
 const RULE_ID = 'CLDBRN-AWS-COSTOPTIMIZATIONHUB-3';
 const RULE_SERVICE = 'costoptimizationhub';
 const RULE_SEVERITY = 'medium' as const;

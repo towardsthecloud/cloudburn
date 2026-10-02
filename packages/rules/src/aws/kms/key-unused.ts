@@ -8,7 +8,7 @@ const RULE_MESSAGE =
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 
 /** Minimum complete no-usage history before a KMS key becomes a review candidate. */
-export const AWS_KMS_UNUSED_KEY_MINIMUM_AGE_DAYS = 90;
+const AWS_KMS_UNUSED_KEY_MINIMUM_AGE_DAYS = 90;
 
 /** Flag mature customer-managed KMS keys with no recorded KMS use during a complete 90-day tracking window. */
 export const kmsKeyUnusedRule = createRule({

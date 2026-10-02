@@ -7,10 +7,10 @@ const RULE_MESSAGE =
   'Regions with many enabled customer-managed KMS keys or rapid key creation should review key lifecycle and consolidation opportunities.';
 
 /** Enabled customer-managed key count at which a regional proliferation review begins. */
-export const AWS_KMS_KEY_PROLIFERATION_THRESHOLD = 50;
+const AWS_KMS_KEY_PROLIFERATION_THRESHOLD = 50;
 
 /** Previous-full-month key creation count at which a regional churn review begins. */
-export const AWS_KMS_MONTHLY_KEY_CREATION_THRESHOLD = 10;
+const AWS_KMS_MONTHLY_KEY_CREATION_THRESHOLD = 10;
 
 /** Flag regional customer-managed KMS key inventories with high total count or recent creation churn. */
 export const kmsKeyChurnRule = createRule({
