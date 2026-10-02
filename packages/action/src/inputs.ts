@@ -1,5 +1,5 @@
 import * as core from '@actions/core';
-import { builtInRuleMetadata, type CloudBurnModeConfig, SEVERITIES, type Severity } from '@cloudburn/sdk';
+import { type CloudBurnModeConfig, SEVERITIES, type Severity, validateServices } from '@cloudburn/sdk';
 
 /** Fully parsed action inputs, mirroring the CLI `scan` options. */
 export type ActionInputs = {
@@ -44,20 +44,6 @@ const parseSeverity = (value: string): Severity => {
   return severity;
 };
 
-const parseIaCServiceList = (value: string): string[] => {
-  const services = parseCommaSeparatedList(value, 'service').map((service) => service.toLowerCase());
-  const validServices = new Set(
-    builtInRuleMetadata.filter((rule) => rule.supports.includes('iac')).map((rule) => rule.service),
-  );
-  const invalidService = services.find((service) => !validServices.has(service));
-  if (invalidService) {
-    throw new Error(
-      `Unknown service "${invalidService}" for iac. Allowed services: ${Array.from(validServices).sort().join(', ')}.`,
-    );
-  }
-  return services;
-};
-
 /**
  * Reads action inputs into the same scan configuration shape the CLI produces.
  *
@@ -76,7 +62,7 @@ export const getInputs = (): ActionInputs => {
     iac.disabledRules = parseCommaSeparatedList(disabledRules, 'rule ID');
   }
   if (service !== undefined) {
-    iac.services = parseIaCServiceList(service);
+    iac.services = validateServices(parseCommaSeparatedList(service, 'service'), 'iac');
   }
 
   const failOn = optionalInput('fail-on');

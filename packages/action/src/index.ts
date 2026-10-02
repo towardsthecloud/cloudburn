@@ -3,14 +3,17 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import * as core from '@actions/core';
 import * as github from '@actions/github';
-import { CloudBurnClient } from '@cloudburn/sdk';
+import { CloudBurnClient, flattenFindings, resolveScanPolicy, type ScanPolicyResult } from '@cloudburn/sdk';
 import { emitAnnotations } from './annotations.js';
 import { upsertPullRequestComment } from './comment.js';
 import { formatError } from './error.js';
-import { flattenFindings } from './findings.js';
 import { getInputs } from './inputs.js';
 import { renderScanMarkdown } from './markdown.js';
-import { failureSummary, resolvePolicy } from './policy.js';
+
+const failureSummary = (policy: ScanPolicyResult): string =>
+  policy.threshold === undefined
+    ? `CloudBurn scan failed: ${policy.qualifyingFindingCount} finding(s) detected.`
+    : `CloudBurn scan failed: ${policy.qualifyingFindingCount} finding(s) at or above ${policy.threshold} severity.`;
 
 const resultFilePath = (): string => join(process.env.RUNNER_TEMP ?? tmpdir(), `cloudburn-scan-${process.pid}.json`);
 
@@ -79,7 +82,7 @@ const run = async (): Promise<void> => {
     core.info(`Emitted ${emitted} annotation${emitted === 1 ? '' : 's'}.`);
   }
 
-  const policy = resolvePolicy(result, inputs);
+  const policy = resolveScanPolicy(result, inputs);
   core.setOutput('failed', policy.violated);
 
   await maybePostComment(inputs, markdown);

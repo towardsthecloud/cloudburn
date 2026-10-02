@@ -1,5 +1,4 @@
-import type { ScanDiagnostic, SuppressedFinding } from '@cloudburn/sdk';
-import type { FlattenedFinding } from './findings.js';
+import type { FlattenedFinding, ScanDiagnostic, SuppressedFinding } from '@cloudburn/sdk';
 import { ACTION_VERSION, RULES_VERSION, SDK_VERSION } from './version.js';
 
 // Table cells carry untrusted filenames and resource identifiers. Besides the

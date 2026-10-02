@@ -6,7 +6,7 @@ the dedicated public repository receives only release artifacts. The [package RE
 ## Boundaries
 
 - The action is a distribution channel for the static IaC scan only. Live discovery stays in the CLI.
-- Call `@cloudburn/sdk` (`CloudBurnClient.loadConfig`, `scanStatic`, `evaluateScanPolicy`); never import
+- Call `@cloudburn/sdk` (`CloudBurnClient.scanStatic`, `resolveScanPolicy`, and its shared helpers); never import
   `@cloudburn/rules` or the `cloudburn` package. Scan semantics mirror `packages/cloudburn/src/commands/scan.ts`.
 - `action.yml` is the public contract: input names mirror `scan` flags, outputs are additive-only.
 - Keep AWS SDK and Smithy discovery packages out of the static bundle. Scans must run from the shipped JavaScript

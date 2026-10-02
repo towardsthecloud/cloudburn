@@ -1,6 +1,6 @@
 import type { ScanResult } from '@cloudburn/sdk';
+import { flattenFindings } from '@cloudburn/sdk';
 import { describe, expect, it } from 'vitest';
-import { flattenFindings } from '../src/findings.js';
 import { renderScanMarkdown } from '../src/markdown.js';
 
 const render = (scan: ScanResult, header: string): string =>

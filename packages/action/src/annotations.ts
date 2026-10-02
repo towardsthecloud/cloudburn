@@ -1,7 +1,7 @@
 import { statSync } from 'node:fs';
 import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import * as core from '@actions/core';
-import type { FlattenedFinding } from './findings.js';
+import type { FlattenedFinding } from '@cloudburn/sdk';
 
 /**
  * Emits one workflow annotation per located finding. High severity findings

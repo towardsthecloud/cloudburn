@@ -1,7 +1,7 @@
 import type { ScanResult } from '@cloudburn/sdk';
+import { flattenFindings } from '@cloudburn/sdk';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { emitAnnotations } from '../src/annotations.js';
-import { flattenFindings } from '../src/findings.js';
 
 const result: ScanResult = {
   providers: [
