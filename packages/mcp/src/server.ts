@@ -3,8 +3,8 @@ import { join } from 'node:path';
 import {
   type AwsDiscoveryProgressEvent,
   assertSupportedAwsRegion,
-  builtInRuleMetadata,
   CloudBurnClient,
+  filterBuiltInRules,
   SEVERITIES,
 } from '@cloudburn/sdk';
 import { type CallToolResult, McpServer, type ServerContext } from '@modelcontextprotocol/server';
@@ -190,13 +190,11 @@ export const createCloudBurnServer = (options: CloudBurnServerOptions = {}): Mcp
     },
     async ({ services, sources, severity }) =>
       run(async () => {
-        const selectedServices = services === undefined ? undefined : validateServices(services);
-        return builtInRuleMetadata.filter(
-          (rule) =>
-            (selectedServices === undefined || selectedServices.includes(rule.service)) &&
-            (sources === undefined || sources.some((source) => rule.supports.includes(source))) &&
-            (severity === undefined || rule.severity === severity),
-        );
+        return filterBuiltInRules({
+          services: services === undefined ? undefined : validateServices(services),
+          severity,
+          sources,
+        });
       }),
   );
 

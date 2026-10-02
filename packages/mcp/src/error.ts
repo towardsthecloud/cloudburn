@@ -1,4 +1,4 @@
-import { isAwsDiscoveryErrorCode } from '@cloudburn/sdk';
+import { type CategorizedError, categorizeError } from '@cloudburn/sdk';
 import type { CallToolResult } from '@modelcontextprotocol/server';
 
 /** Tool argument error raised before any scan starts. */
@@ -6,71 +6,16 @@ export class InvalidArgumentError extends Error {
   public readonly code = 'INVALID_ARGUMENT';
 }
 
-type ToolErrorBody = {
-  code: string;
-  message: string;
-};
+const CREDENTIALS_MESSAGE =
+  "AWS credentials not found or expired. Refresh the session (for example 'aws sts get-caller-identity') and set AWS_PROFILE or AWS_REGION in the environment that starts the MCP server.";
 
-const sanitizeRuntimeErrorMessage = (message: string): string =>
-  message
-    .replace(/169\.254\.169\.254/g, '[redacted-host]')
-    .replace(/fd00:ec2::254/gi, '[redacted-host]')
-    .replace(/(https?:\/\/)([^/\s:@]+):([^/\s@]+)@/gi, '$1[redacted-auth]@')
-    .replace(
-      /([?&](?:access_token|authorization|token|x-amz-security-token|x-amz-signature|signature)=)[^&\s]+/gi,
-      '$1[redacted]',
-    )
-    .replace(/(Bearer\s+)[A-Za-z0-9._~+/-]+/gi, '$1[redacted]');
-
-const categorize = (err: unknown): ToolErrorBody => {
-  if (!(err instanceof Error)) {
-    return { code: 'RUNTIME_ERROR', message: 'An unexpected error occurred.' };
-  }
-
-  const code = 'code' in err && typeof err.code === 'string' ? err.code : undefined;
-
+const categorize = (err: unknown): CategorizedError => {
   if (err instanceof InvalidArgumentError) {
     return { code: err.code, message: err.message };
   }
 
-  if (
-    err.name === 'CredentialsProviderError' ||
-    err.name === 'ExpiredTokenException' ||
-    code === 'CredentialsProviderError' ||
-    code === 'ExpiredTokenException'
-  ) {
-    return {
-      code: 'CREDENTIALS_ERROR',
-      message:
-        "AWS credentials not found or expired. Refresh the session (for example 'aws sts get-caller-identity') and set AWS_PROFILE or AWS_REGION in the environment that starts the MCP server.",
-    };
-  }
-
-  if (err.name.includes('AccessDenied') || code?.includes('AccessDenied') === true) {
-    return {
-      code: 'ACCESS_DENIED',
-      message:
-        sanitizeRuntimeErrorMessage(err.message).trim() ||
-        'Insufficient AWS permissions. Check your IAM role or policy.',
-    };
-  }
-
-  if (code === 'ENOENT') {
-    const path = (err as NodeJS.ErrnoException).path ?? 'unknown';
-    return { code: 'PATH_NOT_FOUND', message: `Path not found: ${path}` };
-  }
-
-  if (code && isAwsDiscoveryErrorCode(code)) {
-    return {
-      code,
-      message: sanitizeRuntimeErrorMessage(err.message).trim() || 'AWS Resource Explorer discovery failed.',
-    };
-  }
-
-  return {
-    code: 'RUNTIME_ERROR',
-    message: sanitizeRuntimeErrorMessage(err.message).trim() || 'An unexpected error occurred.',
-  };
+  const categorized = categorizeError(err);
+  return categorized.code === 'CREDENTIALS_ERROR' ? { ...categorized, message: CREDENTIALS_MESSAGE } : categorized;
 };
 
 /**

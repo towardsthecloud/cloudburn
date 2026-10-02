@@ -1,5 +1,5 @@
 import { isAbsolute } from 'node:path';
-import { builtInRuleMetadata, type CloudBurnConfig, type Source } from '@cloudburn/sdk';
+import { type CloudBurnConfig, type Source, validateServices as validateSdkServices } from '@cloudburn/sdk';
 import * as z from 'zod';
 import { InvalidArgumentError } from './error.js';
 
@@ -62,21 +62,11 @@ export type RuleSelection = {
  * @throws InvalidArgumentError when a service has no matching built-in rules.
  */
 export const validateServices = (services: string[], mode?: Source): string[] => {
-  const normalized = services.map((service) => service.toLowerCase());
-  const validServices = new Set(
-    builtInRuleMetadata
-      .filter((rule) => mode === undefined || rule.supports.includes(mode))
-      .map((rule) => rule.service),
-  );
-  const invalidService = normalized.find((service) => !validServices.has(service));
-
-  if (invalidService !== undefined) {
-    throw new InvalidArgumentError(
-      `Unknown service "${invalidService}"${mode === undefined ? '' : ` for ${mode}`}. Allowed services: ${Array.from(validServices).sort().join(', ')}.`,
-    );
+  try {
+    return validateSdkServices(services, mode);
+  } catch (err) {
+    throw new InvalidArgumentError((err as Error).message);
   }
-
-  return normalized;
 };
 
 /**
