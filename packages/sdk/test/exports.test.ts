@@ -2,7 +2,14 @@ import { fileURLToPath } from 'node:url';
 import { awsRules } from '@cloudburn/rules';
 import { describe, expect, it } from 'vitest';
 import { listBuiltInRuleMetadata } from '../src/built-in-rules.js';
-import { builtInRuleMetadata, getRuleCapabilities, parseIaC, type Rule } from '../src/index.js';
+import {
+  builtInRuleMetadata,
+  filterBuiltInRules,
+  getRuleCapabilities,
+  parseIaC,
+  type Rule,
+  validateServices,
+} from '../src/index.js';
 import { getAwsDiscoveryDatasetDefinition } from '../src/providers/aws/discovery-registry.js';
 import { getAwsStaticDatasetDefinition } from '../src/providers/aws/static-registry.js';
 
@@ -114,5 +121,28 @@ describe('sdk exports', () => {
     first.push('budgets-access');
     first.sort();
     expect(getRuleCapabilities('CLDBRN-AWS-COSTOPTIMIZATIONHUB-1')).toEqual(['cost-optimization-hub-enrollment']);
+  });
+
+  it('filters built-in rules by every supplied service, source, and severity criterion', () => {
+    expect(filterBuiltInRules({})).toEqual(builtInRuleMetadata);
+
+    const rules = filterBuiltInRules({ services: ['ebs', 's3'], sources: ['iac'], severity: 'medium' });
+    expect(rules.length).toBeGreaterThan(0);
+    for (const rule of rules) {
+      expect(['ebs', 's3']).toContain(rule.service);
+      expect(rule.supports).toContain('iac');
+      expect(rule.severity).toBe('medium');
+    }
+    expect(
+      filterBuiltInRules({ services: ['ebs'], sources: ['discovery'] }).every((rule) => rule.service === 'ebs'),
+    ).toBe(true);
+  });
+
+  it('normalizes known services and rejects services without built-in rules for the mode', () => {
+    expect(validateServices(['EC2', 'ebs'], 'iac')).toEqual(['ec2', 'ebs']);
+    expect(() => validateServices(['not-a-service'], 'iac')).toThrow(
+      /^Unknown service "not-a-service" for iac\. Allowed services: .*\bec2\b/,
+    );
+    expect(() => validateServices(['not-a-service'])).toThrow(/^Unknown service "not-a-service"\. Allowed services: /);
   });
 });

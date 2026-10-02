@@ -127,7 +127,9 @@ if (result.policy?.violated) {
 ```
 
 Use the exported `evaluateScanPolicy(result, threshold?)` helper to apply a runtime threshold or an any-finding policy
-without rerunning the scan. SDK policy evaluation reports state; it does not change the host process exit code.
+without rerunning the scan. `resolveScanPolicy(result, { failOn?, exitCode? })` applies the CLI precedence for caller
+controls: an explicit `failOn` threshold, then `exitCode` as an any-finding policy, then `result.policy`. SDK policy
+evaluation reports state; it does not change the host process exit code.
 
 ### Live discovery
 
@@ -507,6 +509,14 @@ remains unknown.
 If you need more control, the SDK also exposes a lower-level parser:
 
 - `parseIaC(path)` as a standalone export when you want normalized Terraform and CloudFormation resources without running rules
+
+Integrations such as the CLI, GitHub Action, and MCP server share these helpers:
+
+- `flattenFindings(result)` returns one entry per finding match with its provider and rule metadata
+- `filterBuiltInRules({ services?, sources?, severity? })` selects `builtInRuleMetadata` entries matching every supplied criterion
+- `validateServices(services, mode?)` lower-cases service names and throws for services without built-in rules for the mode
+- `categorizeError(err)` maps a thrown value to a stable `{ code, message }` with credentials, signed URLs, and metadata
+  endpoints redacted from the message
 
 The `CloudBurnClient` also exposes helper methods:
 

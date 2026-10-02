@@ -3,7 +3,9 @@
 
 export type { AwsCapability } from '@cloudburn/rules';
 export { AWS_CAPABILITIES, awsCorePreset, SEVERITIES } from '@cloudburn/rules';
-export { builtInRuleMetadata, getRuleCapabilities } from './built-in-rules.js';
+export { builtInRuleMetadata, filterBuiltInRules, getRuleCapabilities } from './built-in-rules.js';
+export { validateServices } from './config/validate.js';
+export { categorizeError } from './errors.js';
 export type {
   EvidenceCache,
   EvidenceCacheLoad,
@@ -16,8 +18,9 @@ export type {
   EvidenceCacheStore,
 } from './evidence-cache.js';
 export { createEvidenceCache, createMemoryEvidenceCacheStore } from './evidence-cache.js';
+export { flattenFindings } from './findings.js';
 export { parseIaC } from './parsers/index.js';
-export { evaluateScanPolicy } from './policy.js';
+export { evaluateScanPolicy, resolveScanPolicy } from './policy.js';
 export { type AwsClientCredentials, withAwsClientCredentials } from './providers/aws/credentials.js';
 export { isAwsDiscoveryErrorCode } from './providers/aws/errors.js';
 export { assertSupportedAwsRegion, assertValidAwsRegion } from './providers/aws/regions.js';
@@ -115,7 +118,9 @@ export type {
   AwsSageMakerSavingsPlansCoverage,
   AwsSecretsManagerSecret,
   AwsSupportedResourceType,
+  BuiltInRuleFilter,
   BuiltInRuleMetadata,
+  CategorizedError,
   CloudBurnConfig,
   CloudBurnModeConfig,
   CloudProvider,
@@ -128,6 +133,7 @@ export type {
   FindingImpact,
   FindingMatch,
   FindingRecommendation,
+  FlattenedFinding,
   ImpactPeriod,
   ImpactUnknownReason,
   ImpactWindow,

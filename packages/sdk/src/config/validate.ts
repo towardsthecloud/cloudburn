@@ -11,6 +11,7 @@ const servicesByMode = {
   ),
   iac: new Set(builtInRuleMetadata.filter((rule) => rule.supports.includes('iac')).map((rule) => rule.service)),
 } satisfies Record<Source, Set<string>>;
+const allServices = new Set(builtInRuleMetadata.map((rule) => rule.service));
 
 const normalizeRuleList = (value?: string[]): string[] | undefined => value?.map((ruleId) => ruleId.trim());
 const normalizeServiceList = (value?: string[]): string[] | undefined =>
@@ -65,6 +66,29 @@ const validateServiceList = (mode: Source, value?: string[]): void => {
       );
     }
   }
+};
+
+/**
+ * Lower-cases service names and rejects any service without built-in rules, so a typo fails instead of silently
+ * selecting no rules.
+ *
+ * @param services - Service names to check.
+ * @param mode - Scan mode whose rules must cover each service; omit to accept any built-in rule service.
+ * @returns The lower-cased service names in their supplied order.
+ * @throws Error naming the first unknown service and listing the allowed services.
+ */
+export const validateServices = (services: string[], mode?: Source): string[] => {
+  const normalized = services.map((service) => service.toLowerCase());
+  const validServices = mode === undefined ? allServices : servicesByMode[mode];
+  const invalidService = normalized.find((service) => !validServices.has(service));
+
+  if (invalidService !== undefined) {
+    throw new Error(
+      `Unknown service "${invalidService}"${mode === undefined ? '' : ` for ${mode}`}. Allowed services: ${Array.from(validServices).sort().join(', ')}.`,
+    );
+  }
+
+  return normalized;
 };
 
 const validateModeConfig = (mode: Source, config: CloudBurnModeConfig): CloudBurnModeConfig => {

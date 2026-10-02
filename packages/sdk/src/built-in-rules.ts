@@ -1,5 +1,5 @@
 import { awsRules, azureRules, gcpRules, getAwsRuleCapabilities } from '@cloudburn/rules';
-import type { AwsCapability, BuiltInRuleMetadata, Rule } from './types.js';
+import type { AwsCapability, BuiltInRuleFilter, BuiltInRuleMetadata, Rule } from './types.js';
 
 /**
  * Projects a built-in rule into the serializable metadata exposed by SDK discovery results.
@@ -47,6 +47,20 @@ const builtInRules: Rule[] = [...awsRules, ...azureRules, ...gcpRules];
 
 /** Stable metadata for all built-in CloudBurn rules, ordered by provider, service, and rule ID. */
 export const builtInRuleMetadata: BuiltInRuleMetadata[] = listBuiltInRuleMetadata(builtInRules);
+
+/**
+ * Selects built-in rule metadata matching every supplied criterion.
+ *
+ * @param filter - Services, scan sources, and severity to include.
+ * @returns Matching built-in rule metadata in catalog order.
+ */
+export const filterBuiltInRules = ({ services, severity, sources }: BuiltInRuleFilter): BuiltInRuleMetadata[] =>
+  builtInRuleMetadata.filter(
+    (rule) =>
+      (services === undefined || services.includes(rule.service)) &&
+      (sources === undefined || sources.some((source) => rule.supports.includes(source))) &&
+      (severity === undefined || rule.severity === severity),
+  );
 
 /**
  * Lists the AWS capabilities a built-in rule directly requires for live discovery.

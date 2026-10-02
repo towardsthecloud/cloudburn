@@ -260,6 +260,33 @@ export type ScanPolicyResult = {
   violated: boolean;
 };
 
+/** One finding match with the provider and rule metadata of the group that contains it. */
+export type FlattenedFinding = {
+  provider: ProviderFindingGroup['provider'];
+  ruleId: string;
+  service: Finding['service'];
+  severity: Finding['severity'];
+  source: Finding['source'];
+  message: Finding['message'];
+  finding: FindingMatch;
+};
+
+/** Stable error code and redacted message for a failed CloudBurn operation. */
+export type CategorizedError = {
+  code: string;
+  message: string;
+};
+
+/** Criteria for selecting built-in rules; each omitted criterion matches every rule. */
+export type BuiltInRuleFilter = {
+  /** Services to include. */
+  services?: string[];
+  /** Scan sources to include; a rule matches when it supports any of them. */
+  sources?: Source[];
+  /** Severity to include. */
+  severity?: Severity;
+};
+
 /** Serializable outcome and metadata for one completed or skipped discovery rule. */
 export type RuleEvaluation = Omit<BuiltInRuleMetadata, 'id'> & {
   /** Resource identities assessed by this rule and those missing required evidence. */

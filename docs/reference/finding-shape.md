@@ -492,7 +492,8 @@ type ScanPolicyResult = {
 ```
 
 The package-root `evaluateScanPolicy(result, threshold?)` helper evaluates another threshold against any `ScanResult`.
-An omitted threshold evaluates an any-finding policy.
+An omitted threshold evaluates an any-finding policy. `resolveScanPolicy(result, { failOn?, exitCode? })` applies the
+CLI flag precedence on top: `failOn`, then `exitCode`, then the configured `policy`.
 
 `suppressed` is present only when an IaC directive matched a finding. Each entry retains the original resource-level
 `finding`, rule metadata, and the parsed suppression directive (including an optional reason) for auditability. These
