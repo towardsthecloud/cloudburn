@@ -4,9 +4,6 @@
 /** Indicates how a rule discovers resources: live AWS API calls or IaC file parsing. */
 export type Source = 'discovery' | 'iac';
 
-/** Deprecated compatibility alias for the scan source discriminator. */
-export type ScanSource = Source;
-
 /** Supported cloud providers for built-in and custom rules. */
 export type CloudProvider = 'aws' | 'azure' | 'gcp';
 

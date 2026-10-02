@@ -160,7 +160,6 @@ export type {
   LiveEvaluationCoverage,
   RecommendationIdentity,
   Rule,
-  ScanSource,
   Severity,
   Source,
   SourceLocation,
