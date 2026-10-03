@@ -1,5 +1,11 @@
 # @cloudburn/mcp
 
+## 0.1.5
+
+### Patch Changes
+
+- [#315](https://github.com/towardsthecloud/cloudburn/pull/315) [`ef7cfac`](https://github.com/towardsthecloud/cloudburn/commit/ef7cfac9f170e22ef8e7496f04cc37c4d61e360c) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Add the npm ownership-verification metadata required to submit CloudBurn to the official MCP Registry.
+
 ## 0.1.4
 
 ### Patch Changes
