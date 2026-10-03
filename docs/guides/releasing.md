@@ -99,6 +99,37 @@ Release prerequisites, which a passing source build does not establish:
 
 Record the verification of each step in the rollout issue.
 
+### Submit to the official MCP Registry
+
+The npm package declares `mcpName: io.github.towardsthecloud/cloudburn`. The
+[official MCP Registry](https://github.com/modelcontextprotocol/registry/blob/main/docs/modelcontextprotocol-io/quickstart.mdx)
+checks this field in the published npm package; changing the source manifest alone does not make a version eligible.
+Registry submission is a separate maintainer step after the automated npm release.
+
+1. Release `@cloudburn/mcp` through the existing Changesets workflow, then verify the exact published version:
+
+   ```bash
+   npm view @cloudburn/mcp@<released-version> mcpName
+   ```
+
+   The result must be `io.github.towardsthecloud/cloudburn`. Do not submit an older version that lacks this field.
+2. Install the official publisher with `brew install mcp-publisher`. From `packages/mcp` in the released checkout,
+   run `mcp-publisher init` to prepare `server.json`. Check that `name` matches `mcpName`, the package identifier is
+   `@cloudburn/mcp`, `registryType` is `npm`, and `transport.type` is `stdio`. Set both the server version and package
+   version to the exact published npm version. Include the repository URL and the Node.js 24+ requirement in the
+   description, and remove any example API-key requirements: IaC scans need no credentials, while live checks use
+   the caller's AWS credential chain. Prepare this manifest for the released version rather than maintaining a
+   second version pin alongside Changesets.
+3. Run `mcp-publisher login github` as an Owner of the `towardsthecloud` GitHub organization, then run
+   `mcp-publisher validate` and `mcp-publisher publish`. The
+   [registry authentication guide](https://github.com/modelcontextprotocol/registry/blob/main/docs/modelcontextprotocol-io/authentication.mdx)
+   documents the organization-ownership requirement.
+4. Confirm the entry and exact version in the registry API, then record the result in the rollout issue:
+
+   ```bash
+   curl 'https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.towardsthecloud/cloudburn'
+   ```
+
 ## Coordinated contract releases
 
 For an explicitly authorized release task, first inspect current `main`, the open Changesets version PR, recent Release

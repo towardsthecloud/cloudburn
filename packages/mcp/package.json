@@ -1,6 +1,7 @@
 {
   "name": "@cloudburn/mcp",
   "version": "0.1.4",
+  "mcpName": "io.github.towardsthecloud/cloudburn",
   "description": "CloudBurn MCP server for AWS cost scans of IaC and live accounts",
   "homepage": "https://cloudburn.io/docs",
   "bugs": {
