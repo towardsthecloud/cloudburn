@@ -181,19 +181,31 @@ jobs:
         env:
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
         run: |
+          set -euo pipefail
           VERSION=$(node -p "require('./packages/cloudburn/package.json').version")
           TARBALL_URL="https://registry.npmjs.org/cloudburn/-/cloudburn-${VERSION}.tgz"
+          EMPTY_SHA256="e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 
-          # Retry up to 5 times to handle npm CDN propagation delay
+          # Download to a file so a failed curl cannot feed empty stdin into
+          # shasum (which would hash to the empty-file SHA and pass the
+          # non-empty check below). Retry to handle npm CDN propagation delay.
+          TARBALL_FILE=$(mktemp)
+          trap 'rm -f "$TARBALL_FILE"' EXIT
+          SHA256=""
           for i in 1 2 3 4 5; do
-            SHA256=$(curl -sfSL "$TARBALL_URL" | shasum -a 256 | cut -d ' ' -f 1) && break
-            SHA256=""
+            if curl -fsSL --max-time 60 -o "$TARBALL_FILE" "$TARBALL_URL" && [ -s "$TARBALL_FILE" ]; then
+              CANDIDATE=$(shasum -a 256 "$TARBALL_FILE" | cut -d ' ' -f 1)
+              if [[ "$CANDIDATE" =~ ^[0-9a-f]{64}$ ]] && [ "$CANDIDATE" != "$EMPTY_SHA256" ]; then
+                SHA256="$CANDIDATE"
+                break
+              fi
+            fi
             echo "Tarball not yet available, retrying in 15s (attempt $i/5)..."
             sleep 15
           done
 
           if [ -z "$SHA256" ]; then
-            echo "::error::Failed to download tarball after 5 attempts"
+            echo "::error::Failed to download a valid tarball after 5 attempts"
             exit 1
           fi
 
