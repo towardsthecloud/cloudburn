@@ -27,7 +27,8 @@ the repository's existing `release` label. Maintainers must create this label in
 non-fatal so missing labels or temporary API errors do not fail a successful release run.
 Merging that pull request runs `pnpm release`, which verifies the repository,
 force-builds packages, and publishes changed packages to npm. When the `cloudburn` CLI is published, the same workflow
-updates its formula in the Homebrew tap from the npm tarball.
+updates its formula in the Homebrew tap from the npm tarball. The step retries while npm propagates the tarball and
+fails without updating the formula if the tarball never downloads.
 
 ## GitHub Action sync
 

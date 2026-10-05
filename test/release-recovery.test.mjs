@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { chmodSync, copyFileSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -313,4 +314,65 @@ test('plugin sync runs for published or recovered MCP releases only', () => {
   assert.equal(recovered(' sdk mcp'), true);
   assert.equal(published('[{"name":"cloudburn","version":"1.0.0"}]'), false);
   assert.equal(published('[{"name":"@cloudburn/mcp","version":"0.1.0"}]'), true);
+});
+
+function homebrewHash(t, tarballReadyAfter) {
+  const directory = mkdtempSync(join(tmpdir(), 'cloudburn-homebrew-'));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  mkdirSync(join(directory, 'packages/cloudburn'), { recursive: true });
+  writeFileSync(join(directory, 'packages/cloudburn/package.json'), JSON.stringify({ name: 'cloudburn', version: '1.0.0' }));
+  const bin = join(directory, 'bin');
+  mkdirSync(bin);
+  // npm returns 404 for the first `tarballReadyAfter` downloads, like a CDN still propagating a new version.
+  writeFileSync(join(bin, 'curl'), `#!/bin/sh
+printf '%s\\n' "$*" >> "$CURL_LOG"
+count=$(cat "$CURL_COUNT" 2>/dev/null || echo 0)
+echo $((count + 1)) > "$CURL_COUNT"
+[ "$count" -ge "$TARBALL_READY_AFTER" ] || { echo 'curl: (22) The requested URL returned error: 404' >&2; exit 22; }
+out=/dev/stdout
+while [ "$#" -gt 0 ]; do [ "$1" = -o ] && out=$2; shift; done
+printf 'tarball' > "$out"
+`);
+  writeFileSync(join(bin, 'sleep'), '#!/bin/sh\nexit 0\n');
+  for (const command of ['curl', 'sleep']) chmodSync(join(bin, command), 0o755);
+  const curlLog = join(directory, 'curl.log');
+  writeFileSync(curlLog, '');
+  // Stop before the formula is written and pushed, and report the hash the step would publish.
+  const script = shell('Update Homebrew tap');
+  const formula = script.indexOf('cat > /tmp/cloudburn.rb');
+  assert.notEqual(formula, -1);
+  // GitHub runs a `run` step without `shell:` as `bash -e {0}`, so pipefail must come from the step itself.
+  const result = spawnSync('bash', ['-e', '-c', `${script.slice(0, formula)}\necho "SHA256=$SHA256"`], {
+    cwd: directory,
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      PATH: `${bin}:${process.env.PATH}`,
+      CURL_LOG: curlLog,
+      CURL_COUNT: join(directory, 'curl.count'),
+      TARBALL_READY_AFTER: String(tarballReadyAfter),
+    },
+  });
+  const output = `${result.stdout}\n${result.stderr}`;
+  return {
+    status: result.status,
+    output,
+    downloads: readFileSync(curlLog, 'utf8').trim().split('\n'),
+    sha256: output.match(/^SHA256=(.*)$/m)?.[1],
+  };
+}
+
+test('homebrew tap retries until npm serves the tarball instead of hashing a failed download', (t) => {
+  const { status, output, downloads, sha256 } = homebrewHash(t, 1);
+  assert.equal(status, 0, output);
+  assert.equal(downloads.length, 2);
+  assert.equal(sha256, createHash('sha256').update('tarball').digest('hex'));
+});
+
+test('homebrew tap fails before writing the formula when npm never serves the tarball', (t) => {
+  const { status, output, downloads, sha256 } = homebrewHash(t, Number.MAX_SAFE_INTEGER);
+  assert.notEqual(status, 0);
+  assert.match(output, /Failed to download tarball after 5 attempts/);
+  assert.equal(downloads.length, 5);
+  assert.equal(sha256, undefined);
 });
