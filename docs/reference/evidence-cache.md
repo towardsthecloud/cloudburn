@@ -34,6 +34,12 @@ are documented in the [CLI README](../../packages/cloudburn/README.md#discover).
 These initial values are tunable proposals, not measured optimal defaults. They trade repeated AWS requests for delayed
 visibility of changes. They do not improve the freshness of the upstream service.
 
+A TTL bounds collection age. An entry is reused while less than its TTL has elapsed since `collectedAt`; an entry
+collected in the future is stale. `observedAt` does not affect reuse, because recollection cannot return data newer
+than the source publishes. For example, an AWS price list publication date can trail collection by weeks, so bounding
+reuse by it would fetch the same artifact on every scan. Period-based evidence instead includes its observation window
+in the cache key, so a moved window is a separate entry. Callers judge source age from the `observedAt` provenance.
+
 | Evidence                                    | Proposed TTL | Observation policy                                                       |
 | ------------------------------------------- | ------------ | ------------------------------------------------------------------------ |
 | Resource Explorer search plans and catalogs | 3 minutes    | Collected indexed-view snapshot                                          |
