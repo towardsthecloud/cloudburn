@@ -54,6 +54,42 @@ function repository(t) {
   return { directory, checkout, remote, initial, release };
 }
 
+test('recovery builds only the selected sync artifacts in one shared build', (t) => {
+  assert.ok(step('Build recovered release artifacts'), 'Recovery needs a shared build before concurrent syncs');
+  const { checkout } = repository(t);
+  mkdirSync(join(checkout, 'packages/mcp'), { recursive: true });
+  const { packageManager } = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+  writeFileSync(join(checkout, 'package.json'), JSON.stringify({ name: 'release-fixture', private: true, packageManager }));
+  writeFileSync(join(checkout, 'pnpm-workspace.yaml'), 'packages:\n  - packages/*\n');
+  writeFileSync(join(checkout, 'turbo.json'), JSON.stringify({ tasks: { build: { dependsOn: ['^build'], cache: false } } }));
+  for (const name of ['rules', 'sdk', 'cloudburn', 'action', 'mcp']) {
+    const manifest = join(checkout, 'packages', name, 'package.json');
+    const dependencies = name === 'sdk' ? { '@cloudburn/rules': 'workspace:*' }
+      : name === 'rules' ? {} : { '@cloudburn/sdk': 'workspace:*' };
+    writeFileSync(manifest, JSON.stringify({
+      name: name === 'cloudburn' ? name : `@cloudburn/${name}`, version: '1.0.0', dependencies,
+      scripts: { build: `node -e "require('node:fs').appendFileSync('../../build.log', '${name}\\n')"` },
+    }));
+  }
+  const buildLog = join(checkout, 'build.log');
+  const recover = (released) => {
+    writeFileSync(buildLog, '');
+    run(checkout, 'bash', ['-euo', 'pipefail', '-c', shell('Build recovered release artifacts')], {
+      PATH: `${join(root, 'node_modules/.bin')}:${process.env.PATH}`, RELEASED: released,
+    });
+    return readFileSync(buildLog, 'utf8').trim().split('\n').filter(Boolean).sort();
+  };
+  for (const [released, expected] of [
+    [' action', ['action', 'rules', 'sdk']],
+    [' sdk mcp', ['mcp', 'rules', 'sdk']],
+    [' rules sdk cloudburn action mcp', ['action', 'mcp', 'rules', 'sdk']],
+    [' cloudburn', []],
+  ]) assert.deepEqual(recover(released), expected);
+  // Older release refs can predate the MCP package.
+  rmSync(join(checkout, 'packages/mcp'), { recursive: true });
+  assert.deepEqual(recover(' action mcp'), ['action', 'rules', 'sdk']);
+});
+
 test('action-only recovery creates only its released tag when older package tags are missing', (t) => {
   const { checkout, remote, release } = repository(t);
   run(checkout, 'bash', ['-euo', 'pipefail', '-c', shell('Recover missing release tags')], { RELEASED: ' action' });

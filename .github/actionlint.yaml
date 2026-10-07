@@ -1,0 +1,9 @@
+# GitHub supports background steps, but actionlint 1.7.12 and its current upstream parser do not.
+# Remove these keyword-only exceptions when actionlint supports the syntax; other checks remain enabled.
+paths:
+  .github/workflows/ci.yml:
+    ignore:
+      - '^unexpected key "background" for step to run shell command\.'
+  .github/workflows/release.yml:
+    ignore:
+      - '^unexpected key "background" for step to run shell command\.'
