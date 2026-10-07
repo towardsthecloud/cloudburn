@@ -191,32 +191,78 @@ export const createMemoryEvidenceCacheStore = (): EvidenceCacheStore => {
 /**
  * Creates private host-local SQLite persistence with atomic fenced leases and eviction.
  * @param directory - Explicit directory shared by cooperating processes; never silently falls back.
- * @returns Durable storage. Files and database handles are opened only during transactions.
+ * @returns Durable storage. The database handle opens lazily once per store and reopens if the database file is replaced or removed.
  */
 const createLocalEvidenceCacheStore = (directory: string): EvidenceCacheStore => {
   const filename = join(resolve(directory), 'evidence.sqlite');
+  const sqlite = import('node:sqlite');
+  let database: DatabaseSync | undefined;
+  let identity: { dev: number; ino: number } | undefined;
+  let schemaReady = false;
+  const open = (DatabaseSyncCtor: typeof DatabaseSync): DatabaseSync => {
+    let opened: DatabaseSync | undefined;
+    try {
+      mkdirSync(directory, { recursive: true, mode: 0o700 });
+      chmodSync(directory, 0o700);
+      if (lstatSync(filename, { throwIfNoEntry: false })?.isSymbolicLink())
+        throw new Error('Evidence database must not be a symbolic link');
+      opened = new DatabaseSyncCtor(filename, { timeout: 0 });
+      chmodSync(filename, 0o600);
+      opened.exec('PRAGMA auto_vacuum = FULL');
+      const stats = lstatSync(filename);
+      database = opened;
+      identity = { dev: stats.dev, ino: stats.ino };
+      schemaReady = false;
+      return opened;
+    } catch (error) {
+      try {
+        opened?.close();
+      } finally {
+        database = undefined;
+        identity = undefined;
+        schemaReady = false;
+      }
+      throw error;
+    }
+  };
   const transaction = async <T>(apply: (database: DatabaseSync) => T, signal?: AbortSignal): Promise<T> => {
-    const { DatabaseSync } = await import('node:sqlite');
+    const { DatabaseSync } = await sqlite;
     const started = performance.now();
     while (true) {
       signal?.throwIfAborted();
-      let database: DatabaseSync | undefined;
       try {
-        mkdirSync(directory, { recursive: true, mode: 0o700 });
-        chmodSync(directory, 0o700);
-        if (lstatSync(filename, { throwIfNoEntry: false })?.isSymbolicLink())
-          throw new Error('Evidence database must not be a symbolic link');
-        database = new DatabaseSync(filename, { timeout: 0 });
-        chmodSync(filename, 0o600);
-        database.exec('PRAGMA auto_vacuum = FULL');
-        database.exec('BEGIN IMMEDIATE');
-        database.exec(
-          'CREATE TABLE IF NOT EXISTS evidence_v1 (key TEXT PRIMARY KEY, state TEXT NOT NULL, accessed INTEGER NOT NULL, bytes INTEGER NOT NULL, lease_until INTEGER NOT NULL)',
-        );
+        if (!database) open(DatabaseSync);
+        else {
+          const stats = lstatSync(filename, { throwIfNoEntry: false });
+          if (
+            !stats ||
+            stats.isSymbolicLink() ||
+            !identity ||
+            stats.dev !== identity.dev ||
+            stats.ino !== identity.ino
+          ) {
+            try {
+              database.close();
+            } finally {
+              database = undefined;
+              identity = undefined;
+              schemaReady = false;
+            }
+            open(DatabaseSync);
+          }
+        }
+        const currentDatabase = database;
+        if (!currentDatabase) throw new Error('Evidence database failed to open');
+        currentDatabase.exec('BEGIN IMMEDIATE');
+        if (!schemaReady)
+          currentDatabase.exec(
+            'CREATE TABLE IF NOT EXISTS evidence_v1 (key TEXT PRIMARY KEY, state TEXT NOT NULL, accessed INTEGER NOT NULL, bytes INTEGER NOT NULL, lease_until INTEGER NOT NULL)',
+          );
         signal?.throwIfAborted();
-        const result = apply(database);
+        const result = apply(currentDatabase);
         signal?.throwIfAborted();
-        database.exec('COMMIT');
+        currentDatabase.exec('COMMIT');
+        schemaReady = true;
         return result;
       } catch (error) {
         signal?.throwIfAborted();
@@ -231,23 +277,35 @@ const createLocalEvidenceCacheStore = (directory: string): EvidenceCacheStore =>
         )
           throw error;
       } finally {
-        try {
-          if (database?.isTransaction) database.exec('ROLLBACK');
-        } finally {
-          database?.close();
-        }
+        if (database?.isTransaction) database.exec('ROLLBACK');
       }
       await wait(10, undefined, { signal });
     }
   };
+  const sameStoredState = (a: EvidenceCacheState, b: EvidenceCacheState): boolean => {
+    const sameLease =
+      a.lease === undefined
+        ? b.lease === undefined
+        : b.lease !== undefined && a.lease.token === b.lease.token && a.lease.expiresAt === b.lease.expiresAt;
+    return a.entry === b.entry && a.invalidated === b.invalidated && sameLease;
+  };
   return {
     update: (key, transition, signal) =>
       transaction((database) => {
-        const row = database.prepare('SELECT state FROM evidence_v1 WHERE key = ?').get(key);
-        const current = row ? (JSON.parse(row.state as string) as EvidenceCacheState) : undefined;
+        const row = database.prepare('SELECT state, accessed FROM evidence_v1 WHERE key = ?').get(key) as
+          | { state: string; accessed: number }
+          | undefined;
+        const current = row
+          ? { ...(JSON.parse(row.state) as EvidenceCacheState), accessedAt: Number(row.accessed) }
+          : undefined;
         const next = transition(current);
         if (!next.state.entry && !next.state.lease) {
           database.prepare('DELETE FROM evidence_v1 WHERE key = ?').run(key);
+          return next.value;
+        }
+        if (current && sameStoredState(next.state, current)) {
+          if (next.state.accessedAt !== current.accessedAt)
+            database.prepare('UPDATE evidence_v1 SET accessed = ? WHERE key = ?').run(next.state.accessedAt, key);
           return next.value;
         }
         database
