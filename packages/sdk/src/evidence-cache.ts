@@ -188,15 +188,15 @@ export const createMemoryEvidenceCacheStore = (): EvidenceCacheStore => {
   };
 };
 
+const localDatabases = new Map<
+  string,
+  { database?: DatabaseSync; identity?: { dev: number; ino: number }; schemaReady: boolean }
+>();
 /**
  * Creates private host-local SQLite persistence with atomic fenced leases and eviction.
  * @param directory - Explicit directory shared by cooperating processes; never silently falls back.
  * @returns Durable storage. Each process opens the database lazily once per directory and reuses the handle across caches and transactions, reopening it if the database file is replaced or removed.
  */
-const localDatabases = new Map<
-  string,
-  { database?: DatabaseSync; identity?: { dev: number; ino: number }; schemaReady: boolean }
->();
 const createLocalEvidenceCacheStore = (directory: string): EvidenceCacheStore => {
   const filename = join(resolve(directory), 'evidence.sqlite');
   const databaseState = localDatabases.get(filename) ?? { schemaReady: false };
