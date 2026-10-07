@@ -64,7 +64,10 @@ export const createLiveEvaluationCoverage = <Resource>(
  * @param build - Module-level builder keyed in the scratch memo and invoked with the bag of resources.
  * @returns The memoized index, or a freshly built index when the context carries no scratch.
  */
-export const getLiveEvaluationIndex = <T>(context: LiveEvaluationContext, build: (resources: LiveResourceBag) => T): T => {
+export const getLiveEvaluationIndex = <T>(
+  context: LiveEvaluationContext,
+  build: (resources: LiveResourceBag) => T,
+): T => {
   const { scratch } = context;
   if (!scratch) return build(context.resources);
   if (scratch.has(build)) return scratch.get(build) as T;

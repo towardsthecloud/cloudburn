@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
+import { type LiveEvaluationContext, LiveResourceBag } from '../src/index.js';
 import { getLiveEvaluationIndex } from '../src/shared/helpers.js';
-import { LiveResourceBag, type LiveEvaluationContext } from '../src/index.js';
 
 const createContext = (scratch?: LiveEvaluationContext['scratch']): LiveEvaluationContext => ({
   catalog: { indexType: 'LOCAL', resources: [], searchRegion: 'eu-west-1' },

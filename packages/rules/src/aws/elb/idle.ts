@@ -19,7 +19,8 @@ const supportsHttpRequestActivity = (loadBalancer: AwsEc2LoadBalancer): boolean 
     (loadBalancer.listenerProtocols?.length ?? 0) > 0 &&
     loadBalancer.listenerProtocols?.every((protocol) => protocol === 'HTTP' || protocol === 'HTTPS') === true);
 
-const indexTargetCountByArn = (resources: LiveResourceBag) => getTargetCountByArn(resources.get('aws-ec2-target-groups'));
+const indexTargetCountByArn = (resources: LiveResourceBag) =>
+  getTargetCountByArn(resources.get('aws-ec2-target-groups'));
 
 /** Flag HTTP load balancers with low 14-day request activity unless a stricter empty-target rule covers them. */
 export const elbIdleRule = createRule({

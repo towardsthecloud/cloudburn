@@ -19,8 +19,7 @@ const toInstanceStateById = (instances: readonly AwsEc2Instance[]): Map<string, 
     ),
   );
 
-const indexInstanceStateById = (resources: LiveResourceBag) =>
-  toInstanceStateById(resources.get('aws-ec2-instances'));
+const indexInstanceStateById = (resources: LiveResourceBag) => toInstanceStateById(resources.get('aws-ec2-instances'));
 
 /**
  * Resolves the state of every instance a volume is attached to.
