@@ -86,7 +86,7 @@ export const createFinding = (
  * @param accountId - AWS account owning the resource.
  * @param region - AWS region containing the resource.
  * @param resourceId - Service-local resource identifier.
- * @returns A collision-free key for joining normalized AWS evidence.
+ * @returns A collision-free key joined with a NUL separator; AWS account IDs, regions, and resource identifiers never contain NUL.
  */
 export const getAwsResourceScopeKey = (accountId: string, region: string, resourceId: string): string =>
-  JSON.stringify([accountId, region, resourceId]);
+  `${accountId}\u0000${region}\u0000${resourceId}`;
