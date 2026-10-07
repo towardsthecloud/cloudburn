@@ -1,5 +1,11 @@
-import { createFinding, createFindingMatch, createLiveEvaluationCoverage, createRule } from '../../shared/helpers.js';
-import type { AwsEc2LoadBalancer } from '../../shared/metadata.js';
+import {
+  createFinding,
+  createFindingMatch,
+  createLiveEvaluationCoverage,
+  createRule,
+  getLiveEvaluationIndex,
+} from '../../shared/helpers.js';
+import type { AwsEc2LoadBalancer, LiveResourceBag } from '../../shared/metadata.js';
 import { getTargetCountByArn, hasNoRegisteredTargets } from './shared.js';
 
 const RULE_ID = 'CLDBRN-AWS-ELB-5';
@@ -13,6 +19,8 @@ const supportsHttpRequestActivity = (loadBalancer: AwsEc2LoadBalancer): boolean 
     (loadBalancer.listenerProtocols?.length ?? 0) > 0 &&
     loadBalancer.listenerProtocols?.every((protocol) => protocol === 'HTTP' || protocol === 'HTTPS') === true);
 
+const indexTargetCountByArn = (resources: LiveResourceBag) => getTargetCountByArn(resources.get('aws-ec2-target-groups'));
+
 /** Flag HTTP load balancers with low 14-day request activity unless a stricter empty-target rule covers them. */
 export const elbIdleRule = createRule({
   severity: RULE_SEVERITY,
@@ -25,11 +33,12 @@ export const elbIdleRule = createRule({
   service: RULE_SERVICE,
   supports: ['discovery'],
   discoveryDependencies: ['aws-ec2-load-balancer-request-activity', 'aws-ec2-load-balancers', 'aws-ec2-target-groups'],
-  getLiveEvaluationCoverage: ({ resources }) => {
+  getLiveEvaluationCoverage: (context) => {
+    const { resources } = context;
     const activityByArn = new Map(
       resources.get('aws-ec2-load-balancer-request-activity').map((activity) => [activity.loadBalancerArn, activity]),
     );
-    const targetCountByArn = getTargetCountByArn(resources.get('aws-ec2-target-groups'));
+    const targetCountByArn = getLiveEvaluationIndex(context, indexTargetCountByArn);
 
     return createLiveEvaluationCoverage(
       resources.get('aws-ec2-load-balancers'),
@@ -50,9 +59,10 @@ export const elbIdleRule = createRule({
       (loadBalancer) => createFindingMatch(loadBalancer.loadBalancerArn, loadBalancer.region, loadBalancer.accountId),
     );
   },
-  evaluateLive: ({ resources }) => {
+  evaluateLive: (context) => {
+    const { resources } = context;
     const loadBalancers = resources.get('aws-ec2-load-balancers');
-    const targetCountByArn = getTargetCountByArn(resources.get('aws-ec2-target-groups'));
+    const targetCountByArn = getLiveEvaluationIndex(context, indexTargetCountByArn);
     const loadBalancerByArn = new Map(
       loadBalancers.map((loadBalancer) => [loadBalancer.loadBalancerArn, loadBalancer] as const),
     );

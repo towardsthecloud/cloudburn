@@ -1,5 +1,11 @@
-import { createFinding, createFindingMatch, createLiveEvaluationCoverage, createRule } from '../../shared/helpers.js';
-import type { AwsEbsVolume, AwsEc2Instance } from '../../shared/metadata.js';
+import {
+  createFinding,
+  createFindingMatch,
+  createLiveEvaluationCoverage,
+  createRule,
+  getLiveEvaluationIndex,
+} from '../../shared/helpers.js';
+import type { AwsEbsVolume, AwsEc2Instance, LiveResourceBag } from '../../shared/metadata.js';
 
 const RULE_ID = 'CLDBRN-AWS-EBS-3';
 const RULE_SERVICE = 'ebs';
@@ -12,6 +18,9 @@ const toInstanceStateById = (instances: readonly AwsEc2Instance[]): Map<string, 
       instance.state === undefined ? [] : [[instance.instanceId, instance.state] as const],
     ),
   );
+
+const indexInstanceStateById = (resources: LiveResourceBag) =>
+  toInstanceStateById(resources.get('aws-ec2-instances'));
 
 /**
  * Resolves the state of every instance a volume is attached to.
@@ -50,8 +59,9 @@ export const ebsAttachedToStoppedInstancesRule = createRule({
   // Unattached volumes are outside this policy and count as assessed, and one attached instance that is known not to
   // be stopped settles the verdict. Otherwise an attachment without an instance ID, an instance missing from the
   // inventory, or an instance with no reported state leaves the volume unknown instead of passing.
-  getLiveEvaluationCoverage: ({ resources }) => {
-    const instanceStateById = toInstanceStateById(resources.get('aws-ec2-instances'));
+  getLiveEvaluationCoverage: (context) => {
+    const instanceStateById = getLiveEvaluationIndex(context, indexInstanceStateById);
+    const { resources } = context;
 
     return createLiveEvaluationCoverage(
       resources.get('aws-ebs-volumes'),
@@ -67,8 +77,9 @@ export const ebsAttachedToStoppedInstancesRule = createRule({
       (volume) => createFindingMatch(volume.volumeId, volume.region, volume.accountId),
     );
   },
-  evaluateLive: ({ resources }) => {
-    const instanceStateById = toInstanceStateById(resources.get('aws-ec2-instances'));
+  evaluateLive: (context) => {
+    const instanceStateById = getLiveEvaluationIndex(context, indexInstanceStateById);
+    const { resources } = context;
 
     const findings = resources
       .get('aws-ebs-volumes')
