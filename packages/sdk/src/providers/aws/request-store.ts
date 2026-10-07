@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { chmodSync, lstatSync, mkdirSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
+import { DatabaseSync, type StatementSync } from 'node:sqlite';
 import { setTimeout as wait } from 'node:timers/promises';
 
 /** Atomic storage for opaque AWS quota state shared by admission schedulers. */
@@ -22,6 +22,12 @@ export type AwsRequestStore = {
     signal?: AbortSignal,
     options?: { ref?: boolean },
   ) => Promise<T>;
+};
+
+/** A local store with an explicit lease for its cached SQLite connections. */
+export type LocalAwsRequestStore = AwsRequestStore & {
+  /** Closes cached SQLite connections; a later update reopens them as needed. */
+  close: () => void;
 };
 
 /**
@@ -127,14 +133,34 @@ const initializeDefaultDirectory = (directory: string): string => {
  * An existing temporary coordinator remains selected while the default coordinator path is absent.
  * Existing or uninspectable state is never abandoned after a failure; two existing locations require explicit selection.
  * Once a directory is selected, database, lock, corruption, and later directory errors remain fail-closed.
+ * Each quota key reuses a cached SQLite handle, with at most 32 handles open and the least-recently-used handle
+ * closed first. Handles are released by {@link LocalAwsRequestStore.close}; a later update reopens them as needed.
  *
  * @param directory - Explicit private storage directory, overriding environment-based selection without fallback.
- * @returns An atomic AWS request state store with a separate SQLite database for each hashed quota key.
+ * @returns An atomic AWS request state store with a separate SQLite database for each hashed quota key and bounded
+ *   connection reuse.
  */
-export const createLocalAwsRequestStore = (directory?: string): AwsRequestStore => {
+export const createLocalAwsRequestStore = (directory?: string): LocalAwsRequestStore => {
   let selectedDirectory = directory ?? process.env.CLOUDBURN_AWS_ADMISSION_DIR;
   const primary =
     selectedDirectory ?? join(process.env.XDG_CACHE_HOME || join(homedir(), '.cache'), 'cloudburn', 'aws-admission-v1');
+  const handles = new Map<string, Handle>();
+  const MAX_OPEN_DATABASES = 32;
+
+  const evict = (filename: string, handle: Handle): void => {
+    if (handles.get(filename) === handle) handles.delete(filename);
+    handle.database.close();
+  };
+
+  const remember = (filename: string, handle: Handle): void => {
+    handles.delete(filename);
+    handles.set(filename, handle);
+    while (handles.size > MAX_OPEN_DATABASES) {
+      const oldest = handles.entries().next().value as [string, Handle];
+      evict(oldest[0], oldest[1]);
+    }
+  };
+
   return {
     update: async (key, update, signal, options) => {
       signal?.throwIfAborted();
@@ -147,9 +173,11 @@ export const createLocalAwsRequestStore = (directory?: string): AwsRequestStore 
       }
       const directory = selectedDirectory;
       const filename = join(directory, `${createHash('sha256').update(key).digest('hex')}.sqlite`);
+      let filenameStat: ReturnType<typeof lstatSync> | undefined;
       try {
         initializeDirectory(directory);
-        if (lstatSync(filename, { throwIfNoEntry: false })?.isSymbolicLink()) {
+        filenameStat = lstatSync(filename, { throwIfNoEntry: false });
+        if (filenameStat?.isSymbolicLink()) {
           throw new Error('The local AWS admission database must not be a symbolic link');
         }
       } catch (error) {
@@ -159,21 +187,48 @@ export const createLocalAwsRequestStore = (directory?: string): AwsRequestStore 
       const startedAt = performance.now();
       while (true) {
         signal?.throwIfAborted();
+        let handle = handles.get(filename);
+        if (
+          handle &&
+          (filenameStat === undefined || handle.dev !== filenameStat.dev || handle.ino !== filenameStat.ino)
+        ) {
+          evict(filename, handle);
+          handle = undefined;
+        }
+        let freshDatabase: DatabaseSync | undefined;
         let database: DatabaseSync | undefined;
         let applyingTransition = false;
+        let evictOnError = false;
         try {
-          database = new DatabaseSync(filename, { timeout: 0 });
-          // SQLite owns the file handles: closing a separate descriptor can release another thread's POSIX locks.
-          chmodSync(filename, 0o600);
+          if (!handle) {
+            try {
+              freshDatabase = new DatabaseSync(filename, { timeout: 0 });
+              // SQLite owns the file handles: closing a separate descriptor can release another thread's POSIX locks.
+              chmodSync(filename, 0o600);
+              const identity = lstatSync(filename);
+              if (!identity) throw new Error('The local AWS admission database disappeared after opening');
+              handle = { database: freshDatabase, dev: identity.dev, ino: identity.ino };
+              freshDatabase = undefined;
+              remember(filename, handle);
+            } catch (error) {
+              freshDatabase?.close();
+              throw error;
+            }
+          } else {
+            remember(filename, handle);
+          }
+          database = handle.database;
           database.exec('BEGIN IMMEDIATE');
-          const version = database.prepare('PRAGMA user_version').get()?.user_version;
+          handle.version ??= database.prepare('PRAGMA user_version');
+          const version = handle.version.get()?.user_version;
           if (version === 0) {
             database.exec('CREATE TABLE request_state_v1 (id INTEGER PRIMARY KEY CHECK (id = 1), state TEXT NOT NULL)');
             database.exec('PRAGMA user_version = 1');
           } else if (version !== 1) {
             throw new Error(`Unsupported local AWS admission state version ${version}`);
           }
-          const row = database.prepare('SELECT state FROM request_state_v1 WHERE id = 1').get();
+          handle.select ??= database.prepare('SELECT state FROM request_state_v1 WHERE id = 1');
+          const row = handle.select.get();
           if (row !== undefined && typeof row.state !== 'string') {
             throw new Error('Invalid local AWS admission state payload');
           }
@@ -184,7 +239,8 @@ export const createLocalAwsRequestStore = (directory?: string): AwsRequestStore 
           signal?.throwIfAborted();
           // Refused admission can return unchanged state; the finally block releases its lock without a write commit.
           if (next.state === row?.state) return next.value;
-          database.prepare('INSERT OR REPLACE INTO request_state_v1 (id, state) VALUES (1, ?)').run(next.state);
+          handle.insert ??= database.prepare('INSERT OR REPLACE INTO request_state_v1 (id, state) VALUES (1, ?)');
+          handle.insert.run(next.state);
           signal?.throwIfAborted();
           database.exec('COMMIT');
           return next.value;
@@ -199,6 +255,7 @@ export const createLocalAwsRequestStore = (directory?: string): AwsRequestStore 
               (error.errcode & 0xff) === 5
             )
           ) {
+            evictOnError = true;
             throw localStateError(directory, error);
           }
           if (performance.now() - startedAt >= 5_000) {
@@ -208,10 +265,27 @@ export const createLocalAwsRequestStore = (directory?: string): AwsRequestStore 
             );
           }
         } finally {
+          let rollbackError: unknown;
           try {
             if (database?.isTransaction) database.exec('ROLLBACK');
+          } catch (error) {
+            rollbackError = error;
           } finally {
-            database?.close();
+            if (rollbackError !== undefined || evictOnError) {
+              if (handle) {
+                if (handles.get(filename) === handle) handles.delete(filename);
+                try {
+                  handle.database.close();
+                } finally {
+                  // Rollback errors must override the original error, matching the prior cleanup behavior.
+                  // biome-ignore lint/correctness/noUnsafeFinally: rollback errors must propagate after closing the handle.
+                  if (rollbackError !== undefined) throw rollbackError;
+                }
+              } else if (rollbackError !== undefined) {
+                // biome-ignore lint/correctness/noUnsafeFinally: rollback errors must propagate after cleanup.
+                throw rollbackError;
+              }
+            }
           }
         }
         try {
@@ -222,5 +296,26 @@ export const createLocalAwsRequestStore = (directory?: string): AwsRequestStore 
         }
       }
     },
+    close: () => {
+      let firstError: unknown;
+      for (const [filename, handle] of handles) {
+        handles.delete(filename);
+        try {
+          handle.database.close();
+        } catch (error) {
+          firstError ??= error;
+        }
+      }
+      if (firstError !== undefined) throw firstError;
+    },
   };
+};
+
+type Handle = {
+  database: DatabaseSync;
+  dev: number;
+  ino: number;
+  select?: StatementSync;
+  insert?: StatementSync;
+  version?: StatementSync;
 };
