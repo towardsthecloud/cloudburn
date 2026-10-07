@@ -121,6 +121,17 @@ const initializeDefaultDirectory = (directory: string): string => {
   return fallback;
 };
 
+const MAX_OPEN_DATABASES = 32;
+
+type Handle = {
+  database: DatabaseSync;
+  dev: number;
+  ino: number;
+  select?: StatementSync;
+  insert?: StatementSync;
+  version?: StatementSync;
+};
+
 /**
  * Creates host-local quota storage shared by independent processes under the same directory.
  *
@@ -145,7 +156,6 @@ export const createLocalAwsRequestStore = (directory?: string): LocalAwsRequestS
   const primary =
     selectedDirectory ?? join(process.env.XDG_CACHE_HOME || join(homedir(), '.cache'), 'cloudburn', 'aws-admission-v1');
   const handles = new Map<string, Handle>();
-  const MAX_OPEN_DATABASES = 32;
 
   const evict = (filename: string, handle: Handle): void => {
     if (handles.get(filename) === handle) handles.delete(filename);
@@ -184,17 +194,18 @@ export const createLocalAwsRequestStore = (directory?: string): LocalAwsRequestS
         throw localStateError(directory, error);
       }
 
+      const cachedHandle = handles.get(filename);
+      if (
+        cachedHandle &&
+        (filenameStat === undefined || cachedHandle.dev !== filenameStat.dev || cachedHandle.ino !== filenameStat.ino)
+      ) {
+        evict(filename, cachedHandle);
+      }
+
       const startedAt = performance.now();
       while (true) {
         signal?.throwIfAborted();
         let handle = handles.get(filename);
-        if (
-          handle &&
-          (filenameStat === undefined || handle.dev !== filenameStat.dev || handle.ino !== filenameStat.ino)
-        ) {
-          evict(filename, handle);
-          handle = undefined;
-        }
         let freshDatabase: DatabaseSync | undefined;
         let database: DatabaseSync | undefined;
         let applyingTransition = false;
@@ -206,7 +217,6 @@ export const createLocalAwsRequestStore = (directory?: string): LocalAwsRequestS
               // SQLite owns the file handles: closing a separate descriptor can release another thread's POSIX locks.
               chmodSync(filename, 0o600);
               const identity = lstatSync(filename);
-              if (!identity) throw new Error('The local AWS admission database disappeared after opening');
               handle = { database: freshDatabase, dev: identity.dev, ino: identity.ino };
               freshDatabase = undefined;
               remember(filename, handle);
@@ -265,27 +275,10 @@ export const createLocalAwsRequestStore = (directory?: string): LocalAwsRequestS
             );
           }
         } finally {
-          let rollbackError: unknown;
           try {
             if (database?.isTransaction) database.exec('ROLLBACK');
-          } catch (error) {
-            rollbackError = error;
           } finally {
-            if (rollbackError !== undefined || evictOnError) {
-              if (handle) {
-                if (handles.get(filename) === handle) handles.delete(filename);
-                try {
-                  handle.database.close();
-                } finally {
-                  // Rollback errors must override the original error, matching the prior cleanup behavior.
-                  // biome-ignore lint/correctness/noUnsafeFinally: rollback errors must propagate after closing the handle.
-                  if (rollbackError !== undefined) throw rollbackError;
-                }
-              } else if (rollbackError !== undefined) {
-                // biome-ignore lint/correctness/noUnsafeFinally: rollback errors must propagate after cleanup.
-                throw rollbackError;
-              }
-            }
+            if (handle && (evictOnError || handle.database.isTransaction)) evict(filename, handle);
           }
         }
         try {
@@ -297,25 +290,12 @@ export const createLocalAwsRequestStore = (directory?: string): LocalAwsRequestS
       }
     },
     close: () => {
-      let firstError: unknown;
       for (const [filename, handle] of handles) {
-        handles.delete(filename);
         try {
-          handle.database.close();
-        } catch (error) {
-          firstError ??= error;
-        }
+          evict(filename, handle);
+        } catch {}
       }
-      if (firstError !== undefined) throw firstError;
+      handles.clear();
     },
   };
-};
-
-type Handle = {
-  database: DatabaseSync;
-  dev: number;
-  ino: number;
-  select?: StatementSync;
-  insert?: StatementSync;
-  version?: StatementSync;
 };
