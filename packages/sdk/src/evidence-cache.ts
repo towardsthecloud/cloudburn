@@ -191,14 +191,17 @@ export const createMemoryEvidenceCacheStore = (): EvidenceCacheStore => {
 /**
  * Creates private host-local SQLite persistence with atomic fenced leases and eviction.
  * @param directory - Explicit directory shared by cooperating processes; never silently falls back.
- * @returns Durable storage. The database handle opens lazily once per store and reopens if the database file is replaced or removed.
+ * @returns Durable storage. Each process opens the database lazily once per directory and reuses the handle across caches and transactions, reopening it if the database file is replaced or removed.
  */
+const localDatabases = new Map<
+  string,
+  { database?: DatabaseSync; identity?: { dev: number; ino: number }; schemaReady: boolean }
+>();
 const createLocalEvidenceCacheStore = (directory: string): EvidenceCacheStore => {
   const filename = join(resolve(directory), 'evidence.sqlite');
+  const databaseState = localDatabases.get(filename) ?? { schemaReady: false };
+  localDatabases.set(filename, databaseState);
   const sqlite = import('node:sqlite');
-  let database: DatabaseSync | undefined;
-  let identity: { dev: number; ino: number } | undefined;
-  let schemaReady = false;
   const open = (DatabaseSyncCtor: typeof DatabaseSync): DatabaseSync => {
     let opened: DatabaseSync | undefined;
     try {
@@ -210,17 +213,17 @@ const createLocalEvidenceCacheStore = (directory: string): EvidenceCacheStore =>
       chmodSync(filename, 0o600);
       opened.exec('PRAGMA auto_vacuum = FULL');
       const stats = lstatSync(filename);
-      database = opened;
-      identity = { dev: stats.dev, ino: stats.ino };
-      schemaReady = false;
+      databaseState.database = opened;
+      databaseState.identity = { dev: stats.dev, ino: stats.ino };
+      databaseState.schemaReady = false;
       return opened;
     } catch (error) {
       try {
         opened?.close();
       } finally {
-        database = undefined;
-        identity = undefined;
-        schemaReady = false;
+        databaseState.database = undefined;
+        databaseState.identity = undefined;
+        databaseState.schemaReady = false;
       }
       throw error;
     }
@@ -231,30 +234,30 @@ const createLocalEvidenceCacheStore = (directory: string): EvidenceCacheStore =>
     while (true) {
       signal?.throwIfAborted();
       try {
-        if (!database) open(DatabaseSync);
+        if (!databaseState.database) open(DatabaseSync);
         else {
           const stats = lstatSync(filename, { throwIfNoEntry: false });
           if (
             !stats ||
             stats.isSymbolicLink() ||
-            !identity ||
-            stats.dev !== identity.dev ||
-            stats.ino !== identity.ino
+            !databaseState.identity ||
+            stats.dev !== databaseState.identity.dev ||
+            stats.ino !== databaseState.identity.ino
           ) {
             try {
-              database.close();
+              databaseState.database.close();
             } finally {
-              database = undefined;
-              identity = undefined;
-              schemaReady = false;
+              databaseState.database = undefined;
+              databaseState.identity = undefined;
+              databaseState.schemaReady = false;
             }
             open(DatabaseSync);
           }
         }
-        const currentDatabase = database;
+        const currentDatabase = databaseState.database;
         if (!currentDatabase) throw new Error('Evidence database failed to open');
         currentDatabase.exec('BEGIN IMMEDIATE');
-        if (!schemaReady)
+        if (!databaseState.schemaReady)
           currentDatabase.exec(
             'CREATE TABLE IF NOT EXISTS evidence_v1 (key TEXT PRIMARY KEY, state TEXT NOT NULL, accessed INTEGER NOT NULL, bytes INTEGER NOT NULL, lease_until INTEGER NOT NULL)',
           );
@@ -262,7 +265,7 @@ const createLocalEvidenceCacheStore = (directory: string): EvidenceCacheStore =>
         const result = apply(currentDatabase);
         signal?.throwIfAborted();
         currentDatabase.exec('COMMIT');
-        schemaReady = true;
+        databaseState.schemaReady = true;
         return result;
       } catch (error) {
         signal?.throwIfAborted();
@@ -277,7 +280,7 @@ const createLocalEvidenceCacheStore = (directory: string): EvidenceCacheStore =>
         )
           throw error;
       } finally {
-        if (database?.isTransaction) database.exec('ROLLBACK');
+        if (databaseState.database?.isTransaction) databaseState.database.exec('ROLLBACK');
       }
       await wait(10, undefined, { signal });
     }

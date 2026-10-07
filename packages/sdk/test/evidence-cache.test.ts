@@ -1,4 +1,5 @@
 import { type ChildProcess, fork } from 'node:child_process';
+import { readdirSync } from 'node:fs';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -117,6 +118,21 @@ describe('evidence cache', () => {
     expect(hit.provenance.source).toBe('cache');
     expect(load).toHaveBeenCalledTimes(2);
   });
+
+  it.skipIf(process.platform !== 'linux')(
+    'shares one database handle across caches on the same directory',
+    async () => {
+      const path = await directory();
+      const load = vi.fn(async () => ({ value: 'live', complete: true }));
+      await createEvidenceCache({ directory: path }).load({ key: 'warm', ttlMs: 10_000, load });
+      const before = readdirSync('/proc/self/fd').length;
+
+      for (let i = 0; i < 20; i += 1)
+        await createEvidenceCache({ directory: path }).load({ key: `k${i}`, ttlMs: 10_000, load });
+
+      expect(readdirSync('/proc/self/fd').length - before).toBeLessThan(3);
+    },
+  );
 
   it('reuses complete evidence across cache instances with original timestamps and Dates', async () => {
     const path = await directory();
