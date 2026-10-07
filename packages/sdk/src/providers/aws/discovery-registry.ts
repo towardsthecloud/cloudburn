@@ -292,7 +292,7 @@ const awsDiscoveryDatasetRegistry: {
     datasetKey: 'aws-cloudfront-distributions',
     dependencies: [],
     schemaVersion: '1',
-    loaderVersion: '1',
+    loaderVersion: '2',
     freshness: { ttlMs: 600_000, observation: { kind: 'current' } },
     resourceTypes: ['cloudfront:distribution'],
     service: 'cloudfront',
