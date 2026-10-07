@@ -498,6 +498,29 @@ describe('local AWS request state', () => {
     ).resolves.toBe('fresh');
   });
 
+  it('reopens a replaced database during a busy retry', async () => {
+    const directory = createDirectory();
+    const key = 'busy-replaced-quota';
+    const filename = join(directory, `${createHash('sha256').update(key).digest('hex')}.sqlite`);
+    const store = createLocalAwsRequestStore(directory);
+    await store.update(key, () => ({ state: 'reserved', value: undefined }));
+    const holder = startChild(directory, key, 'hold');
+    await holder.locked;
+    const pending = store.update(key, (current) => ({ state: 'after replacement', value: current }));
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    rmSync(filename);
+    try {
+      await expect(pending).resolves.toBeUndefined();
+      await expect(
+        createLocalAwsRequestStore(directory).update(key, (current) => ({ state: current ?? '', value: current })),
+      ).resolves.toBe('after replacement');
+    } finally {
+      holder.child.kill('SIGKILL');
+      await holder.completion;
+    }
+  });
+
   it('releases cached handles on close and reopens them on later updates', async () => {
     const directory = createDirectory();
     const key = 'closed-quota';

@@ -194,18 +194,26 @@ export const createLocalAwsRequestStore = (directory?: string): LocalAwsRequestS
         throw localStateError(directory, error);
       }
 
-      const cachedHandle = handles.get(filename);
-      if (
-        cachedHandle &&
-        (filenameStat === undefined || cachedHandle.dev !== filenameStat.dev || cachedHandle.ino !== filenameStat.ino)
-      ) {
-        evict(filename, cachedHandle);
-      }
-
       const startedAt = performance.now();
+      let firstAttempt = true;
       while (true) {
         signal?.throwIfAborted();
+        if (!firstAttempt) {
+          try {
+            filenameStat = lstatSync(filename, { throwIfNoEntry: false });
+          } catch (error) {
+            throw localStateError(directory, error);
+          }
+        }
+        firstAttempt = false;
         let handle = handles.get(filename);
+        if (
+          handle &&
+          (filenameStat === undefined || handle.dev !== filenameStat.dev || handle.ino !== filenameStat.ino)
+        ) {
+          evict(filename, handle);
+          handle = undefined;
+        }
         let freshDatabase: DatabaseSync | undefined;
         let database: DatabaseSync | undefined;
         let applyingTransition = false;
