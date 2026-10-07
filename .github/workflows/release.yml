@@ -171,7 +171,31 @@ jobs:
           PR_NUMBER: ${{ steps.changesets.outputs.pr-number }}
         run: gh pr edit "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --add-label release
 
+      # Normal publishing already force-builds every package. Recovery needs one build for the selected sync
+      # targets before they run concurrently, so separate Turbo processes cannot race on SDK/rules output.
+      - name: Build recovered release artifacts
+        if: github.ref == 'refs/heads/main' && inputs.published-release-ref != ''
+        env:
+          RELEASED: ${{ steps.recovery.outputs.packages }}
+        run: |
+          FILTERS=()
+          for PACKAGE in $RELEASED; do
+            case "$PACKAGE" in
+              action|mcp)
+                if [ -f "packages/${PACKAGE}/package.json" ]; then
+                  FILTERS+=(--filter "@cloudburn/${PACKAGE}")
+                fi
+                ;;
+            esac
+          done
+          if [ "${#FILTERS[@]}" -gt 0 ]; then
+            pnpm exec turbo run build "${FILTERS[@]}"
+          fi
+
+      # These destinations use separate repositories and prepared artifacts. Start all selected follow-ups;
+      # the runner's implicit wait-all before cleanup still fails the release if any destination fails.
       - name: Update Homebrew tap
+        background: true
         if: >-
           github.ref == 'refs/heads/main' &&
           ((inputs.published-release-ref != '' &&
@@ -245,6 +269,7 @@ jobs:
             -d "$JSON_PAYLOAD"
 
       - name: Sync GitHub Action
+        background: true
         if: >-
           github.ref == 'refs/heads/main' &&
           ((inputs.published-release-ref != '' &&
@@ -287,7 +312,6 @@ jobs:
             MAJOR_STALE=1
           fi
 
-          pnpm exec turbo run build --filter @cloudburn/action
           test -f packages/action/dist/index.cjs
           test -f packages/action/dist/main.wasm.gz
 
@@ -341,6 +365,7 @@ jobs:
           fi
 
       - name: Sync agent plugin
+        background: true
         if: >-
           github.ref == 'refs/heads/main' &&
           ((inputs.published-release-ref != '' &&
@@ -372,7 +397,6 @@ jobs:
             echo "Remote already has version ${REMOTE_MAX}; syncing ${TAG} as an older release."
           fi
 
-          pnpm exec turbo run build --filter @cloudburn/mcp
           test -f packages/mcp/dist/plugin/.claude-plugin/plugin.json
 
           # changeset publish returns before npm serves a new version (6 minutes for 0.1.1), and the plugin pins

@@ -38,15 +38,21 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Overlap repository checks with package work; the runner waits for background steps before job cleanup
+      # and fails Validation if either lane fails.
+      - name: Verify repository checks
+        run: pnpm verify:repo
+        background: true
+
       # Hosted runners have 4 vCPUs. Turbo's default concurrency runs every package's Vitest suite, the CLI
       # end-to-end tests, lint, and typecheck at once, which stretches timer-paced integration tests past their budgets.
-      - name: Verify affected packages and repository checks
+      - name: Verify affected packages
         if: github.event_name == 'pull_request'
-        run: pnpm verify --affected --concurrency=2
+        run: pnpm verify:packages --affected --concurrency=2
 
       - name: Verify the complete workspace
         if: github.event_name != 'pull_request'
-        run: pnpm verify --concurrency=2
+        run: pnpm verify:packages --concurrency=2
 
   action:
     name: GitHub Action smoke test

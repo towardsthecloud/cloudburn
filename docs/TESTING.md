@@ -213,7 +213,20 @@ heading fragments, reference-style definitions and uses, code-example exclusion,
 
 ## CI and task caching
 
-The shared `validate` CI job installs dependencies once. Pull requests run `pnpm verify --affected`; pushes to `main` run the full `pnpm verify` gate. Both pass `--concurrency=2` to Turbo because hosted runners have 4 vCPUs, and running every package's Vitest suite beside the CLI end-to-end tests, lint, and typecheck stretches timer-paced integration tests past their budgets. Documentation checks and package boundaries always run. Turbo selects affected package tasks and shares required builds within the job. A separate smoke job rebuilds the action and runs it through `uses: ./packages/action` against real fixtures, exercising the same `dist/` entry the runner executes.
+The shared `validate` CI job installs dependencies once, then starts `pnpm verify:repo` as a background step alongside
+package verification. Pull requests run `pnpm verify:packages --affected --concurrency=2`; pushes to `main` run
+`pnpm verify:packages --concurrency=2`. GitHub waits for background steps before cleanup and fails Validation if
+either lane fails. Documentation checks/tests, release tests, and package boundaries always run. Locally, `pnpm verify`
+runs both lanes sequentially and forwards package flags to `verify:packages`.
+
+Turbo keeps its concurrency limit of 2 because hosted runners have 4 vCPUs, and running every package's Vitest suite
+beside the CLI end-to-end tests, lint, and typecheck stretches timer-paced integration tests past their budgets. Turbo
+selects affected package tasks and shares required builds within the job. A separate smoke job rebuilds the action and
+runs it through `uses: ./packages/action` against real fixtures, exercising the same `dist/` entry the runner executes.
+
+The [actionlint configuration](../.github/actionlint.yaml) temporarily filters only the unsupported `background`
+keyword diagnostic on the CI and release workflows. Other syntax, expression, action, and shell checks remain enabled.
+Remove the exceptions when actionlint supports GitHub's background-step syntax.
 
 Source tests resolve workspace source directly and can run without dependency builds. The `test:inputs` transit task propagates upstream source changes into downstream test cache keys without serializing their execution. Built CLI and installed-package suites depend on the CLI build, which depends on SDK/rules builds. Test fixture edits invalidate tests without rebuilding unchanged package output. See the [command reference](reference/commands.md) for task dependencies and cache policy.
 

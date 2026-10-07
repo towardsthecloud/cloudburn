@@ -30,6 +30,12 @@ force-builds packages, and publishes changed packages to npm. When the `cloudbur
 updates its formula in the Homebrew tap from the npm tarball. The step retries while npm propagates the tarball and
 fails without updating the formula if the tarball never downloads.
 
+Homebrew, GitHub Action sync, and agent plugin sync run as background steps after publication, each with its own
+package-selection condition. They reuse the artifacts force-built before npm publication. Recovery builds the selected
+action/plugin targets together in one Turbo invocation before starting the syncs, so their shared SDK/rules outputs
+cannot be rebuilt concurrently. GitHub waits for every background step before job cleanup and fails the release if
+any destination fails; other selected destinations still get an update attempt.
+
 ## GitHub Action sync
 
 `@cloudburn/action` is private: `changeset publish` never sends it to npm, but
@@ -39,7 +45,7 @@ fails without updating the formula if the tarball never downloads.
 version therefore tracks the SDK automatically. Keep the `workspace:*` pin; a ranged dependency would break tracking
 for patch releases.
 
-After publishing, the `Sync GitHub Action` step reads `packages/action/package.json`, builds the bundle, clones
+After publishing, the `Sync GitHub Action` step reads `packages/action/package.json`, uses the prepared bundle, clones
 `towardsthecloud/cloudburn-action` with `ACTION_REPO_TOKEN`, copies `action.yml`, `dist/index.cjs`,
 `dist/main.wasm.gz`, `README.md`, and `LICENSE`, and commits only on content changes. It then reconciles each
 artifact independently — `v<version>` tag, floating `v<major>` tag, and GitHub release from
@@ -73,7 +79,7 @@ recovery against temporary Git remotes. It runs as part of `pnpm test` and `pnpm
 patch-bump it, as with the action. Its build also writes the agent plugin to `packages/mcp/dist/plugin/`, stamping the
 package version into the plugin manifests and the `npx -y @cloudburn/mcp@<version>` launchers.
 
-After a release publishes `@cloudburn/mcp`, the `Sync agent plugin` step builds the package, clones
+After a release publishes `@cloudburn/mcp`, the `Sync agent plugin` step uses the prepared package artifacts, clones
 `towardsthecloud/cloudburn-plugin` with `PLUGIN_REPO_TOKEN`, replaces everything except `.git` with the built plugin,
 and commits only on content changes. It creates the immutable `v<version>` tag before pushing `main`, then creates the
 GitHub release from `packages/mcp/CHANGELOG.md`. The sync runs after npm publication and first waits up to 15
