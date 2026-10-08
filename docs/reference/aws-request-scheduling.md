@@ -62,14 +62,13 @@ Without an explicit admission directory, CloudBurn uses `$XDG_CACHE_HOME/cloudbu
 `XDG_CACHE_HOME` is set, or `~/.cache/cloudburn/aws-admission-v1` otherwise. If a new cache cannot be initialized because
 of permissions, a read-only filesystem, or an unusable home path,
 CloudBurn can use a private `cloudburn-<user-id>/aws-admission-v1` directory under the system temporary directory
-(including `TMPDIR` on POSIX), preferring `$XDG_RUNTIME_DIR` when it is absolute. This fallback remains shared across
-processes; an existing system-temporary fallback remains selected if `$XDG_RUNTIME_DIR` is introduced later, and it
-does not switch to in-memory admission. Temporary roots not owned by the current user are ignored when choosing between
-locations and only fail if the fallback is required; set `CLOUDBURN_AWS_ADMISSION_DIR` in that case.
+(including `TMPDIR` on POSIX). This fallback remains shared across processes; it does not switch to in-memory admission.
 An existing temporary coordinator is reused while the primary directory remains absent, even if the home becomes writable.
+A temporary `cloudburn-<user-id>` directory that is a symbolic link or is owned by another user is ignored when
+choosing a location; if the fallback is then required, CloudBurn fails and asks you to set `CLOUDBURN_AWS_ADMISSION_DIR`.
 
 Shared admission requires writable local storage. Errors in explicit admission directories or existing coordinator state fail without
-selecting a new location. Paths whose state cannot be inspected also fail with an actionable error. If multiple default or
+selecting a new location. Paths whose state cannot be inspected also fail with an actionable error. If both default and
 temporary locations exist, stop participating processes and select the active state with `CLOUDBURN_AWS_ADMISSION_DIR`.
 Database corruption and lock errors never select a new directory.
 Set `CLOUDBURN_AWS_ADMISSION_DIR` to the same writable local path in every participating container or SDK process.

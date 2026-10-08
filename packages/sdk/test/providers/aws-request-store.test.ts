@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath } from 'node:url';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createLocalAwsRequestStore, createMemoryAwsRequestStore } from '../../src/providers/aws/request-store.js';
 
 vi.mock('node:fs', async (importOriginal) => ({ ...(await importOriginal<typeof import('node:fs')>()) }));
@@ -147,10 +147,6 @@ describe.each([
 });
 
 describe('local AWS request state', () => {
-  beforeEach(() => {
-    vi.stubEnv('XDG_RUNTIME_DIR', undefined);
-  });
-
   it('allows only unreferenced contention waits to finish with the child process', async () => {
     const directory = createDirectory();
     const holder = startChild(directory, 'shared-quota', 'hold');
@@ -227,7 +223,7 @@ describe('local AWS request state', () => {
     const transition = vi.fn(() => ({ state: 'unsafe', value: undefined }));
 
     await expect(createLocalAwsRequestStore().update('shared-quota', transition)).rejects.toThrow(
-      /Multiple.*CLOUDBURN_AWS_ADMISSION_DIR/,
+      /Both.*CLOUDBURN_AWS_ADMISSION_DIR/,
     );
     expect(transition).not.toHaveBeenCalled();
   });
@@ -321,98 +317,6 @@ describe('local AWS request state', () => {
     expect(transition).not.toHaveBeenCalled();
   });
 
-  it('prefers an absolute XDG_RUNTIME_DIR over a squatted system temporary directory', async () => {
-    const parent = createDirectory();
-    const home = join(parent, 'home');
-    const runtime = createDirectory();
-    const temporary = createDirectory();
-    writeFileSync(home, 'not a directory');
-    vi.spyOn(operatingSystem, 'homedir').mockReturnValue(home);
-    vi.stubEnv('XDG_CACHE_HOME', undefined);
-    vi.stubEnv('CLOUDBURN_AWS_ADMISSION_DIR', undefined);
-    vi.stubEnv('XDG_RUNTIME_DIR', runtime);
-    vi.stubEnv('TMPDIR', temporary);
-    const realUid = currentUid();
-    const temporaryTarget = createDirectory();
-    const temporaryRoot = join(temporary, `cloudburn-${realUid}`);
-    symlinkSync(temporaryTarget, temporaryRoot, 'dir');
-    const temporaryContents = readdirSync(temporary);
-    const first = createLocalAwsRequestStore();
-    const second = createLocalAwsRequestStore();
-
-    await first.update('shared-quota', () => ({ state: 'reserved', value: undefined }));
-    await expect(second.update('shared-quota', (current) => ({ state: 'next', value: current }))).resolves.toBe(
-      'reserved',
-    );
-    const runtimeRoot = join(runtime, `cloudburn-${realUid}`);
-    const runtimeFallback = join(runtimeRoot, 'aws-admission-v1');
-    expect(statSync(runtimeRoot).mode & 0o777).toBe(0o700);
-    expect(readdirSync(runtimeFallback)).toHaveLength(1);
-    expect(readdirSync(temporary)).toEqual(temporaryContents);
-    expect(filesystem.lstatSync(temporaryRoot).isSymbolicLink()).toBe(true);
-    expect(readdirSync(temporaryTarget)).toEqual([]);
-  });
-
-  it('ignores a relative XDG_RUNTIME_DIR when selecting the temporary fallback', async () => {
-    const parent = createDirectory();
-    const home = join(parent, 'home');
-    const temporary = createDirectory();
-    writeFileSync(home, 'not a directory');
-    vi.spyOn(operatingSystem, 'homedir').mockReturnValue(home);
-    vi.stubEnv('XDG_CACHE_HOME', undefined);
-    vi.stubEnv('CLOUDBURN_AWS_ADMISSION_DIR', undefined);
-    vi.stubEnv('XDG_RUNTIME_DIR', 'relative-runtime');
-    vi.stubEnv('TMPDIR', temporary);
-
-    await expect(
-      createLocalAwsRequestStore().update('shared-quota', () => ({ state: 'temporary', value: undefined })),
-    ).resolves.toBeUndefined();
-    expect(readdirSync(temporary)).toHaveLength(1);
-  });
-
-  it('reuses existing system temporary state when XDG_RUNTIME_DIR is introduced', async () => {
-    const parent = createDirectory();
-    const home = join(parent, 'home');
-    const temporary = createDirectory();
-    writeFileSync(home, 'not a directory');
-    vi.spyOn(operatingSystem, 'homedir').mockReturnValue(home);
-    vi.stubEnv('XDG_CACHE_HOME', undefined);
-    vi.stubEnv('CLOUDBURN_AWS_ADMISSION_DIR', undefined);
-    vi.stubEnv('XDG_RUNTIME_DIR', undefined);
-    vi.stubEnv('TMPDIR', temporary);
-    await createLocalAwsRequestStore().update('shared-quota', () => ({ state: 'legacy', value: undefined }));
-    const runtime = createDirectory();
-    vi.stubEnv('XDG_RUNTIME_DIR', runtime);
-
-    await expect(
-      createLocalAwsRequestStore().update('shared-quota', (current) => ({ state: 'next', value: current })),
-    ).resolves.toBe('legacy');
-    expect(readdirSync(runtime)).toEqual([]);
-  });
-
-  it('fails closed when both runtime and system temporary state exist', async () => {
-    const parent = createDirectory();
-    const home = join(parent, 'home');
-    const temporary = createDirectory();
-    const runtime = createDirectory();
-    writeFileSync(home, 'not a directory');
-    vi.spyOn(operatingSystem, 'homedir').mockReturnValue(home);
-    vi.stubEnv('XDG_CACHE_HOME', undefined);
-    vi.stubEnv('CLOUDBURN_AWS_ADMISSION_DIR', undefined);
-    vi.stubEnv('XDG_RUNTIME_DIR', undefined);
-    vi.stubEnv('TMPDIR', temporary);
-    await createLocalAwsRequestStore().update('shared-quota', () => ({ state: 'legacy', value: undefined }));
-    const realUid = currentUid();
-    mkdirSync(join(runtime, `cloudburn-${realUid}`, 'aws-admission-v1'), { recursive: true });
-    vi.stubEnv('XDG_RUNTIME_DIR', runtime);
-    const transition = vi.fn(() => ({ state: 'unsafe', value: undefined }));
-
-    await expect(createLocalAwsRequestStore().update('shared-quota', transition)).rejects.toThrow(
-      /CLOUDBURN_AWS_ADMISSION_DIR/,
-    );
-    expect(transition).not.toHaveBeenCalled();
-  });
-
   it.each(['file', 'symlink'])(
     'fails closed when the temporary state child is a %s inside an owned root',
     async (childType) => {
@@ -423,7 +327,6 @@ describe('local AWS request state', () => {
       vi.spyOn(operatingSystem, 'homedir').mockReturnValue(home);
       vi.stubEnv('XDG_CACHE_HOME', undefined);
       vi.stubEnv('CLOUDBURN_AWS_ADMISSION_DIR', undefined);
-      vi.stubEnv('XDG_RUNTIME_DIR', undefined);
       vi.stubEnv('TMPDIR', temporary);
       const realUid = currentUid();
       const root = join(temporary, `cloudburn-${realUid}`);

@@ -241,10 +241,7 @@ Catalog, control-plane, and collector requests share AWS quota limits across ope
 user. Quotas use the signing caller's account, resolved once per run. If that lookup fails, collectors continue with
 isolated in-memory limits for that run. Shared coordination requires writable local storage. It uses `$XDG_CACHE_HOME/cloudburn/aws-admission-v1` when configured,
 or `~/.cache/cloudburn/aws-admission-v1`, with a shared temporary-directory fallback when a new default cache cannot be
-created, preferring `$XDG_RUNTIME_DIR` over the system temporary directory. Temporary roots owned by another user are
-ignored when choosing between locations and only fail if the fallback is required. Existing system-temporary state
-remains selected if `$XDG_RUNTIME_DIR` is introduced later. Set `CLOUDBURN_AWS_ADMISSION_DIR` to choose a shared
-writable path for containers or other constrained environments.
+created. A temporary directory owned by another user is ignored. Set `CLOUDBURN_AWS_ADMISSION_DIR` to choose a shared writable path for containers or other constrained environments.
 Existing state errors fail without bypassing coordination. `CLOUDBURN_AWS_QUOTA_OVERRIDES` accepts JSON policies such as
 `{"logs:DescribeLogStreams":{"ratePerSecond":5,"burst":1}}`. See [AWS request scheduling](../../docs/reference/aws-request-scheduling.md)
 for defaults, retry behavior, telemetry, and coordination limits.
@@ -521,7 +518,8 @@ Integrations such as the CLI, GitHub Action, and MCP server share these helpers:
 - `filterBuiltInRules({ services?, sources?, severity? })` selects `builtInRuleMetadata` entries matching every supplied criterion
 - `validateServices(services, mode?)` lower-cases service names and throws for services without built-in rules for the mode
 - `categorizeError(err)` maps a thrown value to a stable `{ code, message }` with credentials, signed URLs, and metadata
-  endpoints redacted from the message
+  endpoints redacted from the message; discovery diagnostic `details`, Resource Explorer status `notes`, and debug logs
+  apply the same redaction to caught AWS errors
 
 The `CloudBurnClient` also exposes helper methods:
 
