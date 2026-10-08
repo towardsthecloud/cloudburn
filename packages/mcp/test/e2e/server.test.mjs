@@ -39,8 +39,8 @@ test('scan_iac reports a clean scan without findings', async (t) => {
 test('scan_iac applies an explicit config file and lets arguments override its rule selection', async (t) => {
   const terraformFindings = cases.find((scenario) => scenario.fixture === 'ebs/terraform').expected;
   const { call, directory } = await connectServer(t, 'ebs/terraform');
-  writeFileSync(join(directory, 'settings.yaml'), 'iac:\n  enabled-rules:\n    - CLDBRN-AWS-S3-1\n');
-  const target = { path: join(directory, 'main.tf'), configPath: join(directory, 'settings.yaml') };
+  writeFileSync(join(directory, '.cloudburn.yml'), 'iac:\n  enabled-rules:\n    - CLDBRN-AWS-S3-1\n');
+  const target = { path: join(directory, 'main.tf'), configPath: join(directory, '.cloudburn.yml') };
   const configured = await call('scan_iac', target);
   assert.deepEqual(configured.body.providers, []);
   const overridden = await call('scan_iac', {

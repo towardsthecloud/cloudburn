@@ -1,4 +1,4 @@
-import { isAbsolute } from 'node:path';
+import { basename, isAbsolute } from 'node:path';
 import { type CloudBurnConfig, type Source, validateServices as validateSdkServices } from '@cloudburn/sdk';
 import * as z from 'zod';
 import { InvalidArgumentError } from './error.js';
@@ -10,7 +10,7 @@ export const ruleSelectionShape = {
     .min(1)
     .optional()
     .describe(
-      "Absolute path to a CloudBurn config file. Pass the project's .cloudburn.yml when it exists; without it, " +
+      "Absolute path to the project's .cloudburn.yml or .cloudburn.yaml config file. Without it, " +
         "CloudBurn searches upward from the server's working directory, which depends on the agent host.",
     ),
   enabledRules: z
@@ -42,6 +42,30 @@ export const ruleSelectionShape = {
 export const requireAbsolutePath = (value: string | undefined, argument: string): void => {
   if (value !== undefined && !isAbsolute(value)) {
     throw new InvalidArgumentError(`${argument} must be an absolute path; received "${value}".`);
+  }
+};
+
+/**
+ * Restricts config paths to the CloudBurn config filenames. YAML parse errors include source lines, so an
+ * arbitrary file path, such as a credentials file, would leak its contents into the tool error shown to the model.
+ *
+ * @param value - Config path supplied by the client, if any.
+ * @returns Nothing when the path is an absolute `.cloudburn.yml`/`.cloudburn.yaml` path or omitted.
+ * @throws InvalidArgumentError when the path is relative or points to another filename.
+ */
+export const requireConfigFilePath = (value: string | undefined): void => {
+  if (value === undefined) {
+    return;
+  }
+
+  requireAbsolutePath(value, 'configPath');
+
+  const filename = basename(value);
+
+  if (filename !== '.cloudburn.yml' && filename !== '.cloudburn.yaml') {
+    throw new InvalidArgumentError(
+      `configPath must point to a .cloudburn.yml or .cloudburn.yaml file; received "${value}".`,
+    );
   }
 };
 

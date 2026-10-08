@@ -40,7 +40,7 @@ describe('discover', () => {
       region: 'eu-central-1',
       timeoutSeconds: 600,
       cache: 'refresh',
-      configPath: '/work/team.cloudburn.yml',
+      configPath: '/work/.cloudburn.yml',
       enabledRules: ['CLDBRN-AWS-EBS-1'],
       services: ['EBS'],
     });
@@ -52,7 +52,7 @@ describe('discover', () => {
     expect(options).toMatchObject({
       cache: { mode: 'refresh', directory: join('/cache', 'cloudburn', 'evidence') },
       target: { mode: 'regions', regions: ['eu-central-1'] },
-      configPath: '/work/team.cloudburn.yml',
+      configPath: '/work/.cloudburn.yml',
       config: { discovery: { enabledRules: ['CLDBRN-AWS-EBS-1'], services: ['ebs'] } },
       timeoutMs: 600_000,
     });
@@ -72,6 +72,21 @@ describe('discover', () => {
     expect(options.cache.directory).toMatch(/[/\\]\.cache[/\\]cloudburn[/\\]evidence$/);
     expect(options).not.toHaveProperty('config');
     expect(options).not.toHaveProperty('timeoutMs');
+  });
+
+  it('rejects config paths that are not .cloudburn.yml or .cloudburn.yaml files before calling AWS', async () => {
+    const discover = vi.fn();
+    const client = await connect({ discover });
+
+    for (const configPath of ['/home/user/.aws/credentials', '/work/team.cloudburn.yml']) {
+      const { isError, body } = await callTool(client, 'discover', { configPath });
+
+      expect(isError).toBe(true);
+      expect(body.error.code).toBe('INVALID_ARGUMENT');
+      expect(body.error.message).toMatch(/must point to a \.cloudburn\.yml or \.cloudburn\.yaml file/);
+    }
+
+    expect(discover).not.toHaveBeenCalled();
   });
 
   it('rejects an unsupported region before calling AWS', async () => {
@@ -106,6 +121,36 @@ describe('discover', () => {
       { progress: 1, message: 'Catalog ready with 12 resources from eu-west-1' },
       { progress: 2, message: 'Datasets 1/3 loaded (aws-ebs-volumes)' },
     ]);
+  });
+});
+
+describe('scan_iac', () => {
+  it('rejects config paths that are not .cloudburn.yml or .cloudburn.yaml files before scanning', async () => {
+    const scanStatic = vi.fn().mockResolvedValue(scanResult);
+    const client = await connect({ scanStatic });
+
+    for (const configPath of ['/home/user/.aws/credentials', '/work/team.cloudburn.yml']) {
+      const { isError, body } = await callTool(client, 'scan_iac', { path: '/work/main.tf', configPath });
+
+      expect(isError).toBe(true);
+      expect(body.error.code).toBe('INVALID_ARGUMENT');
+      expect(body.error.message).toMatch(/must point to a \.cloudburn\.yml or \.cloudburn\.yaml file/);
+    }
+
+    expect(scanStatic).not.toHaveBeenCalled();
+  });
+
+  it('accepts an absolute .cloudburn.yml config path', async () => {
+    const scanStatic = vi.fn().mockResolvedValue(scanResult);
+    const client = await connect({ scanStatic });
+
+    const { isError } = await callTool(client, 'scan_iac', {
+      path: '/work/main.tf',
+      configPath: '/work/.cloudburn.yml',
+    });
+
+    expect(isError).toBe(false);
+    expect(scanStatic).toHaveBeenCalledWith('/work/main.tf', undefined, { configPath: '/work/.cloudburn.yml' });
   });
 });
 
