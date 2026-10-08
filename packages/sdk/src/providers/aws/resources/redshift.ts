@@ -9,6 +9,7 @@ import type {
   AwsRedshiftClusterMetric,
   AwsRedshiftReservedNode,
 } from '@cloudburn/rules';
+import { toRedactedErrorMessage } from '../../../errors.js';
 import type { ScanDiagnostic } from '../../../types.js';
 import { createRedshiftClient } from '../client.js';
 import type { AwsDiscoveryDatasetResolver } from '../discovery-registry.js';
@@ -276,7 +277,7 @@ const loadRedshiftScheduledClusterStateSafely = async (
     return {
       diagnostic: {
         code: getAwsErrorCode(err),
-        details: err instanceof Error ? err.message : String(err),
+        details: toRedactedErrorMessage(err),
         message: buildRedshiftScheduleAccessDeniedMessage(region, err),
         provider: 'aws',
         region,

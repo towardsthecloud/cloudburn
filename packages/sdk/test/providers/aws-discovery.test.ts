@@ -3758,6 +3758,29 @@ describe('discoverAwsResources', () => {
     ]);
   });
 
+  it('redacts sensitive provider text from dataset failure diagnostics and debug logs', async () => {
+    mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
+      indexType: 'LOCAL',
+      resources: [catalogResource(1)],
+      searchRegion: 'us-east-1',
+    });
+    mockedHydrateAwsEc2Instances.mockRejectedValue(
+      new Error('boom at https://user:pass@example.com/?X-Amz-Signature=abc'),
+    );
+    const debugLines: string[] = [];
+    const redacted = 'boom at https://[redacted-auth]@example.com/?X-Amz-Signature=[redacted]';
+
+    const result = await discoverAwsResources(
+      [createRule({ discoveryDependencies: ['aws-ec2-instances'] })],
+      { mode: 'regions', regions: ['us-east-1'] },
+      { debugLogger: (message) => debugLines.push(message) },
+    );
+
+    expect(result.diagnostics).toEqual([expect.objectContaining({ details: redacted, status: 'error' })]);
+    expect(debugLines.some((line) => line.includes('failed in us-east-1') && line.endsWith(redacted))).toBe(true);
+    expect(debugLines.join('\n')).not.toContain('pass@');
+  });
+
   it('fails fast when a discovery rule has an evaluator but no discoveryDependencies metadata', async () => {
     await expect(
       discoverAwsResources(
