@@ -44,6 +44,7 @@ classDiagram
   class LiveEvaluationContext {
     +AwsDiscoveryCatalog catalog
     +LiveResourceBag resources
+    +LiveEvaluationScratch scratch?
   }
 
   class LiveResourceBag {
@@ -67,6 +68,12 @@ classDiagram
 ```
 
 Rules return a single grouped `Finding` or `null`. The SDK regroups those rule findings under providers in the public `ScanResult`.
+
+The SDK gives each rule a fresh `scratch` memo per evaluation pass and passes the same context to `evaluateLive` and
+`getLiveEvaluationCoverage`. Rules read derived indexes both callbacks need through the internal
+`getLiveEvaluationIndex(context, builder)` helper with a module-level builder, so the index is built once per pass;
+without `scratch` (for example in unit tests) the helper builds on every call. The SDK owns `scratch`: rules must not
+rely on it persisting across passes or rules.
 
 Live rules can also implement `getLiveEvaluationCoverage(context)` to return `assessed` and `unknown` resource
 identities without changing the evaluator's return shape. `assessed` includes both findings and known non-findings;

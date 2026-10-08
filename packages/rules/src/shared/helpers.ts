@@ -1,4 +1,13 @@
-import type { Finding, FindingMatch, LiveEvaluationCoverage, Rule, Source, SourceLocation } from './metadata.js';
+import type {
+  Finding,
+  FindingMatch,
+  LiveEvaluationContext,
+  LiveEvaluationCoverage,
+  LiveResourceBag,
+  Rule,
+  Source,
+  SourceLocation,
+} from './metadata.js';
 
 // Intent: provide lightweight helper utilities for authoring consistent rules.
 // TODO(cloudburn): add rule ID validation and metadata lint helpers.
@@ -46,6 +55,25 @@ export const createLiveEvaluationCoverage = <Resource>(
   }
 
   return coverage;
+};
+
+/**
+ * Returns a derived index shared by a rule's live callbacks, building it once per evaluation.
+ *
+ * @param context - Live evaluation context that may carry the per-rule scratch memo.
+ * @param build - Module-level builder keyed in the scratch memo and invoked with the bag of resources.
+ * @returns The memoized index, or a freshly built index when the context carries no scratch.
+ */
+export const getLiveEvaluationIndex = <T>(
+  context: LiveEvaluationContext,
+  build: (resources: LiveResourceBag) => T,
+): T => {
+  const { scratch } = context;
+  if (!scratch) return build(context.resources);
+  if (scratch.has(build)) return scratch.get(build) as T;
+  const index = build(context.resources);
+  scratch.set(build, index);
+  return index;
 };
 
 /**

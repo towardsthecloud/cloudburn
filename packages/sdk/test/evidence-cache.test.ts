@@ -1,7 +1,9 @@
 import { type ChildProcess, fork } from 'node:child_process';
+import { readdirSync } from 'node:fs';
 import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createEvidenceCache, createMemoryEvidenceCacheStore, type EvidenceCacheStore } from '../src/evidence-cache.js';
@@ -76,6 +78,62 @@ afterEach(async () => {
 });
 
 describe('evidence cache', () => {
+  it('records persistent cache hits without rewriting the stored evidence', async () => {
+    const path = await directory();
+    let now = 1_000_000;
+    const cache = createEvidenceCache({ directory: path, now: () => now });
+    const load = vi.fn(async () => ({ value: 'live', complete: true }));
+    await cache.load({ key: 'hit', ttlMs: 10_000, load });
+
+    const database = new DatabaseSync(join(path, 'evidence.sqlite'));
+    const before = database.prepare('SELECT state, accessed FROM evidence_v1').get() as {
+      state: string;
+      accessed: number;
+    };
+    now += 1_000;
+    const hit = await cache.load({ key: 'hit', ttlMs: 10_000, load });
+    expect(hit.provenance.source).toBe('cache');
+    const after = database.prepare('SELECT state, accessed FROM evidence_v1').get() as {
+      state: string;
+      accessed: number;
+    };
+    database.close();
+
+    expect(after.state).toBe(before.state);
+    expect(after.accessed).toBeGreaterThan(before.accessed);
+  });
+
+  it('reopens the persistent store when its directory is removed between loads', async () => {
+    const path = await directory();
+    const cache = createEvidenceCache({ directory: path });
+    const load = vi.fn(async () => ({ value: 'live', complete: true }));
+    const request = { key: 'a', ttlMs: 10_000, load };
+
+    await cache.load(request);
+    await rm(path, { recursive: true, force: true });
+    const miss = await cache.load(request);
+    const hit = await cache.load(request);
+
+    expect(miss.provenance).toMatchObject({ source: 'live', cacheStatus: 'miss' });
+    expect(hit.provenance.source).toBe('cache');
+    expect(load).toHaveBeenCalledTimes(2);
+  });
+
+  it.skipIf(process.platform !== 'linux')(
+    'shares one database handle across caches on the same directory',
+    async () => {
+      const path = await directory();
+      const load = vi.fn(async () => ({ value: 'live', complete: true }));
+      await createEvidenceCache({ directory: path }).load({ key: 'warm', ttlMs: 10_000, load });
+      const before = readdirSync('/proc/self/fd').length;
+
+      for (let i = 0; i < 20; i += 1)
+        await createEvidenceCache({ directory: path }).load({ key: `k${i}`, ttlMs: 10_000, load });
+
+      expect(readdirSync('/proc/self/fd').length - before).toBeLessThan(3);
+    },
+  );
+
   it('reuses complete evidence across cache instances with original timestamps and Dates', async () => {
     const path = await directory();
     let now = Date.parse('2026-09-08T10:00:00.000Z');
