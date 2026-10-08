@@ -138,6 +138,19 @@ const getLiteralUpperString = (value: unknown): string | null => {
 
 const getLiteralBoolean = (value: unknown): boolean | null => (typeof value === 'boolean' ? value : null);
 
+const getLiteralBooleanish = (value: unknown): boolean | null => {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const normalized = value.toLowerCase();
+  return normalized === 'true' ? true : normalized === 'false' ? false : null;
+};
+
 const getStaticRedshiftHasVpc = (value: unknown): boolean | null =>
   isAbsent(value) ? false : getLiteralExactString(value) === null ? null : true;
 
@@ -1322,10 +1335,10 @@ const loadStaticRedshiftClusters = (resources: IaCResource[]): AwsStaticRedshift
           resource.type === TERRAFORM_REDSHIFT_CLUSTER_TYPE
             ? isAbsent(resource.attributes.multi_az)
               ? false
-              : getLiteralBoolean(resource.attributes.multi_az)
+              : getLiteralBooleanish(resource.attributes.multi_az)
             : isAbsent(properties?.MultiAZ)
               ? false
-              : getLiteralBoolean(properties.MultiAZ),
+              : getLiteralBooleanish(properties.MultiAZ),
         resourceId: toStaticResourceId(resource),
       },
     ];

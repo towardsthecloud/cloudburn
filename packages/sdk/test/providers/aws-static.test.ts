@@ -2829,6 +2829,24 @@ describe('aws static dataset registry', () => {
             Properties: {},
           },
         }),
+        createIaCResource({
+          type: 'AWS::Redshift::Cluster',
+          name: 'CloudFormationStringFalse',
+          attributes: {
+            Properties: {
+              MultiAZ: 'false',
+            },
+          },
+        }),
+        createIaCResource({
+          type: 'AWS::Redshift::Cluster',
+          name: 'CloudFormationStringTrue',
+          attributes: {
+            Properties: {
+              MultiAZ: 'True',
+            },
+          },
+        }),
       ]),
     ).toEqual([
       {
@@ -2870,6 +2888,26 @@ describe('aws static dataset registry', () => {
         location: undefined,
         multiAz: false,
         resourceId: 'CloudFormationAbsent',
+      },
+      {
+        automatedSnapshotRetentionPeriod: undefined,
+        hasPauseSchedule: false,
+        hasResumeSchedule: false,
+        hasVpc: false,
+        hsmEnabled: false,
+        location: undefined,
+        multiAz: false,
+        resourceId: 'CloudFormationStringFalse',
+      },
+      {
+        automatedSnapshotRetentionPeriod: undefined,
+        hasPauseSchedule: false,
+        hasResumeSchedule: false,
+        hasVpc: false,
+        hsmEnabled: false,
+        location: undefined,
+        multiAz: true,
+        resourceId: 'CloudFormationStringTrue',
       },
     ]);
   });
