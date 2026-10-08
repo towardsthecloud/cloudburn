@@ -91,6 +91,12 @@ estimates. Custom consumers of `AwsConfigRecordingFrequencyReview` must check th
 them in calculations. The SDK exposes the rule's coverage and reports `unknown` rather than a passed evaluation when
 required evidence is missing and no findings were established.
 
+Static (IaC) datasets follow the same rule. A field that the template leaves unset takes the AWS default, a literal
+takes its value, and a Terraform `${...}` interpolation or CloudFormation intrinsic (`Ref`, `Fn::If`, ...) becomes
+`null`. For example, `AwsStaticRedshiftCluster.hasVpc` and `AwsStaticEcrRepository.hasLifecyclePolicy` are
+`boolean | null`, where `false` means known-absent and `null` means unresolved. Static evaluators act only on definite
+values (`=== true` / `=== false`), so an unresolved resource produces no finding instead of a pass or a false finding.
+
 The rules metadata test enforces that a live rule whose verdict joins more than one dataset, or reads optional
 datasets, declares `getLiveEvaluationCoverage`. Rules whose secondary datasets are complete inventories, where
 absence is itself the evidence, are listed with a justification in that test instead of adding a hook.
