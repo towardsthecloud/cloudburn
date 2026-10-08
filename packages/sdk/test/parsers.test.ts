@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { parseCloudFormation } from '../src/parsers/cloudformation.js';
 import { parseIaC, parseIaCWithDiagnostics } from '../src/parsers/index.js';
+import { extractSuppressionComments } from '../src/parsers/suppressions.js';
 import { parseTerraform } from '../src/parsers/terraform.js';
 
 describe('parsers', () => {
@@ -1121,5 +1122,93 @@ Resources:
     } finally {
       await rm(tempDirectory, { force: true, recursive: true });
     }
+  });
+});
+
+describe('extractSuppressionComments', () => {
+  it('keeps suppression comments after long anchor and tag runs in YAML plain scalars', async () => {
+    const tempDirectory = await mkdtemp(join(tmpdir(), 'cloudburn-cloudformation-suppression-redos-'));
+    const templatePath = join(tempDirectory, 'template.yaml');
+
+    try {
+      await writeFile(
+        templatePath,
+        `Description: Notes, ${'&'.repeat(5_000)} x "y"
+Metadata:
+  Tags: Notes, ${'!'.repeat(5_000)} x "y"
+Resources:
+  # cloudburn-ignore CLDBRN-AWS-EBS-1 approved legacy volume
+  SuppressedVolume:
+    Type: AWS::EC2::Volume
+    Properties:
+      AvailabilityZone: eu-west-1a
+      VolumeType: gp2
+`,
+        'utf8',
+      );
+
+      const { resources } = await parseCloudFormation(templatePath);
+
+      expect(resources[0]).toMatchObject({
+        name: 'SuppressedVolume',
+        suppressions: [{ kind: 'rule', reason: 'approved legacy volume', ruleId: 'CLDBRN-AWS-EBS-1' }],
+      });
+    } finally {
+      await rm(tempDirectory, { force: true, recursive: true });
+    }
+  });
+
+  it('treats long anchor and tag runs before a quote as YAML node properties', () => {
+    const anchors = `Value: ${'&'.repeat(5_000)} "data # cloudburn-ignore-all quoted" # cloudburn-ignore-all real`;
+    const tags = `Value: ${'!'.repeat(5_000)} &anchor "data # cloudburn-ignore-all quoted" # cloudburn-ignore-all real`;
+
+    for (const line of [anchors, tags]) {
+      expect(extractSuppressionComments(line, 'template.yaml', 'yaml')).toEqual([
+        { line: 1, suppression: { kind: 'all', location: expect.anything(), reason: 'real' } },
+      ]);
+    }
+  });
+
+  it('treats quotes after a bare sequence indicator as YAML quoted scalars', () => {
+    expect(
+      extractSuppressionComments(
+        `Values:
+  - "data # cloudburn-ignore-all quoted"
+  - - !Ref "nested # cloudburn-ignore-all quoted"
+`,
+        'template.yaml',
+        'yaml',
+      ),
+    ).toEqual([]);
+  });
+
+  it('keeps suppression comments after a dash and quote inside a YAML plain scalar', () => {
+    expect(
+      extractSuppressionComments(
+        `Description: Notes, - "unterminated
+Resources:
+  # cloudburn-ignore-all approved exception
+`,
+        'template.yaml',
+        'yaml',
+      ),
+    ).toEqual([{ line: 3, suppression: { kind: 'all', location: expect.anything(), reason: 'approved exception' } }]);
+  });
+
+  it('scans long lines with many quotes and whitespace-padded directives in linear time', () => {
+    const contents = [
+      `Value: ${'x "'.repeat(100_000)}`,
+      `# cloudburn-ignore-all${' '.repeat(100_000)}a\u2028x`,
+      `# cloudburn-ignore CLDBRN-AWS-EBS-1${' '.repeat(100_000)}a\u2028x`,
+    ].join('\n');
+
+    const startedAt = performance.now();
+    const comments = extractSuppressionComments(contents, 'template.yaml', 'yaml');
+
+    expect(performance.now() - startedAt).toBeLessThan(1_000);
+    expect(comments.map(({ suppression }) => suppression)).toMatchObject([
+      { kind: 'all', reason: 'a\u2028x' },
+      { kind: 'rule', reason: 'a\u2028x', ruleId: 'CLDBRN-AWS-EBS-1' },
+    ]);
   });
 });

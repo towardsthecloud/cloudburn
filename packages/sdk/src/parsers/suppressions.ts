@@ -12,11 +12,61 @@ type YamlQuoteState = {
   quote?: '"' | "'";
 };
 
-const YAML_NODE_PROPERTY_PREFIX = /^(?:-\s+)?(?:(?:![^\s]+|&[^\s]+)\s*)*$/u;
+const YAML_FLOW_BOUNDARY_CHARACTERS = ':,[{?';
+
+/**
+ * Tracks, in one left-to-right pass, whether the text since the last flow boundary
+ * consists only of node properties (`!tag`, `&anchor`), optionally preceded by
+ * block sequence indicators (`-`) when no boundary has been seen on the line yet.
+ */
+type YamlNodePrefixState = {
+  dashAllowed: boolean;
+  propertySeen: boolean;
+  token: 'none' | 'dash' | 'property' | 'invalid';
+  valid: boolean;
+};
+
+const createYamlNodePrefixState = (dashAllowed: boolean): YamlNodePrefixState => ({
+  dashAllowed,
+  propertySeen: false,
+  token: 'none',
+  valid: true,
+});
+
+const isWhitespace = (character: string | undefined): boolean => character !== undefined && /\s/u.test(character);
+
+const advanceYamlNodePrefix = (state: YamlNodePrefixState, character: string): void => {
+  if (YAML_FLOW_BOUNDARY_CHARACTERS.includes(character)) {
+    Object.assign(state, createYamlNodePrefixState(false));
+    return;
+  }
+
+  if (isWhitespace(character)) {
+    state.token = 'none';
+    return;
+  }
+
+  if (!state.valid) {
+    return;
+  }
+
+  if (state.token === 'none') {
+    if (character === '!' || character === '&') {
+      state.token = 'property';
+      state.propertySeen = true;
+    } else if (character === '-' && state.dashAllowed && !state.propertySeen) {
+      state.token = 'dash';
+    } else {
+      state.valid = false;
+    }
+  } else if (state.token === 'dash') {
+    state.valid = false;
+  }
+};
 
 const parseSuppression = (text: string, location: SourceLocation): IaCSuppression | undefined => {
   const normalized = text.replace(/\*\/\s*$/u, '').trim();
-  const ignoreAllMatch = /(?:^|\s)cloudburn-ignore-all(?:\s+(.+))?$/u.exec(normalized);
+  const ignoreAllMatch = /(?:^|\s)cloudburn-ignore-all(?:\s([\s\S]*))?$/u.exec(normalized);
 
   if (ignoreAllMatch) {
     const reason = ignoreAllMatch[1]?.trim();
@@ -27,7 +77,7 @@ const parseSuppression = (text: string, location: SourceLocation): IaCSuppressio
     };
   }
 
-  const ignoreRuleMatch = /(?:^|\s)cloudburn-ignore\s+(\S+)(?:\s+(.+))?$/u.exec(normalized);
+  const ignoreRuleMatch = /(?:^|\s)cloudburn-ignore\s+(\S+)(?:\s([\s\S]*))?$/u.exec(normalized);
 
   if (!ignoreRuleMatch?.[1]) {
     return undefined;
@@ -43,9 +93,15 @@ const parseSuppression = (text: string, location: SourceLocation): IaCSuppressio
 };
 
 const findYamlLineCommentStart = (line: string, state: YamlQuoteState): number | undefined => {
+  const nodePrefix = createYamlNodePrefixState(true);
   let escaped = false;
+  let advancedTo = 0;
 
   for (let index = 0; index < line.length; index += 1) {
+    for (; advancedTo < index; advancedTo += 1) {
+      advanceYamlNodePrefix(nodePrefix, line[advancedTo] ?? '');
+    }
+
     const character = line[index];
 
     if (state.quote === '"') {
@@ -68,13 +124,14 @@ const findYamlLineCommentStart = (line: string, state: YamlQuoteState): number |
       continue;
     }
 
-    if ((character === '"' || character === "'") && isYamlQuotedScalarStart(line, index)) {
+    const previous = line[index - 1];
+
+    if ((character === '"' || character === "'") && isYamlQuotedScalarStart(previous, nodePrefix)) {
       state.quote = character;
       continue;
     }
 
-    const previous = line[index - 1];
-    if (character === '#' && (index === 0 || /\s/u.test(previous ?? ''))) {
+    if (character === '#' && (previous === undefined || isWhitespace(previous))) {
       return index;
     }
   }
@@ -82,26 +139,10 @@ const findYamlLineCommentStart = (line: string, state: YamlQuoteState): number |
   return undefined;
 };
 
-function isYamlQuotedScalarStart(line: string, quoteIndex: number): boolean {
-  const prefix = line.slice(0, quoteIndex);
-  const previousCharacter = prefix.at(-1);
-
-  if (previousCharacter !== undefined && !/\s/u.test(previousCharacter)) {
-    return ':,[{?'.includes(previousCharacter);
-  }
-
-  const trimmedPrefix = prefix.trimEnd();
-  const boundaryIndex = Math.max(
-    trimmedPrefix.lastIndexOf(':'),
-    trimmedPrefix.lastIndexOf(','),
-    trimmedPrefix.lastIndexOf('['),
-    trimmedPrefix.lastIndexOf('{'),
-    trimmedPrefix.lastIndexOf('?'),
-  );
-  const nodePrefix = trimmedPrefix.slice(boundaryIndex + 1).trimStart();
-
-  return YAML_NODE_PROPERTY_PREFIX.test(nodePrefix);
-}
+const isYamlQuotedScalarStart = (previousCharacter: string | undefined, nodePrefix: YamlNodePrefixState): boolean =>
+  previousCharacter === undefined || isWhitespace(previousCharacter)
+    ? nodePrefix.valid
+    : YAML_FLOW_BOUNDARY_CHARACTERS.includes(previousCharacter);
 
 const toYamlCommentSegments = (line: string, state: YamlQuoteState) => {
   const commentStart = findYamlLineCommentStart(line, state);

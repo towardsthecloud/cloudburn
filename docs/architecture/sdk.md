@@ -303,7 +303,9 @@ absolute filesystem paths.
 
 Terraform line comments (`#` and `//`), Terraform block comments, and CloudFormation YAML comments can carry
 `cloudburn-ignore <rule-id> [reason]` or `cloudburn-ignore-all [reason]`. A directive applies only to the resource it is
-immediately above or contained within. CloudFormation JSON has no comment syntax, so it cannot carry inline directives.
+immediately above or contained within. In YAML, `#` text inside quoted scalars (including quoted sequence items such as
+`- "a # b"`) and block scalars is data, not a comment. CloudFormation JSON has no comment syntax, so it cannot carry
+inline directives.
 Unknown rule IDs have no effect.
 
 ## Provider Layer
