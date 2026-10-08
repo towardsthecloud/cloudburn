@@ -89,6 +89,7 @@ An empty `providers` array means no active findings for the rules that ran.
 
 A `.cloudburn.yml` in the project root configures both the CLI and these tools. The MCP tools accept only absolute
 paths and rely on `configPath` to find the file, because agents start the server in different working directories.
+`configPath` must name a file called `.cloudburn.yml` or `.cloudburn.yaml`; other filenames are rejected.
 
 ```yaml
 iac:

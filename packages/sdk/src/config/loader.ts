@@ -1,6 +1,6 @@
 import { access, readFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
-import { parseDocument } from 'yaml';
+import { LineCounter, parseDocument, type YAMLError } from 'yaml';
 import type { CloudBurnConfig } from '../types.js';
 import { mergeConfig } from './merge.js';
 
@@ -136,11 +136,24 @@ const findConfigPath = async (startDirectory: string): Promise<string | undefine
   }
 };
 
+const formatParseError = (error: YAMLError, lineCounter: LineCounter): string => {
+  const offset = error.pos[0];
+
+  if (offset === -1) {
+    return `Invalid YAML in CloudBurn config file: ${error.code}`;
+  }
+
+  const { line, col } = lineCounter.linePos(offset);
+  return `Invalid YAML in CloudBurn config file: ${error.code} at line ${line}, column ${col}`;
+};
+
 const parseConfigFile = async (path: string): Promise<Partial<CloudBurnConfig>> => {
-  const document = parseDocument(await readFile(path, 'utf8'));
+  const lineCounter = new LineCounter();
+  const document = parseDocument(await readFile(path, 'utf8'), { lineCounter, prettyErrors: false });
 
   if (document.errors.length > 0) {
-    throw new Error(document.errors.map((error) => error.message).join('\n'));
+    // Raw yaml error messages embed source fragments, so rebuild them from codes and positions only.
+    throw new Error(document.errors.map((error) => formatParseError(error, lineCounter)).join('\n'));
   }
 
   return normalizeConfig(document.toJS());

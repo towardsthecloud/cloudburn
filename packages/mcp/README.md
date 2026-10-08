@@ -50,7 +50,9 @@ Requires Node.js 24 or later.
 `scan_iac` and `discover` accept `configPath`, `enabledRules`, `disabledRules`, and `services`, like the CLI's
 `--config`, `--enabled-rules`, `--disabled-rules`, and `--service` flags. `discover` also accepts `region`,
 `timeoutSeconds`, and `cache` (`normal`, `refresh`, or `off`) and reports progress to clients that request it.
-Paths must be absolute because agents start the server in different working directories.
+Paths must be absolute because agents start the server in different working directories, and `configPath` must
+point to a file named `.cloudburn.yml` or `.cloudburn.yaml`. Earlier versions accepted any filename; other names
+now return `INVALID_ARGUMENT`, so rename a custom config file to use it through MCP.
 
 Results are the SDK's `ScanResult` JSON, the same shape as `cloudburn --format json`; see the
 [finding reference](https://github.com/towardsthecloud/cloudburn/blob/main/docs/reference/finding-shape.md). Errors
