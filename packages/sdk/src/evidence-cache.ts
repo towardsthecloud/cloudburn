@@ -194,18 +194,29 @@ const localDatabases = new Map<
 >();
 /**
  * Creates private host-local SQLite persistence with atomic fenced leases and eviction.
- * @param directory - Explicit directory shared by cooperating processes; never silently falls back.
+ * @param directory - Explicit directory shared by cooperating processes; never silently falls back. Symbolic links and
+ *   directories owned by another user are rejected.
  * @returns Durable storage. Each process opens the database lazily once per directory and reuses the handle across caches and transactions, reopening it if the database file is replaced or removed.
  */
 const createLocalEvidenceCacheStore = (directory: string): EvidenceCacheStore => {
   const filename = join(resolve(directory), 'evidence.sqlite');
+  const uid = process.getuid?.();
+  const validateDirectory = (): void => {
+    const existing = lstatSync(directory, { throwIfNoEntry: false });
+    if (existing?.isSymbolicLink()) throw new Error('Evidence cache directory must not be a symbolic link');
+    if (existing && (!existing.isDirectory() || (uid !== undefined && existing.uid !== uid))) {
+      throw new Error('Evidence cache directory must be a directory owned by the current user');
+    }
+  };
   const databaseState = localDatabases.get(filename) ?? { schemaReady: false };
   localDatabases.set(filename, databaseState);
   const sqlite = import('node:sqlite');
   const open = (DatabaseSyncCtor: typeof DatabaseSync): DatabaseSync => {
     let opened: DatabaseSync | undefined;
     try {
+      validateDirectory();
       mkdirSync(directory, { recursive: true, mode: 0o700 });
+      validateDirectory();
       chmodSync(directory, 0o700);
       if (lstatSync(filename, { throwIfNoEntry: false })?.isSymbolicLink())
         throw new Error('Evidence database must not be a symbolic link');

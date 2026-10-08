@@ -193,9 +193,10 @@ Within a process, each key has one shared load. Each waiter has its own cancella
 not abort work needed by another. When all waiters leave, the shared load is cancelled. Collection owns a separate
 five-minute AWS execution, clients, credentials, and quota budget; caller deadlines still bound each wait.
 
-Local storage uses `evidence.sqlite` in a directory with mode `0700` and a database with mode `0600`. Each process opens the
-database once per directory and reuses the handle across caches and transactions, reopening it if the file is replaced or
-removed; cache hits update only the access time. SQLite transactions atomically acquire per-key leases and publish complete
+Local storage uses `evidence.sqlite` in a directory with mode `0700` and a database with mode `0600`. The directory
+must be a real directory owned by the current user; symbolic links and directories owned by another user are rejected.
+Each process opens the database once per directory and reuses the handle across caches and transactions, reopening it if
+the file is replaced or removed; cache hits update only the access time. SQLite transactions atomically acquire per-key leases and publish complete
 payloads. A 30-second lease is renewed every 10 seconds. Waiters poll interruptibly, and an expired lease can be taken over
 after a process crash. Each publish/cleanup checks the owner token and expiry, so an old writer cannot overwrite a successor.
 Transactions wait at most five seconds for a database lock. Storage reclaims inactive entries by least-recent access to

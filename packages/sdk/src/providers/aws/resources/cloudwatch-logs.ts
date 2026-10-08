@@ -130,7 +130,6 @@ export const hydrateAwsCloudWatchLogStreams = async (
 
   const hydratedPages = await Promise.all(
     [...resourcesByRegion.entries()].map(async ([region, regionResources]) => {
-      const logStreams: AwsCloudWatchLogStream[] = [];
       const client = createCloudWatchLogsClient({ region });
       const desiredLogGroupNames = [
         ...new Set(
@@ -140,48 +139,55 @@ export const hydrateAwsCloudWatchLogStreams = async (
         ),
       ];
 
-      for (const logGroupName of desiredLogGroupNames) {
-        let nextToken: string | undefined;
+      const logStreamsByGroup = await mapWithConcurrency(
+        desiredLogGroupNames,
+        CLOUDWATCH_LOG_GROUP_HYDRATION_CONCURRENCY,
+        async (logGroupName) => {
+          const logStreams: AwsCloudWatchLogStream[] = [];
+          let nextToken: string | undefined;
 
-        do {
-          const response = await runAwsRequest('Amazon CloudWatch Logs', 'DescribeLogStreams', region, () =>
-            client.send(
-              new DescribeLogStreamsCommand({
+          do {
+            const response = await runAwsRequest('Amazon CloudWatch Logs', 'DescribeLogStreams', region, () =>
+              client.send(
+                new DescribeLogStreamsCommand({
+                  logGroupName,
+                  nextToken,
+                }),
+              ),
+            );
+
+            for (const logStream of response.logStreams ?? []) {
+              if (!logStream.logStreamName || !logStream.arn) {
+                continue;
+              }
+
+              const accountId = extractAccountIdFromArn(logStream.arn);
+
+              if (!accountId) {
+                continue;
+              }
+
+              logStreams.push({
+                accountId,
+                arn: logStream.arn,
+                creationTime: logStream.creationTime,
+                firstEventTimestamp: logStream.firstEventTimestamp,
+                lastEventTimestamp: logStream.lastEventTimestamp,
+                lastIngestionTime: logStream.lastIngestionTime,
                 logGroupName,
-                nextToken,
-              }),
-            ),
-          );
-
-          for (const logStream of response.logStreams ?? []) {
-            if (!logStream.logStreamName || !logStream.arn) {
-              continue;
+                logStreamName: logStream.logStreamName,
+                region,
+              });
             }
 
-            const accountId = extractAccountIdFromArn(logStream.arn);
+            nextToken = response.nextToken;
+          } while (nextToken);
 
-            if (!accountId) {
-              continue;
-            }
+          return logStreams;
+        },
+      );
 
-            logStreams.push({
-              accountId,
-              arn: logStream.arn,
-              creationTime: logStream.creationTime,
-              firstEventTimestamp: logStream.firstEventTimestamp,
-              lastEventTimestamp: logStream.lastEventTimestamp,
-              lastIngestionTime: logStream.lastIngestionTime,
-              logGroupName,
-              logStreamName: logStream.logStreamName,
-              region,
-            });
-          }
-
-          nextToken = response.nextToken;
-        } while (nextToken);
-      }
-
-      return logStreams;
+      return logStreamsByGroup.flat();
     }),
   );
 

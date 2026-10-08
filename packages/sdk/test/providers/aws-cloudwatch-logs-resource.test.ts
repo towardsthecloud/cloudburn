@@ -198,6 +198,49 @@ describe('hydrateAwsCloudWatchLogStreams', () => {
     vi.resetAllMocks();
   });
 
+  it('starts the next log group while an earlier log group is still paginating', async () => {
+    let release = (): void => undefined;
+    const slow = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const started: string[] = [];
+    mockedCreateCloudWatchLogsClient.mockReturnValue({
+      send: vi.fn(async (command) => {
+        started.push(command.input.logGroupName);
+        if (command.input.logGroupName === 'group-0') await slow;
+        return {
+          logStreams: [
+            {
+              arn: `arn:aws:logs:us-east-1:123456789012:log-group:${command.input.logGroupName}:log-stream:stream`,
+              logStreamName: 'stream',
+            },
+          ],
+        };
+      }),
+    } as never);
+    const run = hydrateAwsCloudWatchLogStreams(
+      Array.from({ length: 11 }, (_, index) => ({
+        accountId: '123456789012',
+        region: 'us-east-1',
+        service: 'logs',
+        resourceType: 'logs:log-group',
+        arn: `arn:aws:logs:us-east-1:123456789012:log-group:group-${index}`,
+        properties: [],
+      })),
+    );
+    try {
+      await vi.waitFor(() => expect(started).toContain('group-10'), { timeout: 1000 });
+    } finally {
+      release();
+      await run;
+    }
+    const logStreams = await run;
+    expect(logStreams.map((logStream) => logStream.arn)).toEqual(
+      logStreams.map((logStream) => logStream.arn).sort((left, right) => left.localeCompare(right)),
+    );
+    expect(logStreams).toHaveLength(11);
+  });
+
   it('hydrates discovered log streams through paginated DescribeLogStreams calls', async () => {
     mockedCreateCloudWatchLogsClient.mockReturnValue({
       send: vi.fn(async (command: DescribeLogStreamsCommand) => {

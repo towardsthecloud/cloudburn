@@ -118,7 +118,7 @@ The discovery config equivalent is `discovery.fail-on`.
 Discovery has a five-minute deadline. Use `--timeout <seconds>` to change it, for example `cloudburn discover --timeout 600`. If the deadline expires, the command exits with code 2 and reports the timeout.
 
 Discovery reuses fresh, complete evidence from a per-user cache at `$XDG_CACHE_HOME/cloudburn/evidence`, or
-`~/.cache/cloudburn/evidence` when `XDG_CACHE_HOME` is unset. Rules and configuration are evaluated on every run.
+`~/.cache/cloudburn/evidence` when `XDG_CACHE_HOME` is unset, empty, or relative. Rules and configuration are evaluated on every run.
 
 ```bash
 cloudburn discover --cache refresh

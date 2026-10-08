@@ -104,4 +104,14 @@ describe('ecrMissingLifecyclePolicyRule', () => {
 
     expect(finding).toBeNull();
   });
+
+  it('skips static repositories with unknown lifecycle-policy state', () => {
+    const finding = ecrMissingLifecyclePolicyRule.evaluateStatic?.({
+      resources: new StaticResourceBag({
+        'aws-ecr-repositories': [createStaticRepository({ hasLifecyclePolicy: null })],
+      }),
+    });
+
+    expect(finding).toBeNull();
+  });
 });

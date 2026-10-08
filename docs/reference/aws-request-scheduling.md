@@ -59,7 +59,7 @@ and CloudBurn does not call Service Quotas to discover account-specific increase
 | `CLOUDBURN_AWS_QUOTA_OVERRIDES` | Unset                                                         | JSON object of partial policies keyed by canonical `service:group` names. |
 
 Without an explicit admission directory, CloudBurn uses `$XDG_CACHE_HOME/cloudburn/aws-admission-v1` when
-`XDG_CACHE_HOME` is set, or `~/.cache/cloudburn/aws-admission-v1` otherwise. If a new cache cannot be initialized because
+`XDG_CACHE_HOME` is an absolute path, or `~/.cache/cloudburn/aws-admission-v1` otherwise (empty or relative values are ignored). If a new cache cannot be initialized because
 of permissions, a read-only filesystem, or an unusable home path,
 CloudBurn can use a private `cloudburn-<user-id>/aws-admission-v1` directory under the system temporary directory
 (including `TMPDIR` on POSIX). This fallback remains shared across processes; it does not switch to in-memory admission.

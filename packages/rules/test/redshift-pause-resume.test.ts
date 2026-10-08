@@ -123,6 +123,9 @@ describe('redshiftPauseResumeRule', () => {
           createStaticCluster({ hasVpc: false, resourceId: 'classic-cluster' }),
           createStaticCluster({ hsmEnabled: true, resourceId: 'hsm-cluster' }),
           createStaticCluster({ multiAz: true, resourceId: 'multi-az-cluster' }),
+          createStaticCluster({ hasVpc: null, resourceId: 'unknown-vpc' }),
+          createStaticCluster({ hsmEnabled: null, resourceId: 'unknown-hsm' }),
+          createStaticCluster({ multiAz: null, resourceId: 'unknown-multi-az' }),
         ],
       }),
     });

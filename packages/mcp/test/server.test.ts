@@ -1,3 +1,4 @@
+import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type { AwsDiscoveryProgressEvent, CloudBurnClient, ScanResult } from '@cloudburn/sdk';
 import { Client } from '@modelcontextprotocol/client';
@@ -72,6 +73,16 @@ describe('discover', () => {
     expect(options.cache.directory).toMatch(/[/\\]\.cache[/\\]cloudburn[/\\]evidence$/);
     expect(options).not.toHaveProperty('config');
     expect(options).not.toHaveProperty('timeoutMs');
+  });
+
+  it.each(['', 'relative-cache'])('ignores a non-absolute XDG_CACHE_HOME %j', async (value) => {
+    const discover = vi.fn().mockResolvedValue(scanResult);
+    const client = await connect({ discover }, { XDG_CACHE_HOME: value });
+
+    await callTool(client, 'discover', {});
+
+    const [options] = discover.mock.calls[0] ?? [];
+    expect(options.cache.directory).toBe(join(homedir(), '.cache', 'cloudburn', 'evidence'));
   });
 
   it('rejects an unsupported region before calling AWS', async () => {

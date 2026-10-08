@@ -1,6 +1,6 @@
 import { type ChildProcess, fork } from 'node:child_process';
 import { readdirSync } from 'node:fs';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
@@ -374,6 +374,32 @@ describe('evidence cache', () => {
     });
     expect(result.value).toEqual({ valid: true });
     expect(result.provenance.cacheStatus).toBe('obsolete');
+  });
+
+  it.skipIf(process.platform === 'win32')('refuses a symbolic-linked cache directory', async () => {
+    const path = await directory();
+    const target = join(path, 'target');
+    const linked = join(path, 'linked');
+    await mkdir(target);
+    await symlink(target, linked, 'dir');
+    const load = vi.fn(async () => ({ value: 'fresh', complete: true }));
+
+    await expect(createEvidenceCache({ directory: linked }).load({ key: 'public', ttlMs: 1000, load })).rejects.toThrow(
+      'must not be a symbolic link',
+    );
+    expect(load).not.toHaveBeenCalled();
+  });
+
+  it('refuses a cache directory path that is not a directory', async () => {
+    const path = await directory();
+    const file = join(path, 'file');
+    await writeFile(file, 'not a directory');
+    const load = vi.fn(async () => ({ value: 'fresh', complete: true }));
+
+    await expect(createEvidenceCache({ directory: file }).load({ key: 'public', ttlMs: 1000, load })).rejects.toThrow(
+      'directory owned by the current user',
+    );
+    expect(load).not.toHaveBeenCalled();
   });
 
   it('coalesces independent processes and renews the owner lease during long collection', async () => {
