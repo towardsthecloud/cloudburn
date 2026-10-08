@@ -1,5 +1,13 @@
 # @cloudburn/mcp
 
+## 0.1.8
+
+### Patch Changes
+
+- [#342](https://github.com/towardsthecloud/cloudburn/pull/342) [`17c9ade`](https://github.com/towardsthecloud/cloudburn/commit/17c9adee230809f92a3ba0cc79e6e781825530af) Thanks [@axonstone](https://github.com/axonstone)! - Update MCP server and schema validation dependencies to current compatible releases.
+- Updated dependencies [[`17c9ade`](https://github.com/towardsthecloud/cloudburn/commit/17c9adee230809f92a3ba0cc79e6e781825530af)]:
+  - @cloudburn/sdk@0.38.3
+
 ## 0.1.7
 
 ### Patch Changes
