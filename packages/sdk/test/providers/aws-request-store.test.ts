@@ -1,4 +1,5 @@
 import { type ChildProcess, execFileSync, fork } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { getEventListeners } from 'node:events';
 import * as filesystem from 'node:fs';
 import { chmodSync, mkdirSync, mkdtempSync, readdirSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
@@ -434,6 +435,19 @@ describe('local AWS request state', () => {
     expect(readdirSync(join(cache, 'cloudburn', 'aws-admission-v1'))).toHaveLength(1);
   });
 
+  it.each(['', 'relative-cache'])('ignores a non-absolute XDG_CACHE_HOME %j', async (value) => {
+    const home = createDirectory();
+    const temporary = createDirectory();
+    vi.spyOn(operatingSystem, 'homedir').mockReturnValue(home);
+    vi.stubEnv('XDG_CACHE_HOME', value);
+    vi.stubEnv('CLOUDBURN_AWS_ADMISSION_DIR', undefined);
+    vi.stubEnv('TMPDIR', temporary);
+
+    await createLocalAwsRequestStore().update('shared-quota', () => ({ state: 'reserved', value: undefined }));
+
+    expect(readdirSync(join(home, '.cache', 'cloudburn', 'aws-admission-v1'))).toHaveLength(1);
+  });
+
   it('recovers a first transaction after its process dies while creating the state schema', async () => {
     const directory = createDirectory();
     const holder = startChild(directory, 'shared-quota', 'hold');
@@ -461,6 +475,102 @@ describe('local AWS request state', () => {
 
     await expect(store.update('shared-quota', transition)).rejects.toThrow(/unsupported.*version.*99/i);
     expect(transition).not.toHaveBeenCalled();
+  });
+
+  it('reuses one database connection for sequential updates', async () => {
+    const directory = createDirectory();
+    const key = 'cached-quota';
+    const filename = join(directory, `${createHash('sha256').update(key).digest('hex')}.sqlite`);
+    const original = filesystem.chmodSync;
+    const chmod = vi
+      .spyOn(filesystem, 'chmodSync')
+      .mockImplementation((...args) => Reflect.apply(original, filesystem, args));
+    const store = createLocalAwsRequestStore(directory);
+
+    await expect(store.update(key, () => ({ state: 'one', value: 'one' }))).resolves.toBe('one');
+    await expect(store.update(key, (current) => ({ state: 'two', value: current }))).resolves.toBe('one');
+    await expect(store.update(key, (current) => ({ state: 'three', value: current }))).resolves.toBe('two');
+    await expect(store.update(key, (current) => ({ state: 'four', value: current }))).resolves.toBe('three');
+    await expect(store.update(key, (current) => ({ state: 'five', value: current }))).resolves.toBe('four');
+
+    expect(chmod).toHaveBeenCalledWith(filename, 0o600);
+    expect(chmod.mock.calls.filter(([path]) => path === filename)).toHaveLength(1);
+  });
+
+  it('reopens a database when its file is replaced', async () => {
+    const directory = createDirectory();
+    const key = 'replaced-quota';
+    const filename = join(directory, `${createHash('sha256').update(key).digest('hex')}.sqlite`);
+    const store = createLocalAwsRequestStore(directory);
+
+    await store.update(key, () => ({ state: 'reserved', value: undefined }));
+    rmSync(filename);
+    await expect(store.update(key, (current) => ({ state: 'fresh', value: current }))).resolves.toBeUndefined();
+    await expect(
+      createLocalAwsRequestStore(directory).update(key, (current) => ({ state: current ?? '', value: current })),
+    ).resolves.toBe('fresh');
+  });
+
+  it('reopens a replaced database during a busy retry', async () => {
+    const directory = createDirectory();
+    const key = 'busy-replaced-quota';
+    const filename = join(directory, `${createHash('sha256').update(key).digest('hex')}.sqlite`);
+    const store = createLocalAwsRequestStore(directory);
+    await store.update(key, () => ({ state: 'reserved', value: undefined }));
+    const holder = startChild(directory, key, 'hold');
+    await holder.locked;
+    const pending = store.update(key, (current) => ({ state: 'after replacement', value: current }));
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    rmSync(filename);
+    try {
+      await expect(pending).resolves.toBeUndefined();
+      await expect(
+        createLocalAwsRequestStore(directory).update(key, (current) => ({ state: current ?? '', value: current })),
+      ).resolves.toBe('after replacement');
+    } finally {
+      holder.child.kill('SIGKILL');
+      await holder.completion;
+    }
+  });
+
+  it('releases cached handles on close and reopens them on later updates', async () => {
+    const directory = createDirectory();
+    const key = 'closed-quota';
+    const filename = join(directory, `${createHash('sha256').update(key).digest('hex')}.sqlite`);
+    const original = filesystem.chmodSync;
+    const chmod = vi
+      .spyOn(filesystem, 'chmodSync')
+      .mockImplementation((...args) => Reflect.apply(original, filesystem, args));
+    const store = createLocalAwsRequestStore(directory);
+
+    await store.update(key, () => ({ state: 'one', value: undefined }));
+    store.close();
+    await expect(store.update(key, (current) => ({ state: 'two', value: current }))).resolves.toBe('one');
+
+    expect(chmod.mock.calls.filter(([path]) => path === filename)).toHaveLength(2);
+  });
+
+  it('bounds cached handles with least-recently-used eviction', async () => {
+    const directory = createDirectory();
+    const keys = Array.from({ length: 33 }, (_, index) => `lru-quota-${index}`);
+    const filenames = new Map(
+      keys.map((key) => [key, join(directory, `${createHash('sha256').update(key).digest('hex')}.sqlite`)]),
+    );
+    const original = filesystem.chmodSync;
+    const chmod = vi
+      .spyOn(filesystem, 'chmodSync')
+      .mockImplementation((...args) => Reflect.apply(original, filesystem, args));
+    const store = createLocalAwsRequestStore(directory);
+
+    for (const key of keys) {
+      await store.update(key, () => ({ state: 'reserved', value: undefined }));
+    }
+    await store.update(keys[0] as string, (current) => ({ state: current ?? '', value: current }));
+
+    const count = (key: string): number => chmod.mock.calls.filter(([path]) => path === filenames.get(key)).length;
+    expect(count(keys[0] as string)).toBe(2);
+    expect(count(keys[32] as string)).toBe(1);
   });
 
   it('fails closed with an actionable error when existing state is corrupted', async () => {

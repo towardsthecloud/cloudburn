@@ -64,7 +64,7 @@ agent.
 `discover` and `discovery_status` use the standard AWS credential chain of the process that starts the server, so set
 `AWS_PROFILE` and `AWS_REGION` in your agent's environment. Live discovery needs AWS Resource Explorer. Run
 `npx -y cloudburn discover init` once; the server never changes AWS resources. Discovery shares the CLI's per-user
-evidence cache at `$XDG_CACHE_HOME/cloudburn/evidence` or `~/.cache/cloudburn/evidence`. See the
+evidence cache at `$XDG_CACHE_HOME/cloudburn/evidence` (when absolute) or `~/.cache/cloudburn/evidence`. See the
 [CLI README](https://github.com/towardsthecloud/cloudburn/tree/main/packages/cloudburn#discover) for rule
 prerequisites and IAM permissions.
 

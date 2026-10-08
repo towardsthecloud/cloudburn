@@ -57,6 +57,7 @@ All stdout-producing commands return a typed `CliResponse` and share the same fo
 - `scan` accepts `--config`, `--enabled-rules`, `--disabled-rules`, and `--service` as one-off overrides on top of the config file defaults.
 - `discover` runs live AWS discovery and rule evaluation through `CloudBurnClient.discover({ target, cache, config?, configPath? })`.
 - `discover` enables per-user evidence persistence by default and accepts `--cache normal|refresh|off`, `--cache-dir`, and `--cache-context`; the SDK owns safe scope resolution, freshness, and storage. See the [cache options](../reference/commands.md#discovery-evidence-cache).
+- Table output escapes newlines, other C0/C1 control characters, DEL, and bidi formatting characters (for example `\x1b`, `\r`, `\u202e`) in every cell and header, so values taken from scanned IaC or AWS cannot inject terminal escape sequences. JSON output is unaffected.
 - Discovery table output summarizes evidence source, completeness, and the oldest observation. JSON preserves the SDK's full evidence provenance.
 - `discover` accepts `--config`, `--enabled-rules`, `--disabled-rules`, and `--service` for one-off overrides of discovery config.
 - `discover --region <region>` overrides the current AWS region resolved from `AWS_REGION`, `AWS_DEFAULT_REGION`, `aws_region`, then the AWS SDK region provider chain.

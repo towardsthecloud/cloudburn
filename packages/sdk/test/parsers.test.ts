@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { parseCloudFormation } from '../src/parsers/cloudformation.js';
 import { parseIaC, parseIaCWithDiagnostics } from '../src/parsers/index.js';
+import { extractSuppressionComments } from '../src/parsers/suppressions.js';
 import { parseTerraform } from '../src/parsers/terraform.js';
 
 describe('parsers', () => {
@@ -84,6 +85,126 @@ describe('parsers', () => {
         },
       },
     ]);
+  });
+
+  it('keeps Terraform resource locations correct across template interpolation braces', async () => {
+    const tempDirectory = await mkdtemp(join(tmpdir(), 'cloudburn-terraform-interpolation-'));
+    const terraformPath = join(tempDirectory, 'main.tf');
+
+    try {
+      await writeFile(
+        terraformPath,
+        [
+          'resource "aws_ebs_volume" "interpolated" {',
+          '  name = "${' + '"{"}"',
+          '  description = "$${literal}"',
+          '  type = "gp2"',
+          '}',
+          '',
+          'resource "aws_ebs_volume" "following" {',
+          '  type = "gp2"',
+          '  availability_zone = "eu-west-1a"',
+          '}',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+
+      const { resources } = await parseTerraform(terraformPath);
+
+      expect(resources).toEqual([
+        expect.objectContaining({
+          name: 'interpolated',
+          attributeLocations: {
+            name: { path: 'main.tf', line: 2, column: 3 },
+            description: { path: 'main.tf', line: 3, column: 3 },
+            type: { path: 'main.tf', line: 4, column: 3 },
+          },
+        }),
+        expect.objectContaining({
+          name: 'following',
+          location: { path: 'main.tf', line: 7, column: 1 },
+          attributeLocations: {
+            type: { path: 'main.tf', line: 8, column: 3 },
+            availability_zone: { path: 'main.tf', line: 9, column: 3 },
+          },
+        }),
+      ]);
+    } finally {
+      await rm(tempDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it('keeps Terraform resource locations correct across comments inside interpolation', async () => {
+    const tempDirectory = await mkdtemp(join(tmpdir(), 'cloudburn-terraform-interpolation-comment-'));
+    const terraformPath = join(tempDirectory, 'main.tf');
+
+    try {
+      await writeFile(
+        terraformPath,
+        [
+          'resource "aws_ebs_volume" "commented" { name = "${' + 'var.x /* " */}" }',
+          'resource "aws_ebs_volume" "following" {',
+          '  type = "gp2"',
+          '  availability_zone = "eu-west-1a"',
+          '}',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+
+      const { resources } = await parseTerraform(terraformPath);
+
+      expect(resources).toEqual([
+        expect.objectContaining({
+          name: 'commented',
+          location: { path: 'main.tf', line: 1, column: 1 },
+        }),
+        expect.objectContaining({
+          name: 'following',
+          location: { path: 'main.tf', line: 2, column: 1 },
+          attributeLocations: {
+            type: { path: 'main.tf', line: 3, column: 3 },
+            availability_zone: { path: 'main.tf', line: 4, column: 3 },
+          },
+        }),
+      ]);
+    } finally {
+      await rm(tempDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it('skips oversized Terraform files', async () => {
+    const tempDirectory = await mkdtemp(join(tmpdir(), 'cloudburn-terraform-size-'));
+    const terraformPath = join(tempDirectory, 'large.tf');
+
+    try {
+      const filler = 'A'.repeat(6 * 1024 * 1024);
+      await writeFile(
+        terraformPath,
+        ['resource "aws_ebs_volume" "large" {', `  description = "${filler}"`, '}', ''].join('\n'),
+        'utf8',
+      );
+
+      const result = await parseTerraform(terraformPath);
+
+      expect(result).toEqual({
+        diagnostics: [
+          {
+            code: 'TERRAFORM_FILE_TOO_LARGE',
+            details: expect.any(String),
+            message: 'Skipped Terraform file large.tf because it exceeds the 5 MiB size limit.',
+            provider: 'aws',
+            service: 'terraform',
+            source: 'iac',
+            status: 'skipped',
+          },
+        ],
+        resources: [],
+      });
+    } finally {
+      await rm(tempDirectory, { recursive: true, force: true });
+    }
   });
 
   it('parses terraform directories recursively and preserves unresolved expressions', async () => {
@@ -1121,5 +1242,93 @@ Resources:
     } finally {
       await rm(tempDirectory, { force: true, recursive: true });
     }
+  });
+});
+
+describe('extractSuppressionComments', () => {
+  it('keeps suppression comments after long anchor and tag runs in YAML plain scalars', async () => {
+    const tempDirectory = await mkdtemp(join(tmpdir(), 'cloudburn-cloudformation-suppression-redos-'));
+    const templatePath = join(tempDirectory, 'template.yaml');
+
+    try {
+      await writeFile(
+        templatePath,
+        `Description: Notes, ${'&'.repeat(5_000)} x "y"
+Metadata:
+  Tags: Notes, ${'!'.repeat(5_000)} x "y"
+Resources:
+  # cloudburn-ignore CLDBRN-AWS-EBS-1 approved legacy volume
+  SuppressedVolume:
+    Type: AWS::EC2::Volume
+    Properties:
+      AvailabilityZone: eu-west-1a
+      VolumeType: gp2
+`,
+        'utf8',
+      );
+
+      const { resources } = await parseCloudFormation(templatePath);
+
+      expect(resources[0]).toMatchObject({
+        name: 'SuppressedVolume',
+        suppressions: [{ kind: 'rule', reason: 'approved legacy volume', ruleId: 'CLDBRN-AWS-EBS-1' }],
+      });
+    } finally {
+      await rm(tempDirectory, { force: true, recursive: true });
+    }
+  });
+
+  it('treats long anchor and tag runs before a quote as YAML node properties', () => {
+    const anchors = `Value: ${'&'.repeat(5_000)} "data # cloudburn-ignore-all quoted" # cloudburn-ignore-all real`;
+    const tags = `Value: ${'!'.repeat(5_000)} &anchor "data # cloudburn-ignore-all quoted" # cloudburn-ignore-all real`;
+
+    for (const line of [anchors, tags]) {
+      expect(extractSuppressionComments(line, 'template.yaml', 'yaml')).toEqual([
+        { line: 1, suppression: { kind: 'all', location: expect.anything(), reason: 'real' } },
+      ]);
+    }
+  });
+
+  it('treats quotes after a bare sequence indicator as YAML quoted scalars', () => {
+    expect(
+      extractSuppressionComments(
+        `Values:
+  - "data # cloudburn-ignore-all quoted"
+  - - !Ref "nested # cloudburn-ignore-all quoted"
+`,
+        'template.yaml',
+        'yaml',
+      ),
+    ).toEqual([]);
+  });
+
+  it('keeps suppression comments after a dash and quote inside a YAML plain scalar', () => {
+    expect(
+      extractSuppressionComments(
+        `Description: Notes, - "unterminated
+Resources:
+  # cloudburn-ignore-all approved exception
+`,
+        'template.yaml',
+        'yaml',
+      ),
+    ).toEqual([{ line: 3, suppression: { kind: 'all', location: expect.anything(), reason: 'approved exception' } }]);
+  });
+
+  it('scans long lines with many quotes and whitespace-padded directives in linear time', () => {
+    const contents = [
+      `Value: ${'x "'.repeat(100_000)}`,
+      `# cloudburn-ignore-all${' '.repeat(100_000)}a\u2028x`,
+      `# cloudburn-ignore CLDBRN-AWS-EBS-1${' '.repeat(100_000)}a\u2028x`,
+    ].join('\n');
+
+    const startedAt = performance.now();
+    const comments = extractSuppressionComments(contents, 'template.yaml', 'yaml');
+
+    expect(performance.now() - startedAt).toBeLessThan(1_000);
+    expect(comments.map(({ suppression }) => suppression)).toMatchObject([
+      { kind: 'all', reason: 'a\u2028x' },
+      { kind: 'rule', reason: 'a\u2028x', ruleId: 'CLDBRN-AWS-EBS-1' },
+    ]);
   });
 });

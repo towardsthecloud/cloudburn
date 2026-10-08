@@ -1348,7 +1348,8 @@ export type AwsStaticEbsVolume = {
 /** Normalized static ECR repository dataset entry with lifecycle-policy state. */
 export type AwsStaticEcrRepository = {
   resourceId: string;
-  hasLifecyclePolicy: boolean;
+  /** Whether a lifecycle policy is present; null means the IaC value is unresolved. */
+  hasLifecyclePolicy: boolean | null;
   hasTaggedImageRetentionCap?: boolean | null;
   hasUntaggedImageExpiry?: boolean | null;
   location?: SourceLocation;
@@ -1441,7 +1442,8 @@ export type AwsStaticRedshiftCluster = {
   automatedSnapshotRetentionPeriod: number | null | undefined;
   hasPauseSchedule: boolean;
   hasResumeSchedule: boolean;
-  hasVpc: boolean;
+  /** Whether the cluster has a VPC subnet group; null means the IaC value is unresolved. */
+  hasVpc: boolean | null;
   hsmEnabled: boolean | null;
   multiAz: boolean | null;
   location?: SourceLocation;
@@ -1578,9 +1580,14 @@ export type IaCResource = {
   attributes: Record<string, unknown>;
 };
 
+/** Memoized derived indexes shared by one rule's live callbacks, keyed by the builder function. */
+export type LiveEvaluationScratch = WeakMap<(resources: LiveResourceBag) => unknown, unknown>;
+
 export type LiveEvaluationContext = {
   catalog: AwsDiscoveryCatalog;
   resources: LiveResourceBag;
+  /** Per-rule scratch shared by `evaluateLive` and `getLiveEvaluationCoverage` within one evaluation. */
+  scratch?: LiveEvaluationScratch;
 };
 
 /** Provider-normalized IaC resources available to static rule evaluators. */

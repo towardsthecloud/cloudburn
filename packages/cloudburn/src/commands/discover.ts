@@ -1,5 +1,3 @@
-import { homedir } from 'node:os';
-import { join } from 'node:path';
 import {
   type AwsDiscoveryProgressEvent,
   type AwsDiscoveryTarget,
@@ -8,6 +6,7 @@ import {
   assertSupportedAwsRegion,
   CloudBurnClient,
   type CloudBurnConfig,
+  resolveCloudBurnCacheDirectory,
   resolveScanPolicy,
   type Severity,
 } from '@cloudburn/sdk';
@@ -253,9 +252,7 @@ export const registerDiscoverCommand = (program: Command): void => {
           } = {
             cache: {
               mode: options.cache ?? 'normal',
-              directory:
-                options.cacheDir ??
-                join(process.env.XDG_CACHE_HOME ?? join(homedir(), '.cache'), 'cloudburn', 'evidence'),
+              directory: options.cacheDir ?? resolveCloudBurnCacheDirectory('evidence'),
               ...(options.cacheContext === undefined ? {} : { authorizationContext: options.cacheContext }),
             },
             target: resolveDiscoveryTarget(options.region),

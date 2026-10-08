@@ -239,7 +239,7 @@ local leases, limits, and the `EvidenceCacheStore` contract for hosted consumers
 
 Catalog, control-plane, and collector requests share AWS quota limits across operations and independent SDK or CLI processes running as the same OS
 user. Quotas use the signing caller's account, resolved once per run. If that lookup fails, collectors continue with
-isolated in-memory limits for that run. Shared coordination requires writable local storage. It uses `$XDG_CACHE_HOME/cloudburn/aws-admission-v1` when configured,
+isolated in-memory limits for that run. Shared coordination requires writable local storage. It uses `$XDG_CACHE_HOME/cloudburn/aws-admission-v1` when set to an absolute path,
 or `~/.cache/cloudburn/aws-admission-v1`, with a shared temporary-directory fallback when a new default cache cannot be
 created. Set `CLOUDBURN_AWS_ADMISSION_DIR` to choose a shared writable path for containers or other constrained environments.
 Existing state errors fail without bypassing coordination. `CLOUDBURN_AWS_QUOTA_OVERRIDES` accepts JSON policies such as
@@ -488,12 +488,14 @@ at their own product boundary.
 
 CloudFront discovery reuses `ListDistributions` summaries when the catalog has no distribution seeds. A page of 100
 distributions with price-class evidence needs 1 list request and 0 `GetDistribution` requests, excluding account identity
-lookup. Pagination retains all listed distributions; a nonempty catalog selection uses detail requests only for those
-selected IDs and never lists additional distributions.
+lookup. Pagination retains all listed distributions; catalog-backed loads also read `ListDistributions` summaries (one
+request per 100 distributions) and keep only the selected IDs. `GetDistribution` is needed only for selected
+distributions missing from the summaries or standard distributions missing a price class. If `ListDistributions` is
+denied, catalog hydration falls back to per-distribution `GetDistribution`.
 
-Grant `cloudfront:ListDistributions` for fallback discovery and `cloudfront:GetDistribution` for catalog hydration or
-fallback standard distributions missing their price class. Standard distributions retain supplied price classes, including
-`None`. Tenant-only distributions omit price-class evidence from both summary and detail responses because AWS does
+Grant `cloudfront:ListDistributions` for fallback discovery and catalog-backed loads, and `cloudfront:GetDistribution`
+for selected distributions missing from summaries or fallback standard distributions missing their price class. Standard
+distributions retain supplied price classes, including `None`. Tenant-only distributions omit price-class evidence from both summary and detail responses because AWS does
 not support that setting for this variant; tenant-only summaries do not require a price-class lookup. These variants follow the AWS
 [DistributionSummary contract](https://docs.aws.amazon.com/cloudfront/latest/APIReference/API_DistributionSummary.html).
 Fallback account identity uses `sts:GetCallerIdentity`; request activity also requires `cloudwatch:GetMetricData` in
@@ -516,7 +518,8 @@ Integrations such as the CLI, GitHub Action, and MCP server share these helpers:
 - `filterBuiltInRules({ services?, sources?, severity? })` selects `builtInRuleMetadata` entries matching every supplied criterion
 - `validateServices(services, mode?)` lower-cases service names and throws for services without built-in rules for the mode
 - `categorizeError(err)` maps a thrown value to a stable `{ code, message }` with credentials, signed URLs, and metadata
-  endpoints redacted from the message
+  endpoints redacted from the message; discovery diagnostic `details`, Resource Explorer status `notes`, and debug logs
+  apply the same redaction to caught AWS errors
 
 The `CloudBurnClient` also exposes helper methods:
 

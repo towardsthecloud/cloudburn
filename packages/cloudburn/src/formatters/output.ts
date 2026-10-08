@@ -182,7 +182,7 @@ const renderTable = (response: CliResponse): string => {
     }
     case 'record-list':
       return response.rows.length === 0
-        ? response.emptyMessage
+        ? toTerminalSafeText(response.emptyMessage)
         : renderAsciiTable(response.rows, response.columns ?? inferColumns(response.rows));
     case 'rule-list':
       return renderRuleTable(response.rules, response.emptyMessage);
@@ -201,7 +201,7 @@ const renderTable = (response: CliResponse): string => {
           const incompleteCount = evidence.filter((entry) => !entry.complete).length;
           const oldestObservation = evidence.map((entry) => entry.observedAt).sort()[0];
           sections.push(
-            `Evidence: ${cachedCount} cached, ${evidence.length - cachedCount} collected; ${incompleteCount} incomplete.\nOldest observation: ${oldestObservation}`,
+            `Evidence: ${cachedCount} cached, ${evidence.length - cachedCount} collected; ${incompleteCount} incomplete.\nOldest observation: ${toTerminalSafeText(oldestObservation ?? '')}`,
           );
         }
         return sections.join('\n\n');
@@ -233,7 +233,7 @@ const renderTable = (response: CliResponse): string => {
       );
     case 'string-list':
       return response.values.length === 0
-        ? response.emptyMessage
+        ? toTerminalSafeText(response.emptyMessage)
         : renderAsciiTable(
             response.values.map((value) => ({ [response.columnHeader]: value })),
             [{ key: response.columnHeader, header: response.columnHeader }],
@@ -279,7 +279,7 @@ const inferColumns = (rows: RecordRow[]): ColumnSpec[] => {
 
 const renderRuleTable = (rules: BuiltInRuleMetadata[], emptyMessage: string): string => {
   if (rules.length === 0) {
-    return emptyMessage;
+    return toTerminalSafeText(emptyMessage);
   }
 
   return renderAsciiTable(
@@ -312,16 +312,32 @@ const toTextCell = (value: CellValue): string => {
   return JSON.stringify(value);
 };
 
-const toTableCell = (value: CellValue): string => {
-  if (Array.isArray(value)) {
-    return value
-      .map((item) => toTextCell(item))
-      .join(', ')
-      .replace(/\r?\n/g, '\\n');
+// biome-ignore lint/suspicious/noControlCharactersInRegex: matches control characters in order to escape them.
+const TERMINAL_UNSAFE_CHARACTERS = /\r?\n|[\u0000-\u001f\u007f-\u009f\u061c\u200e\u200f\u2028-\u202e\u2066-\u2069]/gu;
+const NAMED_CONTROL_ESCAPES: Record<string, string> = { '\n': '\\n', '\r': '\\r', '\t': '\\t' };
+
+const escapeTerminalCharacter = (character: string): string => {
+  if (character === '\r\n') {
+    return '\\n';
   }
 
-  return toTextCell(value).replace(/\r?\n/g, '\\n');
+  const named = NAMED_CONTROL_ESCAPES[character];
+  if (named) {
+    return named;
+  }
+
+  const codePoint = character.codePointAt(0) ?? 0;
+  return codePoint <= 0xff
+    ? `\\x${codePoint.toString(16).padStart(2, '0')}`
+    : `\\u${codePoint.toString(16).padStart(4, '0')}`;
 };
+
+// Table output is written to terminals, so IaC-controlled text must not carry escape sequences or bidi overrides.
+const toTerminalSafeText = (value: string): string =>
+  value.replace(TERMINAL_UNSAFE_CHARACTERS, escapeTerminalCharacter);
+
+const toTableCell = (value: CellValue): string =>
+  toTerminalSafeText(Array.isArray(value) ? value.map((item) => toTextCell(item)).join(', ') : toTextCell(value));
 
 const resolveTableColumns = (rows: RecordRow[], columns: ColumnSpec[]): ColumnSpec[] => {
   const visibleColumns = columns.filter((column) => rows.some((row) => toTableCell(row[column.key]).length > 0));
@@ -448,7 +464,10 @@ const renderTableLines = (cells: string[], widths: number[]): string[] => {
 };
 
 const renderAsciiTable = (rows: RecordRow[], columns: ColumnSpec[]): string => {
-  const visibleColumns = resolveTableColumns(rows, columns);
+  const visibleColumns = resolveTableColumns(rows, columns).map((column) => ({
+    ...column,
+    header: toTerminalSafeText(column.header),
+  }));
   const widths = fitColumnWidths(visibleColumns, rows);
   const border = `+${widths.map((width) => '-'.repeat(width + 2)).join('+')}+`;
   const header = renderTableLines(

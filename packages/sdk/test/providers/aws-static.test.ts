@@ -1309,8 +1309,22 @@ describe('aws static dataset registry', () => {
           },
           attributes: {
             Properties: {
-              Architectures: { Ref: 'ArchitectureList' },
+              Architectures: [{ Ref: 'Arch' }],
             },
+          },
+        }),
+        createIaCResource({
+          type: 'aws_lambda_function',
+          name: 'Null',
+          attributes: {
+            architectures: null,
+          },
+        }),
+        createIaCResource({
+          type: 'aws_lambda_function',
+          name: 'Unresolved',
+          attributes: {
+            architectures: ['$' + '{var.arch}'],
           },
         }),
       ]),
@@ -1332,6 +1346,160 @@ describe('aws static dataset registry', () => {
           column: 7,
         },
         resourceId: 'Fn',
+      },
+      {
+        architectures: ['x86_64'],
+        location: undefined,
+        resourceId: 'aws_lambda_function.Null',
+      },
+      {
+        architectures: null,
+        location: undefined,
+        resourceId: 'aws_lambda_function.Unresolved',
+      },
+    ]);
+  });
+
+  it('preserves unknown DynamoDB billing modes and applies the default only when absent', () => {
+    const definition = getAwsStaticDatasetDefinition('aws-dynamodb-tables');
+
+    expect(
+      definition?.load([
+        createIaCResource({
+          type: 'aws_dynamodb_table',
+          name: 'terraform-unknown',
+          attributes: {
+            billing_mode: '$' + '{var.billing_mode}',
+            name: 'terraform-unknown',
+          },
+        }),
+        createIaCResource({
+          type: 'aws_dynamodb_table',
+          name: 'terraform-absent',
+          attributes: {
+            name: 'terraform-absent',
+          },
+        }),
+        createIaCResource({
+          type: 'AWS::DynamoDB::Table',
+          name: 'CloudFormationUnknown',
+          attributes: {
+            Properties: {
+              BillingMode: { 'Fn::If': ['IsOnDemand', 'PAY_PER_REQUEST', 'PROVISIONED'] },
+              TableName: 'cloudformation-unknown',
+            },
+          },
+        }),
+        createIaCResource({
+          type: 'AWS::DynamoDB::Table',
+          name: 'CloudFormationAbsent',
+          attributes: {
+            Properties: {
+              TableName: 'cloudformation-absent',
+            },
+          },
+        }),
+      ]),
+    ).toEqual([
+      {
+        billingMode: null,
+        location: undefined,
+        resourceId: 'aws_dynamodb_table.terraform-unknown',
+        tableName: 'terraform-unknown',
+      },
+      {
+        billingMode: 'PROVISIONED',
+        location: undefined,
+        resourceId: 'aws_dynamodb_table.terraform-absent',
+        tableName: 'terraform-absent',
+      },
+      {
+        billingMode: null,
+        location: undefined,
+        resourceId: 'CloudFormationUnknown',
+        tableName: 'cloudformation-unknown',
+      },
+      {
+        billingMode: 'PROVISIONED',
+        location: undefined,
+        resourceId: 'CloudFormationAbsent',
+        tableName: 'cloudformation-absent',
+      },
+    ]);
+  });
+
+  it('preserves unknown ECS scheduling strategies and applies the default only when absent', () => {
+    const definition = getAwsStaticDatasetDefinition('aws-ecs-services');
+
+    expect(
+      definition?.load([
+        createIaCResource({
+          type: 'aws_ecs_service',
+          name: 'terraform-unknown',
+          attributes: {
+            cluster: 'cluster',
+            name: 'terraform-unknown',
+            scheduling_strategy: '$' + '{var.strategy}',
+          },
+        }),
+        createIaCResource({
+          type: 'AWS::ECS::Service',
+          name: 'CloudFormationUnknown',
+          attributes: {
+            Properties: {
+              Cluster: 'cluster',
+              SchedulingStrategy: { Ref: 'Strategy' },
+              ServiceName: 'cloudformation-unknown',
+            },
+          },
+        }),
+        createIaCResource({
+          type: 'aws_ecs_service',
+          name: 'terraform-absent',
+          attributes: {
+            cluster: 'cluster',
+            name: 'terraform-absent',
+          },
+        }),
+        createIaCResource({
+          type: 'AWS::ECS::Service',
+          name: 'CloudFormationAbsent',
+          attributes: {
+            Properties: {
+              Cluster: 'cluster',
+              ServiceName: 'cloudformation-absent',
+            },
+          },
+        }),
+      ]),
+    ).toEqual([
+      {
+        clusterName: 'cluster',
+        location: undefined,
+        resourceId: 'aws_ecs_service.terraform-unknown',
+        schedulingStrategy: null,
+        serviceName: 'terraform-unknown',
+      },
+      {
+        clusterName: 'cluster',
+        location: undefined,
+        resourceId: 'CloudFormationUnknown',
+        schedulingStrategy: null,
+        serviceName: 'cloudformation-unknown',
+      },
+      {
+        clusterName: 'cluster',
+        location: undefined,
+        resourceId: 'aws_ecs_service.terraform-absent',
+        schedulingStrategy: 'REPLICA',
+        serviceName: 'terraform-absent',
+      },
+      {
+        clusterName: 'cluster',
+        location: undefined,
+        resourceId: 'CloudFormationAbsent',
+        schedulingStrategy: 'REPLICA',
+        serviceName: 'cloudformation-absent',
       },
     ]);
   });
@@ -2604,7 +2772,7 @@ describe('aws static dataset registry', () => {
           line: 5,
           column: 3,
         },
-        multiAz: null,
+        multiAz: false,
         resourceId: 'aws_redshift_cluster.analytics',
       },
       {
@@ -2618,8 +2786,178 @@ describe('aws static dataset registry', () => {
           line: 10,
           column: 7,
         },
-        multiAz: null,
+        multiAz: false,
         resourceId: 'WarehouseCluster',
+      },
+    ]);
+  });
+
+  it('preserves unknown Redshift evidence and applies defaults only when absent', () => {
+    const definition = getAwsStaticDatasetDefinition('aws-redshift-clusters');
+
+    expect(
+      definition?.load([
+        createIaCResource({
+          type: 'aws_redshift_cluster',
+          name: 'terraform-unknown',
+          attributes: {
+            cluster_subnet_group_name: '$' + '{aws_redshift_subnet_group.main.name}',
+            hsm_configuration_identifier: '$' + '{var.hsm}',
+            multi_az: '$' + '{var.multi_az}',
+          },
+        }),
+        createIaCResource({
+          type: 'aws_redshift_cluster',
+          name: 'terraform-absent',
+          attributes: {},
+        }),
+        createIaCResource({
+          type: 'AWS::Redshift::Cluster',
+          name: 'CloudFormationUnknown',
+          attributes: {
+            Properties: {
+              ClusterSubnetGroupName: { Ref: 'SubnetGroup' },
+              HsmConfigurationIdentifier: { Ref: 'Hsm' },
+              MultiAZ: { Ref: 'MultiAz' },
+            },
+          },
+        }),
+        createIaCResource({
+          type: 'AWS::Redshift::Cluster',
+          name: 'CloudFormationAbsent',
+          attributes: {
+            Properties: {},
+          },
+        }),
+        createIaCResource({
+          type: 'AWS::Redshift::Cluster',
+          name: 'CloudFormationStringFalse',
+          attributes: {
+            Properties: {
+              MultiAZ: 'false',
+            },
+          },
+        }),
+        createIaCResource({
+          type: 'AWS::Redshift::Cluster',
+          name: 'CloudFormationStringTrue',
+          attributes: {
+            Properties: {
+              MultiAZ: 'True',
+            },
+          },
+        }),
+      ]),
+    ).toEqual([
+      {
+        automatedSnapshotRetentionPeriod: undefined,
+        hasPauseSchedule: false,
+        hasResumeSchedule: false,
+        hasVpc: null,
+        hsmEnabled: null,
+        location: undefined,
+        multiAz: null,
+        resourceId: 'aws_redshift_cluster.terraform-unknown',
+      },
+      {
+        automatedSnapshotRetentionPeriod: undefined,
+        hasPauseSchedule: false,
+        hasResumeSchedule: false,
+        hasVpc: false,
+        hsmEnabled: false,
+        location: undefined,
+        multiAz: false,
+        resourceId: 'aws_redshift_cluster.terraform-absent',
+      },
+      {
+        automatedSnapshotRetentionPeriod: undefined,
+        hasPauseSchedule: false,
+        hasResumeSchedule: false,
+        hasVpc: null,
+        hsmEnabled: null,
+        location: undefined,
+        multiAz: null,
+        resourceId: 'CloudFormationUnknown',
+      },
+      {
+        automatedSnapshotRetentionPeriod: undefined,
+        hasPauseSchedule: false,
+        hasResumeSchedule: false,
+        hasVpc: false,
+        hsmEnabled: false,
+        location: undefined,
+        multiAz: false,
+        resourceId: 'CloudFormationAbsent',
+      },
+      {
+        automatedSnapshotRetentionPeriod: undefined,
+        hasPauseSchedule: false,
+        hasResumeSchedule: false,
+        hasVpc: false,
+        hsmEnabled: false,
+        location: undefined,
+        multiAz: false,
+        resourceId: 'CloudFormationStringFalse',
+      },
+      {
+        automatedSnapshotRetentionPeriod: undefined,
+        hasPauseSchedule: false,
+        hasResumeSchedule: false,
+        hasVpc: false,
+        hsmEnabled: false,
+        location: undefined,
+        multiAz: true,
+        resourceId: 'CloudFormationStringTrue',
+      },
+    ]);
+  });
+
+  it('keeps unknown CloudFormation ECR lifecycle policies unknown', () => {
+    const definition = getAwsStaticDatasetDefinition('aws-ecr-repositories');
+
+    expect(
+      definition?.load([
+        createIaCResource({
+          type: 'AWS::ECR::Repository',
+          name: 'IntrinsicPolicy',
+          attributes: {
+            Properties: {
+              LifecyclePolicy: {
+                'Fn::If': ['UsePolicy', { LifecyclePolicyText: '...' }, { Ref: 'AWS::NoValue' }],
+              },
+            },
+          },
+        }),
+        createIaCResource({
+          type: 'aws_ecr_repository',
+          name: 'TerraformUnknownPolicy',
+          attributes: {
+            name: 'terraform-unknown-policy',
+          },
+        }),
+        createIaCResource({
+          type: 'aws_ecr_lifecycle_policy',
+          name: 'TerraformUnknownPolicy',
+          attributes: {
+            policy: '$' + '{var.policy}',
+            repository: 'aws_ecr_repository.TerraformUnknownPolicy.name',
+          },
+        }),
+      ]),
+    ).toEqual([
+      {
+        hasLifecyclePolicy: null,
+        hasTaggedImageRetentionCap: null,
+        hasUntaggedImageExpiry: null,
+        location: undefined,
+        resourceId: 'IntrinsicPolicy',
+      },
+      {
+        hasLifecyclePolicy: true,
+        hasTaggedImageRetentionCap: null,
+        hasUntaggedImageExpiry: null,
+        location: undefined,
+        resourceId: 'aws_ecr_repository.TerraformUnknownPolicy',
       },
     ]);
   });
