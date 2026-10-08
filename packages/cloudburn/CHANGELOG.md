@@ -1,5 +1,15 @@
 # cloudburn
 
+## 0.18.11
+
+### Patch Changes
+
+- [#332](https://github.com/towardsthecloud/cloudburn/pull/332) [`9d38ae3`](https://github.com/towardsthecloud/cloudburn/commit/9d38ae34e75e00c7d1e21631443dff17fdfc1be8) Thanks [@devin-ai-integration](https://github.com/apps/devin-ai-integration)! - Escape terminal control characters (ANSI/OSC sequences, BEL, carriage returns, other C0/C1 controls) and bidi overrides in `table` output so values from scanned IaC, such as resource IDs and file paths, cannot rewrite or hide rows in the terminal.
+
+- [#337](https://github.com/towardsthecloud/cloudburn/pull/337) [`b5c3516`](https://github.com/towardsthecloud/cloudburn/commit/b5c3516dc0869e7233f16a5a7d99f807b24c1adf) Thanks [@devin-ai-integration](https://github.com/apps/devin-ai-integration)! - Keep the default evidence cache out of the working directory when `XDG_CACHE_HOME` is empty or relative.
+- Updated dependencies [[`1fc5301`](https://github.com/towardsthecloud/cloudburn/commit/1fc5301c18dc219879c32d67b37a61982aad4810), [`3e8d3cb`](https://github.com/towardsthecloud/cloudburn/commit/3e8d3cb63f92faf7d6b4424a8d4e4645d0122320), [`97007d9`](https://github.com/towardsthecloud/cloudburn/commit/97007d90bbcd4e3b9bef100a37d16f89f8305c7f), [`77ecadb`](https://github.com/towardsthecloud/cloudburn/commit/77ecadbc68050b210dd3ab228044a2632f98c21d), [`0b77c47`](https://github.com/towardsthecloud/cloudburn/commit/0b77c475ab122c296666ec02889efee65ade17dc), [`b5c3516`](https://github.com/towardsthecloud/cloudburn/commit/b5c3516dc0869e7233f16a5a7d99f807b24c1adf), [`4250bfc`](https://github.com/towardsthecloud/cloudburn/commit/4250bfc7b1e56e6ac717cdf6b686858e1b289fa1)]:
+  - @cloudburn/sdk@0.38.2
+
 ## 0.18.10
 
 ### Patch Changes
