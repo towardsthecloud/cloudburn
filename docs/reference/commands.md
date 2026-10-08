@@ -37,6 +37,9 @@ dependencies and caching. Package manifests own the scripts that Turbo invokes.
 | `--cache-dir <path>`   | `$XDG_CACHE_HOME/cloudburn/evidence`, or `~/.cache/cloudburn/evidence` | Select local persistent storage for normalized AWS evidence and independent public pricing artifacts.                                                               |
 | `--cache-context <id>` | Temporary AWS credential session scope when derivable                  | Identify the effective authorization and session-policy revision. Change this value when those permissions change; an account ID or role ARN alone is insufficient. |
 
+The default uses `$XDG_CACHE_HOME` only when it is an absolute path; an empty or relative value falls back to
+`~/.cache/cloudburn/evidence`.
+
 Without a safe temporary credential scope or an explicit context, customer evidence reuse is disabled. Public pricing
 can still be reused independently. Cache entries never include credentials. `--cache off` also disables public pricing
 persistence. A cache read does not prove AWS discovery coverage: source delays and unknown resources remain visible
