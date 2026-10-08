@@ -248,4 +248,25 @@ describe('hydrateAwsSageMakerSavingsPlansCoverage', () => {
       unavailable: true,
     });
   });
+
+  it('redacts sensitive provider text from diagnostic details', async () => {
+    mockedCreateCostExplorerClient.mockReturnValue({
+      send: vi.fn().mockRejectedValue(
+        Object.assign(new Error('Access denied via https://ce.amazonaws.com/?X-Amz-Signature=abc123'), {
+          name: 'AccessDeniedException',
+        }),
+      ),
+    } as never);
+
+    const result = await hydrateAwsSageMakerSavingsPlansCoverage([], {
+      resolveAccountId: vi.fn().mockResolvedValue(accountId),
+    });
+
+    expect(result).toMatchObject({
+      diagnostics: [
+        { details: expect.stringContaining('Access denied via https://ce.amazonaws.com/?X-Amz-Signature=[redacted]') },
+      ],
+    });
+    expect(JSON.stringify(result)).not.toContain('abc123');
+  });
 });

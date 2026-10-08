@@ -7,6 +7,7 @@ import type {
 } from '@cloudburn/rules';
 import { getAwsDatasetCapability, LiveResourceBag } from '@cloudburn/rules';
 import { emitDebugLog } from '../../debug.js';
+import { toRedactedErrorMessage } from '../../errors.js';
 import type {
   AwsCapabilityOutcome,
   AwsDiscoveryCatalog,
@@ -253,7 +254,7 @@ const buildAccessDeniedDiagnosticMessage = (service: string, region: string, err
 
 const buildDatasetFailureDiagnostic = (service: string, region: string | undefined, err: unknown): ScanDiagnostic => ({
   code: getAwsErrorCode(err),
-  details: err instanceof Error ? err.message : String(err),
+  details: toRedactedErrorMessage(err),
   message: isAwsThrottlingError(err)
     ? `Skipped ${service} discovery${region ? ` in ${region}` : ''} because AWS throttled the required dataset after retrying.`
     : `Skipped ${service} discovery${region ? ` in ${region}` : ''} because a required dataset failed to load.`,
@@ -272,12 +273,12 @@ const buildCatalogFailureDiagnostic = (err: unknown): ScanDiagnostic => {
       : status === 'throttled'
         ? 'Skipped catalog-backed discovery because AWS throttled the Resource Explorer catalog after retrying; only account-scoped datasets were evaluated.'
         : err instanceof AwsDiscoveryError
-          ? `${err.message} Only account-scoped datasets were evaluated.`
+          ? `${toRedactedErrorMessage(err)} Only account-scoped datasets were evaluated.`
           : 'Skipped catalog-backed discovery because the Resource Explorer catalog failed to load; only account-scoped datasets were evaluated.';
 
   return {
     code: getAwsErrorCode(err),
-    details: err instanceof Error ? err.message : String(err),
+    details: toRedactedErrorMessage(err),
     message,
     provider: 'aws',
     service: 'resource-explorer',
@@ -424,7 +425,7 @@ export const discoverAwsResources = async (
 
         emitDebugLog(
           options?.debugLogger,
-          `aws: catalog build failed, degrading to account-scoped datasets: ${err instanceof Error ? err.message : String(err)}`,
+          `aws: catalog build failed, degrading to account-scoped datasets: ${toRedactedErrorMessage(err)}`,
         );
         catalogFailureDiagnostic = buildCatalogFailureDiagnostic(err);
         catalog = accountCatalog;
@@ -709,7 +710,7 @@ export const discoverAwsResources = async (
         throwIfAwsExecutionAborted();
         emitDebugLog(
           options?.debugLogger,
-          `aws: dataset ${datasetKey} failed${region ? ` in ${region}` : ''} after ${formatElapsedMs(startedAtMs)}: ${err instanceof Error ? err.message : String(err)}`,
+          `aws: dataset ${datasetKey} failed${region ? ` in ${region}` : ''} after ${formatElapsedMs(startedAtMs)}: ${toRedactedErrorMessage(err)}`,
         );
         if (err instanceof UnavailableDiscoveryDatasetError) {
           load = result([], [], true, err.diagnostics);
@@ -719,7 +720,7 @@ export const discoverAwsResources = async (
             [
               {
                 code: getAwsErrorCode(err),
-                details: err instanceof Error ? err.message : String(err),
+                details: toRedactedErrorMessage(err),
                 message: buildAccessDeniedDiagnosticMessage(definition.service, region, err),
                 provider: 'aws',
                 region,
