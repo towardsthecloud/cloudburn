@@ -78,6 +78,10 @@ const resultWithSuppressedFinding = {
   ],
 };
 
+// Raw newlines are table row separators; every other control or bidi character must be escaped.
+// biome-ignore lint/suspicious/noControlCharactersInRegex: asserts that control characters are absent.
+const TERMINAL_UNSAFE_OUTPUT = /[\u0000-\u0009\u000b-\u001f\u007f-\u009f\u061c\u200e\u200f\u2028-\u202e\u2066-\u2069]/u;
+
 const withStdoutColumns = (columns: number, run: () => void): void => {
   const descriptor = Object.getOwnPropertyDescriptor(process.stdout, 'columns');
 
@@ -217,6 +221,88 @@ describe('renderResponse', () => {
       expect(output).toContain('ap-northeast-1,');
       expect(output).toContain('eu-west-3');
     });
+  });
+
+  it('neutralizes terminal control and bidi characters from IaC-controlled values in table mode', () => {
+    const output = renderResponse(
+      {
+        kind: 'scan-result',
+        result: {
+          diagnostics: [
+            {
+              message:
+                'Skipped CloudFormation file evil\u001b]52;c;cGF5bG9hZA==\u0007.yml because it could not be parsed.',
+              provider: 'aws',
+              service: 'cloudformation',
+              source: 'iac',
+              status: 'skipped',
+            },
+          ],
+          providers: [
+            {
+              provider: 'aws',
+              rules: [
+                {
+                  ruleId: 'CLDBRN-AWS-EBS-1',
+                  service: 'ebs',
+                  severity: 'medium',
+                  source: 'iac',
+                  message: 'EBS volumes should use current-generation storage.',
+                  findings: [
+                    {
+                      location: { column: 1, line: 2, path: 'tmpl\u001b[2K\u009b31m\u202e.yaml' },
+                      resourceId: 'Vol\u001b[2K\rNo findings.\u007f\u2067\tx\r\ny',
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      },
+      'table',
+    );
+
+    expect(output).not.toMatch(TERMINAL_UNSAFE_OUTPUT);
+    expect(output).toContain('Vol\\x1b[2K\\rNo findings.\\x7f\\u2067\\tx\\ny');
+    expect(output).toContain('tmpl\\x1b[2K\\x9b31m\\u202e.yaml');
+    expect(output).toContain('evil\\x1b]52;c;cGF5bG9hZA==\\x07.yml');
+  });
+
+  it('neutralizes control characters in inferred headers and evidence summaries in table mode', () => {
+    const recordOutput = renderResponse(
+      {
+        kind: 'record-list',
+        emptyMessage: 'No rows.',
+        rows: [{ 'key\u001b[8m': ['a\u001b[2K', 'b\u0007'] }],
+      },
+      'table',
+    );
+    const scanOutput = renderResponse(
+      {
+        kind: 'scan-result',
+        result: {
+          evidence: [
+            {
+              collectedAt: '2026-01-01T00:00:00.000Z',
+              complete: true,
+              datasetKey: 'aws-ebs-volumes',
+              observedAt: '2026-01-01T00:00:00.000Z\u001b[1A\u001b[2K',
+              source: 'cache',
+            },
+          ],
+          providers: [],
+        },
+      },
+      'table',
+    );
+
+    expect(recordOutput).toContain('key\\x1b[8m');
+    expect(recordOutput).toContain('a\\x1b[2K, b\\x07');
+    expect(scanOutput).toContain('Oldest observation: 2026-01-01T00:00:00.000Z\\x1b[1A\\x1b[2K');
+    for (const output of [recordOutput, scanOutput]) {
+      expect(output).not.toMatch(TERMINAL_UNSAFE_OUTPUT);
+    }
   });
 
   it('returns friendly empty messages for empty human-readable output', () => {
