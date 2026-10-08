@@ -1,9 +1,11 @@
 import { DescribeNodegroupCommand, ListNodegroupsCommand } from '@aws-sdk/client-eks';
 import type { AwsDiscoveredResource, AwsEksNodegroup } from '@cloudburn/rules';
+import { mapWithConcurrency } from '../../../utils/concurrency.js';
 import { createEksClient } from '../client.js';
 import { runAwsRequest } from '../request.js';
 import { chunkItems } from './utils.js';
 
+const EKS_CLUSTER_CONCURRENCY = 3;
 const EKS_NODEGROUP_CONCURRENCY = 5;
 
 type ParsedEksClusterResource = {
@@ -56,9 +58,9 @@ export const hydrateAwsEksNodegroups = async (resources: AwsDiscoveredResource[]
   const hydratedPages = await Promise.all(
     [...clustersByRegion.entries()].map(async ([region, regionClusters]) => {
       const client = createEksClient({ region });
-      const nodegroups: AwsEksNodegroup[] = [];
 
-      for (const cluster of regionClusters) {
+      const clusterNodegroups = await mapWithConcurrency(regionClusters, EKS_CLUSTER_CONCURRENCY, async (cluster) => {
+        const nodegroups: AwsEksNodegroup[] = [];
         let nextToken: string | undefined;
         const nodegroupNames: string[] = [];
 
@@ -107,9 +109,11 @@ export const hydrateAwsEksNodegroups = async (resources: AwsDiscoveredResource[]
 
           nodegroups.push(...describedBatch.flatMap((nodegroup): AwsEksNodegroup[] => (nodegroup ? [nodegroup] : [])));
         }
-      }
 
-      return nodegroups;
+        return nodegroups;
+      });
+
+      return clusterNodegroups.flat();
     }),
   );
 
