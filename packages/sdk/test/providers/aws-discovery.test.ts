@@ -745,6 +745,128 @@ describe('discoverAwsResources', () => {
     ]);
   });
 
+  it('reuses the sorted ready catalog across provisional rule snapshots until another type is ready', async () => {
+    const volumeCatalog: AwsDiscoveryCatalog = {
+      indexType: 'LOCAL',
+      resources: [
+        {
+          accountId: '123456789012',
+          arn: 'arn:aws:ec2:us-east-1:123456789012:volume/vol-123',
+          properties: [],
+          region: 'us-east-1',
+          resourceType: 'ec2:volume',
+          service: 'ec2',
+        },
+      ],
+      searchRegion: 'us-east-1',
+    };
+    const instanceCatalog: AwsDiscoveryCatalog = {
+      indexType: 'LOCAL',
+      resources: [
+        {
+          accountId: '123456789012',
+          arn: 'arn:aws:ec2:us-east-1:123456789012:instance/i-123',
+          properties: [],
+          region: 'us-east-1',
+          resourceType: 'ec2:instance',
+          service: 'ec2',
+        },
+      ],
+      searchRegion: 'us-east-1',
+    };
+    const snapshotCatalog: AwsDiscoveryCatalog = {
+      indexType: 'LOCAL',
+      resources: [
+        {
+          accountId: '123456789012',
+          arn: 'arn:aws:ec2:us-east-1:123456789012:snapshot/snap-123',
+          properties: [],
+          region: 'us-east-1',
+          resourceType: 'ec2:snapshot',
+          service: 'ec2',
+        },
+      ],
+      searchRegion: 'us-east-1',
+    };
+    const catalogGate = Promise.withResolvers<void>();
+    let onResourceTypeReady: ((resourceType: string, readyCatalog: AwsDiscoveryCatalog) => void) | undefined;
+    mockedBuildAwsDiscoveryCatalog.mockImplementation(async (_target, _types, options) => {
+      onResourceTypeReady = options?.onResourceTypeReady;
+      options?.onResourceTypeReady?.('ec2:volume', volumeCatalog);
+      options?.onResourceTypeReady?.('ec2:instance', instanceCatalog);
+      await catalogGate.promise;
+      return {
+        ...volumeCatalog,
+        resources: [...volumeCatalog.resources, ...instanceCatalog.resources, ...snapshotCatalog.resources],
+      };
+    });
+    mockedHydrateAwsEbsVolumes.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        iops: 3000,
+        region: 'us-east-1',
+        sizeGiB: 128,
+        volumeId: 'vol-123',
+        volumeType: 'gp2',
+      },
+    ]);
+    mockedHydrateAwsEc2Instances.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        instanceId: 'i-123',
+        instanceType: 'c6i.large',
+        region: 'us-east-1',
+      },
+    ]);
+    mockedHydrateAwsEbsSnapshots.mockResolvedValue([
+      {
+        accountId: '123456789012',
+        region: 'us-east-1',
+        snapshotId: 'snap-123',
+        volumeSizeGiB: 128,
+      },
+    ]);
+
+    type Snapshot = Awaited<ReturnType<typeof discoverAwsResources>>;
+    const snapshots: Snapshot[] = [];
+    const pending = discoverAwsResources(
+      [
+        createRule({ discoveryDependencies: ['aws-ebs-volumes'] }),
+        createRule({ id: 'CLDBRN-AWS-TEST-2', discoveryDependencies: ['aws-ec2-instances'] }),
+        createRule({ id: 'CLDBRN-AWS-TEST-3', discoveryDependencies: ['aws-ebs-snapshots'] }),
+      ],
+      { mode: 'regions', regions: ['us-east-1'] },
+      { onRuleReady: (_rule, context) => snapshots.push(context) },
+    );
+    try {
+      // The ec2:snapshot type keeps the third dataset blocked until it is ready.
+      await vi.waitFor(() => expect(snapshots).toHaveLength(2));
+      onResourceTypeReady?.('ec2:snapshot', snapshotCatalog);
+      catalogGate.resolve();
+      await pending;
+    } finally {
+      catalogGate.resolve();
+      await pending;
+    }
+
+    expect(snapshots).toHaveLength(3);
+    const [firstSnapshot, secondSnapshot, thirdSnapshot] = snapshots as [Snapshot, Snapshot, Snapshot];
+    const sortedArns = (...catalogs: AwsDiscoveryCatalog[]) =>
+      catalogs
+        .flatMap((input) => input.resources)
+        .map((resource) => resource.arn)
+        .sort((left, right) => left.localeCompare(right));
+    const twoTypeArns = sortedArns(volumeCatalog, instanceCatalog);
+    const threeTypeArns = sortedArns(volumeCatalog, instanceCatalog, snapshotCatalog);
+    // A second dataset unblocking with no newly ready types shares the catalog.
+    expect(firstSnapshot.catalog.resources.map((resource) => resource.arn)).toEqual(twoTypeArns);
+    expect(secondSnapshot.catalog.resources.map((resource) => resource.arn)).toEqual(twoTypeArns);
+    expect(secondSnapshot.catalog).toBe(firstSnapshot.catalog);
+    // A newly ready type invalidates the snapshot.
+    expect(thirdSnapshot.catalog.resources.map((resource) => resource.arn)).toEqual(threeTypeArns);
+    expect(thirdSnapshot.catalog).not.toBe(firstSnapshot.catalog);
+  });
+
   it('hydrates the new AWS discovery datasets from the expected global and regional resource types', async () => {
     const extendedCatalog: AwsDiscoveryCatalog = {
       indexType: 'AGGREGATOR',
@@ -3756,6 +3878,29 @@ describe('discoverAwsResources', () => {
         status: 'error',
       },
     ]);
+  });
+
+  it('redacts sensitive provider text from dataset failure diagnostics and debug logs', async () => {
+    mockedBuildAwsDiscoveryCatalog.mockResolvedValue({
+      indexType: 'LOCAL',
+      resources: [catalogResource(1)],
+      searchRegion: 'us-east-1',
+    });
+    mockedHydrateAwsEc2Instances.mockRejectedValue(
+      new Error('boom at https://user:pass@example.com/?X-Amz-Signature=abc'),
+    );
+    const debugLines: string[] = [];
+    const redacted = 'boom at https://[redacted-auth]@example.com/?X-Amz-Signature=[redacted]';
+
+    const result = await discoverAwsResources(
+      [createRule({ discoveryDependencies: ['aws-ec2-instances'] })],
+      { mode: 'regions', regions: ['us-east-1'] },
+      { debugLogger: (message) => debugLines.push(message) },
+    );
+
+    expect(result.diagnostics).toEqual([expect.objectContaining({ details: redacted, status: 'error' })]);
+    expect(debugLines.some((line) => line.includes('failed in us-east-1') && line.endsWith(redacted))).toBe(true);
+    expect(debugLines.join('\n')).not.toContain('pass@');
   });
 
   it('fails fast when a discovery rule has an evaluator but no discoveryDependencies metadata', async () => {

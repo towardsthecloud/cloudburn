@@ -6,6 +6,7 @@ import type {
   AwsDynamoDbTable,
   AwsDynamoDbTableUtilization,
 } from '@cloudburn/rules';
+import { toRedactedErrorMessage } from '../../../errors.js';
 import type { ScanDiagnostic } from '../../../types.js';
 import { mapWithConcurrency } from '../../../utils/concurrency.js';
 import { createApplicationAutoScalingClient, createDynamoDbClient } from '../client.js';
@@ -108,7 +109,7 @@ export const hydrateAwsDynamoDbTables = async (
           return {
             diagnostic: {
               code: getAwsErrorCode(err),
-              details: err instanceof Error ? err.message : String(err),
+              details: toRedactedErrorMessage(err),
               message: `Skipped DynamoDB table ${table.tableName} in ${region} because access is denied by ${formatAwsAccessDeniedReason(err)}.`,
               provider: 'aws',
               region,

@@ -1,9 +1,9 @@
-import { readFile } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import { extname } from 'node:path';
 import { parse as parseHcl } from '@cdktf/hcl2json';
 import type { SourceLocation } from '@cloudburn/rules';
 import { type IaCFileParser, parseIaCFiles } from './files.js';
-import { createEmptyIaCParseResult, createSkippedIaCParseResult } from './result.js';
+import { createEmptyIaCParseResult, createSkippedIaCParseResult, MAX_IAC_FILE_SIZE_BYTES } from './result.js';
 import { extractSuppressionComments, findResourceSuppressions } from './suppressions.js';
 import { createTerraformLexerState, scanTerraformLine } from './terraform-lexer.js';
 import type { IaCParseResult } from './types.js';
@@ -20,76 +20,73 @@ const locateResourceBlocks = (contents: string, path: string): Map<string, Resou
   const lines = contents.split(/\r?\n/u);
   const locations = new Map<string, ResourceLocationMetadata>();
   const suppressionComments = extractSuppressionComments(contents, path, 'terraform');
+  const lexerState = createTerraformLexerState();
+  let depth = 0;
+  let openBlock:
+    | {
+        resourceType: string;
+        resourceName: string;
+        blockLocation: SourceLocation;
+        attributeLocations: Record<string, SourceLocation>;
+        startLine: number;
+      }
+    | undefined;
 
   for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
-    const line = lines[lineIndex];
+    const line = lines[lineIndex] ?? '';
+    const scan = scanTerraformLine(line, lexerState);
 
-    if (line === undefined) {
-      continue;
-    }
+    if (!openBlock && depth === 0 && !scan.isLiteralLine) {
+      const blockMatch = /^(\s*)resource\s+"([^"]+)"\s+"([^"]+)"\s*\{/u.exec(line);
 
-    const blockMatch = /^(\s*)resource\s+"([^"]+)"\s+"([^"]+)"\s*\{/u.exec(line);
-
-    if (!blockMatch) {
-      continue;
-    }
-
-    const leadingWhitespace = blockMatch[1] ?? '';
-    const resourceType = blockMatch[2];
-    const resourceName = blockMatch[3];
-
-    if (!resourceType || !resourceName) {
-      continue;
-    }
-
-    const blockLocation: SourceLocation = {
-      path,
-      line: lineIndex + 1,
-      column: leadingWhitespace.length + 1,
-    };
-    const attributeLocations: Record<string, SourceLocation> = {};
-    const lexerState = createTerraformLexerState();
-    let depth = scanTerraformLine(line, lexerState).braceDelta;
-    let blockEndLine = lineIndex + 1;
-
-    for (let blockLineIndex = lineIndex + 1; blockLineIndex < lines.length && depth > 0; blockLineIndex += 1) {
-      const blockLine = lines[blockLineIndex];
-
-      if (blockLine === undefined) {
-        continue;
+      if (blockMatch?.[2] && blockMatch[3]) {
+        const leadingWhitespace = blockMatch[1] ?? '';
+        openBlock = {
+          resourceType: blockMatch[2],
+          resourceName: blockMatch[3],
+          blockLocation: {
+            path,
+            line: lineIndex + 1,
+            column: leadingWhitespace.length + 1,
+          },
+          attributeLocations: {},
+          startLine: lineIndex + 1,
+        };
       }
+    } else if (openBlock && lineIndex + 1 !== openBlock.startLine && depth === 1 && !scan.isLiteralLine) {
+      const attributeMatch = /^(\s*)([A-Za-z0-9_]+)\s*=/u.exec(line);
 
-      const lineScan = scanTerraformLine(blockLine, lexerState);
+      if (attributeMatch?.[2]) {
+        const attributeLeadingWhitespace = attributeMatch[1] ?? '';
+        const attributeName = attributeMatch[2];
 
-      if (depth === 1 && !lineScan.isLiteralLine) {
-        const attributeMatch = /^(\s*)([A-Za-z0-9_]+)\s*=/u.exec(blockLine);
-
-        if (attributeMatch) {
-          const attributeLeadingWhitespace = attributeMatch[1] ?? '';
-          const attributeName = attributeMatch[2];
-
-          if (attributeName && !attributeLocations[attributeName]) {
-            attributeLocations[attributeName] = {
-              path,
-              line: blockLineIndex + 1,
-              column: attributeLeadingWhitespace.length + 1,
-            };
-          }
+        if (!openBlock.attributeLocations[attributeName]) {
+          openBlock.attributeLocations[attributeName] = {
+            path,
+            line: lineIndex + 1,
+            column: attributeLeadingWhitespace.length + 1,
+          };
         }
       }
-
-      depth += lineScan.braceDelta;
-
-      if (depth === 0) {
-        blockEndLine = blockLineIndex + 1;
-        lineIndex = blockLineIndex;
-      }
     }
 
-    locations.set(toResourceLocationKey(resourceType, resourceName), {
-      blockLocation,
-      attributeLocations,
-      suppressions: findResourceSuppressions(suppressionComments, blockLocation.line, blockEndLine),
+    depth = Math.max(0, depth + scan.braceDelta);
+
+    if (openBlock && depth === 0) {
+      locations.set(toResourceLocationKey(openBlock.resourceType, openBlock.resourceName), {
+        blockLocation: openBlock.blockLocation,
+        attributeLocations: openBlock.attributeLocations,
+        suppressions: findResourceSuppressions(suppressionComments, openBlock.startLine, lineIndex + 1),
+      });
+      openBlock = undefined;
+    }
+  }
+
+  if (openBlock) {
+    locations.set(toResourceLocationKey(openBlock.resourceType, openBlock.resourceName), {
+      blockLocation: openBlock.blockLocation,
+      attributeLocations: openBlock.attributeLocations,
+      suppressions: findResourceSuppressions(suppressionComments, openBlock.startLine, openBlock.startLine),
     });
   }
 
@@ -99,6 +96,17 @@ const locateResourceBlocks = (contents: string, path: string): Map<string, Resou
 const toIaCResources = async (path: string, relativePath: string): Promise<IaCParseResult> => {
   if (extname(path) !== '.tf') {
     return createEmptyIaCParseResult();
+  }
+
+  const pathStats = await stat(path);
+
+  if (pathStats.size > MAX_IAC_FILE_SIZE_BYTES) {
+    return createSkippedIaCParseResult({
+      code: 'TERRAFORM_FILE_TOO_LARGE',
+      details: `File size ${pathStats.size} bytes exceeds the ${MAX_IAC_FILE_SIZE_BYTES}-byte limit.`,
+      message: `Skipped Terraform file ${relativePath} because it exceeds the 5 MiB size limit.`,
+      service: 'terraform',
+    });
   }
 
   const contents = await readFile(path, 'utf8');

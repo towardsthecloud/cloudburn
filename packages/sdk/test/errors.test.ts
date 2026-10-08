@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { toRedactedErrorMessage } from '../src/errors.js';
 import { categorizeError } from '../src/index.js';
 
 describe('categorizeError', () => {
@@ -72,5 +73,49 @@ describe('categorizeError', () => {
       code: 'RUNTIME_ERROR',
       message: 'An unexpected error occurred.',
     });
+  });
+});
+
+describe('toRedactedErrorMessage', () => {
+  it('replaces credential-provider text with fixed guidance', () => {
+    const err = Object.assign(new Error('credential_process "fetch-creds --token s3cr3t" exited with code 1'), {
+      name: 'CredentialsProviderError',
+    });
+
+    expect(toRedactedErrorMessage(err)).toBe(
+      "AWS credentials not found or expired. Run 'aws sts get-caller-identity' to verify your session.",
+    );
+  });
+
+  it('redacts container credential endpoints, presigned credentials, SigV4 headers, and plain-text secrets', () => {
+    const err = new Error(
+      'Failed http://169.254.170.2/v2/credentials/id and http://169.254.170.23/v1/credentials ' +
+        '[fd00:ec2::23] https://bucket.s3.amazonaws.com/key?X-Amz-Credential=AKIAABCDEFGHIJKLMNOP%2F20260101 ' +
+        'Authorization: AWS4-HMAC-SHA256 Credential=ASIAABCDEFGHIJKLMNOP/20260101/us-east-1/s3/aws4_request, ' +
+        'SignedHeaders=host, Signature=deadbeef aws_secret_access_key = wJalrXUtnFEMI "SessionToken":"FwoGZXIvYXdz" ' +
+        'X-Amz-Security-Token: IQoJb3JpZ2lu',
+    );
+
+    expect(toRedactedErrorMessage(err)).toBe(
+      'Failed http://[redacted-host]/v2/credentials/id and http://[redacted-host]/v1/credentials ' +
+        '[[redacted-host]] https://bucket.s3.amazonaws.com/key?X-Amz-Credential=[redacted] ' +
+        'Authorization: AWS4-HMAC-SHA256 Credential=[redacted], ' +
+        'SignedHeaders=host, Signature=[redacted] aws_secret_access_key = [redacted] "SessionToken":"[redacted]" ' +
+        'X-Amz-Security-Token: [redacted]',
+    );
+  });
+
+  it('redacts access key IDs and stringifies non-Error values before redacting', () => {
+    expect(toRedactedErrorMessage('key AKIAABCDEFGHIJKLMNOP via 169.254.169.254 ')).toBe(
+      'key [redacted-access-key-id] via [redacted-host]',
+    );
+  });
+
+  it('keeps ordinary AWS error text intact', () => {
+    expect(
+      toRedactedErrorMessage(
+        new Error('AWS Lambda ListFunctions failed in us-east-1 with AccessDeniedException: denied. Request ID: abc.'),
+      ),
+    ).toBe('AWS Lambda ListFunctions failed in us-east-1 with AccessDeniedException: denied. Request ID: abc.');
   });
 });

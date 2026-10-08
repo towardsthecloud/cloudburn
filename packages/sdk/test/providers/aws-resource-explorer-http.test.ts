@@ -149,3 +149,24 @@ it('admits every control-plane page and observes fresh setup, index, and region 
     ),
   ).toBe(true);
 });
+
+it('redacts provider text from region status notes', async () => {
+  respond = (operation) => {
+    if (operation === 'ListIndexes')
+      return jsonResponse(
+        {
+          __type: 'AccessDeniedException',
+          Message: 'Denied via http://169.254.170.2/v2/credentials?token=secret-value',
+        },
+        403,
+      );
+    unexpected.push(operation);
+    throw new Error(`Unexpected operation: ${operation}`);
+  };
+
+  const status = await run(() => getAwsDiscoveryRegionStatus('eu-west-1'), []);
+
+  expect(status).toMatchObject({ status: 'access_denied', errorCode: 'AccessDeniedException' });
+  expect(status.notes).toContain('Denied via http://[redacted-host]/v2/credentials?token=[redacted]');
+  expect(status.notes).not.toContain('secret-value');
+});

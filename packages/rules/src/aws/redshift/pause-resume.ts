@@ -23,14 +23,14 @@ const isPauseResumeEligible = (cluster: {
 
 const isStaticPauseResumeEligible = (cluster: {
   automatedSnapshotRetentionPeriod?: number | null;
-  hasVpc: boolean;
+  hasVpc: boolean | null;
   hsmEnabled: boolean | null;
   multiAz: boolean | null;
 }): boolean =>
   (cluster.automatedSnapshotRetentionPeriod ?? 0) > 0 &&
-  cluster.hasVpc &&
-  cluster.hsmEnabled !== true &&
-  cluster.multiAz !== true;
+  cluster.hasVpc === true &&
+  cluster.hsmEnabled === false &&
+  cluster.multiAz === false;
 
 /** Flag eligible Redshift clusters that do not have both pause and resume schedules. */
 export const redshiftPauseResumeRule = createRule({

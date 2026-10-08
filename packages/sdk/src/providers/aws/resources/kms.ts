@@ -12,6 +12,7 @@ import type {
   AwsKmsKeyUsage,
   AwsKmsKeyUsageEvidence,
 } from '@cloudburn/rules';
+import { toRedactedErrorMessage } from '../../../errors.js';
 import type { ScanDiagnostic } from '../../../types.js';
 import { mapWithConcurrency } from '../../../utils/concurrency.js';
 import { createKmsClient } from '../client.js';
@@ -55,7 +56,7 @@ const createMetadataDeniedDiagnostic = (options: {
   subject: string;
 }): ScanDiagnostic => ({
   code: getAwsErrorCode(options.error),
-  details: options.error instanceof Error ? options.error.message : String(options.error),
+  details: toRedactedErrorMessage(options.error),
   message: `KMS ${options.label} metadata was unavailable for ${options.count} ${pluralize(options.count, options.subject)} in ${options.region} because access is denied by ${formatAwsAccessDeniedReason(options.error)}.`,
   provider: 'aws',
   region: options.region,

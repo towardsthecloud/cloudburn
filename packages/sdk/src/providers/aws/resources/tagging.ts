@@ -102,100 +102,104 @@ const loadEc2ResourceOrigins = async (
       origins.set(resource.arn, 'unknown');
   }
 
-  await load('ec2:vpc', async (ids, NextToken) => {
-    const response = await runAwsRequest('Amazon EC2', 'DescribeVpcs', region, () =>
-      client.send(new DescribeVpcsCommand({ VpcIds: ids, NextToken })),
-    );
-    return {
-      resources: (response.Vpcs ?? []).map((vpc) => ({ id: vpc.VpcId, origin: defaultOrigin(vpc.IsDefault) })),
-      nextToken: response.NextToken,
-    };
-  });
-  await load('ec2:dhcp-options', async (ids, NextToken) => {
-    const response = await runAwsRequest('Amazon EC2', 'DescribeDhcpOptions', region, () =>
-      client.send(new DescribeDhcpOptionsCommand({ DhcpOptionsIds: ids, NextToken })),
-    );
-    return {
-      resources: (response.DhcpOptions ?? []).map((options) => {
-        // Standard values can also be supplied by a customer. Only non-default
-        // configuration proves ownership; EC2 exposes no creator/default flag.
-        const domain = region === 'us-east-1' ? 'ec2.internal' : `${region}.compute.internal`;
-        const custom = options.DhcpConfigurations?.some(
-          (option) =>
-            (option.Key !== 'domain-name' && option.Key !== 'domain-name-servers') ||
-            option.Values?.some(
-              (value) => value.Value !== (option.Key === 'domain-name' ? domain : 'AmazonProvidedDNS'),
-            ),
+  await Promise.all([
+    load('ec2:vpc', async (ids, NextToken) => {
+      const response = await runAwsRequest('Amazon EC2', 'DescribeVpcs', region, () =>
+        client.send(new DescribeVpcsCommand({ VpcIds: ids, NextToken })),
+      );
+      return {
+        resources: (response.Vpcs ?? []).map((vpc) => ({ id: vpc.VpcId, origin: defaultOrigin(vpc.IsDefault) })),
+        nextToken: response.NextToken,
+      };
+    }),
+    load('ec2:dhcp-options', async (ids, NextToken) => {
+      const response = await runAwsRequest('Amazon EC2', 'DescribeDhcpOptions', region, () =>
+        client.send(new DescribeDhcpOptionsCommand({ DhcpOptionsIds: ids, NextToken })),
+      );
+      return {
+        resources: (response.DhcpOptions ?? []).map((options) => {
+          // Standard values can also be supplied by a customer. Only non-default
+          // configuration proves ownership; EC2 exposes no creator/default flag.
+          const domain = region === 'us-east-1' ? 'ec2.internal' : `${region}.compute.internal`;
+          const custom = options.DhcpConfigurations?.some(
+            (option) =>
+              (option.Key !== 'domain-name' && option.Key !== 'domain-name-servers') ||
+              option.Values?.some(
+                (value) => value.Value !== (option.Key === 'domain-name' ? domain : 'AmazonProvidedDNS'),
+              ),
+          );
+          return { id: options.DhcpOptionsId, origin: custom ? 'user' : 'unknown' };
+        }),
+        nextToken: response.NextToken,
+      };
+    }),
+    load('ec2:subnet', async (ids, NextToken) => {
+      const response = await runAwsRequest('Amazon EC2', 'DescribeSubnets', region, () =>
+        client.send(new DescribeSubnetsCommand({ SubnetIds: ids, NextToken })),
+      );
+      return {
+        resources: (response.Subnets ?? []).map((subnet) => ({
+          id: subnet.SubnetId,
+          origin: defaultOrigin(subnet.DefaultForAz),
+        })),
+        nextToken: response.NextToken,
+      };
+    }),
+    load('ec2:network-acl', async (ids, NextToken) => {
+      const response = await runAwsRequest('Amazon EC2', 'DescribeNetworkAcls', region, () =>
+        client.send(new DescribeNetworkAclsCommand({ NetworkAclIds: ids, NextToken })),
+      );
+      return {
+        resources: (response.NetworkAcls ?? []).map((acl) => ({
+          id: acl.NetworkAclId,
+          origin: defaultOrigin(acl.IsDefault),
+        })),
+        nextToken: response.NextToken,
+      };
+    }),
+    (async () => {
+      await load('ec2:security-group', async (ids, NextToken) => {
+        const response = await describeGroups(ids, NextToken);
+        return {
+          resources: (response.SecurityGroups ?? []).map((group) => ({
+            id: group.GroupId,
+            origin: group.GroupName ? defaultOrigin(group.GroupName === 'default') : 'unknown',
+          })),
+          nextToken: response.NextToken,
+        };
+      });
+      await load('ec2:security-group-rule', async (ids, NextToken) => {
+        const response = await runAwsRequest('Amazon EC2', 'DescribeSecurityGroupRules', region, () =>
+          client.send(new DescribeSecurityGroupRulesCommand({ SecurityGroupRuleIds: ids, NextToken })),
         );
-        return { id: options.DhcpOptionsId, origin: custom ? 'user' : 'unknown' };
-      }),
-      nextToken: response.NextToken,
-    };
-  });
-  await load('ec2:subnet', async (ids, NextToken) => {
-    const response = await runAwsRequest('Amazon EC2', 'DescribeSubnets', region, () =>
-      client.send(new DescribeSubnetsCommand({ SubnetIds: ids, NextToken })),
-    );
-    return {
-      resources: (response.Subnets ?? []).map((subnet) => ({
-        id: subnet.SubnetId,
-        origin: defaultOrigin(subnet.DefaultForAz),
-      })),
-      nextToken: response.NextToken,
-    };
-  });
-  await load('ec2:network-acl', async (ids, NextToken) => {
-    const response = await runAwsRequest('Amazon EC2', 'DescribeNetworkAcls', region, () =>
-      client.send(new DescribeNetworkAclsCommand({ NetworkAclIds: ids, NextToken })),
-    );
-    return {
-      resources: (response.NetworkAcls ?? []).map((acl) => ({
-        id: acl.NetworkAclId,
-        origin: defaultOrigin(acl.IsDefault),
-      })),
-      nextToken: response.NextToken,
-    };
-  });
-  await load('ec2:security-group', async (ids, NextToken) => {
-    const response = await describeGroups(ids, NextToken);
-    return {
-      resources: (response.SecurityGroups ?? []).map((group) => ({
-        id: group.GroupId,
-        origin: group.GroupName ? defaultOrigin(group.GroupName === 'default') : 'unknown',
-      })),
-      nextToken: response.NextToken,
-    };
-  });
-  await load('ec2:security-group-rule', async (ids, NextToken) => {
-    const response = await runAwsRequest('Amazon EC2', 'DescribeSecurityGroupRules', region, () =>
-      client.send(new DescribeSecurityGroupRulesCommand({ SecurityGroupRuleIds: ids, NextToken })),
-    );
-    const missingGroups = [
-      ...new Set(
-        (response.SecurityGroupRules ?? []).flatMap((rule) =>
-          rule.GroupId && !groupNames.has(rule.GroupId) ? [rule.GroupId] : [],
-        ),
-      ),
-    ];
-    for (const batch of chunkItems(missingGroups, 100)) {
-      let nextToken: string | undefined;
-      do {
-        const page = await describeGroups(batch, nextToken);
-        nextToken = page.NextToken;
-      } while (nextToken);
-    }
-    return {
-      resources: (response.SecurityGroupRules ?? []).map((rule) => ({
-        id: rule.SecurityGroupRuleId,
-        // Rules on a default group may be AWS-provided or customer-added.
-        origin:
-          rule.GroupId && groupNames.has(rule.GroupId) && groupNames.get(rule.GroupId) !== 'default'
-            ? 'user'
-            : 'unknown',
-      })),
-      nextToken: response.NextToken,
-    };
-  });
+        const missingGroups = [
+          ...new Set(
+            (response.SecurityGroupRules ?? []).flatMap((rule) =>
+              rule.GroupId && !groupNames.has(rule.GroupId) ? [rule.GroupId] : [],
+            ),
+          ),
+        ];
+        for (const batch of chunkItems(missingGroups, 100)) {
+          let nextToken: string | undefined;
+          do {
+            const page = await describeGroups(batch, nextToken);
+            nextToken = page.NextToken;
+          } while (nextToken);
+        }
+        return {
+          resources: (response.SecurityGroupRules ?? []).map((rule) => ({
+            id: rule.SecurityGroupRuleId,
+            // Rules on a default group may be AWS-provided or customer-added.
+            origin:
+              rule.GroupId && groupNames.has(rule.GroupId) && groupNames.get(rule.GroupId) !== 'default'
+                ? 'user'
+                : 'unknown',
+          })),
+          nextToken: response.NextToken,
+        };
+      });
+    })(),
+  ]);
 };
 
 const loadResourceOrigins = async (resources: AwsDiscoveredResource[]): Promise<Map<string, CreationOrigin>> => {
@@ -208,45 +212,48 @@ const loadResourceOrigins = async (resources: AwsDiscoveredResource[]): Promise<
 
   await mapWithConcurrency(regions, 5, async (region) => {
     const regionalResources = metadataResources.filter((resource) => resource.region === region);
-    await loadEc2ResourceOrigins(regionalResources, region, origins);
-    await mapWithConcurrency(
-      regionalResources.filter(
-        (resource) => resource.resourceType === 'kms:key' || resource.resourceType === 'ssm:association',
-      ),
-      10,
-      async (resource) => {
-        origins.set(resource.arn, 'unknown');
-        try {
-          if (resource.resourceType === 'kms:key') {
-            const response = await runAwsRequest('AWS KMS', 'DescribeKey', region, () =>
-              createKmsClient({ region }).send(new DescribeKeyCommand({ KeyId: resource.arn })),
-            );
-            const manager = response.KeyMetadata?.KeyManager;
-            if (manager === 'AWS' || manager === 'CUSTOMER')
-              origins.set(resource.arn, manager === 'AWS' ? 'aws' : 'user');
-          } else {
-            const associationId = resource.arn.split('/').at(-1);
-            const response = await runAwsRequest('AWS Systems Manager', 'DescribeAssociation', region, () =>
-              createSsmClient({ region }).send(new DescribeAssociationCommand({ AssociationId: associationId })),
-            );
-            const description = response.AssociationDescription;
-            if (description?.AssociationId === associationId && description?.Name) {
-              const inspectorDocument =
-                description.Name.startsWith('AmazonInspector2-') || description.Name === 'AWS-GatherSoftwareInventory';
-              origins.set(
-                resource.arn,
-                inspectorDocument && INSPECTOR_ASSOCIATION_NAMES.has(description.AssociationName ?? '')
-                  ? 'aws'
-                  : 'user',
+    await Promise.all([
+      loadEc2ResourceOrigins(regionalResources, region, origins),
+      mapWithConcurrency(
+        regionalResources.filter(
+          (resource) => resource.resourceType === 'kms:key' || resource.resourceType === 'ssm:association',
+        ),
+        10,
+        async (resource) => {
+          origins.set(resource.arn, 'unknown');
+          try {
+            if (resource.resourceType === 'kms:key') {
+              const response = await runAwsRequest('AWS KMS', 'DescribeKey', region, () =>
+                createKmsClient({ region }).send(new DescribeKeyCommand({ KeyId: resource.arn })),
               );
+              const manager = response.KeyMetadata?.KeyManager;
+              if (manager === 'AWS' || manager === 'CUSTOMER')
+                origins.set(resource.arn, manager === 'AWS' ? 'aws' : 'user');
+            } else {
+              const associationId = resource.arn.split('/').at(-1);
+              const response = await runAwsRequest('AWS Systems Manager', 'DescribeAssociation', region, () =>
+                createSsmClient({ region }).send(new DescribeAssociationCommand({ AssociationId: associationId })),
+              );
+              const description = response.AssociationDescription;
+              if (description?.AssociationId === associationId && description?.Name) {
+                const inspectorDocument =
+                  description.Name.startsWith('AmazonInspector2-') ||
+                  description.Name === 'AWS-GatherSoftwareInventory';
+                origins.set(
+                  resource.arn,
+                  inspectorDocument && INSPECTOR_ASSOCIATION_NAMES.has(description.AssociationName ?? '')
+                    ? 'aws'
+                    : 'user',
+                );
+              }
             }
+          } catch (error) {
+            const missingCode = resource.resourceType === 'kms:key' ? 'NotFoundException' : 'AssociationDoesNotExist';
+            if (!isAwsAccessDeniedError(error) && getAwsErrorCode(error) !== missingCode) throw error;
           }
-        } catch (error) {
-          const missingCode = resource.resourceType === 'kms:key' ? 'NotFoundException' : 'AssociationDoesNotExist';
-          if (!isAwsAccessDeniedError(error) && getAwsErrorCode(error) !== missingCode) throw error;
-        }
-      },
-    );
+        },
+      ),
+    ]);
   });
 
   return origins;

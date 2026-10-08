@@ -3,12 +3,11 @@ import { extname } from 'node:path';
 import type { SourceLocation } from '@cloudburn/rules';
 import { isMap, isScalar, isSeq, LineCounter, parseDocument } from 'yaml';
 import { type IaCFileParser, parseIaCFiles } from './files.js';
-import { createEmptyIaCParseResult, createSkippedIaCParseResult } from './result.js';
+import { createEmptyIaCParseResult, createSkippedIaCParseResult, MAX_IAC_FILE_SIZE_BYTES } from './result.js';
 import { extractSuppressionComments, findResourceSuppressions } from './suppressions.js';
 import type { IaCParseResult } from './types.js';
 
 const SUPPORTED_EXTENSIONS = new Set(['.json', '.yaml', '.yml']);
-const MAX_TEMPLATE_SIZE_BYTES = 5 * 1024 * 1024;
 
 const INTRINSIC_TAG_NAMES: Record<string, string> = {
   '!And': 'Fn::And',
@@ -211,10 +210,10 @@ const toIaCResources = async (path: string, relativePath: string): Promise<IaCPa
 
   const pathStats = await stat(path);
 
-  if (pathStats.size > MAX_TEMPLATE_SIZE_BYTES) {
+  if (pathStats.size > MAX_IAC_FILE_SIZE_BYTES) {
     return createSkippedIaCParseResult({
       code: 'CLOUDFORMATION_TEMPLATE_TOO_LARGE',
-      details: `Template size ${pathStats.size} bytes exceeds the ${MAX_TEMPLATE_SIZE_BYTES}-byte limit.`,
+      details: `Template size ${pathStats.size} bytes exceeds the ${MAX_IAC_FILE_SIZE_BYTES}-byte limit.`,
       message: `Skipped CloudFormation file ${relativePath} because it exceeds the 5 MiB size limit.`,
       service: 'cloudformation',
     });

@@ -32,7 +32,7 @@ export const ecrMissingLifecyclePolicyRule = createRule({
   evaluateStatic: ({ resources }) => {
     const findings = resources
       .get('aws-ecr-repositories')
-      .filter((repository) => !repository.hasLifecyclePolicy)
+      .filter((repository) => repository.hasLifecyclePolicy === false)
       .map((repository) => createFindingMatch(repository.resourceId, undefined, undefined, repository.location));
 
     return createFinding(

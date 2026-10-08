@@ -9,6 +9,8 @@ type TerraformLexerState = {
   inBlockComment: boolean;
 };
 
+type TerraformFrame = { kind: 'string' } | { kind: 'single' } | { kind: 'interp'; depth: number };
+
 /** One Terraform comment segment with its one-based source column. */
 type TerraformCommentSegment = {
   column: number;
@@ -49,8 +51,7 @@ export const scanTerraformLine = (
 
   const comments: TerraformCommentSegment[] = [];
   let braceDelta = 0;
-  let quote: '"' | "'" | undefined;
-  let escaped = false;
+  const frames: TerraformFrame[] = [];
 
   for (let index = 0; index < line.length; index += 1) {
     const character = line[index];
@@ -70,19 +71,64 @@ export const scanTerraformLine = (
       continue;
     }
 
-    if (quote) {
-      if (escaped) {
-        escaped = false;
-      } else if (character === '\\' && quote === '"') {
-        escaped = true;
-      } else if (character === quote) {
-        quote = undefined;
+    const frame = frames.at(-1);
+
+    if (frame?.kind === 'string') {
+      if (character === '\\') {
+        index += 1;
+      } else if (
+        (character === '$' && nextCharacter === '$' && line[index + 2] === '{') ||
+        (character === '%' && nextCharacter === '%' && line[index + 2] === '{')
+      ) {
+        index += 2;
+      } else if ((character === '$' || character === '%') && nextCharacter === '{') {
+        frames.push({ kind: 'interp', depth: 0 });
+        index += 1;
+      } else if (character === '"') {
+        frames.pop();
       }
       continue;
     }
 
-    if (character === '"' || character === "'") {
-      quote = character;
+    if (frame?.kind === 'single') {
+      if (character === "'") {
+        frames.pop();
+      }
+      continue;
+    }
+
+    if (frame?.kind === 'interp') {
+      if (character === '/' && nextCharacter === '*') {
+        const endIndex = line.indexOf('*/', index + 2);
+
+        if (endIndex === -1) {
+          break;
+        }
+
+        index = endIndex + 1;
+      } else if (character === '#' || (character === '/' && nextCharacter === '/')) {
+        break;
+      } else if (character === '"') {
+        frames.push({ kind: 'string' });
+      } else if (character === '{') {
+        frame.depth += 1;
+      } else if (character === '}') {
+        if (frame.depth === 0) {
+          frames.pop();
+        } else {
+          frame.depth -= 1;
+        }
+      }
+      continue;
+    }
+
+    if (character === '"') {
+      frames.push({ kind: 'string' });
+      continue;
+    }
+
+    if (character === "'") {
+      frames.push({ kind: 'single' });
       continue;
     }
 

@@ -1,6 +1,9 @@
 import type { ScanDiagnostic } from '../types.js';
 import type { IaCParseResult } from './types.js';
 
+/** Maximum supported IaC source file size in bytes. */
+export const MAX_IAC_FILE_SIZE_BYTES = 5 * 1024 * 1024;
+
 /** Returns an IaC parser result with no resources or diagnostics. */
 export const createEmptyIaCParseResult = (): IaCParseResult => ({ diagnostics: [], resources: [] });
 
