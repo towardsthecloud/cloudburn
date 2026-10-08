@@ -275,6 +275,19 @@ iac:
     await expect(loadConfig(configPath)).rejects.toThrow('unexpected');
   });
 
+  it('reports invalid YAML without leaking source lines into the error message', async () => {
+    const directory = await createTempDirectory();
+    const configPath = join(directory, '.cloudburn.yml');
+
+    await writeFile(configPath, '[default]\naws_access_key_id = AKIAEXAMPLESECRET\n', 'utf8');
+
+    await expect(loadConfig(configPath)).rejects.toThrow(
+      /^Invalid YAML in CloudBurn config file: [A-Z_]+ at line 2, column 1$/,
+    );
+
+    await expect(loadConfig(configPath)).rejects.toThrow(/^(?!.*(AKIAEXAMPLESECRET|aws_access_key_id))[\s\S]*$/);
+  });
+
   it('merges per-mode runtime overrides without discarding untouched fields', () => {
     const merged = mergeConfig(
       {
