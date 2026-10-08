@@ -53,6 +53,11 @@ it.each(['failure', 'cancellation'] as const)('stops queued detail requests afte
   const first = Promise.withResolvers<void>();
   const controller = new AbortController();
   respond = async (request) => {
+    if (request.path === '/2020-05-31/distribution') {
+      return page(
+        Array.from({ length: 100 }, (_, index) => summary(`E${String(index).padStart(3, '0')}`, '')).join(''),
+      );
+    }
     await (request.path.endsWith('/E000') ? first.promise : gate.promise);
     return request.path.endsWith('/E000')
       ? xml(
@@ -73,7 +78,7 @@ it.each(['failure', 'cancellation'] as const)('stops queued detail requests afte
       ? expect(work).rejects.toMatchObject({ name: 'AbortError' })
       : expect(work).rejects.toThrow(/GetDistribution/);
   try {
-    await vi.waitFor(() => expect(requests).toHaveLength(10));
+    await vi.waitFor(() => expect(requests).toHaveLength(11));
     if (outcome === 'cancellation') controller.abort();
     else first.resolve();
     await assertion;
@@ -84,7 +89,7 @@ it.each(['failure', 'cancellation'] as const)('stops queued detail requests afte
   }
   // Let the active transports settle so abandoned work would be observable.
   await new Promise((resolve) => setImmediate(resolve));
-  expect(requests).toHaveLength(10);
+  expect(requests).toHaveLength(11);
 });
 
 it('retries a throttled list page without introducing detail requests', async () => {
@@ -233,14 +238,17 @@ it.each(['catalog', 'fallback'])('excludes unsupported tenant-only price classes
     undefined,
     undefined,
   ]);
-  expect(requests).toHaveLength(source === 'catalog' ? 3 : 1);
-  expect(details()).toHaveLength(source === 'catalog' ? 3 : 0);
+  expect(requests).toHaveLength(1);
+  expect(details()).toHaveLength(0);
 });
 
 it('uses ten continuous detail workers while preserving the exact catalog selection', async () => {
   const gates = Array.from({ length: 12 }, () => Promise.withResolvers<void>());
   const ids = Array.from({ length: 12 }, (_, index) => `E${String(index).padStart(3, '0')}`);
   respond = async (request) => {
+    if (request.path === '/2020-05-31/distribution') {
+      return page([...ids.map((id) => summary(id, '')), summary('EEXTRA')].join(''));
+    }
     const index = ids.indexOf(request.path.split('/').at(-1) ?? '');
     if (index < 0) throw new Error('Unexpected catalog expansion');
     await gates[index]?.promise;
@@ -256,11 +264,11 @@ it('uses ten continuous detail workers while preserving the exact catalog select
   );
 
   try {
-    await vi.waitFor(() => expect(requests).toHaveLength(10));
-    gates[1]?.resolve();
     await vi.waitFor(() => expect(requests).toHaveLength(11));
-    gates[10]?.resolve();
+    gates[1]?.resolve();
     await vi.waitFor(() => expect(requests).toHaveLength(12));
+    gates[10]?.resolve();
+    await vi.waitFor(() => expect(requests).toHaveLength(13));
   } finally {
     for (const gate of gates) gate.resolve();
     await work;
@@ -277,6 +285,53 @@ it('uses ten continuous detail workers while preserving the exact catalog select
     region: 'global',
   });
   expect(details()).toHaveLength(12);
+  expect(requests).toHaveLength(13);
+});
+
+it('hydrates 100 catalog distributions from one list page', async () => {
+  const ids = Array.from({ length: 100 }, (_, index) => `E${String(index).padStart(3, '0')}`);
+  respond = (request) =>
+    request.path === '/2020-05-31/distribution'
+      ? page([...ids.slice(0, 99).map((id) => summary(id)), summary('EEXTRA')].join(''))
+      : detail();
+
+  const result = await run(() => hydrateAwsCloudFrontDistributions(ids.map(catalogResource)));
+
+  expect(result).toHaveLength(100);
+  expect(result.map((distribution) => distribution.distributionId)).toEqual(ids);
+  expect(result.some((distribution) => distribution.distributionId === 'EEXTRA')).toBe(false);
+  expect(result.find((distribution) => distribution.distributionId === 'E099')).toEqual({
+    accountId,
+    distributionArn: arn('E099'),
+    distributionId: 'E099',
+    lastModifiedTime: '2026-09-03T12:00:00.000Z',
+    priceClass: 'PriceClass_100',
+    region: 'global',
+  });
+  expect(details()).toHaveLength(1);
+  expect(requests).toHaveLength(2);
+});
+
+it('falls back to detail requests when ListDistributions is denied for a catalog selection', async () => {
+  const ids = ['E000', 'E001', 'E002'];
+  respond = (request) =>
+    request.path === '/2020-05-31/distribution'
+      ? xml(
+          '<ErrorResponse><Error><Code>AccessDenied</Code><Message>Synthetic denial</Message></Error></ErrorResponse>',
+          403,
+        )
+      : detail();
+
+  const result = await run(() => hydrateAwsCloudFrontDistributions(ids.map(catalogResource)));
+
+  expect(result).toHaveLength(3);
+  expect(result.map((distribution) => distribution.priceClass)).toEqual([
+    'PriceClass_100',
+    'PriceClass_100',
+    'PriceClass_100',
+  ]);
+  expect(details()).toHaveLength(3);
+  expect(requests).toHaveLength(4);
 });
 
 it('retains paginated summary evidence and only fetches a missing standard price class', async () => {

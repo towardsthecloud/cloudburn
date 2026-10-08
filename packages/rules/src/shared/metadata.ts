@@ -1578,9 +1578,14 @@ export type IaCResource = {
   attributes: Record<string, unknown>;
 };
 
+/** Memoized derived indexes shared by one rule's live callbacks, keyed by the builder function. */
+export type LiveEvaluationScratch = WeakMap<(resources: LiveResourceBag) => unknown, unknown>;
+
 export type LiveEvaluationContext = {
   catalog: AwsDiscoveryCatalog;
   resources: LiveResourceBag;
+  /** Per-rule scratch shared by `evaluateLive` and `getLiveEvaluationCoverage` within one evaluation. */
+  scratch?: LiveEvaluationScratch;
 };
 
 /** Provider-normalized IaC resources available to static rule evaluators. */
