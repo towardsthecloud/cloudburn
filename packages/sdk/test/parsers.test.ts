@@ -134,6 +134,45 @@ describe('parsers', () => {
     }
   });
 
+  it('keeps Terraform resource locations correct across comments inside interpolation', async () => {
+    const tempDirectory = await mkdtemp(join(tmpdir(), 'cloudburn-terraform-interpolation-comment-'));
+    const terraformPath = join(tempDirectory, 'main.tf');
+
+    try {
+      await writeFile(
+        terraformPath,
+        [
+          'resource "aws_ebs_volume" "commented" { name = "${' + 'var.x /* " */}" }',
+          'resource "aws_ebs_volume" "following" {',
+          '  type = "gp2"',
+          '  availability_zone = "eu-west-1a"',
+          '}',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+
+      const { resources } = await parseTerraform(terraformPath);
+
+      expect(resources).toEqual([
+        expect.objectContaining({
+          name: 'commented',
+          location: { path: 'main.tf', line: 1, column: 1 },
+        }),
+        expect.objectContaining({
+          name: 'following',
+          location: { path: 'main.tf', line: 2, column: 1 },
+          attributeLocations: {
+            type: { path: 'main.tf', line: 3, column: 3 },
+            availability_zone: { path: 'main.tf', line: 4, column: 3 },
+          },
+        }),
+      ]);
+    } finally {
+      await rm(tempDirectory, { recursive: true, force: true });
+    }
+  });
+
   it('skips oversized Terraform files', async () => {
     const tempDirectory = await mkdtemp(join(tmpdir(), 'cloudburn-terraform-size-'));
     const terraformPath = join(tempDirectory, 'large.tf');

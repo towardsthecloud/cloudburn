@@ -98,7 +98,17 @@ export const scanTerraformLine = (
     }
 
     if (frame?.kind === 'interp') {
-      if (character === '"') {
+      if (character === '/' && nextCharacter === '*') {
+        const endIndex = line.indexOf('*/', index + 2);
+
+        if (endIndex === -1) {
+          break;
+        }
+
+        index = endIndex + 1;
+      } else if (character === '#' || (character === '/' && nextCharacter === '/')) {
+        break;
+      } else if (character === '"') {
         frames.push({ kind: 'string' });
       } else if (character === '{') {
         frame.depth += 1;

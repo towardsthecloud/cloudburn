@@ -146,12 +146,44 @@ export const extractSuppressionComments = (
   return comments;
 };
 
-/** Returns directives directly above or anywhere inside one resource declaration. */
+/**
+ * Returns directives directly above or anywhere inside one resource declaration.
+ *
+ * @param comments - Suppression comments sorted by line, as produced by extractSuppressionComments.
+ */
 export const findResourceSuppressions = (
   comments: SuppressionComment[],
   startLine: number,
   endLine: number,
-): IaCSuppression[] =>
-  comments
-    .filter(({ line }) => line === startLine - 1 || (line >= startLine && line <= endLine))
-    .map(({ suppression }) => suppression);
+): IaCSuppression[] => {
+  const firstRelevantLine = startLine - 1;
+  let lowerBound = 0;
+  let upperBound = comments.length;
+
+  while (lowerBound < upperBound) {
+    const middle = Math.floor((lowerBound + upperBound) / 2);
+    const middleLine = comments[middle]?.line ?? Number.POSITIVE_INFINITY;
+
+    if (middleLine < firstRelevantLine) {
+      lowerBound = middle + 1;
+    } else {
+      upperBound = middle;
+    }
+  }
+
+  const suppressions: IaCSuppression[] = [];
+
+  for (let index = lowerBound; index < comments.length; index += 1) {
+    const comment = comments[index];
+
+    if (!comment || comment.line > endLine) {
+      break;
+    }
+
+    if (comment.line === firstRelevantLine || (comment.line >= startLine && comment.line <= endLine)) {
+      suppressions.push(comment.suppression);
+    }
+  }
+
+  return suppressions;
+};

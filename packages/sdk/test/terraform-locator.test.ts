@@ -2,6 +2,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { extractSuppressionComments, findResourceSuppressions } from '../src/parsers/suppressions.js';
 import { parseTerraform } from '../src/parsers/terraform.js';
 import { scanTerraformLine } from '../src/parsers/terraform-lexer.js';
 
@@ -66,5 +67,20 @@ describe('Terraform resource locator', () => {
     } finally {
       await rm(tempDirectory, { recursive: true, force: true });
     }
+  });
+
+  it('selects only suppression comments adjacent to or inside a resource', () => {
+    const lines = Array.from({ length: 12 }, () => '');
+    for (const line of [1, 3, 5, 9, 12]) {
+      lines[line - 1] = `# cloudburn-ignore-all line-${line}`;
+    }
+
+    const comments = extractSuppressionComments(lines.join('\n'), 'main.tf', 'terraform');
+
+    expect(findResourceSuppressions(comments, 6, 9).map((suppression) => suppression.reason)).toEqual([
+      'line-5',
+      'line-9',
+    ]);
+    expect(findResourceSuppressions(comments, 7, 8)).toEqual([]);
   });
 });
