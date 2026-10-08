@@ -182,7 +182,7 @@ const renderTable = (response: CliResponse): string => {
     }
     case 'record-list':
       return response.rows.length === 0
-        ? response.emptyMessage
+        ? toTerminalSafeText(response.emptyMessage)
         : renderAsciiTable(response.rows, response.columns ?? inferColumns(response.rows));
     case 'rule-list':
       return renderRuleTable(response.rules, response.emptyMessage);
@@ -233,7 +233,7 @@ const renderTable = (response: CliResponse): string => {
       );
     case 'string-list':
       return response.values.length === 0
-        ? response.emptyMessage
+        ? toTerminalSafeText(response.emptyMessage)
         : renderAsciiTable(
             response.values.map((value) => ({ [response.columnHeader]: value })),
             [{ key: response.columnHeader, header: response.columnHeader }],
@@ -279,7 +279,7 @@ const inferColumns = (rows: RecordRow[]): ColumnSpec[] => {
 
 const renderRuleTable = (rules: BuiltInRuleMetadata[], emptyMessage: string): string => {
   if (rules.length === 0) {
-    return emptyMessage;
+    return toTerminalSafeText(emptyMessage);
   }
 
   return renderAsciiTable(

@@ -269,7 +269,7 @@ describe('renderResponse', () => {
     expect(output).toContain('evil\\x1b]52;c;cGF5bG9hZA==\\x07.yml');
   });
 
-  it('neutralizes control characters in inferred headers and evidence summaries in table mode', () => {
+  it('neutralizes control characters in inferred headers, empty messages, and evidence summaries in table mode', () => {
     const recordOutput = renderResponse(
       {
         kind: 'record-list',
@@ -297,6 +297,13 @@ describe('renderResponse', () => {
       'table',
     );
 
+    const emptyOutputs = [
+      renderResponse({ kind: 'record-list', emptyMessage: 'None\u001b[2K', rows: [] }, 'table'),
+      renderResponse({ kind: 'rule-list', emptyMessage: 'None\u001b[2K', rules: [] }, 'table'),
+      renderResponse({ kind: 'string-list', columnHeader: 'Type', emptyMessage: 'None\u001b[2K', values: [] }, 'table'),
+    ];
+
+    expect(emptyOutputs).toEqual(['None\\x1b[2K', 'None\\x1b[2K', 'None\\x1b[2K']);
     expect(recordOutput).toContain('key\\x1b[8m');
     expect(recordOutput).toContain('a\\x1b[2K, b\\x07');
     expect(scanOutput).toContain('Oldest observation: 2026-01-01T00:00:00.000Z\\x1b[1A\\x1b[2K');
