@@ -398,17 +398,19 @@ printf 'tarball' > "$out"
   };
 }
 
-test('homebrew tap retries until npm serves the tarball instead of hashing a failed download', (t) => {
-  const { status, output, downloads, sha256 } = homebrewHash(t, 1);
-  assert.equal(status, 0, output);
-  assert.equal(downloads.length, 2);
-  assert.equal(sha256, createHash('sha256').update('tarball').digest('hex'));
-});
+for (const failures of [1, 6]) {
+  test(`homebrew tap hashes the complete tarball after ${failures} unavailable downloads`, (t) => {
+    const { status, output, downloads, sha256 } = homebrewHash(t, failures);
+    assert.equal(status, 0, output);
+    assert.equal(downloads.length, failures + 1);
+    assert.equal(sha256, createHash('sha256').update('tarball').digest('hex'));
+  });
+}
 
 test('homebrew tap fails before writing the formula when npm never serves the tarball', (t) => {
   const { status, output, downloads, sha256 } = homebrewHash(t, Number.MAX_SAFE_INTEGER);
   assert.notEqual(status, 0);
-  assert.match(output, /Failed to download tarball after 5 attempts/);
-  assert.equal(downloads.length, 5);
+  assert.match(output, /cloudburn@1\.0\.0 is not available on npm after 15 minutes; the Homebrew tap was not updated/);
+  assert.equal(downloads.length, 30);
   assert.equal(sha256, undefined);
 });

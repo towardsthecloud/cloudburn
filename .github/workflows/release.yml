@@ -209,23 +209,25 @@ jobs:
           VERSION=$(node -p "require('./packages/cloudburn/package.json').version")
           TARBALL_URL="https://registry.npmjs.org/cloudburn/-/cloudburn-${VERSION}.tgz"
           TARBALL_FILE=$(mktemp)
+          trap 'rm -f "$TARBALL_FILE"' EXIT
 
           # Hash a complete, non-empty download so a failed request cannot publish the empty-input SHA.
-          # Retry up to 5 times to handle npm CDN propagation delay.
+          # npm propagation can take several minutes; use the same retry budget as plugin sync.
           SHA256=""
-          for i in 1 2 3 4 5; do
+          ATTEMPTS=30
+          DEADLINE=$((SECONDS + 900))
+          for ATTEMPT in $(seq 1 "$ATTEMPTS"); do
             if curl -fsSL --max-time 60 -o "$TARBALL_FILE" "$TARBALL_URL" && [ -s "$TARBALL_FILE" ]; then
               SHA256=$(shasum -a 256 "$TARBALL_FILE" | cut -d ' ' -f 1)
               break
             fi
-            echo "Tarball not yet available, retrying in 15s (attempt $i/5)..."
-            sleep 15
+            if [ "$ATTEMPT" = "$ATTEMPTS" ] || [ "$SECONDS" -ge "$DEADLINE" ]; then
+              echo "::error::cloudburn@${VERSION} is not available on npm after 15 minutes; the Homebrew tap was not updated. Re-run the release with published-release-ref once npm serves it."
+              exit 1
+            fi
+            echo "Waiting for npm to serve cloudburn@${VERSION} (attempt ${ATTEMPT}/${ATTEMPTS})..."
+            sleep 30
           done
-
-          if [ -z "$SHA256" ]; then
-            echo "::error::Failed to download tarball after 5 attempts"
-            exit 1
-          fi
 
           cat > /tmp/cloudburn.rb <<FORMULA
           class Cloudburn < Formula

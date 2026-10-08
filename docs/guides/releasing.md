@@ -27,8 +27,10 @@ the repository's existing `release` label. Maintainers must create this label in
 non-fatal so missing labels or temporary API errors do not fail a successful release run.
 Merging that pull request runs `pnpm release`, which verifies the repository,
 force-builds packages, and publishes changed packages to npm. When the `cloudburn` CLI is published, the same workflow
-updates its formula in the Homebrew tap from the npm tarball. The step retries while npm propagates the tarball and
-fails without updating the formula if the tarball never downloads.
+updates its formula in the Homebrew tap from the npm tarball. The step retries every 30 seconds for up to 30 attempts
+with a 15-minute deadline while npm propagates the tarball, matching the plugin sync retry budget. Each download has
+a 60-second timeout. If no complete, non-empty download succeeds, it fails without updating the formula; once npm
+serves the tarball, recover the original release with `published-release-ref`.
 
 Homebrew, GitHub Action sync, and agent plugin sync run as background steps after publication, each with its own
 package-selection condition. They reuse the artifacts force-built before npm publication. Recovery builds the selected
