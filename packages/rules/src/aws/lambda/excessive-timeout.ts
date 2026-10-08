@@ -1,4 +1,11 @@
-import { createFinding, createFindingMatch, createLiveEvaluationCoverage, createRule } from '../../shared/helpers.js';
+import {
+  createFinding,
+  createFindingMatch,
+  createLiveEvaluationCoverage,
+  createRule,
+  getLiveEvaluationIndex,
+} from '../../shared/helpers.js';
+import type { LiveResourceBag } from '../../shared/metadata.js';
 
 const RULE_ID = 'CLDBRN-AWS-LAMBDA-3';
 const RULE_SERVICE = 'lambda';
@@ -9,6 +16,13 @@ const MIN_TIMEOUT_REVIEW_SECONDS = 30;
 const EXCESSIVE_TIMEOUT_RATIO = 5;
 const getFunctionKey = (accountId: string, region: string, functionName: string): string =>
   `${accountId}:${region}:${functionName}`;
+
+const indexMetricsByFunctionKey = (resources: LiveResourceBag) =>
+  new Map(
+    resources
+      .get('aws-lambda-function-metrics')
+      .map((metric) => [getFunctionKey(metric.accountId, metric.region, metric.functionName), metric] as const),
+  );
 
 /** Flag Lambda functions whose configured timeout far exceeds observed average execution time. */
 export const lambdaExcessiveTimeoutRule = createRule({
@@ -22,12 +36,9 @@ export const lambdaExcessiveTimeoutRule = createRule({
   service: RULE_SERVICE,
   supports: ['discovery'],
   discoveryDependencies: ['aws-lambda-functions', 'aws-lambda-function-metrics'],
-  getLiveEvaluationCoverage: ({ resources }) => {
-    const metricsByFunctionKey = new Map(
-      resources
-        .get('aws-lambda-function-metrics')
-        .map((metric) => [getFunctionKey(metric.accountId, metric.region, metric.functionName), metric] as const),
-    );
+  getLiveEvaluationCoverage: (context) => {
+    const metricsByFunctionKey = getLiveEvaluationIndex(context, indexMetricsByFunctionKey);
+    const { resources } = context;
 
     return createLiveEvaluationCoverage(
       resources.get('aws-lambda-functions'),
@@ -38,12 +49,9 @@ export const lambdaExcessiveTimeoutRule = createRule({
       (fn) => createFindingMatch(fn.functionName, fn.region, fn.accountId),
     );
   },
-  evaluateLive: ({ resources }) => {
-    const metricsByFunctionKey = new Map(
-      resources
-        .get('aws-lambda-function-metrics')
-        .map((metric) => [getFunctionKey(metric.accountId, metric.region, metric.functionName), metric] as const),
-    );
+  evaluateLive: (context) => {
+    const metricsByFunctionKey = getLiveEvaluationIndex(context, indexMetricsByFunctionKey);
+    const { resources } = context;
 
     const findings = resources
       .get('aws-lambda-functions')

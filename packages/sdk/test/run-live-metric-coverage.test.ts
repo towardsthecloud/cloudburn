@@ -1,4 +1,4 @@
-import { LiveResourceBag } from '@cloudburn/rules';
+import { awsRules, LiveResourceBag } from '@cloudburn/rules';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { runLiveScan } from '../src/engine/run-live.js';
 import { discoverAwsResources } from '../src/providers/aws/discovery.js';
@@ -74,6 +74,22 @@ describe('metric rule evaluation coverage', () => {
     expect(result.diagnostics).toEqual(
       expect.arrayContaining([expect.objectContaining({ ruleId, status: 'skipped' })]),
     );
+  });
+
+  it('passes the same scratch instance to evaluateLive and getLiveEvaluationCoverage', async () => {
+    setup(0);
+    const rule = awsRules.find((candidate) => candidate.id === ruleId);
+    expect(rule?.evaluateLive).toBeDefined();
+    const evaluateSpy = vi.spyOn(rule as NonNullable<typeof rule>, 'evaluateLive');
+    const coverageSpy = vi.spyOn(rule as NonNullable<typeof rule>, 'getLiveEvaluationCoverage');
+
+    const result = await run();
+
+    const evaluateContext = evaluateSpy.mock.calls[0]?.[0];
+    const coverageContext = coverageSpy.mock.calls[0]?.[0];
+    expect(evaluateContext?.scratch).toBeInstanceOf(WeakMap);
+    expect(coverageContext?.scratch).toBe(evaluateContext?.scratch);
+    expect(result.evaluations?.rules[0]).toMatchObject({ status: 'unknown' });
   });
 
   it('never reports a complete pass when required evidence excluded an entire region', async () => {

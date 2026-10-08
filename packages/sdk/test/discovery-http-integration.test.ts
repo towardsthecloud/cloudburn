@@ -1316,8 +1316,13 @@ describe('live capability outcomes', () => {
   const expectReadOnlyRequests = () =>
     expect(requests.filter((request) => WRITE_OPERATIONS.includes(request.operation))).toEqual([]);
 
-  const discoverRules = (ruleIds: string[], target: AwsDiscoveryTarget = { mode: 'regions', regions: ['eu-west-1'] }) =>
+  const discoverRules = (
+    ruleIds: string[],
+    target: AwsDiscoveryTarget = { mode: 'regions', regions: ['eu-west-1'] },
+    options?: Pick<DiscoverOptions, 'signal'>,
+  ) =>
     new CloudBurnClient({ debugLogger: (message) => debugMessages.push(message) }).discover({
+      ...(options?.signal ? { signal: options.signal } : {}),
       target,
       config: { discovery: { enabledRules: ruleIds } },
       aws: { credentials: { accessKeyId: 'SYNTHETIC', secretAccessKey: 'synthetic-test-key' } },
@@ -1553,7 +1558,7 @@ describe('live capability outcomes', () => {
     expectReadOnlyRequests();
   });
 
-  it('uses AWS metadata to exclude default network resources and managed keys while keeping uncertain ownership unknown', async () => {
+  const setupTaggingMetadataScenario = () => {
     aggregatorIndex = true;
     untaggedResources = [
       ['ec2:vpc', 'vpc/vpc-default'],
@@ -1594,6 +1599,10 @@ describe('live capability outcomes', () => {
         '<securityGroupRuleSet><item><securityGroupRuleId>sgr-default</securityGroupRuleId><groupId>sg-default</groupId></item><item><securityGroupRuleId>sgr-user</securityGroupRuleId><groupId>sg-user</groupId></item></securityGroupRuleSet>',
       DescribeKey: { KeyMetadata: { KeyManager: 'AWS' } },
     };
+  };
+
+  it('uses AWS metadata to exclude default network resources and managed keys while keeping uncertain ownership unknown', async () => {
+    setupTaggingMetadataScenario();
 
     const result = await discoverRules(['CLDBRN-AWS-TAGGING-1']);
 
@@ -1629,6 +1638,45 @@ describe('live capability outcomes', () => {
       }),
     ]);
     expectReadOnlyRequests();
+  });
+
+  it('resolves independent tagging origin metadata while VPC metadata is blocked', async () => {
+    setupTaggingMetadataScenario();
+    delete taggingMetadataResponses.DescribeVpcs;
+    holdOperation = 'DescribeVpcs';
+    const controller = new AbortController();
+    const scan = discoverRules(
+      ['CLDBRN-AWS-TAGGING-1'],
+      { mode: 'regions', regions: ['eu-west-1'] },
+      { signal: controller.signal },
+    );
+    const outcome = scan.catch((error: unknown) => error);
+    try {
+      await vi.waitFor(() => expect(held).toHaveLength(1), { timeout: 10_000 });
+      await vi.waitFor(
+        () => {
+          const operations = requests.map(({ operation }) => operation);
+          for (const operation of [
+            'DescribeDhcpOptions',
+            'DescribeSubnets',
+            'DescribeNetworkAcls',
+            'DescribeSecurityGroups',
+            'DescribeSecurityGroupRules',
+            'DescribeKey',
+          ]) {
+            expect(operations).toContain(operation);
+          }
+          expect(operations.indexOf('DescribeSecurityGroupRules')).toBeGreaterThan(
+            operations.indexOf('DescribeSecurityGroups'),
+          );
+        },
+        { timeout: 10_000 },
+      );
+    } finally {
+      controller.abort();
+      for (const request of held) request.release();
+      await outcome;
+    }
   });
 
   it('keeps user-created resources with default-like names in the tagging rule', async () => {
