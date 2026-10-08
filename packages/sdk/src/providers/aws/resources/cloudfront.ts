@@ -7,6 +7,7 @@ import type {
 import { mapWithConcurrency } from '../../../utils/concurrency.js';
 import { createCloudFrontClient } from '../client.js';
 import type { AwsAccountIdResolver, AwsDiscoveryDatasetResolver } from '../discovery-registry.js';
+import { isAwsAccessDeniedError } from '../errors.js';
 import { getAwsDiscoveryTimestamp } from '../execution.js';
 import { runAwsRequest } from '../request.js';
 import { cloudWatchWindow, fetchCloudWatchSignals, getCompleteCloudWatchPoints } from './cloudwatch.js';
@@ -60,6 +61,16 @@ const listDistributionSeeds = async (): Promise<DistributionSeed[]> => {
   return distributions;
 };
 
+const listDistributionSummaries = async (): Promise<Map<string, DistributionSeed> | undefined> => {
+  try {
+    return new Map((await listDistributionSeeds()).map((summary) => [summary.distributionId, summary]));
+  } catch (err) {
+    // Catalog hydration historically needed only GetDistribution; keep least-privilege policies working.
+    if (isAwsAccessDeniedError(err)) return undefined;
+    throw err;
+  }
+};
+
 /**
  * Hydrates discovered CloudFront distributions with price-class and modification evidence.
  *
@@ -71,28 +82,47 @@ export const hydrateAwsCloudFrontDistributions = async (
   resources: AwsDiscoveredResource[],
   context?: AwsAccountIdResolver,
 ): Promise<AwsCloudFrontDistribution[]> => {
-  const distributionSeeds: Array<DistributionSeed & Pick<AwsCloudFrontDistribution, 'accountId' | 'region'>> =
-    resources.length > 0
-      ? resources.flatMap((resource) => {
-          const distributionId = extractTerminalArnResourceIdentifier(resource.arn);
+  let distributionSeeds: Array<DistributionSeed & Pick<AwsCloudFrontDistribution, 'accountId' | 'region'>>;
+  if (resources.length > 0) {
+    const catalogSeeds = resources.flatMap((resource) => {
+      const distributionId = extractTerminalArnResourceIdentifier(resource.arn);
 
-          return distributionId
-            ? [
-                {
-                  accountId: resource.accountId,
-                  distributionArn: resource.arn,
-                  distributionId,
-                  region: resource.region,
-                },
-              ]
-            : [];
-        })
-      : (([distributions, accountId]) =>
-          distributions.map((distribution) => ({
-            ...distribution,
-            accountId,
-            region: 'global',
-          })))(await Promise.all([listDistributionSeeds(), resolveAwsAccountIdForLoad(context)]));
+      return distributionId
+        ? [
+            {
+              accountId: resource.accountId,
+              distributionArn: resource.arn,
+              distributionId,
+              region: resource.region,
+            },
+          ]
+        : [];
+    });
+    const summaries = catalogSeeds.length > 0 ? await listDistributionSummaries() : undefined;
+
+    distributionSeeds = catalogSeeds.map((seed) => {
+      const summary = summaries?.get(seed.distributionId);
+      return summary
+        ? {
+            ...summary,
+            accountId: seed.accountId,
+            distributionArn: seed.distributionArn,
+            distributionId: seed.distributionId,
+            region: seed.region,
+          }
+        : seed;
+    });
+  } else {
+    const [distributions, accountId] = await Promise.all([
+      listDistributionSeeds(),
+      resolveAwsAccountIdForLoad(context),
+    ]);
+    distributionSeeds = distributions.map((distribution) => ({
+      ...distribution,
+      accountId,
+      region: 'global',
+    }));
+  }
   const uniqueSeeds = [
     ...new Map(distributionSeeds.map((distribution) => [distribution.distributionId, distribution])).values(),
   ];

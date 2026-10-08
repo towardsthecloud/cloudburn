@@ -88,3 +88,80 @@ it.each(['terraform', 'cloudformation'] as const)(
     ]);
   },
 );
+
+it.each(['terraform', 'cloudformation'] as const)(
+  'does not evaluate unresolved %s values as static defaults',
+  async (kind) => {
+    if (kind === 'terraform') {
+      await write(
+        'main.tf',
+        `resource "aws_dynamodb_table" "unknown" {
+  name = "unknown"
+  billing_mode = var.billing_mode
+}
+
+resource "aws_ecs_service" "unknown" {
+  cluster = "cluster"
+  name = "unknown"
+  scheduling_strategy = var.strategy
+}
+
+resource "aws_lambda_function" "unknown" {
+  architectures = [var.arch]
+}
+
+resource "aws_redshift_cluster" "unknown" {
+  automated_snapshot_retention_period = 1
+  cluster_subnet_group_name = "subnet-group"
+  multi_az = var.multi_az
+}`,
+      );
+    } else {
+      await write(
+        'template.json',
+        JSON.stringify({
+          Resources: {
+            DynamoDb: {
+              Type: 'AWS::DynamoDB::Table',
+              Properties: {
+                BillingMode: { Ref: 'BillingMode' },
+                TableName: 'unknown',
+              },
+            },
+            Ecs: {
+              Type: 'AWS::ECS::Service',
+              Properties: {
+                Cluster: 'cluster',
+                SchedulingStrategy: { Ref: 'Strategy' },
+                ServiceName: 'unknown',
+              },
+            },
+            Lambda: {
+              Type: 'AWS::Lambda::Function',
+              Properties: {
+                Architectures: [{ Ref: 'Architecture' }],
+              },
+            },
+            Redshift: {
+              Type: 'AWS::Redshift::Cluster',
+              Properties: {
+                AutomatedSnapshotRetentionPeriod: 1,
+                ClusterSubnetGroupName: 'subnet-group',
+                MultiAZ: { Ref: 'MultiAz' },
+              },
+            },
+          },
+        }),
+      );
+    }
+
+    const result = await runStaticScan(directory, {
+      iac: {
+        enabledRules: ['CLDBRN-AWS-DYNAMODB-2', 'CLDBRN-AWS-ECS-3', 'CLDBRN-AWS-LAMBDA-1', 'CLDBRN-AWS-REDSHIFT-3'],
+      },
+      discovery: {},
+    });
+
+    expect(result.providers).toEqual([]);
+  },
+);

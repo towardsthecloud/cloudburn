@@ -113,8 +113,12 @@ export const withAwsServiceCallBudget = <T>(
   fn: () => Promise<T>,
   options: AwsRequestBudgetOptions = {},
 ): Promise<T> => {
-  const run = () =>
-    budgetContext.run(
+  const run = () => {
+    const ownedStore =
+      options.store === undefined && (options.accountId || options.resolveAccountId)
+        ? createLocalAwsRequestStore()
+        : undefined;
+    const settled = budgetContext.run(
       {
         account: options.resolveAccountId ? undefined : options.accountId,
         attribution: { scanId: randomUUID(), ...options.attribution },
@@ -122,15 +126,13 @@ export const withAwsServiceCallBudget = <T>(
         resolveAccountId: options.resolveAccountId,
         fallbackId: `unresolved:${randomUUID()}`,
         deadline: getAwsExecutionDeadline() ?? Date.now() + 300_000,
-        store:
-          options.store ??
-          (options.accountId || options.resolveAccountId
-            ? createLocalAwsRequestStore()
-            : createMemoryAwsRequestStore()),
+        store: options.store ?? ownedStore ?? createMemoryAwsRequestStore(),
         overrides: resolveOverrides(options.overrides),
       },
       fn,
     );
+    return ownedStore ? settled.finally(() => ownedStore.close()) : settled;
+  };
   return options.attribution?.dataset && !getAwsRequestDatasetSource()
     ? withAwsDatasetAttribution(options.attribution.dataset, run)
     : run();

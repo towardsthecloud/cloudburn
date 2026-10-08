@@ -396,6 +396,7 @@ export const discoverAwsResources = async (
     }),
   );
   const readyCatalogs = new Map<string, AwsDiscoveryCatalog>();
+  let readyCatalogSnapshot: AwsDiscoveryCatalog | undefined;
   let catalogScopePromise: Promise<Awaited<ReturnType<typeof getAwsResourceExplorerEvidenceScope>>> | undefined;
   const resolveCatalogScope = () => (catalogScopePromise ??= getAwsResourceExplorerEvidenceScope(target));
   let catalogFailureDiagnostic: ScanDiagnostic | undefined;
@@ -408,6 +409,7 @@ export const discoverAwsResources = async (
           onResourceTypeReady: (resourceType, readyCatalog) => {
             throwIfAwsExecutionAborted();
             readyCatalogs.set(resourceType, readyCatalog);
+            readyCatalogSnapshot = undefined;
             catalogInputs.get(resourceType)?.resolve(readyCatalog);
           },
         });
@@ -765,6 +767,19 @@ export const discoverAwsResources = async (
   // The public operation owns one budget spanning catalog and dataset loads.
   const completedLoads = new Map<DiscoveryDatasetKey, AwsDiscoveryDatasetLoad>();
   const reportedRules = new Set<string>();
+  const buildReadyCatalog = (): AwsDiscoveryCatalog => {
+    const ready = [...readyCatalogs.values()];
+    return {
+      ...(ready[0] ?? catalog),
+      resources: ready.flatMap((input) => input.resources).sort((left, right) => left.arn.localeCompare(right.arn)),
+    };
+  };
+  const readyCatalogSnapshotFor = (): AwsDiscoveryCatalog => {
+    // The empty case spreads the still-mutable `catalog`, so it stays uncached.
+    if (readyCatalogs.size === 0) return buildReadyCatalog();
+    if (!readyCatalogSnapshot) readyCatalogSnapshot = buildReadyCatalog();
+    return readyCatalogSnapshot;
+  };
   const notifyReadyRules = () => {
     if (!options?.onRuleReady) return;
     const readyRules = rules.filter((rule) => {
@@ -778,14 +793,7 @@ export const discoverAwsResources = async (
     if (readyRules.length === 0) return;
     const snapshotLoads = [...completedLoads.values()].map(finalizeLoad);
     const snapshot: LiveDiscoveryContext = {
-      catalog: catalogFailureDiagnostic
-        ? catalog
-        : {
-            ...([...readyCatalogs.values()][0] ?? catalog),
-            resources: [...readyCatalogs.values()]
-              .flatMap((input) => input.resources)
-              .sort((left, right) => left.arn.localeCompare(right.arn)),
-          },
+      catalog: catalogFailureDiagnostic ? catalog : readyCatalogSnapshotFor(),
       diagnostics: [],
       resources: new LiveResourceBag(
         Object.fromEntries(snapshotLoads.map((load) => load.dataset)) as Partial<DiscoveryDatasetMap>,

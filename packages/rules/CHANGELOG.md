@@ -1,5 +1,13 @@
 # @cloudburn/rules
 
+## 0.35.1
+
+### Patch Changes
+
+- [#327](https://github.com/towardsthecloud/cloudburn/pull/327) [`8daad1c`](https://github.com/towardsthecloud/cloudburn/commit/8daad1cd6e23f19f21a8d190c191992bedb9ff76) Thanks [@devin-ai-integration](https://github.com/apps/devin-ai-integration)! - Live rules now build shared per-rule evaluation indexes once per evaluation instead of once per callback, and `LiveEvaluationContext` gains an optional `scratch` memo.
+
+- [#325](https://github.com/towardsthecloud/cloudburn/pull/325) [`d9da329`](https://github.com/towardsthecloud/cloudburn/commit/d9da32908b8956308caddd9f78944c6980f5887a) Thanks [@devin-ai-integration](https://github.com/apps/devin-ai-integration)! - Build live-rule resource join keys with a delimiter join instead of `JSON.stringify`, reducing CPU on large accounts.
+
 ## 0.35.0
 
 ### Minor Changes
