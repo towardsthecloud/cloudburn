@@ -87,6 +87,21 @@ const mayContainState = (directory: string): boolean => {
   }
 };
 
+const isOwnedDirectory = (directory: string, uid: number | undefined): boolean => {
+  try {
+    const existing = lstatSync(directory, { throwIfNoEntry: false });
+    return (
+      existing !== undefined &&
+      !existing.isSymbolicLink() &&
+      existing.isDirectory() &&
+      (uid === undefined || existing.uid === uid)
+    );
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOTDIR') return false;
+    throw error;
+  }
+};
+
 const initializeTemporaryDirectory = (directory: string, uid: number | undefined): void => {
   const validate = (): void => {
     const existing = lstatSync(directory, { throwIfNoEntry: false });
@@ -107,7 +122,7 @@ const initializeDefaultDirectory = (directory: string): string => {
   const user = uid ?? createHash('sha256').update(homedir()).digest('hex').slice(0, 16);
   const root = join(tmpdir(), `cloudburn-${user}`);
   const fallback = join(root, 'aws-admission-v1');
-  const existingFallback = mayContainState(fallback);
+  const existingFallback = isOwnedDirectory(root, uid) && mayContainState(fallback);
   if (existing && existingFallback) {
     throw new Error(
       'Both default and temporary AWS admission locations exist; select the active state with CLOUDBURN_AWS_ADMISSION_DIR after stopping all CloudBurn processes',
@@ -158,6 +173,8 @@ type Handle = {
  * storage uses <tmpdir()>/cloudburn-<user>/aws-admission-v1. Node's tmpdir() honors TMPDIR on Unix.
  * The user component is the UID, or the first 16 SHA-256 hex characters of homedir() on platforms without getuid().
  * Temporary directories must be regular directories owned by the current UID when available, with mode 0700.
+ * A temporary root that is a symbolic link or is not owned by the current user is ignored when choosing between
+ * locations and only fails if the fallback is required.
  * An existing temporary coordinator remains selected while the default coordinator path is absent.
  * Existing or uninspectable state is never abandoned after a failure; two existing locations require explicit selection.
  * Once a directory is selected, database, lock, corruption, and later directory errors remain fail-closed.

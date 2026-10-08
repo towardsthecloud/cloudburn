@@ -23,6 +23,12 @@ const createDirectory = (): string => {
   return directory;
 };
 
+const currentUid = (): number => {
+  const uid = process.getuid?.();
+  if (uid === undefined) throw new Error('The local AWS request state tests require process.getuid');
+  return uid;
+};
+
 const startChild = (directory: string, key: string, mode: 'hold' | 'increment', count = 0) => {
   const child = fork(
     fileURLToPath(new URL('../fixtures/aws-admission/store-process.mjs', import.meta.url)),
@@ -221,6 +227,126 @@ describe('local AWS request state', () => {
     );
     expect(transition).not.toHaveBeenCalled();
   });
+
+  it.each(['existing', 'new'])(
+    'uses a %s default cache when another user owns the temporary location',
+    async (state) => {
+      const parent = createDirectory();
+      const home = join(parent, 'home');
+      const temporary = createDirectory();
+      mkdirSync(home);
+      vi.spyOn(operatingSystem, 'homedir').mockReturnValue(home);
+      vi.stubEnv('XDG_CACHE_HOME', undefined);
+      vi.stubEnv('CLOUDBURN_AWS_ADMISSION_DIR', undefined);
+      vi.stubEnv('TMPDIR', temporary);
+      const first = createLocalAwsRequestStore();
+      if (state === 'existing') {
+        await first.update('shared-quota', () => ({ state: 'before squat', value: undefined }));
+      }
+
+      const realUid = currentUid();
+      const foreignUid = realUid + 1;
+      vi.spyOn(process, 'getuid').mockReturnValue(foreignUid);
+      const foreignRoot = join(temporary, `cloudburn-${foreignUid}`);
+      const foreignFallback = join(foreignRoot, 'aws-admission-v1');
+      mkdirSync(foreignFallback, { recursive: true });
+      const temporaryContents = readdirSync(temporary);
+
+      await expect(first.update('shared-quota', (current) => ({ state: 'after squat', value: current }))).resolves.toBe(
+        state === 'existing' ? 'before squat' : undefined,
+      );
+      await expect(
+        createLocalAwsRequestStore().update('shared-quota', (current) => ({ state: 'read back', value: current })),
+      ).resolves.toBe('after squat');
+      expect(readdirSync(temporary)).toEqual(temporaryContents);
+      const primary = join(home, '.cache', 'cloudburn', 'aws-admission-v1');
+      expect(readdirSync(primary)).toHaveLength(1);
+      expect(readdirSync(foreignFallback)).toEqual([]);
+    },
+  );
+
+  it('does not inspect a squatted temporary child when the root is foreign-owned', async () => {
+    const parent = createDirectory();
+    const home = join(parent, 'home');
+    const temporary = createDirectory();
+    mkdirSync(home);
+    vi.spyOn(operatingSystem, 'homedir').mockReturnValue(home);
+    vi.stubEnv('XDG_CACHE_HOME', undefined);
+    vi.stubEnv('CLOUDBURN_AWS_ADMISSION_DIR', undefined);
+    vi.stubEnv('TMPDIR', temporary);
+    const realUid = currentUid();
+    const foreignUid = realUid + 1;
+    vi.spyOn(process, 'getuid').mockReturnValue(foreignUid);
+    const foreignRoot = join(temporary, `cloudburn-${foreignUid}`);
+    const foreignFallback = join(foreignRoot, 'aws-admission-v1');
+    mkdirSync(foreignRoot);
+    const originalLstat = filesystem.lstatSync;
+    const lstat = vi.spyOn(filesystem, 'lstatSync').mockImplementation((...args) => {
+      if (args[0] === foreignFallback)
+        throw Object.assign(new Error('Temporary child is inaccessible'), { code: 'EACCES' });
+      return Reflect.apply(originalLstat, filesystem, args);
+    });
+
+    await expect(
+      createLocalAwsRequestStore().update('shared-quota', () => ({ state: 'primary', value: undefined })),
+    ).resolves.toBeUndefined();
+    expect(lstat.mock.calls.some(([path]) => path === foreignFallback)).toBe(false);
+  });
+
+  it('fails closed when the primary is unusable and a foreign temporary location is required', async () => {
+    const parent = createDirectory();
+    const home = join(parent, 'home');
+    const temporary = createDirectory();
+    writeFileSync(home, 'not a directory');
+    vi.spyOn(operatingSystem, 'homedir').mockReturnValue(home);
+    vi.stubEnv('XDG_CACHE_HOME', undefined);
+    vi.stubEnv('CLOUDBURN_AWS_ADMISSION_DIR', undefined);
+    vi.stubEnv('TMPDIR', temporary);
+    const realUid = currentUid();
+    const foreignUid = realUid + 1;
+    vi.spyOn(process, 'getuid').mockReturnValue(foreignUid);
+    mkdirSync(join(temporary, `cloudburn-${foreignUid}`, 'aws-admission-v1'), { recursive: true });
+    const transition = vi.fn(() => ({ state: 'unsafe', value: undefined }));
+
+    await expect(createLocalAwsRequestStore().update('shared-quota', transition)).rejects.toThrow(
+      /owned by the current user/,
+    );
+    await expect(createLocalAwsRequestStore().update('shared-quota', transition)).rejects.toThrow(
+      /CLOUDBURN_AWS_ADMISSION_DIR/,
+    );
+    expect(transition).not.toHaveBeenCalled();
+  });
+
+  it.each(['file', 'symlink'])(
+    'fails closed when the temporary state child is a %s inside an owned root',
+    async (childType) => {
+      const parent = createDirectory();
+      const home = join(parent, 'home');
+      const temporary = createDirectory();
+      mkdirSync(home);
+      vi.spyOn(operatingSystem, 'homedir').mockReturnValue(home);
+      vi.stubEnv('XDG_CACHE_HOME', undefined);
+      vi.stubEnv('CLOUDBURN_AWS_ADMISSION_DIR', undefined);
+      vi.stubEnv('TMPDIR', temporary);
+      const realUid = currentUid();
+      const root = join(temporary, `cloudburn-${realUid}`);
+      const fallback = join(root, 'aws-admission-v1');
+      mkdirSync(root);
+      if (childType === 'file') {
+        writeFileSync(fallback, 'damaged state');
+      } else {
+        const target = createDirectory();
+        symlinkSync(target, fallback, 'dir');
+      }
+      const transition = vi.fn(() => ({ state: 'unsafe', value: undefined }));
+
+      await expect(createLocalAwsRequestStore().update('shared-quota', transition)).rejects.toThrow(
+        /Temporary AWS admission state/,
+      );
+      expect(transition).not.toHaveBeenCalled();
+      expect(readdirSync(home)).toEqual([]);
+    },
+  );
 
   it.each(['argument', 'environment'])('keeps an explicit invalid %s directory fail-closed', async (source) => {
     const home = createDirectory();

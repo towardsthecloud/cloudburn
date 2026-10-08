@@ -241,7 +241,7 @@ Catalog, control-plane, and collector requests share AWS quota limits across ope
 user. Quotas use the signing caller's account, resolved once per run. If that lookup fails, collectors continue with
 isolated in-memory limits for that run. Shared coordination requires writable local storage. It uses `$XDG_CACHE_HOME/cloudburn/aws-admission-v1` when set to an absolute path,
 or `~/.cache/cloudburn/aws-admission-v1`, with a shared temporary-directory fallback when a new default cache cannot be
-created. Set `CLOUDBURN_AWS_ADMISSION_DIR` to choose a shared writable path for containers or other constrained environments.
+created. A temporary directory owned by another user is ignored. Set `CLOUDBURN_AWS_ADMISSION_DIR` to choose a shared writable path for containers or other constrained environments.
 Existing state errors fail without bypassing coordination. `CLOUDBURN_AWS_QUOTA_OVERRIDES` accepts JSON policies such as
 `{"logs:DescribeLogStreams":{"ratePerSecond":5,"burst":1}}`. See [AWS request scheduling](../../docs/reference/aws-request-scheduling.md)
 for defaults, retry behavior, telemetry, and coordination limits.
