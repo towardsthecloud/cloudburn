@@ -24,6 +24,7 @@ export { evaluateScanPolicy, resolveScanPolicy } from './policy.js';
 export { type AwsClientCredentials, withAwsClientCredentials } from './providers/aws/credentials.js';
 export { isAwsDiscoveryErrorCode } from './providers/aws/errors.js';
 export { assertSupportedAwsRegion, assertValidAwsRegion } from './providers/aws/regions.js';
+export { resolveCloudBurnCacheDirectory } from './providers/aws/request-store.js';
 export { CloudBurnClient } from './scanner.js';
 export type {
   AwsCapabilityOutcome,
