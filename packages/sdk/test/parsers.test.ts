@@ -1182,6 +1182,19 @@ Resources:
     ).toEqual([]);
   });
 
+  it('keeps suppression comments after a dash and quote inside a YAML plain scalar', () => {
+    expect(
+      extractSuppressionComments(
+        `Description: Notes, - "unterminated
+Resources:
+  # cloudburn-ignore-all approved exception
+`,
+        'template.yaml',
+        'yaml',
+      ),
+    ).toEqual([{ line: 3, suppression: { kind: 'all', location: expect.anything(), reason: 'approved exception' } }]);
+  });
+
   it('scans long lines with many quotes and whitespace-padded directives in linear time', () => {
     const contents = [
       `Value: ${'x "'.repeat(100_000)}`,

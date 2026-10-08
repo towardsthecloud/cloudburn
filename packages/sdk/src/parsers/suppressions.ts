@@ -16,21 +16,28 @@ const YAML_FLOW_BOUNDARY_CHARACTERS = ':,[{?';
 
 /**
  * Tracks, in one left-to-right pass, whether the text since the last flow boundary
- * consists only of sequence indicators (`-`) followed by node properties (`!tag`, `&anchor`).
+ * consists only of node properties (`!tag`, `&anchor`), optionally preceded by
+ * block sequence indicators (`-`) when no boundary has been seen on the line yet.
  */
 type YamlNodePrefixState = {
+  dashAllowed: boolean;
   propertySeen: boolean;
   token: 'none' | 'dash' | 'property' | 'invalid';
   valid: boolean;
 };
 
-const createYamlNodePrefixState = (): YamlNodePrefixState => ({ propertySeen: false, token: 'none', valid: true });
+const createYamlNodePrefixState = (dashAllowed: boolean): YamlNodePrefixState => ({
+  dashAllowed,
+  propertySeen: false,
+  token: 'none',
+  valid: true,
+});
 
 const isWhitespace = (character: string | undefined): boolean => character !== undefined && /\s/u.test(character);
 
 const advanceYamlNodePrefix = (state: YamlNodePrefixState, character: string): void => {
   if (YAML_FLOW_BOUNDARY_CHARACTERS.includes(character)) {
-    Object.assign(state, createYamlNodePrefixState());
+    Object.assign(state, createYamlNodePrefixState(false));
     return;
   }
 
@@ -47,7 +54,7 @@ const advanceYamlNodePrefix = (state: YamlNodePrefixState, character: string): v
     if (character === '!' || character === '&') {
       state.token = 'property';
       state.propertySeen = true;
-    } else if (character === '-' && !state.propertySeen) {
+    } else if (character === '-' && state.dashAllowed && !state.propertySeen) {
       state.token = 'dash';
     } else {
       state.valid = false;
@@ -86,7 +93,7 @@ const parseSuppression = (text: string, location: SourceLocation): IaCSuppressio
 };
 
 const findYamlLineCommentStart = (line: string, state: YamlQuoteState): number | undefined => {
-  const nodePrefix = createYamlNodePrefixState();
+  const nodePrefix = createYamlNodePrefixState(true);
   let escaped = false;
   let advancedTo = 0;
 
