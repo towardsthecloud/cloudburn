@@ -299,6 +299,7 @@ static datasets, ignore unsupported files, and preserve stable ordering. The
 internal entrypoint reports malformed or oversized supported inputs as skipped;
 raw parser errors are discarded so diagnostics cannot expose source excerpts or
 absolute filesystem paths.
+Terraform and CloudFormation files larger than 5 MiB are skipped, and Terraform source locations come from a single lexer pass that recognizes `resource` headers only at top level outside heredocs, comments, and strings.
 
 Terraform line comments (`#` and `//`), Terraform block comments, and CloudFormation YAML comments can carry
 `cloudburn-ignore <rule-id> [reason]` or `cloudburn-ignore-all [reason]`. A directive applies only to the resource it is
