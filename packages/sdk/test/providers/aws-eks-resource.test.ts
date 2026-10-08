@@ -67,4 +67,53 @@ describe('hydrateAwsEksNodegroups', () => {
       },
     ]);
   });
+
+  it('hydrates clusters in the same region concurrently', async () => {
+    const listStarted = new Set<string>();
+    let releaseFirstCluster: () => void = () => {};
+    const secondClusterListed = new Promise<void>((resolve) => {
+      releaseFirstCluster = resolve;
+    });
+
+    const send = vi.fn(async (command: ListNodegroupsCommand | DescribeNodegroupCommand) => {
+      const input = command.input as { clusterName: string; nodegroupName?: string };
+
+      if (command.constructor.name === 'ListNodegroupsCommand') {
+        listStarted.add(input.clusterName);
+
+        if (input.clusterName === 'alpha') {
+          await secondClusterListed;
+        } else {
+          releaseFirstCluster();
+        }
+
+        return { nodegroups: ['workers'] };
+      }
+
+      return {
+        nodegroup: {
+          instanceTypes: ['m7i.large'],
+          nodegroupArn: `arn:aws:eks:us-east-1:123456789012:nodegroup/${input.clusterName}/workers/abc123`,
+          nodegroupName: input.nodegroupName,
+        },
+      };
+    });
+
+    mockedCreateEksClient.mockReturnValue({ send } as never);
+
+    const nodegroups = await hydrateAwsEksNodegroups(
+      ['alpha', 'zulu'].map((clusterName) => ({
+        accountId: '123456789012',
+        arn: `arn:aws:eks:us-east-1:123456789012:cluster/${clusterName}`,
+        properties: [],
+        region: 'us-east-1',
+        resourceType: 'eks:cluster',
+        service: 'eks',
+      })),
+    );
+
+    expect(listStarted).toEqual(new Set(['alpha', 'zulu']));
+    expect(mockedCreateEksClient).toHaveBeenCalledTimes(1);
+    expect(nodegroups.map((nodegroup) => nodegroup.clusterName)).toEqual(['alpha', 'zulu']);
+  });
 });

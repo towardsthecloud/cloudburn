@@ -198,8 +198,9 @@ const evaluateLiveRules = (
         status: 'skipped',
       });
     }
-    const finding = rule.evaluateLive(ruleContext);
-    const coverage = rule.getLiveEvaluationCoverage?.(ruleContext);
+    const evaluationContext = { ...ruleContext, scratch: new WeakMap() };
+    const finding = rule.evaluateLive(evaluationContext);
+    const coverage = rule.getLiveEvaluationCoverage?.(evaluationContext);
     const unknownCount = coverage?.unknown.length ?? 0;
     const coverageReason =
       unknownCount > 0

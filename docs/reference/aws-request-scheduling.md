@@ -180,9 +180,12 @@ on the [AWS retry behavior page](https://docs.aws.amazon.com/sdkref/latest/guide
 The coordinator uses Node's built-in SQLite support and a separate database for each hashed quota key. It requires no
 daemon or Redis. The directory is restricted to mode `0700` and databases to `0600`. Files contain admission state,
 process reservations, and failure feedback; they do not contain credentials, request payloads, or response payloads.
-Each transaction closes its database handle. Calls sharing a store and quota queue locally so only one waiting caller
-checks admission at a time. Queued callers retain their own cancellation signals and deadlines; cancellation removes
-their pending callbacks and timers. Checks that leave quota state unchanged release the transaction without a write.
+Calls sharing a store reuse one SQLite handle per quota key, bounded to at most 32 open handles with the
+least-recently-used handle closed first. Handles are released when the scan budget ends; every update still
+revalidates the directory and reopens a handle whose database file was replaced. Calls sharing a store and quota queue
+locally so only one waiting caller checks admission at a time. Queued callers retain their own cancellation signals and
+deadlines; cancellation removes their pending callbacks and timers. Checks that leave quota state unchanged release the
+transaction without a write.
 
 SQLite rolls back an interrupted transaction. Reservations record their process, generation, and expiry. Expiry follows
 the discovery deadline: 5 minutes by default, or the caller's `timeoutMs`. Later admission removes reservations whose

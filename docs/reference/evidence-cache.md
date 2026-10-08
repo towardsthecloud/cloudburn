@@ -193,12 +193,14 @@ Within a process, each key has one shared load. Each waiter has its own cancella
 not abort work needed by another. When all waiters leave, the shared load is cancelled. Collection owns a separate
 five-minute AWS execution, clients, credentials, and quota budget; caller deadlines still bound each wait.
 
-Local storage uses `evidence.sqlite` in a directory with mode `0700` and a database with mode `0600`. SQLite transactions
-atomically acquire per-key leases and publish complete payloads. A 30-second lease is renewed every 10 seconds. Waiters
-poll interruptibly, and an expired lease can be taken over after a process crash. Each publish/cleanup checks the owner
-token and expiry, so an old writer cannot overwrite a successor. Transactions wait at most five seconds for a database
-lock. Storage reclaims inactive entries by least-recent access to enforce count and byte limits; active leases and
-temporary refresh/journal storage can exceed those limits until collection settles.
+Local storage uses `evidence.sqlite` in a directory with mode `0700` and a database with mode `0600`. Each process opens the
+database once per directory and reuses the handle across caches and transactions, reopening it if the file is replaced or
+removed; cache hits update only the access time. SQLite transactions atomically acquire per-key leases and publish complete
+payloads. A 30-second lease is renewed every 10 seconds. Waiters poll interruptibly, and an expired lease can be taken over
+after a process crash. Each publish/cleanup checks the owner token and expiry, so an old writer cannot overwrite a successor.
+Transactions wait at most five seconds for a database lock. Storage reclaims inactive entries by least-recent access to
+enforce count and byte limits; active leases and temporary refresh/journal storage can exceed those limits until collection
+settles.
 
 `createEvidenceCache()` exposes the same mechanism for normalized data. It accepts plain objects, arrays, JSON scalar
 values, `undefined`, and `Date` instances. Dates survive persistence and results are copied between waiters. Unsupported

@@ -158,6 +158,7 @@ export type {
   ImpactWindow,
   LiveEvaluationContext,
   LiveEvaluationCoverage,
+  LiveEvaluationScratch,
   RecommendationIdentity,
   Rule,
   Severity,

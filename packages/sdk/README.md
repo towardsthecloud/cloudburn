@@ -491,12 +491,14 @@ at their own product boundary.
 
 CloudFront discovery reuses `ListDistributions` summaries when the catalog has no distribution seeds. A page of 100
 distributions with price-class evidence needs 1 list request and 0 `GetDistribution` requests, excluding account identity
-lookup. Pagination retains all listed distributions; a nonempty catalog selection uses detail requests only for those
-selected IDs and never lists additional distributions.
+lookup. Pagination retains all listed distributions; catalog-backed loads also read `ListDistributions` summaries (one
+request per 100 distributions) and keep only the selected IDs. `GetDistribution` is needed only for selected
+distributions missing from the summaries or standard distributions missing a price class. If `ListDistributions` is
+denied, catalog hydration falls back to per-distribution `GetDistribution`.
 
-Grant `cloudfront:ListDistributions` for fallback discovery and `cloudfront:GetDistribution` for catalog hydration or
-fallback standard distributions missing their price class. Standard distributions retain supplied price classes, including
-`None`. Tenant-only distributions omit price-class evidence from both summary and detail responses because AWS does
+Grant `cloudfront:ListDistributions` for fallback discovery and catalog-backed loads, and `cloudfront:GetDistribution`
+for selected distributions missing from summaries or fallback standard distributions missing their price class. Standard
+distributions retain supplied price classes, including `None`. Tenant-only distributions omit price-class evidence from both summary and detail responses because AWS does
 not support that setting for this variant; tenant-only summaries do not require a price-class lookup. These variants follow the AWS
 [DistributionSummary contract](https://docs.aws.amazon.com/cloudfront/latest/APIReference/API_DistributionSummary.html).
 Fallback account identity uses `sts:GetCallerIdentity`; request activity also requires `cloudwatch:GetMetricData` in
