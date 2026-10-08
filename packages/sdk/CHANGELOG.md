@@ -1,5 +1,25 @@
 # @cloudburn/sdk
 
+## 0.38.2
+
+### Patch Changes
+
+- [#338](https://github.com/towardsthecloud/cloudburn/pull/338) [`1fc5301`](https://github.com/towardsthecloud/cloudburn/commit/1fc5301c18dc219879c32d67b37a61982aad4810) Thanks [@devin-ai-integration](https://github.com/apps/devin-ai-integration)! - Ignore a temporary AWS admission directory that another user owns or that is a symbolic link when selecting local coordination storage.
+
+- [#336](https://github.com/towardsthecloud/cloudburn/pull/336) [`3e8d3cb`](https://github.com/towardsthecloud/cloudburn/commit/3e8d3cb63f92faf7d6b4424a8d4e4645d0122320) Thanks [@devin-ai-integration](https://github.com/apps/devin-ai-integration)! - Report YAML parse errors in config files as codes with line and column numbers only, so source lines no longer leak into error messages.
+
+- [#335](https://github.com/towardsthecloud/cloudburn/pull/335) [`97007d9`](https://github.com/towardsthecloud/cloudburn/commit/97007d90bbcd4e3b9bef100a37d16f89f8305c7f) Thanks [@devin-ai-integration](https://github.com/apps/devin-ai-integration)! - Redact AWS error text in discovery diagnostic `details`, Resource Explorer region status `notes`, and debug logs the same way `categorizeError` redacts thrown errors, and replace credential-provider failures there with fixed credentials guidance. Redaction now also covers ECS and EKS container credential endpoints, `X-Amz-Credential` and SigV4 `Authorization` header values, plain-text AWS secret keys and session tokens, and access key IDs.
+
+- [#339](https://github.com/towardsthecloud/cloudburn/pull/339) [`77ecadb`](https://github.com/towardsthecloud/cloudburn/commit/77ecadbc68050b210dd3ab228044a2632f98c21d) Thanks [@devin-ai-integration](https://github.com/apps/devin-ai-integration)! - Keep unresolved IaC values unknown instead of defaulting.
+
+- [#334](https://github.com/towardsthecloud/cloudburn/pull/334) [`0b77c47`](https://github.com/towardsthecloud/cloudburn/commit/0b77c475ab122c296666ec02889efee65ade17dc) Thanks [@devin-ai-integration](https://github.com/apps/devin-ai-integration)! - Locate Terraform resources in one linear lexer pass and skip oversized Terraform files.
+
+- [#337](https://github.com/towardsthecloud/cloudburn/pull/337) [`b5c3516`](https://github.com/towardsthecloud/cloudburn/commit/b5c3516dc0869e7233f16a5a7d99f807b24c1adf) Thanks [@devin-ai-integration](https://github.com/apps/devin-ai-integration)! - Ignore empty or relative `XDG_CACHE_HOME` when resolving per-user cache directories, export `resolveCloudBurnCacheDirectory`, and refuse symbolic-linked or foreign-owned evidence cache directories.
+
+- [#333](https://github.com/towardsthecloud/cloudburn/pull/333) [`4250bfc`](https://github.com/towardsthecloud/cloudburn/commit/4250bfc7b1e56e6ac717cdf6b686858e1b289fa1) Thanks [@devin-ai-integration](https://github.com/apps/devin-ai-integration)! - Make YAML suppression-comment detection linear so long `&`/`!` runs, many quotes, or whitespace-padded directives in a scanned file can no longer hang static scans.
+- Updated dependencies [[`77ecadb`](https://github.com/towardsthecloud/cloudburn/commit/77ecadbc68050b210dd3ab228044a2632f98c21d)]:
+  - @cloudburn/rules@0.35.2
+
 ## 0.38.1
 
 ### Patch Changes

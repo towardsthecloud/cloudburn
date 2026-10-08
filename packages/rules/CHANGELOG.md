@@ -1,5 +1,11 @@
 # @cloudburn/rules
 
+## 0.35.2
+
+### Patch Changes
+
+- [#339](https://github.com/towardsthecloud/cloudburn/pull/339) [`77ecadb`](https://github.com/towardsthecloud/cloudburn/commit/77ecadbc68050b210dd3ab228044a2632f98c21d) Thanks [@devin-ai-integration](https://github.com/apps/devin-ai-integration)! - Keep unresolved IaC values unknown instead of defaulting.
+
 ## 0.35.1
 
 ### Patch Changes
