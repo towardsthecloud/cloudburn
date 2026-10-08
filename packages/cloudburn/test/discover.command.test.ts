@@ -1,3 +1,5 @@
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 import { CloudBurnClient } from '@cloudburn/sdk';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createProgram } from '../src/cli.js';
@@ -131,6 +133,18 @@ describe('discover command', () => {
     expect(discover).toHaveBeenCalledWith({
       target: { mode: 'current' },
       cache: { mode: 'normal', directory: '/tmp/cloudburn-user-cache/cloudburn/evidence' },
+    });
+  });
+
+  it.each(['', 'relative-cache'])('ignores a non-absolute XDG_CACHE_HOME %j', async (value) => {
+    vi.stubEnv('XDG_CACHE_HOME', value);
+    const discover = vi.spyOn(CloudBurnClient.prototype, 'discover').mockResolvedValue({ providers: [] });
+
+    await createProgram().parseAsync(['discover'], { from: 'user' });
+
+    expect(discover).toHaveBeenCalledWith({
+      target: { mode: 'current' },
+      cache: { mode: 'normal', directory: join(homedir(), '.cache', 'cloudburn', 'evidence') },
     });
   });
 

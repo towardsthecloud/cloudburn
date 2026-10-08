@@ -434,6 +434,19 @@ describe('local AWS request state', () => {
     expect(readdirSync(join(cache, 'cloudburn', 'aws-admission-v1'))).toHaveLength(1);
   });
 
+  it.each(['', 'relative-cache'])('ignores a non-absolute XDG_CACHE_HOME %j', async (value) => {
+    const home = createDirectory();
+    const temporary = createDirectory();
+    vi.spyOn(operatingSystem, 'homedir').mockReturnValue(home);
+    vi.stubEnv('XDG_CACHE_HOME', value);
+    vi.stubEnv('CLOUDBURN_AWS_ADMISSION_DIR', undefined);
+    vi.stubEnv('TMPDIR', temporary);
+
+    await createLocalAwsRequestStore().update('shared-quota', () => ({ state: 'reserved', value: undefined }));
+
+    expect(readdirSync(join(home, '.cache', 'cloudburn', 'aws-admission-v1'))).toHaveLength(1);
+  });
+
   it('recovers a first transaction after its process dies while creating the state schema', async () => {
     const directory = createDirectory();
     const holder = startChild(directory, 'shared-quota', 'hold');

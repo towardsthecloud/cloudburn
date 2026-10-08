@@ -1,10 +1,9 @@
-import { homedir } from 'node:os';
-import { join } from 'node:path';
 import {
   type AwsDiscoveryProgressEvent,
   assertSupportedAwsRegion,
   CloudBurnClient,
   filterBuiltInRules,
+  resolveCloudBurnCacheDirectory,
   SEVERITIES,
 } from '@cloudburn/sdk';
 import { type CallToolResult, McpServer, type ServerContext } from '@modelcontextprotocol/server';
@@ -145,7 +144,7 @@ export const createCloudBurnServer = (options: CloudBurnServerOptions = {}): Mcp
         return createClient().discover({
           cache: {
             mode: cache ?? 'normal',
-            directory: join(env.XDG_CACHE_HOME ?? join(homedir(), '.cache'), 'cloudburn', 'evidence'),
+            directory: resolveCloudBurnCacheDirectory('evidence', env),
           },
           target:
             region === undefined

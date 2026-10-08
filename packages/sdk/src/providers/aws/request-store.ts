@@ -1,9 +1,26 @@
 import { createHash } from 'node:crypto';
 import { chmodSync, lstatSync, mkdirSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { isAbsolute, join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { setTimeout as wait } from 'node:timers/promises';
+
+// Defined here because this module must stay free of relative imports: tests load it in plain Node child processes.
+/**
+ * Resolves a per-user CloudBurn cache directory.
+ *
+ * Follows the XDG base directory spec: an empty or relative `XDG_CACHE_HOME` is ignored so caches never land under
+ * the current working directory.
+ *
+ * @param name - Cache subdirectory below `cloudburn`, such as `evidence`.
+ * @param env - Environment to read `XDG_CACHE_HOME` from.
+ * @returns `<XDG_CACHE_HOME or ~/.cache>/cloudburn/<name>`.
+ */
+export const resolveCloudBurnCacheDirectory = (name: string, env: NodeJS.ProcessEnv = process.env): string => {
+  const xdgCacheHome = env.XDG_CACHE_HOME;
+  const root = xdgCacheHome && isAbsolute(xdgCacheHome) ? xdgCacheHome : join(homedir(), '.cache');
+  return join(root, 'cloudburn', name);
+};
 
 /** Atomic storage for opaque AWS quota state shared by admission schedulers. */
 export type AwsRequestStore = {
@@ -119,7 +136,7 @@ const initializeDefaultDirectory = (directory: string): string => {
  * Creates host-local quota storage shared by independent processes under the same directory.
  *
  * An explicit directory takes precedence over CLOUDBURN_AWS_ADMISSION_DIR; neither permits fallback.
- * The default is <XDG_CACHE_HOME or ~/.cache>/cloudburn/aws-admission-v1. When this coordinator path
+ * The default is <XDG_CACHE_HOME or ~/.cache>/cloudburn/aws-admission-v1; empty or relative XDG_CACHE_HOME is ignored. When this coordinator path
  * is absent and initialization fails because of permissions, a read-only filesystem, or invalid parent paths,
  * storage uses <tmpdir()>/cloudburn-<user>/aws-admission-v1. Node's tmpdir() honors TMPDIR on Unix.
  * The user component is the UID, or the first 16 SHA-256 hex characters of homedir() on platforms without getuid().
@@ -133,8 +150,7 @@ const initializeDefaultDirectory = (directory: string): string => {
  */
 export const createLocalAwsRequestStore = (directory?: string): AwsRequestStore => {
   let selectedDirectory = directory ?? process.env.CLOUDBURN_AWS_ADMISSION_DIR;
-  const primary =
-    selectedDirectory ?? join(process.env.XDG_CACHE_HOME || join(homedir(), '.cache'), 'cloudburn', 'aws-admission-v1');
+  const primary = selectedDirectory ?? resolveCloudBurnCacheDirectory('aws-admission-v1');
   return {
     update: async (key, update, signal, options) => {
       signal?.throwIfAborted();
