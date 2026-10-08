@@ -115,6 +115,8 @@ const pickLocation = (resource: IaCResource, attributePaths: string[]): SourceLo
     .map((attributePath) => resource.attributeLocations?.[attributePath])
     .find((location): location is SourceLocation => Boolean(location)) ?? resource.location;
 
+const isAbsent = (value: unknown): value is null | undefined => value === undefined || value === null;
+
 const getLiteralNumber = (value: unknown): number | null => (typeof value === 'number' ? value : null);
 
 const getLiteralExactString = (value: unknown): string | null =>
@@ -136,16 +138,36 @@ const getLiteralUpperString = (value: unknown): string | null => {
 
 const getLiteralBoolean = (value: unknown): boolean | null => (typeof value === 'boolean' ? value : null);
 
+const getStaticRedshiftHasVpc = (value: unknown): boolean | null =>
+  isAbsent(value) ? false : getLiteralExactString(value) === null ? null : true;
+
+const getStaticRedshiftHsmEnabled = (...values: unknown[]): boolean | null => {
+  if (values.some((value) => getLiteralExactString(value) !== null)) {
+    return true;
+  }
+
+  return values.some((value) => !isAbsent(value)) ? null : false;
+};
+
 const getLiteralStringArray = (value: unknown): string[] | null => {
-  if (value === undefined) {
+  if (isAbsent(value)) {
     return ['x86_64'];
   }
 
-  if (!Array.isArray(value) || !value.every((entry) => typeof entry === 'string')) {
+  if (!Array.isArray(value) || !value.every((entry) => typeof entry === 'string' && !entry.includes('${'))) {
     return null;
   }
 
   return value.map((entry) => entry.toLowerCase());
+};
+
+const isCloudFormationIntrinsic = (value: unknown): boolean => {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  const keys = Object.keys(value);
+  return keys.length === 1 && (keys[0] === 'Ref' || keys[0]?.startsWith('Fn::') === true);
 };
 
 const toRecordArray = (value: unknown): Record<string, unknown>[] =>
@@ -511,12 +533,17 @@ const createTerraformEcrRepository = (
 
 const createCloudFormationEcrRepository = (repository: IaCResource): AwsStaticEcrRepository => {
   const properties = isRecord(repository.attributes.Properties) ? repository.attributes.Properties : undefined;
+  const lifecyclePolicy = properties?.LifecyclePolicy;
 
   return {
-    hasLifecyclePolicy: isRecord(properties?.LifecyclePolicy),
-    ...getEcrLifecyclePolicyTraits(
-      isRecord(properties?.LifecyclePolicy) ? properties.LifecyclePolicy.LifecyclePolicyText : undefined,
-    ),
+    hasLifecyclePolicy: isAbsent(lifecyclePolicy)
+      ? false
+      : isRecord(lifecyclePolicy) && !isCloudFormationIntrinsic(lifecyclePolicy)
+        ? true
+        : null,
+    ...(isRecord(lifecyclePolicy) && !isCloudFormationIntrinsic(lifecyclePolicy)
+      ? getEcrLifecyclePolicyTraits(lifecyclePolicy.LifecyclePolicyText)
+      : { hasTaggedImageRetentionCap: null, hasUntaggedImageExpiry: null }),
     location: repository.location,
     resourceId: toStaticResourceId(repository),
   };
@@ -666,7 +693,9 @@ const loadStaticDynamoDbTables = (resources: IaCResource[]): AwsStaticDynamoDbTa
     if (resource.type === TERRAFORM_DYNAMODB_TABLE_TYPE) {
       return [
         {
-          billingMode: getStaticDynamoDbBillingMode(resource.attributes.billing_mode) ?? 'PROVISIONED',
+          billingMode: isAbsent(resource.attributes.billing_mode)
+            ? 'PROVISIONED'
+            : getStaticDynamoDbBillingMode(resource.attributes.billing_mode),
           location: pickLocation(resource, ['name', 'billing_mode']),
           resourceId: toStaticResourceId(resource),
           tableName: getTerraformDynamoDbTableName(resource),
@@ -679,7 +708,9 @@ const loadStaticDynamoDbTables = (resources: IaCResource[]): AwsStaticDynamoDbTa
 
       return [
         {
-          billingMode: getStaticDynamoDbBillingMode(properties?.BillingMode) ?? 'PROVISIONED',
+          billingMode: isAbsent(properties?.BillingMode)
+            ? 'PROVISIONED'
+            : getStaticDynamoDbBillingMode(properties.BillingMode),
           location: pickLocation(resource, ['Properties.TableName', 'Properties.BillingMode']),
           resourceId: toStaticResourceId(resource),
           tableName: getCloudFormationDynamoDbTableName(resource),
@@ -1070,7 +1101,9 @@ const loadStaticEcsServices = (resources: IaCResource[]): AwsStaticEcsService[] 
           clusterName: getTerraformEcsClusterName(resource.attributes.cluster),
           location: pickLocation(resource, ['cluster', 'name', 'scheduling_strategy']),
           resourceId: toStaticResourceId(resource),
-          schedulingStrategy: getLiteralUpperString(resource.attributes.scheduling_strategy) ?? 'REPLICA',
+          schedulingStrategy: isAbsent(resource.attributes.scheduling_strategy)
+            ? 'REPLICA'
+            : getLiteralUpperString(resource.attributes.scheduling_strategy),
           serviceName: getLiteralExactString(resource.attributes.name),
         },
       ];
@@ -1093,7 +1126,9 @@ const loadStaticEcsServices = (resources: IaCResource[]): AwsStaticEcsService[] 
           'Properties.SchedulingStrategy',
         ]),
         resourceId: toStaticResourceId(resource),
-        schedulingStrategy: getLiteralUpperString(properties?.SchedulingStrategy) ?? 'REPLICA',
+        schedulingStrategy: isAbsent(properties?.SchedulingStrategy)
+          ? 'REPLICA'
+          : getLiteralUpperString(properties.SchedulingStrategy),
         serviceName,
       },
     ];
@@ -1261,14 +1296,18 @@ const loadStaticRedshiftClusters = (resources: IaCResource[]): AwsStaticRedshift
         hasResumeSchedule: schedules.hasResumeSchedule,
         hasVpc:
           resource.type === TERRAFORM_REDSHIFT_CLUSTER_TYPE
-            ? getLiteralExactString(resource.attributes.cluster_subnet_group_name) !== null
-            : getLiteralExactString(properties?.ClusterSubnetGroupName) !== null,
+            ? getStaticRedshiftHasVpc(resource.attributes.cluster_subnet_group_name)
+            : getStaticRedshiftHasVpc(properties?.ClusterSubnetGroupName),
         hsmEnabled:
           resource.type === TERRAFORM_REDSHIFT_CLUSTER_TYPE
-            ? getLiteralExactString(resource.attributes.hsm_client_certificate_identifier) !== null ||
-              getLiteralExactString(resource.attributes.hsm_configuration_identifier) !== null
-            : getLiteralExactString(properties?.HsmClientCertificateIdentifier) !== null ||
-              getLiteralExactString(properties?.HsmConfigurationIdentifier) !== null,
+            ? getStaticRedshiftHsmEnabled(
+                resource.attributes.hsm_client_certificate_identifier,
+                resource.attributes.hsm_configuration_identifier,
+              )
+            : getStaticRedshiftHsmEnabled(
+                properties?.HsmClientCertificateIdentifier,
+                properties?.HsmConfigurationIdentifier,
+              ),
         location: pickLocation(resource, [
           'cluster_identifier',
           'cluster_subnet_group_name',
@@ -1281,8 +1320,12 @@ const loadStaticRedshiftClusters = (resources: IaCResource[]): AwsStaticRedshift
         ]),
         multiAz:
           resource.type === TERRAFORM_REDSHIFT_CLUSTER_TYPE
-            ? getLiteralBoolean(resource.attributes.multi_az)
-            : getLiteralBoolean(properties?.MultiAZ),
+            ? isAbsent(resource.attributes.multi_az)
+              ? false
+              : getLiteralBoolean(resource.attributes.multi_az)
+            : isAbsent(properties?.MultiAZ)
+              ? false
+              : getLiteralBoolean(properties.MultiAZ),
         resourceId: toStaticResourceId(resource),
       },
     ];
