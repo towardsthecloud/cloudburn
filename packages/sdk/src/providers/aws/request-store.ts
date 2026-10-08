@@ -98,16 +98,26 @@ const initializeDefaultDirectory = (directory: string): string => {
   const uid = process.getuid?.();
   const user = uid ?? createHash('sha256').update(homedir()).digest('hex').slice(0, 16);
   const runtimeDirectory = process.env.XDG_RUNTIME_DIR;
-  const base = runtimeDirectory !== undefined && isAbsolute(runtimeDirectory) ? runtimeDirectory : tmpdir();
-  const root = join(base, `cloudburn-${user}`);
-  const fallback = join(root, 'aws-admission-v1');
-  const existingFallback = isOwnedDirectory(root, uid) && isOwnedDirectory(fallback, uid);
-  if (existing && existingFallback) {
+  const bases =
+    runtimeDirectory !== undefined && isAbsolute(runtimeDirectory) ? [runtimeDirectory, tmpdir()] : [tmpdir()];
+  const candidates: Array<{ root: string; fallback: string }> = [];
+  for (const base of bases) {
+    const root = join(base, `cloudburn-${user}`);
+    if (!candidates.some((candidate) => candidate.root === root)) {
+      candidates.push({ root, fallback: join(root, 'aws-admission-v1') });
+    }
+  }
+  const withState = candidates.filter(
+    (candidate) => isOwnedDirectory(candidate.root, uid) && mayContainState(candidate.fallback),
+  );
+  if (withState.length > 1 || (existing && withState.length > 0)) {
     throw new Error(
-      'Both default and temporary AWS admission locations exist; select the active state with CLOUDBURN_AWS_ADMISSION_DIR after stopping all CloudBurn processes',
+      'Multiple AWS admission locations exist; select the active state with CLOUDBURN_AWS_ADMISSION_DIR after stopping all CloudBurn processes',
     );
   }
-  if (existingFallback) {
+  const existingCandidate = withState[0];
+  if (existingCandidate !== undefined) {
+    const { root, fallback } = existingCandidate;
     initializeTemporaryDirectory(root, uid);
     initializeTemporaryDirectory(fallback, uid);
     return fallback;
@@ -127,6 +137,9 @@ const initializeDefaultDirectory = (directory: string): string => {
     }
   }
 
+  const fallbackCandidate = candidates[0];
+  if (fallbackCandidate === undefined) throw new Error('No temporary AWS admission location candidates');
+  const { root, fallback } = fallbackCandidate;
   initializeTemporaryDirectory(root, uid);
   initializeTemporaryDirectory(fallback, uid);
   return fallback;
@@ -138,11 +151,12 @@ const initializeDefaultDirectory = (directory: string): string => {
  * An explicit directory takes precedence over CLOUDBURN_AWS_ADMISSION_DIR; neither permits fallback.
  * The default is <XDG_CACHE_HOME or ~/.cache>/cloudburn/aws-admission-v1. When this coordinator path
  * is absent and initialization fails because of permissions, a read-only filesystem, or invalid parent paths,
- * storage uses <XDG_RUNTIME_DIR or tmpdir()>/cloudburn-<user>/aws-admission-v1; an XDG runtime directory
- * must be absolute. Node's tmpdir() honors TMPDIR on Unix.
+ * storage uses <XDG_RUNTIME_DIR or tmpdir()>/cloudburn-<user>/aws-admission-v1; an XDG runtime directory must be
+ * absolute, and an existing system-temporary fallback remains selected when XDG_RUNTIME_DIR is introduced later.
+ * Node's tmpdir() honors TMPDIR on Unix.
  * The user component is the UID, or the first 16 SHA-256 hex characters of homedir() on platforms without getuid().
  * Temporary directories must be regular directories owned by the current UID when available, with mode 0700.
- * Temporary locations not owned by the current user or symbolic links are ignored when choosing between locations and
+ * Temporary roots not owned by the current user or symbolic links are ignored when choosing between locations and
  * only fail if the fallback is required.
  * An existing temporary coordinator remains selected while the default coordinator path is absent.
  * Existing or uninspectable state is never abandoned after a failure; two existing locations require explicit selection.
