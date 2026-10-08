@@ -87,6 +87,126 @@ describe('parsers', () => {
     ]);
   });
 
+  it('keeps Terraform resource locations correct across template interpolation braces', async () => {
+    const tempDirectory = await mkdtemp(join(tmpdir(), 'cloudburn-terraform-interpolation-'));
+    const terraformPath = join(tempDirectory, 'main.tf');
+
+    try {
+      await writeFile(
+        terraformPath,
+        [
+          'resource "aws_ebs_volume" "interpolated" {',
+          '  name = "${' + '"{"}"',
+          '  description = "$${literal}"',
+          '  type = "gp2"',
+          '}',
+          '',
+          'resource "aws_ebs_volume" "following" {',
+          '  type = "gp2"',
+          '  availability_zone = "eu-west-1a"',
+          '}',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+
+      const { resources } = await parseTerraform(terraformPath);
+
+      expect(resources).toEqual([
+        expect.objectContaining({
+          name: 'interpolated',
+          attributeLocations: {
+            name: { path: 'main.tf', line: 2, column: 3 },
+            description: { path: 'main.tf', line: 3, column: 3 },
+            type: { path: 'main.tf', line: 4, column: 3 },
+          },
+        }),
+        expect.objectContaining({
+          name: 'following',
+          location: { path: 'main.tf', line: 7, column: 1 },
+          attributeLocations: {
+            type: { path: 'main.tf', line: 8, column: 3 },
+            availability_zone: { path: 'main.tf', line: 9, column: 3 },
+          },
+        }),
+      ]);
+    } finally {
+      await rm(tempDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it('keeps Terraform resource locations correct across comments inside interpolation', async () => {
+    const tempDirectory = await mkdtemp(join(tmpdir(), 'cloudburn-terraform-interpolation-comment-'));
+    const terraformPath = join(tempDirectory, 'main.tf');
+
+    try {
+      await writeFile(
+        terraformPath,
+        [
+          'resource "aws_ebs_volume" "commented" { name = "${' + 'var.x /* " */}" }',
+          'resource "aws_ebs_volume" "following" {',
+          '  type = "gp2"',
+          '  availability_zone = "eu-west-1a"',
+          '}',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+
+      const { resources } = await parseTerraform(terraformPath);
+
+      expect(resources).toEqual([
+        expect.objectContaining({
+          name: 'commented',
+          location: { path: 'main.tf', line: 1, column: 1 },
+        }),
+        expect.objectContaining({
+          name: 'following',
+          location: { path: 'main.tf', line: 2, column: 1 },
+          attributeLocations: {
+            type: { path: 'main.tf', line: 3, column: 3 },
+            availability_zone: { path: 'main.tf', line: 4, column: 3 },
+          },
+        }),
+      ]);
+    } finally {
+      await rm(tempDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it('skips oversized Terraform files', async () => {
+    const tempDirectory = await mkdtemp(join(tmpdir(), 'cloudburn-terraform-size-'));
+    const terraformPath = join(tempDirectory, 'large.tf');
+
+    try {
+      const filler = 'A'.repeat(6 * 1024 * 1024);
+      await writeFile(
+        terraformPath,
+        ['resource "aws_ebs_volume" "large" {', `  description = "${filler}"`, '}', ''].join('\n'),
+        'utf8',
+      );
+
+      const result = await parseTerraform(terraformPath);
+
+      expect(result).toEqual({
+        diagnostics: [
+          {
+            code: 'TERRAFORM_FILE_TOO_LARGE',
+            details: expect.any(String),
+            message: 'Skipped Terraform file large.tf because it exceeds the 5 MiB size limit.',
+            provider: 'aws',
+            service: 'terraform',
+            source: 'iac',
+            status: 'skipped',
+          },
+        ],
+        resources: [],
+      });
+    } finally {
+      await rm(tempDirectory, { recursive: true, force: true });
+    }
+  });
+
   it('parses terraform directories recursively and preserves unresolved expressions', async () => {
     const resourcePath = fileURLToPath(new URL('./fixtures/terraform/scan-dir', import.meta.url));
     const { resources } = await parseTerraform(resourcePath);
