@@ -1348,7 +1348,8 @@ export type AwsStaticEbsVolume = {
 /** Normalized static ECR repository dataset entry with lifecycle-policy state. */
 export type AwsStaticEcrRepository = {
   resourceId: string;
-  hasLifecyclePolicy: boolean;
+  /** Whether a lifecycle policy is present; null means the IaC value is unresolved. */
+  hasLifecyclePolicy: boolean | null;
   hasTaggedImageRetentionCap?: boolean | null;
   hasUntaggedImageExpiry?: boolean | null;
   location?: SourceLocation;
@@ -1441,7 +1442,8 @@ export type AwsStaticRedshiftCluster = {
   automatedSnapshotRetentionPeriod: number | null | undefined;
   hasPauseSchedule: boolean;
   hasResumeSchedule: boolean;
-  hasVpc: boolean;
+  /** Whether the cluster has a VPC subnet group; null means the IaC value is unresolved. */
+  hasVpc: boolean | null;
   hsmEnabled: boolean | null;
   multiAz: boolean | null;
   location?: SourceLocation;

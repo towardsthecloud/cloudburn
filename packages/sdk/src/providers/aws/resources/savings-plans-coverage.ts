@@ -1,5 +1,6 @@
 import { GetSavingsPlansCoverageCommand, type SavingsPlansCoverage } from '@aws-sdk/client-cost-explorer';
 import type { AwsDiscoveredResource, AwsSageMakerSavingsPlansCoverage } from '@cloudburn/rules';
+import { toRedactedErrorMessage } from '../../../errors.js';
 import { createCostExplorerClient } from '../client.js';
 import type { AwsAccountIdResolver, AwsDiscoveryDatasetLoadResult } from '../discovery-registry.js';
 import { formatAwsAccessDeniedReason, getAwsErrorCode, isAwsAccessDeniedError } from '../errors.js';
@@ -147,7 +148,7 @@ export const hydrateAwsSageMakerSavingsPlansCoverage = async (
         diagnostics: [
           {
             code: 'DataUnavailableException',
-            details: err instanceof Error ? err.message : String(err),
+            details: toRedactedErrorMessage(err),
             message: 'Skipped SageMaker Savings Plans coverage because AWS Cost Explorer data is unavailable.',
             provider: 'aws',
             service: 'sagemaker',
@@ -168,7 +169,7 @@ export const hydrateAwsSageMakerSavingsPlansCoverage = async (
       diagnostics: [
         {
           code: getAwsErrorCode(err),
-          details: err instanceof Error ? err.message : String(err),
+          details: toRedactedErrorMessage(err),
           message: `Skipped SageMaker Savings Plans coverage because access to AWS Cost Explorer is denied by ${formatAwsAccessDeniedReason(err)}.`,
           provider: 'aws',
           service: 'sagemaker',

@@ -471,7 +471,9 @@ Compatibility: `RuleEvaluation.status` adds `unknown`, and `coverage` is optiona
 must accept the new value and inspect coverage before treating a triggered result as fully assessed. Finding groups and
 `evaluateLive(): Finding | null` retain their existing shapes. Config recording-frequency evidence now uses `null` for
 unknown `configurationItemsRecorded`, `estimatedMonthlyConfigurationItemReduction`, and
-`estimatedMonthlyRecordingCostReductionUsd`; callers must check these before calculations.
+`estimatedMonthlyRecordingCostReductionUsd`; callers must check these before calculations. Static
+`AwsStaticRedshiftCluster.hasVpc` and `AwsStaticEcrRepository.hasLifecyclePolicy` are now `boolean | null`, with
+`null` for unresolved IaC values; custom static rules must not treat `null` as `false`.
 
 AWS dataset definitions own evaluated-resource projection. Rule-specific projection overrides belong beside that
 registry, not in host applications. For example, inactive CloudWatch log groups expose the latest event timestamp as

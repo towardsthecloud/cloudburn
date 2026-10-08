@@ -39,6 +39,7 @@ import type {
   AwsDiscoveredResource,
 } from '@cloudburn/rules';
 import { canonicalizeAwsResourceId, createAwsCostOptimizationHubFindingMatch, getAwsArnScope } from '@cloudburn/rules';
+import { toRedactedErrorMessage } from '../../../errors.js';
 import type { ScanDiagnostic } from '../../../types.js';
 import { mapWithConcurrency } from '../../../utils/concurrency.js';
 import { createCostOptimizationHubClient } from '../client.js';
@@ -1177,7 +1178,7 @@ const loadCostOptimizationHubRecommendations = async <T extends HubRecommendatio
       diagnostics: [
         {
           code: getAwsErrorCode(err),
-          details: err instanceof Error ? err.message : String(err),
+          details: toRedactedErrorMessage(err),
           message: `Skipped ${category.messageSubject} because access to AWS Cost Optimization Hub is denied by ${formatAwsAccessDeniedReason(err)}.`,
           provider: 'aws',
           service: 'costoptimizationhub',

@@ -17,6 +17,7 @@ import {
 } from '@aws-sdk/client-resource-explorer-2';
 import type { AwsDiscoveredResource, AwsDiscoveryCatalog } from '@cloudburn/rules';
 import { emitDebugLog } from '../../debug.js';
+import { toRedactedErrorMessage } from '../../errors.js';
 import type {
   AwsDiscoveryRegion,
   AwsDiscoveryRegionStatus,
@@ -125,7 +126,7 @@ const getErrorMessage = (err: unknown, fallback: string): string => {
     return fallback;
   }
 
-  return err.message.trim() || fallback;
+  return toRedactedErrorMessage(err) || fallback;
 };
 
 const isResourceNotFoundError = (err: unknown): boolean => {

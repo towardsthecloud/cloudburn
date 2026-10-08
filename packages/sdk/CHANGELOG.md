@@ -1,5 +1,27 @@
 # @cloudburn/sdk
 
+## 0.38.1
+
+### Patch Changes
+
+- [#323](https://github.com/towardsthecloud/cloudburn/pull/323) [`31d42f6`](https://github.com/towardsthecloud/cloudburn/commit/31d42f6123d98d01c2929a9eee2964964b37728c) Thanks [@devin-ai-integration](https://github.com/apps/devin-ai-integration)! - Hydrate catalog-discovered CloudFront distributions from ListDistributions summaries instead of one GetDistribution request per distribution.
+
+- [#324](https://github.com/towardsthecloud/cloudburn/pull/324) [`2c10f45`](https://github.com/towardsthecloud/cloudburn/commit/2c10f45694ec90a3ec0ac9dfa87e57cf890ff4d9) Thanks [@devin-ai-integration](https://github.com/apps/devin-ai-integration)! - Hydrate EKS managed node groups for up to 3 clusters per region concurrently, shortening live discovery for accounts with many EKS clusters.
+
+- [#326](https://github.com/towardsthecloud/cloudburn/pull/326) [`654663b`](https://github.com/towardsthecloud/cloudburn/commit/654663b0c5425f6c878767bc987c80d0542902a8) Thanks [@devin-ai-integration](https://github.com/apps/devin-ai-integration)! - Speed up CloudWatch log-stream discovery on accounts with many log groups. Log streams are now listed for up to 10 log groups at a time per region instead of one log group after another, with the same results.
+
+- [#330](https://github.com/towardsthecloud/cloudburn/pull/330) [`ce10444`](https://github.com/towardsthecloud/cloudburn/commit/ce104442ce0582743fb5ced8a6df9ca36181cb87) Thanks [@devin-ai-integration](https://github.com/apps/devin-ai-integration)! - Speed up untagged-resource discovery by resolving EC2, KMS and SSM creation-origin metadata concurrently within each region.
+
+- [#331](https://github.com/towardsthecloud/cloudburn/pull/331) [`9d80bd9`](https://github.com/towardsthecloud/cloudburn/commit/9d80bd96bd35a6aed12eb194b0d3ab513e8f841b) Thanks [@devin-ai-integration](https://github.com/apps/devin-ai-integration)! - Reuse bounded SQLite connections in the local AWS admission store.
+
+- [#328](https://github.com/towardsthecloud/cloudburn/pull/328) [`b73df4e`](https://github.com/towardsthecloud/cloudburn/commit/b73df4e10b94138d255b9e1d1166faad69755b6f) Thanks [@devin-ai-integration](https://github.com/apps/devin-ai-integration)! - Reuse persistent evidence cache handles and update only access times on cache hits.
+
+- [#329](https://github.com/towardsthecloud/cloudburn/pull/329) [`0403703`](https://github.com/towardsthecloud/cloudburn/commit/0403703ffc3a0a14ba9e27befc78c300ea8fbc95) Thanks [@devin-ai-integration](https://github.com/apps/devin-ai-integration)! - Reuse the sorted Resource Explorer catalog across provisional rule snapshots during live discovery instead of re-sorting it after every dataset completes.
+
+- [#327](https://github.com/towardsthecloud/cloudburn/pull/327) [`8daad1c`](https://github.com/towardsthecloud/cloudburn/commit/8daad1cd6e23f19f21a8d190c191992bedb9ff76) Thanks [@devin-ai-integration](https://github.com/apps/devin-ai-integration)! - Live scans now share each rule's derived evaluation indexes between `evaluateLive` and `getLiveEvaluationCoverage` instead of building them once per callback.
+- Updated dependencies [[`8daad1c`](https://github.com/towardsthecloud/cloudburn/commit/8daad1cd6e23f19f21a8d190c191992bedb9ff76), [`d9da329`](https://github.com/towardsthecloud/cloudburn/commit/d9da32908b8956308caddd9f78944c6980f5887a)]:
+  - @cloudburn/rules@0.35.1
+
 ## 0.38.0
 
 ### Minor Changes

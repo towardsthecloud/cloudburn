@@ -518,7 +518,8 @@ Integrations such as the CLI, GitHub Action, and MCP server share these helpers:
 - `filterBuiltInRules({ services?, sources?, severity? })` selects `builtInRuleMetadata` entries matching every supplied criterion
 - `validateServices(services, mode?)` lower-cases service names and throws for services without built-in rules for the mode
 - `categorizeError(err)` maps a thrown value to a stable `{ code, message }` with credentials, signed URLs, and metadata
-  endpoints redacted from the message
+  endpoints redacted from the message; discovery diagnostic `details`, Resource Explorer status `notes`, and debug logs
+  apply the same redaction to caught AWS errors
 
 The `CloudBurnClient` also exposes helper methods:
 
