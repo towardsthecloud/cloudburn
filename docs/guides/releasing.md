@@ -3,7 +3,7 @@
 ## Contributor changesets
 
 Add a changeset for a user-facing change to a versioned package: `cloudburn`, `@cloudburn/sdk`, `@cloudburn/rules`,
-`@cloudburn/mcp`, or `@cloudburn/action` (versioned and tagged, but not published to npm — see
+`@cloudburn/mcp`, `cloudburn-vscode`, or `@cloudburn/action` (versioned and tagged, but not published to npm — see
 [GitHub Action sync](#github-action-sync)). Changes to the agent plugin or its skill ship as `@cloudburn/mcp` changes;
 see [agent plugin sync](#agent-plugin-sync). Documentation-only changes do not need one.
 
@@ -19,6 +19,17 @@ Describe the user-visible change.
 
 Use `patch` for fixes and `minor` for features. Do not create major changesets. Never run the interactive changeset prompt,
 version command, or publish command during feature work.
+
+## VS Code extension
+
+`cloudburn-vscode` is private and versioned through Changesets; it is not published to npm. Its initial VSIX is a local
+preview. After versioning, build an archive with `pnpm exec turbo run package:vsix --filter cloudburn-vscode` and inspect
+the contents before distribution. The package uses the existing `dannysteenman` Marketplace publisher.
+
+Marketplace publication requires a separately authorized release task and publisher credentials. No automatic VS Code
+Marketplace upload is configured by the current release workflow. The existing recovery workflow handles npm,
+GitHub Action, and agent plugin releases, not an extension-only release. Add Marketplace automation and its release
+recovery coverage as part of that rollout instead of assuming npm publication ships the extension.
 
 ## Automated release flow
 

@@ -1,0 +1,14 @@
+{
+  "extends": ["//"],
+  "tags": ["layer:vscode"],
+  "tasks": {
+    "build": { "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/LICENSE"], "outputs": ["dist/**", "LICENSE"] },
+    "test:e2e": {
+      "dependsOn": ["build", "cloudburn#build"],
+      "cache": false,
+      "passThroughEnv": ["DISPLAY", "CLOUDBURN_VSCODE_EXECUTABLE"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/packages/cloudburn/test/e2e/fixtures/**"]
+    },
+    "package:vsix": { "dependsOn": ["build"], "outputs": ["dist/cloudburn.vsix"] }
+  }
+}

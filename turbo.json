@@ -8,27 +8,32 @@
     "tags": {
       "layer:rules": {
         "dependencies": {
-          "deny": ["layer:sdk", "layer:cli", "layer:action", "layer:mcp"]
+          "deny": ["layer:sdk", "layer:cli", "layer:action", "layer:mcp", "layer:vscode"]
         }
       },
       "layer:sdk": {
         "dependencies": {
-          "deny": ["layer:cli", "layer:action", "layer:mcp"]
+          "deny": ["layer:cli", "layer:action", "layer:mcp", "layer:vscode"]
         }
       },
       "layer:cli": {
         "dependencies": {
-          "deny": ["layer:action", "layer:mcp"]
+          "deny": ["layer:action", "layer:mcp", "layer:vscode"]
         }
       },
       "layer:action": {
         "dependencies": {
-          "deny": ["layer:cli", "layer:mcp"]
+          "deny": ["layer:cli", "layer:mcp", "layer:vscode"]
         }
       },
       "layer:mcp": {
         "dependencies": {
-          "deny": ["layer:cli", "layer:action"]
+          "deny": ["layer:cli", "layer:action", "layer:vscode"]
+        }
+      },
+      "layer:vscode": {
+        "dependencies": {
+          "deny": ["layer:action", "layer:mcp"]
         }
       }
     }

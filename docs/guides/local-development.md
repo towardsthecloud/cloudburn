@@ -26,14 +26,19 @@ pnpm turbo run build --filter @cloudburn/sdk
 pnpm turbo run lint --filter cloudburn
 pnpm turbo run test:e2e --filter @cloudburn/action
 pnpm turbo run test:e2e --filter @cloudburn/mcp
+pnpm exec turbo run test:e2e --filter cloudburn-vscode
+pnpm exec turbo run package:vsix --filter cloudburn-vscode
 pnpm --filter @cloudburn/sdk exec vitest run test/discovery-http-integration.test.ts
 pnpm test:e2e
 pnpm test:packages
 ```
 
-Package names are `cloudburn`, `@cloudburn/action`, `@cloudburn/mcp`, `@cloudburn/sdk`, and `@cloudburn/rules`.
+Package names are `cloudburn`, `@cloudburn/action`, `@cloudburn/mcp`, `cloudburn-vscode`, `@cloudburn/sdk`, and `@cloudburn/rules`.
 For action input, comment, or bundle changes, start with the [action package instructions](../../packages/action/AGENTS.md).
 For MCP tools, the skill, or plugin manifests, start with the [MCP package instructions](../../packages/mcp/AGENTS.md).
+For editor scans, diagnostics, or VSIX packaging, use the [VS Code package instructions](../../packages/vscode/AGENTS.md)
+and [extension setup](../../packages/vscode/README.md). Packaging requires the global `vsce` CLI. Linux editor tests
+need `xvfb-run`; the runner downloads its pinned VS Code unless `CLOUDBURN_VSCODE_EXECUTABLE` selects an installed one.
 To try a local server build in an agent, register `node <repository>/packages/mcp/dist/cli.js` as an MCP server.
 For release recovery changes, use the [release guide](releasing.md#recover-published-release-follow-up-steps) and
 `pnpm release:test`; its Git remotes and GitHub responses are local test fixtures.
