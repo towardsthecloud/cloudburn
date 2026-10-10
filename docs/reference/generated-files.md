@@ -2,13 +2,15 @@
 
 Edit authoritative inputs, then run the owning command. Do not hand-edit disposable build output.
 
-| Output                                    | Authoritative input                                      | Command                                              | Tracked? |
-| ----------------------------------------- | -------------------------------------------------------- | ---------------------------------------------------- | -------- |
-| `packages/*/dist/`                        | Package `src/`, `tsup.config.ts`, and manifest           | `pnpm build`                                         | No       |
-| `.turbo/`                                 | Root/package Turbo configuration and task inputs         | Any Turbo task                                       | No       |
-| `coverage/`                               | Package tests and Vitest configuration                   | `pnpm --filter <package> exec vitest run --coverage` | No       |
-| `pnpm-lock.yaml`                          | Root/package manifests and `pnpm-workspace.yaml` catalog | `pnpm install`                                       | Yes      |
-| Package versions and `CHANGELOG.md` files | `.changeset/*.md` files and Changesets configuration     | Automated `pnpm changeset:version`                   | Yes      |
+| Output                                    | Authoritative input                                                      | Command                                                      | Tracked? |
+| ----------------------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------ | -------- |
+| `packages/*/dist/`                        | Package `src/`, `tsup.config.ts`, and manifest                           | `pnpm build`                                                 | No       |
+| `.turbo/`                                 | Root/package Turbo configuration and task inputs                         | Any Turbo task                                               | No       |
+| `coverage/`                               | Package tests and Vitest configuration                                   | `pnpm --filter <package> exec vitest run --coverage`         | No       |
+| `pnpm-lock.yaml`                          | Root/package manifests and `pnpm-workspace.yaml` catalog                 | `pnpm install`                                               | Yes      |
+| Package versions and `CHANGELOG.md` files | `.changeset/*.md` files and Changesets configuration                     | Automated `pnpm changeset:version`                           | Yes      |
+| `packages/vscode/dist/vscode/`            | Source manifest, listing assets, root `LICENSE`, and extension bundle     | Extension `build` task                                       | No       |
+| `packages/vscode/dist/cloudburn.vsix`     | Extension manifest, README, changelog, icon, bundle, and `.vscodeignore` | `pnpm exec turbo run package:vsix --filter @cloudburn/vscode` | No       |
 
 Coverage is opt-in; no root coverage script is defined. Select a workspace package with the command above.
 
@@ -38,3 +40,11 @@ committed. Edit `packages/mcp/plugin/`, never `dist/plugin/` or the plugin repos
 The reference pages for [rule IDs](rule-ids.md), [configuration](config-schema.md), and [finding shapes](finding-shape.md)
 are manually maintained from the code sources named at the top of each page. No generator currently updates them; change
 the reference in the same pull request as its source contract.
+
+The VS Code [build](../../packages/vscode/tsup.config.ts) emits `dist/extension.cjs` and an E2E test bundle. Its
+[manifest preparation script](../../packages/vscode/scripts/prepare-extension.mjs) stages the runtime bundle, listing
+assets, and shared root license in `dist/vscode/`. It derives the extension manifest from `@cloudburn/vscode`, preserving
+the version and publisher while setting the public name to `cloudburn-vscode` and removing development scripts and dependencies.
+Editor tests and VSIX packaging use this generated directory. Its [.vscodeignore](../../packages/vscode/.vscodeignore) allows only the runtime
+bundle and listing assets into the VSIX. Test code and development dependencies are excluded. The icon is an unchanged
+copy of CloudBurn's existing brand PNG, kept locally so packaging does not depend on the website repository.

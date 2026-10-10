@@ -1,0 +1,61 @@
+{
+  "name": "@cloudburn/vscode",
+  "displayName": "CloudBurn — AWS Cost Checks",
+  "version": "0.1.0",
+  "private": true,
+  "publisher": "dannysteenman",
+  "description": "Catch AWS cost waste in Terraform and CloudFormation before you commit, using the CloudBurn CLI.",
+  "homepage": "https://cloudburn.io",
+  "repository": { "type": "git", "url": "https://github.com/towardsthecloud/cloudburn.git", "directory": "packages/vscode" },
+  "bugs": { "url": "https://github.com/towardsthecloud/cloudburn/issues" },
+  "license": "Apache-2.0",
+  "icon": "icon.png",
+  "type": "module",
+  "main": "./dist/extension.cjs",
+  "engines": { "vscode": "^1.100.0" },
+  "categories": ["Linters", "Other"],
+  "keywords": ["aws", "finops", "terraform", "cloudformation", "cost", "cloudburn"],
+  "extensionKind": ["workspace"],
+  "activationEvents": ["onLanguage:terraform", "onLanguage:json", "onLanguage:yaml", "workspaceContains:**/*.tf", "workspaceContains:**/*.yaml", "workspaceContains:**/*.yml"],
+  "capabilities": {
+    "untrustedWorkspaces": { "supported": false, "description": "CloudBurn runs a local CLI and loads workspace configuration." },
+    "virtualWorkspaces": { "supported": false, "description": "The CLI requires files on the extension host filesystem." }
+  },
+  "contributes": {
+    "commands": [
+      { "command": "cloudburn.scanWorkspace", "title": "Scan Workspace", "category": "CloudBurn" },
+      { "command": "cloudburn.showOutput", "title": "Show Output", "category": "CloudBurn" },
+      { "command": "cloudburn.openCiGuide", "title": "Run These Checks in CI", "category": "CloudBurn" }
+    ],
+    "configuration": {
+      "title": "CloudBurn",
+      "properties": {
+        "cloudburn.scanOnSave": { "type": "boolean", "default": true, "scope": "resource", "description": "Scan the containing workspace folder after saving Terraform, JSON, YAML, or CloudBurn configuration." },
+        "cloudburn.executable": { "type": "string", "default": "cloudburn", "scope": "machine-overridable", "description": "CloudBurn executable available to the extension host. Use an absolute path if it is not on PATH." },
+        "cloudburn.arguments": { "type": "array", "items": { "type": "string" }, "default": [], "scope": "machine-overridable", "description": "Arguments before the scan command. For a local build or Windows npm installation, use a Node.js 24+ executable and the absolute CLI JavaScript path here." },
+        "cloudburn.configPath": { "type": "string", "default": "", "scope": "resource", "description": "Optional CloudBurn configuration path, relative to the workspace folder or absolute. Empty uses the CLI's configuration discovery." }
+      }
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc -p tsconfig.typecheck.json",
+    "test": "vitest run",
+    "test:e2e": "node scripts/test-e2e.mjs",
+    "package:vsix": "cd dist/vscode && vsce package --no-dependencies --out ../cloudburn.vsix",
+    "lint": "biome check --error-on-warnings .",
+    "lint:fix": "biome check --write ."
+  },
+  "devDependencies": {
+    "@biomejs/biome": "catalog:",
+    "@cloudburn/sdk": "workspace:*",
+    "@types/node": "catalog:",
+    "@types/vscode": "1.100.0",
+    "@vscode/test-electron": "^3.1.0",
+    "cloudburn": "workspace:*",
+    "tsup": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

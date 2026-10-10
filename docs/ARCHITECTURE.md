@@ -7,6 +7,7 @@ High-level view of the monorepo. Detailed per-package diagrams live in `docs/arc
 ```mermaid
 graph LR
   CLI["cloudburn (cli)"] --> SDK["@cloudburn/sdk"]
+  VSCode["@cloudburn/vscode"] -. JSON subprocess .-> CLI
   Action["@cloudburn/action"] --> SDK
   MCP["@cloudburn/mcp"] --> SDK
   SDK --> Rules["@cloudburn/rules"]
@@ -73,13 +74,14 @@ sequenceDiagram
 
 ## Package Responsibility
 
-| Package             | Owns                                                                          | Does NOT own                            |
-| ------------------- | ----------------------------------------------------------------------------- | --------------------------------------- |
-| `cloudburn` (cli)   | Command parsing, output formatters, exit-code behavior                        | Scanning logic, rule definitions        |
-| `@cloudburn/action` | GitHub Action manifest, inputs, annotations, PR comment, bundled distribution | Scanning logic, live discovery, the CLI |
-| `@cloudburn/mcp`    | Stdio MCP server tools, agent plugin manifests, skill, plugin build           | Scanning logic, AWS setup, the CLI      |
-| `@cloudburn/sdk`    | Scanner facade, config system, engine orchestration, parsers, AWS providers   | Rule definitions, CLI concerns          |
-| `@cloudburn/rules`  | Rule definitions, presets, type contracts, helper utilities                   | I/O, AWS SDK calls, engine logic        |
+| Package             | Owns                                                                          | Does NOT own                                     |
+| ------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------ |
+| `cloudburn` (cli)   | Command parsing, output formatters, exit-code behavior                        | Scanning logic, rule definitions                 |
+| `@cloudburn/action` | GitHub Action manifest, inputs, annotations, PR comment, bundled distribution | Scanning logic, live discovery, the CLI          |
+| `@cloudburn/mcp`    | Stdio MCP server tools, agent plugin manifests, skill, plugin build           | Scanning logic, AWS setup, the CLI               |
+| `@cloudburn/vscode` | CLI subprocess, editor lifecycle, diagnostics, status/output, VSIX            | Scanning logic, live discovery, rule definitions |
+| `@cloudburn/sdk`    | Scanner facade, config system, engine orchestration, parsers, AWS providers   | Rule definitions, CLI concerns                   |
+| `@cloudburn/rules`  | Rule definitions, presets, type contracts, helper utilities                   | I/O, AWS SDK calls, engine logic                 |
 
 The action is a private distribution package, not a published npm library. It consumes `scanStatic` like the CLI and
 ships the JavaScript bundle and WASM parser through a dedicated `towardsthecloud/cloudburn-action` repository.
@@ -93,6 +95,12 @@ and use the user's own AWS credentials; its tools are read-only wrappers over `s
 Agent Plugins manifests, MCP launchers pinned to the exact server version, and a skill. Releases copy the built
 plugin to the public `towardsthecloud/cloudburn-plugin` repository, the source for Claude Code and Codex
 marketplaces, skills.sh, and Anthropic's plugin directory. See [agent plugin sync](guides/releasing.md#agent-plugin-sync).
+
+The VS Code extension is a private distribution package shipped as a VSIX. It invokes an installed CLI with
+`--format json scan <workspace-folder>` without a shell, using the folder as its working directory. SDK imports are
+type-only; the extension contains no rule engine. Saved-file scans are debounced and superseded subprocesses are
+cancelled. Results retain independent state per workspace folder, and skipped/failed scans remain visible.
+CLI installation belongs to the extension host. See the [extension README](../packages/vscode/README.md).
 
 Static IaC scans and live AWS discovery now follow the same dataset-driven pattern. Static rules declare `staticDependencies`; live rules declare required `discoveryDependencies` and may declare `optionalDiscoveryDependencies` when supporting evidence must not block evaluation. The SDK resolves these into normalized datasets exposed through `StaticResourceBag` and `LiveResourceBag`. The CLI keeps `scan` static-only and uses `discover` for live AWS evaluation and setup flows.
 
