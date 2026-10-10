@@ -152,12 +152,37 @@ export const activate = (context: vscode.ExtensionContext): void => {
 
   const schedule = (folder: vscode.WorkspaceFolder): void => {
     if (disposed || !vscode.workspace.isTrusted || folder.uri.scheme !== 'file') return;
-    if (!vscode.workspace.getConfiguration('cloudburn', folder.uri).get<boolean>('scanOnSave', true)) return;
     const state = stateFor(folder);
     invalidate(state);
     state.timer = setTimeout(() => {
       void scan(folder);
     }, 400);
+    refresh();
+  };
+
+  const refreshFiles = (removed: readonly vscode.Uri[], added: readonly vscode.Uri[] = []): void => {
+    const affected = new Map<string, vscode.WorkspaceFolder>();
+    for (const uri of [...removed, ...added]) {
+      const folder = vscode.workspace.getWorkspaceFolder(uri);
+      if (folder) affected.set(folder.uri.toString(), folder);
+    }
+    for (const [key, folder] of affected) {
+      const state = states.get(key);
+      if (state) {
+        invalidate(state);
+        state.entries = state.entries.filter(
+          ([uri]) =>
+            !removed.some(
+              (file) => uri.toString() === file.toString() || uri.fsPath.startsWith(`${file.fsPath}${sep}`),
+            ),
+        );
+        state.findingCount = state.entries.reduce(
+          (total, [, items]) => total + items.filter((item) => typeof item.code === 'object').length,
+          0,
+        );
+      }
+      schedule(folder);
+    }
     refresh();
   };
 
@@ -185,43 +210,39 @@ export const activate = (context: vscode.ExtensionContext): void => {
       vscode.env.openExternal(vscode.Uri.parse('https://cloudburn.io/docs/cli/github-action')),
     ),
     vscode.workspace.onDidSaveTextDocument((document) => {
-      if (document.uri.scheme !== 'file' || !/\.(tf|tf\.json|json|ya?ml)$/i.test(document.uri.fsPath)) return;
+      if (document.uri.scheme !== 'file' || !/\.(tf|json|ya?ml)$/i.test(document.uri.fsPath)) return;
       const folder = vscode.workspace.getWorkspaceFolder(document.uri);
-      if (folder) schedule(folder);
+      if (folder && vscode.workspace.getConfiguration('cloudburn', folder.uri).get<boolean>('scanOnSave', true))
+        schedule(folder);
     }),
     vscode.workspace.onDidChangeConfiguration((event) => {
       for (const folder of vscode.workspace.workspaceFolders ?? []) {
         if (!event.affectsConfiguration('cloudburn', folder.uri)) continue;
         const state = states.get(folder.uri.toString());
-        if (state) {
+        if (!state) continue;
+        if (
+          ['executable', 'arguments', 'configPath'].some((key) =>
+            event.affectsConfiguration(`cloudburn.${key}`, folder.uri),
+          )
+        ) {
+          void scan(folder);
+        } else if (
+          state.timer &&
+          !vscode.workspace.getConfiguration('cloudburn', folder.uri).get<boolean>('scanOnSave', true)
+        ) {
           invalidate(state);
-          state.entries = [];
-          state.incomplete = false;
-          state.findingCount = 0;
         }
       }
       refresh();
     }),
     vscode.workspace.onDidDeleteFiles((event) => {
-      for (const [key, state] of states) {
-        if (!event.files.some((file) => vscode.workspace.getWorkspaceFolder(file)?.uri.toString() === key)) continue;
-        invalidate(state);
-        state.entries = state.entries.filter(
-          ([uri]) =>
-            !event.files.some(
-              (deleted) => uri.toString() === deleted.toString() || uri.fsPath.startsWith(`${deleted.fsPath}${sep}`),
-            ),
-        );
-        state.findingCount = state.entries.reduce(
-          (total, [, items]) => total + items.filter((item) => typeof item.code === 'object').length,
-          0,
-        );
-      }
-      for (const file of event.files) {
-        const folder = vscode.workspace.getWorkspaceFolder(file);
-        if (folder) schedule(folder);
-      }
-      refresh();
+      refreshFiles(event.files);
+    }),
+    vscode.workspace.onDidRenameFiles((event) => {
+      refreshFiles(
+        event.files.map((file) => file.oldUri),
+        event.files.map((file) => file.newUri),
+      );
     }),
     vscode.workspace.onDidChangeWorkspaceFolders((event) => {
       for (const folder of event.removed) {

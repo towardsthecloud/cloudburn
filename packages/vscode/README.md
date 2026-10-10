@@ -1,12 +1,13 @@
 # CloudBurn for VS Code
 
-Catch AWS cost waste before you commit. Check Terraform and CloudFormation with the same CLI rules and configuration
-you run in CI.
+Catch AWS cost waste before you commit. Check Terraform HCL (`.tf`) and CloudFormation JSON/YAML with the same CLI
+rules and configuration you run in CI. Terraform JSON (`.tf.json`) is not currently parsed by the CLI.
 
 ## Features
 
 - Cost findings in the Problems panel and inline diagnostics, with links to rule explanations and remediation.
 - Workspace-folder scans after saving Terraform, JSON, or YAML, debounced to avoid overlapping work.
+- Editor renames and deletions refresh affected folders, including skipped-file warnings, even with save scans disabled.
 - **CloudBurn: Scan Workspace** scans every local folder in a multi-root workspace.
 - The status bar shows findings or an incomplete scan. **CloudBurn: Show Output** opens scan details.
 - Existing rule configuration and inline suppressions remain owned by the CLI.
@@ -44,6 +45,8 @@ Skipped files and failed scans appear as workspace warnings and in Output. Parti
 An empty `configPath` preserves the CLI's discovery of `.cloudburn.yml` or `.cloudburn.yaml` from the workspace folder.
 Use an explicit path when the editor inherits a CI environment. Each workspace folder can have its own settings.
 See the [CLI configuration guide](https://cloudburn.io/docs/cli/configuration) for rule selection and suppressions.
+Changing `scanOnSave` preserves current findings. Changing the launcher, arguments, or config path rescans folders
+that have already been scanned.
 
 The CLI must be installed on the **extension host**: your computer, SSH host, container, or Codespace running the
 workspace extension. Virtual workspaces are unsupported. Scans read saved files, not unsaved buffers. Existing CDK

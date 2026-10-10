@@ -12,7 +12,12 @@ export const run = async (): Promise<void> => {
   assert.ok(folder, 'The extension test needs a workspace folder.');
   const extension = vscode.extensions.getExtension('dannysteenman.cloudburn-vscode');
   assert.ok(extension, 'VS Code must discover the extension manifest.');
-  await extension.activate();
+  const activationDeadline = Date.now() + 5000;
+  while (!extension.isActive && Date.now() < activationDeadline) {
+    await new Promise((accept) => setTimeout(accept, 50));
+  }
+  assert.ok(extension.isActive, 'A YAML-only workspace must activate CloudBurn without a YAML language extension.');
+  console.log('PASS: a YAML-only workspace activates the extension automatically');
   const config = vscode.workspace.getConfiguration('cloudburn', folder.uri);
   for (const workspaceFolder of vscode.workspace.workspaceFolders ?? []) {
     const folderConfig = vscode.workspace.getConfiguration('cloudburn', workspaceFolder.uri);
@@ -43,6 +48,11 @@ export const run = async (): Promise<void> => {
   assert.equal(findings[0]?.severity, vscode.DiagnosticSeverity.Warning);
   assert.equal(typeof findings[0]?.code === 'object' && findings[0].code.value, 'CLDBRN-AWS-EBS-1');
   console.log('PASS: workspace command publishes a located Terraform finding from the real CLI');
+
+  await config.update('scanOnSave', true, vscode.ConfigurationTarget.WorkspaceFolder);
+  await config.update('scanOnSave', false, vscode.ConfigurationTarget.WorkspaceFolder);
+  assert.equal(costFindings(vscode.Uri.file(path)).length, 1, 'Disabling save scans must retain existing findings.');
+  console.log('PASS: changing automatic-save settings preserves existing findings');
 
   await config.update('scanOnSave', true, vscode.ConfigurationTarget.WorkspaceFolder);
   await vscode.commands.executeCommand('cloudburn.scanWorkspace');
@@ -140,9 +150,31 @@ export const run = async (): Promise<void> => {
   assert.ok(vscode.languages.getDiagnostics(folder.uri).some((item) => item.message.includes('could not be parsed')));
   console.log('PASS: multi-root scans retain findings and incomplete coverage independently');
 
-  const deleted = waitForDiagnostics(yaml, () => costFindings(yaml).length === 0);
+  const complete = waitForDiagnostics(
+    folder.uri,
+    () => !vscode.languages.getDiagnostics(folder.uri).some((item) => item.source === 'CloudBurn'),
+  );
+  const removeSkipped = new vscode.WorkspaceEdit();
+  removeSkipped.deleteFile(broken);
+  await vscode.workspace.applyEdit(removeSkipped);
+  await complete;
+  assert.equal(costFindings(yaml).length, 1, 'Deleting a skipped file must retain active findings.');
+  assert.equal(costFindings(siblingFile).length, 1, 'Deleting a skipped file must preserve sibling findings.');
+  console.log('PASS: deleting skipped files refreshes coverage when scan-on-save is disabled');
+
+  const renamed = vscode.Uri.file(join(folder.uri.fsPath, 'renamed.yaml'));
+  const renamedFindings = waitForDiagnostics(renamed, () => costFindings(renamed).length === 1);
+  const rename = new vscode.WorkspaceEdit();
+  rename.renameFile(yaml, renamed);
+  await vscode.workspace.applyEdit(rename);
+  await renamedFindings;
+  assert.equal(costFindings(yaml).length, 0, 'Renamed files must not leave findings at their old URI.');
+  assert.equal(costFindings(siblingFile).length, 1, 'Renaming must preserve sibling diagnostics.');
+  console.log('PASS: renaming refreshes findings even when scan-on-save is disabled');
+
+  const deleted = waitForDiagnostics(renamed, () => costFindings(renamed).length === 0);
   const deletion = new vscode.WorkspaceEdit();
-  deletion.deleteFile(yaml);
+  deletion.deleteFile(renamed);
   await vscode.workspace.applyEdit(deletion);
   await deleted;
   assert.equal(costFindings(siblingFile).length, 1, 'Deleting a file must preserve sibling diagnostics.');

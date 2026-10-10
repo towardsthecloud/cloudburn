@@ -147,9 +147,11 @@ CLI's installed-package suite, it is uncached and needs public npm registry acce
 
 Transport tests run real child processes to reject incompatible JSON and cancel a CLI subprocess. They cover malformed
 launcher responses the healthy CLI fixtures cannot reproduce. Editor behavior is owned by the `test:e2e` suite: it
-launches VS Code 1.100.3 in an isolated multi-root workspace and invokes the extension's real commands with the built
-CLI. It checks Terraform and CloudFormation JSON/YAML locations, severities, rule links, configuration, suppressions,
-policy exit code 1, save/fix updates, deletion, sibling findings, skipped files, and recovery after a missing CLI.
+launches VS Code 1.100.3 in an isolated multi-root workspace, verifies automatic activation with only YAML present,
+and invokes the extension's real commands with the built CLI. It checks Terraform and CloudFormation JSON/YAML
+locations, severities, rule links, configuration, suppressions,
+policy exit code 1, save/fix updates, setting changes, renames, deletion, sibling findings, skipped-file removal, and
+recovery after a missing CLI. Clean-machine startup creates the download cache before invoking the editor downloader.
 The workspace name includes spaces and shell metacharacters to exercise direct argument handling.
 
 Run `pnpm exec turbo run test:e2e --filter cloudburn-vscode`. The runner downloads the pinned editor, uses `xvfb-run`

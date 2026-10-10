@@ -12,9 +12,12 @@ if (process.platform === 'linux' && !process.env.DISPLAY) {
 }
 
 const packageRoot = fileURLToPath(new URL('../', import.meta.url));
+const cachePath = resolve(packageRoot, 'node_modules/.cache/vscode-test');
+await mkdir(cachePath, { recursive: true });
 const scratch = await mkdtemp(resolve(tmpdir(), 'cloudburn-vscode-'));
 const workspace = resolve(scratch, 'workspace with spaces; $()');
 await mkdir(workspace);
+await writeFile(resolve(workspace, 'startup.yaml'), 'Resources: {}\n');
 const sibling = resolve(scratch, 'second workspace');
 await mkdir(sibling);
 const workspaceFile = resolve(scratch, 'test.code-workspace');
@@ -22,7 +25,7 @@ await writeFile(workspaceFile, JSON.stringify({ folders: [{ path: workspace }, {
 try {
   await runTests({
     version: '1.100.3',
-    cachePath: resolve(packageRoot, 'node_modules/.cache/vscode-test'),
+    cachePath,
     vscodeExecutablePath: process.env.CLOUDBURN_VSCODE_EXECUTABLE,
     extensionDevelopmentPath: packageRoot,
     extensionTestsPath: resolve(packageRoot, 'dist/e2e-suite.cjs'),

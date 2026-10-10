@@ -16,7 +16,7 @@
   "categories": ["Linters", "Other"],
   "keywords": ["aws", "finops", "terraform", "cloudformation", "cost", "cloudburn"],
   "extensionKind": ["workspace"],
-  "activationEvents": ["onLanguage:terraform", "onLanguage:json", "onLanguage:yaml", "workspaceContains:**/*.tf"],
+  "activationEvents": ["onLanguage:terraform", "onLanguage:json", "onLanguage:yaml", "workspaceContains:**/*.tf", "workspaceContains:**/*.yaml", "workspaceContains:**/*.yml"],
   "capabilities": {
     "untrustedWorkspaces": { "supported": false, "description": "CloudBurn runs a local CLI and loads workspace configuration." },
     "virtualWorkspaces": { "supported": false, "description": "The CLI requires files on the extension host filesystem." }
