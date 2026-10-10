@@ -1,5 +1,5 @@
 {
-  "name": "cloudburn-vscode",
+  "name": "@cloudburn/vscode",
   "displayName": "CloudBurn — AWS Cost Checks",
   "version": "0.1.0",
   "private": true,
@@ -43,7 +43,7 @@
     "typecheck": "tsc -p tsconfig.typecheck.json",
     "test": "vitest run",
     "test:e2e": "node scripts/test-e2e.mjs",
-    "package:vsix": "vsce package --no-dependencies --out dist/cloudburn.vsix",
+    "package:vsix": "cd dist/vscode && vsce package --no-dependencies --out ../cloudburn.vsix",
     "lint": "biome check --error-on-warnings .",
     "lint:fix": "biome check --write ."
   },

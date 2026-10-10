@@ -43,7 +43,7 @@ adding, moving, or retiring durable documentation.
 | `cloudburn`         | [`packages/cloudburn/AGENTS.md`](../packages/cloudburn/AGENTS.md) | [`packages/cloudburn/README.md`](../packages/cloudburn/README.md) |
 | `@cloudburn/action` | [`packages/action/AGENTS.md`](../packages/action/AGENTS.md)       | [`packages/action/README.md`](../packages/action/README.md)       |
 | `@cloudburn/mcp`    | [`packages/mcp/AGENTS.md`](../packages/mcp/AGENTS.md)             | [`packages/mcp/README.md`](../packages/mcp/README.md)             |
-| `cloudburn-vscode`  | [`packages/vscode/AGENTS.md`](../packages/vscode/AGENTS.md)       | [`packages/vscode/README.md`](../packages/vscode/README.md)       |
+| `@cloudburn/vscode` | [`packages/vscode/AGENTS.md`](../packages/vscode/AGENTS.md)       | [`packages/vscode/README.md`](../packages/vscode/README.md)       |
 | `@cloudburn/sdk`    | [`packages/sdk/AGENTS.md`](../packages/sdk/AGENTS.md)             | [`packages/sdk/README.md`](../packages/sdk/README.md)             |
 | `@cloudburn/rules`  | [`packages/rules/AGENTS.md`](../packages/rules/AGENTS.md)         | [`packages/rules/README.md`](../packages/rules/README.md)         |
 

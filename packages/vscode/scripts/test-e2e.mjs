@@ -27,7 +27,7 @@ try {
     version: '1.100.3',
     cachePath,
     vscodeExecutablePath: process.env.CLOUDBURN_VSCODE_EXECUTABLE,
-    extensionDevelopmentPath: packageRoot,
+    extensionDevelopmentPath: resolve(packageRoot, 'dist/vscode'),
     extensionTestsPath: resolve(packageRoot, 'dist/e2e-suite.cjs'),
     extensionTestsEnv: {
       CLOUDBURN_TEST_NODE: process.execPath,

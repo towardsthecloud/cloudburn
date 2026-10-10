@@ -1,5 +1,5 @@
 ---
-'cloudburn-vscode': minor
+'@cloudburn/vscode': minor
 ---
 
 Add a VS Code extension that runs CloudBurn's CLI on saved Terraform and CloudFormation workspaces, displays located

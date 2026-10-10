@@ -75,13 +75,18 @@ Keep rule configuration in your repository so developers and code review use the
 
 ## Develop and package
 
-From the monorepo root, use the pinned runtimes in [local development](../../docs/guides/local-development.md):
+From the monorepo root, use the pinned runtimes in
+[local development](https://github.com/towardsthecloud/cloudburn/blob/main/docs/guides/local-development.md):
 
 ```bash
-pnpm exec turbo run build --filter cloudburn-vscode
-pnpm exec turbo run test:e2e --filter cloudburn-vscode
-pnpm exec turbo run package:vsix --filter cloudburn-vscode
+pnpm exec turbo run build --filter @cloudburn/vscode
+pnpm exec turbo run test:e2e --filter @cloudburn/vscode
+pnpm exec turbo run package:vsix --filter @cloudburn/vscode
 ```
+
+The workspace package is `@cloudburn/vscode`. Its build generates `dist/vscode/` with the public extension name
+`cloudburn-vscode`, the source package version, and publisher `dannysteenman`. Editor tests and packaging use this
+generated directory; edit the source manifest and listing assets rather than the generated files.
 
 Packaging requires `vsce` (`npm install --global @vscode/vsce`) and creates `packages/vscode/dist/cloudburn.vsix`.
 Only the manifest, README, changelog, license, icon, and extension bundle ship. The CLI is installed separately;

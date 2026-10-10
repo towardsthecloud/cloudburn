@@ -16,7 +16,6 @@ dist/
 
 # IDE
 .vscode/
-packages/vscode/LICENSE
 .idea/
 
 # Coverage

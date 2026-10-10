@@ -7,7 +7,7 @@ High-level view of the monorepo. Detailed per-package diagrams live in `docs/arc
 ```mermaid
 graph LR
   CLI["cloudburn (cli)"] --> SDK["@cloudburn/sdk"]
-  VSCode["cloudburn-vscode"] -. JSON subprocess .-> CLI
+  VSCode["@cloudburn/vscode"] -. JSON subprocess .-> CLI
   Action["@cloudburn/action"] --> SDK
   MCP["@cloudburn/mcp"] --> SDK
   SDK --> Rules["@cloudburn/rules"]
@@ -79,7 +79,7 @@ sequenceDiagram
 | `cloudburn` (cli)   | Command parsing, output formatters, exit-code behavior                        | Scanning logic, rule definitions                 |
 | `@cloudburn/action` | GitHub Action manifest, inputs, annotations, PR comment, bundled distribution | Scanning logic, live discovery, the CLI          |
 | `@cloudburn/mcp`    | Stdio MCP server tools, agent plugin manifests, skill, plugin build           | Scanning logic, AWS setup, the CLI               |
-| `cloudburn-vscode`  | CLI subprocess, editor lifecycle, diagnostics, status/output, VSIX            | Scanning logic, live discovery, rule definitions |
+| `@cloudburn/vscode` | CLI subprocess, editor lifecycle, diagnostics, status/output, VSIX            | Scanning logic, live discovery, rule definitions |
 | `@cloudburn/sdk`    | Scanner facade, config system, engine orchestration, parsers, AWS providers   | Rule definitions, CLI concerns                   |
 | `@cloudburn/rules`  | Rule definitions, presets, type contracts, helper utilities                   | I/O, AWS SDK calls, engine logic                 |
 

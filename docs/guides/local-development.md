@@ -26,14 +26,14 @@ pnpm turbo run build --filter @cloudburn/sdk
 pnpm turbo run lint --filter cloudburn
 pnpm turbo run test:e2e --filter @cloudburn/action
 pnpm turbo run test:e2e --filter @cloudburn/mcp
-pnpm exec turbo run test:e2e --filter cloudburn-vscode
-pnpm exec turbo run package:vsix --filter cloudburn-vscode
+pnpm exec turbo run test:e2e --filter @cloudburn/vscode
+pnpm exec turbo run package:vsix --filter @cloudburn/vscode
 pnpm --filter @cloudburn/sdk exec vitest run test/discovery-http-integration.test.ts
 pnpm test:e2e
 pnpm test:packages
 ```
 
-Package names are `cloudburn`, `@cloudburn/action`, `@cloudburn/mcp`, `cloudburn-vscode`, `@cloudburn/sdk`, and `@cloudburn/rules`.
+Package names are `cloudburn`, `@cloudburn/action`, `@cloudburn/mcp`, `@cloudburn/vscode`, `@cloudburn/sdk`, and `@cloudburn/rules`.
 For action input, comment, or bundle changes, start with the [action package instructions](../../packages/action/AGENTS.md).
 For MCP tools, the skill, or plugin manifests, start with the [MCP package instructions](../../packages/mcp/AGENTS.md).
 For editor scans, diagnostics, or VSIX packaging, use the [VS Code package instructions](../../packages/vscode/AGENTS.md)

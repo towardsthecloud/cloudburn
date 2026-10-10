@@ -1,4 +1,4 @@
-# cloudburn-vscode
+# @cloudburn/vscode
 
 ## 0.1.0
 

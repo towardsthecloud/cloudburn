@@ -1,8 +1,10 @@
 # VS Code extension
 
-`cloudburn-vscode` is a private distribution package. It runs the installed CLI over a JSON subprocess boundary;
+`@cloudburn/vscode` is a private distribution package. It runs the installed CLI over a JSON subprocess boundary;
 scanning, rule selection, configuration, and suppressions remain in the CLI/SDK. SDK imports here are type-only.
 
+- [Manifest preparation](scripts/prepare-extension.mjs) derives the public `cloudburn-vscode` manifest and assets in
+  `dist/vscode/` from this scoped package. Edit source inputs; editor tests and packaging consume the generated directory.
 - Keep subprocess launches shell-free. Executable and launcher arguments are separate settings; never download or
   install a CLI implicitly. Scans require a trusted workspace on the extension host filesystem.
 - Resolve finding locations relative to the scanned folder. Ignore locations outside it, preserve sibling workspace

@@ -2,7 +2,7 @@
   "extends": ["//"],
   "tags": ["layer:vscode"],
   "tasks": {
-    "build": { "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/LICENSE"], "outputs": ["dist/**", "LICENSE"] },
+    "build": { "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/LICENSE"], "outputs": ["dist/**"] },
     "test:e2e": {
       "dependsOn": ["build", "cloudburn#build"],
       "cache": false,

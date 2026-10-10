@@ -61,15 +61,16 @@ pnpm turbo run lint --filter ...[main]
 
 Package layer tags live in each package's `turbo.json`, not its `package.json`. Root `turbo.json` maps those tags to denied
 dependency directions and defines task caching: `cloudburn` is `layer:cli`, `@cloudburn/action` is `layer:action`,
-`@cloudburn/mcp` is `layer:mcp`, `cloudburn-vscode` is `layer:vscode`, `@cloudburn/sdk` is `layer:sdk`, and `@cloudburn/rules` is `layer:rules`.
+`@cloudburn/mcp` is `layer:mcp`, `@cloudburn/vscode` is `layer:vscode`, `@cloudburn/sdk` is `layer:sdk`, and `@cloudburn/rules` is `layer:rules`.
 
 `build` depends on upstream builds and caches `dist/**`; its inputs exclude `test/**` because fixtures do not affect published output. `typecheck` depends on upstream builds. Source `test` tasks use the `test:inputs` transit task to inherit upstream source hashes without waiting for builds or upstream tests. `test:e2e` and `test:package` depend on the current package build. `test:package` is uncached because it installs archives with public registry dependencies.
 `dev` is persistent and uncached, while `lint:fix` and `clean` are uncached because they mutate or remove files. Changes to
 `tsconfig.base.json`, `biome.jsonc`, `pnpm-lock.yaml`, or the root `package.json` invalidate the shared task cache.
 
-The VS Code package overrides build inputs to include its editor test bundle and the root license, and caches the copied
-`LICENSE` alongside `dist/**`. Its E2E task starts a real editor and is uncached. `package:vsix` depends on that build
-and writes `dist/cloudburn.vsix`; it requires `vsce` on PATH and neither publishes nor installs the extension.
+The VS Code package overrides build inputs to include its editor test bundle and the root license. Its build stages
+the public extension manifest, runtime bundle, and listing assets in `dist/vscode/`, all cached inside `dist/**`.
+Its uncached E2E task loads that generated directory in a real editor. `package:vsix` depends on the build, packages
+the same directory, and writes `dist/cloudburn.vsix`; it requires `vsce` on PATH and neither publishes nor installs the extension.
 
 ## Release-only commands
 

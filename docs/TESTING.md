@@ -143,18 +143,18 @@ Its `test:package` suite packs the MCP server, SDK, and rules, installs the arch
 `dist/cli.js`. It then starts the installed `cloudburn-mcp` executable over stdio and runs a Terraform scan. Like the
 CLI's installed-package suite, it is uncached and needs public npm registry access.
 
-### `cloudburn-vscode`
+### `@cloudburn/vscode`
 
 Transport tests run real child processes to reject incompatible JSON and cancel a CLI subprocess. They cover malformed
 launcher responses the healthy CLI fixtures cannot reproduce. Editor behavior is owned by the `test:e2e` suite: it
-launches VS Code 1.100.3 in an isolated multi-root workspace, verifies automatic activation with only YAML present,
-and invokes the extension's real commands with the built CLI. It checks Terraform and CloudFormation JSON/YAML
+loads the generated `dist/vscode/` extension in VS Code 1.100.3 in an isolated multi-root workspace, verifies automatic
+activation with only YAML present, and invokes the extension's real commands with the built CLI. It checks Terraform and CloudFormation JSON/YAML
 locations, severities, rule links, configuration, suppressions,
 policy exit code 1, save/fix updates, setting changes, renames, deletion, sibling findings, skipped-file removal, and
 recovery after a missing CLI. Clean-machine startup creates the download cache before invoking the editor downloader.
 The workspace name includes spaces and shell metacharacters to exercise direct argument handling.
 
-Run `pnpm exec turbo run test:e2e --filter cloudburn-vscode`. The runner downloads the pinned editor, uses `xvfb-run`
+Run `pnpm exec turbo run test:e2e --filter @cloudburn/vscode`. The runner downloads the pinned editor, uses `xvfb-run`
 on Linux without a display, and removes temporary workspaces. `CLOUDBURN_VSCODE_EXECUTABLE` selects an installed editor
 for compatibility checks. The task is uncached because it starts an editor process. No AWS access is needed.
 

@@ -1,4 +1,3 @@
-import { copyFile } from 'node:fs/promises';
 import { defineConfig } from 'tsup';
 
 export default defineConfig({
@@ -10,5 +9,5 @@ export default defineConfig({
   clean: true,
   sourcemap: true,
   dts: false,
-  onSuccess: async () => { await copyFile('../../LICENSE', 'LICENSE'); },
+  onSuccess: 'node scripts/prepare-extension.mjs',
 });
