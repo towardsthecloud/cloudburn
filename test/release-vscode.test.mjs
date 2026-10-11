@@ -25,7 +25,15 @@ function git(cwd, ...args) {
   return result.stdout.trim();
 }
 
-for (const scenario of ['released main commit', 'wrong version', 'off main', 'branch dispatch', 'wrong tag target']) {
+for (const scenario of [
+  'released main commit',
+  'wrong version',
+  'off main',
+  'branch dispatch',
+  'wrong tag target',
+  'later source change without a version bump',
+  'manifest-only non-version edit',
+]) {
   test(`extension release guard checks ${scenario}`, (t) => {
     const script = releaseShell();
     const cwd = mkdtempSync(join(tmpdir(), 'cloudburn-vscode-release-'));
@@ -34,14 +42,30 @@ for (const scenario of ['released main commit', 'wrong version', 'off main', 'br
     git(cwd, 'config', 'user.name', 'Release test');
     git(cwd, 'config', 'user.email', 'release@example.test');
     mkdirSync(join(cwd, 'packages/vscode'), { recursive: true });
-    writeFileSync(join(cwd, 'packages/vscode/package.json'), '{"name":"@cloudburn/vscode","version":"0.2.0","private":true}');
+    const manifestPath = join(cwd, 'packages/vscode/package.json');
+    writeFileSync(manifestPath, '{"name":"@cloudburn/vscode","version":"0.1.0","private":true}');
     git(cwd, 'add', '.');
-    git(cwd, 'commit', '-m', 'Released extension');
+    git(cwd, 'commit', '-m', 'Introduce extension');
+    writeFileSync(manifestPath, '{"name":"@cloudburn/vscode","version":"0.2.0","private":true}');
+    git(cwd, 'add', '.');
+    git(cwd, 'commit', '-m', 'Bump extension version');
     git(cwd, 'update-ref', 'refs/remotes/origin/main', 'HEAD');
     const tag = scenario === 'wrong version' ? '@cloudburn/vscode@0.3.0' : '@cloudburn/vscode@0.2.0';
     if (scenario === 'wrong tag target') git(cwd, 'tag', '-a', tag, '-m', 'Release');
     if (scenario === 'off main' || scenario === 'wrong tag target') {
       git(cwd, 'commit', '--allow-empty', '-m', 'Unreleased commit');
+    }
+    if (scenario === 'later source change without a version bump') {
+      writeFileSync(join(cwd, 'extension.ts'), 'export const release = true;\n');
+      git(cwd, 'add', '.');
+      git(cwd, 'commit', '-m', 'Change extension source');
+      git(cwd, 'update-ref', 'refs/remotes/origin/main', 'HEAD');
+    }
+    if (scenario === 'manifest-only non-version edit') {
+      writeFileSync(manifestPath, '{"name":"@cloudburn/vscode","version":"0.2.0","private":true,"description":"Updated"}');
+      git(cwd, 'add', '.');
+      git(cwd, 'commit', '-m', 'Edit manifest metadata');
+      git(cwd, 'update-ref', 'refs/remotes/origin/main', 'HEAD');
     }
     if (scenario === 'wrong tag target') git(cwd, 'update-ref', 'refs/remotes/origin/main', 'HEAD');
     if (scenario !== 'wrong tag target') git(cwd, 'tag', '-a', tag, '-m', 'Release');

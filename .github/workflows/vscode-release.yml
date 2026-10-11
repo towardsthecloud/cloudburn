@@ -34,6 +34,7 @@ jobs:
           test "$RELEASE_TAG" = "@cloudburn/vscode@$(node -p 'require("./packages/vscode/package.json").version')"
           test "$(git rev-parse "${RELEASE_TAG}^{commit}")" = "$(git rev-parse HEAD)"
           git merge-base --is-ancestor HEAD origin/main
+          node -e 'const { execFileSync } = require("node:child_process"); const { readFileSync } = require("node:fs"); const path = "packages/vscode/package.json"; const current = JSON.parse(readFileSync(path, "utf8")).version; const parent = JSON.parse(execFileSync("git", ["show", `HEAD^:${path}`], { encoding: "utf8" })).version; if (current === parent) process.exit(1)'
 
   validate:
     needs: version

@@ -29,7 +29,9 @@ the contents before distribution. The build copies the workspace package version
 
 The [extension release workflow](../../.github/workflows/vscode-release.yml) follows the tag-triggered pattern used by
 the SAM and IAM Service Principal Snippets extensions. It accepts only `@cloudburn/vscode@<version>` tags matching the
-package manifest at a commit on `main`. It runs extension lint, typechecking, transport tests, and real-editor tests
+package manifest at a commit on `main`, and requires that commit's manifest version to differ from its first parent.
+The tag must point to the version-bump commit; a later source or manifest metadata commit cannot reuse the version.
+It runs extension lint, typechecking, transport tests, and real-editor tests
 with the built CLI before packaging one VSIX. Independent publish jobs upload that same artifact to Visual Studio
 Marketplace and Open VSX. Both jobs skip an already-published version, so rerunning a partially failed release repairs
 the missing destination. Publishing CLIs are pinned in the workflow; version changes remain owned by Changesets.

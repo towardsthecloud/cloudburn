@@ -13,11 +13,17 @@ const projectFindings = (folder: vscode.WorkspaceFolder, result: ScanResult): [v
   for (const provider of result.providers) {
     for (const rule of provider.rules) {
       for (const finding of rule.findings) {
-        if (!finding.location) continue;
-        const { path, line, column, endLine, endColumn } = finding.location;
-        const file = resolve(folder.uri.fsPath, path);
-        if (!containsPath(folder.uri.fsPath, file)) continue;
-        const range = new vscode.Range(line - 1, column - 1, (endLine ?? line) - 1, (endColumn ?? column) - 1);
+        const location = finding.location;
+        const file = location ? resolve(folder.uri.fsPath, location.path) : folder.uri.fsPath;
+        if (location && !containsPath(folder.uri.fsPath, file)) continue;
+        const range = location
+          ? new vscode.Range(
+              location.line - 1,
+              location.column - 1,
+              (location.endLine ?? location.line) - 1,
+              (location.endColumn ?? location.column) - 1,
+            )
+          : new vscode.Range(0, 0, 0, 0);
         const severity = rule.severity === 'high' ? vscode.DiagnosticSeverity.Error : vscode.DiagnosticSeverity.Warning;
         const diagnostic = new vscode.Diagnostic(range, `${rule.message} (${finding.resourceId})`, severity);
         diagnostic.source = 'CloudBurn';
@@ -94,6 +100,7 @@ export const activate = (context: vscode.ExtensionContext): void => {
     state.revision += 1;
     if (state.timer) clearTimeout(state.timer);
     state.timer = undefined;
+    state.timerReason = undefined;
     state.abort?.abort();
     state.abort = undefined;
   };
@@ -141,7 +148,11 @@ export const activate = (context: vscode.ExtensionContext): void => {
         diagnostic.code = item.code ?? 'incomplete-scan';
         return diagnostic;
       });
-      if (coverage.length) state.entries.push([folder.uri, coverage]);
+      if (coverage.length) {
+        const folderEntry = state.entries.find(([uri]) => uri.toString() === folder.uri.toString());
+        if (folderEntry) folderEntry[1].push(...coverage);
+        else state.entries.push([folder.uri, coverage]);
+      }
     } catch (error) {
       if (disposed || revision !== state.revision || abort.signal.aborted) return;
       const message = error instanceof Error ? error.message : String(error);
@@ -164,10 +175,12 @@ export const activate = (context: vscode.ExtensionContext): void => {
     }
   };
 
-  const schedule = (folder: vscode.WorkspaceFolder): void => {
+  const schedule = (folder: vscode.WorkspaceFolder, reason: 'save' | 'mandatory'): void => {
     if (disposed || !vscode.workspace.isTrusted || folder.uri.scheme !== 'file') return;
     const state = stateFor(folder);
+    if (state.timer && state.timerReason === 'mandatory' && reason === 'save') return;
     invalidate(state);
+    state.timerReason = reason;
     state.timer = setTimeout(() => {
       void scan(folder);
     }, 400);
@@ -195,7 +208,7 @@ export const activate = (context: vscode.ExtensionContext): void => {
           0,
         );
       }
-      schedule(folder);
+      schedule(folder, 'mandatory');
     }
     refresh();
   };
@@ -224,10 +237,21 @@ export const activate = (context: vscode.ExtensionContext): void => {
       vscode.env.openExternal(vscode.Uri.parse('https://cloudburn.io/docs/cli/github-action')),
     ),
     vscode.workspace.onDidSaveTextDocument((document) => {
-      if (document.uri.scheme !== 'file' || !/\.(tf|json|ya?ml)$/i.test(document.uri.fsPath)) return;
-      const folder = folderForScan(document.uri);
-      if (folder && vscode.workspace.getConfiguration('cloudburn', folder.uri).get<boolean>('scanOnSave', true))
-        schedule(folder);
+      if (document.uri.scheme !== 'file') return;
+      const supportedFile = /\.(tf|json|ya?ml)$/i.test(document.uri.fsPath);
+      const savedPath = resolve(document.uri.fsPath);
+      const affected = new Map<string, vscode.WorkspaceFolder>();
+      for (const folder of scanFolders()) {
+        const config = vscode.workspace.getConfiguration('cloudburn', folder.uri);
+        const configPath = config.get<string>('configPath', '');
+        if (
+          config.get<boolean>('scanOnSave', true) &&
+          ((supportedFile && containsPath(folder.uri.fsPath, document.uri.fsPath)) ||
+            (configPath && resolve(folder.uri.fsPath, configPath) === savedPath))
+        )
+          affected.set(folder.uri.toString(), folder);
+      }
+      for (const folder of affected.values()) schedule(folder, 'save');
     }),
     vscode.workspace.onDidChangeConfiguration((event) => {
       for (const folder of scanFolders()) {
@@ -242,6 +266,7 @@ export const activate = (context: vscode.ExtensionContext): void => {
           void scan(folder);
         } else if (
           state.timer &&
+          state.timerReason === 'save' &&
           !vscode.workspace.getConfiguration('cloudburn', folder.uri).get<boolean>('scanOnSave', true)
         ) {
           invalidate(state);
@@ -273,7 +298,7 @@ export const activate = (context: vscode.ExtensionContext): void => {
             (uri) => containsPath(uri.fsPath, folder.uri.fsPath) || containsPath(folder.uri.fsPath, uri.fsPath),
           )
         ) {
-          schedule(folder);
+          schedule(folder, 'mandatory');
         }
       }
       refresh();
@@ -288,4 +313,5 @@ type FolderState = {
   incomplete: boolean;
   abort?: AbortController;
   timer?: ReturnType<typeof setTimeout>;
+  timerReason?: 'save' | 'mandatory';
 };

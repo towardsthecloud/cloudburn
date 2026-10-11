@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 import * as vscode from 'vscode';
 
 /**
@@ -169,17 +169,140 @@ export const run = async (): Promise<void> => {
   assert.ok(vscode.languages.getDiagnostics(folder.uri).some((item) => item.message.includes('could not be parsed')));
   console.log('PASS: multi-root scans retain findings and incomplete coverage independently');
 
+  await config.update('scanOnSave', true, vscode.ConfigurationTarget.WorkspaceFolder);
   const complete = waitForDiagnostics(
     folder.uri,
-    () => !vscode.languages.getDiagnostics(folder.uri).some((item) => item.source === 'CloudBurn'),
+    () =>
+      !vscode.languages
+        .getDiagnostics(folder.uri)
+        .some((item) => item.source === 'CloudBurn' && item.message.includes('could not be parsed')),
   );
   const removeSkipped = new vscode.WorkspaceEdit();
   removeSkipped.deleteFile(broken);
   await vscode.workspace.applyEdit(removeSkipped);
+  const mainDocument = await vscode.workspace.openTextDocument(vscode.Uri.file(path));
+  const saveEdit = new vscode.WorkspaceEdit();
+  saveEdit.replace(
+    mainDocument.uri,
+    new vscode.Range(0, 0, mainDocument.lineCount, 0),
+    mainDocument.getText().replace('type = "gp2"', 'type = "gp3"'),
+  );
+  await vscode.workspace.applyEdit(saveEdit);
+  await mainDocument.save();
+  await config.update('scanOnSave', false, vscode.ConfigurationTarget.WorkspaceFolder);
   await complete;
   assert.equal(costFindings(yaml).length, 1, 'Deleting a skipped file must retain active findings.');
   assert.equal(costFindings(siblingFile).length, 1, 'Deleting a skipped file must preserve sibling findings.');
-  console.log('PASS: deleting skipped files refreshes coverage when scan-on-save is disabled');
+  console.log('PASS: deleting skipped files refreshes coverage after a coalesced save and disabled save scans');
+
+  const siblingFolder = vscode.workspace.workspaceFolders?.[1];
+  assert.ok(siblingFolder, 'The shared-config test needs a second workspace folder.');
+  const siblingConfig = vscode.workspace.getConfiguration('cloudburn', siblingFolder.uri);
+  const sharedPolicyPath = join(dirname(folder.uri.fsPath), 'shared-policy.policy');
+  const sharedPolicy = vscode.Uri.file(sharedPolicyPath);
+  await writeFile(sharedPolicyPath, 'iac:\n  enabled-rules: [CLDBRN-AWS-EBS-1]\n');
+  await config.update('configPath', sharedPolicyPath, vscode.ConfigurationTarget.WorkspaceFolder);
+  await siblingConfig.update(
+    'configPath',
+    relative(siblingFolder.uri.fsPath, sharedPolicyPath),
+    vscode.ConfigurationTarget.WorkspaceFolder,
+  );
+  await config.update('scanOnSave', true, vscode.ConfigurationTarget.WorkspaceFolder);
+  await siblingConfig.update('scanOnSave', false, vscode.ConfigurationTarget.WorkspaceFolder);
+  await vscode.commands.executeCommand('cloudburn.scanWorkspace');
+  assert.equal(costFindings(yaml).length, 1);
+  assert.equal(costFindings(siblingFile).length, 1);
+  const sharedPolicyDocument = await vscode.workspace.openTextDocument(sharedPolicy);
+  const disableFirst = waitForDiagnostics(yaml, () => costFindings(yaml).length === 0);
+  const disabledPolicyEdit = new vscode.WorkspaceEdit();
+  disabledPolicyEdit.replace(
+    sharedPolicyDocument.uri,
+    new vscode.Range(0, 0, sharedPolicyDocument.lineCount, 0),
+    'iac:\n  services: [ec2]\n',
+  );
+  await vscode.workspace.applyEdit(disabledPolicyEdit);
+  await sharedPolicyDocument.save();
+  await disableFirst;
+  assert.equal(costFindings(siblingFile).length, 1, 'A root with save scans disabled must retain its findings.');
+  await config.update('scanOnSave', false, vscode.ConfigurationTarget.WorkspaceFolder);
+  await siblingConfig.update('scanOnSave', true, vscode.ConfigurationTarget.WorkspaceFolder);
+  const disableSibling = waitForDiagnostics(siblingFile, () => costFindings(siblingFile).length === 0);
+  const resavePolicy = new vscode.WorkspaceEdit();
+  resavePolicy.replace(
+    sharedPolicyDocument.uri,
+    new vscode.Range(0, 0, sharedPolicyDocument.lineCount, 0),
+    `# second save\n${sharedPolicyDocument.getText()}`,
+  );
+  await vscode.workspace.applyEdit(resavePolicy);
+  await sharedPolicyDocument.save();
+  await disableSibling;
+  await config.update('configPath', 'policy.yml', vscode.ConfigurationTarget.WorkspaceFolder);
+  await siblingConfig.update('configPath', '', vscode.ConfigurationTarget.WorkspaceFolder);
+  await config.update('scanOnSave', false, vscode.ConfigurationTarget.WorkspaceFolder);
+  await siblingConfig.update('scanOnSave', false, vscode.ConfigurationTarget.WorkspaceFolder);
+  await vscode.commands.executeCommand('cloudburn.scanWorkspace');
+  assert.equal(costFindings(yaml).length, 1, 'Absolute shared configs must rescan their referencing root.');
+  assert.equal(costFindings(siblingFile).length, 1, 'Sibling-relative shared configs must rescan their root.');
+  console.log(
+    'PASS: saving a shared external policy refreshes absolute and sibling-relative roots by their own settings',
+  );
+
+  const originalArguments = config.get<string[]>('arguments', []);
+  const originalExecutable = config.get<string>('executable', 'cloudburn');
+  const originalConfigPath = config.get<string>('configPath', '');
+  const originalScanOnSave = config.get<boolean>('scanOnSave', true);
+  const syntheticLauncher = join(folder.uri.fsPath, 'synthetic-cloudburn.mjs');
+  const syntheticResult = {
+    providers: [
+      {
+        provider: 'aws',
+        rules: [
+          {
+            ruleId: 'CLDBRN-AWS-EBS-1',
+            service: 'ebs',
+            source: 'iac',
+            severity: 'high',
+            message: 'Synthetic unlocated finding',
+            findings: [{ resourceId: 'aws_ebs_volume.unlocated' }],
+          },
+        ],
+      },
+    ],
+    diagnostics: [{ status: 'unknown', code: 'synthetic-coverage', message: 'Synthetic incomplete coverage' }],
+  };
+  await writeFile(syntheticLauncher, `process.stdout.write(${JSON.stringify(JSON.stringify(syntheticResult))});\n`);
+  try {
+    await config.update('arguments', [syntheticLauncher], vscode.ConfigurationTarget.WorkspaceFolder);
+    await vscode.commands.executeCommand('cloudburn.scanWorkspace');
+    const folderDiagnostics = vscode.languages.getDiagnostics(folder.uri).filter((item) => item.source === 'CloudBurn');
+    assert.equal(folderDiagnostics.length, 2, 'Folder findings and coverage must share one diagnostic entry.');
+    const unlocated = folderDiagnostics.find(
+      (item) => typeof item.code === 'object' && item.code.value === 'CLDBRN-AWS-EBS-1',
+    );
+    assert.ok(unlocated, 'An unlocated finding must be shown at the workspace folder.');
+    assert.equal(unlocated.message, 'Synthetic unlocated finding (aws_ebs_volume.unlocated)');
+    assert.equal(unlocated.severity, vscode.DiagnosticSeverity.Error);
+    assert.ok(unlocated.range.isEqual(new vscode.Range(0, 0, 0, 0)));
+    assert.equal(
+      typeof unlocated.code === 'object' && unlocated.code.target.toString(),
+      'https://cloudburn.io/docs/rules/aws/ebs#cldbrn-aws-ebs-1',
+    );
+    assert.ok(folderDiagnostics.some((item) => item.code === 'synthetic-coverage'));
+    console.log('PASS: unlocated findings and coverage diagnostics coexist at the workspace folder');
+  } finally {
+    await config.update('arguments', originalArguments, vscode.ConfigurationTarget.WorkspaceFolder);
+    await config.update('executable', originalExecutable, vscode.ConfigurationTarget.WorkspaceFolder);
+    await config.update('configPath', originalConfigPath, vscode.ConfigurationTarget.WorkspaceFolder);
+    await config.update('scanOnSave', originalScanOnSave, vscode.ConfigurationTarget.WorkspaceFolder);
+  }
+  assert.deepEqual(config.get<string[]>('arguments', []), originalArguments);
+  assert.equal(config.get<string>('executable', 'cloudburn'), originalExecutable);
+  assert.equal(config.get<string>('configPath', ''), originalConfigPath);
+  assert.equal(config.get<boolean>('scanOnSave', true), originalScanOnSave);
+  const restoredFindings = waitForDiagnostics(yaml, () => costFindings(yaml).length === 1);
+  await vscode.commands.executeCommand('cloudburn.scanWorkspace');
+  await restoredFindings;
+  assert.equal(costFindings(yaml).length, 1, 'The real CLI arguments and workspace settings must be restored.');
 
   const renamed = vscode.Uri.file(join(folder.uri.fsPath, 'renamed.yaml'));
   const renamedFindings = waitForDiagnostics(renamed, () => costFindings(renamed).length === 1);

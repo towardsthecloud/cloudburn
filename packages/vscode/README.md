@@ -23,6 +23,7 @@ rules and configuration you run in CI. Terraform JSON (`.tf.json`) is not curren
 - Cost findings in the Problems panel and inline diagnostics, with links to rule explanations and remediation.
 - Workspace-folder scans after saving Terraform, JSON, or YAML, debounced to avoid overlapping work.
 - Editor renames and deletions refresh affected folders, including skipped-file warnings, even with save scans disabled.
+- Saving a file referenced by an explicit config path refreshes each referencing folder with save scans enabled.
 - **CloudBurn: Scan Workspace** scans every local folder in a multi-root workspace.
 - Overlapping workspace folders share one scan using the outermost folder's settings, avoiding duplicate findings.
 - The status bar shows findings or an incomplete scan. **CloudBurn: Show Output** opens scan details.
@@ -47,6 +48,7 @@ not upload source files or collect telemetry, and it does not automatically chan
 
 A Terraform volume with `type = "gp2"` produces `CLDBRN-AWS-EBS-1`. After reviewing the rule and changing it to `gp3`,
 save to rerun the scan and clear the finding. High-severity findings appear as errors; medium and low as warnings.
+Findings without source locations appear at the workspace folder as warnings or errors according to rule severity.
 Skipped files and failed scans appear as workspace warnings and in Output. Partial scans never appear as clean scans.
 
 ### See it in action
@@ -70,7 +72,9 @@ CloudFormation gets the same checks. Open an inline finding to see its rule ID a
 | `cloudburn.configPath` | `""`        | Explicit config path, relative to each folder or absolute. |
 
 An empty `configPath` preserves the CLI's discovery of `.cloudburn.yml` or `.cloudburn.yaml` from the workspace folder.
-Use an explicit path when the editor inherits a CI environment. Separate workspace folders can have their own settings.
+Use an explicit path when the editor inherits a CI environment. Saving a configured file refreshes each referencing
+folder that has `scanOnSave` enabled, including when the file has a custom name or is outside the workspace folders.
+Separate workspace folders can have their own settings.
 When folders overlap, the outermost folder owns the scan and its settings, including save scans and the config path.
 See the [CLI configuration guide](https://cloudburn.io/docs/cli/configuration) for rule selection and suppressions.
 Changing `scanOnSave` preserves current findings. Changing the launcher, arguments, or config path rescans folders
