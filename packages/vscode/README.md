@@ -114,3 +114,9 @@ E2E tests download VS Code 1.100.3 and run real editor commands against the buil
 start with empty folders and verify the first plaintext Terraform save without a Terraform language extension.
 Linux uses `xvfb-run` when no display is available. Set `CLOUDBURN_VSCODE_EXECUTABLE` to test another installed editor.
 Temporary workspaces are removed after each run.
+
+Release publishing follows the scoped `@cloudburn/vscode@<version>` tag after Changesets versioning. The release
+workflow validates and packages once, then uploads the same VSIX to Visual Studio Marketplace and Open VSX using
+`VSCE_TOKEN` and `OPEN_VSX_TOKEN` repository Actions secrets. See the
+[release guide](https://github.com/towardsthecloud/cloudburn/blob/main/docs/guides/releasing.md#vs-code-extension)
+for publisher setup and retries.

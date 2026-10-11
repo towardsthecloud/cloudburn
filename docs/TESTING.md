@@ -231,6 +231,13 @@ heading fragments, reference-style definitions and uses, code-example exclusion,
 
 ## CI and task caching
 
+`pnpm release:test` executes the extension release guard against local Git fixtures, including matching versions,
+main ancestry, tag targets, and rejected branch dispatches. Recovery tests select and tag extension-only private
+releases without querying npm, and exercise the publishing dispatch at the versioned tag. Provider commands are
+replaced at their process boundary; these tests never upload an extension or need publisher credentials.
+The extension release workflow runs the real editor suite before packaging and shares one VSIX between its two
+registry jobs. Registry authentication and actual uploads require a release run and cannot be verified by local fixtures.
+
 The shared `validate` CI job installs dependencies once, then starts `pnpm verify:repo` as a background step alongside
 package verification. Pull requests run `pnpm verify:packages --affected --concurrency=2`; pushes to `main` run
 `pnpm verify:packages --concurrency=2`. GitHub waits for background steps before cleanup and fails Validation if

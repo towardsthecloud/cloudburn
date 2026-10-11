@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       published-release-ref:
-        description: 'Recover tags, GitHub releases, and Homebrew for an already-published release commit (no npm publish)'
+        description: 'Recover release tags, GitHub releases, Homebrew, and extension publishing (no npm publish)'
         required: false
         type: string
 
@@ -24,6 +24,7 @@ jobs:
       contents: write
       pull-requests: write
       id-token: write
+      actions: write
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -57,7 +58,7 @@ jobs:
           # this ref; unchanged versions' tags and attestations legitimately
           # point at earlier release commits.
           RELEASED=""
-          for PACKAGE in rules sdk cloudburn action mcp; do
+          for PACKAGE in rules sdk cloudburn action mcp vscode; do
             if [ -f "packages/${PACKAGE}/package.json" ] \
               && git diff "${RELEASE_SHA}~1" "${RELEASE_SHA}" -- "packages/${PACKAGE}/package.json" \
                 | grep -q '^+.*"version"'; then
@@ -67,8 +68,8 @@ jobs:
           test -n "$RELEASED" || { echo "No package version bump at ${RELEASE_SHA}; not a release commit."; exit 1; }
           echo "packages=${RELEASED}" >> "$GITHUB_OUTPUT"
           for PACKAGE in $RELEASED; do
-            # The private action package is not published to npm.
-            if [ "$PACKAGE" = action ]; then
+            # Private distribution packages are versioned and tagged, but never published to npm.
+            if [ "$PACKAGE" = action ] || [ "$PACKAGE" = vscode ]; then
               continue
             fi
             NAME=$(node -p "require('./packages/${PACKAGE}/package.json').name")
@@ -191,6 +192,20 @@ jobs:
           if [ "${#FILTERS[@]}" -gt 0 ]; then
             pnpm exec turbo run build "${FILTERS[@]}"
           fi
+
+      # GITHUB_TOKEN-created tags do not trigger push workflows. Dispatch the tag-based publisher explicitly.
+      - name: Dispatch VS Code extension release
+        if: >-
+          github.ref == 'refs/heads/main' &&
+          ((inputs.published-release-ref != '' &&
+            contains(format(' {0} ', steps.recovery.outputs.packages), ' vscode ')) ||
+           (steps.changesets.outputs.published == 'true' &&
+            contains(steps.changesets.outputs.published-packages, '"@cloudburn/vscode"')))
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="@cloudburn/vscode@$(node -p 'require("./packages/vscode/package.json").version')"
+          gh workflow run vscode-release.yml --repo "$GITHUB_REPOSITORY" --ref "$TAG"
 
       # These destinations use separate repositories and prepared artifacts. Start all selected follow-ups;
       # the runner's implicit wait-all before cleanup still fails the release if any destination fails.
