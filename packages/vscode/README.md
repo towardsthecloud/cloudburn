@@ -3,6 +3,8 @@
 Catch AWS cost waste before you commit. Check Terraform HCL (`.tf`) and CloudFormation JSON/YAML with the same CLI
 rules and configuration you run in CI. Terraform JSON (`.tf.json`) is not currently parsed by the CLI.
 
+![Terraform cost findings in VS Code, with an inline warning, linked rule IDs in Problems, and the CloudBurn status count](media/terraform-findings.png)
+
 ## Features
 
 - Cost findings in the Problems panel and inline diagnostics, with links to rule explanations and remediation.
@@ -33,6 +35,17 @@ not upload source files or collect telemetry, and it does not automatically chan
 A Terraform volume with `type = "gp2"` produces `CLDBRN-AWS-EBS-1`. After reviewing the rule and changing it to `gp3`,
 save to rerun the scan and clear the finding. High-severity findings appear as errors; medium and low as warnings.
 Skipped files and failed scans appear as workspace warnings and in Output. Partial scans never appear as clean scans.
+
+### See it in action
+
+Change `gp2` to `gp3`, then save. CloudBurn reruns the CLI against the saved workspace and clears the warning.
+This short animation shows the manual edit, save, and completed scan in a real VS Code temporary profile.
+
+![Animated demo: select gp2 in Terraform, change it to gp3, save, and see Problems clear with CloudBurn showing zero findings](media/scan-on-save.gif)
+
+CloudFormation gets the same checks. Open an inline finding to see its rule ID and follow the link for remediation.
+
+![CloudFormation YAML with an inline EBS cost finding, a rule documentation link, and workspace findings in Problems](media/cloudformation-finding.png)
 
 ## Settings
 
@@ -91,8 +104,11 @@ The workspace package is `@cloudburn/vscode`. Its build generates `dist/vscode/`
 generated directory; edit the source manifest and listing assets rather than the generated files.
 
 Packaging requires `vsce` (`npm install --global @vscode/vsce`) and creates `packages/vscode/dist/cloudburn.vsix`.
-Only the manifest, README, changelog, license, icon, and extension bundle ship. The CLI is installed separately;
-SDK code, AWS libraries, test runners, and workspace dependencies stay out of the VSIX.
+Only the manifest, README, changelog, license, icon, README images/demo, and extension bundle ship.
+The CLI is installed separately; SDK code, AWS libraries, test runners, and workspace dependencies stay out of the VSIX.
+Packaging resolves README image links to this package's media on GitHub `main`; merge the assets before publishing.
+See the [capture notes](https://github.com/towardsthecloud/cloudburn/blob/main/packages/vscode/media/README.md)
+to refresh the screenshots and animation.
 
 E2E tests download VS Code 1.100.3 and run real editor commands against the built CLI in temporary workspaces. They
 start with empty folders and verify the first plaintext Terraform save without a Terraform language extension.

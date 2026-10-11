@@ -1,4 +1,4 @@
-import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { copyFile, cp, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -16,5 +16,6 @@ await Promise.all([
     copyFile(resolve(packageRoot, file), resolve(extensionRoot, file)),
   ),
   copyFile(resolve(packageRoot, '../../LICENSE'), resolve(extensionRoot, 'LICENSE')),
+  cp(resolve(packageRoot, 'media'), resolve(extensionRoot, 'media'), { recursive: true }),
   copyFile(resolve(packageRoot, 'dist/extension.cjs'), resolve(extensionRoot, 'dist/extension.cjs')),
 ]);
