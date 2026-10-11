@@ -23,7 +23,8 @@ rules and configuration you run in CI. Terraform JSON (`.tf.json`) is not curren
 - Cost findings in the Problems panel and inline diagnostics, with links to rule explanations and remediation.
 - Workspace-folder scans after saving Terraform, JSON, or YAML, debounced to avoid overlapping work.
 - Editor renames and deletions refresh affected folders, including skipped-file warnings, even with save scans disabled.
-- Saving a file referenced by an explicit config path refreshes each referencing folder with save scans enabled.
+- Saving a file referenced by an explicit config path refreshes each referencing folder with save scans enabled,
+  including explicit symlink aliases.
 - **CloudBurn: Scan Workspace** scans every local folder in a multi-root workspace.
 - Overlapping workspace folders share one scan using the outermost folder's settings, avoiding duplicate findings.
 - The status bar shows findings or an incomplete scan. **CloudBurn: Show Output** opens scan details.
@@ -73,7 +74,7 @@ CloudFormation gets the same checks. Open an inline finding to see its rule ID a
 
 An empty `configPath` preserves the CLI's discovery of `.cloudburn.yml` or `.cloudburn.yaml` from the workspace folder.
 Use an explicit path when the editor inherits a CI environment. Saving a configured file refreshes each referencing
-folder that has `scanOnSave` enabled, including when the file has a custom name or is outside the workspace folders.
+folder that has `scanOnSave` enabled, including symlink aliases, custom names, or files outside the workspace folders.
 Separate workspace folders can have their own settings.
 When folders overlap, the outermost folder owns the scan and its settings, including save scans and the config path.
 See the [CLI configuration guide](https://cloudburn.io/docs/cli/configuration) for rule selection and suppressions.
@@ -130,7 +131,8 @@ to refresh the screenshots and animation.
 E2E tests download VS Code 1.100.3 and run real editor commands against the built CLI in temporary workspaces. They
 start with empty folders and verify the first plaintext Terraform save without a Terraform language extension.
 Linux uses `xvfb-run` when no display is available. Set `CLOUDBURN_VSCODE_EXECUTABLE` to test another installed editor.
-Temporary workspaces are removed after each run.
+Temporary workspaces are removed after each run. The config-alias regression probes alternate-case paths and logs a
+skip on case-sensitive filesystems.
 
 Release publishing follows the scoped `@cloudburn/vscode@<version>` tag after Changesets versioning. The release
 workflow validates and packages once, then uploads the same VSIX to Visual Studio Marketplace and Open VSX using

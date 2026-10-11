@@ -1,7 +1,16 @@
+import { realpath } from 'node:fs/promises';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
 import type { ScanResult } from '@cloudburn/sdk';
 import * as vscode from 'vscode';
 import { scanFolder } from './scan.js';
+
+const fileIdentity = async (path: string): Promise<string | undefined> => {
+  try {
+    return await realpath(path);
+  } catch {
+    return undefined;
+  }
+};
 
 const containsPath = (folder: string, file: string): boolean => {
   const path = relative(folder, file);
@@ -240,18 +249,54 @@ export const activate = (context: vscode.ExtensionContext): void => {
       if (document.uri.scheme !== 'file') return;
       const supportedFile = /\.(tf|json|ya?ml)$/i.test(document.uri.fsPath);
       const savedPath = resolve(document.uri.fsPath);
-      const affected = new Map<string, vscode.WorkspaceFolder>();
-      for (const folder of scanFolders()) {
+      const scheduled = new Set<string>();
+      const candidates = scanFolders().map((folder) => {
         const config = vscode.workspace.getConfiguration('cloudburn', folder.uri);
         const configPath = config.get<string>('configPath', '');
+        return {
+          folder,
+          configPath,
+          configFile: configPath ? resolve(folder.uri.fsPath, configPath) : undefined,
+          scanOnSave: config.get<boolean>('scanOnSave', true),
+        };
+      });
+      const scheduleOnce = (folder: vscode.WorkspaceFolder): void => {
+        const key = folder.uri.toString();
+        if (scheduled.has(key)) return;
+        scheduled.add(key);
+        schedule(folder, 'save');
+      };
+      for (const candidate of candidates) {
         if (
-          config.get<boolean>('scanOnSave', true) &&
-          ((supportedFile && containsPath(folder.uri.fsPath, document.uri.fsPath)) ||
-            (configPath && resolve(folder.uri.fsPath, configPath) === savedPath))
+          candidate.scanOnSave &&
+          ((supportedFile && containsPath(candidate.folder.uri.fsPath, document.uri.fsPath)) ||
+            candidate.configFile === savedPath)
         )
-          affected.set(folder.uri.toString(), folder);
+          scheduleOnce(candidate.folder);
       }
-      for (const folder of affected.values()) schedule(folder, 'save');
+      const aliases = candidates.filter(
+        (candidate) => candidate.scanOnSave && candidate.configFile && candidate.configFile !== savedPath,
+      );
+      if (!aliases.length) return;
+      void (async () => {
+        const savedIdentity = await fileIdentity(savedPath);
+        if (!savedIdentity) return;
+        const identities = await Promise.all(
+          aliases.map(async (candidate) => ({
+            candidate,
+            identity: candidate.configFile ? await fileIdentity(candidate.configFile) : undefined,
+          })),
+        );
+        for (const { candidate, identity } of identities) {
+          if (!identity || identity !== savedIdentity) continue;
+          const folder = scanFolders().find((current) => current.uri.toString() === candidate.folder.uri.toString());
+          if (!folder) continue;
+          const config = vscode.workspace.getConfiguration('cloudburn', folder.uri);
+          if (config.get<string>('configPath', '') !== candidate.configPath || !config.get<boolean>('scanOnSave', true))
+            continue;
+          scheduleOnce(folder);
+        }
+      })();
     }),
     vscode.workspace.onDidChangeConfiguration((event) => {
       for (const folder of scanFolders()) {

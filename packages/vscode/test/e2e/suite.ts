@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, realpath, symlink, writeFile } from 'node:fs/promises';
 import { dirname, join, relative } from 'node:path';
 import * as vscode from 'vscode';
 
@@ -199,8 +199,10 @@ export const run = async (): Promise<void> => {
   assert.ok(siblingFolder, 'The shared-config test needs a second workspace folder.');
   const siblingConfig = vscode.workspace.getConfiguration('cloudburn', siblingFolder.uri);
   const sharedPolicyPath = join(dirname(folder.uri.fsPath), 'shared-policy.policy');
+  const sharedPolicyAliasPath = join(dirname(folder.uri.fsPath), 'shared-policy-alias.policy');
   const sharedPolicy = vscode.Uri.file(sharedPolicyPath);
   await writeFile(sharedPolicyPath, 'iac:\n  enabled-rules: [CLDBRN-AWS-EBS-1]\n');
+  await symlink(sharedPolicyPath, sharedPolicyAliasPath, 'file');
   await config.update('configPath', sharedPolicyPath, vscode.ConfigurationTarget.WorkspaceFolder);
   await siblingConfig.update(
     'configPath',
@@ -209,6 +211,7 @@ export const run = async (): Promise<void> => {
   );
   await config.update('scanOnSave', true, vscode.ConfigurationTarget.WorkspaceFolder);
   await siblingConfig.update('scanOnSave', false, vscode.ConfigurationTarget.WorkspaceFolder);
+  await config.update('configPath', sharedPolicyAliasPath, vscode.ConfigurationTarget.WorkspaceFolder);
   await vscode.commands.executeCommand('cloudburn.scanWorkspace');
   assert.equal(costFindings(yaml).length, 1);
   assert.equal(costFindings(siblingFile).length, 1);
@@ -224,6 +227,35 @@ export const run = async (): Promise<void> => {
   await sharedPolicyDocument.save();
   await disableFirst;
   assert.equal(costFindings(siblingFile).length, 1, 'A root with save scans disabled must retain its findings.');
+  const alternateCasePath = join(dirname(sharedPolicyPath), 'Shared-policy.policy');
+  const canonicalPolicyPath = await realpath(sharedPolicyPath);
+  const alternateCaseIdentity = await realpath(alternateCasePath).catch(() => undefined);
+  if (alternateCaseIdentity === canonicalPolicyPath) {
+    await config.update('configPath', alternateCasePath, vscode.ConfigurationTarget.WorkspaceFolder);
+    const restoreFirst = waitForDiagnostics(yaml, () => costFindings(yaml).length === 1);
+    const enabledPolicyEdit = new vscode.WorkspaceEdit();
+    enabledPolicyEdit.replace(
+      sharedPolicyDocument.uri,
+      new vscode.Range(0, 0, sharedPolicyDocument.lineCount, 0),
+      'iac:\n  enabled-rules: [CLDBRN-AWS-EBS-1]\n',
+    );
+    await vscode.workspace.applyEdit(enabledPolicyEdit);
+    await sharedPolicyDocument.save();
+    await restoreFirst;
+    const disableCaseVariant = waitForDiagnostics(yaml, () => costFindings(yaml).length === 0);
+    const disabledCaseVariantEdit = new vscode.WorkspaceEdit();
+    disabledCaseVariantEdit.replace(
+      sharedPolicyDocument.uri,
+      new vscode.Range(0, 0, sharedPolicyDocument.lineCount, 0),
+      'iac:\n  services: [ec2]\n',
+    );
+    await vscode.workspace.applyEdit(disabledCaseVariantEdit);
+    await sharedPolicyDocument.save();
+    await disableCaseVariant;
+    console.log('PASS: alternate-case config paths refresh on case-insensitive filesystems');
+  } else {
+    console.log('SKIP: alternate-case config paths require a case-insensitive filesystem');
+  }
   await config.update('scanOnSave', false, vscode.ConfigurationTarget.WorkspaceFolder);
   await siblingConfig.update('scanOnSave', true, vscode.ConfigurationTarget.WorkspaceFolder);
   const disableSibling = waitForDiagnostics(siblingFile, () => costFindings(siblingFile).length === 0);
