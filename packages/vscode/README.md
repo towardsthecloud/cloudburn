@@ -3,6 +3,36 @@
 Catch AWS cost waste before you commit. Check Terraform HCL (`.tf`) and CloudFormation JSON/YAML with the same CLI
 rules and configuration you run in CI. Terraform JSON (`.tf.json`) is not currently parsed by the CLI.
 
+---
+
+<!-- TIP-LIST:START -->
+> [!TIP]
+> **Stop AWS bill surprises before they ship.**
+>
+> Most infrastructure changes look harmless until next month's AWS bill lands. [CloudBurn](https://cloudburn.io) analyzes the cost impact of your AWS CDK changes right in the GitHub pull request, so expensive mistakes get caught during code review, while a fix is still a one-line change.
+>
+> <a href="https://github.com/marketplace/cloudburn-io"><img alt="Install CloudBurn from GitHub Marketplace" src="https://img.shields.io/badge/Install%20CloudBurn-GitHub%20Marketplace-brightgreen.svg?style=for-the-badge&logo=github"/></a>
+>
+> <details>
+> <summary>💰 <strong>Set it up once, then never be surprised by AWS costs again</strong></summary>
+> <br/>
+>
+> 1. **Install the free [CDK Diff PR Commenter GitHub Action](https://github.com/marketplace/actions/aws-cdk-diff-pr-commenter)** in the repository where you build your AWS CDK infrastructure
+> 2. **Then install the [CloudBurn GitHub App](https://github.com/marketplace/cloudburn-io)** on the same repository
+>
+> From then on, every PR with infrastructure changes gets a comment with your CDK diff analysis, and CloudBurn adds a cost report next to it:
+>
+> - **Monthly cost impact**: whether this change raises or lowers your AWS bill, and by how much
+> - **Per-resource breakdown**: which resources drive the change, old versus new monthly cost
+> - **Region-aware pricing**: rates match the region your infrastructure actually deploys to
+>
+> Cost review happens inside code review, so you optimize as you code, while the context is still fresh.
+>
+> CloudBurn is free during beta. After launch, a free Community plan (1 repository, unlimited users) stays available.
+>
+> </details>
+<!-- TIP-LIST:END -->
+
 ![Terraform cost findings in VS Code, with an inline warning, linked rule IDs in Problems, and the CloudBurn status count](media/terraform-findings.png)
 
 ## Features
