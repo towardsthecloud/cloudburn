@@ -46,5 +46,9 @@ The VS Code [build](../../packages/vscode/tsup.config.ts) emits `dist/extension.
 assets, and shared root license in `dist/vscode/`. It derives the extension manifest from `@cloudburn/vscode`, preserving
 the version and publisher while setting the public name to `cloudburn-vscode` and removing development scripts and dependencies.
 Editor tests and VSIX packaging use this generated directory. Its [.vscodeignore](../../packages/vscode/.vscodeignore) allows only the runtime
-bundle and listing assets into the VSIX. Test code and development dependencies are excluded. The icon is an unchanged
-copy of CloudBurn's existing brand PNG, kept locally so packaging does not depend on the website repository.
+bundle and listing assets into the VSIX. Test code and development dependencies are excluded. The source
+[icon](../../packages/vscode/icon.png) uses CloudBurn's orange flame-and-cloud mark on the publisher's pale blue-to-peach
+background, with padding to match the existing Marketplace icons. It was edited with the built-in imagegen tool using
+CloudBurn's brand PNG and the published Terraform extension pack icon as references. The prompt requested the existing
+mark, a full-square horizontal `#E0F5FE` to `#FFDDD4` gradient, centered padding, and no text, borders, or shadows. The
+result is kept locally so packaging does not depend on the website or other extension repositories.
