@@ -195,6 +195,7 @@ jobs:
 
       # GITHUB_TOKEN-created tags do not trigger push workflows. Dispatch the tag-based publisher explicitly.
       - name: Dispatch VS Code extension release
+        background: true
         if: >-
           github.ref == 'refs/heads/main' &&
           ((inputs.published-release-ref != '' &&

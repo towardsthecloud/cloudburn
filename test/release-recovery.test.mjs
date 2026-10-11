@@ -130,6 +130,7 @@ test('extension-only recovery selects and tags the private package without query
 test('extension publishing dispatches only its published or recovered tag', (t) => {
   const dispatch = step('Dispatch VS Code extension release');
   assert.ok(dispatch, 'Changesets-created tags need an explicit publishing dispatch');
+  assert.match(dispatch, /^        background: true$/m, 'A failed publishing dispatch must not block other release destinations');
   const condition = dispatch.split('        if: >-\n')[1].split('        env:')[0]
     .replaceAll('inputs.published-release-ref', "inputs['published-release-ref']")
     .replaceAll('steps.changesets.outputs.published-packages', "steps.changesets.outputs['published-packages']");
