@@ -3,6 +3,11 @@ import type { ScanResult } from '@cloudburn/sdk';
 import * as vscode from 'vscode';
 import { scanFolder } from './scan.js';
 
+const containsPath = (folder: string, file: string): boolean => {
+  const path = relative(folder, file);
+  return path !== '..' && !path.startsWith(`..${sep}`) && !isAbsolute(path);
+};
+
 const projectFindings = (folder: vscode.WorkspaceFolder, result: ScanResult): [vscode.Uri, vscode.Diagnostic[]][] => {
   const entries = new Map<string, vscode.Diagnostic[]>();
   for (const provider of result.providers) {
@@ -11,8 +16,7 @@ const projectFindings = (folder: vscode.WorkspaceFolder, result: ScanResult): [v
         if (!finding.location) continue;
         const { path, line, column, endLine, endColumn } = finding.location;
         const file = resolve(folder.uri.fsPath, path);
-        const withinFolder = relative(folder.uri.fsPath, file);
-        if (withinFolder === '..' || withinFolder.startsWith(`..${sep}`) || isAbsolute(withinFolder)) continue;
+        if (!containsPath(folder.uri.fsPath, file)) continue;
         const range = new vscode.Range(line - 1, column - 1, (endLine ?? line) - 1, (endColumn ?? column) - 1);
         const severity = rule.severity === 'high' ? vscode.DiagnosticSeverity.Error : vscode.DiagnosticSeverity.Warning;
         const diagnostic = new vscode.Diagnostic(range, `${rule.message} (${finding.resourceId})`, severity);
@@ -45,6 +49,16 @@ export const activate = (context: vscode.ExtensionContext): void => {
   status.name = 'CloudBurn';
   const states = new Map<string, FolderState>();
   let disposed = false;
+
+  const scanFolders = (): vscode.WorkspaceFolder[] => {
+    const folders = vscode.workspace.workspaceFolders?.filter((folder) => folder.uri.scheme === 'file') ?? [];
+    return folders.filter(
+      (folder) => !folders.some((parent) => parent !== folder && containsPath(parent.uri.fsPath, folder.uri.fsPath)),
+    );
+  };
+
+  const folderForScan = (uri: vscode.Uri): vscode.WorkspaceFolder | undefined =>
+    uri.scheme === 'file' ? scanFolders().find((folder) => containsPath(folder.uri.fsPath, uri.fsPath)) : undefined;
 
   const refresh = (): void => {
     diagnostics.clear();
@@ -163,7 +177,7 @@ export const activate = (context: vscode.ExtensionContext): void => {
   const refreshFiles = (removed: readonly vscode.Uri[], added: readonly vscode.Uri[] = []): void => {
     const affected = new Map<string, vscode.WorkspaceFolder>();
     for (const uri of [...removed, ...added]) {
-      const folder = vscode.workspace.getWorkspaceFolder(uri);
+      const folder = folderForScan(uri);
       if (folder) affected.set(folder.uri.toString(), folder);
     }
     for (const [key, folder] of affected) {
@@ -198,7 +212,7 @@ export const activate = (context: vscode.ExtensionContext): void => {
       },
     },
     vscode.commands.registerCommand('cloudburn.scanWorkspace', async () => {
-      const folders = vscode.workspace.workspaceFolders?.filter((folder) => folder.uri.scheme === 'file') ?? [];
+      const folders = scanFolders();
       if (!folders.length) {
         await vscode.window.showInformationMessage('Open a local workspace folder to scan with CloudBurn.');
         return;
@@ -211,12 +225,12 @@ export const activate = (context: vscode.ExtensionContext): void => {
     ),
     vscode.workspace.onDidSaveTextDocument((document) => {
       if (document.uri.scheme !== 'file' || !/\.(tf|json|ya?ml)$/i.test(document.uri.fsPath)) return;
-      const folder = vscode.workspace.getWorkspaceFolder(document.uri);
+      const folder = folderForScan(document.uri);
       if (folder && vscode.workspace.getConfiguration('cloudburn', folder.uri).get<boolean>('scanOnSave', true))
         schedule(folder);
     }),
     vscode.workspace.onDidChangeConfiguration((event) => {
-      for (const folder of vscode.workspace.workspaceFolders ?? []) {
+      for (const folder of scanFolders()) {
         if (!event.affectsConfiguration('cloudburn', folder.uri)) continue;
         const state = states.get(folder.uri.toString());
         if (!state) continue;
@@ -244,11 +258,23 @@ export const activate = (context: vscode.ExtensionContext): void => {
         event.files.map((file) => file.newUri),
       );
     }),
-    vscode.workspace.onDidChangeWorkspaceFolders((event) => {
-      for (const folder of event.removed) {
-        const state = states.get(folder.uri.toString());
-        if (state) invalidate(state);
-        states.delete(folder.uri.toString());
+    vscode.workspace.onDidChangeWorkspaceFolders(() => {
+      const previous = [...states.keys()].map((key) => vscode.Uri.parse(key));
+      const folders = scanFolders();
+      for (const [key, state] of states) {
+        if (folders.some((folder) => folder.uri.toString() === key)) continue;
+        invalidate(state);
+        states.delete(key);
+      }
+      for (const folder of folders) {
+        if (
+          !states.has(folder.uri.toString()) &&
+          previous.some(
+            (uri) => containsPath(uri.fsPath, folder.uri.fsPath) || containsPath(folder.uri.fsPath, uri.fsPath),
+          )
+        ) {
+          schedule(folder);
+        }
       }
       refresh();
     }),

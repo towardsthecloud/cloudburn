@@ -16,7 +16,7 @@
   "categories": ["Linters", "Other"],
   "keywords": ["aws", "finops", "terraform", "cloudformation", "cost", "cloudburn"],
   "extensionKind": ["workspace"],
-  "activationEvents": ["onLanguage:terraform", "onLanguage:json", "onLanguage:yaml", "workspaceContains:**/*.tf", "workspaceContains:**/*.yaml", "workspaceContains:**/*.yml"],
+  "activationEvents": ["onStartupFinished", "onLanguage:terraform", "onLanguage:json", "onLanguage:yaml", "workspaceContains:**/*.tf", "workspaceContains:**/*.yaml", "workspaceContains:**/*.yml"],
   "capabilities": {
     "untrustedWorkspaces": { "supported": false, "description": "CloudBurn runs a local CLI and loads workspace configuration." },
     "virtualWorkspaces": { "supported": false, "description": "The CLI requires files on the extension host filesystem." }
@@ -45,7 +45,8 @@
     "test:e2e": "node scripts/test-e2e.mjs",
     "package:vsix": "cd dist/vscode && vsce package --no-dependencies --out ../cloudburn.vsix",
     "lint": "biome check --error-on-warnings .",
-    "lint:fix": "biome check --write ."
+    "lint:fix": "biome check --write .",
+    "clean": "rm -rf dist"
   },
   "devDependencies": {
     "@biomejs/biome": "catalog:",

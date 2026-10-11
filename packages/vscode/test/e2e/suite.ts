@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { writeFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import * as vscode from 'vscode';
 
@@ -16,8 +16,7 @@ export const run = async (): Promise<void> => {
   while (!extension.isActive && Date.now() < activationDeadline) {
     await new Promise((accept) => setTimeout(accept, 50));
   }
-  assert.ok(extension.isActive, 'A YAML-only workspace must activate CloudBurn without a YAML language extension.');
-  console.log('PASS: a YAML-only workspace activates the extension automatically');
+  assert.ok(extension.isActive, 'An empty workspace must activate CloudBurn before its first IaC save.');
   const config = vscode.workspace.getConfiguration('cloudburn', folder.uri);
   for (const workspaceFolder of vscode.workspace.workspaceFolders ?? []) {
     const folderConfig = vscode.workspace.getConfiguration('cloudburn', workspaceFolder.uri);
@@ -31,7 +30,27 @@ export const run = async (): Promise<void> => {
       [process.env.CLOUDBURN_TEST_CLI],
       vscode.ConfigurationTarget.WorkspaceFolder,
     );
-    await folderConfig.update('scanOnSave', false, vscode.ConfigurationTarget.WorkspaceFolder);
+  }
+
+  const firstTerraform = vscode.Uri.file(join(folder.uri.fsPath, 'first.tf'));
+  await writeFile(firstTerraform.fsPath, '');
+  const firstDocument = await vscode.workspace.openTextDocument(firstTerraform);
+  assert.equal(
+    firstDocument.languageId,
+    'plaintext',
+    'The first-save regression needs no Terraform language extension.',
+  );
+  await replaceAndSave(
+    firstDocument,
+    'resource "aws_ebs_volume" "first" {\n  availability_zone = "us-east-1a"\n  size = 8\n  type = "gp2"\n}\n',
+    1,
+  );
+  await replaceAndSave(firstDocument, firstDocument.getText().replace('gp2', 'gp3'), 0);
+  console.log('PASS: the first plaintext Terraform save in an initially empty workspace scans automatically');
+  for (const workspaceFolder of vscode.workspace.workspaceFolders ?? []) {
+    await vscode.workspace
+      .getConfiguration('cloudburn', workspaceFolder.uri)
+      .update('scanOnSave', false, vscode.ConfigurationTarget.WorkspaceFolder);
   }
 
   const path = join(folder.uri.fsPath, 'main.tf');
@@ -179,6 +198,40 @@ export const run = async (): Promise<void> => {
   await deleted;
   assert.equal(costFindings(siblingFile).length, 1, 'Deleting a file must preserve sibling diagnostics.');
   console.log('PASS: deleted files do not retain stale cost findings');
+
+  const nested = vscode.Uri.file(join(folder.uri.fsPath, 'nested'));
+  await mkdir(nested.fsPath);
+  const nestedFile = vscode.Uri.file(join(nested.fsPath, 'main.tf'));
+  await writeFile(
+    nestedFile.fsPath,
+    'resource "aws_ebs_volume" "nested" {\n  availability_zone = "us-east-1a"\n  size = 8\n  type = "gp2"\n}\n',
+  );
+  const added = new Promise<void>((accept) => {
+    const listener = vscode.workspace.onDidChangeWorkspaceFolders((event) => {
+      if (!event.added.some((item) => item.uri.toString() === nested.toString())) return;
+      listener.dispose();
+      accept();
+    });
+  });
+  assert.ok(
+    vscode.workspace.updateWorkspaceFolders(vscode.workspace.workspaceFolders?.length ?? 0, 0, { uri: nested }),
+  );
+  await added;
+  const nestedConfig = vscode.workspace.getConfiguration('cloudburn', nested);
+  await nestedConfig.update('executable', process.env.CLOUDBURN_TEST_NODE, vscode.ConfigurationTarget.WorkspaceFolder);
+  await nestedConfig.update('arguments', [process.env.CLOUDBURN_TEST_CLI], vscode.ConfigurationTarget.WorkspaceFolder);
+  await nestedConfig.update('scanOnSave', false, vscode.ConfigurationTarget.WorkspaceFolder);
+  await config.update('scanOnSave', true, vscode.ConfigurationTarget.WorkspaceFolder);
+  await vscode.commands.executeCommand('cloudburn.scanWorkspace');
+  assert.equal(costFindings(nestedFile).length, 1, 'Overlapping roots must publish each finding only once.');
+  const nestedDocument = await vscode.workspace.openTextDocument(nestedFile);
+  await replaceAndSave(nestedDocument, nestedDocument.getText().replace('gp2', 'gp3'), 0);
+  assert.equal(
+    costFindings(siblingFile).length,
+    1,
+    'Saving inside an overlapping root must preserve sibling findings.',
+  );
+  console.log('PASS: overlapping workspace roots share findings and refresh through their outer scan settings');
 };
 
 const costFindings = (uri: vscode.Uri): vscode.Diagnostic[] =>

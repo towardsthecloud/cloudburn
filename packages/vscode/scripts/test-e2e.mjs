@@ -17,7 +17,6 @@ await mkdir(cachePath, { recursive: true });
 const scratch = await mkdtemp(resolve(tmpdir(), 'cloudburn-vscode-'));
 const workspace = resolve(scratch, 'workspace with spaces; $()');
 await mkdir(workspace);
-await writeFile(resolve(workspace, 'startup.yaml'), 'Resources: {}\n');
 const sibling = resolve(scratch, 'second workspace');
 await mkdir(sibling);
 const workspaceFile = resolve(scratch, 'test.code-workspace');
