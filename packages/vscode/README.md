@@ -82,8 +82,9 @@ folder that has `scanOnSave` enabled, including symlink aliases, custom names, o
 Separate workspace folders can have their own settings.
 When folders overlap, the outermost folder owns the scan and its settings, including save scans and the config path.
 See the [CLI configuration guide](https://cloudburn.io/docs/cli/configuration) for rule selection and suppressions.
-Changing `scanOnSave` preserves current findings. Changing the launcher, arguments, or config path rescans folders
-that have already been scanned.
+Changing `scanOnSave` preserves current findings. Turning it off cancels only pending save scans. A refresh started by a
+file change, a setting change, or **CloudBurn: Scan Workspace** still completes, even when a save interrupts it.
+Changing the launcher, arguments, or config path rescans folders that have already been scanned.
 
 The CLI must be installed on the **extension host**: your computer, SSH host, container, or Codespace running the
 workspace extension. Virtual workspaces are unsupported. Scans read saved files, not unsaved buffers. Existing CDK
