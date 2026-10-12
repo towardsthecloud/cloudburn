@@ -155,9 +155,11 @@ policy exit code 1, save/fix updates, setting changes, renames, deletion, siblin
 recovery after a missing CLI. Renaming a file in a never-scanned folder must not start its first scan, while renaming
 and recreating an external explicit config, or moving the target of a symlinked config away and back, must refresh the
 scanned folder that references it.
-Saving a discovered `.cloudburn.yml` in an ancestor directory must refresh the folder that uses it. Overlapping
-parent/child roots must publish one finding and clear it on save using the outermost folder's settings while retaining
-sibling results. Clean-machine startup creates the download cache before invoking the editor downloader.
+Saving a discovered `.cloudburn.yml` in an ancestor directory must refresh the folder that uses it. A slow launcher
+signals when the deletion refresh's CLI process starts, then holds it open while a file is saved and save scans are
+turned off; that refresh must still complete.
+Overlapping parent/child roots must publish one finding and clear it on save using the outermost folder's settings while
+retaining sibling results. Clean-machine startup creates the download cache before invoking the editor downloader.
 The workspace name includes spaces and shell metacharacters to exercise direct argument handling.
 
 Run `pnpm exec turbo run test:e2e --filter @cloudburn/vscode`. The runner downloads the pinned editor, uses `xvfb-run`

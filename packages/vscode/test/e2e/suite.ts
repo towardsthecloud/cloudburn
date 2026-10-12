@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdir, realpath, symlink, writeFile } from 'node:fs/promises';
+import { mkdir, realpath, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { dirname, join, relative } from 'node:path';
 import * as vscode from 'vscode';
 
@@ -484,6 +484,62 @@ export const run = async (): Promise<void> => {
   await ancestorDocument.save();
   await discoveredUpdate;
   console.log('PASS: saving a discovered ancestor config refreshes the folder that uses it');
+
+  const slowLauncher = join(dirname(folder.uri.fsPath), 'slow-cloudburn.mjs');
+  const launcherStarted = `${slowLauncher}.started`;
+  await writeFile(
+    slowLauncher,
+    [
+      "import { spawnSync } from 'node:child_process';",
+      "import { writeFileSync } from 'node:fs';",
+      "import { fileURLToPath } from 'node:url';",
+      "writeFileSync(fileURLToPath(import.meta.url) + '.started', '');",
+      'await new Promise((accept) => setTimeout(accept, 2000));',
+      "const result = spawnSync(process.execPath, process.argv.slice(2), { stdio: 'inherit' });",
+      'process.exit(result.status ?? 1);',
+      '',
+    ].join('\n'),
+  );
+  await config.update('scanOnSave', true, vscode.ConfigurationTarget.WorkspaceFolder);
+  await config.update('executable', process.env.CLOUDBURN_TEST_NODE, vscode.ConfigurationTarget.WorkspaceFolder);
+  await config.update(
+    'arguments',
+    [slowLauncher, process.env.CLOUDBURN_TEST_CLI],
+    vscode.ConfigurationTarget.WorkspaceFolder,
+  );
+  const skipped = vscode.Uri.file(join(folder.uri.fsPath, 'skipped.tf'));
+  await writeFile(skipped.fsPath, 'resource "aws_ebs_volume" "skipped" {');
+  const parseWarning = (): boolean =>
+    vscode.languages
+      .getDiagnostics(folder.uri)
+      .some((item) => item.source === 'CloudBurn' && item.message.includes('could not be parsed'));
+  const skippedReported = waitForDiagnostics(folder.uri, parseWarning);
+  await vscode.commands.executeCommand('cloudburn.scanWorkspace');
+  await skippedReported;
+  await rm(launcherStarted, { force: true });
+  const coverageRefreshed = waitForDiagnostics(folder.uri, () => !parseWarning());
+  const removeSkippedFile = new vscode.WorkspaceEdit();
+  removeSkippedFile.deleteFile(skipped);
+  await vscode.workspace.applyEdit(removeSkippedFile);
+  const startDeadline = Date.now() + 10_000;
+  while (
+    !(await stat(launcherStarted).then(
+      () => true,
+      () => false,
+    ))
+  ) {
+    assert.ok(Date.now() < startDeadline, 'The deletion refresh must start its CLI scan.');
+    await new Promise((accept) => setTimeout(accept, 50));
+  }
+  const runningDocument = await vscode.workspace.openTextDocument(vscode.Uri.file(path));
+  const runningEdit = new vscode.WorkspaceEdit();
+  runningEdit.insert(runningDocument.uri, new vscode.Position(0, 0), '# saved during a mandatory refresh\n');
+  await vscode.workspace.applyEdit(runningEdit);
+  await runningDocument.save();
+  await config.update('scanOnSave', false, vscode.ConfigurationTarget.WorkspaceFolder);
+  await coverageRefreshed;
+  await config.update('arguments', [process.env.CLOUDBURN_TEST_CLI], vscode.ConfigurationTarget.WorkspaceFolder);
+  console.log('PASS: a save during a running mandatory refresh keeps the refresh after save scans are disabled');
 };
 
 const costFindings = (uri: vscode.Uri): vscode.Diagnostic[] =>

@@ -1,10 +1,10 @@
 {
   "name": "@cloudburn/vscode",
-  "displayName": "CloudBurn — AWS Cost Checks",
+  "displayName": "CloudBurn",
   "version": "0.1.0",
   "private": true,
   "publisher": "dannysteenman",
-  "description": "Catch AWS cost waste in Terraform and CloudFormation before you commit, using the CloudBurn CLI.",
+  "description": "Catch AWS cost waste in Terraform and CloudFormation using the CloudBurn CLI.",
   "homepage": "https://cloudburn.io",
   "repository": { "type": "git", "url": "https://github.com/towardsthecloud/cloudburn.git", "directory": "packages/vscode" },
   "bugs": { "url": "https://github.com/towardsthecloud/cloudburn/issues" },

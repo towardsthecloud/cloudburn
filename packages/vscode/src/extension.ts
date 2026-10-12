@@ -112,15 +112,16 @@ export const activate = (context: vscode.ExtensionContext): void => {
     state.revision += 1;
     if (state.timer) clearTimeout(state.timer);
     state.timer = undefined;
-    state.timerReason = undefined;
+    state.reason = undefined;
     state.abort?.abort();
     state.abort = undefined;
   };
 
-  const scan = async (folder: vscode.WorkspaceFolder): Promise<void> => {
+  const scan = async (folder: vscode.WorkspaceFolder, reason: ScanReason = 'mandatory'): Promise<void> => {
     if (disposed || !vscode.workspace.isTrusted || folder.uri.scheme !== 'file') return;
     const state = stateFor(folder);
     invalidate(state);
+    state.reason = reason;
     const revision = state.revision;
     const abort = new AbortController();
     state.abort = abort;
@@ -189,19 +190,21 @@ export const activate = (context: vscode.ExtensionContext): void => {
     } finally {
       if (!disposed && revision === state.revision) {
         state.abort = undefined;
+        state.reason = undefined;
         refresh();
       }
     }
   };
 
-  const schedule = (folder: vscode.WorkspaceFolder, reason: 'save' | 'mandatory'): void => {
+  const schedule = (folder: vscode.WorkspaceFolder, requested: ScanReason): void => {
     if (disposed || !vscode.workspace.isTrusted || folder.uri.scheme !== 'file') return;
     const state = stateFor(folder);
-    if (state.timer && state.timerReason === 'mandatory' && reason === 'save') return;
+    if (state.timer && state.reason === 'mandatory' && requested === 'save') return;
+    const reason = state.reason === 'mandatory' ? 'mandatory' : requested;
     invalidate(state);
-    state.timerReason = reason;
+    state.reason = reason;
     state.timer = setTimeout(() => {
-      void scan(folder);
+      void scan(folder, reason);
     }, 400);
     refresh();
   };
@@ -270,7 +273,7 @@ export const activate = (context: vscode.ExtensionContext): void => {
         await vscode.window.showInformationMessage('Open a local workspace folder to scan with CloudBurn.');
         return;
       }
-      await Promise.all(folders.map(scan));
+      await Promise.all(folders.map((folder) => scan(folder)));
     }),
     vscode.commands.registerCommand('cloudburn.showOutput', () => output.show()),
     vscode.commands.registerCommand('cloudburn.openCiGuide', () =>
@@ -343,7 +346,7 @@ export const activate = (context: vscode.ExtensionContext): void => {
           void scan(folder);
         } else if (
           state.timer &&
-          state.timerReason === 'save' &&
+          state.reason === 'save' &&
           !vscode.workspace.getConfiguration('cloudburn', folder.uri).get<boolean>('scanOnSave', true)
         ) {
           invalidate(state);
@@ -395,5 +398,7 @@ type FolderState = {
   configIdentity?: string;
   abort?: AbortController;
   timer?: ReturnType<typeof setTimeout>;
-  timerReason?: 'save' | 'mandatory';
+  reason?: ScanReason;
 };
+
+type ScanReason = 'save' | 'mandatory';
