@@ -1,5 +1,5 @@
 import { realpath } from 'node:fs/promises';
-import { isAbsolute, relative, resolve, sep } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import type { ScanResult } from '@cloudburn/sdk';
 import * as vscode from 'vscode';
 import { scanFolder } from './scan.js';
@@ -123,11 +123,13 @@ export const activate = (context: vscode.ExtensionContext): void => {
     state.abort = abort;
     refresh();
     const config = vscode.workspace.getConfiguration('cloudburn', folder.uri);
+    const configPath = config.get<string>('configPath', '');
     try {
+      state.configIdentity = configPath ? await fileIdentity(resolve(folder.uri.fsPath, configPath)) : undefined;
       const result = await scanFolder(folder.uri.fsPath, {
         executable: config.get<string>('executable', 'cloudburn'),
         arguments: config.get<string[]>('arguments', []),
-        configPath: config.get<string>('configPath', ''),
+        configPath,
         signal: abort.signal,
       });
       if (disposed || revision !== state.revision) return;
@@ -224,6 +226,22 @@ export const activate = (context: vscode.ExtensionContext): void => {
       schedule(folder, 'mandatory');
     }
     refresh();
+    const aliased = [...states].filter(([key, state]) => state.configIdentity && !affected.has(key));
+    if (!aliased.length) return;
+    void (async () => {
+      const identities = await Promise.all(
+        changed.map(async (uri) => {
+          const parent = await fileIdentity(dirname(uri.fsPath));
+          return parent && join(parent, basename(uri.fsPath));
+        }),
+      );
+      for (const [key, state] of aliased) {
+        const target = state.configIdentity;
+        if (!target || !identities.some((identity) => identity && containsPath(identity, target))) continue;
+        const folder = scanFolders().find((current) => current.uri.toString() === key);
+        if (folder && states.get(key) === state) schedule(folder, 'mandatory');
+      }
+    })();
   };
 
   context.subscriptions.push(
@@ -360,6 +378,7 @@ type FolderState = {
   entries: [vscode.Uri, vscode.Diagnostic[]][];
   findingCount: number;
   incomplete: boolean;
+  configIdentity?: string;
   abort?: AbortController;
   timer?: ReturnType<typeof setTimeout>;
   timerReason?: 'save' | 'mandatory';

@@ -425,8 +425,27 @@ export const run = async (): Promise<void> => {
   await vscode.workspace.applyEdit(renamePolicy);
   await missingPolicy;
   assert.equal(costFindings(siblingFile).length, 0, 'A renamed config must not leave findings from the old policy.');
-  await siblingConfig.update('configPath', '', vscode.ConfigurationTarget.WorkspaceFolder);
   console.log('PASS: renaming an external config refreshes the folder that references it');
+
+  const aliasTargetPath = join(dirname(folder.uri.fsPath), 'alias-target-policy.yml');
+  const aliasPath = join(dirname(folder.uri.fsPath), 'alias-policy.yml');
+  await writeFile(aliasTargetPath, 'iac:\n  enabled-rules: [CLDBRN-AWS-EBS-1]\n');
+  await symlink(aliasTargetPath, aliasPath, 'file');
+  await siblingConfig.update('configPath', aliasPath, vscode.ConfigurationTarget.WorkspaceFolder);
+  await vscode.commands.executeCommand('cloudburn.scanWorkspace');
+  assert.equal(costFindings(siblingFile).length, 1, 'The aliased policy must select the sibling finding.');
+  const missingTarget = waitForDiagnostics(sibling, () =>
+    vscode.languages
+      .getDiagnostics(sibling)
+      .some((item) => item.code === 'scan-failed' && item.message.includes('config file not found')),
+  );
+  const renameTarget = new vscode.WorkspaceEdit();
+  renameTarget.renameFile(vscode.Uri.file(aliasTargetPath), vscode.Uri.file(`${aliasTargetPath}.old`));
+  await vscode.workspace.applyEdit(renameTarget);
+  await missingTarget;
+  assert.equal(costFindings(siblingFile).length, 0, 'A renamed alias target must not leave findings from its policy.');
+  await siblingConfig.update('configPath', '', vscode.ConfigurationTarget.WorkspaceFolder);
+  console.log('PASS: renaming a symlinked config target refreshes the folder that references its alias');
 };
 
 const costFindings = (uri: vscode.Uri): vscode.Diagnostic[] =>
