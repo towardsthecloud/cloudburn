@@ -110,37 +110,3 @@ same scan in a terminal. CLI output is limited to 16 MiB per scan.
 
 **CloudBurn: Run These Checks in CI** opens the [GitHub Action guide](https://cloudburn.io/docs/cli/github-action).
 Keep rule configuration in your repository so developers and code review use the same checks.
-
-## Develop and package
-
-From the monorepo root, use the pinned runtimes in
-[local development](https://github.com/towardsthecloud/cloudburn/blob/main/docs/guides/local-development.md):
-
-```bash
-pnpm exec turbo run build --filter @cloudburn/vscode
-pnpm exec turbo run test:e2e --filter @cloudburn/vscode
-pnpm exec turbo run package:vsix --filter @cloudburn/vscode
-```
-
-The workspace package is `@cloudburn/vscode`. Its build generates `dist/vscode/` with the public extension name
-`cloudburn-vscode`, the source package version, and publisher `dannysteenman`. Editor tests and packaging use this
-generated directory; edit the source manifest and listing assets rather than the generated files.
-
-Packaging requires `vsce` (`npm install --global @vscode/vsce`) and creates `packages/vscode/dist/cloudburn.vsix`.
-Only the manifest, README, changelog, license, icon, README images/demo, and extension bundle ship.
-The CLI is installed separately; SDK code, AWS libraries, test runners, and workspace dependencies stay out of the VSIX.
-Packaging resolves README image links to this package's media on GitHub `main`; merge the assets before publishing.
-See the [capture notes](https://github.com/towardsthecloud/cloudburn/blob/main/packages/vscode/media/README.md)
-to refresh the screenshots and animation.
-
-E2E tests download VS Code 1.100.3 and run real editor commands against the built CLI in temporary workspaces. They
-start with empty folders and verify the first plaintext Terraform save without a Terraform language extension.
-Linux uses `xvfb-run` when no display is available. Set `CLOUDBURN_VSCODE_EXECUTABLE` to test another installed editor.
-Temporary workspaces are removed after each run. The config-alias regression probes alternate-case paths and logs a
-skip on case-sensitive filesystems.
-
-Release publishing follows the scoped `@cloudburn/vscode@<version>` tag after Changesets versioning. The release
-workflow validates and packages once, then uploads the same VSIX to Visual Studio Marketplace and Open VSX using
-`VSCE_TOKEN` and `OPEN_VSX_TOKEN` repository Actions secrets. See the
-[release guide](https://github.com/towardsthecloud/cloudburn/blob/main/docs/guides/releasing.md#vs-code-extension)
-for publisher setup and retries.
