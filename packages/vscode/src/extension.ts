@@ -204,19 +204,16 @@ export const activate = (context: vscode.ExtensionContext): void => {
     }
     for (const [key, folder] of affected) {
       const state = states.get(key);
-      if (state) {
-        invalidate(state);
-        state.entries = state.entries.filter(
-          ([uri]) =>
-            !removed.some(
-              (file) => uri.toString() === file.toString() || uri.fsPath.startsWith(`${file.fsPath}${sep}`),
-            ),
-        );
-        state.findingCount = state.entries.reduce(
-          (total, [, items]) => total + items.filter((item) => typeof item.code === 'object').length,
-          0,
-        );
-      }
+      if (!state) continue;
+      invalidate(state);
+      state.entries = state.entries.filter(
+        ([uri]) =>
+          !removed.some((file) => uri.toString() === file.toString() || uri.fsPath.startsWith(`${file.fsPath}${sep}`)),
+      );
+      state.findingCount = state.entries.reduce(
+        (total, [, items]) => total + items.filter((item) => typeof item.code === 'object').length,
+        0,
+      );
       schedule(folder, 'mandatory');
     }
     refresh();

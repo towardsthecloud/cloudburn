@@ -22,7 +22,8 @@ rules and configuration you run in CI. Terraform JSON (`.tf.json`) is not curren
 
 - Cost findings in the Problems panel and inline diagnostics, with links to rule explanations and remediation.
 - Workspace-folder scans after saving Terraform, JSON, or YAML, debounced to avoid overlapping work.
-- Editor renames and deletions refresh affected folders, including skipped-file warnings, even with save scans disabled.
+- Editor renames and deletions refresh already-scanned folders, including skipped-file warnings, even with save scans
+  disabled. They never start a folder's first scan.
 - Saving a file referenced by an explicit config path refreshes each referencing folder with save scans enabled,
   including explicit symlink aliases.
 - **CloudBurn: Scan Workspace** scans every local folder in a multi-root workspace.

@@ -152,8 +152,9 @@ automatic scanning on the first plaintext Terraform save without a Terraform lan
 extension's real commands with the built CLI. It checks Terraform and CloudFormation JSON/YAML
 locations, severities, rule links, configuration, suppressions,
 policy exit code 1, save/fix updates, setting changes, renames, deletion, sibling findings, skipped-file removal, and
-recovery after a missing CLI. Overlapping parent/child roots must publish one finding and clear it on save using the
-outermost folder's settings while retaining sibling results. Clean-machine startup creates the download cache before
+recovery after a missing CLI. Renaming a file in a never-scanned folder must not start its first scan. Overlapping
+parent/child roots must publish one finding and clear it on save using the outermost folder's settings while retaining
+sibling results. Clean-machine startup creates the download cache before
 invoking the editor downloader.
 The workspace name includes spaces and shell metacharacters to exercise direct argument handling.
 

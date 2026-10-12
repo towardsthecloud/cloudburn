@@ -18,6 +18,28 @@ export const run = async (): Promise<void> => {
   }
   assert.ok(extension.isActive, 'An empty workspace must activate CloudBurn before its first IaC save.');
   const config = vscode.workspace.getConfiguration('cloudburn', folder.uri);
+
+  const unscanned = vscode.workspace.workspaceFolders?.[1];
+  assert.ok(unscanned, 'The unscanned-folder test needs a second workspace folder.');
+  await config.update(
+    'executable',
+    join(unscanned.uri.fsPath, 'missing-cloudburn'),
+    vscode.ConfigurationTarget.Workspace,
+  );
+  const notes = vscode.Uri.file(join(unscanned.uri.fsPath, 'notes.txt'));
+  await writeFile(notes.fsPath, '');
+  const renameNotes = new vscode.WorkspaceEdit();
+  renameNotes.renameFile(notes, vscode.Uri.file(join(unscanned.uri.fsPath, 'notes.md')));
+  await vscode.workspace.applyEdit(renameNotes);
+  await new Promise((accept) => setTimeout(accept, 1500));
+  assert.equal(
+    vscode.languages.getDiagnostics(unscanned.uri).filter((item) => item.source === 'CloudBurn').length,
+    0,
+    'Renaming a file in a never-scanned folder must not start a scan.',
+  );
+  await config.update('executable', undefined, vscode.ConfigurationTarget.Workspace);
+  console.log('PASS: renaming a file in a never-scanned folder starts no scan');
+
   for (const workspaceFolder of vscode.workspace.workspaceFolders ?? []) {
     const folderConfig = vscode.workspace.getConfiguration('cloudburn', workspaceFolder.uri);
     await folderConfig.update(
