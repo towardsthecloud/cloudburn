@@ -1,7 +1,7 @@
 {
   "name": "@cloudburn/vscode",
   "displayName": "CloudBurn — AWS Cost Checks",
-  "version": "0.1.0",
+  "version": "0.0.0",
   "private": true,
   "publisher": "dannysteenman",
   "description": "Catch AWS cost waste in Terraform and CloudFormation before you commit, using the CloudBurn CLI.",
