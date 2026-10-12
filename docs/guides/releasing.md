@@ -3,7 +3,7 @@
 ## Contributor changesets
 
 Add a changeset for a user-facing change to a versioned package: `cloudburn`, `@cloudburn/sdk`, `@cloudburn/rules`,
-`@cloudburn/mcp`, or `@cloudburn/action` (versioned and tagged, but not published to npm — see
+`@cloudburn/mcp`, `@cloudburn/vscode`, or `@cloudburn/action` (versioned and tagged, but not published to npm — see
 [GitHub Action sync](#github-action-sync)). Changes to the agent plugin or its skill ship as `@cloudburn/mcp` changes;
 see [agent plugin sync](#agent-plugin-sync). Documentation-only changes do not need one.
 
@@ -19,6 +19,48 @@ Describe the user-visible change.
 
 Use `patch` for fixes and `minor` for features. Do not create major changesets. Never run the interactive changeset prompt,
 version command, or publish command during feature work.
+
+## VS Code extension
+
+`@cloudburn/vscode` is private and versioned through Changesets; it is not published to npm. After versioning,
+build a local archive with `pnpm exec turbo run package:vsix --filter @cloudburn/vscode` and inspect
+the contents before distribution. The build copies the workspace package version into a generated manifest in
+`dist/vscode/`, with the public name `cloudburn-vscode` and existing `dannysteenman` Marketplace publisher.
+
+The [extension release workflow](../../.github/workflows/vscode-release.yml) follows the tag-triggered pattern used by
+the SAM and IAM Service Principal Snippets extensions. It accepts only `@cloudburn/vscode@<version>` tags matching the
+package manifest at a commit on `main`, and requires that commit's manifest version to differ from its first parent.
+The tag must point to the version-bump commit; a later source or manifest metadata commit cannot reuse the version.
+It runs extension lint, typechecking, transport tests, and real-editor tests
+with the built CLI before packaging one VSIX. Independent publish jobs upload that same artifact to Visual Studio
+Marketplace and Open VSX. Both jobs skip an already-published version, so rerunning a partially failed release repairs
+the missing destination. Publishing CLIs are pinned in the workflow; version changes remain owned by Changesets.
+
+Configure these repository Actions secrets before the first release:
+
+| Secret           | Credential                                                                                  |
+| ---------------- | ------------------------------------------------------------------------------------------- |
+| `VSCE_TOKEN`     | Azure DevOps PAT with `Marketplace (Manage)` scope and publishing access to `dannysteenman` |
+| `OPEN_VSX_TOKEN` | Open VSX access token with publishing access to the `dannysteenman` namespace               |
+
+The Open VSX account must have accepted its publisher agreement, and the namespace must exist. Credentials are passed
+only to the corresponding publish step as `VSCE_PAT` or `OVSX_PAT`; validation and packaging do not receive them.
+
+Merging the Changesets version PR creates the scoped tag and dispatches the extension workflow at that tag. This explicit
+dispatch is necessary because a tag pushed with `GITHUB_TOKEN` does not trigger another push workflow. A maintainer's
+tag push also triggers publication directly. The monorepo Release workflow reports dispatch success; the separate
+**Release VS Code extension** run reports validation and upload results. Check that run before treating the extension as
+published. Each registry's listing requires publisher setup and a successful upload.
+
+Retry a released version without changing its version number:
+
+```bash
+gh workflow run vscode-release.yml --repo towardsthecloud/cloudburn --ref '@cloudburn/vscode@<version>'
+```
+
+Dispatching at a branch fails the release guard. If the original tag or GitHub release is missing, use the monorepo
+`published-release-ref` recovery described below; it also supports extension-only releases and dispatches the publisher
+at the recovered tag without trying to publish the private package to npm.
 
 ## Automated release flow
 
@@ -168,22 +210,22 @@ Changesets CLI v3 requires `changesets/action` v2. The v1 action parsed CLI v2 c
 successful job after npm publication while missing the v3 publish events, Git tags, GitHub releases, and Homebrew
 update. Keep the action's hyphenated v2 inputs/outputs aligned with the CLI major version.
 
-If follow-up steps were skipped, verify each published npm version and tarball first. Action-only releases skip this npm check.
+If follow-up steps were skipped, verify each published npm version and tarball first. Action-only and extension-only releases skip this npm check.
 Dispatch the Release workflow on `main` with `published-release-ref` set to the original version commit's full SHA.
 The workflow checks out that commit, verifies it belongs to `main`, and identifies only packages whose versions changed
 in that commit. For each changed npm package, it verifies the exact npm version and that its provenance names the
-repository and release SHA. The private `@cloudburn/action` package needs no npm version or provenance.
+repository and release SHA. The private `@cloudburn/action` and `@cloudburn/vscode` packages need no npm version or provenance.
 Recovery bypasses Changesets publishing and creates or pushes only the selected packages' tags. It verifies every
 selected tag against the original release commit before creating GitHub releases from the versioned changelogs.
 Unchanged packages' older tags remain untouched, including missing tags. A rejected tag push fails recovery instead of
 allowing GitHub release creation to silently attach a new tag to current `main`.
 
-Recovery supports any released subset, including action-only releases. Missing or mismatched npm provenance fails
+Recovery supports any released subset, including action-only and extension-only releases. Missing or mismatched npm provenance fails
 recovery; existing selected tags must already point to the same commit. Ancestry and the absence of pending changesets
 are checked immediately after checkout, before repository setup or installation; this prevents recovery from rewriting
 a version PR. Recovery can resume after a partial failure: missing GitHub releases are created, existing releases are
 kept, Homebrew runs only when `cloudburn` changed, action sync runs only when `@cloudburn/action` changed, and plugin
-sync runs only when `@cloudburn/mcp` changed.
+sync runs only when `@cloudburn/mcp` changed, and extension publishing is dispatched only when `@cloudburn/vscode` changed.
 It never overwrites existing version tags or republishes npm packages.
 GitHub may reject a historical tag push by the workflow token when the release commit has an older workflow definition.
 In that case, an authorized maintainer must create the missing tags at the provenance-verified commit using their existing

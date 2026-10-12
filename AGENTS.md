@@ -1,14 +1,15 @@
 # AGENTS.md
 
-CloudBurn is a pnpm/Turborepo monorepo for a CLI, SDK, pure rule package, the bundled GitHub Action, and an MCP
-server with its agent plugin that detect AWS cost issues in IaC and live accounts. Dependency direction is
+CloudBurn is a pnpm/Turborepo monorepo for a CLI, SDK, pure rule package, bundled GitHub Action, MCP server
+with its agent plugin, and VS Code extension. These detect AWS cost issues in IaC and live accounts. Dependency direction is
 `cloudburn CLI`, `@cloudburn/action`, and `@cloudburn/mcp` -> `@cloudburn/sdk` -> `@cloudburn/rules`.
+The VS Code extension runs the CLI through its JSON interface.
 
 ## Start with the task
 
 - Read the nearest package instructions before editing: [CLI](packages/cloudburn/AGENTS.md),
-  [SDK](packages/sdk/AGENTS.md), [rules](packages/rules/AGENTS.md), [action](packages/action/AGENTS.md), or
-  [MCP and plugin](packages/mcp/AGENTS.md).
+  [SDK](packages/sdk/AGENTS.md), [rules](packages/rules/AGENTS.md), [action](packages/action/AGENTS.md),
+  [MCP and plugin](packages/mcp/AGENTS.md), or [VS Code](packages/vscode/AGENTS.md).
 - For setup and focused commands, use [local development](docs/guides/local-development.md). For task dependencies,
   caching, and command side effects, use the [command reference](docs/reference/commands.md).
 - For a new rule, start with [adding a rule](docs/guides/adding-a-rule.md); it routes dataset changes to the SDK guides.

@@ -26,6 +26,8 @@ CloudBurn runs deterministic cost rules against your Terraform and CloudFormatio
 - **Built for AI agents.** A [plugin](packages/mcp/README.md) gives Claude Code, Codex, and other agents read-only
   CloudBurn tools and a skill for reviewing IaC and live accounts.
 - **Machine and human friendly output.** `json` and `table` formats.
+- **Check costs in your editor.** The [VS Code extension](packages/vscode/README.md) runs the CLI on save and shows
+  Terraform and CloudFormation findings in Problems. Available as a local VSIX preview.
 
 ## See It Run
 

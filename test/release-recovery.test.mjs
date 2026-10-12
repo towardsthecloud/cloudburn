@@ -100,6 +100,84 @@ test('action-only recovery creates only its released tag when older package tags
   assert.equal(run(checkout, 'git', ['rev-parse', '@cloudburn/action@1.0.1^{commit}']), release);
 });
 
+test('extension-only recovery selects and tags the private package without querying npm', (t) => {
+  const { directory, checkout, remote } = repository(t);
+  mkdirSync(join(checkout, 'packages/vscode'));
+  const manifest = join(checkout, 'packages/vscode/package.json');
+  writeFileSync(manifest, '{"name":"@cloudburn/vscode","version":"0.1.0","private":true}');
+  run(checkout, 'git', ['add', '.']);
+  run(checkout, 'git', ['commit', '-m', 'Initial extension']);
+  writeFileSync(manifest, '{"name":"@cloudburn/vscode","version":"0.2.0","private":true}');
+  run(checkout, 'git', ['commit', '-am', 'Release extension 0.2.0']);
+  const release = run(checkout, 'git', ['rev-parse', 'HEAD']);
+  const bin = join(directory, 'bin');
+  mkdirSync(bin);
+  const npmLog = join(directory, 'npm.log');
+  writeFileSync(join(bin, 'npm'), '#!/bin/sh\necho unexpected-npm-query >> "$NPM_LOG"\nexit 1\n');
+  chmodSync(join(bin, 'npm'), 0o755);
+  const output = join(directory, 'outputs');
+  run(checkout, 'bash', ['-euo', 'pipefail', '-c', shell('Verify existing npm versions before recovery')], {
+    PATH: `${bin}:${process.env.PATH}`, NPM_LOG: npmLog, GITHUB_OUTPUT: output,
+  });
+  assert.equal(readFileSync(output, 'utf8').trim(), 'packages= vscode');
+  assert.equal(spawnSync('test', ['-e', npmLog]).status, 1, 'Private extension recovery must not query npm');
+  run(checkout, 'bash', ['-euo', 'pipefail', '-c', shell('Recover missing release tags')], { RELEASED: ' vscode' });
+  assert.equal(run(remote, 'git', ['rev-parse', '@cloudburn/vscode@0.2.0^{commit}']), release);
+  assert.deepEqual(run(checkout, 'git', ['ls-remote', '--tags', '--refs', remote]).split('\n').map((line) => line.split('\t')[1]),
+    ['refs/tags/@cloudburn/vscode@0.2.0']);
+});
+
+test('recovery rejects a manifest edit that keeps the extension version', (t) => {
+  const { directory, checkout } = repository(t);
+  mkdirSync(join(checkout, 'packages/vscode'));
+  const manifest = join(checkout, 'packages/vscode/package.json');
+  writeFileSync(manifest, '{"name":"@cloudburn/vscode","version":"0.1.0","private":true}');
+  run(checkout, 'git', ['add', '.']);
+  run(checkout, 'git', ['commit', '-m', 'Initial extension']);
+  writeFileSync(manifest, '{\n  "private": true,\n  "version": "0.1.0",\n  "name": "@cloudburn/vscode"\n}\n');
+  run(checkout, 'git', ['commit', '-am', 'Reformat extension manifest']);
+  const result = spawnSync('bash', ['-euo', 'pipefail', '-c', shell('Verify existing npm versions before recovery')], {
+    cwd: checkout, env: { ...process.env, GITHUB_OUTPUT: join(directory, 'outputs') }, encoding: 'utf8',
+  });
+  assert.notEqual(result.status, 0, 'A moved version line is not a release');
+  assert.match(result.stdout, /No package version bump/);
+});
+
+test('extension publishing dispatches only its published or recovered tag', (t) => {
+  const dispatch = step('Dispatch VS Code extension release');
+  assert.ok(dispatch, 'Changesets-created tags need an explicit publishing dispatch');
+  assert.match(dispatch, /^        background: true$/m, 'A failed publishing dispatch must not block other release destinations');
+  const condition = dispatch.split('        if: >-\n')[1].split('        env:')[0]
+    .replaceAll('inputs.published-release-ref', "inputs['published-release-ref']")
+    .replaceAll('steps.changesets.outputs.published-packages', "steps.changesets.outputs['published-packages']");
+  const evaluate = new Function('github', 'inputs', 'steps', 'contains', 'format', `return (${condition});`);
+  for (const [ref, recovery, packages, published, expected] of [
+    ['refs/heads/main', '', '[{"name":"@cloudburn/vscode","version":"0.2.0"}]', 'true', true],
+    ['refs/heads/main', '', '[{"name":"cloudburn","version":"1.0.1"}]', 'true', false],
+    ['refs/heads/main', 'released-commit', ' vscode', '', true],
+    ['refs/heads/main', 'released-commit', ' action', '', false],
+    ['refs/heads/main', '', '[]', 'false', false],
+    ['refs/heads/feature', '', '[{"name":"@cloudburn/vscode"}]', 'true', false],
+  ]) {
+    assert.equal(evaluate({ ref }, { 'published-release-ref': recovery }, {
+      recovery: { outputs: { packages } }, changesets: { outputs: { published, 'published-packages': packages } },
+    }, (value, search) => value?.includes(search) ?? false, (value, arg) => value.replace('{0}', arg)), expected);
+  }
+  const { directory, checkout } = repository(t);
+  mkdirSync(join(checkout, 'packages/vscode'));
+  writeFileSync(join(checkout, 'packages/vscode/package.json'), '{"name":"@cloudburn/vscode","version":"0.2.0"}');
+  const bin = join(directory, 'bin');
+  mkdirSync(bin);
+  writeFileSync(join(bin, 'gh'), '#!/bin/sh\nprintf "%s\\n" "$*" > "$GH_LOG"\n');
+  chmodSync(join(bin, 'gh'), 0o755);
+  const ghLog = join(directory, 'github.log');
+  run(checkout, 'bash', ['-euo', 'pipefail', '-c', shell('Dispatch VS Code extension release')], {
+    PATH: `${bin}:${process.env.PATH}`, GH_LOG: ghLog, GITHUB_REPOSITORY: 'towardsthecloud/cloudburn',
+  });
+  assert.equal(readFileSync(ghLog, 'utf8').trim(),
+    'workflow run vscode-release.yml --repo towardsthecloud/cloudburn --ref @cloudburn/vscode@0.2.0');
+});
+
 for (const newerMinor of [false, true]) {
   const name = newerMinor
     ? 'older v1 recovery preserves the newer v1 floating tag'

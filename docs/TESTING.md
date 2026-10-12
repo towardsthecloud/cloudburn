@@ -143,6 +143,28 @@ Its `test:package` suite packs the MCP server, SDK, and rules, installs the arch
 `dist/cli.js`. It then starts the installed `cloudburn-mcp` executable over stdio and runs a Terraform scan. Like the
 CLI's installed-package suite, it is uncached and needs public npm registry access.
 
+### `@cloudburn/vscode`
+
+Transport tests run real child processes to reject incompatible JSON and cancel a CLI subprocess. They cover malformed
+launcher responses the healthy CLI fixtures cannot reproduce. Editor behavior is owned by the `test:e2e` suite: it
+loads the generated `dist/vscode/` extension in VS Code 1.100.3 in an initially empty multi-root workspace, verifies
+automatic scanning on the first plaintext Terraform save without a Terraform language extension, and invokes the
+extension's real commands with the built CLI. It checks Terraform and CloudFormation JSON/YAML
+locations, severities, rule links, configuration, suppressions,
+policy exit code 1, save/fix updates, setting changes, renames, deletion, sibling findings, skipped-file removal, and
+recovery after a missing CLI. Renaming a file in a never-scanned folder must not start its first scan, while renaming
+and recreating an external explicit config, or moving the target of a symlinked config away and back, must refresh the
+scanned folder that references it.
+Saving a discovered `.cloudburn.yml` in an ancestor directory must refresh the folder that uses it. Overlapping
+parent/child roots must publish one finding and clear it on save using the outermost folder's settings while retaining
+sibling results. Clean-machine startup creates the download cache before invoking the editor downloader.
+The workspace name includes spaces and shell metacharacters to exercise direct argument handling.
+
+Run `pnpm exec turbo run test:e2e --filter @cloudburn/vscode`. The runner downloads the pinned editor, uses `xvfb-run`
+on Linux without a display, and removes temporary workspaces. It clears `CI` for the editor process so the CLI's config
+discovery, which is disabled in CI, behaves as it does on a developer machine. `CLOUDBURN_VSCODE_EXECUTABLE` selects an
+installed editor for compatibility checks. The task is uncached because it starts an editor process. No AWS access is needed.
+
 ### Built CLI template tests
 
 `pnpm test:e2e` builds the CLI and its workspace dependencies, then starts the executable in isolated temporary directories. Fixtures and reviewed finding expectations live in `packages/cloudburn/test/e2e/`. These tests cover Terraform, CloudFormation YAML and JSON, positive and negative findings, source scope, source locations, configuration, suppression, parser diagnostics, and exit codes. They use no AWS credentials or account resources.
@@ -212,6 +234,13 @@ heading fragments, reference-style definitions and uses, code-example exclusion,
 `AGENTS.md` line budget.
 
 ## CI and task caching
+
+`pnpm release:test` executes the extension release guard against local Git fixtures, including matching versions,
+main ancestry, tag targets, and rejected branch dispatches. Recovery tests select and tag extension-only private
+releases without querying npm, and exercise the publishing dispatch at the versioned tag. Provider commands are
+replaced at their process boundary; these tests never upload an extension or need publisher credentials.
+The extension release workflow runs the real editor suite before packaging and shares one VSIX between its two
+registry jobs. Registry authentication and actual uploads require a release run and cannot be verified by local fixtures.
 
 The shared `validate` CI job installs dependencies once, then starts `pnpm verify:repo` as a background step alongside
 package verification. Pull requests run `pnpm verify:packages --affected --concurrency=2`; pushes to `main` run

@@ -1,0 +1,98 @@
+name: Release VS Code extension
+
+on:
+  push:
+    tags: ['@cloudburn/vscode@*']
+  # Changesets tags use GITHUB_TOKEN, whose push events cannot start another workflow.
+  # Dispatch at the released tag also allows retrying a partially published version.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vscode-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+      - name: Check release version and main ancestry
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_REF_TYPE: ${{ github.ref_type }}
+        run: |
+          test "$RELEASE_REF_TYPE" = tag
+          test "$RELEASE_TAG" = "@cloudburn/vscode@$(node -p 'require("./packages/vscode/package.json").version')"
+          test "$(git rev-parse "${RELEASE_TAG}^{commit}")" = "$(git rev-parse HEAD)"
+          git merge-base --is-ancestor HEAD origin/main
+          node -e 'const { execFileSync } = require("node:child_process"); const { readFileSync } = require("node:fs"); const path = "packages/vscode/package.json"; const current = JSON.parse(readFileSync(path, "utf8")).version; const parent = JSON.parse(execFileSync("git", ["show", "HEAD^:" + path], { encoding: "utf8" })).version; if (current === parent) process.exit(1)'
+
+  validate:
+    needs: version
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Validate the extension with the real CLI and editor
+        run: pnpm exec turbo run lint typecheck test test:e2e --filter @cloudburn/vscode --concurrency=2
+      - name: Install VSIX packaging CLI
+        run: npm install --global @vscode/vsce@4.0.0
+      - name: Package the validated extension
+        run: pnpm exec turbo run package:vsix --filter @cloudburn/vscode
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: cloudburn-vscode-vsix
+          path: packages/vscode/dist/cloudburn.vsix
+          retention-days: 7
+          if-no-files-found: error
+
+  publish:
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - registry: marketplace
+            cli: '@vscode/vsce@4.0.0'
+          - registry: open-vsx
+            cli: 'ovsx@1.2.0'
+    name: Publish to ${{ matrix.registry }}
+    steps:
+      - uses: actions/download-artifact@v8.0.2
+        with:
+          name: cloudburn-vscode-vsix
+          path: .vscode-release
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+      - name: Install publishing CLI
+        run: npm install --global '${{ matrix.cli }}'
+      - name: Publish the tested VSIX to Visual Studio Marketplace
+        if: matrix.registry == 'marketplace'
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_TOKEN }}
+        run: vsce publish --packagePath .vscode-release/cloudburn.vsix --skip-duplicate
+      - name: Publish the tested VSIX to Open VSX
+        if: matrix.registry == 'open-vsx'
+        env:
+          OVSX_PAT: ${{ secrets.OPEN_VSX_TOKEN }}
+        run: ovsx publish .vscode-release/cloudburn.vsix --skip-duplicate
