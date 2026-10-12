@@ -17,6 +17,9 @@ const containsPath = (folder: string, file: string): boolean => {
   return path !== '..' && !path.startsWith(`..${sep}`) && !isAbsolute(path);
 };
 
+const discoverableConfig = (file: string, folder: string): boolean =>
+  /^\.cloudburn\.ya?ml$/.test(basename(file)) && containsPath(dirname(file), folder);
+
 const projectFindings = (folder: vscode.WorkspaceFolder, result: ScanResult): [vscode.Uri, vscode.Diagnostic[]][] => {
   const entries = new Map<string, vscode.Diagnostic[]>();
   for (const provider of result.providers) {
@@ -208,8 +211,9 @@ export const activate = (context: vscode.ExtensionContext): void => {
     for (const folder of scanFolders()) {
       const configPath = vscode.workspace.getConfiguration('cloudburn', folder.uri).get<string>('configPath', '');
       const configFile = configPath && resolve(folder.uri.fsPath, configPath);
-      if (configFile && changed.some((uri) => containsPath(uri.fsPath, configFile)))
-        affected.set(folder.uri.toString(), folder);
+      const references = (uri: vscode.Uri): boolean =>
+        configFile ? containsPath(uri.fsPath, configFile) : discoverableConfig(uri.fsPath, folder.uri.fsPath);
+      if (changed.some(references)) affected.set(folder.uri.toString(), folder);
     }
     for (const [key, folder] of affected) {
       const state = states.get(key);
@@ -292,7 +296,8 @@ export const activate = (context: vscode.ExtensionContext): void => {
         if (
           candidate.scanOnSave &&
           ((supportedFile && containsPath(candidate.folder.uri.fsPath, document.uri.fsPath)) ||
-            candidate.configFile === savedPath)
+            candidate.configFile === savedPath ||
+            (!candidate.configFile && discoverableConfig(savedPath, candidate.folder.uri.fsPath)))
         )
           scheduleOnce(candidate.folder);
       }

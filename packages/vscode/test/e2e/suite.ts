@@ -446,6 +446,24 @@ export const run = async (): Promise<void> => {
   assert.equal(costFindings(siblingFile).length, 0, 'A renamed alias target must not leave findings from its policy.');
   await siblingConfig.update('configPath', '', vscode.ConfigurationTarget.WorkspaceFolder);
   console.log('PASS: renaming a symlinked config target refreshes the folder that references its alias');
+
+  const ancestorConfig = vscode.Uri.file(join(dirname(sibling.fsPath), '.cloudburn.yml'));
+  await writeFile(ancestorConfig.fsPath, 'iac:\n  enabled-rules: [CLDBRN-AWS-EBS-1]\n');
+  await siblingConfig.update('scanOnSave', true, vscode.ConfigurationTarget.WorkspaceFolder);
+  await vscode.commands.executeCommand('cloudburn.scanWorkspace');
+  assert.equal(costFindings(siblingFile).length, 1, 'The discovered ancestor config must select the sibling finding.');
+  const ancestorDocument = await vscode.workspace.openTextDocument(ancestorConfig);
+  const discoveredUpdate = waitForDiagnostics(siblingFile, () => costFindings(siblingFile).length === 0);
+  const ancestorEdit = new vscode.WorkspaceEdit();
+  ancestorEdit.replace(
+    ancestorConfig,
+    new vscode.Range(0, 0, ancestorDocument.lineCount, 0),
+    'iac:\n  services: [ec2]\n',
+  );
+  await vscode.workspace.applyEdit(ancestorEdit);
+  await ancestorDocument.save();
+  await discoveredUpdate;
+  console.log('PASS: saving a discovered ancestor config refreshes the folder that uses it');
 };
 
 const costFindings = (uri: vscode.Uri): vscode.Diagnostic[] =>

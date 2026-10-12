@@ -26,7 +26,8 @@ rules and configuration you run in CI. Terraform JSON (`.tf.json`) is not curren
   disabled. This includes folders whose explicit config path, or its symlink target, was renamed or deleted. They never
   start a folder's first scan.
 - Saving a file referenced by an explicit config path refreshes each referencing folder with save scans enabled,
-  including explicit symlink aliases.
+  including explicit symlink aliases. Without an explicit path, saving `.cloudburn.yml` or `.cloudburn.yaml` in a
+  folder or one of its ancestor directories refreshes that folder.
 - **CloudBurn: Scan Workspace** scans every local folder in a multi-root workspace.
 - Overlapping workspace folders share one scan using the outermost folder's settings, avoiding duplicate findings.
 - The status bar shows findings or an incomplete scan. **CloudBurn: Show Output** opens scan details.

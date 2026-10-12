@@ -29,6 +29,7 @@ try {
     extensionDevelopmentPath: resolve(packageRoot, 'dist/vscode'),
     extensionTestsPath: resolve(packageRoot, 'dist/e2e-suite.cjs'),
     extensionTestsEnv: {
+      CI: '',
       CLOUDBURN_TEST_NODE: process.execPath,
       CLOUDBURN_TEST_CLI: resolve(packageRoot, '../cloudburn/dist/cli.js'),
     },
