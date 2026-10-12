@@ -12,7 +12,9 @@ scanning, rule selection, configuration, and suppressions remain in the CLI/SDK.
 - Keep failed and skipped scans visible. A CLI policy exit code of 1 with valid JSON is a completed scan.
 - Test editor behavior through the real VS Code host and built CLI in `test/e2e/`. Transport tests cover malformed
   responses and subprocess failures that real healthy CLI fixtures cannot reproduce.
-- [README](README.md) owns setup, commands, settings, and local VSIX packaging. [Testing](../../docs/TESTING.md) owns
-  the test strategy; [generated files](../../docs/reference/generated-files.md) owns bundle and license generation.
+- [README](README.md) is the Marketplace listing and owns user setup, commands, and settings. The
+  [release guide](../../docs/guides/releasing.md#vs-code-extension) owns VSIX packaging and publishing;
+  [Testing](../../docs/TESTING.md) owns the test strategy; [generated files](../../docs/reference/generated-files.md)
+  owns bundle and license generation.
 - Marketplace publication is separate from npm releases. Do not publish during feature work; see
   [releasing](../../docs/guides/releasing.md#vs-code-extension).

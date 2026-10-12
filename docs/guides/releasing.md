@@ -26,6 +26,11 @@ version command, or publish command during feature work.
 build a local archive with `pnpm exec turbo run package:vsix --filter @cloudburn/vscode` and inspect
 the contents before distribution. The build copies the workspace package version into a generated manifest in
 `dist/vscode/`, with the public name `cloudburn-vscode` and existing `dannysteenman` Marketplace publisher.
+Packaging requires the global `vsce` CLI (`npm install --global @vscode/vsce`) and writes
+`packages/vscode/dist/cloudburn.vsix`. The archive contains only the manifest, README, changelog, license, icon, README
+media, and extension bundle; the CLI, SDK, AWS libraries, and test runners stay out. Packaging resolves README image
+links to `packages/vscode/media/` on GitHub `main`, so merge new listing assets before publishing. The
+[capture notes](../../packages/vscode/media/README.md) explain how to refresh the screenshots and animation.
 
 The [extension release workflow](../../.github/workflows/vscode-release.yml) follows the tag-triggered pattern used by
 the SAM and IAM Service Principal Snippets extensions. It accepts only `@cloudburn/vscode@<version>` tags matching the
