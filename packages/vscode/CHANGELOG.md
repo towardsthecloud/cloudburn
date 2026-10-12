@@ -1,5 +1,11 @@
 # @cloudburn/vscode
 
+## 0.1.3
+
+### Patch Changes
+
+- [#350](https://github.com/towardsthecloud/cloudburn/pull/350) [`fed2bec`](https://github.com/towardsthecloud/cloudburn/commit/fed2bece8fe9138dc2a2072d462ec213314abfa1) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Point the listing README's CLI install link to the CLI documentation instead of a missing getting-started page.
+
 ## 0.1.2
 
 ### Patch Changes
