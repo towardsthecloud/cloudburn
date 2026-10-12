@@ -9,7 +9,8 @@ the selected `gp2` value, a manual edit to `gp3`, saving, and a completed scan w
 volume was already changed to `gp3` before the GIF capture. Frames are real editor screenshots with display durations
 chosen for readability. Only the native macOS title/tab bar was cropped; UI content and findings were not altered.
 
-To refresh the captures, build and package the extension using the commands in the [extension README](../README.md).
+To refresh the captures, build and package the extension using the `package:vsix` command in
+[local development](../../../docs/guides/local-development.md).
 Create a temporary VS Code profile, install the VSIX there, and open a disposable folder containing these fixtures.
 Install the CLI separately, or use the README's local-build launcher settings. Trust only this fixture folder.
 Use Dark Modern, an 18 px editor font, and hide the minimap and secondary sidebar. Run **CloudBurn: Scan Workspace**,
