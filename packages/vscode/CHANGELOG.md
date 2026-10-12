@@ -1,5 +1,14 @@
 # @cloudburn/vscode
 
+## 0.1.1
+
+### Patch Changes
+
+- [#346](https://github.com/towardsthecloud/cloudburn/pull/346) [`f0f2d69`](https://github.com/towardsthecloud/cloudburn/commit/f0f2d695a098a38a5a19f74309cce41faaecee73) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Keep a refresh started by a file change, setting change, or workspace scan when a save interrupts it and save scans are
+  then turned off, so warnings for deleted or renamed files no longer linger.
+
+- [#346](https://github.com/towardsthecloud/cloudburn/pull/346) [`f0f2d69`](https://github.com/towardsthecloud/cloudburn/commit/f0f2d695a098a38a5a19f74309cce41faaecee73) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Rename the extension listing to CloudBurn and shorten its description.
+
 ## 0.1.0
 
 ### Minor Changes
