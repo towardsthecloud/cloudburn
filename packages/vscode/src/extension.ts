@@ -128,7 +128,10 @@ export const activate = (context: vscode.ExtensionContext): void => {
     const config = vscode.workspace.getConfiguration('cloudburn', folder.uri);
     const configPath = config.get<string>('configPath', '');
     try {
-      state.configIdentity = configPath ? await fileIdentity(resolve(folder.uri.fsPath, configPath)) : undefined;
+      const configFile = configPath ? resolve(folder.uri.fsPath, configPath) : undefined;
+      const lastIdentity = state.configFile === configFile ? state.configIdentity : undefined;
+      state.configIdentity = configFile && ((await fileIdentity(configFile)) ?? lastIdentity);
+      state.configFile = configFile;
       const result = await scanFolder(folder.uri.fsPath, {
         executable: config.get<string>('executable', 'cloudburn'),
         arguments: config.get<string[]>('arguments', []),
@@ -383,6 +386,7 @@ type FolderState = {
   entries: [vscode.Uri, vscode.Diagnostic[]][];
   findingCount: number;
   incomplete: boolean;
+  configFile?: string;
   configIdentity?: string;
   abort?: AbortController;
   timer?: ReturnType<typeof setTimeout>;

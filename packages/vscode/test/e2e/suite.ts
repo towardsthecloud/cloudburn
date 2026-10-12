@@ -444,8 +444,17 @@ export const run = async (): Promise<void> => {
   await vscode.workspace.applyEdit(renameTarget);
   await missingTarget;
   assert.equal(costFindings(siblingFile).length, 0, 'A renamed alias target must not leave findings from its policy.');
+  const restoredTarget = waitForDiagnostics(siblingFile, () => costFindings(siblingFile).length === 1);
+  const restoreTarget = new vscode.WorkspaceEdit();
+  restoreTarget.renameFile(vscode.Uri.file(`${aliasTargetPath}.old`), vscode.Uri.file(aliasTargetPath));
+  await vscode.workspace.applyEdit(restoreTarget);
+  await restoredTarget;
+  assert.ok(
+    !vscode.languages.getDiagnostics(sibling).some((item) => item.code === 'scan-failed'),
+    'Restoring the alias target must clear the missing-config failure.',
+  );
   await siblingConfig.update('configPath', '', vscode.ConfigurationTarget.WorkspaceFolder);
-  console.log('PASS: renaming a symlinked config target refreshes the folder that references its alias');
+  console.log('PASS: renaming a symlinked config target away and back refreshes the folder that references its alias');
 
   const ancestorConfig = vscode.Uri.file(join(dirname(sibling.fsPath), '.cloudburn.yml'));
   await writeFile(ancestorConfig.fsPath, 'iac:\n  enabled-rules: [CLDBRN-AWS-EBS-1]\n');

@@ -153,7 +153,8 @@ extension's real commands with the built CLI. It checks Terraform and CloudForma
 locations, severities, rule links, configuration, suppressions,
 policy exit code 1, save/fix updates, setting changes, renames, deletion, sibling findings, skipped-file removal, and
 recovery after a missing CLI. Renaming a file in a never-scanned folder must not start its first scan, while renaming
-an external explicit config or the target of a symlinked config must refresh the scanned folder that references it.
+an external explicit config, or moving the target of a symlinked config away and back, must refresh the scanned folder
+that references it.
 Saving a discovered `.cloudburn.yml` in an ancestor directory must refresh the folder that uses it. Overlapping
 parent/child roots must publish one finding and clear it on save using the outermost folder's settings while retaining
 sibling results. Clean-machine startup creates the download cache before invoking the editor downloader.
