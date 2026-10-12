@@ -39,7 +39,7 @@ not upload source files or collect telemetry, and it does not automatically chan
 
 ## Get started
 
-1. Install the [CloudBurn CLI](https://cloudburn.io/docs/cli/getting-started):
+1. Install the [CloudBurn CLI](https://cloudburn.io/docs/cli):
 
    ```bash
    brew install towardsthecloud/tap/cloudburn
