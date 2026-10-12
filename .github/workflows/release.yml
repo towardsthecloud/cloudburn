@@ -59,9 +59,10 @@ jobs:
           # point at earlier release commits.
           RELEASED=""
           for PACKAGE in rules sdk cloudburn action mcp vscode; do
-            if [ -f "packages/${PACKAGE}/package.json" ] \
-              && git diff "${RELEASE_SHA}~1" "${RELEASE_SHA}" -- "packages/${PACKAGE}/package.json" \
-                | grep -q '^+.*"version"'; then
+            MANIFEST="packages/${PACKAGE}/package.json"
+            if [ -f "$MANIFEST" ] \
+              && PREVIOUS=$(git show "${RELEASE_SHA}~1:${MANIFEST}" 2>/dev/null) \
+              && [ "$(node -p "require('./${MANIFEST}').version")" != "$(node -p 'JSON.parse(process.argv[1]).version' "$PREVIOUS")" ]; then
               RELEASED="$RELEASED $PACKAGE"
             fi
           done

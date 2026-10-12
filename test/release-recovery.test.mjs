@@ -127,6 +127,22 @@ test('extension-only recovery selects and tags the private package without query
     ['refs/tags/@cloudburn/vscode@0.2.0']);
 });
 
+test('recovery rejects a manifest edit that keeps the extension version', (t) => {
+  const { directory, checkout } = repository(t);
+  mkdirSync(join(checkout, 'packages/vscode'));
+  const manifest = join(checkout, 'packages/vscode/package.json');
+  writeFileSync(manifest, '{"name":"@cloudburn/vscode","version":"0.1.0","private":true}');
+  run(checkout, 'git', ['add', '.']);
+  run(checkout, 'git', ['commit', '-m', 'Initial extension']);
+  writeFileSync(manifest, '{\n  "private": true,\n  "version": "0.1.0",\n  "name": "@cloudburn/vscode"\n}\n');
+  run(checkout, 'git', ['commit', '-am', 'Reformat extension manifest']);
+  const result = spawnSync('bash', ['-euo', 'pipefail', '-c', shell('Verify existing npm versions before recovery')], {
+    cwd: checkout, env: { ...process.env, GITHUB_OUTPUT: join(directory, 'outputs') }, encoding: 'utf8',
+  });
+  assert.notEqual(result.status, 0, 'A moved version line is not a release');
+  assert.match(result.stdout, /No package version bump/);
+});
+
 test('extension publishing dispatches only its published or recovered tag', (t) => {
   const dispatch = step('Dispatch VS Code extension release');
   assert.ok(dispatch, 'Changesets-created tags need an explicit publishing dispatch');
