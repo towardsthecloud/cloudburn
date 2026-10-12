@@ -1,5 +1,11 @@
 # @cloudburn/vscode
 
+## 0.1.2
+
+### Patch Changes
+
+- [#348](https://github.com/towardsthecloud/cloudburn/pull/348) [`f6d4466`](https://github.com/towardsthecloud/cloudburn/commit/f6d4466d042536720f593c02b30c22965bd9b0f3) Thanks [@dannysteenman](https://github.com/dannysteenman)! - Remove the contributor "Develop and package" section from the extension listing README.
+
 ## 0.1.1
 
 ### Patch Changes
