@@ -51,7 +51,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Validate the extension with the real CLI and editor
-        run: xvfb-run -a pnpm exec turbo run lint typecheck test test:e2e --filter @cloudburn/vscode --concurrency=2
+        run: pnpm exec turbo run lint typecheck test test:e2e --filter @cloudburn/vscode --concurrency=2
       - name: Install VSIX packaging CLI
         run: npm install --global @vscode/vsce@4.0.0
       - name: Package the validated extension
