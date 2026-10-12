@@ -425,7 +425,18 @@ export const run = async (): Promise<void> => {
   await vscode.workspace.applyEdit(renamePolicy);
   await missingPolicy;
   assert.equal(costFindings(siblingFile).length, 0, 'A renamed config must not leave findings from the old policy.');
-  console.log('PASS: renaming an external config refreshes the folder that references it');
+  const recreatedPolicy = waitForDiagnostics(siblingFile, () => costFindings(siblingFile).length === 1);
+  const recreatePolicy = new vscode.WorkspaceEdit();
+  recreatePolicy.createFile(vscode.Uri.file(externalPolicyPath), {
+    contents: new TextEncoder().encode('iac:\n  enabled-rules: [CLDBRN-AWS-EBS-1]\n'),
+  });
+  await vscode.workspace.applyEdit(recreatePolicy);
+  await recreatedPolicy;
+  assert.ok(
+    !vscode.languages.getDiagnostics(sibling).some((item) => item.code === 'scan-failed'),
+    'Recreating the config must clear the missing-config failure.',
+  );
+  console.log('PASS: renaming and recreating an external config refreshes the folder that references it');
 
   const aliasTargetPath = join(dirname(folder.uri.fsPath), 'alias-target-policy.yml');
   const aliasPath = join(dirname(folder.uri.fsPath), 'alias-policy.yml');
