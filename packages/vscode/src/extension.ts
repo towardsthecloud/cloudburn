@@ -197,10 +197,17 @@ export const activate = (context: vscode.ExtensionContext): void => {
   };
 
   const refreshFiles = (removed: readonly vscode.Uri[], added: readonly vscode.Uri[] = []): void => {
+    const changed = [...removed, ...added].filter((uri) => uri.scheme === 'file');
     const affected = new Map<string, vscode.WorkspaceFolder>();
-    for (const uri of [...removed, ...added]) {
+    for (const uri of changed) {
       const folder = folderForScan(uri);
       if (folder) affected.set(folder.uri.toString(), folder);
+    }
+    for (const folder of scanFolders()) {
+      const configPath = vscode.workspace.getConfiguration('cloudburn', folder.uri).get<string>('configPath', '');
+      const configFile = configPath && resolve(folder.uri.fsPath, configPath);
+      if (configFile && changed.some((uri) => containsPath(uri.fsPath, configFile)))
+        affected.set(folder.uri.toString(), folder);
     }
     for (const [key, folder] of affected) {
       const state = states.get(key);

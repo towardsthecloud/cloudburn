@@ -409,6 +409,24 @@ export const run = async (): Promise<void> => {
     'Saving inside an overlapping root must preserve sibling findings.',
   );
   console.log('PASS: overlapping workspace roots share findings and refresh through their outer scan settings');
+
+  const externalPolicyPath = join(dirname(folder.uri.fsPath), 'external-policy.yml');
+  await writeFile(externalPolicyPath, 'iac:\n  enabled-rules: [CLDBRN-AWS-EBS-1]\n');
+  await siblingConfig.update('configPath', externalPolicyPath, vscode.ConfigurationTarget.WorkspaceFolder);
+  await vscode.commands.executeCommand('cloudburn.scanWorkspace');
+  assert.equal(costFindings(siblingFile).length, 1, 'The external policy must select the sibling finding.');
+  const missingPolicy = waitForDiagnostics(sibling, () =>
+    vscode.languages
+      .getDiagnostics(sibling)
+      .some((item) => item.code === 'scan-failed' && item.message.includes('config file not found')),
+  );
+  const renamePolicy = new vscode.WorkspaceEdit();
+  renamePolicy.renameFile(vscode.Uri.file(externalPolicyPath), vscode.Uri.file(`${externalPolicyPath}.old`));
+  await vscode.workspace.applyEdit(renamePolicy);
+  await missingPolicy;
+  assert.equal(costFindings(siblingFile).length, 0, 'A renamed config must not leave findings from the old policy.');
+  await siblingConfig.update('configPath', '', vscode.ConfigurationTarget.WorkspaceFolder);
+  console.log('PASS: renaming an external config refreshes the folder that references it');
 };
 
 const costFindings = (uri: vscode.Uri): vscode.Diagnostic[] =>
