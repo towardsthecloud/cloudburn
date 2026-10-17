@@ -98,8 +98,9 @@ A new source file outside every linked directory makes nothing due until a row l
   `## Documentation` section with why it stays true. Link every owning page and source in that table and keep source
   links precise; a broad one makes pages due on unrelated changes. Name sources that should not make pages due, such as
   test directories, as code instead of links.
-- Agents read the raw Markdown, so write tables without column padding (`| a | b |` and `| --- | --- |`). A formatter
-  that aligns columns, such as rumdl with MD060 `style = "aligned"`, adds it back; don't commit that.
+- Agents read the raw Markdown, so write tables without column padding (`| a | b |` and `| --- | --- |`). The
+  [rumdl configuration](../.rumdl.toml) keeps `rumdl fmt` to that style and replaces any user-level rumdl config. Other
+  formatters that align columns add the padding back; don't commit that.
 - Distinguish verified behavior from intended contracts. When code and a documented contract disagree, record the gap
   and preserve the contract until intent is resolved. The [rule ID compatibility policy](reference/rule-ids.md#compatibility-status)
   requires immutable IDs even when a rule is removed or reordered.
