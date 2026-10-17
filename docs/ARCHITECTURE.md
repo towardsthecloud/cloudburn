@@ -74,14 +74,14 @@ sequenceDiagram
 
 ## Package Responsibility
 
-| Package             | Owns                                                                          | Does NOT own                                     |
-| ------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------ |
-| `cloudburn` (cli)   | Command parsing, output formatters, exit-code behavior                        | Scanning logic, rule definitions                 |
-| `@cloudburn/action` | GitHub Action manifest, inputs, annotations, PR comment, bundled distribution | Scanning logic, live discovery, the CLI          |
-| `@cloudburn/mcp`    | Stdio MCP server tools, agent plugin manifests, skill, plugin build           | Scanning logic, AWS setup, the CLI               |
-| `@cloudburn/vscode` | CLI subprocess, editor lifecycle, diagnostics, status/output, VSIX            | Scanning logic, live discovery, rule definitions |
-| `@cloudburn/sdk`    | Scanner facade, config system, engine orchestration, parsers, AWS providers   | Rule definitions, CLI concerns                   |
-| `@cloudburn/rules`  | Rule definitions, presets, type contracts, helper utilities                   | I/O, AWS SDK calls, engine logic                 |
+| Package | Owns | Does NOT own |
+| --- | --- | --- |
+| `cloudburn` (cli) | Command parsing, output formatters, exit-code behavior | Scanning logic, rule definitions |
+| `@cloudburn/action` | GitHub Action manifest, inputs, annotations, PR comment, bundled distribution | Scanning logic, live discovery, the CLI |
+| `@cloudburn/mcp` | Stdio MCP server tools, agent plugin manifests, skill, plugin build | Scanning logic, AWS setup, the CLI |
+| `@cloudburn/vscode` | CLI subprocess, editor lifecycle, diagnostics, status/output, VSIX | Scanning logic, live discovery, rule definitions |
+| `@cloudburn/sdk` | Scanner facade, config system, engine orchestration, parsers, AWS providers | Rule definitions, CLI concerns |
+| `@cloudburn/rules` | Rule definitions, presets, type contracts, helper utilities | I/O, AWS SDK calls, engine logic |
 
 The action is a private distribution package, not a published npm library. It consumes `scanStatic` like the CLI and
 ships the JavaScript bundle and WASM parser through a dedicated `towardsthecloud/cloudburn-action` repository.

@@ -13,17 +13,17 @@ Authoritative sources: [public options](../../packages/sdk/src/types.ts),
 `CloudBurnClient.discover({ cache })` accepts `AwsEvidenceCacheOptions`. Omitting `cache` disables reuse across scans.
 An explicitly configured cache without a directory or store reuses memory on that `CloudBurnClient` instance.
 
-| Option                 | Default                  | Meaning                                                                                                                          |
-| ---------------------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
-| `mode`                 | `normal` when configured | Reuse fresh complete evidence. `refresh` requires collection; `off` bypasses reuse, coordination, and persistence.               |
-| `directory`            | None                     | Private local persistence directory shared by cooperating processes.                                                             |
-| `store`                | None                     | Alternative `EvidenceCacheStore`; mutually exclusive with `directory`.                                                           |
-| `authorizationContext` | None                     | Caller-supplied revision of effective permissions and execution context. Required for customer reuse with long-term credentials. |
-| `maxEntries`           | `1000`                   | Maximum inactive stored entries after eviction.                                                                                  |
-| `maxBytes`             | `134217728` (128 MiB)    | Maximum serialized entry bytes after eviction, excluding SQLite overhead and active leases.                                      |
-| `ttlMs.catalog`        | `180000`                 | Freshness for search plans, resource-type catalogs, and declared filtered catalog queries.                                       |
-| `ttlMs.datasets`       | Registry policies        | Map of dataset keys to freshness durations in milliseconds.                                                                      |
-| `ttlMs.pricing`        | `43200000` (12 hours)    | Freshness for independent public pricing artifacts.                                                                              |
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `mode` | `normal` when configured | Reuse fresh complete evidence. `refresh` requires collection; `off` bypasses reuse, coordination, and persistence. |
+| `directory` | None | Private local persistence directory shared by cooperating processes. |
+| `store` | None | Alternative `EvidenceCacheStore`; mutually exclusive with `directory`. |
+| `authorizationContext` | None | Caller-supplied revision of effective permissions and execution context. Required for customer reuse with long-term credentials. |
+| `maxEntries` | `1000` | Maximum inactive stored entries after eviction. |
+| `maxBytes` | `134217728` (128 MiB) | Maximum serialized entry bytes after eviction, excluding SQLite overhead and active leases. |
+| `ttlMs.catalog` | `180000` | Freshness for search plans, resource-type catalogs, and declared filtered catalog queries. |
+| `ttlMs.datasets` | Registry policies | Map of dataset keys to freshness durations in milliseconds. |
+| `ttlMs.pricing` | `43200000` (12 hours) | Freshness for independent public pricing artifacts. |
 
 Freshness overrides are non-negative integer milliseconds. Zero requires recollection. `maxEntries` and `maxBytes`
 must be positive safe integers. The CLI configures persistent normal mode by default; its flags and storage location
@@ -40,14 +40,14 @@ than the source publishes. For example, an AWS price list publication date can t
 reuse by it would fetch the same artifact on every scan. Period-based evidence instead includes its observation window
 in the cache key, so a moved window is a separate entry. Callers judge source age from the `observedAt` provenance.
 
-| Evidence                                    | Proposed TTL | Observation policy                                                       |
-| ------------------------------------------- | ------------ | ------------------------------------------------------------------------ |
-| Resource Explorer search plans and catalogs | 3 minutes    | Collected indexed-view snapshot                                          |
-| Inventory and configuration                 | 10 minutes   | Collected configuration snapshot                                         |
-| Recent activity                             | 5 minutes    | Dataset-specific complete UTC days or rolling interval                   |
-| Billing and recommendations                 | 6 hours      | Complete source periods where known; otherwise provider-defined snapshot |
-| KMS monthly churn/usage                     | 10 minutes   | Previous complete UTC month                                              |
-| Public Transit Gateway pricing              | 12 hours     | Current regional product artifact; publication date when supplied        |
+| Evidence | Proposed TTL | Observation policy |
+| --- | --- | --- |
+| Resource Explorer search plans and catalogs | 3 minutes | Collected indexed-view snapshot |
+| Inventory and configuration | 10 minutes | Collected configuration snapshot |
+| Recent activity | 5 minutes | Dataset-specific complete UTC days or rolling interval |
+| Billing and recommendations | 6 hours | Complete source periods where known; otherwise provider-defined snapshot |
+| KMS monthly churn/usage | 10 minutes | Previous complete UTC month |
+| Public Transit Gateway pricing | 12 hours | Current regional product artifact; publication date when supplied |
 
 The registry owns each dataset's exact exception and interval. Daily windows use UTC midnight. Billing month boundaries
 use UTC calendar months. Rolling Lambda and EMR evidence uses a timestamp at the start of its configured freshness
@@ -110,16 +110,16 @@ entries. Such entries are recollected; an unusable SQLite database or inaccessib
 
 Configuring cache controls adds `ScanResult.evidence`, independently of `includeEvaluationResources`:
 
-| Field                     | Meaning                                                                                   |
-| ------------------------- | ----------------------------------------------------------------------------------------- |
-| `datasetKey`, `region`    | Artifact and optional regional scope; catalog and pricing artifacts have their own keys.  |
-| `source`                  | `live` for this collection or `cache` for reused evidence.                                |
-| `collectedAt`             | ISO timestamp when collection completed; unchanged on reuse.                              |
-| `observedAt`              | Observation endpoint or snapshot timestamp; pricing uses publication date when available. |
-| `observationWindow`       | Actual inclusive `start` and exclusive `end` for period-based evidence.                   |
-| `complete`                | Whether this artifact satisfies its evidence contract.                                    |
-| `cacheStatus`             | `miss`, `hit`, `stale`, `corrupt`, `obsolete`, `refresh`, or `off`.                       |
-| `coverage`, `diagnostics` | Dataset assessed/unknown identities and collection diagnostics when applicable.           |
+| Field | Meaning |
+| --- | --- |
+| `datasetKey`, `region` | Artifact and optional regional scope; catalog and pricing artifacts have their own keys. |
+| `source` | `live` for this collection or `cache` for reused evidence. |
+| `collectedAt` | ISO timestamp when collection completed; unchanged on reuse. |
+| `observedAt` | Observation endpoint or snapshot timestamp; pricing uses publication date when available. |
+| `observationWindow` | Actual inclusive `start` and exclusive `end` for period-based evidence. |
+| `complete` | Whether this artifact satisfies its evidence contract. |
+| `cacheStatus` | `miss`, `hit`, `stale`, `corrupt`, `obsolete`, `refresh`, or `off`. |
+| `coverage`, `diagnostics` | Dataset assessed/unknown identities and collection diagnostics when applicable. |
 
 Supporting provenance survives reuse of its parent dataset. For example, unknown optional pricing remains visible when
 complete activity evidence is cached. CLI JSON preserves the array; table output summarizes sources, incompleteness, and

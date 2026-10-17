@@ -208,12 +208,12 @@ requests per day. It requires complete CloudWatch evidence with all 14 daily poi
 and failed evidence remains unknown; missing days are never filled with zero. Empty-target cleanup rules retain
 precedence and can establish an assessed result independently of activity evidence.
 
-| Load balancer                                            | HTTP activity contract                                                                               |
-| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Application                                              | `AWS/ApplicationELB`, `RequestCount`, `LoadBalancer=app/name/id`                                     |
-| Classic, HTTP/HTTPS listeners only                       | `AWS/ELB`, `RequestCount`, `LoadBalancerName=name`                                                   |
-| Classic with TCP/SSL, mixed, empty, or unknown listeners | Unsupported for the HTTP request threshold; retained as unknown coverage                             |
-| Network and Gateway                                      | Unsupported for the HTTP request threshold; retained as unknown coverage without HTTP metric queries |
+| Load balancer | HTTP activity contract |
+| --- | --- |
+| Application | `AWS/ApplicationELB`, `RequestCount`, `LoadBalancer=app/name/id` |
+| Classic, HTTP/HTTPS listeners only | `AWS/ELB`, `RequestCount`, `LoadBalancerName=name` |
+| Classic with TCP/SSL, mixed, empty, or unknown listeners | Unsupported for the HTTP request threshold; retained as unknown coverage |
+| Network and Gateway | Unsupported for the HTTP request threshold; retained as unknown coverage without HTTP metric queries |
 
 Classic inventory includes `listenerProtocols` from the existing describe response. AWS defines Classic
 [`RequestCount`](https://docs.aws.amazon.com/elasticloadbalancing/latest/classic/elb-cloudwatch-metrics.html) as requests

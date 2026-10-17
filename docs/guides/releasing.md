@@ -43,10 +43,10 @@ the missing destination. Publishing CLIs are pinned in the workflow; version cha
 
 Configure these repository Actions secrets before the first release:
 
-| Secret           | Credential                                                                                  |
-| ---------------- | ------------------------------------------------------------------------------------------- |
-| `VSCE_TOKEN`     | Azure DevOps PAT with `Marketplace (Manage)` scope and publishing access to `dannysteenman` |
-| `OPEN_VSX_TOKEN` | Open VSX access token with publishing access to the `dannysteenman` namespace               |
+| Secret | Credential |
+| --- | --- |
+| `VSCE_TOKEN` | Azure DevOps PAT with `Marketplace (Manage)` scope and publishing access to `dannysteenman` |
+| `OPEN_VSX_TOKEN` | Open VSX access token with publishing access to the `dannysteenman` namespace |
 
 The Open VSX account must have accepted its publisher agreement, and the namespace must exist. Credentials are passed
 only to the corresponding publish step as `VSCE_PAT` or `OVSX_PAT`; validation and packaging do not receive them.

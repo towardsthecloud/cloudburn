@@ -49,16 +49,16 @@ type FindingMatch = {
 };
 ```
 
-| Field            | Type                     | Description                                                                                                                                                 |
-| ---------------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `resourceId`     | `string`                 | Provider-specific resource identity. Terraform uses resource addresses today; future CloudFormation support can use logical IDs or paths in the same field. |
-| `resourceType`   | `string?`                | Provider resource namespace when an ID is not globally unique across the findings being compared.                                                           |
-| `accountId`      | `string?`                | Account identifier when available. Omit it when unavailable.                                                                                                |
-| `region`         | `string?`                | Region when available. Omit it when unavailable.                                                                                                            |
-| `actionType`     | `string?`                | Provider-normalized action such as `Delete`, `Upgrade`, `Rightsize`, `PurchaseReservedInstances`, `PurchaseSavingsPlans`, or `MigrateToGraviton`.           |
-| `location`       | `SourceLocation`         | Source coordinates for IaC matches when available.                                                                                                          |
-| `recommendation` | `FindingRecommendation?` | Provenance and identity metadata for matches that carry a native or external recommendation.                                                                |
-| `impact`         | `FindingImpact?`         | Source-tagged financial impact for the match when the evidence system reports it. Absent when no financial evidence exists.                                 |
+| Field | Type | Description |
+| --- | --- | --- |
+| `resourceId` | `string` | Provider-specific resource identity. Terraform uses resource addresses today; future CloudFormation support can use logical IDs or paths in the same field. |
+| `resourceType` | `string?` | Provider resource namespace when an ID is not globally unique across the findings being compared. |
+| `accountId` | `string?` | Account identifier when available. Omit it when unavailable. |
+| `region` | `string?` | Region when available. Omit it when unavailable. |
+| `actionType` | `string?` | Provider-normalized action such as `Delete`, `Upgrade`, `Rightsize`, `PurchaseReservedInstances`, `PurchaseSavingsPlans`, or `MigrateToGraviton`. |
+| `location` | `SourceLocation` | Source coordinates for IaC matches when available. |
+| `recommendation` | `FindingRecommendation?` | Provenance and identity metadata for matches that carry a native or external recommendation. |
+| `impact` | `FindingImpact?` | Source-tagged financial impact for the match when the evidence system reports it. Absent when no financial evidence exists. |
 
 ## FindingRecommendation
 
@@ -79,15 +79,15 @@ type RecommendationIdentity = {
 type FindingRecommendation = EvidenceProvenance & Partial<RecommendationIdentity>;
 ```
 
-| Field           | Type      | Description                                                                                                         |
-| --------------- | --------- | ------------------------------------------------------------------------------------------------------------------- |
-| `source`        | `string`  | System that produced the evidence: `cloudburn` for native rule evaluation or `aws-cost-optimization-hub`.           |
-| `sourceDetail`  | `string?` | Source subsystem when known, such as `ComputeOptimizer` or `CostExplorer` for Hub recommendations.                  |
-| `sourceId`      | `string?` | Opaque source-side identifier, for example a Hub `recommendationId`. Never used to invent resource identity.        |
-| `observedAt`    | `string?` | When the source observed or collected the evidence. Omitted unless the source reports a real timestamp.             |
-| `refreshedAt`   | `string?` | When the source refreshed its report, for example Hub `lastRefreshTimestamp`. Omitted unless the source reports it. |
-| `resourceKey`   | `string?` | Opaque versioned key identifying the scoped resource independently of action.                                       |
-| `opportunityId` | `string?` | Opaque versioned key identifying the resource plus action opportunity.                                              |
+| Field | Type | Description |
+| --- | --- | --- |
+| `source` | `string` | System that produced the evidence: `cloudburn` for native rule evaluation or `aws-cost-optimization-hub`. |
+| `sourceDetail` | `string?` | Source subsystem when known, such as `ComputeOptimizer` or `CostExplorer` for Hub recommendations. |
+| `sourceId` | `string?` | Opaque source-side identifier, for example a Hub `recommendationId`. Never used to invent resource identity. |
+| `observedAt` | `string?` | When the source observed or collected the evidence. Omitted unless the source reports a real timestamp. |
+| `refreshedAt` | `string?` | When the source refreshed its report, for example Hub `lastRefreshTimestamp`. Omitted unless the source reports it. |
+| `resourceKey` | `string?` | Opaque versioned key identifying the scoped resource independently of action. |
+| `opportunityId` | `string?` | Opaque versioned key identifying the resource plus action opportunity. |
 
 `recommendation.source` describes who produced the evidence; `sourceDetail` narrows it to the underlying AWS signal.
 This is separate from the rule group's `source` field (`discovery` or `iac`), which records which scan mode produced
@@ -139,11 +139,11 @@ type FindingImpact = EvidenceProvenance & {
 };
 ```
 
-| Field              | Type                | Description                                                             |
-| ------------------ | ------------------- | ----------------------------------------------------------------------- |
-| `currentCost`      | `FinancialEvidence` | What the recommended scope currently costs, when the source reports it. |
-| `potentialSavings` | `FinancialEvidence` | What the recommended action could save, when the source reports it.     |
-| `window`           | `ImpactWindow?`     | Source-reported observation window for the figures.                     |
+| Field | Type | Description |
+| --- | --- | --- |
+| `currentCost` | `FinancialEvidence` | What the recommended scope currently costs, when the source reports it. |
+| `potentialSavings` | `FinancialEvidence` | What the recommended action could save, when the source reports it. |
+| `window` | `ImpactWindow?` | Source-reported observation window for the figures. |
 
 `currentCost` and `potentialSavings` are independent per-metric measurements: each carries its own `confidence`, and
 one can be known while the other is unknown. `confidence: 'exact'` is reserved for measured or billed evidence;
@@ -195,13 +195,13 @@ For legacy or custom findings without a `recommendation` object, the engine comp
 provider and complete finding scope fields. A present `recommendation` object without `opportunityId` deliberately
 marks unidentified evidence and skips precedence; the engine does not reconstruct its missing identity.
 
-| Hub rule                                        | Declared overlap                                                                                | Direction       |
-| ----------------------------------------------- | ----------------------------------------------------------------------------------------------- | --------------- |
+| Hub rule | Declared overlap | Direction |
+| --- | --- | --- |
 | `CLDBRN-AWS-COSTOPTIMIZATIONHUB-2` Reservations | `CLDBRN-AWS-RDS-3`, `CLDBRN-AWS-REDSHIFT-2`, `CLDBRN-AWS-ELASTICACHE-1` reserved-coverage rules | Native over Hub |
-| `CLDBRN-AWS-COSTOPTIMIZATIONHUB-3` Idle         | `CLDBRN-AWS-EBS-2` unattached volumes (same `Delete` action only)                               | Native over Hub |
-| `CLDBRN-AWS-COSTOPTIMIZATIONHUB-4` Rightsizing  | `CLDBRN-AWS-LAMBDA-4` memory overprovisioning                                                   | Native over Hub |
-| `CLDBRN-AWS-COSTOPTIMIZATIONHUB-5` Upgrades     | `CLDBRN-AWS-EBS-1`, `CLDBRN-AWS-RDS-11` current-generation storage                              | Native over Hub |
-| `CLDBRN-AWS-COSTOPTIMIZATIONHUB-6` Graviton     | `CLDBRN-AWS-EC2-6`, `CLDBRN-AWS-RDS-4` Graviton reviews                                         | Hub over native |
+| `CLDBRN-AWS-COSTOPTIMIZATIONHUB-3` Idle | `CLDBRN-AWS-EBS-2` unattached volumes (same `Delete` action only) | Native over Hub |
+| `CLDBRN-AWS-COSTOPTIMIZATIONHUB-4` Rightsizing | `CLDBRN-AWS-LAMBDA-4` memory overprovisioning | Native over Hub |
+| `CLDBRN-AWS-COSTOPTIMIZATIONHUB-5` Upgrades | `CLDBRN-AWS-EBS-1`, `CLDBRN-AWS-RDS-11` current-generation storage | Native over Hub |
+| `CLDBRN-AWS-COSTOPTIMIZATIONHUB-6` Graviton | `CLDBRN-AWS-EC2-6`, `CLDBRN-AWS-RDS-4` Graviton reviews | Hub over native |
 
 `CLDBRN-AWS-COSTOPTIMIZATIONHUB-1` Savings Plans is not in this table: a SageMaker purchase recommendation suppresses
 `CLDBRN-AWS-SAGEMAKER-3` inside that rule's evaluator through its optional Hub evidence. The suppression is
@@ -239,14 +239,14 @@ type Finding = {
 
 This is the rule-level group returned by a rule evaluator. Empty groups are not returned; evaluators return `null` instead.
 
-| Field      | Type             | Description                                                                                                 |
-| ---------- | ---------------- | ----------------------------------------------------------------------------------------------------------- |
-| `ruleId`   | `string`         | Public CloudBurn rule identifier; see the [rule ID compatibility status](rule-ids.md#compatibility-status). |
-| `service`  | `string`         | Service name such as `ebs` or `ec2`.                                                                        |
-| `severity` | `Severity`       | Relative cost impact used for prioritization and CI thresholds.                                             |
-| `source`   | `Source`         | Whether the matches came from live discovery or static IaC analysis.                                        |
-| `message`  | `string`         | Generic rule-level policy text shared by every nested match.                                                |
-| `findings` | `FindingMatch[]` | Nested resource-level matches for the rule.                                                                 |
+| Field | Type | Description |
+| --- | --- | --- |
+| `ruleId` | `string` | Public CloudBurn rule identifier; see the [rule ID compatibility status](rule-ids.md#compatibility-status). |
+| `service` | `string` | Service name such as `ebs` or `ec2`. |
+| `severity` | `Severity` | Relative cost impact used for prioritization and CI thresholds. |
+| `source` | `Source` | Whether the matches came from live discovery or static IaC analysis. |
+| `message` | `string` | Generic rule-level policy text shared by every nested match. |
+| `findings` | `FindingMatch[]` | Nested resource-level matches for the rule. |
 
 ## `ProviderFindingGroup`
 
@@ -265,11 +265,11 @@ This is the provider-level group returned by the SDK scan engines.
 `kind: 'rule'` alongside the existing `catalog` and `dataset` events. Consumers that switch exhaustively over `kind`
 should handle this additive variant.
 
-| Kind      | Fields                                                                                                                      | Meaning                                                                                   |
-| --------- | --------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `catalog` | `resourceCount`, `searchRegion`                                                                                             | The entire requested catalog finished.                                                    |
-| `dataset` | `datasetKey`, `completedDatasets`, `totalDatasets`                                                                          | One requested dataset settled, including unavailable evidence. This is not a pass result. |
-| `rule`    | `ruleId`, `status`, `findingCount`, `findings`, `reason?`, `provisional: true`, `completedRules`, `totalRules`, `elapsedMs` | Required and selected optional evidence settled and the rule was evaluated.               |
+| Kind | Fields | Meaning |
+| --- | --- | --- |
+| `catalog` | `resourceCount`, `searchRegion` | The entire requested catalog finished. |
+| `dataset` | `datasetKey`, `completedDatasets`, `totalDatasets` | One requested dataset settled, including unavailable evidence. This is not a pass result. |
+| `rule` | `ruleId`, `status`, `findingCount`, `findings`, `reason?`, `provisional: true`, `completedRules`, `totalRules`, `elapsedMs` | Required and selected optional evidence settled and the rule was evaluated. |
 
 Rule `status` uses the same `triggered | passed | unknown | not_applicable` values as `RuleEvaluation`.
 `findings` contains normalized `FindingMatch[]` before cross-rule precedence, and `findingCount` is its length.
@@ -407,13 +407,13 @@ incomplete recommendation evidence makes the rule `not_applicable`.
 `CLDBRN-AWS-COSTOPTIMIZATIONHUB-5` projects `AwsCostOptimizationHubUpgradeRecommendation` in `data`. The
 `resourceType` discriminator correlates `currentConfiguration` and `recommendedConfiguration`:
 
-| Resource type          | Configuration fields                                                                                         |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `Ec2Instance`          | `instance.type`                                                                                              |
-| `Ec2AutoScalingGroup`  | `type`; single `instance.type` or nonempty `mixedInstances[].type`; optional `allocationStrategy`            |
-| `EbsVolume`            | `storage.type`, `storage.sizeInGb`; optional `performance.iops`, `performance.throughput`, `attachmentState` |
-| `RdsDbInstance`        | `instance.dbInstanceClass`                                                                                   |
-| `RdsDbInstanceStorage` | `storageType`, `allocatedStorageInGb`; optional `iops`, `storageThroughput`                                  |
+| Resource type | Configuration fields |
+| --- | --- |
+| `Ec2Instance` | `instance.type` |
+| `Ec2AutoScalingGroup` | `type`; single `instance.type` or nonempty `mixedInstances[].type`; optional `allocationStrategy` |
+| `EbsVolume` | `storage.type`, `storage.sizeInGb`; optional `performance.iops`, `performance.throughput`, `attachmentState` |
+| `RdsDbInstance` | `instance.dbInstanceClass` |
+| `RdsDbInstanceStorage` | `storageType`, `allocatedStorageInGb`; optional `iops`, `storageThroughput` |
 
 Each recommendation retains the AWS resource ID and ARN when present, account, Region, action `Upgrade`, currency,
 estimated monthly cost and savings, savings percentage, implementation effort, restart and rollback flags, source,
@@ -619,28 +619,28 @@ type AwsCapabilityReason =
   | 'not-assessed';
 ```
 
-| Status        | Meaning                                                                                                                        |
-| ------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `available`   | Every mapped dataset the scan needed completed; a successful empty response still counts.                                       |
-| `partial`     | At least one dataset loaded, but evidence has unknown coverage or another dataset or Region failed.                            |
+| Status | Meaning |
+| --- | --- |
+| `available` | Every mapped dataset the scan needed completed; a successful empty response still counts. |
+| `partial` | At least one dataset loaded, but evidence has unknown coverage or another dataset or Region failed. |
 | `unavailable` | No usable evidence: the capability is not enrolled, access was denied, required setup is missing, source data was incomplete or unavailable, or nothing applicable ran. |
-| `error`       | No usable evidence and at least one observation ended in a throttled or unclassified service error.                            |
+| `error` | No usable evidence and at least one observation ended in a throttled or unclassified service error. |
 
-| Reason                  | Meaning                                                                              |
-| ----------------------- | ------------------------------------------------------------------------------------ |
-| `not-enrolled`          | The service requires account enrollment or an opt-in that is not active.             |
-| `aggregator-required`   | Account-wide Resource Explorer queries need an accessible aggregator index.          |
-| `region-not-enabled`    | Resource Explorer is not enabled in a required Region.                               |
-| `default-view-required` | Resource Explorer needs a default view in the search Region.                         |
-| `filtered-view`         | The resolved Resource Explorer view applies filters and cannot serve the query.      |
-| `tags-view-required`    | The Resource Explorer view does not expose `tags` for tagging queries.               |
-| `access-denied`         | AWS denied the request.                                                              |
-| `throttled`             | AWS throttled the request.                                                           |
-| `service-error`         | The dataset load ended in an unclassified service error.                             |
-| `incomplete-evidence`   | Returned evidence was partial, carried unknown coverage, or missed selected Regions. |
-| `data-unavailable`      | AWS accepted the request but the requested data is unavailable; not an access or enrollment failure. |
-| `dataset-unavailable`   | The dataset was skipped for an unclassified reason.                                  |
-| `not-assessed`          | A selected rule required the capability but zero catalog resources matched, so no service call ran. |
+| Reason | Meaning |
+| --- | --- |
+| `not-enrolled` | The service requires account enrollment or an opt-in that is not active. |
+| `aggregator-required` | Account-wide Resource Explorer queries need an accessible aggregator index. |
+| `region-not-enabled` | Resource Explorer is not enabled in a required Region. |
+| `default-view-required` | Resource Explorer needs a default view in the search Region. |
+| `filtered-view` | The resolved Resource Explorer view applies filters and cannot serve the query. |
+| `tags-view-required` | The Resource Explorer view does not expose `tags` for tagging queries. |
+| `access-denied` | AWS denied the request. |
+| `throttled` | AWS throttled the request. |
+| `service-error` | The dataset load ended in an unclassified service error. |
+| `incomplete-evidence` | Returned evidence was partial, carried unknown coverage, or missed selected Regions. |
+| `data-unavailable` | AWS accepted the request but the requested data is unavailable; not an access or enrollment failure. |
+| `dataset-unavailable` | The dataset was skipped for an unclassified reason. |
+| `not-assessed` | A selected rule required the capability but zero catalog resources matched, so no service call ran. |
 
 ```ts
 type AwsCapabilityScope =
