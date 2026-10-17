@@ -70,6 +70,10 @@ owns its details.
   not rule tests.
 - The release workflow labels the version pull request after creating it, and a labeling failure does not fail the
   run. Changesets offers no atomic labeling, so the short race is accepted.
+- The [ownership table](docs/README.md#editing-sources-and-ownership) names package manifests and test directories
+  as plain text, so the Owning pages check ignores them. Changesets rewrites manifest versions in every release pull
+  request, and a linked manifest would make pages due on each one. The check records that a page was considered; a
+  named page's reason is for the reviewer to judge.
 
 ## Do not report
 

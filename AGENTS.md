@@ -60,6 +60,10 @@ The VS Code extension runs the CLI through its JSON interface.
   edits with a Conventional Commit; use the package scope for package changes.
 - Pull requests target `main`, use the repository template, and apply `enhancement` for `feat`, `bug` for `fix`, or
   `documentation` for `docs`.
+- Before `gh pr create`, write the description to a file and run
+  `node scripts/check-owning-pages.mjs --since origin/main --body <file>`. Update each listed page the change makes
+  false; name every other one by path in the Documentation section with why it stays true. The `Owning pages` check
+  reruns it.
 - For user-facing package changes, follow the [changeset and release guide](docs/guides/releasing.md).
   Documentation-only changes do not need changesets. Never run versioning or publishing commands in a feature task.
 

@@ -80,7 +80,8 @@ Types: `feat|fix|refactor|build|ci|chore|revert|docs|style|perf|test`.
 ## Pull Requests
 
 - Use a conventional commit title matching the primary change (e.g. `feat(sdk): short description`).
-- Fill in `.github/pull_request_template.md`.
+- Fill in `.github/pull_request_template.md`, including the Documentation section that the `Owning pages` check reads
+  ([maintenance](docs/README.md#maintenance)).
 - Link related issues.
 - Include what you tested.
 
