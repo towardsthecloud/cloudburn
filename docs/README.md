@@ -52,6 +52,7 @@ adding, moving, or retiring durable documentation.
 Use the page that owns the subject, then verify its claims against the relevant implementation, tests, and configuration.
 Update that page in the same change as its source. Link to it from other entry points instead of copying the procedure.
 Each row's linked sources make its linked pages due in the owning-pages check described in [Maintenance](#maintenance).
+A new source file outside every linked directory makes nothing due until a row links it.
 
 | Change | Owning guidance | Source to inspect or edit |
 | --- | --- | --- |

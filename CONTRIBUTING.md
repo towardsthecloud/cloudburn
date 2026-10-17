@@ -80,9 +80,8 @@ Types: `feat|fix|refactor|build|ci|chore|revert|docs|style|perf|test`.
 ## Pull Requests
 
 - Use a conventional commit title matching the primary change (e.g. `feat(sdk): short description`).
-- Fill in `.github/pull_request_template.md`. Its Documentation section names each page that owns a fact your
-  change touched; the `Owning pages` check fails when a page the
-  [ownership table](docs/README.md#editing-sources-and-ownership) makes due is neither updated nor named.
+- Fill in `.github/pull_request_template.md`, including the Documentation section that the `Owning pages` check reads
+  ([maintenance](docs/README.md#maintenance)).
 - Link related issues.
 - Include what you tested.
 
