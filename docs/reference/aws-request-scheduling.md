@@ -99,8 +99,8 @@ Invalid JSON or malformed policy objects fail before the AWS request callback ex
 ## Default policies
 
 The [policy resolver](../../packages/sdk/src/providers/aws/request-policy.ts) owns the complete operation mapping.
-Defaults were checked against AWS documentation on 2026-09-07. These are conservative local limits; some are lower
-than AWS defaults. Every request policy starts with concurrency `10` and retry allowance `20`.
+These are conservative local limits; some are lower than AWS defaults. Every request policy starts with concurrency
+`10` and retry allowance `20`.
 
 | Canonical quota | Requests/second | Burst | Scope and AWS reference |
 | --- | ---: | ---: | --- |
@@ -261,7 +261,7 @@ concurrent-dataset, and cancellation fixtures report logical requests, physical 
 transport duration, and elapsed time. Queue statistics include cancelled requests and exhausted retry admissions.
 Wall-clock timings vary with host load; request counts and configured pacing are the comparison points.
 
-Baseline measured on 2026-09-07 with Node `v24.18.0`. The first 3 scenarios use `DescribeLogStreams` at 4 requests/s,
+Baseline measured with Node `v24.18.0`. The first 3 scenarios use `DescribeLogStreams` at 4 requests/s,
 burst 2, and shared retry allowance 2. Cancellation uses 1 request/s, burst 1, and concurrency 1.
 
 | Scenario | Processes | Logical requests | Physical attempts (retries) | Total queue wait | Mean queue wait | Elapsed |
