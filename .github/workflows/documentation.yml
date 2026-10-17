@@ -1,0 +1,44 @@
+name: Documentation
+
+# Separate from CI so that editing the description reruns only this check, not the full validation suite.
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - edited
+      - synchronize
+      - reopened
+
+permissions:
+  contents: read
+
+concurrency:
+  group: documentation-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  owning-pages:
+    name: Owning pages
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+
+      # The description is untrusted input, so it reaches the script through an environment variable and a file.
+      - name: Require an update or a review note for each owning page
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          BODY: ${{ github.event.pull_request.body }}
+        run: |
+          printf '%s' "$BODY" > "$RUNNER_TEMP/description.md"
+          node scripts/check-owning-pages.mjs --since "origin/$BASE_REF" --body "$RUNNER_TEMP/description.md"

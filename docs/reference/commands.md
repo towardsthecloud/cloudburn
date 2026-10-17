@@ -14,7 +14,7 @@ dependencies and caching. Package manifests own the scripts that Turbo invokes.
 | `pnpm lint`                  | Check package source and tests with Biome                                   | Read-only                                                                               |
 | `pnpm lint:fix`              | Apply Biome fixes                                                           | Mutates files and is uncached                                                           |
 | `pnpm docs:check`            | Check the repository knowledge system                                       | Validates links, fragments, aliases, reachability, and entry points                     |
-| `pnpm docs:test`             | Test the public documentation checker CLI                                   | Uses dependency-free `node:test` fixtures                                               |
+| `pnpm docs:test`             | Test the documentation and owning-pages checker CLIs                        | Uses dependency-free `node:test` fixtures                                               |
 | `pnpm release:test`          | Test changelog lookups, GitHub links, and selective release recovery        | Uses synthetic HTTP responses and temporary local Git remotes; never publishes packages |
 | `pnpm exec turbo boundaries` | Enforce `cli`/`action -> sdk -> rules`                                      | This is the supported boundary command                                                  |
 | `pnpm verify:repo`           | Run documentation checks/tests, release tests, and package boundaries       | Always runs repository checks; no affected-package filtering                            |

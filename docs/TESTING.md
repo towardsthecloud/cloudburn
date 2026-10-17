@@ -230,9 +230,10 @@ pnpm docs:test
 pnpm verify
 ```
 
-`docs:test` exercises `scripts/check-docs.mjs` through its process exit status and diagnostics with isolated fixtures. The
-live `docs:check` validates required entry points, root and package instruction aliases, repository-contained local links,
-heading fragments, reference-style definitions and uses, code-example exclusion, canonical page reachability, and the root
+`docs:test` exercises `scripts/check-docs.mjs` through its process exit status and diagnostics with isolated fixtures,
+and `scripts/check-owning-pages.mjs` against temporary Git branches and pull request descriptions. The live `docs:check`
+validates required entry points, root and package instruction aliases, repository-contained local links, heading
+fragments, reference-style definitions and uses, code-example exclusion, canonical page reachability, and the root
 `AGENTS.md` line budget.
 
 ## CI and task caching
@@ -249,6 +250,9 @@ package verification. Pull requests run `pnpm verify:packages --affected --concu
 `pnpm verify:packages --concurrency=2`. GitHub waits for background steps before cleanup and fails Validation if
 either lane fails. Documentation checks/tests, release tests, and package boundaries always run. Locally, `pnpm verify`
 runs both lanes sequentially and forwards package flags to `verify:packages`.
+
+The separate Documentation workflow runs only the [owning-pages check](README.md#maintenance), so editing a pull request
+description reruns that check without repeating Validation.
 
 Turbo keeps its concurrency limit of 2 because hosted runners have 4 vCPUs, and running every package's Vitest suite
 beside the CLI end-to-end tests, lint, and typecheck stretches timer-paced integration tests past their budgets. Turbo
