@@ -1,0 +1,18 @@
+# rumdl reads this file instead of any user-level configuration. Tables stay unpadded; see docs/README.md#maintenance.
+
+[global]
+disable = ["MD034"]
+extend-enable = ["MD060"]
+exclude = [".agents", ".claude", ".github", "CHANGELOG.md"]
+respect-gitignore = true
+flavor = "mdx"
+
+[MD013]
+line-length = 120
+tables = false
+
+[MD055]
+style = "leading_and_trailing"
+
+[MD060]
+style = "compact"
