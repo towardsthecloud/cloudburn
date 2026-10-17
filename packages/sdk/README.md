@@ -201,7 +201,7 @@ types together. Cached types can become ready while unrelated cache misses are s
 
 Debug logging reports `sdk: live scan timing` with `firstRuleMs` and `totalMs`, measured from rule selection.
 `firstRuleMs` is `null` when no provisional evaluation was requested or emitted. The example above measures the entire
-public call, including setup, so its values can differ. See the [progress reference](../../docs/reference/finding-shape.md#awsdiscoveryprogressevent)
+public call, including setup, so its values can differ. See the [progress reference](../../docs/reference/scan-result.md#awsdiscoveryprogressevent)
 for the event fields and compatibility notes.
 
 #### Reusable evidence
@@ -281,7 +281,7 @@ completed live rule. Shared resource sets are emitted once and referenced by rul
 represented as `triggered`, `passed`, `unknown`, or `not_applicable`; unresolved and skipped rules include a reason.
 Metric-dependent rules include per-rule `coverage.assessed` and `coverage.unknown` resource identities. A triggered
 result can retain unknown resources, and primary resource sets are not a guarantee of complete assessment. Applications
-that validate status strings must accept `unknown`. The [result reference](../../docs/reference/finding-shape.md) describes
+that validate status strings must accept `unknown`. The [result reference](../../docs/reference/scan-result.md) describes
 coverage and nullable metric fields.
 Rule entries also carry generic rule and service metadata so callers can select checks and build their own product
 views without re-querying AWS or maintaining a second copy of rule descriptions.
@@ -312,7 +312,7 @@ machine-readable reasons such as `not-enrolled`, `aggregator-required`, or `data
 the Regions that produced evidence, or `all-regions` when an all-Region target produced no observed regional evidence.
 Degraded scans — for example, one denied Cost Explorer dataset beside a successful one — report `partial` instead of
 hiding the failure. The projection never enrolls an account, updates Resource Explorer views, or
-adds readiness probes; callers own setup UI and enrollment workflows. The [result reference](../../docs/reference/finding-shape.md#awscapabilityoutcome)
+adds readiness probes; callers own setup UI and enrollment workflows. The [result reference](../../docs/reference/scan-result.md#awscapabilityoutcome)
 describes the exact shape, statuses, reasons, and scopes.
 
 Match outcomes by capability *and* scope, not capability alone: a `recommendation-source` outcome can coexist with a
@@ -349,7 +349,7 @@ eligible above-threshold review, discovery emits a diagnostic and reports the ru
 `CLDBRN-AWS-ELB-5` evaluates HTTP request activity for Application Load Balancers and Classic Load Balancers with
 HTTP/HTTPS listeners only. Network, Gateway, and Classic TCP/SSL or unverified listeners remain in unknown coverage
 unless an empty-target cleanup rule already covers them. Missing or incomplete daily metrics cannot produce an idle
-finding. See [ELB inventory and request activity](../../docs/architecture/sdk.md#elb-inventory-and-request-activity)
+finding. See [ELB inventory and request activity](../../docs/architecture/live-metrics.md#elb-inventory-and-request-activity)
 for metric contracts and inventory reuse.
 
 `CLDBRN-AWS-KMS-1` reports a regional count of enabled customer-managed keys, the previous-full-month creation count,
@@ -468,7 +468,7 @@ account identity also uses `sts:GetCallerIdentity`. CloudBurn never changes enro
 currency, implementation effort, restart, rollback, source, and refresh evidence. Missing required configuration,
 identity, or operational data makes evaluation `not_applicable`; an enrolled account with a successful empty
 response passes. Missing financial values remain valid as unknown impact. The
-[finding reference](../../docs/reference/finding-shape.md) lists each configuration contract.
+[scan result reference](../../docs/reference/scan-result.md) lists each configuration contract.
 
 Enabled native EBS and RDS storage generation rules take precedence for the same account, Region, resource, and
 storage upgrade. RDS compute and storage findings use distinct namespaces. EC2 family preferences do not establish

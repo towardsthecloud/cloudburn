@@ -37,9 +37,9 @@ The MCP build starts at `packages/mcp/src/cli.ts` and publishes `dist/cli.js`. T
 package excludes `dist/plugin/`; the release workflow copies it into `towardsthecloud/cloudburn-plugin`, where it is
 committed. Edit `packages/mcp/plugin/`, never `dist/plugin/` or the plugin repository.
 
-The reference pages for [rule IDs](rule-ids.md), [configuration](config-schema.md), and [finding shapes](finding-shape.md)
-are manually maintained from the code sources named at the top of each page. No generator currently updates them; change
-the reference in the same pull request as its source contract.
+The reference pages for [rule IDs](rule-ids.md), [configuration](config-schema.md), [finding shapes](finding-shape.md),
+and [scan results](scan-result.md) are manually maintained from the code sources named at the top of each page. No
+generator currently updates them; change the reference in the same pull request as its source contract.
 
 The VS Code [build](../../packages/vscode/tsup.config.ts) emits `dist/extension.cjs` and an E2E test bundle. Its
 [manifest preparation script](../../packages/vscode/scripts/prepare-extension.mjs) stages the runtime bundle, listing

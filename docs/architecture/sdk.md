@@ -74,6 +74,9 @@ graph TD
   end
 ```
 
+[Live scan](live-scan.md#live-scan) owns the live steps and current discovery behavior;
+[live metric evidence](live-metrics.md) owns ELB request activity and CloudWatch metric collection.
+
 ### Static Scan
 
 1. Build the rule registry.
@@ -95,185 +98,9 @@ Terraform S3 lifecycle, tiering, and versioning resources and ECR lifecycle poli
 
 Static rule evaluation retains those scopes, including joins between datasets such as DynamoDB tables and autoscaling targets. Findings from each scope are merged under one rule result. Public resource IDs and source locations stay unchanged, and inline suppression matching still uses the source path and resource ID.
 
-### Live Scan
-
-1. Build the rule registry.
-2. Collect unique `discoveryDependencies` from active discovery rules.
-3. Expand declarative dependencies and catalog queries through the AWS discovery dataset registry.
-4. Union required Resource Explorer `resourceTypes` from the resolved dataset definitions.
-5. Prepare one AWS discovery catalog through Resource Explorer filter-only list queries alongside independent
-   account-scoped collection. Keep packed queries and release each resource type only after its complete selected scope
-   finishes pagination; cached scopes can release before unrelated misses.
-6. Load only required datasets after their declared catalog inputs and dependencies settle, reusing fresh versioned
-   evidence when explicitly configured. Cache keys retain authorization scope, observation interval, and dependency
-   fingerprints. Catalog-backed keys retain selected membership/view; account-only keys omit unrelated catalog metadata.
-7. Optionally evaluate dependency-ready rules for provisional progress, waiting for selected optional evidence too.
-   Catalog scope tracking is bounded by the selected registry types; existing regional workers and request limits apply.
-8. Build the final `LiveEvaluationContext` with `{ catalog, resources: LiveResourceBag }` and invoke live evaluators
-   against that completed context, then apply finding precedence. Progress never replaces final evaluation.
-   Precedence groups findings by their normalized `opportunityId` (provider, account, Region, canonical resource
-   identity, and action) and applies declared `supersedesRuleIds` deterministically, so rule and finding order do not
-   change the result. Findings without complete identity are never suppressed.
-9. When requested, resolve each rule's evaluated resource projection through the SDK-owned AWS evaluation registry.
-10. Group non-null rule findings under `providers -> rules -> findings` and attach evaluation evidence to `evaluations`.
-
-Current live-discovery behavior:
-
-- The SDK-owned [evidence cache](../reference/evidence-cache.md) stores normalized successful evidence, diagnostics,
-  resource coverage, and collection provenance. It never stores clients, credentials, rule findings, or configuration.
-  The SDK opts into memory/local/custom-store reuse explicitly; the CLI configures private local persistence.
-  Shared refreshes own isolated AWS execution and retain independent waiter cancellation. All scans evaluate rules again.
-- `discover` is the only live scan entrypoint for both the CLI and direct SDK callers.
-- `CloudBurnClient.discover({ includeEvaluationResources: true })` adds a generic evaluation entry for every selected
-  rule. Rules reference normalized resource sets and report `triggered`, `passed`, or `unknown`; rules skipped because a
-  required dataset was unavailable report `not_applicable` with a reason. Metric rules return per-resource assessed and
-  unknown coverage independently of their finding output. Partial evidence and excluded Regions cannot produce a full pass.
-- Applications select product-specific checks with `config.discovery.enabledRules` and transform the generic
-  `ScanResult` at their own boundary. The SDK does not define product profiles, remediation policy, or persisted
-  application schemas.
-- `discoverAwsResources` in `src/providers/aws/discovery.ts` is the AWS live orchestration entrypoint.
-- Aggregator discovery checks up to 5 regional indexes concurrently and preserves enabled-region order when resolving coverage. Denied regions remain excluded from the search scope.
-- EKS node group hydration walks up to 3 clusters per region concurrently; each cluster pages `ListNodegroups` and describes up to 5 node groups at a time. Results are sorted by node group ARN.
-- Default discovery target is the current region (see [`docs/architecture/cli.md`](cli.md) for the full resolution order).
-- Explicit discovery uses `target: { mode: 'regions', regions: [...] }`.
-- Explicit single-region discovery uses the selected region as the Resource Explorer control plane instead of the ambient current region.
-- Explicit multi-region discovery requires an aggregator index and fails fast when one is not enabled.
-- Discovery resolves the explicit default Resource Explorer view in the chosen search region and fails if no default view exists or if that default view applies additional filters.
-- `discover init` ensures the default Resource Explorer view includes the optional `tags` property. Tag-aware datasets fail with an actionable error when an existing view does not expose tags.
-- Discovery setup returns existing local indexes without forcing aggregator creation, and `discover init` retries as local-only setup when cross-region aggregator creation is denied.
-- Catalog collection uses Resource Explorer `ListResources` with filter strings instead of `Search`, which avoids the 1,000-result ceiling on filter-only queries.
-- Resource Explorer catalog seeding batches `resourcetype:` and `region:` filters into the smallest possible query set, uses `MaxResults: 999` so AWS reliably returns pagination tokens, and retries throttled `ListResources` calls before failing.
-- Account-scoped or fallback-backed datasets can bypass Resource Explorer seeding entirely by declaring no `resourceTypes`; the loader then receives `[]` and owns the account-level API call.
-- Account-scoped datasets receive one resolved region in their load context: the first explicit target region when provided, otherwise the current AWS region. They do not fan out service API calls across regions.
-- Account-scoped loaders and request admission share one lazy STS account-ID resolution per discovery run, using the explicit target/control region when provided, otherwise the current region. The bootstrap STS request uses its own bounded in-memory budget to avoid recursively resolving the unknown account. Admission uses the signing caller instead of resource-account hints; a failed lookup falls back to isolated per-run limits. The identity cache is discarded between runs so ambient credential contexts cannot leak identity.
-- Every public discovery operation (`discover`, status, initialization, supported types) owns a five-minute total deadline, configurable with `timeoutMs`, and accepts a caller `AbortSignal` and optional AWS credentials. Cancellation rejects the run, stops queued requests and backoff timers, aborts active HTTP requests, and destroys owned clients. Configuration and credential resolution count toward the deadline; cancelled runs do not return partial results.
-- Status uses up to 5 regional workers and returns regions sorted by name. Each regional index/default-view/view probe makes at most 2 scheduled attempts; catalog and setup mutation retry budgets remain separate. Status reads and setup polls remain fresh after mutations; initialization can be safely rerun after cancellation to observe changes AWS already accepted. Only explicit initialization mutates setup or default views.
-- AWS clients are reused by service and region within one run and destroyed on completion. Index and default-view lookup promises share that same lifetime. Separate runs keep independent credential and lookup state. Observation windows use one timestamp captured at the start of discovery.
-- Debug tracing records structured attempt telemetry, including quota scope, admission wait, physical transport duration,
-  retry outcome, and collector/dataset attribution. Shared CloudWatch requests retain the contributing datasets for their
-  selected queries without duplicating physical attempt events. It excludes request payloads, headers, and credentials.
-  See [AWS request scheduling](../reference/aws-request-scheduling.md#attempt-telemetry).
-- AWS clients enforce a 5-second connection timeout and a 30-second request timeout. A request that exceeds its deadline throws a timeout error, allowing discovery to report the failed dataset.
-- Wrapped service calls use one AWS SDK attempt per outer attempt, with at most six physical attempts by default. The request module owns admission, shared retry allowance, throttling feedback, and recovery. Catalog and control-plane requests use that same retry owner, including setup mutations and polls.
-- One public-operation budget spans catalog construction and all dataset loads. Catalog, status, initialization, supported types, and collectors share account quota state across operations and independent processes using the same local admission directory. Limits follow the service's operation groups and applicable region; Route 53 keeps its global five-per-second budget, and CloudWatch metric calls also reserve datapoint throughput. Credential and cache isolation remain per run. [AWS request scheduling](../reference/aws-request-scheduling.md) owns policies, overrides, telemetry, crash recovery, and the boundary for calls outside the budget.
-- `mapWithConcurrency` preserves input order and starts the next item whenever a worker is free. The first mapper failure stops that pool's queued work and rejects immediately with the original reason. Active mapper calls keep running and their late rejections remain observed. Discovery cancellation reaches the pool through mapper rejection. Resource-level errors deliberately caught and returned as diagnostics allow mapping to continue.
-- `CloudBurnClient.discover({ onProgress })` streams catalog readiness, per-dataset completion counts, and provisional
-  evaluated rule results. Required and selected optional evidence must settle first. Events follow completion order;
-  only the final resolved scan is authoritative. [Progress semantics](../reference/finding-shape.md#awsdiscoveryprogressevent)
-  cover precedence, incomplete evidence, cancellation, and separate first-result/final-completion timing.
-- Resource Explorer catalog failures degrade when the run also requested account-scoped datasets: the SDK records one catalog diagnostic, marks every catalog-backed dataset unavailable (skipping the rules that need them), and still evaluates account-scoped datasets. When every requested dataset needs the catalog, the failure stays fatal so the actionable Resource Explorer error reaches the user.
-- `ScanResult.capabilities` projects AWS capability readiness from the finalized dataset observations the scan
-  already loaded. The projection performs no readiness probes, enrollment calls, or Resource Explorer mutations, and
-  it runs independently of rule evaluation and the evidence cache. `getRuleCapabilities` exposes the same pure
-  rule-to-capability mapping without AWS calls so callers can inspect setup requirements before scanning;
-  `getDiscoveryStatus` remains the separate Resource Explorer setup check. `recommendation-source` outcomes only
-  attest that returned Cost Optimization Hub records carried a given upstream source — they do not certify enrollment
-  or complete source coverage, and an empty Hub response cannot establish Compute Optimizer readiness.
-- CloudWatch metric requests group matching periods and batch up to 500 queries or 100,800 estimated datapoints. Observation windows are chosen independently of aggregation periods. Two batches can run concurrently within the shared service budget; pagination retains each batch’s fixed window and incomplete series retain their evidence status. See the [GetMetricData API limits](https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_GetMetricData.html).
-- SageMaker endpoint, NAT gateway, and VPC endpoint collectors use a [bounded resource metric stage](../../packages/sdk/src/providers/aws/resources/resource-metrics.ts). Metadata hydration has 10 endpoint workers or 2 network describe-batch workers per region. Queries accumulate across metadata completions, with at most 500 queries or 100,800 estimated datapoints per flush. One flush runs at a time and backpressures producers; the last partial batch flushes when metadata production ends. Pending work is bounded by that metric batch plus the active metadata workers. SageMaker config lookups remain deduplicated per region, and resource summaries consume and release each completed batch’s evidence. Input catalogs, normalized outputs, and the config lookup cache still scale with inventory size.
-- With synthetic complete responses and no pagination or retries, 100 single-variant SageMaker endpoints use 1 metric request; 125 NAT gateways use 1 request with 250 queries; 125 VPC endpoints use 1 request with 125 queries. These are request reductions, not equivalent billing reductions. Selected resource scope, evidence completeness, and AWS request admission remain unchanged.
-- S3 bucket analysis and DynamoDB table hydration use 10 workers per region. A free worker starts the next resource without waiting for slower resources. DynamoDB access-denied diagnostics remain resource-specific.
-- Recent log-stream activity and full log-stream enumeration each use ten workers per region. A completed log group starts the next one immediately while slower lookups finish; full enumeration paginates each log group sequentially and returns streams sorted by ARN.
-- CloudFront fallback discovery paginates `ListDistributions` and retains price-class and optional modification evidence from summaries. A supplied price class, including `None`, avoids `GetDistribution`; a tenant-only summary needs no price-class lookup because AWS does not support that setting for multi-tenant distributions. Both summary and detail paths omit price-class evidence for tenant-only distributions so unsupported settings cannot produce price-class findings. Missing modification timestamps alone do not trigger detail calls. Catalog-backed loads also read `ListDistributions` summaries (one request per 100 distributions), keep only selected IDs, and use `GetDistribution` only for selected distributions missing from the summaries or standard distributions missing a price class; denied list access falls back to per-distribution detail requests. Necessary detail lookups use 10 continuous workers, and normalized rows retain catalog account/Region or fallback account identity with `region: global`. Modification time is not treated as resource age or metric coverage.
-- EC2 utilization uses the previous 14 complete UTC days. Only distinct days with finite CPU, inbound-network, and outbound-network observations contribute to the idle heuristic or averages; absent metrics never become zero usage. Instances with no complete observations are omitted from utilization evidence.
-- Dataset loads are cached by dataset and region. Up to five regional loads per dataset run concurrently; derived datasets resolve dependencies in the same region, so metric requests and normalized rows are not repeated for other regions.
-- Dataset loader failures are non-fatal: the SDK records diagnostics and evaluates each rule only in regions where all its required datasets loaded completely. The same regional restriction applies to evaluated-resource projections. Optional evidence does not block a rule. An account-scoped failure or failure in every attempted region makes the dataset unavailable and skips dependent rules. Access-denied diagnostics identify service control policies (SCPs) and resource-based policies when AWS names that source in the error chain; otherwise they use the generic AWS permissions description.
-- Global tagging discovery is opt-in because it requires an accessible aggregator. One paginated `ListResources` query (`resourcetype.supports:tags tag:none`) supplies account-wide candidates. The SDK excludes known AWS defaults and service-managed resource identities, then reads EC2, KMS and SSM ownership metadata only for matching catalog resources. Default VPCs, subnets, network ACLs, security groups and AWS-managed keys are excluded. Metadata that cannot establish creation origin is retained as `creationOrigin: 'unknown'`; the tagging evaluator skips those candidates and reports unknown coverage. Workload resources and resources with only CloudFormation system tags remain in scope. See the [SDK README](../../packages/sdk/README.md) for exclusions, ownership limitations and permissions.
-- ECR discovery parses each returned lifecycle policy into untagged-expiry and tagged-retention traits so the policy-content rules run against live repositories as well as IaC. The shared parser accepts `imageCountMoreThan`, `sinceImagePushed`, `sinceImagePulled`, and `sinceImageTransitioned` as tagged retention caps. A policy that exists but cannot be parsed keeps `null` traits, and the lifecycle-content rules report that repository as unknown coverage instead of a pass.
-- Missing Lambda `Architectures` values from AWS are normalized to `['x86_64']`, matching the AWS default architecture.
-- Lambda discovery paginates `ListFunctions` once per selected region and filters the response to the Resource Explorer catalog selection, avoiding per-function configuration calls.
-- Opt-in Lambda memory findings page every Compute Optimizer recommendation in each selected Region and ask for the `Optimized`, `NotOptimized`, and `Unavailable` finding classes, because Compute Optimizer omits unavailable functions unless the request names that class. The loader deliberately does not request unqualified function ARNs, which would return only `$LATEST` and hide published versions that carry the traffic. Each returned function keeps a normalized `assessment`: `memory_overprovisioned`, `not_overprovisioned` for an analyzed function without that finding, or `unavailable` for insufficient or inconclusive data. Function versions collapse to the unqualified ARN with the strongest assessment. Functions Compute Optimizer does not return, including those still awaiting analysis, stay unknown in the rule's coverage, so an empty successful response cannot become a pass. The rule stays out of AWS Core because Compute Optimizer requires account enrollment; a missing enrollment makes the required dataset unavailable and the rule `not_applicable`.
-- Cost Optimization Hub discovery reads account-scoped recommendations from its `us-east-1` control plane through one shared read-only loader. It checks enrollment without changing it, pages a category-filtered `ListRecommendations` request, selects one summary per scoped identity (account, Region, resource type, resource ID and ARN, action, recommendation ID) preferring the newest `lastRefreshTimestamp` with a deterministic content tie-break, and loads detail with at most 10 concurrent `GetRecommendation` calls in sorted scope order. The same recommendation ID in a different scope is not conflated. Savings Plans, reservation, and upgrade categories keep separate typed configuration normalizers. Missing enrollment, denied access, or incomplete recommendation evidence makes the dependent Cost Optimization Hub rule `not_applicable` instead of `passed`. Financial fields are not part of that completeness gate: a missing currency or missing/non-finite monthly estimate normalizes to `null`, while unsupported currency strings remain visible in unknown impact and surface as `confidence: 'unknown'` impact evidence on the finding rather than rejecting the recommendation, and an absent `costCalculationLookbackPeriodInDays` simply omits the impact window. Missing summary financial values can be filled from detail evidence only when reported recommendation and resource identity, scope, source, currency, and refresh time do not conflict. Known summary values, including zero, remain unchanged. A conflict in detail identity, source, refresh time, recommended resource type, implementation effort, restart requirement, or rollback availability makes the recommendation structurally incomplete, so neither its configuration nor its financial values are exposed. A currency-only conflict blocks financial enrichment without invalidating an otherwise consistent configuration. Compatible detail identifiers can complete missing resource scope, such as an ECS cluster-qualified service ARN. Every supplied identifier must agree with the resulting scoped resource identity; a bare service name alone still carries no precedence identity. When no scoped identity exists, repeated identifiers or recognized canonical aliases retain provenance-only evidence after ARN scope validation; no identity keys are invented.
-- Product-generation upgrades use action `Upgrade` and preserve both configurations for standalone EC2, single- or mixed-instance Auto Scaling groups, EBS, RDS instances, and RDS storage. They require matching detail identity and operational fields, and a changed instance family or storage product. The [AWS action mapping](https://docs.aws.amazon.com/cost-management/latest/userguide/coh-optimization-strategies.html) separates upgrades from rightsizing and Graviton migration. Native EBS and RDS storage generation rules declare finding precedence for the same resource and action; RDS storage uses `rds:db-storage` to distinguish it from compute. EC2 family policy alone does not supersede a Hub upgrade.
-- Reservation recommendations cover EC2, RDS, OpenSearch, Redshift, ElastiCache, MemoryDB, and DynamoDB. Native rules declare generic finding precedence, so live orchestration omits a Hub reservation finding only when an enabled native rule emits the same resource namespace and identity for the same purchase action. Evaluation evidence still records the Hub rule's original triggered result. Merely having a native rule in the catalog does not suppress it.
-- Transit Gateway VPC attachment discovery starts from Resource Explorer's `ec2:transit-gateway-attachment` catalog entries, filters them through `DescribeTransitGatewayAttachments`, then calls `DescribeTransitGatewayVpcAttachments` only for VPC attachments in the Regions represented by those entries. Available attachments that existed for the full lookback are evaluated over the previous 30 complete UTC days using attachment-level `BytesIn` and `BytesOut` sums. Incomplete metric coverage is not treated as zero traffic. Public regional AWS pricing is optional evidence. Its 5-second timeout is composed with the execution signal; a pricing-only failure retains activity evidence, while execution cancellation rejects the run. Pricing emits sanitized request telemetry without an account quota.
-- SageMaker Savings Plans coverage uses Cost Explorer for the last 30 complete days. Coverage below 80 percent triggers only when uncovered public On-Demand cost is at least 72 cost units. The Cost Optimization Hub dataset is optional: a SageMaker purchase recommendation suppresses the coverage warning, but unavailable Hub data does not block the coverage rule. Coverage is read grouped by service because Cost Explorer answers a query filtered to a service without eligible usage with `DataUnavailableException`; an account without SageMaker usage therefore passes. Missing, denied, incomplete, or otherwise unavailable Cost Explorer coverage data makes the rule `not_applicable`.
-- DynamoDB table hydration keeps readable tables when a resource policy denies another table and emits a diagnostic for each denied table.
-- DynamoDB inactivity uses a complete 90-day consumed-write-capacity window; stream creation timestamps are not treated as table activity.
-- Secrets Manager discovery paginates `ListSecrets` once per selected region and filters the response to the Resource Explorer catalog selection.
-- Live scans require Resource Explorer access plus narrow hydrator permissions such as `application-autoscaling:DescribeScalableTargets`, `application-autoscaling:DescribeScalingPolicies`, `ce:GetCostAndUsage`, `ce:GetSavingsPlansCoverage`, `cloudfront:GetDistribution`, `cloudfront:ListDistributions`, `cloudtrail:DescribeTrails`, `cloudwatch:GetMetricData`, `cloudwatch:ListMetrics`, `compute-optimizer:GetLambdaFunctionRecommendations`, `config:DescribeConfigRules`, `config:DescribeConfigurationRecorders`, `config:DescribeConfigurationRecorderStatus`, `config:GetDiscoveredResourceCounts`, `config:ListConfigurationRecorders`, `config:ListDiscoveredResources`, `cost-optimization-hub:GetRecommendation`, `cost-optimization-hub:ListEnrollmentStatuses`, `cost-optimization-hub:ListRecommendations`, `dynamodb:DescribeTable`, `ecs:DescribeContainerInstances`, `ecs:DescribeServices`, `ec2:DescribeInstances`, `ec2:DescribeNatGateways`, `ec2:DescribeTransitGatewayAttachments`, `ec2:DescribeTransitGatewayVpcAttachments`, `ec2:DescribeVolumes`, `eks:ListNodegroups`, `eks:DescribeNodegroup`, `kms:DescribeKey`, `kms:GetKeyLastUsage`, `kms:ListAliases`, `kms:ListKeyRotations`, `lambda:ListFunctions`, `rds:DescribeDBInstances`, `route53:ListHealthChecks`, `route53:ListHostedZones`, `route53:ListResourceRecordSets`, `s3:GetLifecycleConfiguration`, `s3:GetIntelligentTieringConfiguration`, `sagemaker:DescribeEndpoint`, `sagemaker:DescribeEndpointConfig`, `sagemaker:DescribeNotebookInstance`, and `secretsmanager:ListSecrets`.
-
-### ELB inventory and request activity
-
-The ELB activity loader resolves `aws-ec2-load-balancers` through the per-run dataset context. Inventory and activity
-share load-balancer descriptions and attached target-group ARNs. For 10 ALBs in one Region, loading both datasets uses
-10 load-balancer-scoped `DescribeTargetGroups` calls and 1 `DescribeLoadBalancers` call, absent pagination or retries.
-CloudWatch queries, target-group dataset descriptions, and target-health requests are separate from those 11 calls.
-Both target-group lookup paths follow `NextMarker`, retaining relationships from later pages and the selected catalog
-scope. Deleted load balancers are skipped, including deletion during relationship pagination.
-See the [DescribeTargetGroups contract](https://docs.aws.amazon.com/elasticloadbalancing/latest/APIReference/API_DescribeTargetGroups.html).
-
-`CLDBRN-AWS-ELB-5` uses daily `Sum` values over the previous 14 complete UTC days and flags an average below 10 HTTP
-requests per day. It requires complete CloudWatch evidence with all 14 daily points. Missing, empty, partial, forbidden,
-and failed evidence remains unknown; missing days are never filled with zero. Empty-target cleanup rules retain
-precedence and can establish an assessed result independently of activity evidence.
-
-| Load balancer | HTTP activity contract |
-| --- | --- |
-| Application | `AWS/ApplicationELB`, `RequestCount`, `LoadBalancer=app/name/id` |
-| Classic, HTTP/HTTPS listeners only | `AWS/ELB`, `RequestCount`, `LoadBalancerName=name` |
-| Classic with TCP/SSL, mixed, empty, or unknown listeners | Unsupported for the HTTP request threshold; retained as unknown coverage |
-| Network and Gateway | Unsupported for the HTTP request threshold; retained as unknown coverage without HTTP metric queries |
-
-Classic inventory includes `listenerProtocols` from the existing describe response. AWS defines Classic
-[`RequestCount`](https://docs.aws.amazon.com/elasticloadbalancing/latest/classic/elb-cloudwatch-metrics.html) as requests
-for HTTP listeners and connections for TCP listeners, so an HTTP-only listener set is required.
-[Application metrics](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-cloudwatch-metrics.html)
-count requests for which a target was selected. Network and Gateway expose flow counts in
-[`AWS/NetworkELB`](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/load-balancer-cloudwatch-metrics.html)
-and [`AWS/GatewayELB`](https://docs.aws.amazon.com/elasticloadbalancing/latest/gateway/cloudwatch-metrics.html).
-Flow counts do not have an established idle threshold in this rule and are never stored as HTTP request counts.
-
-The SDK populates `requestActivityStatus` as `complete`, `unknown`, or `unsupported` on normalized activity rows.
-`averageRequestsPerDayLast14Days` stays nullable. Both the status and Classic listener metadata are additive optional
-fields for existing custom dataset producers. An absent status retains numeric evidence compatibility for supported
-inventories; absent Classic listener metadata cannot establish HTTP-only support.
-
-### CloudWatch metric evidence
-
-With evidence caching configured, metric collectors reuse complete historical intervals through the existing scoped
-cache. A bounded planner coalesces compatible pending queries across datasets and gives shared requests independent
-cancellation ownership. Requested windows, per-series status, and raw Sum/SampleCount inputs remain intact. See
-[incremental metrics](../reference/evidence-cache.md#incremental-cloudwatch-metrics) for revalidation, storage sizing,
-planning limits, telemetry, and measured synthetic request savings.
-
-The [metric helper](../../packages/sdk/src/providers/aws/resources/cloudwatch.ts) returns one `CloudWatchMetricEvidence`
-record for every requested query ID. Each record retains the final AWS status, requested start/end and aggregation
-period, normalized points, expected and observed interval counts, request/query messages, and query attempt count.
-An absent series has status `Missing`; a returned series without a status has `Unknown`. `Complete` with no points is
-distinct from both. Coverage counts describe returned intervals; `Complete` means CloudWatch returned all available
-points, not that the service emitted a point in every interval. These semantics follow the AWS
-[MetricDataResult contract](https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_MetricDataResult.html).
-
-Pagination accumulates points until the query finishes. Identical points are deduplicated, conflicting points in one
-aggregation interval make the series incomplete, and out-of-window or malformed values cannot fill coverage gaps.
-Recoverable `PartialData` and `InternalError` results receive up to 3 query attempts. Each attempt follows pagination,
-retries only the unresolved query IDs, and replaces the previous attempt's points while retaining diagnostics.
-`Forbidden`, missing series, and missing status do not trigger query retries. Physical request retries and concurrency
-budgets remain owned by `runAwsRequest`; query backoff honors discovery cancellation.
-
-Loaders explicitly choose an observation window independently of `Period`. Daily checks use previous complete UTC
-days. Lambda uses a rolling 7-day window ending at the latest whole minute, with hourly sums and duration sample
-counts. Duration is `sum(Duration Sum) / sum(Duration SampleCount)` for matching observed intervals, avoiding an
-unweighted average of bucket averages. EMR uses a rolling 30-minute window. AWS request rounding is documented in
-[GetMetricData](https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_GetMetricData.html).
-
-Only complete series reach metric summaries. Regular metrics require their full expected daily or five-minute coverage.
-EC2 can establish its low-utilization finding from at least 4 complete daily CPU/network observations; a non-finding
-requires all 14 days, recorded as `observedDays`. DynamoDB inactivity requires 90 observed complete days for an old-enough
-table. SageMaker empty invocation evidence stays unknown. Lambda errors have one narrow sparse-metric exception:
-complete-empty `Errors` can become zero when complete, nonempty `Invocations` establish activity in the same window.
-Missing or failed `Errors` stays unknown. This uses Lambda's documented
-[invocation outcome metrics](https://docs.aws.amazon.com/lambda/latest/dg/monitoring-metrics-types.html).
-
-Unknown metrics remain nullable in normalized datasets. Config retains affected resource-type identities with null
-metric-derived counts and estimates. Rules use the optional pure `getLiveEvaluationCoverage` callback to distinguish
-assessed resources from candidates missing evidence, while `evaluateLive` continues to return `Finding | null`.
-The engine emits skipped diagnostics for unknown resource coverage even when evaluation resources were not requested.
-
 ## Public Result Shape
 
-See [`docs/reference/finding-shape.md`](../reference/finding-shape.md) for the full scan result contract.
+See [`docs/reference/scan-result.md`](../reference/scan-result.md) for the full scan result contract.
 
 ## Parser Layer
 

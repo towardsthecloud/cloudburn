@@ -186,7 +186,7 @@ all-Region target fallback; the CLI itself targets one Region per run.
 
 These outcomes reuse collected evidence and do not change AWS enrollment or setup. A successful regional catalog
 does not prove aggregator-backed account-wide tagging readiness. Capability failures do not erase unrelated findings.
-See the [capability result reference](../../docs/reference/finding-shape.md#awscapabilityoutcome) for the complete
+See the [capability result reference](../../docs/reference/scan-result.md#awscapabilityoutcome) for the complete
 identifier, reason, and scope contracts.
 
 ## Shell Completion
