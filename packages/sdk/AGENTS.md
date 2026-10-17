@@ -1,10 +1,13 @@
 # @cloudburn/sdk
 
-For orchestration and package structure, read the [SDK architecture](../../docs/architecture/sdk.md).
+For orchestration and package structure, read the [SDK architecture](../../docs/architecture/sdk.md). Live discovery
+is in the [live scan](../../docs/architecture/live-scan.md) and
+[live metric evidence](../../docs/architecture/live-metrics.md) pages.
 Use [adding a static dataset](../../docs/guides/adding-a-static-dataset.md) or
 [adding a provider resource](../../docs/guides/adding-a-provider-resource.md) for dataset changes.
 The [package README](README.md) owns public SDK usage and AWS permissions; the
-[config](../../docs/reference/config-schema.md) and [finding](../../docs/reference/finding-shape.md) references describe public shapes.
+[config](../../docs/reference/config-schema.md), [finding](../../docs/reference/finding-shape.md), and
+[scan result](../../docs/reference/scan-result.md) references describe public shapes.
 
 ## Public API
 

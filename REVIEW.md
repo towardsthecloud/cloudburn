@@ -25,8 +25,8 @@ owns its details.
   cache and repeats billable CloudWatch collection. See [dataset versions](docs/guides/adding-a-provider-resource.md).
 - **Unknown evidence stays unknown.** Missing, partial, failed, or unresolved evidence must surface as nullable
   values and `unknown` coverage (`getLiveEvaluationCoverage`), never as zero, `assessed`, or `passed`. Metric windows
-  must match the declared `freshness.observation` window, which uses complete UTC days for daily lookbacks. See the
-  [SDK architecture](docs/architecture/sdk.md).
+  must match the declared `freshness.observation` window, which uses complete UTC days for daily lookbacks. See
+  [live metric evidence](docs/architecture/live-metrics.md#cloudwatch-metric-evidence).
 - **Identity fails closed.** In `packages/rules/src/aws/resource-identity.ts`, `packages/rules/src/shared/`, the Cost
   Optimization Hub loader and rules, and `packages/sdk/src/engine/finding-precedence.ts`, contradictory or malformed
   IDs, ARNs, accounts, or Regions must drop `resourceKey` and `opportunityId` and keep provenance only. Otherwise
@@ -34,7 +34,8 @@ owns its details.
   an explicit timezone. See [finding identity](docs/reference/finding-shape.md#findingrecommendation).
 - **Public shapes are additive and documented.** `ScanResult` is also the output of `cloudburn --format json`. A
   change to exported SDK types, result fields, CLI options, or exit codes must be additive and must update
-  [the finding reference](docs/reference/finding-shape.md) and the affected package README in the same pull request.
+  the [finding](docs/reference/finding-shape.md) or [scan result](docs/reference/scan-result.md) reference and the
+  affected package README in the same pull request.
   If a pull request deletes a test, check that the contract it covered is still tested elsewhere.
 - **Action output treats PR content as untrusted.** In `packages/action/src/`, escape PR-controlled text such as
   file paths and diagnostics before it goes into comments or summaries. Update only marker comments written by the

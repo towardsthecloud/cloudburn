@@ -2,7 +2,7 @@
 
 Use this guide when a new AWS service needs live discovery support. For static IaC datasets, use [adding-a-static-dataset.md](./adding-a-static-dataset.md).
 
-See [`docs/architecture/sdk.md`](../architecture/sdk.md) for the full live scan engine flow. Before creating a new dataset, check whether the service already has one you can reuse or extend (see step 2 in [`adding-a-rule.md`](adding-a-rule.md)).
+See [`docs/architecture/live-scan.md`](../architecture/live-scan.md) for the full live scan engine flow. Before creating a new dataset, check whether the service already has one you can reuse or extend (see step 2 in [`adding-a-rule.md`](adding-a-rule.md)).
 
 ## 1. Pick a Dataset Key
 
@@ -76,7 +76,7 @@ forbidden, and failed series as unknown. Do not fill sparse values with zero wit
 Keep candidate identities when metrics are unknown, using nullable metric fields or a required base inventory dataset.
 Add `getLiveEvaluationCoverage` to dependent rules so those candidates remain visible in evaluation coverage. See the
 [rules architecture](../architecture/rules.md) for the pure coverage callback and the
-[SDK metric evidence contract](../architecture/sdk.md#cloudwatch-metric-evidence) for normalization and retries.
+[SDK metric evidence contract](../architecture/live-metrics.md#cloudwatch-metric-evidence) for normalization and retries.
 
 ## 4. Register the Dataset in SDK Discovery
 
@@ -195,7 +195,7 @@ pnpm verify
 ```
 
 Substitute the affected loader test when working on another service. Document IAM permissions for new API calls in the
-[SDK README](../../packages/sdk/README.md#live-discovery) and keep the [live scan architecture](../architecture/sdk.md#live-scan)
+[SDK README](../../packages/sdk/README.md#live-discovery) and keep the [live scan architecture](../architecture/live-scan.md#live-scan)
 consistent with any new orchestration constraints.
 
 For existing services such as S3, prefer extending the existing discovery dataset and hydrator instead of adding a second service-specific path for a closely related rule family.

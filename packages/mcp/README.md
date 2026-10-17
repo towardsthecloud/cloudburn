@@ -55,7 +55,7 @@ point to a file named `.cloudburn.yml` or `.cloudburn.yaml`. Earlier versions ac
 now return `INVALID_ARGUMENT`, so rename a custom config file to use it through MCP.
 
 Results are the SDK's `ScanResult` JSON, the same shape as `cloudburn --format json`; see the
-[finding reference](https://github.com/towardsthecloud/cloudburn/blob/main/docs/reference/finding-shape.md). Errors
+[scan result reference](https://github.com/towardsthecloud/cloudburn/blob/main/docs/reference/scan-result.md). Errors
 return `isError` with a `{ "error": { "code", "message" } }` body, and messages are redacted before they reach the
 agent.
 
