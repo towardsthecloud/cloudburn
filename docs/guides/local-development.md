@@ -48,10 +48,10 @@ For release recovery changes, use the [release guide](releasing.md#recover-publi
 
 Use the smallest relevant test while iterating, then run the gate appropriate to the change:
 
-| Change                                                | Final gate                          |
-| ----------------------------------------------------- | ----------------------------------- |
-| Documentation only                                    | `pnpm docs:check && pnpm docs:test` |
-| Behavior, tests, dependencies, or build configuration | `pnpm verify`                       |
+| Change | Final gate |
+| --- | --- |
+| Documentation only | `pnpm docs:check && pnpm docs:test` |
+| Behavior, tests, dependencies, or build configuration | `pnpm verify` |
 
 Use `pnpm exec turbo boundaries` for focused boundary checks while iterating. The final `pnpm verify` gate includes
 documentation and boundary checks and all test suites; do not repeat included checks on unchanged inputs without a new

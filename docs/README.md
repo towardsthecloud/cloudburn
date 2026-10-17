@@ -38,14 +38,14 @@ adding, moving, or retiring durable documentation.
 
 ## Package entry points
 
-| Package             | Instructions                                                      | Human README                                                      |
-| ------------------- | ----------------------------------------------------------------- | ----------------------------------------------------------------- |
-| `cloudburn`         | [`packages/cloudburn/AGENTS.md`](../packages/cloudburn/AGENTS.md) | [`packages/cloudburn/README.md`](../packages/cloudburn/README.md) |
-| `@cloudburn/action` | [`packages/action/AGENTS.md`](../packages/action/AGENTS.md)       | [`packages/action/README.md`](../packages/action/README.md)       |
-| `@cloudburn/mcp`    | [`packages/mcp/AGENTS.md`](../packages/mcp/AGENTS.md)             | [`packages/mcp/README.md`](../packages/mcp/README.md)             |
-| `@cloudburn/vscode` | [`packages/vscode/AGENTS.md`](../packages/vscode/AGENTS.md)       | [`packages/vscode/README.md`](../packages/vscode/README.md)       |
-| `@cloudburn/sdk`    | [`packages/sdk/AGENTS.md`](../packages/sdk/AGENTS.md)             | [`packages/sdk/README.md`](../packages/sdk/README.md)             |
-| `@cloudburn/rules`  | [`packages/rules/AGENTS.md`](../packages/rules/AGENTS.md)         | [`packages/rules/README.md`](../packages/rules/README.md)         |
+| Package | Instructions | Human README |
+| --- | --- | --- |
+| `cloudburn` | [`packages/cloudburn/AGENTS.md`](../packages/cloudburn/AGENTS.md) | [`packages/cloudburn/README.md`](../packages/cloudburn/README.md) |
+| `@cloudburn/action` | [`packages/action/AGENTS.md`](../packages/action/AGENTS.md) | [`packages/action/README.md`](../packages/action/README.md) |
+| `@cloudburn/mcp` | [`packages/mcp/AGENTS.md`](../packages/mcp/AGENTS.md) | [`packages/mcp/README.md`](../packages/mcp/README.md) |
+| `@cloudburn/vscode` | [`packages/vscode/AGENTS.md`](../packages/vscode/AGENTS.md) | [`packages/vscode/README.md`](../packages/vscode/README.md) |
+| `@cloudburn/sdk` | [`packages/sdk/AGENTS.md`](../packages/sdk/AGENTS.md) | [`packages/sdk/README.md`](../packages/sdk/README.md) |
+| `@cloudburn/rules` | [`packages/rules/AGENTS.md`](../packages/rules/AGENTS.md) | [`packages/rules/README.md`](../packages/rules/README.md) |
 
 ## Editing sources and ownership
 
@@ -92,6 +92,8 @@ A new source file outside every linked directory makes nothing due until a row l
   `## Documentation` section with why it stays true. Link every owning page and source in that table and keep source
   links precise; a broad one makes pages due on unrelated changes. Name sources that should not make pages due, such as
   test directories, as code instead of links.
+- Agents read the raw Markdown, so write tables without column padding (`| a | b |` and `| --- | --- |`). A formatter
+  that aligns columns, such as rumdl with MD060 `style = "aligned"`, adds it back; don't commit that.
 - Distinguish verified behavior from intended contracts. When code and a documented contract disagree, record the gap
   and preserve the contract until intent is resolved. The [rule ID compatibility policy](reference/rule-ids.md#compatibility-status)
   requires immutable IDs even when a rule is removed or reordered.

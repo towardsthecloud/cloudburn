@@ -12,11 +12,11 @@
 
 Three test layers, all in `packages/rules/test/`:
 
-| Layer                     | File                    | What it verifies                                                                          |
-| ------------------------- | ----------------------- | ----------------------------------------------------------------------------------------- |
-| **1. Export surface**     | `exports.test.ts`       | `awsRules` is non-empty, preset inclusion policy holds, `azureRules`/`gcpRules` are empty |
-| **2. Metadata contract**  | `rule-metadata.test.ts` | Catalog fields, IDs, evaluator modes, and declared dataset reads                          |
-| **3. Evaluator behavior** | `{rule-name}.test.ts`   | Full finding payloads for both `evaluateLive` and `evaluateStatic`, plus negative cases   |
+| Layer | File | What it verifies |
+| --- | --- | --- |
+| **1. Export surface** | `exports.test.ts` | `awsRules` is non-empty, preset inclusion policy holds, `azureRules`/`gcpRules` are empty |
+| **2. Metadata contract** | `rule-metadata.test.ts` | Catalog fields, IDs, evaluator modes, and declared dataset reads |
+| **3. Evaluator behavior** | `{rule-name}.test.ts` | Full finding payloads for both `evaluateLive` and `evaluateStatic`, plus negative cases |
 
 Keep catalog invariants and semantic metadata policies in `rule-metadata.test.ts`. It runs each evaluator with empty
 resource bags and checks that dataset reads match declarations in both directions, rejecting undeclared reads and
@@ -32,11 +32,11 @@ For static IaC rules, evaluator coverage must include both Terraform-shaped and 
 
 Mock at the provider/parser boundary — do not call real AWS APIs or read real files in unit tests.
 
-| Boundary         | Mock strategy                                                                     |
-| ---------------- | --------------------------------------------------------------------------------- |
-| AWS providers    | Mock Resource Explorer catalog helpers and hydrators to return fixture data       |
-| Terraform parser | Mock `parseTerraform` to return `{ resources, diagnostics }` fixtures             |
-| Config loader    | Mock `loadConfig` or pass config directly via `CloudBurnClient` runtime overrides |
+| Boundary | Mock strategy |
+| --- | --- |
+| AWS providers | Mock Resource Explorer catalog helpers and hydrators to return fixture data |
+| Terraform parser | Mock `parseTerraform` to return `{ resources, diagnostics }` fixtures |
+| Config loader | Mock `loadConfig` or pass config directly via `CloudBurnClient` runtime overrides |
 
 **Test focus areas:**
 
@@ -95,9 +95,9 @@ formatter integration; keep direct formatter tests for distinct layout and seria
 parsing needs representative command coverage, while mode-specific configuration and restrictions stay with their commands.
 The separate `test/e2e/` suite runs the built executable against real Terraform and CloudFormation files, without mocking the SDK or parsers.
 
-| Boundary              | Mock strategy                                                        |
-| --------------------- | -------------------------------------------------------------------- |
-| `CloudBurnClient`     | Mock `.scanStatic()`, `.discover()`, and discovery helper methods    |
+| Boundary | Mock strategy |
+| --- | --- |
+| `CloudBurnClient` | Mock `.scanStatic()`, `.discover()`, and discovery helper methods |
 | `builtInRuleMetadata` | Use real built-in metadata unless explicitly testing the empty state |
 
 **Test focus areas:**

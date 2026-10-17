@@ -2,15 +2,15 @@
 
 Edit authoritative inputs, then run the owning command. Do not hand-edit disposable build output.
 
-| Output                                    | Authoritative input                                                             | Command                                                       | Tracked? |
-| ----------------------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------- | -------- |
-| `packages/*/dist/`                        | Package `src/`, `tsup.config.ts`, and manifest                                  | `pnpm build`                                                  | No       |
-| `.turbo/`                                 | Root/package Turbo configuration and task inputs                                | Any Turbo task                                                | No       |
-| `coverage/`                               | Package tests and Vitest configuration                                          | `pnpm --filter <package> exec vitest run --coverage`          | No       |
-| `pnpm-lock.yaml`                          | Root/package manifests and `pnpm-workspace.yaml` catalog                        | `pnpm install`                                                | Yes      |
-| Package versions and `CHANGELOG.md` files | `.changeset/*.md` files and Changesets configuration                            | Automated `pnpm changeset:version`                            | Yes      |
-| `packages/vscode/dist/vscode/`            | Source manifest, listing assets, root `LICENSE`, and extension bundle           | Extension `build` task                                        | No       |
-| `packages/vscode/dist/cloudburn.vsix`     | Extension manifest, README, changelog, icon, media, bundle, and `.vscodeignore` | `pnpm exec turbo run package:vsix --filter @cloudburn/vscode` | No       |
+| Output | Authoritative input | Command | Tracked? |
+| --- | --- | --- | --- |
+| `packages/*/dist/` | Package `src/`, `tsup.config.ts`, and manifest | `pnpm build` | No |
+| `.turbo/` | Root/package Turbo configuration and task inputs | Any Turbo task | No |
+| `coverage/` | Package tests and Vitest configuration | `pnpm --filter <package> exec vitest run --coverage` | No |
+| `pnpm-lock.yaml` | Root/package manifests and `pnpm-workspace.yaml` catalog | `pnpm install` | Yes |
+| Package versions and `CHANGELOG.md` files | `.changeset/*.md` files and Changesets configuration | Automated `pnpm changeset:version` | Yes |
+| `packages/vscode/dist/vscode/` | Source manifest, listing assets, root `LICENSE`, and extension bundle | Extension `build` task | No |
+| `packages/vscode/dist/cloudburn.vsix` | Extension manifest, README, changelog, icon, media, bundle, and `.vscodeignore` | `pnpm exec turbo run package:vsix --filter @cloudburn/vscode` | No |
 
 Coverage is opt-in; no root coverage script is defined. Select a workspace package with the command above.
 

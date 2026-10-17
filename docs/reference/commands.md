@@ -3,25 +3,25 @@
 The [root manifest](../../package.json) owns command definitions; [Turbo configuration](../../turbo.json) owns task
 dependencies and caching. Package manifests own the scripts that Turbo invokes.
 
-| Command                      | Purpose                                                                     | Notes                                                                                   |
-| ---------------------------- | --------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| `pnpm dev`                   | Run package watch tasks                                                     | Persistent and uncached                                                                 |
-| `pnpm build`                 | Build all packages                                                          | Produces package `dist/` directories                                                    |
-| `pnpm typecheck`             | Type-check package sources and tests                                        | Depends on upstream builds                                                              |
-| `pnpm test`                  | Run documentation, release, source, CLI/action, and installed-package tests | Artifact suites build their dependencies                                                |
-| `pnpm test:e2e`              | Run the built CLI and action against real template fixtures                 | Builds tested packages and dependencies; does not contact AWS                           |
-| `pnpm test:packages`         | Install local package archives and verify public entry points               | Builds packages; requires public npm access; uncached; never publishes                  |
-| `pnpm lint`                  | Check package source and tests with Biome                                   | Read-only                                                                               |
-| `pnpm lint:fix`              | Apply Biome fixes                                                           | Mutates files and is uncached                                                           |
-| `pnpm docs:check`            | Check the repository knowledge system                                       | Validates links, fragments, aliases, reachability, and entry points                     |
-| `pnpm docs:test`             | Test the documentation and owning-pages checker CLIs                        | Uses dependency-free `node:test` fixtures                                               |
-| `pnpm release:test`          | Test changelog lookups, GitHub links, and selective release recovery        | Uses synthetic HTTP responses and temporary local Git remotes; never publishes packages |
-| `pnpm exec turbo boundaries` | Enforce `cli`/`action -> sdk -> rules`                                      | This is the supported boundary command                                                  |
-| `pnpm verify:repo`           | Run documentation checks/tests, release tests, and package boundaries       | Always runs repository checks; no affected-package filtering                            |
-| `pnpm verify:packages`       | Run package lint, typecheck, source, E2E, and installed-package tests       | Turbo owns dependencies; accepts `--affected` and `--concurrency`                       |
-| `pnpm verify`                | Run repository checks followed by package verification                      | Full local gate; forwards flags such as `--affected` to package tasks                   |
-| `pnpm clean`                 | Remove package build output                                                 | Destructive only to generated `dist/` output                                            |
-| `pnpm depupdate`             | Update the pnpm pin and dependencies                                        | Mutates manifests and the lockfile                                                      |
+| Command | Purpose | Notes |
+| --- | --- | --- |
+| `pnpm dev` | Run package watch tasks | Persistent and uncached |
+| `pnpm build` | Build all packages | Produces package `dist/` directories |
+| `pnpm typecheck` | Type-check package sources and tests | Depends on upstream builds |
+| `pnpm test` | Run documentation, release, source, CLI/action, and installed-package tests | Artifact suites build their dependencies |
+| `pnpm test:e2e` | Run the built CLI and action against real template fixtures | Builds tested packages and dependencies; does not contact AWS |
+| `pnpm test:packages` | Install local package archives and verify public entry points | Builds packages; requires public npm access; uncached; never publishes |
+| `pnpm lint` | Check package source and tests with Biome | Read-only |
+| `pnpm lint:fix` | Apply Biome fixes | Mutates files and is uncached |
+| `pnpm docs:check` | Check the repository knowledge system | Validates links, fragments, aliases, reachability, and entry points |
+| `pnpm docs:test` | Test the documentation and owning-pages checker CLIs | Uses dependency-free `node:test` fixtures |
+| `pnpm release:test` | Test changelog lookups, GitHub links, and selective release recovery | Uses synthetic HTTP responses and temporary local Git remotes; never publishes packages |
+| `pnpm exec turbo boundaries` | Enforce `cli`/`action -> sdk -> rules` | This is the supported boundary command |
+| `pnpm verify:repo` | Run documentation checks/tests, release tests, and package boundaries | Always runs repository checks; no affected-package filtering |
+| `pnpm verify:packages` | Run package lint, typecheck, source, E2E, and installed-package tests | Turbo owns dependencies; accepts `--affected` and `--concurrency` |
+| `pnpm verify` | Run repository checks followed by package verification | Full local gate; forwards flags such as `--affected` to package tasks |
+| `pnpm clean` | Remove package build output | Destructive only to generated `dist/` output |
+| `pnpm depupdate` | Update the pnpm pin and dependencies | Mutates manifests and the lockfile |
 
 ## Discovery timeout
 
@@ -29,13 +29,13 @@ dependencies and caching. Package manifests own the scripts that Turbo invokes.
 
 ## Discovery evidence cache
 
-| Option                 | Default                                                                | Behavior                                                                                                                                                            |
-| ---------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--cache normal`       | `normal`                                                               | Reuse fresh, complete evidence; load missing or expired evidence. Rules and configuration are evaluated on every run.                                               |
-| `--cache refresh`      |                                                                        | Collect current evidence without falling back to cached evidence if collection fails. Only complete successful loads replace entries.                               |
-| `--cache off`          |                                                                        | Bypass persistent evidence reads and writes.                                                                                                                        |
-| `--cache-dir <path>`   | `$XDG_CACHE_HOME/cloudburn/evidence`, or `~/.cache/cloudburn/evidence` | Select local persistent storage for normalized AWS evidence and independent public pricing artifacts.                                                               |
-| `--cache-context <id>` | Temporary AWS credential session scope when derivable                  | Identify the effective authorization and session-policy revision. Change this value when those permissions change; an account ID or role ARN alone is insufficient. |
+| Option | Default | Behavior |
+| --- | --- | --- |
+| `--cache normal` | `normal` | Reuse fresh, complete evidence; load missing or expired evidence. Rules and configuration are evaluated on every run. |
+| `--cache refresh` | | Collect current evidence without falling back to cached evidence if collection fails. Only complete successful loads replace entries. |
+| `--cache off` | | Bypass persistent evidence reads and writes. |
+| `--cache-dir <path>` | `$XDG_CACHE_HOME/cloudburn/evidence`, or `~/.cache/cloudburn/evidence` | Select local persistent storage for normalized AWS evidence and independent public pricing artifacts. |
+| `--cache-context <id>` | Temporary AWS credential session scope when derivable | Identify the effective authorization and session-policy revision. Change this value when those permissions change; an account ID or role ARN alone is insufficient. |
 
 The default uses `$XDG_CACHE_HOME` only when it is an absolute path; an empty or relative value falls back to
 `~/.cache/cloudburn/evidence`.

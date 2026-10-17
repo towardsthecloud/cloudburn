@@ -46,9 +46,9 @@ graph LR
 
 All stdout-producing commands return a typed `CliResponse` and share the same format resolver.
 
-| Format  | Output                                                                                                                                    |
-| ------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `json`  | Pretty JSON for the underlying response payload                                                                                           |
+| Format | Output |
+| --- | --- |
+| `json` | Pretty JSON for the underlying response payload |
 | `table` | ASCII tables for scans, including resource namespaces when present, record lists, string lists, key/value status output, and `rules list` |
 
 ## Command Behavior
@@ -114,11 +114,11 @@ cloudburn --format json scan ./iac
 
 ## Exit-Code Contract
 
-| Constant                     | Value | Meaning                                                                            |
-| ---------------------------- | ----- | ---------------------------------------------------------------------------------- |
-| `EXIT_CODE_OK`               | `0`   | No active finding meets the selected gate, or no gate is configured                |
-| `EXIT_CODE_POLICY_VIOLATION` | `1`   | An active finding meets `--fail-on`, configured `fail-on`, or the any-finding gate |
-| `EXIT_CODE_RUNTIME_ERROR`    | `2`   | Runtime failures and usage errors (invalid options or arguments)                   |
+| Constant | Value | Meaning |
+| --- | --- | --- |
+| `EXIT_CODE_OK` | `0` | No active finding meets the selected gate, or no gate is configured |
+| `EXIT_CODE_POLICY_VIOLATION` | `1` | An active finding meets `--fail-on`, configured `fail-on`, or the any-finding gate |
+| `EXIT_CODE_RUNTIME_ERROR` | `2` | Runtime failures and usage errors (invalid options or arguments) |
 
 Usage errors — unknown options or invalid option arguments such as an unknown
 `--service` value or a malformed `--region` — exit with `2`, not Commander's

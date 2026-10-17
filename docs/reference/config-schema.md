@@ -7,20 +7,20 @@ This reference is manually maintained alongside those sources.
 
 ## `CloudBurnConfig` Fields
 
-| Field       | Type                   | Default | Description                                                                 |
-| ----------- | ---------------------- | ------- | --------------------------------------------------------------------------- |
-| `iac`       | `CloudBurnModeConfig`  | `{}`    | Default rule and format settings for `cloudburn scan`.                      |
-| `discovery` | `CloudBurnModeConfig`  | `{}`    | Default rule and format settings for `cloudburn discover`.                  |
+| Field | Type | Default | Description |
+| --- | --- | --- | --- |
+| `iac` | `CloudBurnModeConfig` | `{}` | Default rule and format settings for `cloudburn scan`. |
+| `discovery` | `CloudBurnModeConfig` | `{}` | Default rule and format settings for `cloudburn discover`. |
 
 Each mode uses the same fields:
 
-| Field            | Type                          | Default | Description                                                                     |
-| ---------------- | ----------------------------- | ------- | ------------------------------------------------------------------------------- |
-| `enabled-rules`  | `string[]`                    | unset   | If present, only the listed rule IDs remain active; otherwise AWS Core is used. |
-| `disabled-rules` | `string[]`                    | unset   | Rule IDs to remove from the active set after `enabled-rules` is applied.        |
-| `services`       | `string[]`                    | unset   | Service allowlist applied before `enabled-rules` and `disabled-rules`.          |
-| `format`         | `'json' \| 'table'`           | unset   | Default CLI output format for that mode when `--format` is not passed.          |
-| `fail-on`        | `'high' \| 'medium' \| 'low'` | unset   | Exit with code 1 when an active finding meets or exceeds this severity.         |
+| Field | Type | Default | Description |
+| --- | --- | --- | --- |
+| `enabled-rules` | `string[]` | unset | If present, only the listed rule IDs remain active; otherwise AWS Core is used. |
+| `disabled-rules` | `string[]` | unset | Rule IDs to remove from the active set after `enabled-rules` is applied. |
+| `services` | `string[]` | unset | Service allowlist applied before `enabled-rules` and `disabled-rules`. |
+| `format` | `'json' \| 'table'` | unset | Default CLI output format for that mode when `--format` is not passed. |
+| `fail-on` | `'high' \| 'medium' \| 'low'` | unset | Exit with code 1 when an active finding meets or exceeds this severity. |
 
 Custom rule injection is not part of the current configuration schema. The supported rule-selection controls are the
 mode-local `enabled-rules`, `disabled-rules`, and `services` fields above.
