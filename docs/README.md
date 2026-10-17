@@ -105,7 +105,10 @@ A new source file outside every linked directory makes nothing due until a row l
   and preserve the contract until intent is resolved. The [rule ID compatibility policy](reference/rule-ids.md#compatibility-status)
   requires immutable IDs even when a rule is removed or reordered.
 - Keep durable repository decisions and their rationale locally. Link to external documentation for facts owned by AWS
-  or other tools. Label superseded guidance and point to its replacement when retaining useful history.
+  or other tools.
+- Record current contracts, not their history. Dates, workflow run IDs, issue or PR status, migration stages, and
+  pending-evidence notes belong in the pull request or issue. Where a rule depends on observed AWS behavior, state the
+  observation and keep at most one reference to its evidence. Keep a benchmark's environment where its numbers need it.
 - Do not commit planning artifacts, implementation plans, or point-in-time design specs such as `docs/superpowers/`.
   Preserve useful conclusions in the owning durable page before removing disposable notes; leave unrelated deliverables alone.
 - Record authoritative inputs and regeneration commands for generated outputs in the [generated-file reference](reference/generated-files.md).
