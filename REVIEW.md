@@ -96,8 +96,8 @@ owns its details.
 
 ## Evidence bar
 
-A finding is a defect in what the pull request adds or changes, judged against its stated goal, with a trigger that
-real use, a release, or CI reaches. Pre-existing behavior counts only with one of the consequences that
+A finding is a defect in what the pull request adds or changes, with a trigger that real use, a release, or CI
+reaches. Pre-existing behavior counts only with one of the consequences that
 [Do not report](#do-not-report) keeps. Back any claim about AWS API behavior, serialization, or limits with AWS documentation or the installed SDK source.
 For a finding about cache versions or coverage, name the normalized field or semantic that changed and the rule whose
 verdict it affects.
