@@ -84,9 +84,20 @@ owns its details.
 - Issues that CI already catches: Biome lint and formatting, typecheck, `turbo boundaries` import direction,
   `pnpm docs:check` links and aliases, the metadata test (unique IDs, evaluator modes, declared dataset reads,
   multi-dataset coverage hooks), and the action bundle test (no AWS SDK or Smithy in the static bundle).
+- A failure that needs two or more independent unlikely events, or pre-existing behavior in code the pull request
+  doesn't change, unless the consequence is a wrong verdict, untrusted input reaching PR output or the release
+  workflow, or a release at the wrong commit.
+- In `packages/vscode/`, stale diagnostics that need an aliased config (a symlink, a config outside the workspace, or
+  one discovered in an ancestor directory) combined with another event, such as a failed rescan, a rename back,
+  toggling `scanOnSave` during a pending refresh, or a superseded scan finishing late. A manual scan recovers them.
+  Still report a refresh trigger the [extension README](packages/vscode/README.md) documents that stops working, and
+  stale or missing findings after an ordinary edit, save, create, rename, or delete of an IaC file or the folder's
+  config. Evidence: #344, where each fix to config tracking drew a new aliasing case in the next review.
 
 ## Evidence bar
 
-Back any claim about AWS API behavior, serialization, or limits with AWS documentation or the installed SDK source.
+A finding is a defect in what the pull request adds or changes, with a trigger that real use, a release, or CI
+reaches. Pre-existing behavior counts only with one of the consequences that
+[Do not report](#do-not-report) keeps. Back any claim about AWS API behavior, serialization, or limits with AWS documentation or the installed SDK source.
 For a finding about cache versions or coverage, name the normalized field or semantic that changed and the rule whose
 verdict it affects.
