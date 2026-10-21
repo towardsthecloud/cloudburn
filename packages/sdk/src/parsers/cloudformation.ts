@@ -247,6 +247,8 @@ const toIaCResources = async (path: string, relativePath: string): Promise<IaCPa
     return createEmptyIaCParseResult();
   }
 
+  let previousResourceEndLine = 0;
+
   return {
     diagnostics: [],
     resources: resourcesNode.items.flatMap((item) => {
@@ -254,6 +256,15 @@ const toIaCResources = async (path: string, relativePath: string): Promise<IaCPa
 
       if (!isScalar(pair.key) || typeof pair.key.value !== 'string' || !isMap(pair.value)) {
         return [];
+      }
+
+      // Every resource block advances the boundary, including non-AWS ones, so a directive on
+      // a preceding resource's last line is not re-attributed to the resource below it.
+      const resourceLocation = toSourceLocation(pair.key, lineCounter, relativePath);
+      const resourceEndLine = toEndLine(pair.value, lineCounter) ?? resourceLocation?.line;
+      const precedingResourceEndLine = previousResourceEndLine;
+      if (resourceEndLine) {
+        previousResourceEndLine = resourceEndLine;
       }
 
       const resourceTypeNode = pair.value.get('Type', true);
@@ -281,11 +292,14 @@ const toIaCResources = async (path: string, relativePath: string): Promise<IaCPa
           return [[resourcePair.key.value, toRawValue(resourcePair.value)]];
         }),
       );
-      const resourceLocation = toSourceLocation(pair.key, lineCounter, relativePath);
-      const resourceEndLine = toEndLine(pair.value, lineCounter) ?? resourceLocation?.line;
       const suppressions =
         resourceLocation && resourceEndLine
-          ? findResourceSuppressions(suppressionComments, resourceLocation.line, resourceEndLine)
+          ? findResourceSuppressions(
+              suppressionComments,
+              resourceLocation.line,
+              resourceEndLine,
+              precedingResourceEndLine,
+            )
           : [];
 
       return [

@@ -130,8 +130,11 @@ absolute filesystem paths.
 Terraform and CloudFormation files larger than 5 MiB are skipped, and Terraform source locations come from a single lexer pass that recognizes `resource` headers only at top level outside heredocs, comments, and strings.
 
 Terraform line comments (`#` and `//`), Terraform block comments, and CloudFormation YAML comments can carry
-`cloudburn-ignore <rule-id> [reason]` or `cloudburn-ignore-all [reason]`. A directive applies only to the resource it is
-immediately above or contained within. In YAML, `#` text inside quoted scalars (including quoted sequence items such as
+`cloudburn-ignore <rule-id> [reason]` or `cloudburn-ignore-all [reason]`. A directive applies only to the resource whose
+span contains it, or, when it sits on the line directly above a resource and that line is not part of the preceding
+resource, to the resource below. A directive on a resource's own boundary line, such as `} # cloudburn-ignore-all`
+closing one resource directly above the next, stays with that resource and does not also apply to the resource below. In
+YAML, `#` text inside quoted scalars (including quoted sequence items such as
 `- "a # b"`) and block scalars is data, not a comment. CloudFormation JSON has no comment syntax, so it cannot carry
 inline directives.
 Unknown rule IDs have no effect.

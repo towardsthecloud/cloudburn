@@ -22,6 +22,7 @@ const locateResourceBlocks = (contents: string, path: string): Map<string, Resou
   const suppressionComments = extractSuppressionComments(contents, path, 'terraform');
   const lexerState = createTerraformLexerState();
   let depth = 0;
+  let previousResourceEndLine = 0;
   let openBlock:
     | {
         resourceType: string;
@@ -76,8 +77,14 @@ const locateResourceBlocks = (contents: string, path: string): Map<string, Resou
       locations.set(toResourceLocationKey(openBlock.resourceType, openBlock.resourceName), {
         blockLocation: openBlock.blockLocation,
         attributeLocations: openBlock.attributeLocations,
-        suppressions: findResourceSuppressions(suppressionComments, openBlock.startLine, lineIndex + 1),
+        suppressions: findResourceSuppressions(
+          suppressionComments,
+          openBlock.startLine,
+          lineIndex + 1,
+          previousResourceEndLine,
+        ),
       });
+      previousResourceEndLine = lineIndex + 1;
       openBlock = undefined;
     }
   }
@@ -86,7 +93,12 @@ const locateResourceBlocks = (contents: string, path: string): Map<string, Resou
     locations.set(toResourceLocationKey(openBlock.resourceType, openBlock.resourceName), {
       blockLocation: openBlock.blockLocation,
       attributeLocations: openBlock.attributeLocations,
-      suppressions: findResourceSuppressions(suppressionComments, openBlock.startLine, openBlock.startLine),
+      suppressions: findResourceSuppressions(
+        suppressionComments,
+        openBlock.startLine,
+        openBlock.startLine,
+        previousResourceEndLine,
+      ),
     });
   }
 
