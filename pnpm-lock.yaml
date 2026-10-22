@@ -301,8 +301,8 @@ importers:
         specifier: 'catalog:'
         version: 24.19.2
       '@types/vscode':
-        specifier: 1.140.0
-        version: 1.140.0
+        specifier: 1.100.0
+        version: 1.100.0
       '@vscode/test-electron':
         specifier: ^3.1.0
         version: 3.1.0(supports-color@7.2.0)
@@ -1292,8 +1292,8 @@ packages:
   '@types/node@24.19.2':
     resolution: {integrity: sha512-93d49wCWJkCyN87MxLpNN6KXPCwFw7bVUg79mGUV1OS40JGWwVCr8n61DXCSqz7CV6/VfPkb7xec7uP2M+QHWQ==}
 
-  '@types/vscode@1.140.0':
-    resolution: {integrity: sha512-KAB5RBZIgnUhpp4mKsVJPPHLOQKu6WtGy2xpfWjaajEXO4xIIC+UESAXLiQ9ewx6QD1uBmvC/S8BJzkbvv4bRA==}
+  '@types/vscode@1.100.0':
+    resolution: {integrity: sha512-4uNyvzHoraXEeCamR3+fzcBlh7Afs4Ifjs4epINyUX/jvdk0uzLnwiDY35UKDKnkCHP5Nu3dljl2H8lR6s+rQw==}
 
   '@vitest/coverage-v8@5.0.4':
     resolution: {integrity: sha512-P5YcQY8Y6RmoE9xRXI38rT8pssbcubEzqtYTM2XQoxOXMDn04nRaTI1SM8qCl9/NfW3ag9GlzdSXu7IwO5Ft8A==}
@@ -3226,7 +3226,7 @@ snapshots:
     dependencies:
       undici-types: 7.24.6
 
-  '@types/vscode@1.140.0': {}
+  '@types/vscode@1.100.0': {}
 
   '@vitest/coverage-v8@5.0.4(vitest@5.0.4)':
     dependencies:
