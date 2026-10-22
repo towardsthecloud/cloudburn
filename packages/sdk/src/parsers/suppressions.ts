@@ -190,14 +190,27 @@ export const extractSuppressionComments = (
 /**
  * Returns directives directly above or anywhere inside one resource declaration.
  *
+ * A directive on the line immediately above the resource (`startLine - 1`) applies only
+ * when that line is not part of the preceding resource's span. This keeps a directive on a
+ * resource's own boundary line, such as `} # cloudburn-ignore-all` closing the resource
+ * above, attached to that resource instead of also leaking to the resource that starts on
+ * the next line. A standalone comment line between two resources still applies to the
+ * resource below it.
+ *
  * @param comments - Suppression comments sorted by line, as produced by extractSuppressionComments.
+ * @param startLine - First line of the resource declaration.
+ * @param endLine - Last line of the resource declaration.
+ * @param previousResourceEndLine - Last line of the preceding resource in source order, or 0 when none.
+ * @returns Suppressions owned by this resource.
  */
 export const findResourceSuppressions = (
   comments: SuppressionComment[],
   startLine: number,
   endLine: number,
+  previousResourceEndLine = 0,
 ): IaCSuppression[] => {
-  const firstRelevantLine = startLine - 1;
+  const aboveLine = startLine - 1 > previousResourceEndLine ? startLine - 1 : undefined;
+  const firstRelevantLine = aboveLine ?? startLine;
   let lowerBound = 0;
   let upperBound = comments.length;
 
@@ -221,7 +234,7 @@ export const findResourceSuppressions = (
       break;
     }
 
-    if (comment.line === firstRelevantLine || (comment.line >= startLine && comment.line <= endLine)) {
+    if (comment.line === aboveLine || (comment.line >= startLine && comment.line <= endLine)) {
       suppressions.push(comment.suppression);
     }
   }
