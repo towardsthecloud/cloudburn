@@ -1,5 +1,11 @@
 # @cloudburn/sdk
 
+## 0.38.4
+
+### Patch Changes
+
+- [#362](https://github.com/towardsthecloud/cloudburn/pull/362) [`d090aeb`](https://github.com/towardsthecloud/cloudburn/commit/d090aebf10d27b95318994994dc212bc6e2cc4ba) Thanks [@tynianov1](https://github.com/tynianov1)! - Attribute a suppression directive on a resource's own boundary line to that resource only. A directive such as `} # cloudburn-ignore-all` closing one resource directly above the next no longer also suppresses findings on the resource that starts on the following line, so those findings stay active and still trigger `--exit-code` and `--fail-on`. This applies to both Terraform and CloudFormation YAML. A standalone comment line between two resources still applies to the resource below it.
+
 ## 0.38.3
 
 ### Patch Changes
