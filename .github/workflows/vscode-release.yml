@@ -64,6 +64,9 @@ jobs:
           if-no-files-found: error
 
   publish:
+    permissions:
+      contents: read
+      id-token: write
     needs: validate
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -72,7 +75,7 @@ jobs:
       matrix:
         include:
           - registry: marketplace
-            cli: '@vscode/vsce@4.0.0'
+            cli: '@vscode/vsce@4.1.0'
           - registry: open-vsx
             cli: 'ovsx@1.2.0'
     name: Publish to ${{ matrix.registry }}
@@ -88,9 +91,7 @@ jobs:
         run: npm install --global '${{ matrix.cli }}'
       - name: Publish the tested VSIX to Visual Studio Marketplace
         if: matrix.registry == 'marketplace'
-        env:
-          VSCE_PAT: ${{ secrets.VSCE_TOKEN }}
-        run: vsce publish --packagePath .vscode-release/cloudburn.vsix --skip-duplicate
+        run: vsce publish --oidc --packagePath .vscode-release/cloudburn.vsix --skip-duplicate
       - name: Publish the tested VSIX to Open VSX
         if: matrix.registry == 'open-vsx'
         env:
