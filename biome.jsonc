@@ -40,7 +40,12 @@
   },
   "files": {
     "ignoreUnknown": true,
-    "includes": ["packages/*/src/**", "packages/*/test/**"]
+    "includes": [
+      "packages/*/src/**",
+      "packages/*/test/**",
+      "!packages/cloudburn/test/e2e/fixtures/malformed/broken.yaml",
+      "!packages/sdk/test/fixtures/iac-invalid-cloudformation/invalid-template.yaml"
+    ]
   },
   "overrides": [
     {

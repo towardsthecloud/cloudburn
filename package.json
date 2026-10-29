@@ -28,7 +28,7 @@
     "@changesets/changelog-github": "^1.0.1",
     "@changesets/cli": "^3.0.3",
     "husky": "^9.1.7",
-    "turbo": "^2.11.8",
+    "turbo": "^2.11.10",
     "typescript": "catalog:"
   },
   "engines": {

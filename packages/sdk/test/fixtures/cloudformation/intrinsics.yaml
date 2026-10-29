@@ -2,7 +2,7 @@ Resources:
   MyVolume:
     Type: AWS::EC2::Volume
     Properties:
-      AvailabilityZone: !GetAZs ''
+      AvailabilityZone: !GetAZs ""
       Encrypted: !If [UseEncryption, true, false]
       KmsKeyId: !GetAtt VolumeKey.Arn
       Tags:
