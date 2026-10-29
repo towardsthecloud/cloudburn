@@ -41,15 +41,20 @@ with the built CLI before packaging one VSIX. Independent publish jobs upload th
 Marketplace and Open VSX. Both jobs skip an already-published version, so rerunning a partially failed release repairs
 the missing destination. Publishing CLIs are pinned in the workflow; version changes remain owned by Changesets.
 
-Configure these repository Actions secrets before the first release:
+Before the first release, create a GitHub Actions Trusted Publishing policy under the `dannysteenman`
+[Marketplace publisher](https://marketplace.visualstudio.com/manage/publishers/dannysteenman/trustedpublishing):
+repository owner `towardsthecloud`, repository `cloudburn`, workflow `vscode-release.yml`, and no environment.
+The publishing job grants `id-token: write`; its Marketplace step uses `vsce publish --oidc` with the pinned
+publishing CLI. OIDC errors fail publication without falling back to a PAT.
 
-| Secret | Credential |
-| --- | --- |
-| `VSCE_TOKEN` | Azure DevOps PAT with `Marketplace (Manage)` scope and publishing access to `dannysteenman` |
-| `OPEN_VSX_TOKEN` | Open VSX access token with publishing access to the `dannysteenman` namespace |
+Configure the `OPEN_VSX_TOKEN` repository Actions secret with publishing access to the `dannysteenman` Open VSX
+namespace. The Open VSX account must have accepted its publisher agreement, and the namespace must exist. The token
+is passed only to the Open VSX publish step as `OVSX_PAT`; validation and packaging do not receive it.
 
-The Open VSX account must have accepted its publisher agreement, and the namespace must exist. Credentials are passed
-only to the corresponding publish step as `VSCE_PAT` or `OVSX_PAT`; validation and packaging do not receive them.
+Keep any existing `VSCE_TOKEN` secret until the first OIDC release succeeds, then remove it after confirming no other
+workflow uses it. Existing tags retain their original workflow: retrying a tag created before this migration can still
+require the PAT. A missing policy or failed token exchange appears as a failed Marketplace publish job. To recover,
+correct the policy and rerun the failed job; the existing tag and tested VSIX remain the release source.
 
 Merging the Changesets version PR creates the scoped tag and dispatches the extension workflow at that tag. This explicit
 dispatch is necessary because a tag pushed with `GITHUB_TOKEN` does not trigger another push workflow. A maintainer's
