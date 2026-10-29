@@ -1,6 +1,6 @@
 {
   "name": "@cloudburn/action",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "private": true,
   "description": "CloudBurn GitHub Action for IaC cost scans",
   "homepage": "https://cloudburn.io/docs",
