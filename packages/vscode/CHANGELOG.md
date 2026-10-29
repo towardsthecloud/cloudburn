@@ -1,5 +1,11 @@
 # @cloudburn/vscode
 
+## 0.1.4
+
+### Patch Changes
+
+- Publish releases with GitHub Trusted Publishing.
+
 ## 0.1.3
 
 ### Patch Changes
