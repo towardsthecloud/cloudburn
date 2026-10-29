@@ -1,5 +1,11 @@
 # @cloudburn/sdk
 
+## 0.38.5
+
+### Patch Changes
+
+- [#365](https://github.com/towardsthecloud/cloudburn/pull/365) [`8613b1a`](https://github.com/towardsthecloud/cloudburn/commit/8613b1a98fd51d2c6986d85c218558852e7aebd4) Thanks [@devin-ai-integration](https://github.com/apps/devin-ai-integration)! - Update AWS SDK clients and service model types to supported in-major releases.
+
 ## 0.38.4
 
 ### Patch Changes
