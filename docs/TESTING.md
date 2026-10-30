@@ -65,9 +65,13 @@ Split live AWS provider tests into three layers:
 
 ### Discovery HTTP integration
 
-`packages/sdk/test/discovery-http-integration.test.ts` runs the public `CloudBurnClient.discover()` method with the real catalog, hydrators, AWS serialization/deserialization, and rule evaluation. Only the AWS HTTP transport is intercepted. Synthetic JSON and XML responses cover pagination, catalog deduplication, hydration scope, findings, and denied required evidence. Unexpected requests fail the test before reaching the network. Keep focused provider unit tests for exhaustive service behavior.
+The `packages/sdk/test/discovery-http-*.test.ts` suites share the offline transport in
+`packages/sdk/test/helpers/discovery-http.ts` and run the public `CloudBurnClient.discover()` method with the real catalog, hydrators, AWS serialization/deserialization, and rule evaluation. Only the AWS HTTP transport is intercepted. Synthetic JSON and XML responses cover pagination, catalog deduplication, hydration scope, findings, and denied required evidence. Unexpected requests fail the test before reaching the network. Keep focused provider unit tests for exhaustive service behavior.
 
-The same suite verifies ELB inventory reuse through the public pipeline.
+Their real admission and retry waits keep single cases at seconds, so the suites stay split by topic for Vitest to run
+them in parallel workers; add a topic file instead of growing one past the others.
+
+The ELB activity suite verifies ELB inventory reuse through the public pipeline.
 It counts load-balancer and target-group metadata calls separately from target-health and metric requests, and checks
 that unsupported types and failed metric series remain visible in unknown coverage alongside valid findings.
 
@@ -219,8 +223,8 @@ pnpm test:e2e
 # Installed archives and public package exports
 pnpm test:packages
 
-# One discovery integration file
-pnpm --filter @cloudburn/sdk exec vitest run test/discovery-http-integration.test.ts
+# Discovery HTTP integration suites
+pnpm --filter @cloudburn/sdk exec vitest run test/discovery-http-
 
 # Repository knowledge checker and its public CLI tests
 pnpm docs:check
@@ -246,8 +250,10 @@ The extension release workflow runs the real editor suite before packaging and s
 registry jobs. Registry authentication and actual uploads require a release run and cannot be verified by local fixtures.
 
 The shared `validate` CI job installs dependencies once, then starts `pnpm verify:repo` as a background step alongside
-package verification. Pull requests run `pnpm verify:packages --affected --concurrency=2`; pushes to `main` run
-`pnpm verify:packages --concurrency=2`. GitHub waits for background steps before cleanup and fails Validation if
+package verification. Pull requests run `pnpm verify:packages --affected --concurrency=2` with `TURBO_SCM_BASE` set to the
+`origin/<base>` ref, because the checkout has no local base branch and Turbo otherwise runs every task; pushes to `main`
+run `pnpm verify:packages --concurrency=2`. Changes outside package and global inputs, such as documentation and
+workflow files, select no package tasks. GitHub waits for background steps before cleanup and fails Validation if
 either lane fails. Documentation checks/tests, release tests, and package boundaries always run. Locally, `pnpm verify`
 runs both lanes sequentially and forwards package flags to `verify:packages`.
 

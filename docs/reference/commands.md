@@ -65,7 +65,8 @@ dependency directions and defines task caching: `cloudburn` is `layer:cli`, `@cl
 
 `build` depends on upstream builds and caches `dist/**`; its inputs exclude `test/**` because fixtures do not affect published output. `typecheck` depends on upstream builds. Source `test` tasks use the `test:inputs` transit task to inherit upstream source hashes without waiting for builds or upstream tests. `test:e2e` and `test:package` depend on the current package build. `test:package` is uncached because it installs archives with public registry dependencies.
 `dev` is persistent and uncached, while `lint:fix` and `clean` are uncached because they mutate or remove files. Changes to
-`tsconfig.base.json`, `biome.jsonc`, `pnpm-lock.yaml`, or the root `package.json` invalidate the shared task cache.
+`.nvmrc`, `tsconfig.base.json`, `biome.jsonc`, `pnpm-lock.yaml`, or the root `package.json` invalidate the shared task cache
+and select every task under `--affected`.
 
 The VS Code package overrides build inputs to include its editor test bundle and the root license. Its build stages
 the public extension manifest, runtime bundle, and listing assets in `dist/vscode/`, all cached inside `dist/**`.

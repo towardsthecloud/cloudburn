@@ -4,7 +4,7 @@
   "futureFlags": {
     "affectedUsingTaskInputs": true
   },
-  "globalDependencies": ["tsconfig.base.json", "biome.jsonc", "pnpm-lock.yaml", "package.json"],
+  "globalDependencies": [".nvmrc", "tsconfig.base.json", "biome.jsonc", "pnpm-lock.yaml", "package.json"],
   "boundaries": {
     "tags": {
       "layer:rules": {

@@ -11,14 +11,16 @@ on:
 permissions:
   contents: read
 
+# Cancel superseded pull request runs. Pushes to main group by commit, so each one keeps its own validation run.
 concurrency:
-  group: ci-${{ github.event.pull_request.number || github.ref }}
+  group: ci-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: true
 
 jobs:
   validate:
     name: Validation
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -46,8 +48,11 @@ jobs:
 
       # Hosted runners have 4 vCPUs. Turbo's default concurrency runs every package's Vitest suite, the CLI
       # end-to-end tests, lint, and typecheck at once, which stretches timer-paced integration tests past their budgets.
+      # Turbo would otherwise look for a local `main` branch, which the checkout does not create, and run every task.
       - name: Verify affected packages
         if: github.event_name == 'pull_request'
+        env:
+          TURBO_SCM_BASE: origin/${{ github.base_ref }}
         run: pnpm verify:packages --affected --concurrency=2
 
       - name: Verify the complete workspace
@@ -57,6 +62,7 @@ jobs:
   action:
     name: GitHub Action smoke test
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v6
