@@ -6,6 +6,7 @@ import {
   expectReadOnlyRequests,
   requests,
   scenario,
+  settleOnFakeTimers,
   useDiscoveryHttpHarness,
   useLambdaScenario,
 } from './helpers/discovery-http.js';
@@ -78,10 +79,12 @@ describe('live capability outcomes', () => {
     };
     scenario.transientOperation = 'GetLambdaFunctionRecommendations';
     scenario.transientHostname = 'compute-optimizer.us-east-1.amazonaws.com';
-    const result = await discoverRules(['CLDBRN-AWS-LAMBDA-4'], {
+    vi.useFakeTimers();
+    const pending = discoverRules(['CLDBRN-AWS-LAMBDA-4'], {
       mode: 'regions',
       regions: ['eu-west-1', 'us-east-1'],
     });
+    const result = await settleOnFakeTimers(pending, 'GetLambdaFunctionRecommendations');
 
     expect(capabilitiesOf(result)).toEqual([
       {

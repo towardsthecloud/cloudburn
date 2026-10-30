@@ -21,10 +21,14 @@ const exists = async (path) => {
   }
 };
 
+// Dependencies and generated output are Git-ignored; staged copies such as a packaged README carry links that resolve
+// only after publishing.
+const skippedDirectories = new Set(['.git', 'node_modules', 'dist', '.turbo', 'coverage']);
+
 const walk = async (directory) => {
   const paths = [];
   for (const entry of await readdir(directory, { withFileTypes: true })) {
-    if (entry.name === '.git' || entry.name === 'node_modules') continue;
+    if (skippedDirectories.has(entry.name)) continue;
     const path = resolve(directory, entry.name);
     paths.push(path);
     if (entry.isDirectory()) paths.push(...(await walk(path)));

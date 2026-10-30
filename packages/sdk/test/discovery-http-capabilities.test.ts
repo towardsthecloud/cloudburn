@@ -9,6 +9,7 @@ import {
   region,
   requests,
   scenario,
+  settleOnFakeTimers,
   useDiscoveryHttpHarness,
 } from './helpers/discovery-http.js';
 
@@ -82,8 +83,10 @@ describe('live capability outcomes', () => {
 
   it('reports Hub enrollment as error when the enrollment status keeps failing', async () => {
     vi.spyOn(Math, 'random').mockReturnValue(0);
+    vi.useFakeTimers();
     scenario.transientOperation = 'ListEnrollmentStatuses';
-    const result = await discoverRules(['CLDBRN-AWS-COSTOPTIMIZATIONHUB-1']);
+    const pending = discoverRules(['CLDBRN-AWS-COSTOPTIMIZATIONHUB-1']);
+    const result = await settleOnFakeTimers(pending, 'ListEnrollmentStatuses');
 
     expect(capabilitiesOf(result)).toEqual([
       {
