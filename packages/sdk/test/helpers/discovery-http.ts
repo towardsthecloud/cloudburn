@@ -542,8 +542,6 @@ export const volumeAttempt = () =>
     .map((message) => JSON.parse(message.slice(13)))
     .find((attempt) => attempt.operation === 'DescribeVolumes');
 
-// Public cancellation rejects promptly; let the detached request release its
-// SQLite lease before this fixture deletes its private admission directory.
 /**
  * Settles discovery started under fake timers, skipping its admission waits and retry backoff.
  *
@@ -560,6 +558,8 @@ export const settleOnFakeTimers = async <T>(pending: Promise<T>, operation: stri
   return pending;
 };
 
+// Public cancellation rejects promptly; let the detached request release its
+// SQLite lease before this fixture deletes its private admission directory.
 /** Waits until a cancelled catalog request releases its admission lease. */
 export const waitForCancelledCatalogCleanup = async () => {
   if (held.length === 0) return;
