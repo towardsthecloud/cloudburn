@@ -82,8 +82,16 @@ describe('live capability outcomes', () => {
 
   it('reports Hub enrollment as error when the enrollment status keeps failing', async () => {
     vi.spyOn(Math, 'random').mockReturnValue(0);
+    vi.useFakeTimers();
     scenario.transientOperation = 'ListEnrollmentStatuses';
-    const result = await discoverRules(['CLDBRN-AWS-COSTOPTIMIZATIONHUB-1']);
+    const pending = discoverRules(['CLDBRN-AWS-COSTOPTIMIZATIONHUB-1']);
+    // With fake timers, each waitFor check also advances the admission waits that precede the first request.
+    await vi.waitFor(
+      () => expect(requests.some((request) => request.operation === 'ListEnrollmentStatuses')).toBe(true),
+      { timeout: 10_000 },
+    );
+    await vi.advanceTimersByTimeAsync(120_000);
+    const result = await pending;
 
     expect(capabilitiesOf(result)).toEqual([
       {

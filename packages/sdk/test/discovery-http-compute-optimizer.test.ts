@@ -78,10 +78,18 @@ describe('live capability outcomes', () => {
     };
     scenario.transientOperation = 'GetLambdaFunctionRecommendations';
     scenario.transientHostname = 'compute-optimizer.us-east-1.amazonaws.com';
-    const result = await discoverRules(['CLDBRN-AWS-LAMBDA-4'], {
+    vi.useFakeTimers();
+    const pending = discoverRules(['CLDBRN-AWS-LAMBDA-4'], {
       mode: 'regions',
       regions: ['eu-west-1', 'us-east-1'],
     });
+    // With fake timers, each waitFor check also advances the admission waits that precede the regional request.
+    await vi.waitFor(
+      () => expect(requests.some((request) => request.operation === 'GetLambdaFunctionRecommendations')).toBe(true),
+      { timeout: 10_000 },
+    );
+    await vi.advanceTimersByTimeAsync(120_000);
+    const result = await pending;
 
     expect(capabilitiesOf(result)).toEqual([
       {
