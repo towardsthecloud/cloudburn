@@ -20,6 +20,7 @@ jobs:
   validate:
     name: Validation
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -61,6 +62,7 @@ jobs:
   action:
     name: GitHub Action smoke test
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v6
