@@ -11,8 +11,9 @@ on:
 permissions:
   contents: read
 
+# Cancel superseded pull request runs. Pushes to main group by commit, so each one keeps its own validation run.
 concurrency:
-  group: ci-${{ github.event.pull_request.number || github.ref }}
+  group: ci-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: true
 
 jobs:
