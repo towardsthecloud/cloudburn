@@ -246,8 +246,10 @@ The extension release workflow runs the real editor suite before packaging and s
 registry jobs. Registry authentication and actual uploads require a release run and cannot be verified by local fixtures.
 
 The shared `validate` CI job installs dependencies once, then starts `pnpm verify:repo` as a background step alongside
-package verification. Pull requests run `pnpm verify:packages --affected --concurrency=2`; pushes to `main` run
-`pnpm verify:packages --concurrency=2`. GitHub waits for background steps before cleanup and fails Validation if
+package verification. Pull requests run `pnpm verify:packages --affected --concurrency=2` with `TURBO_SCM_BASE` set to the
+`origin/<base>` ref, because the checkout has no local base branch and Turbo otherwise runs every task; pushes to `main`
+run `pnpm verify:packages --concurrency=2`. Changes outside package and global inputs, such as documentation and
+workflow files, select no package tasks. GitHub waits for background steps before cleanup and fails Validation if
 either lane fails. Documentation checks/tests, release tests, and package boundaries always run. Locally, `pnpm verify`
 runs both lanes sequentially and forwards package flags to `verify:packages`.
 
