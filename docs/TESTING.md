@@ -238,7 +238,8 @@ pnpm verify
 and `scripts/check-owning-pages.mjs` against temporary Git branches and pull request descriptions. The live `docs:check`
 validates required entry points, root and package instruction aliases, repository-contained local links, heading
 fragments, reference-style definitions and uses, code-example exclusion, canonical page reachability, and the root
-`AGENTS.md` line budget.
+`AGENTS.md` line budget. It skips Git-ignored `dist`, `.turbo`, and `coverage` output, whose staged copies such as the
+packaged VS Code README carry links that resolve only after publishing.
 
 ## CI and task caching
 

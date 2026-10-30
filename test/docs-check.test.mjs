@@ -51,6 +51,16 @@ test('accepts a valid repository and its root and package aliases', async () => 
   assert.match(result.stdout, /Documentation check passed/);
 });
 
+test('ignores generated build output such as a staged package README', async () => {
+  const root = await createFixtureRepository();
+  await mkdir(join(root, 'packages/example/dist/media'), { recursive: true });
+  await writeFile(join(root, 'packages/example/dist/media/README.md'), '[Guide](../../../docs/missing.md)\n');
+
+  const result = await runChecker(root);
+
+  assert.equal(result.code, 0, result.stderr);
+});
+
 test('rejects a missing required documentation entry point', async () => {
   const root = await createFixtureRepository();
   await rm(join(root, 'docs/README.md'));
