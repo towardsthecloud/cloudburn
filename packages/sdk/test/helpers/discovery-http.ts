@@ -544,6 +544,22 @@ export const volumeAttempt = () =>
 
 // Public cancellation rejects promptly; let the detached request release its
 // SQLite lease before this fixture deletes its private admission directory.
+/**
+ * Settles discovery started under fake timers, skipping its admission waits and retry backoff.
+ *
+ * @param pending - Discovery started after `vi.useFakeTimers()`.
+ * @param operation - The AWS operation whose first request precedes the backoff.
+ * @returns The settled discovery result.
+ */
+export const settleOnFakeTimers = async <T>(pending: Promise<T>, operation: string): Promise<T> => {
+  // Each waitFor check also advances fake timers, moving the admission waits that precede the request.
+  await vi.waitFor(() => expect(requests.some((request) => request.operation === operation)).toBe(true), {
+    timeout: 10_000,
+  });
+  await vi.advanceTimersByTimeAsync(120_000);
+  return pending;
+};
+
 /** Waits until a cancelled catalog request releases its admission lease. */
 export const waitForCancelledCatalogCleanup = async () => {
   if (held.length === 0) return;

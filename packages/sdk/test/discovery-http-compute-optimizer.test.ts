@@ -6,6 +6,7 @@ import {
   expectReadOnlyRequests,
   requests,
   scenario,
+  settleOnFakeTimers,
   useDiscoveryHttpHarness,
   useLambdaScenario,
 } from './helpers/discovery-http.js';
@@ -83,13 +84,7 @@ describe('live capability outcomes', () => {
       mode: 'regions',
       regions: ['eu-west-1', 'us-east-1'],
     });
-    // With fake timers, each waitFor check also advances the admission waits that precede the regional request.
-    await vi.waitFor(
-      () => expect(requests.some((request) => request.operation === 'GetLambdaFunctionRecommendations')).toBe(true),
-      { timeout: 10_000 },
-    );
-    await vi.advanceTimersByTimeAsync(120_000);
-    const result = await pending;
+    const result = await settleOnFakeTimers(pending, 'GetLambdaFunctionRecommendations');
 
     expect(capabilitiesOf(result)).toEqual([
       {
