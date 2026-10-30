@@ -28,7 +28,7 @@ pnpm turbo run test:e2e --filter @cloudburn/action
 pnpm turbo run test:e2e --filter @cloudburn/mcp
 pnpm exec turbo run test:e2e --filter @cloudburn/vscode
 pnpm exec turbo run package:vsix --filter @cloudburn/vscode
-pnpm --filter @cloudburn/sdk exec vitest run test/discovery-http-integration.test.ts
+pnpm --filter @cloudburn/sdk exec vitest run test/discovery-http-
 pnpm test:e2e
 pnpm test:packages
 ```

@@ -65,9 +65,13 @@ Split live AWS provider tests into three layers:
 
 ### Discovery HTTP integration
 
-`packages/sdk/test/discovery-http-integration.test.ts` runs the public `CloudBurnClient.discover()` method with the real catalog, hydrators, AWS serialization/deserialization, and rule evaluation. Only the AWS HTTP transport is intercepted. Synthetic JSON and XML responses cover pagination, catalog deduplication, hydration scope, findings, and denied required evidence. Unexpected requests fail the test before reaching the network. Keep focused provider unit tests for exhaustive service behavior.
+The `packages/sdk/test/discovery-http-*.test.ts` suites share the offline transport in
+`packages/sdk/test/helpers/discovery-http.ts` and run the public `CloudBurnClient.discover()` method with the real catalog, hydrators, AWS serialization/deserialization, and rule evaluation. Only the AWS HTTP transport is intercepted. Synthetic JSON and XML responses cover pagination, catalog deduplication, hydration scope, findings, and denied required evidence. Unexpected requests fail the test before reaching the network. Keep focused provider unit tests for exhaustive service behavior.
 
-The same suite verifies ELB inventory reuse through the public pipeline.
+Their real admission and retry waits keep single cases at seconds, so the suites stay split by topic for Vitest to run
+them in parallel workers; add a topic file instead of growing one past the others.
+
+The ELB activity suite verifies ELB inventory reuse through the public pipeline.
 It counts load-balancer and target-group metadata calls separately from target-health and metric requests, and checks
 that unsupported types and failed metric series remain visible in unknown coverage alongside valid findings.
 
@@ -219,8 +223,8 @@ pnpm test:e2e
 # Installed archives and public package exports
 pnpm test:packages
 
-# One discovery integration file
-pnpm --filter @cloudburn/sdk exec vitest run test/discovery-http-integration.test.ts
+# Discovery HTTP integration suites
+pnpm --filter @cloudburn/sdk exec vitest run test/discovery-http-
 
 # Repository knowledge checker and its public CLI tests
 pnpm docs:check

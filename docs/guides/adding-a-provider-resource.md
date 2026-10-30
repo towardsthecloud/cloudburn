@@ -187,7 +187,8 @@ Cover the loader and its orchestration before running the full gate. Existing ex
 
 - [EC2 hydration tests](../../packages/sdk/test/providers/aws-ec2-resource.test.ts) for hydration and normalization.
 - [Discovery orchestration tests](../../packages/sdk/test/providers/aws-discovery.test.ts) for dataset selection and availability.
-- [Discovery HTTP integration](../../packages/sdk/test/discovery-http-integration.test.ts) for the real SDK pipeline with synthetic transport responses.
+- [Discovery HTTP integration](../../packages/sdk/test/discovery-http-integration.test.ts) and its sibling
+  `discovery-http-*.test.ts` suites for the real SDK pipeline with synthetic transport responses.
 
 ```bash
 pnpm --filter @cloudburn/sdk exec vitest run test/providers/aws-ec2-resource.test.ts
