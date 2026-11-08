@@ -1,5 +1,13 @@
 # @cloudburn/mcp
 
+## 0.1.11
+
+### Patch Changes
+
+- [#372](https://github.com/towardsthecloud/cloudburn/pull/372) [`bea2a78`](https://github.com/towardsthecloud/cloudburn/commit/bea2a78807c1a853d6cb2eb500bc062dceb09f40) Thanks [@devin-ai-integration](https://github.com/apps/devin-ai-integration)! - Update AWS SDK clients and the MCP client/server packages to supported in-major releases.
+- Updated dependencies [[`bea2a78`](https://github.com/towardsthecloud/cloudburn/commit/bea2a78807c1a853d6cb2eb500bc062dceb09f40)]:
+  - @cloudburn/sdk@0.38.6
+
 ## 0.1.10
 
 ### Patch Changes
