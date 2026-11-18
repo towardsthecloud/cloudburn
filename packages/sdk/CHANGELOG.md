@@ -1,5 +1,13 @@
 # @cloudburn/sdk
 
+## 0.38.6
+
+### Patch Changes
+
+- [#374](https://github.com/towardsthecloud/cloudburn/pull/374) [`b1afbb7`](https://github.com/towardsthecloud/cloudburn/commit/b1afbb7973ebe103e6caec1b86b9f0afba84d587) Thanks [@devin-ai-integration](https://github.com/apps/devin-ai-integration)! - Update AWS SDK clients to compatible minor releases with refreshed service models and endpoints.
+
+- [#372](https://github.com/towardsthecloud/cloudburn/pull/372) [`bea2a78`](https://github.com/towardsthecloud/cloudburn/commit/bea2a78807c1a853d6cb2eb500bc062dceb09f40) Thanks [@devin-ai-integration](https://github.com/apps/devin-ai-integration)! - Update AWS SDK clients and the MCP client/server packages to supported in-major releases.
+
 ## 0.38.5
 
 ### Patch Changes
