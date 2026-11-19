@@ -15,7 +15,7 @@ updateConfig:
     - typescript
 
 catalog:
-  '@biomejs/biome': ^2.6.5
+  '@biomejs/biome': ^2.6.7
   '@types/node': ^24.19.2
   '@vitest/coverage-v8': ^5.1.0
   tsup: ^8.5.1
