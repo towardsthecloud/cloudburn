@@ -28,11 +28,11 @@
     "@changesets/changelog-github": "^1.0.1",
     "@changesets/cli": "^3.0.3",
     "husky": "^9.1.7",
-    "turbo": "^2.11.11",
+    "turbo": "^2.11.13",
     "typescript": "catalog:"
   },
   "engines": {
     "node": ">=24.0.0"
   },
-  "packageManager": "pnpm@11.28.11+sha512.740184d10f81f5d5b165be88560ee7ba62406c4134896abc27a580109eec2f47c1e41d91251c944c2cababcb1c22461799ebb72de2ec625af2030b0e36c735a3"
+  "packageManager": "pnpm@11.28.13+sha512.d5caa9cdcd6067ac2902f9f44daa00b1288a73babf1e98f4f375b3a7583b1894b4d49f7527da8f5e1530198bb10e03adba321a1f015429dc2946ce8a7a9a8c65"
 }
