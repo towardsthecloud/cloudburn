@@ -3,7 +3,7 @@
 ## Prerequisites
 
 - Node.js 24 or newer. `.nvmrc` pins the version used locally and in CI.
-- Corepack with pnpm 11. The exact pnpm release is pinned by `packageManager` in the root `package.json`.
+- Corepack with pnpm 12. The exact pnpm release is pinned by `packageManager` in the root `package.json`.
 
 ## Setup
 

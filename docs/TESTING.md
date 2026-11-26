@@ -151,7 +151,7 @@ CLI's installed-package suite, it is uncached and needs public npm registry acce
 
 Transport tests run real child processes to reject incompatible JSON and cancel a CLI subprocess. They cover malformed
 launcher responses the healthy CLI fixtures cannot reproduce. Editor behavior is owned by the `test:e2e` suite: it
-loads the generated `dist/vscode/` extension in VS Code 1.100.3 in an initially empty multi-root workspace, verifies
+loads the generated `dist/vscode/` extension in VS Code 1.146.0 in an initially empty multi-root workspace, verifies
 automatic scanning on the first plaintext Terraform save without a Terraform language extension, and invokes the
 extension's real commands with the built CLI. It checks Terraform and CloudFormation JSON/YAML
 locations, severities, rule links, configuration, suppressions,
