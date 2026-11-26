@@ -1,5 +1,13 @@
 # @cloudburn/sdk
 
+## 0.38.7
+
+### Patch Changes
+
+- [#377](https://github.com/towardsthecloud/cloudburn/pull/377) [`8b802c5`](https://github.com/towardsthecloud/cloudburn/commit/8b802c5964c9b8b26cf200d140ac280998ca9217) Thanks [@devin-ai-integration](https://github.com/apps/devin-ai-integration)! - Update the AWS SDK clients used for live discovery and cost analysis.
+
+- [#375](https://github.com/towardsthecloud/cloudburn/pull/375) [`8d3ce49`](https://github.com/towardsthecloud/cloudburn/commit/8d3ce49b047e66aea87e2938f7d3fb4caee7f6ce) Thanks [@devin-ai-integration](https://github.com/apps/devin-ai-integration)! - Update AWS SDK clients and shared types to compatible releases with refreshed service models and credential-provider fixes.
+
 ## 0.38.6
 
 ### Patch Changes

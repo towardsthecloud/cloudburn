@@ -1,5 +1,11 @@
 # @cloudburn/vscode
 
+## 0.2.0
+
+### Minor Changes
+
+- [#377](https://github.com/towardsthecloud/cloudburn/pull/377) [`8b802c5`](https://github.com/towardsthecloud/cloudburn/commit/8b802c5964c9b8b26cf200d140ac280998ca9217) Thanks [@devin-ai-integration](https://github.com/apps/devin-ai-integration)! - Require VS Code 1.146 or later.
+
 ## 0.1.4
 
 ### Patch Changes
