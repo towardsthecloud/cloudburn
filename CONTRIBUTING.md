@@ -5,7 +5,7 @@ Thanks for contributing to CloudBurn.
 ## Prerequisites
 
 - Node.js 24+
-- pnpm 11 (the exact version is pinned in `package.json`)
+- pnpm 12 (the exact version is pinned in `package.json`)
 
 ## Local Setup
 

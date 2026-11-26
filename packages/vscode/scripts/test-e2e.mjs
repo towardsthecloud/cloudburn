@@ -23,7 +23,7 @@ const workspaceFile = resolve(scratch, 'test.code-workspace');
 await writeFile(workspaceFile, JSON.stringify({ folders: [{ path: workspace }, { path: sibling }] }));
 try {
   await runTests({
-    version: '1.100.3',
+    version: '1.146.0',
     cachePath,
     vscodeExecutablePath: process.env.CLOUDBURN_VSCODE_EXECUTABLE,
     extensionDevelopmentPath: resolve(packageRoot, 'dist/vscode'),
